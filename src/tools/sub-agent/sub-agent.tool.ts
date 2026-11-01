@@ -9,6 +9,7 @@ import { createMessageAgentTool } from './message-agent.tool.js';
 import { SUB_AGENT_INSTRUCTIONS } from './sub-agent.constants.js';
 import type { SubAgentOptions } from './sub-agent.types.js';
 import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * `start_agent`: starts a sub-agent, a nested agent loop on one task, as a background task of
@@ -35,7 +36,13 @@ export function createSubAgentTool(options: SubAgentOptions) {
         .describe('Everything the sub-agent needs: it does not see your conversation'),
     }),
     execute: async ({ input: { title, task }, context }) => {
-      if (!context.session) throw new Error('start_agent only works inside an agent session');
+      if (!context.session) {
+        throw new ToolCallError({
+          reason: 'unavailable',
+          message: 'start_agent only works inside an agent session',
+        });
+      }
+
       // Throws for an unknown or ended parent, and at the depth cap: no session floats free.
       const child = sessions.startChild({ parentId: context.session.id, title });
       const started = tasks.start({

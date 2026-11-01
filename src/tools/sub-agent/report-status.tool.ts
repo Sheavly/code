@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import type { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * Given to every sub-agent: it reports its own live status ("editing core package"). This is
@@ -17,7 +18,13 @@ export function createReportStatusTool({ sessions }: { sessions: SessionRegistry
       status: z.string().min(1).max(120).describe('What you are doing now, present tense'),
     }),
     execute: async ({ input: { status }, context }) => {
-      if (!context.session) throw new Error('report_status only works inside an agent session');
+      if (!context.session) {
+        throw new ToolCallError({
+          reason: 'unavailable',
+          message: 'report_status only works inside an agent session',
+        });
+      }
+
       sessions.report({ id: context.session.id, status });
 
       return 'Status reported.';

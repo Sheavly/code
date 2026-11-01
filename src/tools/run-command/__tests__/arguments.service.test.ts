@@ -133,6 +133,15 @@ describe('findConcerns', () => {
     expect(await concernsOf('git diff --stat HEAD~1 -- src/a.ts')).toEqual([]);
     expect(await concernsOf(`ls -la src ./src/a.ts ${absoluteInside} missing-file`)).toEqual([]);
   });
+
+  it('flags a path the sandbox cannot check (a symlink loop), instead of letting it through', async () => {
+    await symlink('loop-b', path.join(temp.root, 'loop-a'));
+    await symlink('loop-a', path.join(temp.root, 'loop-b'));
+
+    expect(await concernsOf('ls loop-a')).toEqual([
+      { argument: 'loop-a', reason: 'could not be checked (ELOOP)' },
+    ]);
+  });
 });
 
 describe('run_command argument approval', () => {

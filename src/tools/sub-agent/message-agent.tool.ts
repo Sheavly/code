@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import type { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * `message_agent`: steers a running sub-agent without stopping it. The message waits in the
@@ -19,7 +20,13 @@ export function createMessageAgentTool({ sessions }: { sessions: SessionRegistry
       message: z.string().min(1).describe('What to tell it'),
     }),
     execute: async ({ input: { session: id, message }, context }) => {
-      if (!context.session) throw new Error('message_agent only works inside an agent session');
+      if (!context.session) {
+        throw new ToolCallError({
+          reason: 'unavailable',
+          message: 'message_agent only works inside an agent session',
+        });
+      }
+
       sessions.send({ id, content: message, from: context.session.id });
       const target = sessions.get(id);
 

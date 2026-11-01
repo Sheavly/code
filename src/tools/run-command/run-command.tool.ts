@@ -6,6 +6,7 @@ import { confirmArguments } from './arguments.service.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 export function createRunCommandTool({
   workspace,
@@ -62,7 +63,13 @@ export function createRunCommandTool({
       };
 
       if (background) {
-        if (!tasks) throw new Error('Background commands are not enabled in this harness');
+        if (!tasks) {
+          throw new ToolCallError({
+            reason: 'unavailable',
+            message: 'Background commands are not enabled in this harness',
+          });
+        }
+
         // Not tied to `signal`: the task outlives this call (and this turn) until it exits or is cancelled.
         const task = tasks.start({
           command,

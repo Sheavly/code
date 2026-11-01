@@ -6,6 +6,7 @@ import {
   NO_DIFF_PROGRAM_FLAGS,
   SAFE_GIT_CONFIG,
 } from './run-command.constants.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * The env that keeps a repo's config from making git run programs: `SAFE_GIT_CONFIG` as
@@ -48,10 +49,18 @@ export function checkAllowed(params: {
   const { command, allowList } = params;
   const parsed = parseCommand(command);
 
-  if (!parsed.ok) throw new Error(`Command rejected (${parsed.reason}): ${command}`);
+  if (!parsed.ok) {
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message: `Command rejected (${parsed.reason}): ${command}`,
+    });
+  }
 
   if (!isAllowed({ argv: parsed.argv, allowList })) {
-    throw new Error(`Command not in allow list: ${command}\nAllowed: ${allowList.join(', ')}`);
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message: `Command not in allow list: ${command}\nAllowed: ${allowList.join(', ')}`,
+    });
   }
 
   return parsed.argv as [string, ...string[]];
