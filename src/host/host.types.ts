@@ -2,6 +2,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SessionRef } from '@sheavly/core/session/session.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import type { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
 import type { Workspace } from '../runtime/workspace/workspace.service.js';
@@ -31,6 +32,11 @@ export type Harness = {
   sessions: SessionRegistry;
   mainSession: SessionRef;
   tasks: TaskRegistry;
+  /**
+   * Where run_command asks the user to approve risky arguments. A UI subscribes, renders each
+   * `approval_requested` its own way and answers with `respond`; with no subscriber they're refused.
+   */
+  approvals: ApprovalRegistry;
   tools: Tool[];
   /** Host hooks first (AGENTS.md), then the project's `.sheavly` hooks. */
   hooks: Hook[];

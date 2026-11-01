@@ -6,6 +6,7 @@ import { DEFAULT_ADAPTER, DEFAULT_MODEL } from '../providers/adapters/adapters.c
 import { createDefaultRegistry } from '../providers/adapters/adapters.service.js';
 import { createAgentsMdHook } from '../runtime/agents-md/agents-md.service.js';
 import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.service.js';
+import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../runtime/tasks/tasks.service.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
@@ -88,6 +89,7 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
     : options.provider;
   const tasks = new TaskRegistry();
   const sessions = new SessionRegistry();
+  const approvals = new ApprovalRegistry();
   const mainSession = sessions.startMain({ title: title.slice(0, 60) });
   const agentsMd = createAgentsMdHook({ root: workspace.root });
   const fileTools = [
@@ -102,11 +104,12 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
     sessions,
     mainSession,
     tasks,
+    approvals,
     projectHooks,
     hooks: [agentsMd, ...projectHooks],
     tools: [
       ...fileTools,
-      createRunCommandTool({ workspace, skipAllowList, tasks }),
+      createRunCommandTool({ workspace, skipAllowList, tasks, approvals }),
       ...createTaskTools(tasks),
       // Sub-agents get the file tools and the AGENTS.md hook (not the .sheavly hooks).
       createSubAgentTool({
