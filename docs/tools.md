@@ -30,16 +30,34 @@ All three go through the `Workspace` sandbox (`src/runtime/workspace/`): paths a
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
 symlinks that point out. `.env` files are refused by name, before and after symlinks.
 
-| Tool         | What it does                                                         |
-| ------------ | -------------------------------------------------------------------- |
-| `read_file`  | Returns a UTF-8 file (cut at 100,000 characters, with a note)        |
-| `write_file` | Creates or overwrites a file with `content`; creates missing folders |
-| `edit_file`  | Replaces `oldText` with `newText` in an existing file                |
+| Tool         | What it does                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| `read_file`  | Returns a UTF-8 file, or lines `startLine`–`endLine`; at most 1,000 lines per call (below) |
+| `write_file` | Creates or overwrites a file with `content`; creates missing folders                       |
+| `edit_file`  | Replaces `oldText` with `newText` in an existing file                                      |
 
 `edit_file` needs `oldText` to match exactly and occur once. If it occurs more often, the edit is
 refused unless `replaceAll` is set, so an ambiguous edit can't change the wrong place. Errors
 tell the model how to fix the call (read the file first, add surrounding lines, or use
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
+
+`read_file` returns at most 1,000 lines per call (and at most 100,000 characters, for files with
+very long lines). Pass `startLine` and `endLine` (1-based, inclusive) to read a range. Its limits
+**fail open**: a request it can't fully serve is never an error, so no information is lost. It
+returns what fits, plus a note at the end saying which lines were shown, why, and how to read on:
+
+```
+[Showing lines 1–1000 of 1500. read_file returns at most 1000 lines per call. To read on, call read_file with startLine 1001.]
+```
+
+Next to the text, `read_file` returns a `FileRead` (`{ path, startLine, endLine, totalLines,
+whole }`), which the loop puts on the `tool_result` event as `read`, like `change` for writes.
+The model never sees it; it's for a UI. The demo shows `read src/a.ts` when `whole` is true, and
+`read src/a.ts lines 40–45 (of 1500)` otherwise.
+
+A range past the end, a reversed range or a line number that isn't one is adjusted the same way,
+with a note. Only the guards fail closed: `.env` files and paths outside the workspace are always
+refused.
 
 Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check),
 `readIfExists`, `writeText`, and the `.env` guard all three tools use.

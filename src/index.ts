@@ -12,6 +12,7 @@ export type { Sequenced } from './loop/queue/queue.types.js';
 export { defineTool, describeCall } from '@sheavly/core/tool/tool.service';
 export type {
   FileChange,
+  FileRead,
   Tool,
   ToolContext,
   ToolExecution,

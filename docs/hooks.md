@@ -6,13 +6,13 @@ and passed in the loop's `hooks` option.
 
 ## Hook points
 
-| Handler          | When                                                    | Can                                          |
-| ---------------- | ------------------------------------------------------- | -------------------------------------------- |
-| `sessionStart`   | Once per run, before the first turn                     | Add opening context                          |
-| `beforeTurn`     | Before each model call                                  | Add context, add system instructions         |
-| `aroundToolCall` | Around each tool call                                   | Block it, change its input, result or change |
-| `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                |
-| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own errors are ignored)     |
+| Handler          | When                                                    | Can                                                                            |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `sessionStart`   | Once per run, before the first turn                     | Add opening context                                                            |
+| `beforeTurn`     | Before each model call                                  | Add context, add system instructions                                           |
+| `aroundToolCall` | Around each tool call                                   | Block it, change its input or result (including its `change` / `read` details) |
+| `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                                                  |
+| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own errors are ignored)                                       |
 
 Two ways to tell the model something:
 

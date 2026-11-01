@@ -29,13 +29,13 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
-const read = (filePath: string) =>
+const read = (filePath: string, range: { startLine?: number; endLine?: number } = {}) =>
   runTool({
     tools: [createReadFileTool({ workspace })],
     call: {
       id: '1',
       name: 'read_file',
-      input: { description: `reading ${filePath}`, path: filePath },
+      input: { description: `reading ${filePath}`, path: filePath, ...range },
     },
     signal,
   });
@@ -46,6 +46,56 @@ describe('read_file', () => {
       isError: false,
       content: 'export const answer = 42;\n',
     });
+  });
+
+  it('reads a line range, and caps a big file at 1000 lines with a note (not an error)', async () => {
+    const lines = Array.from({ length: 1200 }, (_, i) => `row ${i + 1}`).join('\n');
+
+    await writeFile(path.join(root, 'big.txt'), `${lines}\n`);
+
+    const range = await read('big.txt', { startLine: 10, endLine: 12 });
+    const whole = await read('big.txt');
+    const tooMuch = await read('big.txt', { startLine: 1, endLine: 5000 });
+
+    expect(range).toMatchObject({ isError: false });
+    expect(range.content).toBe(
+      'row 10\nrow 11\nrow 12\n\n[Showing lines 10–12 of 1200. To read on, call read_file with startLine 13.]',
+    );
+    expect(whole).toMatchObject({ isError: false });
+    expect(whole.content).toContain('row 1000\n\n[Showing lines 1–1000 of 1200.');
+    expect(whole.content).not.toContain('row 1001');
+    expect(tooMuch).toMatchObject({ isError: false });
+    expect(tooMuch.content).toContain('startLine 1001');
+    // What a UI gets, next to the text: the range this call covered.
+    expect(range.read).toEqual({
+      path: 'big.txt',
+      startLine: 10,
+      endLine: 12,
+      totalLines: 1200,
+      whole: false,
+    });
+    expect(whole.read).toMatchObject({ startLine: 1, endLine: 1000, whole: false });
+    expect((await read('index.ts')).read).toEqual({
+      path: 'index.ts',
+      startLine: 1,
+      endLine: 1,
+      totalLines: 1,
+      whole: true,
+    });
+  });
+
+  it('fails open on a range past the end: an empty read with the file length, not an error', async () => {
+    const result = await read('index.ts', { startLine: 99 });
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.content).toContain('The file has 1 lines; startLine 99 is past the end');
+  });
+
+  it('the guards still fail closed with a range: .env and outside paths are refused', async () => {
+    expect(await read('.env', { startLine: 1, endLine: 1 })).toMatchObject({ isError: true });
+    expect((await read('../outside.txt', { startLine: 1 })).content).toContain(
+      'Path is outside the workspace',
+    );
   });
 
   it('returns an error result for missing files', async () => {
