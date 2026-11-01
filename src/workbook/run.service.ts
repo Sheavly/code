@@ -4,6 +4,7 @@ import { streamAgent } from '../loop/stream-agent/stream-agent.service.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createHarness } from '../host/host.service.js';
 import type { ProviderSettings } from '../host/host.types.js';
+import { isMissingPath } from '../runtime/errors/errors.utils.js';
 import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
 import { Renderer } from '../terminal-ui/render.service.js';
 import { shortId } from '../terminal-ui/render.utils.js';
@@ -161,11 +162,17 @@ function gitCommit(): { gitCommit?: string } {
   try {
     const commit = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     const dirty = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
 
     return { gitCommit: dirty ? `${commit}+uncommitted` : commit };
-  } catch {
-    return {};
+  } catch (caughtError) {
+    // Not a git checkout (git exits non-zero) or no git installed (ENOENT): the run simply has
+    // no commit to record. Anything else is a real failure and surfaces.
+    const status = (caughtError as { status?: unknown }).status;
+
+    if (typeof status === 'number' || isMissingPath(caughtError)) return {};
+    throw caughtError;
   }
 }

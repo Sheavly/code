@@ -4,6 +4,7 @@ import { Writable } from 'node:stream';
 import type { Message } from '@sheavly/core/message/message.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { AgentEvent } from '../loop/events/events.types.js';
+import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 
@@ -91,10 +92,20 @@ export class RunRecorder {
     };
 
     this.#stopSse.abort();
-    await this.#sseWritten.catch(() => undefined);
+    // The stream closes cleanly on abort, so a failure here is a real one: the sessions file
+    // couldn't be written. Everything else is still written first, so the run keeps its result
+    // and conversation; then the failure is thrown, naming the file.
+    const sessionsFailure = await this.#sseWritten.then(
+      () => undefined,
+      (caughtError: unknown) =>
+        new WorkbookStoreError({ file: this.paths.sessions, cause: caughtError }),
+    );
+
     await Promise.all([this.#events, this.#modelCalls, this.#transcript].map(close));
     await writeFile(this.paths.messages, `${JSON.stringify(messages, null, 2)}\n`);
     await writeFile(this.paths.result, `${JSON.stringify(result, null, 2)}\n`);
+
+    if (sessionsFailure) throw sessionsFailure;
 
     return result;
   }
