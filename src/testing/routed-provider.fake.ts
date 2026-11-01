@@ -3,23 +3,36 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Script } from './testing.types.js';
 
 /**
+ * Picks the step for a request: each session's first user message names its script, and the
+ * step is the next one for that session (the last repeats). Shared by the routed providers.
+ */
+export function createStepPicker<TStep>(scripts: Record<string, TStep[]>) {
+  const turns = new Map<string, number>();
+
+  return (request: ProviderRequest): { script: string; step: TStep | undefined } => {
+    const first = request.messages.find((m) => m.role === 'user')?.content ?? '';
+    const steps = scripts[first];
+
+    if (!steps) throw new Error(`No script for "${first}"`);
+    const turn = turns.get(first) ?? 0;
+
+    turns.set(first, turn + 1);
+
+    return { script: first, step: steps[Math.min(turn, steps.length - 1)] };
+  };
+}
+
+/**
  * Test-only provider whose reply depends on the request: each session's first user message picks
  * its script, and the script sees how many replies that session already got. Lets one provider
  * drive the main session and every sub-agent.
  */
 export function routedProvider(scripts: Record<string, Script[]>): Provider {
-  const turns = new Map<string, number>();
+  const pick = createStepPicker(scripts);
 
   return {
     async *stream(request: ProviderRequest) {
-      const first = request.messages.find((m) => m.role === 'user')?.content ?? '';
-      const steps = scripts[first];
-
-      if (!steps) throw new Error(`No script for "${first}"`);
-      const turn = turns.get(first) ?? 0;
-
-      turns.set(first, turn + 1);
-      yield* (steps[Math.min(turn, steps.length - 1)] ?? (() => []))(request);
+      yield* (pick(request).step ?? (() => []))(request);
     },
   };
 }

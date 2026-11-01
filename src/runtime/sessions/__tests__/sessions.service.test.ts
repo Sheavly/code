@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SessionUpdate } from '@sheavly/core/session/session.types';
 import { SessionRegistry } from '../sessions.service.js';
 import { toServerSentEvent } from '../sessions.utils.js';
+import { startDeepestSession } from '../../../testing/sessions.fake.js';
 
 describe('SessionRegistry', () => {
   it('gives every session a unique id, linked to its parent and the main session', () => {
@@ -29,9 +30,7 @@ describe('SessionRegistry', () => {
 
   it('caps nesting at three levels: a fourth is refused', () => {
     const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const two = sessions.startChild({ parentId: main.id, title: '2' });
-    const three = sessions.startChild({ parentId: two.id, title: '3' });
+    const three = startDeepestSession(sessions);
 
     expect(() => sessions.startChild({ parentId: three.id, title: '4' })).toThrow(
       'Sub-agents nest at most 3 levels',

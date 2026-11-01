@@ -1,10 +1,8 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { Workspace } from '../../../runtime/workspace/workspace.service.js';
+import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import type { ToolCall } from '@sheavly/core/message/message.types';
 import { runTool } from '@sheavly/core/tool/tool.service';
 import { createRunCommandTool } from '../../run-command/run-command.tool.js';
@@ -13,25 +11,17 @@ import { createTaskTools } from '../tasks.tool.js';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const signal = new AbortController().signal;
 
-let root: string;
-let workspace: Workspace;
+const temp = useTempWorkspace({ prefix: 'tasks-test-' });
 let tasks: TaskRegistry;
 
-beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), 'tasks-test-'));
-  workspace = await Workspace.open(root);
-});
 afterEach(async () => {
   await tasks.cancelAll(); // never leave processes behind
-});
-afterAll(async () => {
-  await rm(root, { recursive: true, force: true });
 });
 
 function setup() {
   tasks = new TaskRegistry();
   const tools = [
-    createRunCommandTool({ workspace, skipAllowList: true, tasks }),
+    createRunCommandTool({ workspace: temp.workspace, skipAllowList: true, tasks }),
     ...createTaskTools(tasks),
   ];
   const run = (id: string, name: string, input: Record<string, unknown>) =>
@@ -103,7 +93,7 @@ describe('background run_command', () => {
   });
 
   it('is refused when the harness has no task registry', async () => {
-    const tool = createRunCommandTool({ workspace, skipAllowList: true });
+    const tool = createRunCommandTool({ workspace: temp.workspace, skipAllowList: true });
 
     tasks = new TaskRegistry();
     const result = await runTool({
@@ -122,7 +112,7 @@ describe('background run_command', () => {
 
   it('still applies the allow list', async () => {
     tasks = new TaskRegistry();
-    const tool = createRunCommandTool({ workspace, tasks });
+    const tool = createRunCommandTool({ workspace: temp.workspace, tasks });
     const result = await runTool({
       tools: [tool],
       call: {
@@ -141,7 +131,7 @@ describe('background run_command', () => {
 describe('cancel_task and task_status', () => {
   it('cancellation kills the whole process tree', async () => {
     const { run } = setup();
-    const marker = path.join(root, 'cancelled-marker');
+    const marker = path.join(temp.root, 'cancelled-marker');
 
     await run('c1', 'run_command', { command: `sleep 1 && touch ${marker}`, background: true });
 

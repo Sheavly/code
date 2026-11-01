@@ -7,7 +7,7 @@ import { defineHook } from '@sheavly/core/hook/hook.service';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { callOnceProvider } from '../../../testing/scripted-provider.fake.js';
 import { loadProjectHooks } from '../project-hooks.service.js';
 import { ProjectHooksError } from '../project-hooks.errors.js';
 
@@ -287,13 +287,7 @@ describe('project hooks in the loop', () => {
     Object.assign(globalThis, { sheavlyOrder: order });
 
     const messages = await runAgent({
-      provider: scriptedProvider([
-        [
-          { type: 'tool_call', call },
-          { type: 'done', stopReason: 'tool_use' },
-        ],
-        [{ type: 'done', stopReason: 'end_turn' }],
-      ]),
+      provider: callOnceProvider(call),
       tools: [ping],
       messages: [{ role: 'user', content: 'ping' }],
       hooks: [host, ...(await loadProjectHooks({ root }))],

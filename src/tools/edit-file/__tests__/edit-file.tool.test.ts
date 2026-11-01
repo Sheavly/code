@@ -1,40 +1,28 @@
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.service';
-import { Workspace } from '../../../runtime/workspace/workspace.service.js';
+import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createEditFileTool } from '../edit-file.tool.js';
 import { applyEdit } from '../edit-file.utils.js';
 
-/** A fresh temp dir per test: base/outside.txt, and base/workspace/app.ts. */
-let base: string;
-let root: string;
-let workspace: Workspace;
 const signal = new AbortController().signal;
 const APP = 'const a = 1;\nconst b = 2;\nconst a2 = 1;\n';
-
-beforeEach(async () => {
-  base = await mkdtemp(path.join(tmpdir(), 'edit-file-test-'));
-  root = path.join(base, 'workspace');
-  await mkdir(root);
-  await writeFile(path.join(base, 'outside.txt'), 'const a = 1;\n');
-  await writeFile(path.join(root, 'app.ts'), APP);
-  workspace = await Workspace.open(root);
-});
-
-afterEach(async () => {
-  await rm(base, { recursive: true, force: true });
+const temp = useTempWorkspace({
+  prefix: 'edit-file-test-',
+  perTest: true,
+  files: { 'app.ts': APP },
+  outside: { 'outside.txt': 'const a = 1;\n' },
 });
 
 const edit = (input: { path: string; oldText: string; newText: string; replaceAll?: boolean }) =>
   runTool({
-    tools: [createEditFileTool({ workspace })],
+    tools: [createEditFileTool({ workspace: temp.workspace })],
     call: { id: '1', name: 'edit_file', input: { description: `editing ${input.path}`, ...input } },
     signal,
   });
 
-const onDisk = () => readFile(path.join(root, 'app.ts'), 'utf8');
+const onDisk = () => readFile(path.join(temp.root, 'app.ts'), 'utf8');
 
 describe('edit_file', () => {
   it('replaces text that occurs once, and reports before and after', async () => {
@@ -70,8 +58,8 @@ describe('edit_file', () => {
   });
 
   it('refuses paths outside the workspace and .env files', async () => {
-    await writeFile(path.join(root, '.env'), 'SECRET=hunter2\n');
-    await symlink(path.join(base, 'outside.txt'), path.join(root, 'link.ts'));
+    await writeFile(path.join(temp.root, '.env'), 'SECRET=hunter2\n');
+    await symlink(path.join(temp.base, 'outside.txt'), path.join(temp.root, 'link.ts'));
 
     expect((await edit({ path: '../outside.txt', oldText: '1', newText: '2' })).content).toContain(
       'Path is outside the workspace',
@@ -82,8 +70,8 @@ describe('edit_file', () => {
     expect((await edit({ path: '.env', oldText: 'hunter2', newText: 'x' })).content).toContain(
       'Writing .env files is not allowed',
     );
-    expect(await readFile(path.join(base, 'outside.txt'), 'utf8')).toBe('const a = 1;\n');
-    expect(await readFile(path.join(root, '.env'), 'utf8')).toBe('SECRET=hunter2\n');
+    expect(await readFile(path.join(temp.base, 'outside.txt'), 'utf8')).toBe('const a = 1;\n');
+    expect(await readFile(path.join(temp.root, '.env'), 'utf8')).toBe('SECRET=hunter2\n');
   });
 });
 

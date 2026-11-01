@@ -5,7 +5,7 @@ import type { AgentEvent } from '../../../loop/events/events.types.js';
 import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { calls, say, toolCall } from '../../../testing/routed-provider.fake.js';
+import { calls, createStepPicker, say, toolCall } from '../../../testing/routed-provider.fake.js';
 import type { Script } from '../../../testing/testing.types.js';
 import { createMessageAgentTool } from '../message-agent.tool.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
@@ -25,20 +25,13 @@ function gate() {
  * while it's mid-task), and every request is recorded per session for assertions.
  */
 function gatedProvider(scripts: Record<string, { wait?: Promise<void>; reply: Script }[]>) {
-  const turns = new Map<string, number>();
+  const pick = createStepPicker(scripts);
   const seen = new Map<string, ProviderRequest[]>();
   const provider: Provider = {
     async *stream(request) {
-      const first = request.messages.find((m) => m.role === 'user')?.content ?? '';
-      const steps = scripts[first];
+      const { script, step } = pick(request);
 
-      if (!steps) throw new Error(`No script for "${first}"`);
-      const turn = turns.get(first) ?? 0;
-
-      turns.set(first, turn + 1);
-      seen.set(first, [...(seen.get(first) ?? []), request]);
-      const step = steps[Math.min(turn, steps.length - 1)];
-
+      seen.set(script, [...(seen.get(script) ?? []), request]);
       await step?.wait;
       yield* (step?.reply ?? (() => []))(request);
     },

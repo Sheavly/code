@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { callOnceProvider, scriptedProvider } from '../../../testing/scripted-provider.fake.js';
 import { createAgentsMdHook, findAgentsFiles } from '../agents-md.service.js';
 import { agentsDirs, formatAgentsInstructions } from '../agents-md.utils.js';
 
@@ -150,13 +150,7 @@ describe('createAgentsMdHook in the loop', () => {
     const project = await mkdtemp(path.join(tmpdir(), 'agents-md-live-'));
     const requests: (string | undefined)[] = [];
     const call = { id: '1', name: 'edit_rules', input: { description: 'editing rules' } };
-    const scripted = scriptedProvider([
-      [
-        { type: 'tool_call', call },
-        { type: 'done', stopReason: 'tool_use' },
-      ],
-      [{ type: 'done', stopReason: 'end_turn' }],
-    ]);
+    const scripted = callOnceProvider(call);
 
     await writeFile(path.join(project, 'AGENTS.md'), 'Rule v1');
     await runAgent({

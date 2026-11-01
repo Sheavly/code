@@ -1,9 +1,6 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { Workspace } from '../../../runtime/workspace/workspace.service.js';
+import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createRunCommandTool } from '../../../tools/run-command/run-command.tool.js';
 import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
 import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
@@ -12,19 +9,11 @@ import { streamAgent } from '../stream-agent.service.js';
 import type { AgentEvent } from '../../events/events.types.js';
 import type { AgentOptions } from '../stream-agent.types.js';
 
-let root: string;
-let workspace: Workspace;
+const temp = useTempWorkspace({ prefix: 'loop-tasks-test-' });
 let tasks: TaskRegistry;
 
-beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), 'loop-tasks-test-'));
-  workspace = await Workspace.open(root);
-});
 afterEach(async () => {
   await tasks.cancelAll();
-});
-afterAll(async () => {
-  await rm(root, { recursive: true, force: true });
 });
 
 const background = (id: string, command: string): StreamEvent => ({
@@ -56,7 +45,7 @@ function options(provider: Provider, extra: Partial<AgentOptions> = {}): AgentOp
   return {
     provider,
     tools: [
-      createRunCommandTool({ workspace, skipAllowList: true, tasks }),
+      createRunCommandTool({ workspace: temp.workspace, skipAllowList: true, tasks }),
       ...createTaskTools(tasks),
     ],
     messages: [{ role: 'user', content: 'go' }],

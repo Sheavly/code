@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.service';
 import type { Message, ToolCall } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.service';
+import { echoTool as echo } from '@sheavly/core/testing/echo-tool.fake';
 import {
   runAfterTurn,
   runBeforeTurn,
@@ -12,13 +12,6 @@ import {
 } from '../hooks.service.js';
 
 const signal = new AbortController().signal;
-
-const echo = defineTool({
-  name: 'echo',
-  description: 'Echoes text back',
-  inputSchema: z.object({ text: z.string() }),
-  execute: async ({ input }) => input.text,
-});
 
 const call: ToolCall = { id: 'c1', name: 'echo', input: { description: 'echoing', text: 'hi' } };
 
@@ -71,7 +64,12 @@ describe('runToolCall', () => {
   it('runs the tool directly when no hook wraps tool calls', async () => {
     const { message } = await runToolCall({ hooks: [], tools: [echo], call, signal });
 
-    expect(message).toEqual({ role: 'tool', toolCallId: 'c1', content: 'hi', isError: false });
+    expect(message).toEqual({
+      role: 'tool',
+      toolCallId: 'c1',
+      content: '{"text":"hi"}',
+      isError: false,
+    });
   });
 
   it('nests hooks: the first is outermost', async () => {
@@ -125,7 +123,7 @@ describe('runToolCall', () => {
     expect(
       (await runToolCall({ hooks: [shout], tools: [echo], call, signal })).message,
     ).toMatchObject({
-      content: 'CHANGED',
+      content: '{"TEXT":"CHANGED"}',
     });
     expect(
       (await runToolCall({ hooks: [invalid], tools: [echo], call, signal })).message,

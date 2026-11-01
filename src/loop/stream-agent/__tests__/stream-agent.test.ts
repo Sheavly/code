@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { callOnceProvider, scriptedProvider } from '../../../testing/scripted-provider.fake.js';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.service.js';
@@ -133,13 +133,7 @@ describe('runAgent', () => {
     const call = { id: '1', name: 'writer', input: { description: 'writing a.ts' } };
     const events: AgentEvent[] = [];
     const messages = await runAgent({
-      provider: scriptedProvider([
-        [
-          { type: 'tool_call', call },
-          { type: 'done', stopReason: 'tool_use' },
-        ],
-        [{ type: 'done', stopReason: 'end_turn' }],
-      ]),
+      provider: callOnceProvider(call),
       tools: [writer],
       messages: [{ role: 'user', content: 'write' }],
       onEvent: (e) => events.push(e),

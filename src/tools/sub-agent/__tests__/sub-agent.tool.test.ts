@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.service';
+import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.service';
@@ -10,6 +11,7 @@ import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
 import { calls, routedProvider, say, toolCall } from '../../../testing/routed-provider.fake.js';
+import { startDeepestSession } from '../../../testing/sessions.fake.js';
 import type { Script } from '../../../testing/testing.types.js';
 
 const call = (id: string, name: string, input: Record<string, unknown>) =>
@@ -37,13 +39,24 @@ function setup(params: {
     tools: [],
     ...(params.hooks && { hooks: params.hooks }),
   });
+  /** Runs the main session on `content` until its sub-agents finish. */
+  const run = (content: string, hooks: Hook[] = []) =>
+    runSession({
+      provider,
+      tools: [tool],
+      hooks,
+      messages: [{ role: 'user', content }],
+      tasks,
+      waitForTasks: true,
+      session: { registry: sessions, ref: main },
+    });
 
-  return { sessions, tasks, updates, provider, main, tool };
+  return { sessions, tasks, updates, provider, main, tool, run };
 }
 
 describe('start_agent', () => {
   it('runs a sub-agent in its own session linked to the parent, and returns its reply', async () => {
-    const { sessions, tasks, provider, main, tool } = setup({
+    const { sessions, main, run } = setup({
       scripts: {
         'Do the thing': [
           calls(call('m1', 'start_agent', { title: 'Helper', task: 'Help out' })),
@@ -56,14 +69,7 @@ describe('start_agent', () => {
       },
     });
 
-    const { reason, messages } = await runSession({
-      provider,
-      tools: [tool],
-      messages: [{ role: 'user', content: 'Do the thing' }],
-      tasks,
-      waitForTasks: true,
-      session: { registry: sessions, ref: main },
-    });
+    const { reason, messages } = await run('Do the thing');
 
     const [helper] = sessions.children(main.id);
 
@@ -91,7 +97,7 @@ describe('start_agent', () => {
 
         return [];
       };
-    const { sessions, tasks, provider, main, tool } = setup({
+    const { sessions, run } = setup({
       scripts: {
         Main: [calls(call('a', 'start_agent', { title: 'Level 2', task: 'L2' })), say('main done')],
         L2: [
@@ -112,14 +118,7 @@ describe('start_agent', () => {
       },
     });
 
-    await runSession({
-      provider,
-      tools: [tool],
-      messages: [{ role: 'user', content: 'Main' }],
-      tasks,
-      waitForTasks: true,
-      session: { registry: sessions, ref: main },
-    });
+    await run('Main');
 
     const levels = sessions.list().map((s) => [s.title, s.depth, s.state]);
 
@@ -142,9 +141,7 @@ describe('start_agent', () => {
   it('refuses start_agent called by a session at the depth cap', async () => {
     const sessions = new SessionRegistry();
     const tasks = new TaskRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const two = sessions.startChild({ parentId: main.id, title: '2' });
-    const three = sessions.startChild({ parentId: two.id, title: '3' });
+    const three = startDeepestSession(sessions);
     const tool = createSubAgentTool({
       sessions,
       tasks,
@@ -165,7 +162,7 @@ describe('start_agent', () => {
   });
 
   it('streams status reports live, in order, from the sub-agent itself', async () => {
-    const { sessions, tasks, updates, provider, main, tool } = setup({
+    const { sessions, tasks, updates, main, run } = setup({
       scripts: {
         Main: [calls(call('m', 'start_agent', { title: 'Worker', task: 'Work' })), say('ok')],
         Work: [
@@ -177,14 +174,7 @@ describe('start_agent', () => {
       },
     });
 
-    await runSession({
-      provider,
-      tools: [tool],
-      messages: [{ role: 'user', content: 'Main' }],
-      tasks,
-      waitForTasks: true,
-      session: { registry: sessions, ref: main },
-    });
+    await run('Main');
 
     const worker = sessions.children(main.id)[0];
     const statuses = updates
@@ -213,7 +203,7 @@ describe('start_agent', () => {
         addContext('child rule');
       },
     });
-    const { sessions, tasks, provider, main, tool } = setup({
+    const { run } = setup({
       hooks: [forChildren],
       scripts: {
         Main: [calls(call('m', 'start_agent', { title: 'Child', task: 'Child task' })), say('ok')],
@@ -227,22 +217,14 @@ describe('start_agent', () => {
       },
     });
 
-    await runSession({
-      provider,
-      tools: [tool],
-      hooks: [parentOnly],
-      messages: [{ role: 'user', content: 'Main' }],
-      tasks,
-      waitForTasks: true,
-      session: { registry: sessions, ref: main },
-    });
+    await run('Main', [parentOnly]);
 
     expect(log).toEqual(['parent-only', 'for-children', 'child saw: Child task | child rule']);
   });
 
   it('gives sub-agents the sub-agent rules as system instructions', async () => {
     let instructions = '';
-    const { sessions, tasks, provider, main, tool } = setup({
+    const { run } = setup({
       scripts: {
         Main: [calls(call('m', 'start_agent', { title: 'Child', task: 'Child task' })), say('ok')],
         'Child task': [
@@ -255,14 +237,7 @@ describe('start_agent', () => {
       },
     });
 
-    await runSession({
-      provider,
-      tools: [tool],
-      messages: [{ role: 'user', content: 'Main' }],
-      tasks,
-      waitForTasks: true,
-      session: { registry: sessions, ref: main },
-    });
+    await run('Main');
 
     expect(instructions).toMatch(/^You are a sub-agent/);
     expect(instructions).toContain('report_status');
