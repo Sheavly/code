@@ -1,4 +1,4 @@
-export type ProcessOptions = {
+type ProcessOptions = {
   cwd: string;
   /** Run `file` through /bin/sh (then `args` should be empty). */
   shell: boolean;

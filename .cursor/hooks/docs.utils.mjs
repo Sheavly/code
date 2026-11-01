@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
-export const DOC_SOURCES = [
+const DOC_SOURCES = [
   {
     doc: 'docs/sessions.md',
     sources: [
@@ -34,7 +34,7 @@ export const DOC_SOURCES = [
 const IS_TEST = /(^|\/)__tests__\/|\.test\.[cm]?[jt]s$/;
 
 /** The doc that describes `file` (relative, `/`-separated), or undefined. */
-export function docFor(file) {
+function docFor(file) {
   if (IS_TEST.test(file)) return undefined;
 
   return DOC_SOURCES.find(({ sources }) => sources.some((source) => source.test(file)))?.doc;

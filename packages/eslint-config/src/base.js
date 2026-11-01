@@ -16,8 +16,9 @@ import { harnessPlugin } from './plugin.js';
 import { READABILITY_RULES } from './readability.js';
 import { TYPESCRIPT_RULES } from './typescript.js';
 
-export const TYPED_FILES = ['**/*.ts'];
-export const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
+const TYPED_FILES = ['**/*.ts'];
+const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
+
 export const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
 /** Where the conventions and structure rules apply: a workspace's own TypeScript source. */
 const SOURCE_FILES = ['src/**/*.ts'];
