@@ -9,14 +9,19 @@ import { baseConfig, TEST_FILES } from '@sheavly/eslint-config';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 /**
- * Hosts talk to the terminal and read env; the process runner passes a scrubbed env on.
- * `src/host/` is what every host shares (wiring, the terminal UI); `src/workbook/` is a host.
+ * The front ends: the only files that may do terminal I/O (`harness/no-terminal-io`). Everything
+ * else is a backend that emits typed events. Keep this list short; a new UI is added here only
+ * when its issue asks for one, so review sees it.
+ */
+const FRONT_END_FILES = ['src/demo.ts', 'src/terminal-ui/**/*.ts', 'src/workbook/**/*.ts'];
+/**
+ * Hosts read env; the front ends also talk to the terminal; the process runner passes a scrubbed
+ * env on. `src/host/` wires a run (no UI); `src/workbook/` is a host with its own CLI.
  */
 const HOST_FILES = [
-  'src/demo.ts',
   'src/host/**/*.ts',
-  'src/workbook/**/*.ts',
   'src/runtime/process/process.service.ts',
+  ...FRONT_END_FILES,
 ];
 /** Hosts' command-line entry points: files without a kind. */
 const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
@@ -33,6 +38,7 @@ const LAYERS = [
       '**/tools/**',
       '**/runtime/**',
       '**/host/**',
+      '**/terminal-ui/**',
       '**/workbook/**',
       '**/demo.js',
     ],
@@ -45,6 +51,7 @@ const LAYERS = [
       '**/tools/**',
       '**/providers/**',
       '**/host/**',
+      '**/terminal-ui/**',
       '**/workbook/**',
       '**/demo.js',
     ],
@@ -53,14 +60,34 @@ const LAYERS = [
   },
   {
     files: ['src/tools/**/*.ts'],
-    forbidden: ['**/loop/**', '**/providers/**', '**/host/**', '**/workbook/**', '**/demo.js'],
+    forbidden: [
+      '**/loop/**',
+      '**/providers/**',
+      '**/host/**',
+      '**/terminal-ui/**',
+      '**/workbook/**',
+      '**/demo.js',
+    ],
     message: 'Tools must not depend on the loop or on providers; take what they need as options.',
   },
   {
     files: ['src/loop/**/*.ts'],
-    forbidden: ['**/providers/**', '**/tools/**', '**/host/**', '**/workbook/**', '**/demo.js'],
+    forbidden: [
+      '**/providers/**',
+      '**/tools/**',
+      '**/host/**',
+      '**/terminal-ui/**',
+      '**/workbook/**',
+      '**/demo.js',
+    ],
     message:
       'The loop knows the Provider and Tool contracts (@sheavly/core) only, never concrete providers or tools.',
+  },
+  {
+    files: ['src/host/**/*.ts'],
+    forbidden: ['**/terminal-ui/**', '**/workbook/**', '**/demo.js'],
+    message:
+      'The host wires a run and has no UI: it must not depend on a front end (terminal-ui, workbook, demo).',
   },
 ];
 
@@ -76,10 +103,12 @@ export default defineConfig([
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
     entryFiles: [ENTRY_FILE, ...HOST_ENTRIES],
+    frontEndFiles: FRONT_END_FILES,
   }),
   ...layerBlocks,
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
-  { files: HOST_FILES, rules: { 'harness/no-process-env': 'off', 'no-console': 'off' } },
+  { files: HOST_FILES, rules: { 'harness/no-process-env': 'off' } },
+  { files: FRONT_END_FILES, rules: { 'no-console': 'off' } },
   // CLIs: they report to the terminal.
   { files: ['.cursor/hooks/**/*.mjs', 'scripts/**/*.mjs'], rules: { 'no-console': 'off' } },
 ]);

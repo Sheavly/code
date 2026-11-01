@@ -6,9 +6,6 @@ import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
 import type { Workspace } from '../runtime/workspace/workspace.service.js';
 
-/** Where a host's terminal output goes (stdout, or stdout plus a log file). */
-export type Write = (text: string) => void;
-
 /** Which model backend a host runs against, read from the environment. */
 export type ProviderSettings = {
   adapter: string;
