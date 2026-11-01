@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.service';
+import { withFileLock } from '../../runtime/file-locks/file-locks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.service.js';
 import { describeChange } from '../files/files.utils.js';
@@ -25,23 +26,31 @@ export function createEditFileTool({ workspace }: { workspace: Workspace }) {
     execute: async ({ input, signal }) => {
       const { path: requested, oldText, newText, replaceAll = false } = input;
       const real = await resolveWritable({ workspace, requested });
-      const before = await readIfExists({ file: real, signal });
 
-      if (before === null) {
-        throw new Error(`File not found: ${requested}. Use write_file to create it.`);
-      }
+      return withFileLock({
+        file: real,
+        signal,
+        change: async () => {
+          const before = await readIfExists({ file: real, signal });
 
-      const { after, count } = applyEdit({ before, oldText, newText, replaceAll, requested });
+          if (before === null) {
+            throw new Error(`File not found: ${requested}. Use write_file to create it.`);
+          }
 
-      await writeText({ file: real, content: after, signal });
+          const { after, count } = applyEdit({ before, oldText, newText, replaceAll, requested });
 
-      const relative = workspace.relative(real);
-      const replaced = count > 1 ? `, ${count} replacements` : '';
+          await writeText({ file: real, content: after, signal });
 
-      return {
-        content: `${describeChange({ verb: 'Edited', path: relative, before, after })}${replaced}`,
-        change: { path: relative, before, after },
-      };
+          const relative = workspace.relative(real);
+          const replaced = count > 1 ? `, ${count} replacements` : '';
+          const described = describeChange({ verb: 'Edited', path: relative, before, after });
+
+          return {
+            content: `${described}${replaced}`,
+            change: { path: relative, before, after },
+          };
+        },
+      });
     },
   });
 }

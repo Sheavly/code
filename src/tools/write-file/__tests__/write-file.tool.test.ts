@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.service';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
+import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../write-file.tool.js';
 
 const signal = new AbortController().signal;
@@ -107,5 +108,38 @@ describe('write_file', () => {
 
     expect(result).toMatchObject({ isError: false });
     expect((await write('docs/.github/x.md', 'x')).isError).toBe(false);
+  });
+
+  it('takes turns with parallel edit_file calls on one file, each from the last one written', async () => {
+    const lines = ['a = 0;', 'b = 0;', 'c = 0;'];
+    const base = `${lines.join('\n')}\n`;
+    const tools = [
+      createWriteFileTool({ workspace: temp.workspace }),
+      createEditFileTool({ workspace: temp.workspace }),
+    ];
+    const call = (name: string, input: Record<string, unknown>) =>
+      runTool({ tools, call: { id: name, name, input: { description: name, ...input } }, signal });
+
+    await write('mixed.ts', base);
+
+    const results = await Promise.all([
+      call('write_file', { path: 'mixed.ts', content: `${base}f = 0;\n` }),
+      ...lines.map((line) => call('edit_file', { path: 'mixed.ts', oldText: line, newText: 'z;' })),
+      call('write_file', { path: 'mixed.ts', content: `${base}g = 0;\n` }),
+    ]);
+    const pending = results.map((result) => result.change);
+    let content = base;
+
+    // The calls may take the file in any order, but they must form one chain: every change
+    // starts from what the previous one wrote, so none was based on stale content.
+    while (pending.length > 0) {
+      const index = pending.findIndex((change) => change?.before === content);
+
+      expect(index).not.toBe(-1);
+      content = pending.splice(index, 1)[0]?.after ?? '';
+    }
+
+    expect(results.every((result) => !result.isError)).toBe(true);
+    expect(await readFile(path.join(temp.root, 'mixed.ts'), 'utf8')).toBe(content);
   });
 });

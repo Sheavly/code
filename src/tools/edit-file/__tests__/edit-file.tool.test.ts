@@ -89,6 +89,25 @@ describe('edit_file', () => {
 
     expect(await readFile(path.join(temp.root, '.git/config'), 'utf8')).toBe(config);
   });
+
+  it('applies every parallel edit to one file, also through a symlink to it', async () => {
+    const lines = APP.trimEnd().split('\n');
+
+    await symlink(path.join(temp.root, 'app.ts'), path.join(temp.root, 'alias.ts'));
+
+    const results = await Promise.all(
+      lines.map((line, index) =>
+        edit({
+          path: index % 2 === 0 ? 'app.ts' : 'alias.ts',
+          oldText: line,
+          newText: `${line}//`,
+        }),
+      ),
+    );
+
+    expect(results.map((result) => result.isError)).toEqual(lines.map(() => false));
+    expect(await onDisk()).toBe(`${lines.map((line) => `${line}//`).join('\n')}\n`);
+  });
 });
 
 describe('applyEdit', () => {
