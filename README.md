@@ -219,7 +219,10 @@ src/
     stream-agent/               streamAgent / runAgent, one turn, one model call
     events/  queue/  abort/  hooks/
   testing/                      test-only fakes (*.fake.ts)
-  demo.ts                       host: reads env, wires everything, renders events
+  host/                         createHarness: wires a run; no UI
+  terminal-ui/                  front end: the terminal Renderer (demo, workbook)
+  workbook/                     front end: stored prompts and saved runs
+  demo.ts                       front end: reads env, wires a run, prints events
   index.ts                      the package entry: the one file that re-exports
 ```
 
@@ -238,7 +241,13 @@ tools/run-command/
 ## Code quality
 
 `npm run check` is the quality gate: `tsc --noEmit`, then ESLint, then `prettier --check`, then
-knip and jscpd, then the tests.
+knip and jscpd, then the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on
+every PR.
+
+The harness is a backend: `harness/no-terminal-io` (in `@sheavly/eslint-config`, so every
+workspace gets it) fails `node:readline`, `node:tty` and `process.stdin/stdout/stderr` outside
+the front-end files named in `FRONT_END_FILES` (`eslint.config.js`). A new UI is added to that list
+only when its issue asks for one.
 
 ### Dead code and duplication (knip, jscpd)
 
@@ -370,4 +379,5 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   PR's title, branch, base (`main` or an issue branch, for stacks) and `Closes #`/`Part of #`
   line. Dependabot's PRs are the one kind without an issue.
 - **Repo settings** (once, by a person; `.cursor/skills/git/setup.md`): squash merging only,
-  defaulting to the PR title; branch protection on `main` requiring the `Git format` check.
+  defaulting to the PR title; branch protection on `main` requiring the `Git format` and `Check`
+  checks.
