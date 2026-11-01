@@ -8,7 +8,7 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 ## Layers (imports only point down)
 
 ```
-@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  demo.ts (host)
+@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
 | Layer            | Holds                                                               | May import    |
@@ -18,9 +18,17 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 | `src/runtime/`   | Stateful services: workspace sandbox, processes, tasks              | core          |
 | `src/tools/`     | One folder per tool                                                 | core, runtime |
 | `src/loop/`      | `streamAgent` / `runAgent`, events, queue, abort                    | core, runtime |
-| `src/demo.ts`    | Host: reads env, wires everything, renders events                   | anything      |
+| `src/host/`      | `createHarness`: wires a run, the model from env. No UI             | all above     |
+| Front ends       | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts` | anything      |
 
 ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected, pass the dependency in as an option instead of moving the rule.
+
+## Backend only: typed events, no UI
+
+- The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`) and exposes registries a UI answers through (`sessions.send`). It renders nothing, prompts no one and reads no terminal input.
+- Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
+- Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/terminal-ui/`, `src/workbook/`. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
+- `src/host/` wires a run and holds no UI; it may not import a front end.
 
 ## Packages
 

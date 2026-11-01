@@ -10,12 +10,19 @@ wait for agent, wait for user, interrupt agent by user."
 The harness owns the agent loop and everything it emits; a UI (or the CLI demo) only renders
 events. That split decides where new work goes: if a UI would need it, the harness emits it.
 
+**Backend only.** The harness renders nothing, prompts no one and reads no terminal input. What a
+user must see or decide is a typed event or a registry request (`AgentEvent`, `SessionUpdate`)
+that a UI handles its own way. UI code is written only when an issue asks for a
+UI, and only in the front-end files named in `FRONT_END_FILES` (`eslint.config.js`); the shared
+`harness/no-terminal-io` rule fails terminal I/O anywhere else, in every workspace. Cursor injects
+this rule from the project skill the first time a chat edits harness source.
+
 ## Layers
 
 Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 
 ```
-@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  hosts (src/demo.ts)
+@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
 | Where                | What lives there                                                                                    |
@@ -25,9 +32,10 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 | `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, `.sheavly/`, AGENTS.md |
 | `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`    |
 | `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                         |
-| `src/demo.ts`        | A CLI host: reads env, wires everything up, prints events                                           |
-| `src/host/`          | What every host shares: wiring a run (`createHarness`), the model from env, the terminal UI         |
-| `src/workbook/`      | A stateful host: stored prompts, saved runs, continue, step and diff (`workbook/`)                  |
+| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end       |
+| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                      |
+| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                    |
+| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)    |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.

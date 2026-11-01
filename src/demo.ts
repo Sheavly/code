@@ -19,10 +19,11 @@ import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from './loop/stream-agent/stream-agent.service.js';
-import { HOST_MAX_TURNS, SAME_KEYPRESS_MS } from './host/host.constants.js';
+import { HOST_MAX_TURNS } from './host/host.constants.js';
 import { createHarness, providerFromEnv } from './host/host.service.js';
-import { Renderer } from './host/render.service.js';
-import { shortId } from './host/render.utils.js';
+import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
+import { Renderer } from './terminal-ui/render.service.js';
+import { shortId } from './terminal-ui/render.utils.js';
 
 const { adapter, model, provider } = providerFromEnv();
 const prompt = process.argv.slice(2).join(' ') || 'Read package.json and tell me the project name.';

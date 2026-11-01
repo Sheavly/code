@@ -2,14 +2,15 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/core/session/session.types';
 import type { AgentEvent } from '../loop/events/events.types.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
-import type { Write } from './host.types.js';
+import type { Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, oneLine, seconds, shortId } from './render.utils.js';
 
 type EventOf<T extends AgentEvent['type']> = Extract<AgentEvent, { type: T }>;
 
 /**
- * The terminal UI every host shares: one line (or block) per loop event, per session update and
- * (optionally) per model call, written to `write`. Kept stateful only for the current tool
+ * The terminal front end of the demo and the workbook: one line (or block) per loop event, per
+ * session update and (optionally) per model call, written to `write`. It only renders events the
+ * harness emits; nothing in the harness depends on it. Kept stateful only for the current tool
  * batch size and the reasoning count.
  */
 export class Renderer {

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { z } from 'zod';
 import type { AgentEvent } from '../loop/events/events.types.js';
-import { firstLine, oneLine, shortId } from '../host/render.utils.js';
+import { firstLine, oneLine, shortId } from '../terminal-ui/render.utils.js';
 import { RUN_FILES, STATE_VERSION } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult, StoredPrompt } from './workbook.types.js';
 

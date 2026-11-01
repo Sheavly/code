@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import type { Message } from '@sheavly/core/message/message.types';
 import { streamAgent } from '../loop/stream-agent/stream-agent.service.js';
-import { HOST_MAX_TURNS, SAME_KEYPRESS_MS } from '../host/host.constants.js';
+import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createHarness } from '../host/host.service.js';
 import type { ProviderSettings } from '../host/host.types.js';
-import { Renderer } from '../host/render.service.js';
-import { shortId } from '../host/render.utils.js';
+import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
+import { Renderer } from '../terminal-ui/render.service.js';
+import { shortId } from '../terminal-ui/render.utils.js';
 import { RunRecorder } from './recorder.service.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';

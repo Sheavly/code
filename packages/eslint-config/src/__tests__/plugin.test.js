@@ -101,3 +101,24 @@ ruleTester.run('utils-imports', utilsImports, {
     { code: "await import('node:os');", errors: [{ messageId: 'impure' }] },
   ],
 });
+
+ruleTester.run('no-terminal-io', harnessPlugin.rules['no-terminal-io'], {
+  valid: [
+    "import path from 'node:path'; import { spawn } from 'node:child_process';",
+    "import { env } from 'node:process'; const { argv } = process; process.exitCode = 1;",
+    "import { readline } from './readline.utils.js';", // a local module, not node's
+    'child.stdout.on("data", () => undefined);', // a child process's pipes are data, not the terminal
+  ],
+  invalid: [
+    "import { createInterface } from 'node:readline';",
+    "import { createInterface } from 'node:readline/promises';",
+    "import readline from 'readline';",
+    "import { isatty } from 'node:tty';",
+    "await import('node:readline/promises');",
+    "process.stdout.write('hi');",
+    'if (process.stdin.isTTY) {}',
+    "process.stderr.write('oops');",
+    "import { stdout } from 'node:process';",
+    'const { stdin } = process;',
+  ].map((code) => ({ code, errors: 1 })),
+});
