@@ -104,6 +104,13 @@ export function listAreaLabels(repoRoot) {
 // GitHub compares label names without case (`Area/Core` is `area/core`), so these do too.
 export const isAreaLabel = (name) => name.toLowerCase().startsWith(AREA_PREFIX);
 
+/** The area label a commit header calls for (`feat(loop): …` → `area/loop`), or null off-format. */
+export function headerArea(header) {
+  const match = HEADER.exec(header);
+
+  return match?.groups ? areaLabel(match.groups.scope) : null;
+}
+
 /** What is wrong with a `type(scope): subject` header, or [] when it conforms. */
 export function checkHeader(params) {
   const { header, scopes } = params;

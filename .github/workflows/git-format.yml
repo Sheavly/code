@@ -1,9 +1,10 @@
 name: Git format
 
 # The PR title becomes the squashed commit on main, and the body's `Closes #123` (or `Part of #123`
-# for a stack layer) links the PR to its GitHub issue. Runs on every PR whatever its base, so a
-# stacked PR based on another issue branch is checked too. Separate from any build so a title or
-# body edit reruns only this quick check.
+# for a stack layer) links the PR to its GitHub issue, whose `area/*` labels must cover every
+# commit scope. Runs on every PR whatever its base, so a stacked PR based on another issue branch
+# is checked too. Separate from any build so a title or body edit reruns only this quick check;
+# after labelling the issue, rerun the check (`gh run rerun`) or push.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -14,6 +15,9 @@ concurrency:
 
 permissions:
   contents: read
+  # The PR's commits and its issue's area labels, read with `gh`.
+  issues: read
+  pull-requests: read
 
 jobs:
   format:
@@ -30,9 +34,12 @@ jobs:
           node-version: 24
 
       # Passed through env, never interpolated into the script: a title or body is untrusted input.
-      - name: Check the PR title, body and branch
+      - name: Check the PR title, body, branch and area labels
         run: node scripts/check-git-format.mjs
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}

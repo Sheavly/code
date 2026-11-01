@@ -7,6 +7,7 @@ import {
   findIssues,
   findPartOfIssues,
   getBranchIssue,
+  headerArea,
   isCherryPickApproval,
   isAreaLabel,
   isNoIssuePrompt,
@@ -96,6 +97,12 @@ describe('area labels', () => {
     expect(listAreaLabels(REPO_ROOT)).toEqual(
       expect.arrayContaining(['area/core', 'area/eslint-config', 'area/loop', 'area/tooling']),
     );
+  });
+
+  it('reads the area a commit header calls for', () => {
+    expect(headerArea('feat(loop)!: add x')).toBe('area/loop');
+    expect(headerArea('ci: add a workflow')).toBe('area/tooling');
+    expect(headerArea('Merge branch main')).toBeNull();
   });
 });
 

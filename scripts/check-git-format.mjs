@@ -1,13 +1,17 @@
 // CI gate for the git workflow's PR format (.cursor/skills/git/conventions.md). PRs land with a
 // squash merge, so the title is the commit that reaches main, and the body's `Closes #123` is
-// what links the PR to its issue and closes it on merge. The commits inside a PR are for review
-// and aren't checked here; the git guard (.cursor/hooks/guard-git-workflow.mjs) checks agents'.
+// what links the PR to its issue and closes it on merge.
+//
+// The commits inside a PR are for review and their format isn't checked here (the git guard,
+// .cursor/hooks/guard-git-workflow.mjs, checks agents'), but their scopes are: each needs its
+// `area/*` label on the PR's issue, so the labels say what the work really touched.
 //
 // Stacked PRs (.cursor/skills/git/stacks.md) pass too: a PR may be based on another issue branch
 // rather than main, and a layer that doesn't finish its issue says `Part of #123` instead of
 // closing it.
 //
-// Reads PR_TITLE, PR_BODY, PR_AUTHOR, BASE_REF and HEAD_REF from the environment.
+// Reads PR_NUMBER, PR_TITLE, PR_BODY, PR_AUTHOR, BASE_REF and HEAD_REF from the environment, and
+// the PR's commits and its issue's labels through `gh` (GH_TOKEN, GH_REPO).
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -17,8 +21,10 @@ import {
   findClosingIssues,
   findPartOfIssues,
   getBranchIssue,
+  headerArea,
   listScopes,
 } from '../.cursor/hooks/git-workflow.utils.mjs';
+import { readGhJson, runGh } from './gh.utils.mjs';
 
 // Dependabot PRs bump dependencies no issue asks for; the header format still applies to them.
 const DEPENDENCY_BOT_LOGIN = 'dependabot[bot]';
@@ -78,6 +84,43 @@ export function findFormatProblems(params) {
   return [...headerProblems, ...checkBase(baseRef), ...checkIssueLink({ body, headRef })];
 }
 
+/**
+ * The area labels the PR's commits call for (one per scope, `area/tooling` for a commit without
+ * one) that its issue lacks, as a message; [] when the issue has them all.
+ */
+export function findAreaProblems(params) {
+  const { issue, labels, headers } = params;
+  const needed = [...new Set(headers.map((header) => headerArea(header)).filter(Boolean))];
+  const has = new Set(labels.map((label) => label.toLowerCase()));
+  const missing = needed.filter((label) => !has.has(label.toLowerCase()));
+
+  if (missing.length === 0) return [];
+
+  return [
+    `The commits touch ${missing.map((label) => `\`${label}\``).join(', ')}, but #${issue} isn't labelled with ${missing.length === 1 ? 'it' : 'them'}. Label the issue (\`gh issue edit ${issue} --add-label ${missing.join(',')}\`) and rerun this check.`,
+  ];
+}
+
+/** The area problems of the PR `number`, read through `gh`; none when the branch names no issue. */
+function readAreaProblems(params) {
+  const { number, headRef } = params;
+  const issue = getBranchIssue(headRef);
+
+  if (issue === null) return [];
+
+  const { commits } = readGhJson({ gh: runGh, args: ['pr', 'view', number, '--json', 'commits'] });
+  const { labels } = readGhJson({
+    gh: runGh,
+    args: ['issue', 'view', String(issue), '--json', 'labels'],
+  });
+
+  return findAreaProblems({
+    issue,
+    labels: labels.map((label) => label.name),
+    headers: commits.map((commit) => commit.messageHeadline),
+  });
+}
+
 function readEnv(name) {
   const value = process.env[name];
 
@@ -89,14 +132,19 @@ function readEnv(name) {
 }
 
 if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
-  const problems = findFormatProblems({
-    repoRoot: path.resolve(import.meta.dirname, '..'),
+  const pr = {
     title: readEnv('PR_TITLE'),
     body: readEnv('PR_BODY'),
     author: readEnv('PR_AUTHOR'),
     baseRef: readEnv('BASE_REF'),
     headRef: readEnv('HEAD_REF'),
-  });
+  };
+  const problems = [
+    ...findFormatProblems({ repoRoot: path.resolve(import.meta.dirname, '..'), ...pr }),
+    ...(isDependencyBotPr(pr)
+      ? []
+      : readAreaProblems({ number: readEnv('PR_NUMBER'), headRef: pr.headRef })),
+  ];
 
   if (problems.length > 0) {
     console.error(

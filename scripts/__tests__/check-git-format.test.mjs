@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findFormatProblems } from '../check-git-format.mjs';
+import { findAreaProblems, findFormatProblems } from '../check-git-format.mjs';
 import { REPO_ROOT } from './temp-repo.utils.mjs';
 
 const pr = (fields = {}) =>
@@ -51,5 +51,26 @@ describe('PR format', () => {
     expect(pr({ ...bot, title: 'build: bump zod', headRef: 'dependabot/npm/zod-4' })).toEqual([]);
     expect(pr({ ...bot, title: 'Bump zod', headRef: 'dependabot/npm/zod-4' })).toHaveLength(1);
     expect(pr({ ...bot, headRef: 'bump-zod' })).not.toEqual([]);
+  });
+});
+
+describe('area labels of the PR issue', () => {
+  const areas = (labels, headers) => findAreaProblems({ issue: 12, labels, headers });
+  const HEADERS = ['feat(core): add the contract', 'feat(loop): switch providers', 'docs: x'];
+
+  it('passes when the issue has a label for every commit scope', () => {
+    expect(areas(['area/core', 'area/loop', 'area/tooling', 'security'], HEADERS)).toEqual([]);
+    expect(areas(['Area/Core', 'AREA/loop', 'area/Tooling'], HEADERS)).toEqual([]);
+  });
+
+  it('names each scope without a label, tooling for a commit without one', () => {
+    const [problem] = areas(['area/core'], HEADERS);
+
+    expect(problem).toContain('`area/loop`, `area/tooling`');
+    expect(problem).toContain('gh issue edit 12 --add-label area/loop,area/tooling');
+  });
+
+  it('ignores a commit off the header format, which the guard reports', () => {
+    expect(areas([], ['Merge branch main into 12-x'])).toEqual([]);
   });
 });
