@@ -15,7 +15,7 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 | ---------------- | ------------------------------------------------------------------- | ------------- |
 | `packages/core`  | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter` | zod only      |
 | `src/providers/` | Adapters, registry, `ProviderSwitch`, Responses client              | core          |
-| `src/runtime/`   | Stateful services: workspace sandbox, processes, tasks              | core          |
+| `src/runtime/`   | Stateful services: workspace sandbox, processes, tasks, approvals   | core          |
 | `src/tools/`     | One folder per tool                                                 | core, runtime |
 | `src/loop/`      | `streamAgent` / `runAgent`, events, queue, abort                    | core, runtime |
 | `src/host/`      | `createHarness`: wires a run, the model from env. No UI             | all above     |
@@ -25,7 +25,7 @@ ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected,
 
 ## Backend only: typed events, no UI
 
-- The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`) and exposes registries a UI answers through (`sessions.send`). It renders nothing, prompts no one and reads no terminal input.
+- The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`, `ApprovalUpdate`) and exposes registries a UI answers through (`approvals.respond`, `sessions.send`). It renders nothing, prompts no one and reads no terminal input.
 - Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
 - Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/terminal-ui/`, `src/workbook/`. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
 - `src/host/` wires a run and holds no UI; it may not import a front end.
