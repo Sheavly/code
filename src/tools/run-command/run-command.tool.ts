@@ -5,7 +5,7 @@ import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
 import { confirmArguments } from './arguments.service.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
-import { checkAllowed, formatResult } from './run-command.utils.js';
+import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';
 
 export function createRunCommandTool({
   workspace,
@@ -52,7 +52,14 @@ export function createRunCommandTool({
         });
       }
 
-      const options = { file, args, cwd: workspace.root, shell: skipAllowList };
+      // The repo's git config can't make git run programs, whatever the command.
+      const options = {
+        file,
+        args: safeGitArgs({ file, args }),
+        cwd: workspace.root,
+        shell: skipAllowList,
+        env: safeGitEnv(),
+      };
 
       if (background) {
         if (!tasks) throw new Error('Background commands are not enabled in this harness');

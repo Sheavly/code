@@ -86,6 +86,21 @@ guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
    (`git status -sb`, `git log --oneline -n 5`, `git diff --stat`), and a diff also needs a
    summary flag. Any other flag, subcommand or plain `git diff` asks.
 
+Every command then runs with git config that keeps a repo from making git run programs: a write
+to `.git/config` is refused (above), but a hostile repo can arrive with one. `GIT_CONFIG_NOSYSTEM=1`
+and `GIT_CONFIG_COUNT` env overrides (`SAFE_GIT_CONFIG` in `run-command.constants.ts`) win over
+every config file: `core.fsmonitor` off, `core.hooksPath=/dev/null`, `safe.bareRepository=explicit`
+(an implicit bare repo brings its own config), no signature checks and no `gpg.*` program.
+`attr.tree=HEAD` reads attributes from the last commit (an empty tree before the first), so an
+edited `.gitattributes` can't switch on a filter driver (`filter.<name>.clean`) the config
+defines. Since they're in the
+env, they also reach git that a test runner starts. `git diff`, `log` and `show` also get
+`--no-ext-diff --no-textconv`, so diff drivers (`diff.external`, textconv) never run.
+
+Left open: a filter that is both in the repo's config and named in a committed `.gitattributes`
+still runs (there is no switch for every filter driver, and a write to `.git/config` that would
+add one is refused), and git older than 2.42 ignores `attr.tree`.
+
 Test runners on the allow list (`npm test`, `npx vitest run`) run workspace code, which can read
 anything the process can; argument checks can't stop that. Isolating the process itself is
 [#4](https://github.com/Sheavly/code/issues/4).
