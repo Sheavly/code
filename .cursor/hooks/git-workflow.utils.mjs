@@ -86,6 +86,31 @@ export function listScopes(repoRoot) {
   return [...new Set(scopes)].sort();
 }
 
+// Issue labels that say where work lives: one `area/<scope>` per commit scope, plus
+// `area/tooling` for work without a scope (.cursor/, scripts/, .github/, root configs).
+export const AREA_PREFIX = 'area/';
+export const TOOLING_AREA = `${AREA_PREFIX}tooling`;
+
+/** The area label of a commit scope; a commit without one is tooling. */
+export function areaLabel(scope) {
+  return scope === undefined ? TOOLING_AREA : `${AREA_PREFIX}${scope}`;
+}
+
+/** Every area label the repo should have, from the scopes on disk. */
+export function listAreaLabels(repoRoot) {
+  return [...listScopes(repoRoot).map((scope) => areaLabel(scope)), TOOLING_AREA].sort();
+}
+
+// GitHub compares label names without case (`Area/Core` is `area/core`), so these do too.
+export const isAreaLabel = (name) => name.toLowerCase().startsWith(AREA_PREFIX);
+
+/** The area label a commit header calls for (`feat(loop): …` → `area/loop`), or null off-format. */
+export function headerArea(header) {
+  const match = HEADER.exec(header);
+
+  return match?.groups ? areaLabel(match.groups.scope) : null;
+}
+
 /** What is wrong with a `type(scope): subject` header, or [] when it conforms. */
 export function checkHeader(params) {
   const { header, scopes } = params;

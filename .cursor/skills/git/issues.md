@@ -27,18 +27,32 @@ reader understands the problem, why it matters and when it is done without readi
   work), `Bug` (something behaves wrongly), `Feature` (a larger piece of functionality, usually a
   parent with sub-issues). Set it on every issue (`--type Task`); the issue forms set it already.
   Find work with `gh issue list --type Bug`.
-- **Labels** only for what a type can't say. Use the repo's defaults (`documentation`,
-  `good first issue`, `help wanted`, `question`, `duplicate`, `invalid`, `wontfix`) and, if needed,
-  `area/<scope>` labels named after commit scopes (`area/loop`, `area/tools`). Never labels for
-  status or priority: status is read from GitHub (below), and priority belongs in a project field.
+- **Labels** only for what a type can't say:
+  - **Area labels (required):** at least one `area/*` label on every issue, one per commit scope
+    its PR will have: `area/<scope>` for each package and `src/` folder (`area/core`,
+    `area/loop`, `area/tools`, …), `area/tooling` for work without a scope (`.cursor/`,
+    `scripts/`, `.github/`, root configs). They come from the same folders as the commit scopes
+    (`listScopes`): `scripts/sync-area-labels.mjs` creates them on every push to `main`, so a new
+    folder gets its label when it lands. `gh label list --search area/` shows them.
+  - `security`: alongside the area labels, for anything about the sandbox, secrets, trust or
+    command isolation.
+  - The repo's defaults: `documentation`, `good first issue`, `help wanted`, `question`,
+    `duplicate`, `invalid`, `wontfix`.
+  - Never labels for status or priority: status is read from GitHub (below), and priority belongs
+    in a project field.
+- **Kept honest:** the `Issue labels` workflow fails, and comments once, on an open issue without
+  an area label; `Git format` fails a PR with a commit whose scope has no area label on its issue
+  (label the issue, then rerun the check); the git guard denies an agent's `gh issue create`
+  without `--label area/…`.
 
 ## Create an issue
 
-From an issue form (`.github/ISSUE_TEMPLATE/`: `task.yml`, `bug.yml`, `feature.yml`). Write the body to a file
-outside the repo and pass it with `--body-file`:
+From an issue form (`.github/ISSUE_TEMPLATE/`: `task.yml`, `bug.yml`, `feature.yml`), with its
+area labels (the forms can't set them). Write the body to a file outside the repo and pass it with
+`--body-file`:
 
 ```bash
-gh issue create --type Task --title "Lock concurrent edits to the same file" --body-file /tmp/issue.md
+gh issue create --type Task --label area/runtime --title "Lock concurrent edits to the same file" --body-file /tmp/issue.md
 ```
 
 ## Break it down: sub-issues
@@ -48,9 +62,9 @@ branch and PR. When the parts depend on each other, those PRs can form a stack, 
 sub-issue ([stacks.md](stacks.md)).
 
 ```bash
-gh issue create --type Task --parent 123 --title "…" --body-file /tmp/child.md   # a new child
-gh issue edit 123 --add-sub-issue 124,125                                          # existing ones
-gh issue view 123 --json subIssues,subIssuesSummary                                # progress
+gh issue create --type Task --parent 123 --label area/loop --title "…" --body-file /tmp/child.md   # a new child
+gh issue edit 123 --add-sub-issue 124,125                                                          # existing ones
+gh issue view 123 --json subIssues,subIssuesSummary                                                # progress
 ```
 
 GitHub shows the parent's progress from its sub-issues. Close the parent (with the user's say) once
@@ -110,7 +124,8 @@ A project board adds what issues alone lack: one Status field, plus Priority (si
 
 ## Triage and grooming
 
-- **New issues:** give each a type, check it fits "What an issue is" above, and either accept it,
+- **New issues:** give each a type and its area labels, check it fits "What an issue is" above,
+  and either accept it,
   ask for what's missing (comment, `question` label), mark a duplicate (`duplicate`, close with a
   link) or close it as not planned. Do this only when the user asks for triage.
 - **Grooming (periodically, when the user asks):** list open issues

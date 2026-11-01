@@ -5,7 +5,9 @@ import {
   BRANCH_EXAMPLE,
   CHERRY_PICK_APPROVAL_EXAMPLE,
   getBranchIssue,
+  isAreaLabel,
   NO_ISSUE,
+  TOOLING_AREA,
 } from './git-workflow.utils.mjs';
 
 const GIT_GLOBAL_VALUED = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace']);
@@ -90,6 +92,25 @@ export function checkPrMerge(args) {
   if (args.includes('--help') || args.includes('-h')) return null;
 
   return hasFlag({ args, letter: 's', long: '--squash' }) ? null : PR_MERGE_FIX;
+}
+
+/** Every value of `-l`/`--label` (repeated, or comma-separated in one value). */
+function labelValues(args) {
+  return args.flatMap((arg, index) => {
+    const [name, inline] = arg.split(/=(.*)/s);
+
+    return ['-l', '--label'].includes(name) ? (inline ?? args[index + 1] ?? '').split(',') : [];
+  });
+}
+
+/** Why a `gh issue create` (its args after `create`) lacks an area label, or null. */
+export function checkIssueCreate(params) {
+  const { args, areas } = params;
+
+  if (args.includes('--help') || args.includes('-h')) return null;
+  if (labelValues(args).some((label) => isAreaLabel(label.trim()))) return null;
+
+  return `\`gh issue create\` needs at least one area label, one per commit scope its PR will have: \`--label area/<scope>\` (${areas.join(', ')}; \`${TOOLING_AREA}\` for work without a scope). See the /git skill (issues.md, "Classify").`;
 }
 
 const SWITCH_CREATE_FLAGS = ['-c', '-C', '--create', '--force-create', '--orphan'];

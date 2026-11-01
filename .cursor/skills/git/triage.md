@@ -13,6 +13,10 @@ Issues are often thin. Treat them as guidance about scope, not as a contract. If
 `blockedBy` issues, say so in the verdict: the work may need them first. If it has no "Done when"
 criteria, propose them in the verdict before starting ([issues.md](issues.md), "What an issue is").
 
+Its `area/*` labels (required, one per commit scope; [issues.md](issues.md), "Classify") say which
+scopes the work should touch. When the planned commits need a scope the issue isn't labelled with,
+say so in the verdict and propose the label: `Git format` fails the PR until the issue has it.
+
 ## 2. Judge the fit
 
 - **Fits:** the request does what the issue describes, or is a step towards it.

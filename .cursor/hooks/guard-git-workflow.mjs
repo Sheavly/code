@@ -2,12 +2,14 @@
 // `<issue>-<kebab-name>` for one of the chat's issues, staging that isn't by name, `git push
 // --force` without `--with-lease`, a `gh pr merge` that isn't a squash, `git cherry-pick` until the
 // user allowed it in the chat, a `git commit` whose message breaks the format or would open an
-// editor, and the interactive forms of `gh stack` (stacked PRs themselves are allowed). People
-// aren't checked: only agent shell commands pass through hooks.
+// editor, a `gh issue create` without an `area/*` label, and the interactive forms of `gh stack`
+// (stacked PRs themselves are allowed). People aren't checked: only agent shell commands pass
+// through hooks.
 import path from 'node:path';
 import {
   checkBranch,
   checkCherryPick,
+  checkIssueCreate,
   checkPrMerge,
   checkPush,
   checkStaging,
@@ -15,7 +17,12 @@ import {
   gitNewBranches,
 } from './git-guard.utils.mjs';
 import { checkStack } from './stack-guard.utils.mjs';
-import { checkCommitMessage, getBranchIssue, listScopes } from './git-workflow.utils.mjs';
+import {
+  checkCommitMessage,
+  getBranchIssue,
+  listAreaLabels,
+  listScopes,
+} from './git-workflow.utils.mjs';
 import {
   currentBranch,
   getChatState,
@@ -61,7 +68,13 @@ function checkSegment(params) {
   if (args[0] === 'stack') return checkStack({ args: args.slice(1), newBranches });
   newBranches.push(...ghNewBranches(args));
 
-  return args[0] === 'pr' && args[1] === 'merge' ? checkPrMerge(args.slice(2)) : null;
+  if (args[0] === 'pr' && args[1] === 'merge') return checkPrMerge(args.slice(2));
+
+  if (args[0] === 'issue' && args[1] === 'create') {
+    return checkIssueCreate({ args: args.slice(2), areas: listAreaLabels(PROJECT_ROOT) });
+  }
+
+  return null;
 }
 
 /** Why a `git commit` command's message would fail the format, or null. */

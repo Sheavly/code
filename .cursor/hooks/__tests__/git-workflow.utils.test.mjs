@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import {
+  areaLabel,
   checkCommitMessage,
   checkHeader,
   findClosingIssues,
   findIssues,
   findPartOfIssues,
   getBranchIssue,
+  headerArea,
   isCherryPickApproval,
+  isAreaLabel,
   isNoIssuePrompt,
+  listAreaLabels,
   listScopes,
 } from '../git-workflow.utils.mjs';
 import { REPO_ROOT } from '../../../scripts/__tests__/temp-repo.utils.mjs';
@@ -81,6 +85,24 @@ describe('headers', () => {
 
     expect(scopes).toEqual(expect.arrayContaining(['core', 'eslint-config', 'loop', 'tools']));
     expect(scopes).not.toContain('testing');
+  });
+});
+
+describe('area labels', () => {
+  it('names one per scope, and tooling for a commit without one', () => {
+    expect(areaLabel('loop')).toBe('area/loop');
+    expect(areaLabel(undefined)).toBe('area/tooling');
+    expect(isAreaLabel('Area/Core')).toBe(true);
+    expect(isAreaLabel('security')).toBe(false);
+    expect(listAreaLabels(REPO_ROOT)).toEqual(
+      expect.arrayContaining(['area/core', 'area/eslint-config', 'area/loop', 'area/tooling']),
+    );
+  });
+
+  it('reads the area a commit header calls for', () => {
+    expect(headerArea('feat(loop)!: add x')).toBe('area/loop');
+    expect(headerArea('ci: add a workflow')).toBe('area/tooling');
+    expect(headerArea('Merge branch main')).toBeNull();
   });
 });
 

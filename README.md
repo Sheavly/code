@@ -324,12 +324,12 @@ lines between steps (auto-fixed with `npm run lint:fix`).
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
-| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                     |
-| ------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                            |
-| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, interactive `gh stack` forms. |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                       |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                    |
+| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                  |
+| ------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                         |
+| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms. |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                                                                    |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                 |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**
@@ -366,8 +366,11 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   issue and closes the issue on merge.
 - **Issues** have a type (`Task`, `Bug`, `Feature`, set by the forms in `.github/ISSUE_TEMPLATE/`),
   are split into sub-issues when they're bigger than one PR, and record order as "blocked by"
-  dependencies. Labels only for what types can't say, never for status or priority
-  (`.cursor/skills/git/issues.md`).
+  dependencies. Every issue has at least one **area label**, one per commit scope its PR will have
+  (`area/core`, `area/loop`, …, `area/tooling` for work without a scope), plus `security` where it
+  applies. The area labels come from the same folders as the commit scopes and are created by the
+  `Sync labels` workflow (`scripts/sync-area-labels.mjs`) on every push to `main`. Labels only for
+  what types can't say, never for status or priority (`.cursor/skills/git/issues.md`).
 - **Status** is read from GitHub: open, blocked, a branch or draft PR (in progress), a ready PR (in
   review), closed by the merge (done). A GitHub Project board, if used, mirrors that.
 - **Rewriting:** while the PR is a draft, fixes are folded into the commit they belong to and
@@ -376,8 +379,10 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   Every push of new work is first reviewed by Bugbot and a security review.
 - **Enforced:** the issue gate and the git guard (hooks above) for agents; the `Git format`
   workflow (`.github/workflows/git-format.yml`, running `scripts/check-git-format.mjs`) for every
-  PR's title, branch, base (`main` or an issue branch, for stacks) and `Closes #`/`Part of #`
-  line. Dependabot's PRs are the one kind without an issue.
+  PR's title, branch, base (`main` or an issue branch, for stacks), `Closes #`/`Part of #` line,
+  and an area label on its issue for every commit scope. The `Issue labels` workflow
+  (`scripts/check-issue-areas.mjs`) fails, and comments once, on an open issue without an area
+  label. Dependabot's PRs are the one kind without an issue.
 - **Repo settings** (once, by a person; `.cursor/skills/git/setup.md`): squash merging only,
   defaulting to the PR title; branch protection on `main` requiring the `Git format` and `Check`
   checks.
