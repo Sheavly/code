@@ -1,6 +1,7 @@
+import type { AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import type { ResponsesConfig } from './responses.types.js';
+import type { BearerResponsesConfig, ResponsesConfig } from './responses.types.js';
 import { handleEvent, responsesEventSchema, toInputItems } from './responses.utils.js';
 import { readServerSentEvents } from './sse.utils.js';
 
@@ -61,4 +62,20 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
       yield { type: 'done', stopReason };
     },
   };
+}
+
+/** A Responses backend that takes a Bearer API key: OpenAI and OpenAI-compatible gateways. */
+export function createBearerResponsesProvider(params: {
+  config: BearerResponsesConfig;
+  deps: AdapterDeps;
+}): Provider {
+  const { config, deps } = params;
+
+  return createResponsesProvider({
+    baseUrl: config.baseUrl,
+    model: config.model,
+    headers: { authorization: `Bearer ${config.apiKey}` },
+    reasoning: config.reasoning,
+    fetch: deps.fetch,
+  });
 }

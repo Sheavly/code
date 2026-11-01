@@ -22,6 +22,14 @@ export type ResponsesConfig = {
   fetch: typeof fetch;
 };
 
+/** Adapter config for a Responses backend authenticated with a Bearer API key. */
+export type BearerResponsesConfig = {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+  reasoning: boolean;
+};
+
 /** A streamed Responses API event we use (everything else is skipped). */
 export type ResponsesEvent = z.infer<typeof responsesEventSchema>;
 

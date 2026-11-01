@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.service';
-import { createResponsesProvider } from '../responses/responses.service.js';
+import { createBearerResponsesProvider } from '../responses/responses.service.js';
 import { ASTRA_BASE_URL } from './adapters.constants.js';
 import { apiKeySchema, baseUrlSchema, reasoningSchema } from './adapters.utils.js';
 
@@ -18,12 +18,5 @@ export const astraAdapter = defineAdapter({
     baseUrl: baseUrlSchema.default(ASTRA_BASE_URL),
     reasoning: reasoningSchema.default(false),
   }),
-  create: ({ config, deps }) =>
-    createResponsesProvider({
-      baseUrl: config.baseUrl,
-      model: config.model,
-      headers: { authorization: `Bearer ${config.apiKey}` },
-      reasoning: config.reasoning,
-      fetch: deps.fetch,
-    }),
+  create: createBearerResponsesProvider,
 });
