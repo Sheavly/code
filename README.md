@@ -260,10 +260,10 @@ knip and jscpd, then the tests.
 
 ### Prettier
 
-`.prettierrc.json`: 100 columns, single
-quotes, semicolons, trailing commas, 2-space indent, LF line endings. Prettier owns formatting;
-`eslint-config-prettier` turns off every ESLint rule that would disagree with it. `npm run lint:fix`
-runs ESLint's fixes first and Prettier after, since a fix (like adding braces) can need formatting.
+`.prettierrc.json`: 100 columns, single quotes, semicolons, trailing commas, 2-space indent, LF
+line endings. Prettier owns formatting; `eslint-config-prettier` turns off every ESLint rule that
+would disagree with it. `npm run lint:fix` runs ESLint's fixes first and Prettier after, since a
+fix (like adding braces) can need formatting.
 
 ### File structure (custom rules)
 
@@ -300,8 +300,8 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
 ### ESLint
 
 `eslint.config.js` is strict and type-aware (typescript-eslint `strictTypeChecked`), with
-readability rules: cognitive complexity, max depth/nesting, early
-returns, no nested ternaries, blank lines between steps (auto-fixed with `npm run lint:fix`).
+readability rules: cognitive complexity, max depth/nesting, early returns, no nested ternaries, blank
+lines between steps (auto-fixed with `npm run lint:fix`).
 
 - **Tests live in `__tests__/`** next to the code they test (`src/tools/__tests__/read-file.test.ts`).
   ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.

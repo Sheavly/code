@@ -1,8 +1,8 @@
 // Shared ESLint config for every @sheavly/harness workspace: strict type-aware TypeScript,
 // readability rules that track comprehension cost, the file structure rules, and no inline
-// escape hatches. A workspace's
-// `eslint.config.js` is `baseConfig({ tsconfigRootDir: import.meta.dirname })`, plus its own
-// layer boundaries and exceptions.
+// escape hatches. A workspace's `eslint.config.js` is
+// `baseConfig({ tsconfigRootDir: import.meta.dirname })`, plus its own layer boundaries and
+// exceptions.
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
