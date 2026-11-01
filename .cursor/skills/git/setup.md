@@ -25,8 +25,9 @@ Once per repo, in GitHub's settings (a person does this, not an agent):
 
 - **Pull requests:** allow squash merging only, with "Default to pull request title" for the
   commit message; turn on "Automatically delete head branches".
-- **Branch protection on `main`:** require a pull request, and the `PR title, body and branch`
-  check from the `Git format` workflow. Don't restrict which branches a PR may target: stacked PRs
+- **Branch protection on `main`:** require a pull request, the `PR title, body and branch`
+  check from the `Git format` workflow, and the `npm run check` check from the `Check` workflow.
+  Don't restrict which branches a PR may target: stacked PRs
   are based on issue branches.
 - **Issues:** on, with the forms in `.github/ISSUE_TEMPLATE/` (`task.yml`, `bug.yml`, `feature.yml`).
 - **Issue types** (organization settings, Planning → Issue types): `Task`, `Bug` and `Feature`,

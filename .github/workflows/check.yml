@@ -1,0 +1,42 @@
+name: Check
+
+# The full quality gate (`npm run check`: typecheck, ESLint, Prettier, knip, jscpd, tests) on every
+# PR, whatever its base, so the lint rules (layer boundaries, `harness/no-terminal-io`: no UI
+# outside the named front-end files) block a merge, not just a Cursor session.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: npm run check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Some tests make throwaway git repos and commits; give them an identity.
+      - name: Check
+        run: npm run check
+        env:
+          GIT_AUTHOR_NAME: ci
+          GIT_AUTHOR_EMAIL: ci@example.invalid
+          GIT_COMMITTER_NAME: ci
+          GIT_COMMITTER_EMAIL: ci@example.invalid
