@@ -71,4 +71,4 @@ reads AGENTS.md files and adds them as system instructions.
 4. Test it in `src/loop/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 
 Not built yet: workspace trust before loading `.sheavly/`, a user-level `~/.sheavly/`, and
-hooks around context compaction (the loop doesn't compact yet). See [TODO.md](../TODO.md).
+hooks around context compaction (the loop doesn't compact yet). See [#13](https://github.com/Sheavly/code/issues/13).

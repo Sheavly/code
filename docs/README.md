@@ -1,7 +1,7 @@
 # Sheavly harness docs
 
 Notes for building on the harness: what exists, how the parts fit, and where new work goes.
-The [README](../README.md) covers setup and running; [TODO.md](../TODO.md) lists what's next.
+The [README](../README.md) covers setup and running; open work is in [GitHub Issues](https://github.com/Sheavly/code/issues).
 
 | Doc                        | What it covers                                                       |
 | -------------------------- | -------------------------------------------------------------------- |
