@@ -1,6 +1,6 @@
 import type { ApprovalRegistry } from '../../runtime/approvals/approvals.service.js';
 import type { ApprovalConcern } from '../../runtime/approvals/approvals.types.js';
-import { WorkspaceError } from '../../runtime/workspace/workspace.errors.js';
+import { WorkspaceError } from '../../runtime/errors/workspace.errors.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { isEnvFile } from '../files/files.utils.js';
 import { namesEnvFile, pathArguments, stripPathspecMagic } from './arguments.utils.js';

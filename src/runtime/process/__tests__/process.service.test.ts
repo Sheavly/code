@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ProcessKillError } from '../../errors/process.errors.js';
 import { runProcess } from '../process.service.js';
 
 const signal = new AbortController().signal;
@@ -7,6 +8,33 @@ const printEnv = (env: Record<string, string> = {}) =>
 
 afterEach(() => {
   vi.unstubAllEnvs();
+});
+
+describe('runProcess kill', () => {
+  it('fails the command with a ProcessKillError when its group cannot be killed', async () => {
+    const controller = new AbortController();
+    const eperm = Object.assign(new Error('not permitted'), { code: 'EPERM' });
+    const running = runProcess({
+      file: 'sleep',
+      args: ['5'],
+      cwd: process.cwd(),
+      shell: false,
+      signal: controller.signal,
+    });
+    const realKill = process.kill.bind(process);
+    const kill = vi.spyOn(process, 'kill').mockImplementationOnce(() => {
+      throw eperm;
+    });
+
+    controller.abort();
+
+    const failure = await running.catch((caughtError: unknown) => caughtError);
+
+    kill.mockRestore();
+    if (failure instanceof ProcessKillError) realKill(-failure.pid, 'SIGKILL'); // clean up
+    expect(failure).toBeInstanceOf(ProcessKillError);
+    expect(failure).toMatchObject({ code: 'EPERM', cause: eperm });
+  });
 });
 
 describe('runProcess env', () => {

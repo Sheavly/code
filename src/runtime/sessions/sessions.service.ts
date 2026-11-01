@@ -8,6 +8,7 @@ import type {
 } from '@sheavly/core/session/session.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { toServerSentEvent } from './sessions.utils.js';
+import { SessionError } from '../errors/sessions.errors.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -38,19 +39,27 @@ export class SessionRegistry {
     const parent = this.#sessions.get(parentId);
 
     if (!parent) {
-      throw new Error(`Unknown parent session ${parentId}: a sub-agent must belong to a session`);
+      throw new SessionError({
+        reason: 'unknown_session',
+        sessionId: parentId,
+        message: `Unknown parent session ${parentId}: a sub-agent must belong to a session`,
+      });
     }
 
     if (parent.state !== 'running') {
-      throw new Error(
-        `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
-      );
+      throw new SessionError({
+        reason: 'parent_ended',
+        sessionId: parentId,
+        message: `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
+      });
     }
 
     if (parent.depth >= MAX_SESSION_DEPTH) {
-      throw new Error(
-        `Sub-agents nest at most ${MAX_SESSION_DEPTH} levels (main session → sub-agent → sub-agent); session ${parentId} is at depth ${parent.depth}`,
-      );
+      throw new SessionError({
+        reason: 'too_deep',
+        sessionId: parentId,
+        message: `Sub-agents nest at most ${MAX_SESSION_DEPTH} levels (main session → sub-agent → sub-agent); session ${parentId} is at depth ${parent.depth}`,
+      });
     }
 
     return this.#add({
@@ -92,13 +101,19 @@ export class SessionRegistry {
     const session = this.#require(id);
 
     if (session.state !== 'running') {
-      throw new Error(`Session ${id} has ended (${session.state}); it can't receive messages`);
+      throw new SessionError({
+        reason: 'session_ended',
+        sessionId: id,
+        message: `Session ${id} has ended (${session.state}); it can't receive messages`,
+      });
     }
 
     if (from !== 'user' && !this.lineage(id).some((s) => s.id === from && s.id !== id)) {
-      throw new Error(
-        `Session ${from} did not start session ${id} (directly or through a sub-agent)`,
-      );
+      throw new SessionError({
+        reason: 'not_an_ancestor',
+        sessionId: id,
+        message: `Session ${from} did not start session ${id} (directly or through a sub-agent)`,
+      });
     }
 
     const message: InboxMessage = { from, content, sentAt: Date.now() };
@@ -210,7 +225,13 @@ export class SessionRegistry {
   #require(id: string): SessionInfo {
     const session = this.#sessions.get(id);
 
-    if (!session) throw new Error(`Unknown session ${id}`);
+    if (!session) {
+      throw new SessionError({
+        reason: 'unknown_session',
+        sessionId: id,
+        message: `Unknown session ${id}`,
+      });
+    }
 
     return session;
   }

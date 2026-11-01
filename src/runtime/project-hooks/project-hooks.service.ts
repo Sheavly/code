@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { Workspace } from '../workspace/workspace.service.js';
 import { HOOKS_MANIFEST, SHEAVLY_DIR } from './project-hooks.constants.js';
-import { ProjectHooksError } from './project-hooks.errors.js';
+import { ProjectHooksError } from '../errors/project-hooks.errors.js';
 import type { HooksManifest } from './project-hooks.types.js';
 import { explainImportError, hooksManifestSchema, parseHookExport } from './project-hooks.utils.js';
 

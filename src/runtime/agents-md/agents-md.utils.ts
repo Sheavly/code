@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile } from './agents-md.types.js';
+import { AgentsMdError } from '../errors/agents-md.errors.js';
 
 /**
  * The folders to look in, from `root` down to `cwd` (both included), like git walks up from the
@@ -13,7 +14,7 @@ export function agentsDirs(params: { root: string; cwd: string }): string[] {
   const relative = path.relative(root, cwd);
 
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`AGENTS.md: the working directory ${cwd} is outside the project root ${root}`);
+    throw new AgentsMdError({ root, cwd });
   }
 
   const dirs = [root];

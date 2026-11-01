@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process';
+import { ProcessInterruptedError, ProcessKillError } from '../errors/process.errors.js';
+import { errorCode } from '../errors/errors.utils.js';
 import { MAX_OUTPUT_CHARS } from './process.constants.js';
 import type { ProcessParams, ProcessResult } from './process.types.js';
 
@@ -12,18 +14,27 @@ const SECRET_ENV = /KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL/i;
 const liveGroups = new Set<number>();
 let exitHookInstalled = false;
 
-function killGroup(pid: number): void {
+/** Kills a process group. Returns why it couldn't, unless the group had already exited. */
+function killGroup(pid: number): ProcessKillError | undefined {
   try {
     process.kill(-pid, 'SIGKILL');
-  } catch {
-    // already exited
+  } catch (caughtError) {
+    // ESRCH: the group already exited, so there's nothing left to stop.
+    if (errorCode(caughtError) === 'ESRCH') return undefined;
+
+    return new ProcessKillError({ pid, cause: caughtError });
   }
+
+  return undefined;
 }
 
 function trackGroup(pid: number): void {
   if (!exitHookInstalled) {
     process.once('exit', () => {
-      liveGroups.forEach(killGroup);
+      // At exit there is no caller left to tell: an orphaned group fails the exit loudly.
+      const failed = [...liveGroups].map(killGroup).find(Boolean);
+
+      if (failed) throw failed;
     });
     exitHookInstalled = true;
   }
@@ -40,7 +51,7 @@ export function runProcess(params: ProcessParams): Promise<ProcessResult> {
 
   return new Promise((resolve, reject) => {
     if (options.signal.aborted) {
-      reject(new Error('Interrupted before the command started'));
+      reject(new ProcessInterruptedError());
 
       return;
     }
@@ -73,15 +84,22 @@ export function runProcess(params: ProcessParams): Promise<ProcessResult> {
     child.stderr.on('data', append);
 
     const kill = () => {
-      if (child.pid) killGroup(child.pid);
+      const failed = child.pid ? killGroup(child.pid) : undefined;
+
+      // The command may still be running: fail it now rather than wait for a close that may
+      // never come. Its group stays tracked, so exit tries again.
+      if (!failed) return;
+      clearTimeout(timer);
+      reject(failed);
     };
-    const timer =
-      options.timeoutMs === undefined
-        ? undefined
-        : setTimeout(() => {
-            timedOut = true;
-            kill();
-          }, options.timeoutMs);
+    let timer: NodeJS.Timeout | undefined;
+
+    if (options.timeoutMs !== undefined) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        kill();
+      }, options.timeoutMs);
+    }
 
     options.signal.addEventListener('abort', kill, { once: true });
 
