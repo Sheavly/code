@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { echoTool as echo } from '../../testing/echo-tool.fake.js';
 import { defineTool, describeCall, runTool, toDefinition } from '../tool.service.js';
 
 const signal = new AbortController().signal;
-
-const echo = defineTool({
-  name: 'echo',
-  description: 'Echoes text back',
-  inputSchema: z.object({ text: z.string() }),
-  execute: async ({ input }) => JSON.stringify(input),
-});
 
 describe('call description', () => {
   it("is added to every tool's JSON schema as a required field, listed first", () => {
