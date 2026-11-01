@@ -1,6 +1,7 @@
 import type { Sequenced } from '../queue/queue.types.js';
 import type { TaskInfo } from '../../runtime/tasks/tasks.types.js';
 import type { FileChange } from '@sheavly/core/tool/tool.types';
+import type { InboxMessage, SessionRef } from '@sheavly/core/session/session.types';
 import type {
   Message,
   ReasoningItem,
@@ -18,6 +19,7 @@ export type DescribedCall = {
  * One step the loop took. Per turn, in causal order:
  *
  *   task_completed × N                            (background tasks that finished since last turn)
+ *   → message_received × N                        (messages sent to this session meanwhile)
  *   → context_added × N                           (hooks' `beforeTurn` context, in hook order)
  *   → text_delta / reasoning / tool_call_started  (live, as the model streams)
  *   → turn_end
@@ -47,10 +49,15 @@ export type AgentEventBody =
   | ({ type: 'task_running'; task: TaskInfo; message: Message; durationMs: number } & DescribedCall)
   /** A background task finished (or failed); the model is told at the start of the next turn. */
   | { type: 'task_completed'; task: TaskInfo }
+  /**
+   * A message sent to this session while it worked (user steering, or from the session that
+   * started it), added to history before this turn's model call.
+   */
+  | { type: 'message_received'; message: InboxMessage }
   /** A hook's `beforeTurn` added this context to history; the model sees it from this turn on. */
   | { type: 'context_added'; hook: string; content: string }
   /** Always last. The full conversation (valid to continue from, even after an interrupt). */
-  | { type: 'done'; reason: DoneReason; messages: Message[] };
+  | { type: 'done'; reason: DoneReason; messages: Message[]; session: SessionRef };
 
 export type DoneReason = 'completed' | 'interrupted' | 'max_turns';
 

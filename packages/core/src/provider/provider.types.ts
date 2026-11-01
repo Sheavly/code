@@ -9,6 +9,11 @@ export type ToolDefinition = {
 };
 
 export type ProviderRequest = {
+  /**
+   * System instructions for this model call (e.g. the host's prompt plus AGENTS.md files).
+   * Rebuilt every turn and never stored in `messages`, so changing them can't corrupt history.
+   */
+  instructions?: string | undefined;
   messages: Message[];
   tools: ToolDefinition[];
   signal: AbortSignal;

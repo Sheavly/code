@@ -1,5 +1,5 @@
 // The package's one public entry point (`main`). Inside src/, import from the defining file.
-export { runAgent, streamAgent } from './loop/stream-agent/stream-agent.service.js';
+export { runAgent, runSession, streamAgent } from './loop/stream-agent/stream-agent.service.js';
 export type { AgentOptions, RunAgentOptions } from './loop/stream-agent/stream-agent.types.js';
 export type {
   AgentEvent,
@@ -37,6 +37,8 @@ export type { StartTask, TaskInfo, TaskStatus } from './runtime/tasks/tasks.type
 export { Workspace } from './runtime/workspace/workspace.service.js';
 export { WorkspaceError } from './runtime/workspace/workspace.errors.js';
 export { loadProjectHooks } from './runtime/project-hooks/project-hooks.service.js';
+export { createAgentsMdHook, findAgentsFiles } from './runtime/agents-md/agents-md.service.js';
+export type { AgentsFile, AgentsMdHookOptions } from './runtime/agents-md/agents-md.types.js';
 export { ProjectHooksError } from './runtime/project-hooks/project-hooks.errors.js';
 export type { HooksManifest } from './runtime/project-hooks/project-hooks.types.js';
 export type * from '@sheavly/core/message/message.types';
@@ -50,3 +52,11 @@ export { openaiAdapter } from './providers/adapters/openai.adapter.js';
 export { azureAdapter } from './providers/adapters/azure.adapter.js';
 export { astraAdapter } from './providers/adapters/astra.adapter.js';
 export { ProviderSwitch } from './providers/switch/switch.service.js';
+export { SessionRegistry } from './runtime/sessions/sessions.service.js';
+export { MAX_SESSION_DEPTH } from './runtime/sessions/sessions.constants.js';
+export type { RunSession } from './runtime/sessions/sessions.types.js';
+export type * from '@sheavly/core/session/session.types';
+export { createSubAgentTool } from './tools/sub-agent/sub-agent.tool.js';
+export { createReportStatusTool } from './tools/sub-agent/report-status.tool.js';
+export { createMessageAgentTool } from './tools/sub-agent/message-agent.tool.js';
+export type { RunNestedAgent, SubAgentOptions } from './tools/sub-agent/sub-agent.types.js';

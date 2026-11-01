@@ -18,7 +18,14 @@ type ContextAccess = {
 export type SessionStartContext = ContextAccess;
 
 /** What `beforeTurn` receives, just before the model is called. */
-export type BeforeTurnContext = ContextAccess & { turn: number };
+export type BeforeTurnContext = ContextAccess & {
+  turn: number;
+  /**
+   * Adds system instructions for this turn's model call only (not history): call it every turn
+   * the instructions should apply. Hooks' instructions follow the run's own, in hook order.
+   */
+  addInstructions: (content: string) => void;
+};
 
 /** What `afterTurn` receives, once the turn's reply and tool results are in history. */
 export type AfterTurnContext = {

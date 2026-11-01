@@ -10,8 +10,19 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 - `execute({ input, signal, context })` returns text for the model, or `{ content, change }`
   when it changed a file (below). Throw an `Error` with a clear message on failure:
   `runTool` turns it into an error result, so one failing tool never stops the others.
+- `context` has the `callId`, the model's `description`, and the calling `session` (its id,
+  parent, main session and depth; see [sessions.md](sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
 - Wire the tool into the host (`src/demo.ts`) and export it from `src/index.ts`.
+
+## Built-in tools
+
+| Tool                                            | Where                                     | What it does                                                             |
+| ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| `read_file`, `write_file`, `edit_file`          | `read-file/`, `write-file/`, `edit-file/` | File access in the workspace (below)                                     |
+| `run_command`                                   | `run-command/`                            | Allow-listed commands; `background: true` for tasks                      |
+| `task_status`, `cancel_task`                    | `tasks/`                                  | Check on and stop background tasks                                       |
+| `start_agent`, `report_status`, `message_agent` | `sub-agent/`                              | Sub-agents, their status, and steering them ([sessions.md](sessions.md)) |
 
 ## File tools
 

@@ -1,6 +1,7 @@
 import type { Message, ToolCall, ToolMessage } from '@sheavly/core/message/message.types';
 import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
 import type { Tool, FileChange, ToolRunResult } from '@sheavly/core/tool/tool.types';
+import type { SessionRef } from '@sheavly/core/session/session.types';
 import { describeCall, runTool } from '@sheavly/core/tool/tool.service';
 
 /** Someone to tell about every context addition (the loop emits `context_added`). */
@@ -37,7 +38,8 @@ export async function runSessionStart(params: {
 
 /**
  * Runs every `beforeTurn` handler in order. Each sees the history including context added by
- * the hooks before it; `onContext` hears about every addition (for the event stream).
+ * the hooks before it; `onContext` hears about every addition (for the event stream). Returns
+ * the system instructions the hooks added for this turn, in hook order.
  */
 export async function runBeforeTurn(params: {
   hooks: Hook[];
@@ -45,8 +47,9 @@ export async function runBeforeTurn(params: {
   messages: Message[];
   signal: AbortSignal;
   onContext: OnContext;
-}): Promise<void> {
+}): Promise<string[]> {
   const { hooks, turn, messages, signal, onContext } = params;
+  const instructions: string[] = [];
 
   for (const hook of hooks) {
     if (!hook.beforeTurn) continue;
@@ -55,8 +58,13 @@ export async function runBeforeTurn(params: {
       messages: [...messages],
       signal,
       addContext: contextAdder({ hook, messages, onContext }),
+      addInstructions: (content) => {
+        if (content.trim()) instructions.push(content);
+      },
     });
   }
+
+  return instructions;
 }
 
 /** Runs every `afterTurn` handler in order, once the turn's reply and results are in history. */
@@ -97,15 +105,19 @@ export async function runToolCall(params: {
   tools: Tool[];
   call: ToolCall;
   signal: AbortSignal;
+  /** The calling session, handed to the tool (`context.session`). */
+  session?: SessionRef | undefined;
 }): Promise<{ message: ToolMessage; change?: FileChange | undefined }> {
-  const { hooks, tools, call, signal } = params;
+  const { hooks, tools, call, signal, session } = params;
   const handlers = hooks.filter((hook) => hook.aroundToolCall);
   const description = describeCall(call);
 
   const runFrom = async (index: number, current: ToolCall): Promise<ToolResult> => {
     const hook = handlers[index];
 
-    if (!hook?.aroundToolCall) return toResult(await runTool({ tools, call: current, signal }));
+    if (!hook?.aroundToolCall) {
+      return toResult(await runTool({ tools, call: current, signal, session }));
+    }
 
     try {
       return await hook.aroundToolCall({

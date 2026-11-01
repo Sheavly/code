@@ -8,11 +8,20 @@ import { PROJECT_ROOT } from './hooks.utils.mjs';
 
 export const DOC_SOURCES = [
   {
+    doc: 'docs/sessions.md',
+    sources: [
+      /^packages\/core\/src\/session\//,
+      /^src\/runtime\/sessions\//,
+      /^src\/tools\/sub-agent\//,
+    ],
+  },
+  {
     doc: 'docs/hooks.md',
     sources: [
       /^packages\/core\/src\/hook\//,
       /^src\/loop\/hooks\//,
       /^src\/runtime\/project-hooks\//,
+      /^src\/runtime\/agents-md\//,
     ],
   },
   { doc: 'docs/tools.md', sources: [/^packages\/core\/src\/tool\//, /^src\/tools\//] },

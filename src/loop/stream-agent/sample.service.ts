@@ -17,7 +17,7 @@ import type { RunningCall, SampleContext, ToolStart } from './stream-agent.types
  * On abort, keeps whatever the model produced so far.
  */
 export async function sample(context: SampleContext) {
-  const { provider, tools, messages, signal, aborted, events } = context;
+  const { provider, instructions, tools, messages, signal, aborted, events } = context;
   let content = '';
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
@@ -27,6 +27,7 @@ export async function sample(context: SampleContext) {
   try {
     // A snapshot: providers must never see later pushes to the loop's own history.
     const source = provider.stream({
+      instructions,
       messages: [...messages],
       tools: tools.map(toDefinition),
       signal,
@@ -84,7 +85,7 @@ async function startTool(params: {
   start: ToolStart;
   described: DescribedCall;
 }): Promise<ToolOutcome> {
-  const { tools, hooks = [], tasks, signal, aborted } = params.start;
+  const { tools, hooks = [], tasks, session, signal, aborted } = params.start;
   const { call, description } = params.described;
   const started = performance.now();
   const interrupted: ToolMessage = {
@@ -94,7 +95,7 @@ async function startTool(params: {
     isError: true,
   };
   const { message, change } = await Promise.race([
-    runToolCall({ hooks, tools, call, signal }),
+    runToolCall({ hooks, tools, call, signal, session }),
     aborted.then(() => ({ message: interrupted, change: undefined })),
   ]);
   const durationMs = performance.now() - started;

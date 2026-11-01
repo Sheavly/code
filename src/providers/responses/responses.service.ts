@@ -12,7 +12,7 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
   const reasoningSource = reasoning ? source : undefined;
 
   return {
-    async *stream({ messages, tools, signal }) {
+    async *stream({ instructions, messages, tools, signal }) {
       const url = new URL(`${config.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(config.query ?? {})) {
@@ -24,6 +24,8 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
         headers: { 'content-type': 'application/json', ...config.headers },
         body: JSON.stringify({
           model: config.model,
+          // The Responses API's system prompt; with `store: false` it is sent every call.
+          ...(instructions ? { instructions } : {}),
           input: messages.flatMap((message) => toInputItems({ message, reasoningSource })),
           tools: tools.map((tool) => ({
             type: 'function',

@@ -8,7 +8,8 @@ export function createTaskStatusTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'task_status',
     description:
-      "Show background tasks. With an id: that task's status and recent output. Without: all tasks.",
+      "Show background tasks. With an id: that task's status and recent output. Without: all tasks. " +
+      "You don't need it to wait for a task: finished tasks are reported to you automatically.",
     inputSchema: z.object({
       id: z.string().optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
     }),

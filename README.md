@@ -80,6 +80,14 @@ A short prompt costs a fraction of a cent. See `src/demo.ts`.
 If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
 A `Responses API error 401` means the key is wrong.
 
+Demo settings, as environment variables (see the top of `src/demo.ts`):
+
+- `WORKSPACE_ROOT=<dir>`: where the file tools, AGENTS.md and `.sheavly/` hooks are read from.
+- `SHOW_MODEL_CALLS=true`: prints every model call (main session and sub-agents) with its tools,
+  system prompt and latest user message.
+- `SESSIONS_SSE_LOG=<file>`: writes the session server-sent event stream (what a UI would read)
+  to a file.
+
 ## Using other backends
 
 Every adapter is created from the registry with a config object that is checked by zod:

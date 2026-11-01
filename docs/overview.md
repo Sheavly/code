@@ -18,30 +18,49 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 @sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  hosts (src/demo.ts)
 ```
 
-| Where                | What lives there                                                                    |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`               |
-| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client          |
-| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, `.sheavly/`      |
-| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks` |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks         |
-| `src/demo.ts`        | A CLI host: reads env, wires everything up, prints events                           |
+| Where                | What lives there                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                   |
+| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                          |
+| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, `.sheavly/`, AGENTS.md |
+| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`    |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                         |
+| `src/demo.ts`        | A CLI host: reads env, wires everything up, prints events                                           |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
+
+## The provider contract
+
+A provider (`packages/core/src/provider/`) is one method, `stream(request)`, returning
+`StreamEvent`s. Every model call gets a fresh `ProviderRequest`:
+
+| Field          | What it is                                                                                                                                                |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added (e.g. AGENTS.md), joined with blank lines |
+| `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                                      |
+| `tools`        | The tool definitions (name, description, JSON schema)                                                                                                     |
+| `signal`       | Aborts the call                                                                                                                                           |
+
+`instructions` are rebuilt each turn and never stored in `messages`, so they can change between
+turns (an edited AGENTS.md) without touching history. The Responses client sends them as the
+API's `instructions` field.
 
 ## One run
 
 `streamAgent(options)` returns an async iterable of events, each with a gap-free `seq`:
 
 1. `sessionStart` hooks run (they may add context).
-2. Each turn: finished background tasks are reported, `beforeTurn` hooks run, then the model is
-   called. Text and reasoning stream out as they arrive.
+2. Each turn: finished background tasks are reported, messages sent to the session meanwhile
+   (steering) are added, `beforeTurn` hooks run (they may add
+   context and this turn's system instructions), then the model is called. Text and reasoning
+   stream out as they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
    Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
 4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
    (or waits for a background task, with `waitForTasks`).
-5. `done` is always last and carries the full history, valid to continue from.
+5. `done` is always last and carries the full history, valid to continue from, and the run's
+   session (every run is a session with an id; see [sessions.md](sessions.md)).
 
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
 history stays valid. If the run fails, `onError` hooks are told and the error is rethrown.

@@ -274,7 +274,14 @@ describe('interrupts', () => {
     );
 
     expect(called).toBe(false);
-    expect(events).toEqual([{ seq: 0, type: 'done', reason: 'interrupted', messages: history }]);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      seq: 0,
+      type: 'done',
+      reason: 'interrupted',
+      messages: history,
+      session: { depth: 1 },
+    });
   });
 
   it('reports why a run ended', async () => {

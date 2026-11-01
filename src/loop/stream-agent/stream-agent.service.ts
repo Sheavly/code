@@ -4,11 +4,16 @@ import type { AgentEvent, AgentEventBody, DoneReason } from '../events/events.ty
 import { OrderedQueue } from '../queue/queue.service.js';
 import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.service.js';
+import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
 import { runTurn } from './turn.service.js';
 
 /**
  * Runs the agent and yields one typed, sequenced event per step.
+ *
+ * Every run is a session: the one in `options.session` (a sub-agent's, from its parent), or a
+ * new main session. The session is ended with the run's outcome, and `done` names it.
  *
  * Aborting `signal` stops the run cleanly: the model stream is dropped, unfinished tools are
  * cancelled and recorded as interrupted, and the run ends with `done` (reason "interrupted").
@@ -18,10 +23,14 @@ export async function* streamAgent(options: AgentOptions): AsyncGenerator<AgentE
   const stop = new AbortController();
   const signal = options.signal ? AbortSignal.any([options.signal, stop.signal]) : stop.signal;
   const events = new OrderedQueue<AgentEventBody>();
+  const session = options.session ?? mainSession();
 
-  drive({ options, signal, aborted: whenAborted(signal), events }).then(
+  drive({ options, session, signal, aborted: whenAborted(signal), events }).then(
     () => events.close(),
-    (caughtError: unknown) => events.fail(caughtError),
+    (caughtError: unknown) => {
+      session.registry.end({ id: session.ref.id, state: 'failed' });
+      events.fail(caughtError);
+    },
   );
 
   try {
@@ -33,17 +42,31 @@ export async function* streamAgent(options: AgentOptions): AsyncGenerator<AgentE
 
 /** Convenience wrapper: runs to completion and returns the conversation. */
 export async function runAgent(options: RunAgentOptions): Promise<Message[]> {
+  return (await runSession(options)).messages;
+}
+
+/** Runs to completion and returns how the run ended and the conversation (e.g. a sub-agent's). */
+export async function runSession(
+  options: RunAgentOptions,
+): Promise<{ reason: DoneReason; messages: Message[] }> {
   for await (const event of streamAgent(options)) {
     options.onEvent?.(event);
-    if (event.type === 'done') return event.messages;
+    if (event.type === 'done') return { reason: event.reason, messages: event.messages };
   }
 
   throw new Error('Agent stream ended without a done event');
 }
 
+/** A run with no session given is a main session, in a registry of its own. */
+function mainSession(): RunSession {
+  const registry = new SessionRegistry();
+
+  return { registry, ref: registry.startMain({ title: 'Main session' }) };
+}
+
 /** The loop itself: call the model, run requested tools, feed results back, repeat. */
 async function drive(context: RunContext) {
-  const { options, events, signal } = context;
+  const { options, session, events, signal } = context;
   const { maxTurns = DEFAULT_MAX_TURNS, hooks = [] } = options;
   const messages = [...options.messages];
   let reason: DoneReason = 'max_turns';
@@ -73,5 +96,6 @@ async function drive(context: RunContext) {
     throw caughtError;
   }
 
-  events.enqueue({ type: 'done', reason, messages });
+  session.registry.end({ id: session.ref.id, state: reason });
+  events.enqueue({ type: 'done', reason, messages, session: session.ref });
 }

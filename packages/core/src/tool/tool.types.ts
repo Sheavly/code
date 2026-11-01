@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { ToolMessage } from '../message/message.types.js';
+import type { SessionRef } from '../session/session.types.js';
 
 /**
  * A file a tool created or changed: enough for a UI to render a diff. The harness emits it on
@@ -24,6 +25,8 @@ export type ToolContext = {
   callId: string;
   /** The model's plain-language description of this call. */
   description: string;
+  /** The session making the call (when the loop runs it): sub-agent tools start children of it. */
+  session?: SessionRef | undefined;
 };
 
 /** What a tool's `execute` receives. */

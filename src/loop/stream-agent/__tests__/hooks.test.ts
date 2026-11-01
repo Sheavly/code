@@ -98,6 +98,61 @@ describe('hooks in the loop', () => {
     expect(events[0]).toMatchObject({ type: 'context_added', hook: 'setup' });
   });
 
+  it('sends the run instructions plus beforeTurn instructions, per turn, never in history', async () => {
+    const seen: (string | undefined)[] = [];
+    const inner = twoTurns();
+    const messages = await runAgent({
+      provider: {
+        stream: (request) => {
+          seen.push(request.instructions);
+
+          return inner.stream(request);
+        },
+      },
+      tools: [ping],
+      instructions: 'Base prompt.',
+      messages: [{ role: 'user', content: 'ping' }],
+      hooks: [
+        defineHook({
+          name: 'a',
+          beforeTurn: async ({ turn, addInstructions }) => addInstructions(`Turn ${turn} rule.`),
+        }),
+        defineHook({
+          name: 'b',
+          beforeTurn: async ({ turn, addInstructions }) => {
+            if (turn === 1) addInstructions('Only on turn 1.');
+            addInstructions('   '); // blank: ignored
+          },
+        }),
+      ],
+    });
+
+    expect(seen).toEqual([
+      'Base prompt.\n\nTurn 1 rule.\n\nOnly on turn 1.',
+      'Base prompt.\n\nTurn 2 rule.',
+    ]);
+    expect(messages.some((m) => m.content.includes('rule.'))).toBe(false);
+  });
+
+  it('sends no instructions at all when there are none', async () => {
+    const seen: (string | undefined)[] = [];
+    const inner = twoTurns();
+
+    await runAgent({
+      provider: {
+        stream: (request) => {
+          seen.push(request.instructions);
+
+          return inner.stream(request);
+        },
+      },
+      tools: [ping],
+      messages: [{ role: 'user', content: 'ping' }],
+    });
+
+    expect(seen).toEqual([undefined, undefined]);
+  });
+
   it('gives afterTurn the reply, with the tool results already in history', async () => {
     const seen: { reply: string; last: string | undefined }[] = [];
 

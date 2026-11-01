@@ -108,6 +108,17 @@ describe('createResponsesProvider', () => {
     });
   });
 
+  it('sends system instructions as the `instructions` field, and none when absent', async () => {
+    const { fetch, requests } = fakeFetch([]);
+
+    await collect(provider(fetch).stream(request({ instructions: 'Use npm.' })));
+    await collect(provider(fetch).stream(request()));
+
+    expect(requests[0]?.body).toMatchObject({ instructions: 'Use npm.' });
+    expect(requests[0]?.body.input).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(requests[1]?.body).not.toHaveProperty('instructions');
+  });
+
   it('throws on HTTP errors', async () => {
     const { fetch } = fakeFetch([], 401);
 

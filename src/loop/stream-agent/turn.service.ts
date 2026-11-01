@@ -1,20 +1,24 @@
 import type { Message } from '@sheavly/core/message/message.types';
+import { inboxText } from '../../runtime/sessions/sessions.utils.js';
+import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { taskNotification } from '../../runtime/tasks/tasks.utils.js';
 import type { DoneReason } from '../events/events.types.js';
 import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.service.js';
+import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.service.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {
-  const { options, turn, messages, signal, aborted, events } = context;
+  const { options, session, turn, messages, signal, aborted, events } = context;
 
   if (signal.aborted) return 'interrupted';
 
   reportFinishedTasks({ tasks: options.tasks, messages, events });
+  deliverMessages({ session, messages, events });
 
-  await runBeforeTurn({
+  const instructions = await runBeforeTurn({
     hooks: options.hooks ?? [],
     turn,
     messages,
@@ -26,6 +30,8 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   const { message, stopReason, running } = await sample({
     ...options,
+    instructions: joinInstructions([options.instructions, ...instructions]),
+    session: session.ref,
     messages,
     signal,
     aborted,
@@ -53,10 +59,30 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (running.length > 0) return undefined;
 
-  // The model is done. Either end the run, or wait for a background task and continue.
-  if (await awaitTask({ options, aborted })) return undefined;
+  // The model is done. A message that came in meanwhile gets another turn, as does a finished
+  // background task (or a message) while waiting, with `waitForTasks`; otherwise the run ends.
+  if (session.registry.hasMessages(session.ref.id)) return undefined;
+
+  if (await awaitTask({ options, session, aborted })) return undefined;
 
   return signal.aborted ? 'interrupted' : 'completed';
+}
+
+/**
+ * Messages sent to this session while it worked (user steering, or its parent's): put in
+ * history as user messages before the model call, and shown in order, like finished tasks.
+ */
+function deliverMessages(params: {
+  session: RunSession;
+  messages: Message[];
+  events: AgentEvents;
+}): void {
+  const { session, messages, events } = params;
+
+  for (const message of session.registry.takeMessages(session.ref.id)) {
+    events.enqueue({ type: 'message_received', message });
+    messages.push({ role: 'user', content: inboxText(message) });
+  }
 }
 
 /** Tasks that finished since the last turn: shown in order, and told to the model before it runs. */
@@ -94,26 +120,29 @@ async function releaseResults(params: {
 }
 
 /**
- * With `waitForTasks`: true once a finished task is ready to report (waiting for one if needed).
- * False if there's nothing to wait for, or the run was aborted while waiting.
+ * With `waitForTasks`: true once a finished task or a new message is ready (waiting for one if
+ * needed). False if there's nothing to wait for, or the run was aborted while waiting.
  */
 async function awaitTask(params: {
   options: AgentOptions;
+  session: RunSession;
   aborted: Promise<void>;
 }): Promise<boolean> {
-  const { options, aborted } = params;
+  const { options, session, aborted } = params;
   const { tasks, waitForTasks } = options;
+  const { registry, ref } = session;
 
   if (!waitForTasks || !tasks) return false;
 
-  while (!tasks.hasUnreported) {
+  while (!tasks.hasUnreported && !registry.hasMessages(ref.id)) {
     if (tasks.runningCount === 0) return false;
-    const finished = await Promise.race([
+    const woken = await Promise.race([
       tasks.nextSettled().then(() => true),
+      registry.nextMessage(ref.id).then(() => true),
       aborted.then(() => false),
     ]);
 
-    if (!finished) return false;
+    if (!woken) return false;
     // Loop again: a task cancelled on request settles silently, with nothing to report.
   }
 

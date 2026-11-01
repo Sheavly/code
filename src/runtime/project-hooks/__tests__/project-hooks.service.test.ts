@@ -69,6 +69,7 @@ async function contextFrom(hooks: Hook[]): Promise<string[]> {
       messages: [],
       signal: new AbortController().signal,
       addContext: (content) => added.push(content),
+      addInstructions: () => undefined,
     });
   }
 

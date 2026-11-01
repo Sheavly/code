@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ToolCall, ToolMessage } from '../message/message.types.js';
 import type { ToolDefinition } from '../provider/provider.types.js';
 import type { Tool, ToolRunResult } from './tool.types.js';
+import type { SessionRef } from '../session/session.types.js';
 
 // --- Call description: added by the harness to every tool, filled in by the model ---
 
@@ -58,8 +59,9 @@ export async function runTool(params: {
   tools: Tool[];
   call: ToolCall;
   signal: AbortSignal;
+  session?: SessionRef | undefined;
 }): Promise<ToolRunResult> {
-  const { tools, call, signal } = params;
+  const { tools, call, signal, session } = params;
   const result = (content: string, isError = false): ToolMessage => ({
     role: 'tool',
     toolCallId: call.id,
@@ -83,7 +85,11 @@ export async function runTool(params: {
   >;
 
   try {
-    const output = await tool.execute({ input, signal, context: { callId: call.id, description } });
+    const output = await tool.execute({
+      input,
+      signal,
+      context: { callId: call.id, description, session },
+    });
 
     return typeof output === 'string'
       ? result(output)

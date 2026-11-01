@@ -9,13 +9,31 @@ and passed in the loop's `hooks` option.
 | Handler          | When                                                    | Can                                          |
 | ---------------- | ------------------------------------------------------- | -------------------------------------------- |
 | `sessionStart`   | Once per run, before the first turn                     | Add opening context                          |
-| `beforeTurn`     | Before each model call                                  | Add context                                  |
+| `beforeTurn`     | Before each model call                                  | Add context, add system instructions         |
 | `aroundToolCall` | Around each tool call                                   | Block it, change its input, result or change |
 | `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                |
 | `onError`        | When the run fails, before the error reaches the caller | Log, report (its own errors are ignored)     |
 
-Context added with `addContext` becomes a user message kept in history, and is emitted as a
-`context_added` event naming the hook. (There is no system-instructions field yet.)
+Two ways to tell the model something:
+
+- **`addContext`** (`sessionStart`, `beforeTurn`) adds a user message kept in history, emitted as a
+  `context_added` event naming the hook. Use it for things that happened ("tests failed").
+- **`addInstructions`** (`beforeTurn`) adds system instructions for this turn's model call only.
+  They go on `ProviderRequest.instructions` after the run's own `instructions` option, in hook
+  order, and are never stored in history. Call it every turn they should apply. Use it for
+  standing rules, like AGENTS.md.
+
+## Built-in: AGENTS.md
+
+`createAgentsMdHook({ root, cwd? })` (`src/runtime/agents-md/`) is a `beforeTurn` hook that
+reads AGENTS.md files and adds them as system instructions.
+
+- It looks in every folder from `root` down to `cwd` (default: `root`), like git walks up from
+  the working directory, and never above `root`. Files go root first, each under its path, so
+  the more specific one comes last and wins.
+- It re-reads them every turn, so an edit (even the agent's own) applies on the next model call.
+- It caps the total at 32,000 characters, with a truncation note. Empty files are skipped.
+- The demo passes it first, before the `.sheavly` hooks.
 
 ## Order
 

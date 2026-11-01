@@ -8,6 +8,7 @@ The [README](../README.md) covers setup and running; [TODO.md](../TODO.md) lists
 | [overview.md](overview.md) | What the harness is for, its layers, and one run from start to end   |
 | [tools.md](tools.md)       | How tools are written; the file tools and their before/after changes |
 | [hooks.md](hooks.md)       | Every hook point, order rules, and `.sheavly/` project hooks         |
+| [sessions.md](sessions.md) | Session ids and linking, sub-agents, status reporting, SSE streaming |
 
 When a feature lands, update the doc it belongs to (or add one here) in the same change. Cursor's
 stop hook reminds the agent: if source files changed but the doc that describes them didn't, it
