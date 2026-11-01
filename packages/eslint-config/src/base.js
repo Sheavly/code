@@ -40,9 +40,11 @@ const maxLinesPerKind = Object.entries(FILE_KIND_POLICIES).map(([kind, policy]) 
  * @param {object} params
  * @param {string} params.tsconfigRootDir The workspace directory: pass `import.meta.dirname`.
  * @param {string[]} [params.entryFiles] Files without a kind (an app's entry points).
+ * @param {string[]} [params.frontEndFiles] The only files that may do terminal I/O (a UI). Empty
+ *   by default: a workspace is a backend unless it names its front end here, in review.
  */
 export function baseConfig(params) {
-  const { tsconfigRootDir, entryFiles = [] } = params;
+  const { tsconfigRootDir, entryFiles = [], frontEndFiles = [] } = params;
 
   return defineConfig([
     globalIgnores(['dist/', 'coverage/', 'node_modules/']),
@@ -89,6 +91,13 @@ export function baseConfig(params) {
         'harness/params-object': 'error',
         'harness/no-barrel': 'error',
       },
+    },
+
+    // --- Backend only: no terminal I/O outside the front-end files a workspace names ---
+    {
+      files: SOURCE_FILES,
+      ignores: [...frontEndFiles, ...TEST_FILES],
+      rules: { 'harness/no-terminal-io': 'error' },
     },
 
     // --- Structure: `<name>.<kind>.ts`, each kind exports one shape, utils stay pure ---
