@@ -28,7 +28,10 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 
 All three go through the `Workspace` sandbox (`src/runtime/workspace/`): paths are relative to
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
-symlinks that point out. `.env` files are refused by name, before and after symlinks.
+symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes
+inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.git/hooks/x`,
+`sub/.git/config` and a `.git` file) are refused the same way: git config and hooks there can make
+the next `git status` run any program, outside every check `run_command` makes.
 
 | Tool         | What it does                                                                               |
 | ------------ | ------------------------------------------------------------------------------------------ |
@@ -56,11 +59,11 @@ The model never sees it; it's for a UI. The demo shows `read src/a.ts` when `who
 `read src/a.ts lines 40–45 (of 1500)` otherwise.
 
 A range past the end, a reversed range or a line number that isn't one is adjusted the same way,
-with a note. Only the guards fail closed: `.env` files and paths outside the workspace are always
-refused.
+with a note. Only the guards fail closed: `.env` files, writes inside `.git` and paths outside the
+workspace are always refused.
 
-Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check),
-`readIfExists`, `writeText`, and the `.env` guard all three tools use.
+Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check, with the `.git`
+guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
 ## Commands
 
