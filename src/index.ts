@@ -27,6 +27,14 @@ export { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
 export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
 export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';
+export { ApprovalRegistry } from './runtime/approvals/approvals.service.js';
+export type {
+  ApprovalConcern,
+  ApprovalOption,
+  ApprovalRequest,
+  ApprovalResponse,
+  ApprovalUpdate,
+} from './runtime/approvals/approvals.types.js';
 export {
   createCancelTaskTool,
   createTaskStatusTool,
