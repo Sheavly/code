@@ -46,6 +46,7 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
       }
 
       let stopReason: StopReason = 'end_turn';
+      let ended = false;
 
       for await (const raw of readServerSentEvents(response.body)) {
         const parsed = responsesEventSchema.safeParse(raw);
@@ -55,8 +56,15 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
         const step = handleEvent({ event: parsed.data, reasoningSource });
 
         if (step.stopReason) stopReason = step.stopReason;
+        if (step.ended) ended = true;
 
         if (step.event) yield step.event;
+      }
+
+      // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
+      if (!ended) {
+        signal.throwIfAborted();
+        throw new Error('Responses stream ended before response.completed');
       }
 
       yield { type: 'done', stopReason };

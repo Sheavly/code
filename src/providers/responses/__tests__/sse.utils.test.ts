@@ -67,8 +67,26 @@ describe('readServerSentEvents', () => {
     expect(await read([body])).toEqual([1, 2, 3]);
   });
 
-  it('drops an event the stream ends before finishing', async () => {
+  it('parses a last event that ends in a line break but no blank line', async () => {
     const body = new TextEncoder().encode('data: 1\n\ndata: 2\n');
+
+    expect(await read([body])).toEqual([1, 2]);
+  });
+
+  it('parses a last event the body ends without a blank line after', async () => {
+    const body = new TextEncoder().encode('data: 1\n\ndata: {"type":"response.completed"}');
+
+    expect(await read([body])).toEqual([1, { type: 'response.completed' }]);
+  });
+
+  it('names the SSE stream when a data payload is not JSON', async () => {
+    const body = new TextEncoder().encode('data: {not json\n\n');
+
+    await expect(read([body])).rejects.toThrow("SSE stream sent a data payload that isn't JSON");
+  });
+
+  it('discards a last event the body is cut off in the middle of', async () => {
+    const body = new TextEncoder().encode('data: 1\n\ndata: {"type":"response.compl');
 
     expect(await read([body])).toEqual([1]);
   });
