@@ -2,6 +2,7 @@
 // Cursor writes the event payload to stdin and reads our response from stdout.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 
 /** Project hooks run from the project root. */
 export const PROJECT_ROOT = process.cwd();
@@ -45,7 +46,16 @@ export function isProjectSource(filePath) {
 
 /** Runs a project-local binary (node_modules/.bin) and captures its output; never throws. */
 export function runBin(name, args) {
-  const result = spawnSync(path.join(PROJECT_ROOT, 'node_modules', '.bin', name), args, {
+  return runFile(path.join(PROJECT_ROOT, 'node_modules', '.bin', name), args);
+}
+
+/** Runs an npm script quietly (so its own config and baseline wrappers apply); never throws. */
+export function runNpmScript(name) {
+  return runFile('npm', ['run', '--silent', name]);
+}
+
+function runFile(file, args) {
+  const result = spawnSync(file, args, {
     cwd: PROJECT_ROOT,
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
@@ -67,4 +77,24 @@ export function formatEslintReport(json) {
   }
 
   return lines;
+}
+
+/**
+ * jscpd's console report cut to the clones marked `[NEW]` (the baselined ones are listed too, and
+ * would crowd them out), plus its closing error line. Falls back to the whole output when it has
+ * no new clone in it (a config or startup failure).
+ */
+export function formatNewClones(output) {
+  const lines = stripVTControlCharacters(output).split('\n');
+  const kept = [];
+  let inNewClone = false;
+
+  for (const line of lines) {
+    if (line.includes('Clone found')) inNewClone = line.includes('[NEW]');
+    else if (!/^\s+(- )?\S/.test(line)) inNewClone = false;
+
+    if (inNewClone || line.startsWith('ERROR:')) kept.push(line);
+  }
+
+  return kept.some((line) => line.includes('[NEW]')) ? kept.join('\n') : output;
 }

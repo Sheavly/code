@@ -80,5 +80,6 @@ export default defineConfig([
   ...layerBlocks,
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
   { files: HOST_FILES, rules: { 'harness/no-process-env': 'off', 'no-console': 'off' } },
-  { files: ['.cursor/hooks/**/*.mjs'], rules: { 'no-console': 'off' } },
+  // CLIs: they report to the terminal.
+  { files: ['.cursor/hooks/**/*.mjs', 'scripts/**/*.mjs'], rules: { 'no-console': 'off' } },
 ]);

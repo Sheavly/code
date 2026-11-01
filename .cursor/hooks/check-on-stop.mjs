@@ -1,11 +1,19 @@
-// stop: before the agent finishes, run the quality gate (typecheck + Prettier + ESLint). If any
-// fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in
-// hooks.json. Problems baselined in eslint-suppressions.json don't count; new ones do.
+// stop: before the agent finishes, run the quality gate (typecheck + Prettier + ESLint + knip +
+// jscpd). If any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with
+// `loop_limit` in hooks.json. Problems baselined in eslint-suppressions.json, knip-baseline.json
+// and .jscpd-baseline.json don't count; new ones do.
 // Once the gate passes, nudge (once per set of files) when source files changed but the doc in
 // docs/ that describes them didn't (see docs.utils.mjs).
 import { globSync } from 'node:fs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
-import { formatEslintReport, readHookInput, respond, runBin } from './hooks.utils.mjs';
+import {
+  formatEslintReport,
+  formatNewClones,
+  readHookInput,
+  respond,
+  runBin,
+  runNpmScript,
+} from './hooks.utils.mjs';
 
 const MAX_REPORT_LINES = 60;
 const TS_PACKAGE_CONFIGS = globSync('packages/*/tsconfig.json');
@@ -43,6 +51,24 @@ if (!lint.ok) {
   const problems = lint.output.startsWith('[') ? formatEslintReport(lint.output) : [lint.output];
 
   failures.push(`## ESLint\n${problems.join('\n')}`);
+}
+
+// Dead code and duplication, minus what knip-baseline.json / .jscpd-baseline.json record.
+const knip = runNpmScript('knip');
+
+if (!knip.ok) {
+  failures.push(
+    '## knip (remove the unused code, exports or dependencies; change dependencies with ' +
+      `\`npm install|uninstall\`, never by editing package.json)\n${knip.output}`,
+  );
+}
+
+const jscpd = runNpmScript('jscpd');
+
+if (!jscpd.ok) {
+  failures.push(
+    `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${formatNewClones(jscpd.output)}`,
+  );
 }
 
 if (failures.length === 0) {

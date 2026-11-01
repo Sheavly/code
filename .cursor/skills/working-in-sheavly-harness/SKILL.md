@@ -94,15 +94,17 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 ## Quality gate
 
 ```bash
-npm run check      # tsc --noEmit → eslint . → prettier --check . → vitest run
+npm run check      # tsc --noEmit → eslint . → prettier --check . → knip → jscpd → vitest run
 npm run lint:fix   # ESLint auto-fixes, then Prettier (in that order)
 npm run format     # Prettier only
 ```
 
+knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied code; `.jscpd.json`) fail only on findings not in `knip-baseline.json` / `.jscpd-baseline.json`. Remove dead code; reuse or extract duplicated code. Never hand-edit the baselines or add `jscpd:ignore` comments; after fixing baselined debt run `npm run knip:baseline` / `npm run jscpd:baseline` (prune-only: they never add entries). After deleting dead code, re-run `npm run knip`: removing one export often leaves what it used unused. `npx knip --fix --fix-type exports,types` is allowed; never the `dependencies`/`files` fix types. Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
+
 Cursor hooks (`.cursor/hooks.json`) run this automatically:
 
 - **After each Write**, the edited file is formatted with Prettier, then linted. If the hook says "Prettier reformatted the file", re-read the file before editing it again, since old `old_string` text may no longer match.
-- **On stop**, typecheck, Prettier check and ESLint run. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
+- **On stop**, typecheck, Prettier check, ESLint, knip and jscpd run. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
 
 Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 

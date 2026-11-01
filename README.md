@@ -45,7 +45,7 @@ npm run test:watch  # re-run on save
 npm run typecheck   # type errors only
 npm run lint        # ESLint (see "Code quality" below)
 npm run format      # Prettier: format everything
-npm run check       # the full quality gate: typecheck + lint + format check + tests
+npm run check       # the full quality gate: typecheck + lint + format check + knip + jscpd + tests
 ```
 
 The tests use a fake `fetch` and scripted providers, so they never call a real API.
@@ -238,7 +238,25 @@ tools/run-command/
 ## Code quality
 
 `npm run check` is the quality gate: `tsc --noEmit`, then ESLint, then `prettier --check`, then
-the tests.
+knip and jscpd, then the tests.
+
+### Dead code and duplication (knip, jscpd)
+
+- **knip** (`knip.json`) finds unused files, exports, types and dependencies across every
+  workspace. Packages are checked at their boundary too (`includeEntryExports`), so a
+  `@sheavly/core` export nothing uses fails; the app's `src/index.ts` is the public API and is
+  exempt. `npm run knip`.
+- **jscpd** (`.jscpd.json`) finds copied code (50+ tokens over 5+ lines) in `.ts` and `.js`/`.mjs`.
+  `npm run jscpd` goes through `scripts/jscpd-runner.mjs`, which fails when `.jscpd.json` is
+  missing or unreadable instead of letting jscpd silently scan with its defaults.
+- **Baselines.** Existing findings are recorded in `knip-baseline.json` (a preprocessor,
+  `scripts/knip-baseline.mjs`, drops them from the report) and `.jscpd-baseline.json`, so only
+  new dead code or duplication fails. They may only shrink: after fixing baselined debt run
+  `npm run knip:baseline` / `npm run jscpd:baseline`, which drop fixed entries and never add new
+  ones (a new finding fails, to be fixed in code). Never hand-edit them or add `jscpd:ignore`.
+- Remove dead code by hand, or with `npx knip --fix --fix-type exports,types`; never knip's
+  `dependencies`/`files` fix types, which edit `package.json` and delete files. Change
+  dependencies with `npm install|uninstall`.
 
 ### Prettier
 
@@ -297,10 +315,10 @@ returns, no nested ternaries, blank lines between steps (auto-fixed with `npm ru
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
-| Event                           | Script                               | What it does                                                                                                                                                                                           |
-| ------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs` | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.             |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`    | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds. |
+| Event                           | Script                               | What it does                                                                                                                                                                                                                                  |
+| ------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs` | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                    |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`    | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds. |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "includeEntryExports": true,
+  "workspaces": {
+    ".": {
+      "includeEntryExports": false,
+      "entry": ["src/demo.ts", ".cursor/hooks/*.mjs", "!.cursor/hooks/*.utils.mjs"],
+      "ignore": ["workbook/workspaces/**"]
+    },
+    "packages/core": {},
+    "packages/eslint-config": {}
+  }
+}
