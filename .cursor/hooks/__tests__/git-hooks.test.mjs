@@ -173,4 +173,15 @@ describe('the git guard', () => {
     prompt('ok, allow cherry-pick of abc123 onto 12-export');
     expect(shell('git cherry-pick abc123')).toEqual({ permission: 'allow' });
   });
+
+  it.each([
+    ['gh issue create --type Task --title "Add export" --body-file /tmp/b', 'deny'],
+    ['gh issue create --title x --label documentation --body-file /tmp/b', 'deny'],
+    ['gh issue create --title x --label area/tools --body-file /tmp/b', 'allow'],
+    ['gh issue create --title x -l security,area/runtime --body-file /tmp/b', 'allow'],
+    ['gh issue create --title x --label=documentation --label=area/loop', 'allow'],
+    ['gh issue create --help', 'allow'],
+  ])('needs an area label to create an issue: %j', (command, permission) => {
+    expect(shell(command)).toMatchObject({ permission });
+  });
 });
