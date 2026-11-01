@@ -1,12 +1,11 @@
-import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { architectureRule, coveredByRule, sectionOf } from '../architecture.utils.mjs';
+import { runHook } from './run-hook.utils.mjs';
 
-const HOOKS = path.resolve(import.meta.dirname, '..');
-const ROOT = path.resolve(HOOKS, '../..');
+const ROOT = path.resolve(import.meta.dirname, '../../..');
 const SKILL = '.cursor/skills/working-in-sheavly-harness/SKILL.md';
 let stateDir = '';
 let project = '';
@@ -18,14 +17,13 @@ let project = '';
  */
 function edited(params) {
   const { file, chat = 'c1' } = params;
-  const run = spawnSync(process.execPath, [path.join(HOOKS, 'lint-edited-file.mjs')], {
-    cwd: project,
-    input: JSON.stringify({ conversation_id: chat, tool_input: { path: file } }),
-    encoding: 'utf8',
-    env: { ...process.env, SHEAVLY_HOOK_STATE_DIR: stateDir },
-  });
 
-  return JSON.parse(run.stdout);
+  return runHook({
+    script: 'lint-edited-file.mjs',
+    cwd: project,
+    input: { conversation_id: chat, tool_input: { path: file } },
+    stateDir,
+  });
 }
 
 beforeEach(() => {

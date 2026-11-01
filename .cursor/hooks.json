@@ -18,6 +18,11 @@
         "command": "node .cursor/hooks/lint-edited-file.mjs",
         "matcher": "Write",
         "timeout": 30
+      },
+      {
+        "command": "node .cursor/hooks/lint-edited-file.mjs",
+        "matcher": "Delete",
+        "timeout": 30
       }
     ],
     "stop": [

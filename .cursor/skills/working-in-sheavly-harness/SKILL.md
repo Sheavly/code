@@ -112,7 +112,7 @@ knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied
 Cursor hooks (`.cursor/hooks.json`) run this automatically:
 
 - **After each Write**, the edited file is formatted with Prettier, then linted. If the hook says "Prettier reformatted the file", re-read the file before editing it again, since old `old_string` text may no longer match.
-- **On stop**, typecheck, Prettier check, ESLint, knip and jscpd run. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
+- **On stop**, typecheck, Prettier check, ESLint, knip and jscpd run, but only for a chat that edited or deleted project source in this checkout (recorded by the Write and Delete hook). A chat that only answered questions, worked in another worktree or edited only through the shell is not checked, so it never gets another chat's unfinished work. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
 
 Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 

@@ -3,8 +3,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { runHook as runHookIn } from './run-hook.utils.mjs';
 
-const HOOKS = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(import.meta.dirname, '../../..');
 let stateDir = '';
 let repo = '';
 
@@ -14,15 +15,7 @@ function git(...args) {
 
 /** Runs a hook script with `input` on stdin, against the temp state dir; returns its response. */
 function runHook(params) {
-  const { script, input } = params;
-  const run = spawnSync(process.execPath, [path.join(HOOKS, script)], {
-    cwd: path.resolve(HOOKS, '../..'),
-    input: JSON.stringify(input),
-    encoding: 'utf8',
-    env: { ...process.env, SHEAVLY_HOOK_STATE_DIR: stateDir },
-  });
-
-  return JSON.parse(run.stdout);
+  return runHookIn({ ...params, cwd: ROOT, stateDir });
 }
 
 const prompt = (text, extra = {}) =>

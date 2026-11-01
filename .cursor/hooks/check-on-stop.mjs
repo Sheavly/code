@@ -4,11 +4,16 @@
 // and .jscpd-baseline.json don't count; new ones do.
 // Once the gate passes, nudge (once per set of files) when source files changed but the doc in
 // docs/ that describes them didn't (see docs.utils.mjs).
+// Only a chat that changed project source in this checkout (a Write or Delete, recorded by
+// lint-edited-file.mjs) is checked, so a chat that only answered questions, worked in another
+// worktree or edited only through the shell never gets another chat's half-finished work back as
+// failures.
 import { globSync } from 'node:fs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import {
   formatEslintReport,
   formatNewClones,
+  getChatState,
   readHookInput,
   respond,
   runBin,
@@ -20,8 +25,11 @@ const TS_PACKAGE_CONFIGS = globSync('packages/*/tsconfig.json');
 
 const input = await readHookInput();
 
-// Only a finished turn is checked: an aborted or errored one was stopped on purpose.
-if (input.status !== 'completed') {
+// Only a finished turn is checked: an aborted or errored one was stopped on purpose. Only a chat
+// that edited this checkout is checked: the rest would be reporting other chats' work.
+const editedCheckout = getChatState(input.conversation_id)?.editedProjectSource === true;
+
+if (input.status !== 'completed' || !editedCheckout) {
   respond({});
   process.exit(0);
 }

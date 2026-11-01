@@ -1,9 +1,10 @@
-// postToolUse (Write): format the file the agent just edited with Prettier, then lint it and hand
-// the problems straight back, so they're fixed while the file is fresh instead of piling up
-// until the stop check. The first edit of harness source in a chat (and any edit that breaks
+// postToolUse (Write, Delete): format the file the agent just edited with Prettier, then lint it
+// and hand the problems straight back, so they're fixed while the file is fresh instead of piling
+// up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
-// events, no UI unless the issue asks (architecture.utils.mjs). Advisory: it never blocks the
-// edit. The stop hook (check-on-stop.mjs) enforces.
+// events, no UI unless the issue asks (architecture.utils.mjs). Every edit or deletion of project
+// source is recorded in the chat's state, so the stop hook checks only chats that changed this
+// checkout. Advisory: it never blocks the edit. The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule } from './architecture.utils.mjs';
 import {
   FORMATTABLE,
@@ -18,6 +19,7 @@ import {
   runBin,
   updateChatState,
 } from './hooks.utils.mjs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 
 const input = await readHookInput();
@@ -29,11 +31,20 @@ if (!filePath || !isProjectSource(filePath)) {
 }
 
 const notes = [];
+const conversationId = input.conversation_id;
+
+// Recorded first, so an edit Prettier or ESLint then fails on still counts.
+remember({ editedProjectSource: true });
+
+// A deleted file has nothing left to format or lint; the stop hook checks what it broke.
+if (!existsSync(filePath)) {
+  respond({});
+  process.exit(0);
+}
 
 // The architecture rule (backend only, no UI unless an issue asks) is injected the first time a
 // chat edits harness source, and again whenever an edit breaks it.
 const relative = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('/');
-const conversationId = input.conversation_id;
 const ruleShown = getChatState(conversationId)?.architectureRuleShown === true;
 let ruleBroken = false;
 
@@ -68,17 +79,20 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
 
   if (rule) {
     notes.push(rule);
-    rememberRuleShown(conversationId);
+    remember({ architectureRuleShown: true });
   }
 }
 
 respond(notes.length > 0 ? { additional_context: notes.join('\n\n') } : {});
 
-/** Advisory: a state write that fails (read-only home, full disk) must not lose the notes. */
-function rememberRuleShown(id) {
+/**
+ * Advisory: a state write that fails (read-only home, full disk) must not lose the notes. The
+ * rule is then shown again on the next edit, and the stop hook skips a chat it has no record of.
+ */
+function remember(fields) {
   try {
-    updateChatState({ conversationId: id, architectureRuleShown: true });
+    updateChatState({ conversationId, ...fields });
   } catch {
-    // The rule is just shown again on the next edit.
+    // Nothing to do: see above.
   }
 }
