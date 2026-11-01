@@ -3,6 +3,8 @@ type ProcessOptions = {
   /** Run `file` through /bin/sh (then `args` should be empty). */
   shell: boolean;
   signal: AbortSignal;
+  /** Added to the (secret-scrubbed) env, overriding what the harness inherited. */
+  env?: Readonly<Record<string, string>>;
   /** No timeout when omitted. */
   timeoutMs?: number;
   /** Streams output as it arrives, in addition to the returned copy. */
