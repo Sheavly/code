@@ -91,9 +91,11 @@ export async function runTool(params: {
       context: { callId: call.id, description, session },
     });
 
-    return typeof output === 'string'
-      ? result(output)
-      : { ...result(output.content), change: output.change };
+    if (typeof output === 'string') return result(output);
+
+    const { content, change, read } = output;
+
+    return { ...result(content), ...(change && { change }), ...(read && { read }) };
   } catch (caughtError) {
     const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
 

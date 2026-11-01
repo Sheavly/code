@@ -14,11 +14,24 @@ export type FileChange = {
   after: string;
 };
 
-/** What `execute` returns: text for the model, plus a file change when the tool made one. */
-export type ToolOutput = string | { content: string; change: FileChange };
+/**
+ * What a read covered, so a UI can say "read src/a.ts" or "read src/a.ts lines 10–40" without
+ * parsing the text. `whole` is true when every line of the file was returned.
+ */
+export type FileRead = {
+  /** Relative to the workspace root. */
+  path: string;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  whole: boolean;
+};
 
-/** What `runTool` returns: the history message, plus the tool's file change (not kept in history). */
-export type ToolRunResult = ToolMessage & { change?: FileChange };
+/** What `execute` returns: text for the model, plus what it changed or read (for the UI). */
+export type ToolOutput = string | { content: string; change?: FileChange; read?: FileRead };
+
+/** What `runTool` returns: the history message, plus the tool's file change or read (not kept in history). */
+export type ToolRunResult = ToolMessage & { change?: FileChange; read?: FileRead };
 
 /** About the call being executed; most tools don't need it. */
 export type ToolContext = {
