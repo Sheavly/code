@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.service';
+import { withFileLock } from '../../runtime/file-locks/file-locks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.service.js';
 import { describeChange } from '../files/files.utils.js';
@@ -22,18 +23,25 @@ export function createWriteFileTool({ workspace }: { workspace: Workspace }) {
     }),
     execute: async ({ input: { path: requested, content }, signal }) => {
       const real = await resolveWritable({ workspace, requested });
-      const before = await readIfExists({ file: real, signal });
 
-      await mkdir(path.dirname(real), { recursive: true });
-      await writeText({ file: real, content, signal });
+      return withFileLock({
+        file: real,
+        signal,
+        change: async () => {
+          const before = await readIfExists({ file: real, signal });
 
-      const relative = workspace.relative(real);
-      const verb = before === null ? 'Created' : 'Overwrote';
+          await mkdir(path.dirname(real), { recursive: true });
+          await writeText({ file: real, content, signal });
 
-      return {
-        content: describeChange({ verb, path: relative, before, after: content }),
-        change: { path: relative, before, after: content },
-      };
+          const relative = workspace.relative(real);
+          const verb = before === null ? 'Created' : 'Overwrote';
+
+          return {
+            content: describeChange({ verb, path: relative, before, after: content }),
+            change: { path: relative, before, after: content },
+          };
+        },
+      });
     },
   });
 }
