@@ -33,8 +33,11 @@ export type BearerResponsesConfig = {
 /** A streamed Responses API event we use (everything else is skipped). */
 export type ResponsesEvent = z.infer<typeof responsesEventSchema>;
 
-/** What one Responses API event means for us: something to yield, a new stop reason, or both. */
-export type EventStep = { event?: StreamEvent; stopReason?: StopReason };
+/**
+ * What one Responses API event means for us: something to yield, a new stop reason, or both.
+ * `ended`: a terminal event (`response.completed` / `response.incomplete`) finished the turn.
+ */
+export type EventStep = { event?: StreamEvent; stopReason?: StopReason; ended?: true };
 
 /** The function call fields we read from a `function_call` output item. */
 export type FunctionCallItem = { call_id: string; name: string; arguments: string };

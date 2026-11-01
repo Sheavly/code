@@ -75,7 +75,9 @@ API's `instructions` field.
    session (every run is a session with an id; see [sessions.md](sessions.md)).
 
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
-history stays valid. If the run fails, `onError` hooks are told and the error is rethrown.
+history stays valid. If the run fails, `onError` hooks are told and the error is rethrown. A model
+call that fails after it started tools (a cut-off stream, an error event) first stops those tools
+and emits their results, so every `tool_call_started` is answered, then fails the run.
 
 ## Where the next work goes
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collect, fakeFetch } from '../../../testing/fake-fetch.fake.js';
+import { collect, fakeFetch, fakeFetchSequence } from '../../../testing/fake-fetch.fake.js';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { createResponsesProvider } from '../responses.service.js';
 
@@ -147,5 +147,79 @@ describe('createResponsesProvider', () => {
     await expect(collect(provider(fetch).stream(request()))).rejects.toThrow(
       'stream error: high demand',
     );
+  });
+});
+
+describe('createResponsesProvider: the end of a stream', () => {
+  const cutOff = (events: object[]) =>
+    fakeFetchSequence({ responses: [events], complete: false }).fetch;
+
+  it('throws when the stream ends after text deltas without a terminal event', async () => {
+    const fetch = cutOff([{ type: 'response.output_text.delta', delta: 'partial' }]);
+
+    await expect(collect(provider(fetch).stream(request()))).rejects.toThrow(
+      'Responses stream ended before response.completed',
+    );
+  });
+
+  it('reports a body cut off mid-payload as a stream that ended early', async () => {
+    const fetch = (async () =>
+      new Response(
+        'data: {"type":"response.output_text.delta","delta":"a"}\n\ndata: {"ty',
+      )) as typeof globalThis.fetch;
+
+    await expect(collect(provider(fetch).stream(request()))).rejects.toThrow(
+      'Responses stream ended before response.completed',
+    );
+  });
+
+  it('throws when the stream ends after a tool call without a terminal event', async () => {
+    const fetch = cutOff([
+      {
+        type: 'response.output_item.done',
+        item: { type: 'function_call', call_id: 'c1', name: 'f', arguments: '{}' },
+      },
+    ]);
+    const events: unknown[] = [];
+
+    await expect(async () => {
+      for await (const event of provider(fetch).stream(request())) events.push(event);
+    }).rejects.toThrow('ended before response.completed');
+    expect(events).not.toContainEqual(expect.objectContaining({ type: 'done' }));
+  });
+
+  it('ends the turn on response.incomplete for another reason, without throwing', async () => {
+    const fetch = cutOff([
+      { type: 'response.output_text.delta', delta: 'x' },
+      {
+        type: 'response.incomplete',
+        response: { incomplete_details: { reason: 'content_filter' } },
+      },
+    ]);
+
+    expect((await collect(provider(fetch).stream(request()))).at(-1)).toEqual({
+      type: 'done',
+      stopReason: 'end_turn',
+    });
+  });
+
+  it('surfaces an abort as an abort, not as a cut-off stream', async () => {
+    const controller = new AbortController();
+    const reason = new DOMException('stopped', 'AbortError');
+    const fetch = (async () => {
+      const body = new ReadableStream<Uint8Array>({
+        start(stream) {
+          stream.enqueue(new TextEncoder().encode('data: {"type":"x"}\n\n'));
+          controller.abort(reason);
+          stream.close();
+        },
+      });
+
+      return new Response(body);
+    }) as typeof globalThis.fetch;
+
+    await expect(
+      collect(provider(fetch).stream(request({ signal: controller.signal }))),
+    ).rejects.toBe(reason);
   });
 });

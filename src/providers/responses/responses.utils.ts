@@ -23,6 +23,7 @@ export const responsesEventSchema = z.discriminatedUnion('type', [
     type: z.literal('response.output_item.done'),
     item: z.discriminatedUnion('type', [functionCallItemSchema, reasoningOutputItemSchema]),
   }),
+  z.object({ type: z.literal('response.completed') }),
   z.object({
     type: z.literal('response.incomplete'),
     response: z.object({ incomplete_details: z.object({ reason: z.string() }).nullish() }),
@@ -63,10 +64,12 @@ export function handleEvent(params: {
       return reasoningSource
         ? { event: { type: 'reasoning', item: { source: reasoningSource, data: event.item } } }
         : {};
+    case 'response.completed':
+      return { ended: true };
     case 'response.incomplete':
       return event.response.incomplete_details?.reason === 'max_output_tokens'
-        ? { stopReason: 'max_tokens' }
-        : {};
+        ? { stopReason: 'max_tokens', ended: true }
+        : { ended: true };
     case 'response.failed':
       throw new Error(`Responses API failed: ${event.response.error?.message ?? 'unknown error'}`);
     case 'error':
