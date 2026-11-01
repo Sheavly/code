@@ -1,6 +1,6 @@
 import type { Message, ToolCall, ToolMessage } from '@sheavly/core/message/message.types';
 import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
-import type { Tool, FileChange, ToolRunResult } from '@sheavly/core/tool/tool.types';
+import type { Tool, FileChange, FileRead, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import type { SessionRef } from '@sheavly/core/session/session.types';
 import { describeCall, runTool } from '@sheavly/core/tool/tool.service';
 
@@ -98,7 +98,7 @@ export async function runOnError(params: {
 /**
  * Runs a tool call through every `aroundToolCall` handler (the first is outermost), then the
  * tool. Never throws: a failing hook becomes an error result, like a failing tool. Returns the
- * history message and, apart from it, any file change (which the model never sees).
+ * history message and, apart from it, any file change or read (which the model never sees).
  */
 export async function runToolCall(params: {
   hooks: Hook[];
@@ -107,7 +107,11 @@ export async function runToolCall(params: {
   signal: AbortSignal;
   /** The calling session, handed to the tool (`context.session`). */
   session?: SessionRef | undefined;
-}): Promise<{ message: ToolMessage; change?: FileChange | undefined }> {
+}): Promise<{
+  message: ToolMessage;
+  change?: FileChange | undefined;
+  read?: FileRead | undefined;
+}> {
   const { hooks, tools, call, signal, session } = params;
   const handlers = hooks.filter((hook) => hook.aroundToolCall);
   const description = describeCall(call);
@@ -133,11 +137,11 @@ export async function runToolCall(params: {
     }
   };
 
-  const { content, isError, change } = await runFrom(0, call);
+  const { content, isError, change, read } = await runFrom(0, call);
 
-  return { message: { role: 'tool', toolCallId: call.id, content, isError }, change };
+  return { message: { role: 'tool', toolCallId: call.id, content, isError }, change, read };
 }
 
 function toResult(run: ToolRunResult): ToolResult {
-  return { content: run.content, isError: run.isError, change: run.change };
+  return { content: run.content, isError: run.isError, change: run.change, read: run.read };
 }

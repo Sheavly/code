@@ -1,6 +1,6 @@
 import type { Sequenced } from '../queue/queue.types.js';
 import type { TaskInfo } from '../../runtime/tasks/tasks.types.js';
-import type { FileChange } from '@sheavly/core/tool/tool.types';
+import type { FileChange, FileRead } from '@sheavly/core/tool/tool.types';
 import type { InboxMessage, SessionRef } from '@sheavly/core/session/session.types';
 import type {
   Message,
@@ -44,6 +44,8 @@ export type AgentEventBody =
       message: Message;
       durationMs: number;
       change?: FileChange;
+      /** What a read covered (path, lines, whole file or not), for a UI to show. */
+      read?: FileRead;
     } & DescribedCall)
   /** In place of `tool_result` when the call launched a background task: it's still running. */
   | ({ type: 'task_running'; task: TaskInfo; message: Message; durationMs: number } & DescribedCall)

@@ -94,9 +94,9 @@ async function startTool(params: {
     content: 'Interrupted by the user before this tool finished.',
     isError: true,
   };
-  const { message, change } = await Promise.race([
+  const { message, change, read } = await Promise.race([
     runToolCall({ hooks, tools, call, signal, session }),
-    aborted.then(() => ({ message: interrupted, change: undefined })),
+    aborted.then(() => ({ message: interrupted, change: undefined, read: undefined })),
   ]);
   const durationMs = performance.now() - started;
 
@@ -113,5 +113,6 @@ async function startTool(params: {
     message,
     durationMs,
     ...(change && { change }),
+    ...(read && { read }),
   };
 }
