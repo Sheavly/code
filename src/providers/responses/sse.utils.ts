@@ -1,28 +1,49 @@
+const LINE_BREAK = /\r\n|\r|\n/;
+
 /**
  * Minimal Server-Sent Events reader: yields the parsed JSON of each `data:` block.
+ * Lines may end in `\r\n`, `\n` or `\r`, split anywhere across network chunks.
  * Payloads are returned as `unknown`; callers validate them with zod.
  */
 export async function* readServerSentEvents(body: ReadableStream<Uint8Array>): AsyncGenerator {
-  let buffer = '';
-  const decoder = new TextDecoder();
+  const readLines = createLineReader();
+  let data: string[] = [];
 
   for await (const bytes of body) {
-    buffer += decoder.decode(bytes, { stream: true }).replaceAll('\r\n', '\n');
+    for (const line of readLines(bytes)) {
+      if (line.startsWith('data:')) data.push(line.slice(5).trimStart());
+      if (line !== '') continue;
 
-    let end: number;
+      const payload = data.join('\n');
 
-    while ((end = buffer.indexOf('\n\n')) !== -1) {
-      const block = buffer.slice(0, end);
-
-      buffer = buffer.slice(end + 2);
-
-      const data = block
-        .split('\n')
-        .filter((line) => line.startsWith('data:'))
-        .map((line) => line.slice(5).trimStart())
-        .join('\n');
-
-      if (data && data !== '[DONE]') yield JSON.parse(data);
+      data = [];
+      if (payload && payload !== '[DONE]') yield JSON.parse(payload);
     }
   }
+}
+
+/**
+ * Turns chunks into complete lines, keeping the unfinished last line for the next chunk. A chunk
+ * ending in `\r` may be the first half of `\r\n`, so a `\n` opening the next chunk is dropped.
+ */
+function createLineReader() {
+  const decoder = new TextDecoder();
+  let partial = '';
+  let afterCarriageReturn = false;
+
+  return (bytes: Uint8Array): string[] => {
+    const decoded = decoder.decode(bytes, { stream: true });
+
+    if (!decoded) return [];
+
+    const text = afterCarriageReturn && decoded.startsWith('\n') ? decoded.slice(1) : decoded;
+
+    afterCarriageReturn = decoded.endsWith('\r');
+
+    const lines = (partial + text).split(LINE_BREAK);
+
+    partial = lines.pop() ?? '';
+
+    return lines;
+  };
 }
