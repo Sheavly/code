@@ -28,7 +28,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (signal.aborted) return 'interrupted';
 
-  const { message, stopReason, running } = await sample({
+  const { message, stopReason, running, failure } = await sample({
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
@@ -37,6 +37,10 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     aborted,
     events,
   });
+
+  // A failed model call that started no tools fails the turn as it is, with nothing to record.
+  if (failure && running.length === 0) throw failure.error;
+
   // An interrupt before the model said anything leaves no trace in history.
   const empty = !message.content && message.toolCalls.length === 0 && !message.reasoning;
 
@@ -45,6 +49,9 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   events.enqueue({ type: 'turn_end', turn, stopReason });
 
   if (running.length > 0) messages.push(...(await releaseResults({ running, events })));
+
+  // The failed model call's tools are stopped and recorded; now the run fails with its error.
+  if (failure) throw failure.error;
 
   await runAfterTurn({
     hooks: options.hooks ?? [],

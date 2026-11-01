@@ -6,15 +6,17 @@ import type {
   TurnStopReason,
 } from '@sheavly/core/message/message.types';
 import { describeCall, toDefinition } from '@sheavly/core/tool/tool.service';
-import { untilAborted } from '../abort/abort.utils.js';
+import { untilAborted, whenAborted } from '../abort/abort.utils.js';
 import type { DescribedCall, ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.service.js';
-import type { RunningCall, SampleContext, ToolStart } from './stream-agent.types.js';
+import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
+import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 
 /**
  * One model call: stream the response into an assistant message.
  * Tool calls start running the moment they arrive, while the model keeps streaming.
- * On abort, keeps whatever the model produced so far.
+ * On abort, keeps whatever the model produced so far. If the model call fails, the tools it
+ * started are stopped and `failure` holds the error, so the turn can record them before failing.
  */
 export async function sample(context: SampleContext) {
   const { provider, instructions, tools, messages, signal, aborted, events } = context;
@@ -23,6 +25,15 @@ export async function sample(context: SampleContext) {
   const reasoning: ReasoningItem[] = [];
   const running: RunningCall[] = [];
   let stopReason: TurnStopReason = 'end_turn';
+  let failure: SampleFailure | undefined;
+  // The tools' own signal: aborted with the run, or when this model call fails.
+  const stopTools = new AbortController();
+  const toolSignal = AbortSignal.any([signal, stopTools.signal]);
+  const stopped = Promise.race([
+    aborted.then(() => INTERRUPTED_BY_USER),
+    whenAborted(stopTools.signal).then(() => STOPPED_BY_FAILURE),
+  ]);
+  const start = { ...context, signal: toolSignal };
 
   try {
     // A snapshot: providers must never see later pushes to the loop's own history.
@@ -49,7 +60,7 @@ export async function sample(context: SampleContext) {
 
           toolCalls.push(event.call);
           events.enqueue({ type: 'tool_call_started', ...described });
-          running.push({ described, outcome: startTool({ start: context, described }) });
+          running.push({ described, outcome: startTool({ start, described, stopped }) });
           break;
         }
 
@@ -59,10 +70,14 @@ export async function sample(context: SampleContext) {
       }
     }
   } catch (caughtError) {
-    if (!signal.aborted) throw caughtError; // a real provider failure, not our interrupt
+    // A real provider failure, not our interrupt: stop the tools it started, then report it.
+    if (!signal.aborted) {
+      failure = { error: caughtError };
+      stopTools.abort(caughtError);
+    }
   }
 
-  if (signal.aborted) stopReason = 'interrupted';
+  if (signal.aborted || failure) stopReason = 'interrupted';
 
   const message: Message = {
     role: 'assistant',
@@ -71,32 +86,37 @@ export async function sample(context: SampleContext) {
     ...(reasoning.length > 0 ? { reasoning } : {}),
   };
 
-  return { message, stopReason, running };
+  return { message, stopReason, running, failure };
 }
 
 /**
  * Starts a tool now, through the run's hooks. `runToolCall` never throws, so one failure can't
  * sink the others.
- * On abort the tool is told to stop (via `signal`) and its result becomes "interrupted"
- * right away, even if the tool ignores the signal.
+ * When `stopped` resolves (the run aborted, or the model call failed) the tool is told to stop
+ * (via `signal`) and its result becomes that placeholder right away, even if it ignores the signal.
  * If the call launched a background task, the outcome is `task_running` instead of a result.
  */
 async function startTool(params: {
   start: ToolStart;
   described: DescribedCall;
+  stopped: Promise<string>;
 }): Promise<ToolOutcome> {
-  const { tools, hooks = [], tasks, session, signal, aborted } = params.start;
-  const { call, description } = params.described;
+  const { start, described, stopped } = params;
+  const { tools, hooks = [], tasks, session, signal } = start;
+  const { call, description } = described;
   const started = performance.now();
-  const interrupted: ToolMessage = {
-    role: 'tool',
-    toolCallId: call.id,
-    content: 'Interrupted by the user before this tool finished.',
-    isError: true,
-  };
   const { message, change, read } = await Promise.race([
     runToolCall({ hooks, tools, call, signal, session }),
-    aborted.then(() => ({ message: interrupted, change: undefined, read: undefined })),
+    stopped.then((content) => {
+      const placeholder: ToolMessage = {
+        role: 'tool',
+        toolCallId: call.id,
+        content,
+        isError: true,
+      };
+
+      return { message: placeholder, change: undefined, read: undefined };
+    }),
   ]);
   const durationMs = performance.now() - started;
 

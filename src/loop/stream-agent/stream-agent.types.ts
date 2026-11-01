@@ -68,7 +68,7 @@ export type RunningCall = {
   outcome: Promise<ToolOutcome>;
 };
 
-/** What a tool needs to start: the tools, hooks, task registry and the run's abort state. */
+/** What a tool needs to start: the tools, hooks, task registry and its abort signal. */
 export type ToolStart = {
   tools: Tool[];
   hooks?: Hook[] | undefined;
@@ -76,7 +76,6 @@ export type ToolStart = {
   /** The run's session, passed on to tools (`context.session`). */
   session: SessionRef;
   signal: AbortSignal;
-  aborted: Promise<void>;
 };
 
 export type SampleContext = ToolStart & {
@@ -84,5 +83,10 @@ export type SampleContext = ToolStart & {
   /** This turn's system instructions: the run's own plus what `beforeTurn` hooks added. */
   instructions?: string | undefined;
   messages: Message[];
+  /** Resolves when `signal` (the run's) aborts. */
+  aborted: Promise<void>;
   events: AgentEvents;
 };
+
+/** A failed model call: the error to fail the run with, after its started tools are recorded. */
+export type SampleFailure = { error: unknown };
