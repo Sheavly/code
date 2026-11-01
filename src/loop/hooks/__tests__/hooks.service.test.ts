@@ -3,6 +3,7 @@ import { defineHook } from '@sheavly/core/hook/hook.service';
 import type { Message, ToolCall } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import { echoTool as echo } from '@sheavly/core/testing/echo-tool.fake';
+import { HookError } from '../../../runtime/errors/hooks.errors.js';
 import {
   runAfterTurn,
   runBeforeTurn,
@@ -255,8 +256,9 @@ describe('runAfterTurn', () => {
 });
 
 describe('runOnError', () => {
-  it('tells every hook, in order, even when one of them throws', async () => {
+  it('tells every hook, in order, even when one of them throws, and reports the failure', async () => {
     const seen: string[] = [];
+    const failures: HookError[] = [];
     const error = new Error('provider down');
 
     await runOnError({
@@ -265,7 +267,7 @@ describe('runOnError', () => {
           name: 'broken',
           onError: async () => {
             seen.push('broken');
-            throw new Error('ignored');
+            throw new Error('disk full');
           },
         }),
         defineHook({
@@ -279,8 +281,13 @@ describe('runOnError', () => {
       ],
       error,
       messages: [{ role: 'user', content: 'hi' }],
+      onHookError: (failure) => failures.push(failure),
     });
 
     expect(seen).toEqual(['broken', 'log: provider down, 1 messages']);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toBeInstanceOf(HookError);
+    expect(failures[0]).toMatchObject({ hook: 'broken', handler: 'onError' });
+    expect(failures[0]?.message).toBe('Hook broken failed in onError: disk full');
   });
 });

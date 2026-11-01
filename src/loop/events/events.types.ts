@@ -58,6 +58,11 @@ export type AgentEventBody =
   | { type: 'message_received'; message: InboxMessage }
   /** A hook's `beforeTurn` added this context to history; the model sees it from this turn on. */
   | { type: 'context_added'; hook: string; content: string }
+  /**
+   * A hook handler failed where it must not stop the run (`onError`). The run's own error is
+   * still what ends the stream; this says the hook couldn't do its job.
+   */
+  | { type: 'hook_failed'; hook: string; handler: string; error: string }
   /** Always last. The full conversation (valid to continue from, even after an interrupt). */
   | { type: 'done'; reason: DoneReason; messages: Message[]; session: SessionRef };
 
