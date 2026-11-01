@@ -1,0 +1,114 @@
+/**
+ * The workbook: a stateful place to run, replay and inspect the harness.
+ *
+ *   npm run workbook -- run write-and-edit      run a stored prompt (workbook/prompts/*.md)
+ *   npm run workbook -- continue "and now…"     follow up on the last run, with its history
+ *   npm run workbook -- show                    what the last run did, and where its files are
+ *   npm run workbook -- step                    walk its events one at a time
+ *   npm run workbook -- diff 0003 0007          compare two runs
+ *
+ * Every run is saved in workbook/runs/<id>/ as it happens. See workbook/README.md.
+ * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
+ */
+import path from 'node:path';
+import { providerFromEnv } from '../host/host.service.js';
+import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.service.js';
+import { runWorkbook } from './run.service.js';
+import { WorkbookStore } from './store.service.js';
+import { WORKBOOK_DIR } from './workbook.constants.js';
+import { parseCommand, usage } from './workbook.utils.js';
+
+const store = new WorkbookStore(path.resolve(WORKBOOK_DIR));
+const write = (text: string) => void process.stdout.write(text);
+const command = parseCommand(process.argv.slice(2));
+
+try {
+  switch (command.name) {
+    case 'run': {
+      const stored = await store.prompt(command.prompt);
+      const continues =
+        command.continueRun === undefined ? undefined : await store.resolveRun(command.continueRun);
+      const result = await runWorkbook({
+        store,
+        settings: providerFromEnv(),
+        request: {
+          name: stored.name,
+          text: stored.text,
+          stored,
+          continues,
+          keep: !command.fresh,
+          showModelCalls: command.showModelCalls,
+        },
+      });
+
+      process.exitCode = exitCode(result.outcome);
+      break;
+    }
+
+    case 'ask': {
+      const result = await runWorkbook({
+        store,
+        settings: providerFromEnv(),
+        request: {
+          name: 'ask',
+          text: command.text,
+          keep: false,
+          showModelCalls: command.showModelCalls,
+        },
+      });
+
+      process.exitCode = exitCode(result.outcome);
+      break;
+    }
+
+    case 'continue': {
+      const continues = await store.resolveRun(command.run);
+      const meta = await store.meta(continues);
+      const result = await runWorkbook({
+        store,
+        settings: providerFromEnv(),
+        request: {
+          name: meta.prompt,
+          text: command.text,
+          continues,
+          keep: true,
+          showModelCalls: command.showModelCalls,
+        },
+      });
+
+      process.exitCode = exitCode(result.outcome);
+      break;
+    }
+
+    case 'list':
+      await listWorkbook({ store, write });
+      break;
+    case 'show':
+      await showRun({ store, id: await store.resolveRun(command.run), write });
+      break;
+    case 'step':
+      await stepRun({ store, id: await store.resolveRun(command.run), from: command.from, write });
+      break;
+    case 'diff':
+      await diffRuns({
+        store,
+        a: await store.resolveRun(command.a),
+        b: await store.resolveRun(command.b),
+        write,
+      });
+      break;
+    case 'help':
+      write(`${usage()}\n`);
+      break;
+  }
+} catch (caughtError) {
+  write(`✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}\n`);
+  process.exitCode = 1;
+}
+
+/** 0 completed, 130 interrupted (like Ctrl+C), 1 anything else. */
+function exitCode(outcome: string): number {
+  if (outcome === 'completed') return 0;
+
+  return outcome === 'interrupted' ? 130 : 1;
+}

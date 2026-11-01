@@ -7,3 +7,7 @@ package-lock.json
 
 # Written by eslint --suppress-*/--prune-suppressions (no trailing newline)
 **/eslint-suppressions.json
+
+# The workbook: what the agent reads and writes, and saved runs
+workbook/workspaces/
+workbook/runs/

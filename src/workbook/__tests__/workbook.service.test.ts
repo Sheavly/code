@@ -1,0 +1,307 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import type { AgentEvent } from '../../loop/events/events.types.js';
+import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
+import { RunRecorder } from '../recorder.service.js';
+import { WorkbookStore } from '../store.service.js';
+import type { RunResult } from '../workbook.types.js';
+import {
+  diffResults,
+  mergeTextDeltas,
+  parseCommand,
+  parsePromptFile,
+  runId,
+} from '../workbook.utils.js';
+
+/** A workbook folder per test: one stored prompt, and a fixture workspace for it. */
+const temp = useTempWorkspace({
+  prefix: 'workbook-test-',
+  perTest: true,
+  files: {
+    'workspaces/basic/notes.md': 'fixture\n',
+    'prompts/demo.md':
+      '---\ndescription: a demo\nworkspace: basic\nmaxTurns: 5\n---\nRead notes.md.\n',
+  },
+});
+
+async function tempWorkbook(): Promise<WorkbookStore> {
+  return new WorkbookStore(temp.root);
+}
+
+describe('parsePromptFile', () => {
+  it('reads front matter and the prompt text', () => {
+    expect(
+      parsePromptFile({ name: 'x', source: '---\nworkspace: basic\nmaxTurns: 7\n---\nDo it.\n' }),
+    ).toEqual({ name: 'x', text: 'Do it.', workspace: 'basic', maxTurns: 7 });
+  });
+
+  it('treats a file without front matter as just the prompt', () => {
+    expect(parsePromptFile({ name: 'x', source: 'Just this.\n' })).toEqual({
+      name: 'x',
+      text: 'Just this.',
+    });
+  });
+
+  it('rejects an empty prompt or bad settings, naming the prompt', () => {
+    expect(() =>
+      parsePromptFile({ name: 'empty', source: '---\nworkspace: basic\n---\n' }),
+    ).toThrow('Prompt "empty" is invalid');
+    expect(() => parsePromptFile({ name: 'bad', source: '---\nmaxTurns: 0\n---\nHi\n' })).toThrow(
+      'Prompt "bad" is invalid',
+    );
+  });
+});
+
+describe('runId', () => {
+  it('numbers runs and names them after the prompt, so they sort in order', () => {
+    expect(runId({ number: 7, prompt: 'write-and-edit' })).toBe('0007-write-and-edit');
+    expect(runId({ number: 12, prompt: 'Ask: what?!' })).toBe('0012-ask-what');
+    expect(runId({ number: 1, prompt: '???' })).toBe('0001-run');
+  });
+});
+
+describe('parseCommand', () => {
+  it('parses each command and its flags', () => {
+    expect(parseCommand(['run', 'guards', '--continue', 'last', '--model-calls'])).toEqual({
+      name: 'run',
+      prompt: 'guards',
+      continueRun: 'last',
+      fresh: true,
+      showModelCalls: true,
+    });
+    expect(parseCommand(['run', 'guards', '--keep'])).toMatchObject({ fresh: false });
+    expect(parseCommand(['ask', 'hello', 'there'])).toMatchObject({
+      name: 'ask',
+      text: 'hello there',
+    });
+    expect(parseCommand(['continue', 'and then'])).toMatchObject({
+      name: 'continue',
+      text: 'and then',
+    });
+    expect(parseCommand(['continue', '3', 'and then'])).toMatchObject({
+      run: '3',
+      text: 'and then',
+    });
+    expect(parseCommand(['step', '2', '--from', '30'])).toEqual({
+      name: 'step',
+      run: '2',
+      from: 30,
+    });
+    expect(parseCommand(['diff', '1', '2'])).toEqual({ name: 'diff', a: '1', b: '2' });
+  });
+
+  it('shows help for anything incomplete or unknown', () => {
+    for (const argv of [[], ['run'], ['ask'], ['continue'], ['diff', '1'], ['nope']]) {
+      expect(parseCommand(argv)).toEqual({ name: 'help' });
+    }
+  });
+});
+
+describe('mergeTextDeltas', () => {
+  it('merges consecutive text deltas into one step, keeping the first seq', () => {
+    const events: AgentEvent[] = [
+      { seq: 0, type: 'text_delta', text: 'Hel' },
+      { seq: 1, type: 'text_delta', text: 'lo' },
+      { seq: 2, type: 'turn_end', turn: 1, stopReason: 'end_turn' },
+    ];
+
+    expect(mergeTextDeltas(events)).toEqual([
+      { seq: 0, type: 'text_delta', text: 'Hello' },
+      { seq: 2, type: 'turn_end', turn: 1, stopReason: 'end_turn' },
+    ]);
+  });
+});
+
+describe('diffResults', () => {
+  const result = (overrides: Partial<RunResult> = {}): RunResult => ({
+    outcome: 'completed',
+    endedAt: '',
+    durationMs: 1000,
+    events: 10,
+    modelCalls: 2,
+    toolCalls: 1,
+    toolErrors: 0,
+    sessions: 1,
+    messages: 4,
+    ...overrides,
+  });
+
+  it('lists only what differs, plus the duration and whether the answer changed', () => {
+    const lines = diffResults({
+      a: { id: 'a', result: result(), tools: ['read_file'], answer: 'same' },
+      b: {
+        id: 'b',
+        result: result({ outcome: 'failed', toolErrors: 1 }),
+        tools: ['read_file'],
+        answer: 'same',
+      },
+    });
+
+    expect(lines).toEqual([
+      'outcome: completed → failed',
+      'toolErrors: 0 → 1',
+      'duration: 1.0s → 1.0s',
+      'answer: the same',
+    ]);
+  });
+});
+
+describe('WorkbookStore', () => {
+  it('numbers runs across calls and remembers the last one, overall and per prompt', async () => {
+    const store = await tempWorkbook();
+    const first = await store.beginRun({
+      prompt: 'demo',
+      id: (n) => runId({ number: n, prompt: 'demo' }),
+    });
+    const second = await store.beginRun({
+      prompt: 'ask',
+      id: (n) => runId({ number: n, prompt: 'ask' }),
+    });
+
+    expect([first.id, second.id]).toEqual(['0001-demo', '0002-ask']);
+    expect(await store.state()).toEqual({
+      version: 1,
+      runCount: 2,
+      lastRun: '0002-ask',
+      lastRunByPrompt: { demo: '0001-demo', ask: '0002-ask' },
+    });
+    // The workbook picks up where it left off: a new store on the same folder continues the count.
+    const again = await new WorkbookStore(store.root).beginRun({
+      prompt: 'demo',
+      id: (n) => `${n}`,
+    });
+
+    expect(again.id).toBe('3');
+  });
+
+  it('resolves runs by full id, number, prefix or "last", and explains a miss', async () => {
+    const store = await tempWorkbook();
+
+    await expect(store.resolveRun(undefined)).rejects.toThrow('No runs yet');
+    await store.beginRun({ prompt: 'demo', id: (n) => runId({ number: n, prompt: 'demo' }) });
+    await store.beginRun({ prompt: 'demo', id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    expect(await store.resolveRun('last')).toBe('0002-demo');
+    expect(await store.resolveRun('1')).toBe('0001-demo');
+    expect(await store.resolveRun('0002')).toBe('0002-demo');
+    expect(await store.resolveRun('0001-demo')).toBe('0001-demo');
+    await expect(store.resolveRun('9')).rejects.toThrow('No run "9"');
+  });
+
+  it('reads stored prompts, and gives each run a fresh copy of its fixture, plus a fake .env', async () => {
+    const store = await tempWorkbook();
+    const prompt = await store.prompt('demo');
+
+    expect(prompt).toMatchObject({
+      name: 'demo',
+      text: 'Read notes.md.',
+      workspace: 'basic',
+      maxTurns: 5,
+    });
+    await expect(store.prompt('missing')).rejects.toThrow('No stored prompt "missing"');
+
+    const dir = await store.workspace({ prompt, key: 'demo', keep: false });
+
+    await writeFile(path.join(dir, 'notes.md'), 'changed by a run\n');
+    expect(await readFile(path.join(dir, '.env'), 'utf8')).toContain('SECRET=');
+
+    // --keep reuses the last workspace (work builds up); otherwise it starts fresh.
+    expect(
+      await readFile(
+        path.join(await store.workspace({ prompt, key: 'demo', keep: true }), 'notes.md'),
+        'utf8',
+      ),
+    ).toBe('changed by a run\n');
+    expect(
+      await readFile(
+        path.join(await store.workspace({ prompt, key: 'demo', keep: false }), 'notes.md'),
+        'utf8',
+      ),
+    ).toBe('fixture\n');
+    // The fixture itself is never touched.
+    expect(await readFile(path.join(store.workspacesDir, 'basic', 'notes.md'), 'utf8')).toBe(
+      'fixture\n',
+    );
+  });
+});
+
+describe('RunRecorder', () => {
+  it('writes every artifact, and a result with counts, even for a failed run', async () => {
+    const store = await tempWorkbook();
+    const paths = await store.beginRun({
+      prompt: 'demo',
+      id: (n) => runId({ number: n, prompt: 'demo' }),
+    });
+    const recorder = new RunRecorder(paths);
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+
+    recorder.recordSessions(sessions);
+    await recorder.start({
+      id: paths.id,
+      prompt: 'demo',
+      text: 'Read notes.md.',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      adapter: 'test',
+      model: 'test',
+      workspace: '/tmp/x',
+      mainSession: main.id,
+    });
+    recorder.modelCall({
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+      signal: new AbortController().signal,
+    });
+    recorder.event({ seq: 0, type: 'text_delta', text: 'Hi' });
+    recorder.event({
+      seq: 1,
+      type: 'tool_result',
+      call: { id: 'c', name: 'read_file', input: {} },
+      description: 'reading',
+      durationMs: 1,
+      message: { role: 'tool', toolCallId: 'c', content: 'nope', isError: true },
+    });
+    recorder.transcript('Hi\n');
+    sessions.report({ id: main.id, status: 'working' });
+
+    const result = await recorder.finish({
+      outcome: 'failed',
+      error: 'boom',
+      messages: [{ role: 'user', content: 'hi' }],
+      sessions: 1,
+    });
+
+    expect(result).toMatchObject({
+      outcome: 'failed',
+      error: 'boom',
+      events: 2,
+      modelCalls: 1,
+      toolCalls: 1,
+      toolErrors: 1,
+      lastEvent: '#1 tool_result',
+    });
+    expect(await store.events(paths.id)).toHaveLength(2);
+    expect(await store.result(paths.id)).toEqual(result);
+    expect(await store.meta(paths.id)).toMatchObject({ prompt: 'demo', mainSession: main.id });
+    expect(await store.messages(paths.id)).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(await readFile(paths.transcript, 'utf8')).toBe('Hi\n');
+    expect(await readFile(paths.sessions, 'utf8')).toContain('event: session_status');
+    expect(JSON.parse((await readFile(paths.modelCalls, 'utf8')).trim())).toMatchObject({
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+    });
+  });
+
+  it('a run without a result reads as unfinished, and refuses to be continued', async () => {
+    const store = await tempWorkbook();
+    const paths = await store.beginRun({
+      prompt: 'demo',
+      id: (n) => runId({ number: n, prompt: 'demo' }),
+    });
+
+    expect(await store.result(paths.id)).toBeUndefined();
+    await expect(store.messages(paths.id)).rejects.toThrow("didn't finish");
+  });
+});

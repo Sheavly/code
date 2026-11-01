@@ -6,10 +6,20 @@
 //   npm run lint:fix        apply auto-fixes, then Prettier
 //   npm run format          Prettier owns formatting; ESLint never reports on it
 import { baseConfig, TEST_FILES } from '@sheavly/eslint-config';
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
-/** Hosts talk to the terminal and read env; the process runner passes a scrubbed env on. */
-const HOST_FILES = ['src/demo.ts', 'src/runtime/process/process.service.ts'];
+/**
+ * Hosts talk to the terminal and read env; the process runner passes a scrubbed env on.
+ * `src/host/` is what every host shares (wiring, the terminal UI); `src/workbook/` is a host.
+ */
+const HOST_FILES = [
+  'src/demo.ts',
+  'src/host/**/*.ts',
+  'src/workbook/**/*.ts',
+  'src/runtime/process/process.service.ts',
+];
+/** Hosts' command-line entry points: files without a kind. */
+const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */
 const ENTRY_FILE = 'src/index.ts';
 
@@ -18,23 +28,37 @@ const ENTRY_FILE = 'src/index.ts';
 const LAYERS = [
   {
     files: ['src/providers/**/*.ts'],
-    forbidden: ['**/loop/**', '**/tools/**', '**/runtime/**', '**/demo.js'],
+    forbidden: [
+      '**/loop/**',
+      '**/tools/**',
+      '**/runtime/**',
+      '**/host/**',
+      '**/workbook/**',
+      '**/demo.js',
+    ],
     message: 'Providers only depend on core: they must not know about the loop, tools or runtime.',
   },
   {
     files: ['src/runtime/**/*.ts'],
-    forbidden: ['**/loop/**', '**/tools/**', '**/providers/**', '**/demo.js'],
+    forbidden: [
+      '**/loop/**',
+      '**/tools/**',
+      '**/providers/**',
+      '**/host/**',
+      '**/workbook/**',
+      '**/demo.js',
+    ],
     message:
       'Runtime services (workspace, processes, tasks) must not depend on the loop, tools or providers.',
   },
   {
     files: ['src/tools/**/*.ts'],
-    forbidden: ['**/loop/**', '**/providers/**', '**/demo.js'],
+    forbidden: ['**/loop/**', '**/providers/**', '**/host/**', '**/workbook/**', '**/demo.js'],
     message: 'Tools must not depend on the loop or on providers; take what they need as options.',
   },
   {
     files: ['src/loop/**/*.ts'],
-    forbidden: ['**/providers/**', '**/tools/**', '**/demo.js'],
+    forbidden: ['**/providers/**', '**/tools/**', '**/host/**', '**/workbook/**', '**/demo.js'],
     message:
       'The loop knows the Provider and Tool contracts (@sheavly/core) only, never concrete providers or tools.',
   },
@@ -47,7 +71,12 @@ const layerBlocks = LAYERS.map(({ files, forbidden, message }) => ({
 }));
 
 export default defineConfig([
-  ...baseConfig({ tsconfigRootDir: import.meta.dirname, entryFiles: [ENTRY_FILE, 'src/demo.ts'] }),
+  // The workbook's projects are what the agent reads and writes, not harness source.
+  globalIgnores(['workbook/workspaces/', 'workbook/runs/']),
+  ...baseConfig({
+    tsconfigRootDir: import.meta.dirname,
+    entryFiles: [ENTRY_FILE, ...HOST_ENTRIES],
+  }),
   ...layerBlocks,
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
   { files: HOST_FILES, rules: { 'harness/no-process-env': 'off', 'no-console': 'off' } },

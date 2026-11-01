@@ -80,6 +80,9 @@ A short prompt costs a fraction of a cent. See `src/demo.ts`.
 If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
 A `Responses API error 401` means the key is wrong.
 
+For stored prompts, saved runs and stepping through what happened, use the workbook
+(`npm run workbook -- list`, see [workbook/README.md](workbook/README.md)).
+
 Demo settings, as environment variables (see the top of `src/demo.ts`):
 
 - `WORKSPACE_ROOT=<dir>`: where the file tools, AGENTS.md and `.sheavly/` hooks are read from.

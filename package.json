@@ -14,7 +14,8 @@
     "lint:prune": "eslint . --prune-suppressions",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "workbook": "tsx src/workbook/workbook.ts"
   },
   "type": "module",
   "dependencies": {

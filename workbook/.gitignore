@@ -1,0 +1,4 @@
+# Runs, run workspaces and state are per machine; prompts and fixture workspaces are shared.
+runs/
+workspaces/runs/
+state.json

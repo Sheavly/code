@@ -26,6 +26,8 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 | `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`    |
 | `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                         |
 | `src/demo.ts`        | A CLI host: reads env, wires everything up, prints events                                           |
+| `src/host/`          | What every host shares: wiring a run (`createHarness`), the model from env, the terminal UI         |
+| `src/workbook/`      | A stateful host: stored prompts, saved runs, continue, step and diff (`workbook/`)                  |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
@@ -57,10 +59,10 @@ API's `instructions` field.
    stream out as they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
    Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
-4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
-   (or waits for a background task, with `waitForTasks`).
    A `tool_result` can carry `change` (a file write: before and after) or `read` (which lines a
    read covered); the model sees only the text, a UI renders these.
+4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
+   (or waits for a background task, with `waitForTasks`).
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions.md](sessions.md)).
 
