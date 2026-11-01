@@ -315,10 +315,12 @@ returns, no nested ternaries, blank lines between steps (auto-fixed with `npm ru
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
-| Event                           | Script                               | What it does                                                                                                                                                                                                                                  |
-| ------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs` | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                    |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`    | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds. |
+| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                     |
+| ------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                            |
+| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, interactive `gh stack` forms. |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                       |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                    |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**
@@ -330,3 +332,42 @@ echo '{"status":"completed"}' | node .cursor/hooks/check-on-stop.mjs
 ```
 
 Both print `{}` when everything passes.
+
+## Git workflow
+
+GitHub is the only tracker: work is a GitHub issue in this repo, and nothing uses Jira or any other
+tool. All git and GitHub work goes through the `/git` skill (`.cursor/skills/git/`), for people as
+well as agents; its `conventions.md` has the formats with good and bad examples.
+
+- **One issue, one branch, one PR**, based on `main`. Work too big for one PR is split into
+  sub-issues with their own PRs, or, when the parts depend on each other, into a **stack of PRs**:
+  each layer is a normal issue branch and PR based on the layer below, the bottom one on `main`
+  (`.cursor/skills/git/stacks.md`; `gh stack` optional). Lower layers end with `Part of #123`
+  instead of `Closes #123`, so the issue closes when the top layer merges.
+- **Branches:** `<issue>-<kebab-name>` (`123-provider-switch`), GitHub's own form:
+  `gh issue develop 123 --name 123-provider-switch --base main --checkout` links it to the issue.
+- **Commits:** one scope each, in the order the work was built, so a reviewer reads the PR commit
+  by commit. `type(scope): subject` (types `feat fix refactor perf test docs build ci chore
+revert`; the scope is a package or `src/` folder, or left out for root tooling; imperative,
+  lowercase, no full stop, header at most 72 characters), an optional body explaining why, and a
+  `Refs: #123` footer.
+- **PRs:** opened as drafts. Title `type(scope): subject`, with no issue number; it becomes the
+  squashed commit on `main`. The body (`.github/pull_request_template.md`) has Why, Commits, What
+  changes, How to review and Test plan, and ends with `Closes #123`, which links the PR to the
+  issue and closes the issue on merge.
+- **Issues** have a type (`Task`, `Bug`, `Feature`, set by the forms in `.github/ISSUE_TEMPLATE/`),
+  are split into sub-issues when they're bigger than one PR, and record order as "blocked by"
+  dependencies. Labels only for what types can't say, never for status or priority
+  (`.cursor/skills/git/issues.md`).
+- **Status** is read from GitHub: open, blocked, a branch or draft PR (in progress), a ready PR (in
+  review), closed by the merge (done). A GitHub Project board, if used, mirrors that.
+- **Rewriting:** while the PR is a draft, fixes are folded into the commit they belong to and
+  pushed with `--force-with-lease`; once it's ready for review, fixes are new commits on top.
+- **Merging:** `gh pr merge <n> --squash` (`gh stack merge <pr> --yes --squash` for a stack).
+  Every push of new work is first reviewed by Bugbot and a security review.
+- **Enforced:** the issue gate and the git guard (hooks above) for agents; the `Git format`
+  workflow (`.github/workflows/git-format.yml`, running `scripts/check-git-format.mjs`) for every
+  PR's title, branch, base (`main` or an issue branch, for stacks) and `Closes #`/`Part of #`
+  line. Dependabot's PRs are the one kind without an issue.
+- **Repo settings** (once, by a person; `.cursor/skills/git/setup.md`): squash merging only,
+  defaulting to the PR title; branch protection on `main` requiring the `Git format` check.

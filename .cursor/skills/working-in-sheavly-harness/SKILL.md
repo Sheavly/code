@@ -1,6 +1,6 @@
 ---
 name: working-in-sheavly-harness
-description: Conventions and workflow for changing the @sheavly/harness agent loop (TypeScript, Node 24 ESM): layer boundaries, module folders and `<name>.<kind>.ts` file kinds, adding tools/providers/events, tests in __tests__, and the Prettier + ESLint + tsc quality gate enforced by Cursor hooks. Use when editing any code in this project, adding a tool, adapter or loop event, writing tests, or when a hook reports lint, format or type failures.
+description: Conventions and workflow for changing the @sheavly/harness agent loop (TypeScript, Node 24 ESM): layer boundaries, module folders and `<name>.<kind>.ts` file kinds, adding tools/providers/events, tests in __tests__, and the Prettier + ESLint + tsc + knip + jscpd quality gate enforced by Cursor hooks. Use when editing any code in this project, adding a tool, adapter or loop event, writing tests, or when a hook reports lint, format, type, dead-code or duplication failures.
 ---
 
 # Working in @sheavly/harness
@@ -109,3 +109,7 @@ Cursor hooks (`.cursor/hooks.json`) run this automatically:
 Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 
 Finish a change only when `npm run check` passes.
+
+## Git and GitHub
+
+GitHub Issues is the only tracker; never Jira or anything else. All git and GitHub work goes through the `/git` skill (`.cursor/skills/git/`): one issue, one branch `<issue>-<kebab-name>` off `main`, one PR; or a stack of PRs, each based on the layer below (`stacks.md`), lower layers ending `Part of #123`. Commits are `type(scope): subject` with a `Refs: #123` footer, one scope each in build order; the PR title is the same header format, and its body ends with `Closes #123`. Stage named files only, push rewrites with `--force-with-lease` and only on draft PRs, merge with `--squash` (`gh stack merge <pr> --yes --squash` for a stack), cherry-pick only after the user writes "allow cherry-pick". A chat's first prompt names its issue (`#123`) or starts with `NO-ISSUE`. The git guard (`beforeShellExecution`) denies commands that break these; `.cursor/skills/git/conventions.md` has the formats with examples.

@@ -22,8 +22,8 @@ const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
 export const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
 /** Where the conventions and structure rules apply: a workspace's own TypeScript source. */
 const SOURCE_FILES = ['src/**/*.ts'];
-/** Files outside any tsconfig (configs, hooks) that still get type info, from a default project. */
-const DEFAULT_PROJECT_FILES = ['*.ts', '*.js', '*.mjs', '.cursor/hooks/*.mjs'];
+/** Files outside any tsconfig (root configs) that still get type info, from a default project. */
+const DEFAULT_PROJECT_FILES = ['*.ts', '*.js', '*.mjs'];
 
 function maxLines(max) {
   return max === null ? 'off' : ['error', { max, skipBlankLines: true, skipComments: true }];

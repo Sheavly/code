@@ -1,0 +1,47 @@
+name: Bug
+description: Something behaves wrongly.
+type: Bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, including error messages.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The smallest steps, command or input that shows it. Say if it only happens sometimes.
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The commit (`git rev-parse --short HEAD`), Node version and model backend, if relevant.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output. It is formatted as code automatically. Never paste API keys or `.env` contents.
+      render: shell
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checkable criteria for the fix, usually including a test that fails today.
+      value: |
+        - [ ] A test reproduces it and passes after the fix.
+    validations:
+      required: true

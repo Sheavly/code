@@ -1,0 +1,40 @@
+name: Git format
+
+# The PR title becomes the squashed commit on main, and the body's `Closes #123` (or `Part of #123`
+# for a stack layer) links the PR to its GitHub issue. Runs on every PR whatever its base, so a
+# stacked PR based on another issue branch is checked too. Separate from any build so a title or
+# body edit reruns only this quick check.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: git-format-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: PR title, body and branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+
+      # Passed through env, never interpolated into the script: a title or body is untrusted input.
+      - name: Check the PR title, body and branch
+        run: node scripts/check-git-format.mjs
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}

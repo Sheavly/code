@@ -1,6 +1,8 @@
 // Shared helpers for the Cursor hooks in this folder. Hooks talk JSON over stdin/stdout:
 // Cursor writes the event payload to stdin and reads our response from stdout.
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 
@@ -52,6 +54,47 @@ export function runBin(name, args) {
 /** Runs an npm script quietly (so its own config and baseline wrappers apply); never throws. */
 export function runNpmScript(name) {
   return runFile('npm', ['run', '--silent', name]);
+}
+
+/** The checked-out branch in `cwd`, or null (detached HEAD, not a repo). */
+export function currentBranch(cwd = PROJECT_ROOT) {
+  const result = spawnSync('git', ['branch', '--show-current'], { cwd, encoding: 'utf8' });
+  const branch = result.status === 0 ? result.stdout.trim() : '';
+
+  return branch || null;
+}
+
+// Per-chat state (the chat's issue, its approvals), outside the repo so it is never committed.
+// SHEAVLY_HOOK_STATE_DIR points tests at a temp dir.
+const STATE_DIR =
+  process.env.SHEAVLY_HOOK_STATE_DIR ??
+  path.join(os.homedir(), '.cache', 'sheavly-harness', 'chats');
+
+function chatStateFile(conversationId) {
+  return path.join(STATE_DIR, `${String(conversationId).replace(/[^\w-]/g, '_')}.json`);
+}
+
+/** What earlier hooks recorded for this chat, or null. */
+export function getChatState(conversationId) {
+  if (!conversationId) return null;
+
+  try {
+    return JSON.parse(readFileSync(chatStateFile(conversationId), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Merges `fields` into this chat's recorded state. */
+export function updateChatState(params) {
+  const { conversationId, ...fields } = params;
+
+  if (!conversationId) return;
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeFileSync(
+    chatStateFile(conversationId),
+    JSON.stringify({ ...getChatState(conversationId), ...fields }),
+  );
 }
 
 function runFile(file, args) {

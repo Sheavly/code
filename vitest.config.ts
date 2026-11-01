@@ -8,6 +8,7 @@ export default defineConfig({
       'src/**/__tests__/**/*.test.ts',
       'packages/*/src/**/__tests__/**/*.test.{ts,js}',
       'scripts/__tests__/*.test.mjs',
+      '.cursor/hooks/__tests__/*.test.mjs',
     ],
     environment: 'node',
     // `.sheavly` hooks are user code the harness loads with Node's own `import()`. Vite must not

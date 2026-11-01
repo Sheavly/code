@@ -1,0 +1,32 @@
+name: Feature
+description: A larger piece of functionality, broken down into sub-issues (one PR each).
+type: Feature
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem, and who it is for.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: What should exist when the whole feature is done.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: The feature-level outcomes. The pieces of work are sub-issues, not a checklist here.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, open questions, what is deliberately out of scope.

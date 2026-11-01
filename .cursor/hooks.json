@@ -1,6 +1,18 @@
 {
   "version": 1,
   "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "node .cursor/hooks/require-issue.mjs",
+        "timeout": 10
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/guard-git-workflow.mjs",
+        "timeout": 10
+      }
+    ],
     "postToolUse": [
       {
         "command": "node .cursor/hooks/lint-edited-file.mjs",
