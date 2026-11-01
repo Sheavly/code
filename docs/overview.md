@@ -25,17 +25,17 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 @sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Where                | What lives there                                                                                                           |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                          |
-| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                 |
-| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, approvals, file locks, `.sheavly/`, AGENTS.md |
-| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                           |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                |
-| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                              |
-| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                             |
-| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                           |
-| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                           |
+| Where                | What lives there                                                                                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                               |
+| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                      |
+| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, approvals, file locks, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
+| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                     |
+| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                   |
+| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                  |
+| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                |
+| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
@@ -75,9 +75,51 @@ API's `instructions` field.
    session (every run is a session with an id; see [sessions.md](sessions.md)).
 
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
-history stays valid. If the run fails, `onError` hooks are told and the error is rethrown. A model
-call that fails after it started tools (a cut-off stream, an error event) first stops those tools
-and emits their results, so every `tool_call_started` is answered, then fails the run.
+history stays valid. If the run fails, `onError` hooks are told and the error is rethrown; an
+`onError` handler that fails is reported as a `hook_failed` event, never in place of that error. A
+model call that fails after it started tools (a cut-off stream, an error event) first stops those
+tools and emits their results, so every `tool_call_started` is answered, then fails the run.
+
+## Errors
+
+The harness fails loudly, and ESLint enforces it in every workspace and on `.cursor/hooks/`:
+
+- `harness/no-silent-catch`: a `catch` either rethrows or checks what it caught (an error code, a
+  class) and handles only what it expects, so no failure turns silently into a default.
+- `harness/no-raw-error`: source never creates a plain `Error`. Every error is a typed class,
+  with a `name` and the fields to act on, keeping the original as `cause`, so a caller catches it
+  by class instead of by message. Tests, fakes and root `scripts/` are exempt.
+
+Each area keeps its own classes, since the layers can't all import one another:
+
+| Where                            | Classes                                                    |
+| -------------------------------- | ---------------------------------------------------------- |
+| `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong            |
+| `src/providers/errors/`          | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError` |
+| `src/runtime/errors/`            | Runtime, tools, loop and hosts (below)                     |
+| `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`    |
+
+| `src/runtime/errors/` class            | Thrown when                                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `WorkspaceError`                       | A path is outside the workspace, or a broken symlink                                                                        |
+| `PathCheckError` (`path`, `code`)      | A path couldn't be checked at all (`EACCES`, `ELOOP`); never "missing"                                                      |
+| `ProjectHooksError`                    | `.sheavly/` hooks can't be read, validated or loaded                                                                        |
+| `ProcessKillError` (`pid`, `code`)     | A command's process group couldn't be stopped; it may still be running                                                      |
+| `ProcessInterruptedError`              | The run was interrupted before a command started                                                                            |
+| `ApprovalRequestError` (`reason`)      | No one listens for approvals, or an answer names no waiting request                                                         |
+| `ApprovalListenerError` (`update`)     | An approval subscriber threw                                                                                                |
+| `CommandRefusedError` (`reason`)       | A command needed approval nobody could give, or the user skipped it                                                         |
+| `ToolCallError` (`reason`)             | A tool refused a call (`not_found`, `invalid_input`, `forbidden`, `unavailable`); the message tells the model how to fix it |
+| `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor)                                                 |
+| `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                                                                           |
+| `HookError` (`hook`, `handler`)        | An `onError` handler threw (reported as `hook_failed`)                                                                      |
+| `StreamEndedError`                     | A run's event stream ended without `done`                                                                                   |
+| `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                                                                          |
+| `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                                                                      |
+| `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                                                                   |
+
+`errors.utils.ts` has `errorMessage`, `errorCode` and `isMissingPath` (`ENOENT` / `ENOTDIR`
+only).
 
 ## Where the next work goes
 

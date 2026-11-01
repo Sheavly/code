@@ -83,7 +83,9 @@ guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
    (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,
    `:(top).env`, `.\env`, a symlink to one, or any glob: git's `*`, `?` and `[...]` cross `/`, so
    `c*` or `config?.env` reach `config/.env`). Arguments that aren't existing paths (`HEAD~1`, a
-   test name) pass.
+   test name) pass. One the sandbox can't check at all (unreadable, a symlink loop: a
+   `PathCheckError`) is never treated as "not a path": it needs approval, as "could not be
+   checked (ELOOP)".
 3. **Git output** (`git-output.utils.ts`): a git command that can print or write file contents
    needs approval whatever its arguments, since a patch shows a committed `.env` without naming
    it. This is an allowlist, not a list of patch flags (those always miss one: `--patch-with-stat`,
@@ -142,8 +144,16 @@ with one of:
   to that result ("Instead, the user says: …"), so it steers the model's next step.
 
 `respond` validates the answer with zod and throws for a malformed one or an id that isn't
-waiting; `pending()` lists open requests for a UI that connects late. With no subscriber (a
-headless run, the demo, the workbook) those commands are refused right away instead of waiting.
+waiting (an `ApprovalRequestError`); `pending()` lists open requests for a UI that connects late.
+With no subscriber (a headless run, the demo, the workbook) those commands are refused right away
+instead of waiting. A refused or skipped command fails the tool call with a `CommandRefusedError`
+(`reason: 'needs_approval' | 'skipped'`), whose message is what the model reads.
+
+A subscriber that throws doesn't stop the others: every listener still hears the update, then an
+`ApprovalListenerError` reaches whoever caused it. On `approval_requested` the request fails
+closed (the command doesn't run), unless a listener already answered it while hearing the
+update, which stands; on `approval_resolved` the call still gets its answer and `respond`
+throws; on `approval_cancelled` the call fails with that error.
 
 These updates come from the registry, not the loop's event stream: a tool result waiting in that
 ordered stream would hold back the request it waits for.

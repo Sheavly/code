@@ -305,6 +305,14 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   callbacks are exempt, since their caller fixes the signature; so are test files.
 - **`type`, not `interface`**; **named exports only** (`harness/no-default-export`); **no barrels** (`harness/no-barrel`,
   re-exports only in `src/index.ts`); env only in hosts (`harness/no-process-env`); caught errors are named `caughtError`.
+- **Fail loudly** (`harness/no-silent-catch`, every workspace plus `.cursor/hooks/` and `scripts/`):
+  a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
+  handle only what it expects, or pass it on as `cause`. Turning every error into a default
+  (`[]`, `undefined`, a fresh error without the cause) fails.
+- **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
+  a class from its area's errors (`src/runtime/errors/`, `src/providers/errors/`,
+  `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
+  exempt. The classes are listed in [docs/overview.md](docs/overview.md#errors).
 
 ### ESLint
 
