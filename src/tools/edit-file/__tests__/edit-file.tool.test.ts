@@ -1,4 +1,4 @@
-import { readFile, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.service';
@@ -72,6 +72,22 @@ describe('edit_file', () => {
     );
     expect(await readFile(path.join(temp.base, 'outside.txt'), 'utf8')).toBe('const a = 1;\n');
     expect(await readFile(path.join(temp.root, '.env'), 'utf8')).toBe('SECRET=hunter2\n');
+  });
+
+  it('refuses files inside .git, directly or through a symlink', async () => {
+    const config = '[core]\n\tbare = false\n';
+
+    await mkdir(path.join(temp.root, '.git'));
+    await writeFile(path.join(temp.root, '.git/config'), config);
+    await symlink(path.join(temp.root, '.git/config'), path.join(temp.root, 'config.txt'));
+
+    for (const target of ['.git/config', '.GIT/config', 'config.txt']) {
+      expect((await edit({ path: target, oldText: 'false', newText: 'true' })).content).toContain(
+        'Writing inside .git is not allowed',
+      );
+    }
+
+    expect(await readFile(path.join(temp.root, '.git/config'), 'utf8')).toBe(config);
   });
 });
 

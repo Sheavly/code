@@ -1,4 +1,5 @@
-import { readFile, symlink, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.service';
@@ -78,5 +79,33 @@ describe('write_file', () => {
       'Writing .env files is not allowed',
     );
     expect(await readFile(path.join(temp.root, '.env'), 'utf8')).toBe('SECRET=hunter2\n');
+  });
+
+  it.each(['.git/config', '.git/hooks/pre-commit', 'sub/.git/config', '.Git/config', '.git'])(
+    'refuses to write %s, and writes nothing',
+    async (file) => {
+      const result = await write(file, '[core]\n\tfsmonitor = ./pwn.sh\n');
+
+      expect(result).toMatchObject({ isError: true });
+      expect(result.content).toContain('Writing inside .git is not allowed');
+      expect(existsSync(path.join(temp.root, file))).toBe(false);
+    },
+  );
+
+  it('refuses a symlink that points into .git', async () => {
+    await mkdir(path.join(temp.root, '.git'));
+    await symlink(path.join(temp.root, '.git'), path.join(temp.root, 'meta'));
+
+    expect((await write('meta/config', 'x')).content).toContain(
+      'Writing inside .git is not allowed',
+    );
+    expect(existsSync(path.join(temp.root, '.git/config'))).toBe(false);
+  });
+
+  it('still writes files whose names only contain .git', async () => {
+    const result = await write('.gitignore', 'node_modules\n');
+
+    expect(result).toMatchObject({ isError: false });
+    expect((await write('docs/.github/x.md', 'x')).isError).toBe(false);
   });
 });

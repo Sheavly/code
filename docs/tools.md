@@ -28,7 +28,10 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 
 All three go through the `Workspace` sandbox (`src/runtime/workspace/`): paths are relative to
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
-symlinks that point out. `.env` files are refused by name, before and after symlinks.
+symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes
+inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.git/hooks/x`,
+`sub/.git/config` and a `.git` file) are refused the same way: git config and hooks there can make
+the next `git status` run any program, outside every check `run_command` makes.
 
 | Tool         | What it does                                                                               |
 | ------------ | ------------------------------------------------------------------------------------------ |
@@ -56,11 +59,11 @@ The model never sees it; it's for a UI. The demo shows `read src/a.ts` when `who
 `read src/a.ts lines 40–45 (of 1500)` otherwise.
 
 A range past the end, a reversed range or a line number that isn't one is adjusted the same way,
-with a note. Only the guards fail closed: `.env` files and paths outside the workspace are always
-refused.
+with a note. Only the guards fail closed: `.env` files, writes inside `.git` and paths outside the
+workspace are always refused.
 
-Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check),
-`readIfExists`, `writeText`, and the `.env` guard all three tools use.
+Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check, with the `.git`
+guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
 ## Commands
 
@@ -82,6 +85,21 @@ Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path chec
    and `git diff` run without asking only when every flag is one known to show no contents
    (`git status -sb`, `git log --oneline -n 5`, `git diff --stat`), and a diff also needs a
    summary flag. Any other flag, subcommand or plain `git diff` asks.
+
+Every command then runs with git config that keeps a repo from making git run programs: a write
+to `.git/config` is refused (above), but a hostile repo can arrive with one. `GIT_CONFIG_NOSYSTEM=1`
+and `GIT_CONFIG_COUNT` env overrides (`SAFE_GIT_CONFIG` in `run-command.constants.ts`) win over
+every config file: `core.fsmonitor` off, `core.hooksPath=/dev/null`, `safe.bareRepository=explicit`
+(an implicit bare repo brings its own config), no signature checks and no `gpg.*` program.
+`attr.tree=HEAD` reads attributes from the last commit (an empty tree before the first), so an
+edited `.gitattributes` can't switch on a filter driver (`filter.<name>.clean`) the config
+defines. Since they're in the
+env, they also reach git that a test runner starts. `git diff`, `log` and `show` also get
+`--no-ext-diff --no-textconv`, so diff drivers (`diff.external`, textconv) never run.
+
+Left open: a filter that is both in the repo's config and named in a committed `.gitattributes`
+still runs (there is no switch for every filter driver, and a write to `.git/config` that would
+add one is refused), and git older than 2.42 ignores `attr.tree`.
 
 Test runners on the allow list (`npm test`, `npx vitest run`) run workspace code, which can read
 anything the process can; argument checks can't stop that. Isolating the process itself is

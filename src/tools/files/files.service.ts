@@ -1,10 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
-import { assertNotEnvFile } from './files.utils.js';
+import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
 
 /**
  * Resolves a path the agent may write to: inside the workspace (`resolveWrite` rejects `../`,
- * absolute paths outside and symlinks out) and never a .env file, before and after symlinks.
+ * absolute paths outside and symlinks out), never a .env file and never inside `.git`, before
+ * and after symlinks.
  */
 export async function resolveWritable(params: {
   workspace: Workspace;
@@ -13,9 +14,11 @@ export async function resolveWritable(params: {
   const { workspace, requested } = params;
 
   assertNotEnvFile({ filePath: requested, requested, action: 'Writing' });
+  assertNotGitDir({ relativePath: requested, requested });
   const real = await workspace.resolveWrite(requested);
 
   assertNotEnvFile({ filePath: real, requested, action: 'Writing' });
+  assertNotGitDir({ relativePath: workspace.relative(real), requested });
 
   return real;
 }

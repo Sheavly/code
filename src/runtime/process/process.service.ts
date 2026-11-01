@@ -48,9 +48,12 @@ export function runProcess(params: ProcessParams): Promise<ProcessResult> {
     const child = spawn(file, args, {
       cwd: options.cwd,
       shell: options.shell,
-      env: Object.fromEntries(
-        Object.entries(process.env).filter(([name]) => !SECRET_ENV.test(name)),
-      ),
+      env: {
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(([name]) => !SECRET_ENV.test(name)),
+        ),
+        ...options.env,
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true, // own process group, so we can kill everything it started
     });

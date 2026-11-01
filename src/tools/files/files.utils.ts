@@ -5,6 +5,26 @@ export function isEnvFile(filePath: string): boolean {
   return /^\.env(\..*)?$/i.test(path.basename(filePath));
 }
 
+/** True if any part of `filePath` is `.git` (case-insensitive): `.git/config`, `sub/.git`. */
+function isInGitDir(filePath: string): boolean {
+  return filePath.split(/[\\/]/).some((part) => part.toLowerCase() === '.git');
+}
+
+/**
+ * Throws if `relativePath` (relative to the workspace root) is in a `.git` folder or is a
+ * `.git` file. Git config and hooks there can make the next `git status` run any program.
+ */
+export function assertNotGitDir(params: { relativePath: string; requested: string }): void {
+  const { relativePath, requested } = params;
+
+  if (isInGitDir(relativePath)) {
+    throw new Error(
+      `Writing inside .git is not allowed (${requested}). Git config and hooks there can run ` +
+        'programs.',
+    );
+  }
+}
+
 /**
  * Throws if `filePath` is a .env file; `requested` is what the model asked for, for the error.
  * `action` names what was refused, e.g. "Reading" or "Writing".
