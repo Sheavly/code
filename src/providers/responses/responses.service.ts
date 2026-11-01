@@ -3,6 +3,7 @@ import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { BearerResponsesConfig, ResponsesConfig } from './responses.types.js';
 import { handleEvent, responsesEventSchema, toInputItems } from './responses.utils.js';
+import { ResponsesApiError } from '../errors/providers.errors.js';
 import { readServerSentEvents } from './sse.utils.js';
 
 /** A Provider for any backend that speaks the OpenAI Responses API. */
@@ -42,7 +43,11 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
       });
 
       if (!response.ok || !response.body) {
-        throw new Error(`Responses API error ${response.status}: ${await response.text()}`);
+        throw new ResponsesApiError({
+          reason: 'http',
+          status: response.status,
+          message: `Responses API error ${response.status}: ${await response.text()}`,
+        });
       }
 
       let stopReason: StopReason = 'end_turn';
@@ -64,7 +69,10 @@ export function createResponsesProvider(config: ResponsesConfig): Provider {
       // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
       if (!ended) {
         signal.throwIfAborted();
-        throw new Error('Responses stream ended before response.completed');
+        throw new ResponsesApiError({
+          reason: 'cut_off',
+          message: 'Responses stream ended before response.completed',
+        });
       }
 
       yield { type: 'done', stopReason };

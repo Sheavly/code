@@ -1,5 +1,6 @@
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
+import { ProviderSwitchError } from '../errors/providers.errors.js';
 
 /**
  * A Provider that forwards to whichever named provider is currently active,
@@ -22,9 +23,10 @@ export class ProviderSwitch implements Provider {
 
   use(name: string): void {
     if (!this.providers.has(name)) {
-      throw new Error(
-        `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
-      );
+      throw new ProviderSwitchError({
+        reason: 'unknown',
+        message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
+      });
     }
 
     this.activeName = name;
@@ -41,7 +43,9 @@ export class ProviderSwitch implements Provider {
   stream(request: ProviderRequest): AsyncIterable<StreamEvent> {
     const provider = this.activeName ? this.providers.get(this.activeName) : undefined;
 
-    if (!provider) throw new Error('No active provider');
+    if (!provider) {
+      throw new ProviderSwitchError({ reason: 'none_active', message: 'No active provider' });
+    }
 
     return provider.stream(request);
   }

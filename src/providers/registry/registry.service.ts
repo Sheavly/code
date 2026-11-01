@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Adapter, AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import { AdapterError } from '../errors/providers.errors.js';
 
 export class AdapterRegistry {
   private readonly adapters = new Map<string, Adapter>();
@@ -9,7 +10,11 @@ export class AdapterRegistry {
 
   register(adapter: Adapter): this {
     if (this.adapters.has(adapter.kind)) {
-      throw new Error(`Adapter already registered: ${adapter.kind}`);
+      throw new AdapterError({
+        reason: 'duplicate',
+        kind: adapter.kind,
+        message: `Adapter already registered: ${adapter.kind}`,
+      });
     }
 
     this.adapters.set(adapter.kind, adapter);
@@ -26,13 +31,22 @@ export class AdapterRegistry {
     const adapter = this.adapters.get(kind);
 
     if (!adapter) {
-      throw new Error(`Unknown adapter: ${kind} (available: ${this.kinds().join(', ') || 'none'})`);
+      throw new AdapterError({
+        reason: 'unknown',
+        kind,
+        message: `Unknown adapter: ${kind} (available: ${this.kinds().join(', ') || 'none'})`,
+      });
     }
 
     const parsed = adapter.configSchema.safeParse(config);
 
     if (!parsed.success) {
-      throw new Error(`Invalid config for ${kind}:\n${z.prettifyError(parsed.error)}`);
+      throw new AdapterError({
+        reason: 'invalid_config',
+        kind,
+        message: `Invalid config for ${kind}:\n${z.prettifyError(parsed.error)}`,
+        cause: parsed.error,
+      });
     }
 
     return adapter.create({ config: parsed.data, deps: this.deps });
