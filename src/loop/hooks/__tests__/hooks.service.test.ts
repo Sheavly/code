@@ -69,7 +69,7 @@ describe('runBeforeTurn', () => {
 
 describe('runToolCall', () => {
   it('runs the tool directly when no hook wraps tool calls', async () => {
-    const message = await runToolCall({ hooks: [], tools: [echo], call, signal });
+    const { message } = await runToolCall({ hooks: [], tools: [echo], call, signal });
 
     expect(message).toEqual({ role: 'tool', toolCallId: 'c1', content: 'hi', isError: false });
   });
@@ -105,7 +105,7 @@ describe('runToolCall', () => {
       }),
     });
 
-    const message = await runToolCall({ hooks: [block], tools: [tool], call, signal });
+    const { message } = await runToolCall({ hooks: [block], tools: [tool], call, signal });
 
     expect(ran).toBe(false);
     expect(message).toMatchObject({ content: 'echo is not allowed', isError: true });
@@ -122,10 +122,14 @@ describe('runToolCall', () => {
     });
     const invalid = defineHook({ name: 'invalid', aroundToolCall: async ({ next }) => next({}) });
 
-    expect(await runToolCall({ hooks: [shout], tools: [echo], call, signal })).toMatchObject({
+    expect(
+      (await runToolCall({ hooks: [shout], tools: [echo], call, signal })).message,
+    ).toMatchObject({
       content: 'CHANGED',
     });
-    expect(await runToolCall({ hooks: [invalid], tools: [echo], call, signal })).toMatchObject({
+    expect(
+      (await runToolCall({ hooks: [invalid], tools: [echo], call, signal })).message,
+    ).toMatchObject({
       isError: true,
     });
   });
@@ -140,7 +144,7 @@ describe('runToolCall', () => {
       },
     });
 
-    const message = await runToolCall({ hooks: [broken], tools: [echo], call, signal });
+    const { message } = await runToolCall({ hooks: [broken], tools: [echo], call, signal });
 
     expect(description).toBe('echoing');
     expect(message).toEqual({
@@ -149,6 +153,38 @@ describe('runToolCall', () => {
       content: 'Hook broken failed: boom',
       isError: true,
     });
+  });
+  it("passes a tool's file change through, and lets a hook see or drop it", async () => {
+    const change = { path: 'a.ts', before: 'x', after: 'y' };
+    const writer = defineTool({
+      ...echo,
+      execute: async () => ({ content: 'Edited a.ts', change }),
+    });
+    let seen: unknown;
+    const observe = defineHook({
+      name: 'observe',
+      aroundToolCall: async ({ next }) => {
+        const result = await next();
+
+        seen = result.change;
+
+        return result;
+      },
+    });
+    const drop = defineHook({
+      name: 'drop',
+      aroundToolCall: async ({ next }) => ({ ...(await next()), change: undefined }),
+    });
+
+    const kept = await runToolCall({ hooks: [observe], tools: [writer], call, signal });
+    const dropped = await runToolCall({ hooks: [drop], tools: [writer], call, signal });
+
+    expect(seen).toEqual(change);
+    expect(kept).toEqual({
+      message: { role: 'tool', toolCallId: 'c1', content: 'Edited a.ts', isError: false },
+      change,
+    });
+    expect(dropped.change).toBeUndefined();
   });
 });
 

@@ -10,10 +10,19 @@ export type {
 export { OrderedQueue } from './loop/queue/queue.service.js';
 export type { Sequenced } from './loop/queue/queue.types.js';
 export { defineTool, describeCall } from '@sheavly/core/tool/tool.service';
-export type { Tool, ToolContext, ToolExecution } from '@sheavly/core/tool/tool.types';
+export type {
+  FileChange,
+  Tool,
+  ToolContext,
+  ToolExecution,
+  ToolOutput,
+  ToolRunResult,
+} from '@sheavly/core/tool/tool.types';
 export { defineHook } from '@sheavly/core/hook/hook.service';
 export type * from '@sheavly/core/hook/hook.types';
 export { createReadFileTool } from './tools/read-file/read-file.tool.js';
+export { createWriteFileTool } from './tools/write-file/write-file.tool.js';
+export { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
 export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
 export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';

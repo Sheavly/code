@@ -12,8 +12,11 @@ backends that can be swapped while running.
   - [ ] Add a system-instructions field to `ProviderRequest` in `@sheavly/core` (there is none yet),
         and send it in the Responses client.
   - [ ] Find AGENTS.md files in the workspace and merge them, from the root down.
-- [ ] **Write / edit file tool:** `write_file` and/or `edit_file`, shaped like `tools/read-file/`.
-  - [ ] Build on `Workspace.resolveWrite`: the write-path check exists, but nothing uses it yet.
+- [x] **Write / edit file tool:** `write_file` and `edit_file`, shaped like `tools/read-file/`.
+  - [x] Build on `Workspace.resolveWrite`: both go through the write-path check, and refuse .env
+        files.
+  - [x] Results carry a `FileChange` (path, before, after) on the `tool_result` event, for a UI to
+        render the diff. The model only sees a one-line summary.
 - [ ] **Sub-agents:** "handling sub agents."
   - [ ] A tool that runs a nested `streamAgent` as a background task in `TaskRegistry`, so the
         parent can wait for it or cancel it like any other task.
@@ -61,7 +64,7 @@ backends that can be swapped while running.
       not just take one prompt per run as `demo.ts` does.
 - [ ] **User queuing messages:** the user can send messages while the agent is working; they are
       held and given to the model at the next turn.
-  - [ ] Queued items should always be able to be deleted.
+  - [ ] Queued items should always be able to be deleted and edited.
 - [ ] **User steering the agent:** the user can redirect the agent mid-run without stopping it.
 - [ ] **Message branching / history rewind:** "revert to messages": go back to an earlier user
       message, edit it, and "have the history be deleted" from that point (every later message

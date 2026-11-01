@@ -121,4 +121,36 @@ describe('runAgent', () => {
     // user + 2 × (assistant + tool)
     expect(messages).toHaveLength(5);
   });
+
+  it("puts a tool's file change on tool_result, never in the model's history", async () => {
+    const change = { path: 'a.ts', before: null, after: 'x' };
+    const writer = defineTool({
+      name: 'writer',
+      description: 'Writes a file',
+      inputSchema: z.object({}),
+      execute: async () => ({ content: 'Created a.ts', change }),
+    });
+    const call = { id: '1', name: 'writer', input: { description: 'writing a.ts' } };
+    const events: AgentEvent[] = [];
+    const messages = await runAgent({
+      provider: scriptedProvider([
+        [
+          { type: 'tool_call', call },
+          { type: 'done', stopReason: 'tool_use' },
+        ],
+        [{ type: 'done', stopReason: 'end_turn' }],
+      ]),
+      tools: [writer],
+      messages: [{ role: 'user', content: 'write' }],
+      onEvent: (e) => events.push(e),
+    });
+
+    expect(events.find((e) => e.type === 'tool_result')).toMatchObject({ change });
+    expect(messages[2]).toEqual({
+      role: 'tool',
+      toolCallId: '1',
+      content: 'Created a.ts',
+      isError: false,
+    });
+  });
 });

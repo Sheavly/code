@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '../../../runtime/workspace/workspace.service.js';
 import { runTool } from '@sheavly/core/tool/tool.service';
 import { createReadFileTool } from '../read-file.tool.js';
-import { isEnvFile } from '../read-file.utils.js';
+import { isEnvFile } from '../../files/files.utils.js';
 
 let base: string;
 let root: string;

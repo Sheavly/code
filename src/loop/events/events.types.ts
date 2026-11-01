@@ -1,5 +1,6 @@
 import type { Sequenced } from '../queue/queue.types.js';
 import type { TaskInfo } from '../../runtime/tasks/tasks.types.js';
+import type { FileChange } from '@sheavly/core/tool/tool.types';
 import type {
   Message,
   ReasoningItem,
@@ -32,8 +33,16 @@ export type AgentEventBody =
   | { type: 'turn_end'; turn: number; stopReason: TurnStopReason }
   /** The turn ended with these calls; their results follow in this order. */
   | { type: 'tool_batch'; calls: DescribedCall[] }
-  /** A tool's result, released only after the turn ended and all earlier results were. */
-  | ({ type: 'tool_result'; message: Message; durationMs: number } & DescribedCall)
+  /**
+   * A tool's result, released only after the turn ended and all earlier results were. `change`:
+   * the file a tool created or edited (path, before, after), for a UI to render as a diff.
+   */
+  | ({
+      type: 'tool_result';
+      message: Message;
+      durationMs: number;
+      change?: FileChange;
+    } & DescribedCall)
   /** In place of `tool_result` when the call launched a background task: it's still running. */
   | ({ type: 'task_running'; task: TaskInfo; message: Message; durationMs: number } & DescribedCall)
   /** A background task finished (or failed); the model is told at the start of the next turn. */

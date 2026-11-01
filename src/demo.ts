@@ -19,6 +19,8 @@ import { TaskRegistry } from './runtime/tasks/tasks.service.js';
 import { loadProjectHooks } from './runtime/project-hooks/project-hooks.service.js';
 import { Workspace } from './runtime/workspace/workspace.service.js';
 import { createReadFileTool } from './tools/read-file/read-file.tool.js';
+import { createWriteFileTool } from './tools/write-file/write-file.tool.js';
+import { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
 import { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 import { createTaskTools } from './tools/tasks/tasks.tool.js';
 
@@ -102,13 +104,21 @@ const tasks = new TaskRegistry();
 // Ctrl+C once: stop the turn cleanly (tools killed, partial history kept). Twice: force quit.
 // Commands run in their own process groups, so run_command kills them on exit either way.
 const interrupt = new AbortController();
+/**
+ * Under `npx tsx`, one Ctrl+C reaches node twice (from the terminal, and relayed by tsx), so a
+ * second SIGINT this soon is the same keypress, not a request to force quit.
+ */
+const SAME_KEYPRESS_MS = 500;
+let interruptedAt = 0;
 
 process.on('SIGINT', () => {
   if (interrupt.signal.aborted) {
+    if (Date.now() - interruptedAt < SAME_KEYPRESS_MS) return;
     process.stdout.write('\n✗ Forced exit.\n');
     process.exit(130);
   }
 
+  interruptedAt = Date.now();
   process.stdout.write('\n⏹ Interrupting… (Ctrl+C again to force quit)\n');
   interrupt.abort();
 });
@@ -117,6 +127,8 @@ const events = streamAgent({
   provider,
   tools: [
     createReadFileTool({ workspace }),
+    createWriteFileTool({ workspace }),
+    createEditFileTool({ workspace }),
     createRunCommandTool({ workspace, skipAllowList, tasks }),
     ...createTaskTools(tasks),
   ],
@@ -154,13 +166,13 @@ for await (const event of events) {
       break;
 
     case 'tool_result': {
-      const { message, description, durationMs } = event;
+      const { message, description, durationMs, change } = event;
 
       if (message.role !== 'tool') break;
       const label = batchSize > 1 ? `${description} · ` : '';
-      const detail = message.isError
-        ? firstLine(message.content)
-        : `${message.content.length} chars`;
+      // A real UI would render `change.before` / `change.after` as a diff; the demo just names it.
+      const summary = change ? message.content : `${message.content.length} chars`;
+      const detail = message.isError ? firstLine(message.content) : summary;
 
       process.stdout.write(
         `    ${message.isError ? '✗' : '✓'} ${label}${detail} · ${seconds(durationMs)}\n`,

@@ -1,7 +1,10 @@
 import type { Message, ToolCall, ToolMessage, TurnStopReason } from '../message/message.types.js';
+import type { FileChange } from '../tool/tool.types.js';
 
-/** What a tool call produced. The loop turns it into the history message for the call. */
-export type ToolResult = Pick<ToolMessage, 'content' | 'isError'>;
+/** What a tool call produced: the text for history, and any file change (for the UI's diff). */
+export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
+  change?: FileChange | undefined;
+};
 
 /** For handlers that add context: the history so far (a snapshot) and a way to add to it. */
 type ContextAccess = {

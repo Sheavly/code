@@ -2,6 +2,8 @@
 
 A TypeScript agent loop with pluggable model adapters (OpenAI, Azure, Astra).
 
+Design notes for building on the harness are in [docs/](docs/README.md).
+
 ## Requirements
 
 - Node 24+
@@ -201,7 +203,7 @@ src/
     tasks/                      background task registry
     project-hooks/              loads .sheavly/hooks.json and its hook files
   tools/                        one folder per tool; no loop or providers
-    read-file/  run-command/  tasks/
+    read-file/  write-file/  edit-file/  files/ (shared)  run-command/  tasks/
   loop/                         the agent loop; knows the core contracts only
     stream-agent/               streamAgent / runAgent, one turn, one model call
     events/  queue/  abort/  hooks/

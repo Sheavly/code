@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import { MAX_READ_CHARS } from './read-file.constants.js';
-import { assertNotEnvFile } from './read-file.utils.js';
+import { assertNotEnvFile } from '../files/files.utils.js';
 
 /** Reads a UTF-8 text file inside the workspace. */
 export function createReadFileTool({ workspace }: { workspace: Workspace }) {
@@ -16,10 +16,10 @@ export function createReadFileTool({ workspace }: { workspace: Workspace }) {
       path: z.string().min(1).describe('File path, relative to the workspace root'),
     }),
     execute: async ({ input: { path: requested }, signal }) => {
-      assertNotEnvFile({ filePath: requested, requested }); // checked before touching the disk
+      assertNotEnvFile({ filePath: requested, requested, action: 'Reading' }); // checked before touching the disk
       const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
 
-      assertNotEnvFile({ filePath: real, requested }); // a symlink pointing at a .env file
+      assertNotEnvFile({ filePath: real, requested, action: 'Reading' }); // a symlink pointing at a .env file
 
       const content = await readFile(real, { encoding: 'utf8', signal });
 

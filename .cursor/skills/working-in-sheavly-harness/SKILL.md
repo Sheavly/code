@@ -24,6 +24,8 @@ ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected,
 
 ## Packages
 
+Design docs live in `docs/` (overview, tools, hooks). When a feature lands, update its doc in the same change. The stop hook nudges you once when source files changed but the doc describing them didn't (`DOC_SOURCES` in `.cursor/hooks/docs.utils.mjs`); update the doc if what it says changed, otherwise just finish.
+
 npm workspaces in `packages/`, consumed as TypeScript source by subpath (`import { defineTool } from '@sheavly/core/tool/tool.service'`); nothing is built.
 
 - `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new contract shared by tools, providers and a future UI goes here.
@@ -59,8 +61,8 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 
 - `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
-- `execute({ input, signal, context })` returns a string, and throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
-- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`). Never read `.env*` files. Commands go through `runtime/process/process.service.ts` and the allow list.
+- `execute({ input, signal, context })` returns a string, or `{ content, change }` when it changed a file (`change` is a `FileChange` with path, before and after: emitted on `tool_result` for the UI's diff, never put in history). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
+- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `tools/files/files.service.ts`. Never read or write `.env*` files. Commands go through `runtime/process/process.service.ts` and the allow list.
 - Wire the tool into `src/demo.ts`, and export it from `src/index.ts`.
 
 **A provider**: `src/providers/adapters/<name>.adapter.ts` with `defineAdapter({ kind, description, configSchema, create: ({ config, deps }) => ... })` (from `@sheavly/core/adapter/adapter.service`), then register it in `adapters.service.ts`. Core code doesn't change.
@@ -98,7 +100,7 @@ npm run format     # Prettier only
 Cursor hooks (`.cursor/hooks.json`) run this automatically:
 
 - **After each Write**, the edited file is formatted with Prettier, then linted. If the hook says "Prettier reformatted the file", re-read the file before editing it again, since old `old_string` text may no longer match.
-- **On stop**, typecheck, Prettier check and ESLint run. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it.
+- **On stop**, typecheck, Prettier check and ESLint run. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
 
 Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 

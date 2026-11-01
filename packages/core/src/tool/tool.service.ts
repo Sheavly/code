@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { ToolCall, ToolMessage } from '../message/message.types.js';
 import type { ToolDefinition } from '../provider/provider.types.js';
-import type { Tool } from './tool.types.js';
+import type { Tool, ToolRunResult } from './tool.types.js';
 
 // --- Call description: added by the harness to every tool, filled in by the model ---
 
@@ -50,12 +50,15 @@ export function toDefinition(tool: Tool): ToolDefinition {
   };
 }
 
-/** Validates input, runs the tool, and always returns a tool message (never throws). */
+/**
+ * Validates input, runs the tool, and always returns a tool message (never throws), with the
+ * tool's file change if it made one.
+ */
 export async function runTool(params: {
   tools: Tool[];
   call: ToolCall;
   signal: AbortSignal;
-}): Promise<ToolMessage> {
+}): Promise<ToolRunResult> {
   const { tools, call, signal } = params;
   const result = (content: string, isError = false): ToolMessage => ({
     role: 'tool',
@@ -80,7 +83,11 @@ export async function runTool(params: {
   >;
 
   try {
-    return result(await tool.execute({ input, signal, context: { callId: call.id, description } }));
+    const output = await tool.execute({ input, signal, context: { callId: call.id, description } });
+
+    return typeof output === 'string'
+      ? result(output)
+      : { ...result(output.content), change: output.change };
   } catch (caughtError) {
     const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
 

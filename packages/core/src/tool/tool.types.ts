@@ -1,4 +1,23 @@
 import type { z } from 'zod';
+import type { ToolMessage } from '../message/message.types.js';
+
+/**
+ * A file a tool created or changed: enough for a UI to render a diff. The harness emits it on
+ * the `tool_result` event; rendering the diff is the UI's job.
+ */
+export type FileChange = {
+  /** Relative to the workspace root, e.g. `src/index.ts`. */
+  path: string;
+  /** The content before the change; `null` if the tool created the file. */
+  before: string | null;
+  after: string;
+};
+
+/** What `execute` returns: text for the model, plus a file change when the tool made one. */
+export type ToolOutput = string | { content: string; change: FileChange };
+
+/** What `runTool` returns: the history message, plus the tool's file change (not kept in history). */
+export type ToolRunResult = ToolMessage & { change?: FileChange };
 
 /** About the call being executed; most tools don't need it. */
 export type ToolContext = {
@@ -19,5 +38,5 @@ export type Tool<TSchema extends z.ZodObject = z.ZodObject> = {
   name: string;
   description: string;
   inputSchema: TSchema;
-  execute: (params: ToolExecution<z.infer<TSchema>>) => Promise<string>;
+  execute: (params: ToolExecution<z.infer<TSchema>>) => Promise<ToolOutput>;
 };

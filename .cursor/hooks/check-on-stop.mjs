@@ -1,7 +1,10 @@
 // stop: before the agent finishes, run the quality gate (typecheck + Prettier + ESLint). If any
 // fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in
 // hooks.json. Problems baselined in eslint-suppressions.json don't count; new ones do.
+// Once the gate passes, nudge (once per set of files) when source files changed but the doc in
+// docs/ that describes them didn't (see docs.utils.mjs).
 import { globSync } from 'node:fs';
+import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import { formatEslintReport, readHookInput, respond, runBin } from './hooks.utils.mjs';
 
 const MAX_REPORT_LINES = 60;
@@ -43,7 +46,7 @@ if (!lint.ok) {
 }
 
 if (failures.length === 0) {
-  respond({});
+  respond(docsNudge());
   process.exit(0);
 }
 
@@ -54,3 +57,23 @@ respond({
     'The quality gate fails. Fix the code (no eslint-disable comments, no new suppressions), ' +
     `then finish again.\n\n${report}`,
 });
+
+/** A follow-up asking for doc updates, or `{}` when the docs are current (or already asked). */
+function docsNudge() {
+  const changed = uncommittedFiles();
+
+  if (!changed) return {};
+
+  const stale = onlyNew(staleDocs(changed));
+
+  if (stale.length === 0) return {};
+
+  const list = stale.map(({ doc, files }) => `- ${doc}, for: ${files.join(', ')}`).join('\n');
+
+  return {
+    followup_message:
+      'You changed files that docs/ describes, but not the docs. If what a doc says no longer ' +
+      'matches (behavior, APIs, file layout, how to add things), update it now. If nothing it ' +
+      `describes changed, just finish: you won't be asked again for these files.\n\n${list}`,
+  };
+}
