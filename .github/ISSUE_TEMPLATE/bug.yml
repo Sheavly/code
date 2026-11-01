@@ -1,5 +1,5 @@
 name: Bug
-description: Something behaves wrongly.
+description: Something behaves wrongly. Needs at least one area/* label for where it lives (area/tooling outside packages and src/); a check comments if it has none.
 type: Bug
 body:
   - type: textarea

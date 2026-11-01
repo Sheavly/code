@@ -1,5 +1,5 @@
 name: Task
-description: A piece of work that becomes one branch and one PR.
+description: A piece of work that becomes one branch and one PR. Needs at least one area/* label, one per commit scope it touches (area/tooling without one); a check comments if it has none.
 type: Task
 body:
   - type: textarea

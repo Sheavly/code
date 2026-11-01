@@ -1,5 +1,5 @@
 name: Feature
-description: A larger piece of functionality, broken down into sub-issues (one PR each).
+description: A larger piece of functionality, broken down into sub-issues (one PR each). Needs at least one area/* label, one per commit scope it touches; a check comments if it has none.
 type: Feature
 body:
   - type: textarea
