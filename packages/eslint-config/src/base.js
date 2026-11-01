@@ -66,6 +66,10 @@ export function baseConfig(params) {
         'prefer-const': 'error',
         'object-shorthand': 'error',
         'max-params': ['error', 4],
+        // Fail loudly: no catch that turns every error into a default (see the rule's message).
+        'harness/no-silent-catch': 'error',
+        // Typed errors only: no `new Error(...)`, so callers catch by class, not by message.
+        'harness/no-raw-error': 'error',
       },
     },
 
