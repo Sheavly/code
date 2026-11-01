@@ -39,6 +39,14 @@ afterEach(() => {
 });
 
 describe('the stop hook', () => {
+  it('names a corrupt chat state file instead of crashing or skipping silently', () => {
+    writeFileSync(path.join(stateDir, 'corrupt.json'), '{ not json');
+
+    expect(stop('corrupt').followup_message).toMatch(
+      /^The stop hook could not run the quality gate: Chat state .*corrupt\.json could not be read/,
+    );
+  });
+
   it('skips a chat that edited nothing in the checkout', () => {
     expect(stop('asker')).toEqual({});
   });

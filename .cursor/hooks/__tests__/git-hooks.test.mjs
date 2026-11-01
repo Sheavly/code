@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -176,5 +176,26 @@ describe('the git guard', () => {
     ['gh issue create --help', 'allow'],
   ])('needs an area label to create an issue: %j', (command, permission) => {
     expect(shell(command)).toMatchObject({ permission });
+  });
+});
+
+describe('a guard that fails', () => {
+  // A corrupt chat state makes both guards crash while deciding: each denies, saying why.
+  beforeEach(() => writeFileSync(path.join(stateDir, 'c1.json'), '{ not json'));
+
+  it('denies a shell command, naming the corrupt state file', () => {
+    const response = shell('git status');
+
+    expect(response).toMatchObject({ permission: 'deny' });
+    expect(response.agent_message).toContain('The git workflow guard failed, so it denied');
+    expect(response.agent_message).toContain('c1.json could not be read');
+  });
+
+  it('stops the prompt, naming the corrupt state file', () => {
+    const response = prompt('#12: add export');
+
+    expect(response).toMatchObject({ continue: false });
+    expect(response.user_message).toContain('The require-issue guard failed');
+    expect(response.user_message).toContain('c1.json could not be read');
   });
 });

@@ -6,6 +6,7 @@
 // source is recorded in the chat's state, so the stop hook checks only chats that changed this
 // checkout. Advisory: it never blocks the edit. The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule } from './architecture.utils.mjs';
+import { HookStateError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
   formatEslintReport,
@@ -45,7 +46,7 @@ if (!existsSync(filePath)) {
 // The architecture rule (backend only, no UI unless an issue asks) is injected the first time a
 // chat edits harness source, and again whenever an edit breaks it.
 const relative = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('/');
-const ruleShown = getChatState(conversationId)?.architectureRuleShown === true;
+const ruleShown = readState()?.architectureRuleShown === true;
 let ruleBroken = false;
 
 // Formatting is applied, not reported: there's nothing for the agent to decide. It's told, so
@@ -86,13 +87,27 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
 respond(notes.length > 0 ? { additional_context: notes.join('\n\n') } : {});
 
 /**
- * Advisory: a state write that fails (read-only home, full disk) must not lose the notes. The
- * rule is then shown again on the next edit, and the stop hook skips a chat it has no record of.
+ * Advisory: a state write that fails (read-only home, full disk, a corrupt state file) must not
+ * lose the notes. The agent is told; the rule is shown again on the next edit, and the stop hook
+ * skips a chat it has no record of.
  */
 function remember(fields) {
   try {
     updateChatState({ conversationId, ...fields });
-  } catch {
-    // Nothing to do: see above.
+  } catch (caughtError) {
+    if (!(caughtError instanceof HookStateError) && !caughtError?.code) throw caughtError;
+    notes.push(`This edit could not be recorded in the chat's state: ${caughtError.message}`);
+  }
+}
+
+/** The chat's state; a corrupt one is reported in the notes and read as none. */
+function readState() {
+  try {
+    return getChatState(conversationId);
+  } catch (caughtError) {
+    if (!(caughtError instanceof HookStateError)) throw caughtError;
+    notes.push(caughtError.message);
+
+    return null;
   }
 }

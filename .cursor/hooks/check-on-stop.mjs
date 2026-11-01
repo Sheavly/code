@@ -10,6 +10,7 @@
 // failures.
 import { globSync } from 'node:fs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
+import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   formatEslintReport,
   formatNewClones,
@@ -23,74 +24,90 @@ import {
 const MAX_REPORT_LINES = 60;
 const TS_PACKAGE_CONFIGS = globSync('packages/*/tsconfig.json');
 
-const input = await readHookInput();
+/** The hook's response: `{}`, a gate failure report, or the docs nudge. */
+async function decide() {
+  const input = await readHookInput();
 
-// Only a finished turn is checked: an aborted or errored one was stopped on purpose. Only a chat
-// that edited this checkout is checked: the rest would be reporting other chats' work.
-const editedCheckout = getChatState(input.conversation_id)?.editedProjectSource === true;
+  // Only a finished turn is checked: an aborted or errored one was stopped on purpose. Only a
+  // chat that edited this checkout is checked: the rest would be reporting other chats' work.
+  const editedCheckout = getChatState(input.conversation_id)?.editedProjectSource === true;
 
-if (input.status !== 'completed' || !editedCheckout) {
-  respond({});
-  process.exit(0);
+  if (input.status !== 'completed' || !editedCheckout) return {};
+
+  const failures = runGate();
+
+  if (failures.length === 0) return docsNudge();
+
+  const report = failures.join('\n\n').split('\n').slice(0, MAX_REPORT_LINES).join('\n');
+
+  return {
+    followup_message:
+      'The quality gate fails. Fix the code (no eslint-disable comments, no new suppressions), ' +
+      `then finish again.\n\n${report}`,
+  };
 }
 
-const failures = [];
+/** Every gate step; returns a report section for each one that fails. */
+function runGate() {
+  const failures = [];
 
-// The app, then every TypeScript package (each has its own tsconfig.json).
-const projects = ['tsconfig.json', ...TS_PACKAGE_CONFIGS];
+  // The app, then every TypeScript package (each has its own tsconfig.json).
+  for (const project of ['tsconfig.json', ...TS_PACKAGE_CONFIGS]) {
+    const typecheck = runBin('tsc', ['--noEmit', '-p', project]);
 
-for (const project of projects) {
-  const typecheck = runBin('tsc', ['--noEmit', '-p', project]);
+    if (!typecheck.ok) failures.push(`## Typecheck (tsc -p ${project})\n${typecheck.output}`);
+  }
 
-  if (!typecheck.ok) failures.push(`## Typecheck (tsc -p ${project})\n${typecheck.output}`);
+  const format = runBin('prettier', ['--check', '--log-level', 'warn', '.']);
+
+  if (!format.ok) {
+    failures.push(
+      `## Prettier (fix with \`npx prettier --write <file>\` or \`npm run format\`)\n${format.output}`,
+    );
+  }
+
+  const lint = runBin('eslint', ['--format', 'json', '.']);
+
+  if (!lint.ok) {
+    const problems = lint.output.startsWith('[') ? formatEslintReport(lint.output) : [lint.output];
+
+    failures.push(`## ESLint\n${problems.join('\n')}`);
+  }
+
+  // Dead code and duplication, minus what knip-baseline.json / .jscpd-baseline.json record.
+  const knip = runNpmScript('knip');
+
+  if (!knip.ok) {
+    failures.push(
+      '## knip (remove the unused code, exports or dependencies; change dependencies with ' +
+        `\`npm install|uninstall\`, never by editing package.json)\n${knip.output}`,
+    );
+  }
+
+  const jscpd = runNpmScript('jscpd');
+
+  if (!jscpd.ok) {
+    failures.push(
+      `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${formatNewClones(jscpd.output)}`,
+    );
+  }
+
+  return failures;
 }
 
-const format = runBin('prettier', ['--check', '--log-level', 'warn', '.']);
+// A state file the hook can't read (this chat's, or the docs nudge's) is said, never a silent
+// skip: the follow-up names the file, so the agent can tell the user what to fix.
+try {
+  respond(await decide());
+} catch (caughtError) {
+  if (!(caughtError instanceof HookStateError || caughtError instanceof ProjectReadError)) {
+    throw caughtError;
+  }
 
-if (!format.ok) {
-  failures.push(
-    `## Prettier (fix with \`npx prettier --write <file>\` or \`npm run format\`)\n${format.output}`,
-  );
+  respond({
+    followup_message: `The stop hook could not run the quality gate: ${caughtError.message}`,
+  });
 }
-
-const lint = runBin('eslint', ['--format', 'json', '.']);
-
-if (!lint.ok) {
-  const problems = lint.output.startsWith('[') ? formatEslintReport(lint.output) : [lint.output];
-
-  failures.push(`## ESLint\n${problems.join('\n')}`);
-}
-
-// Dead code and duplication, minus what knip-baseline.json / .jscpd-baseline.json record.
-const knip = runNpmScript('knip');
-
-if (!knip.ok) {
-  failures.push(
-    '## knip (remove the unused code, exports or dependencies; change dependencies with ' +
-      `\`npm install|uninstall\`, never by editing package.json)\n${knip.output}`,
-  );
-}
-
-const jscpd = runNpmScript('jscpd');
-
-if (!jscpd.ok) {
-  failures.push(
-    `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${formatNewClones(jscpd.output)}`,
-  );
-}
-
-if (failures.length === 0) {
-  respond(docsNudge());
-  process.exit(0);
-}
-
-const report = failures.join('\n\n').split('\n').slice(0, MAX_REPORT_LINES).join('\n');
-
-respond({
-  followup_message:
-    'The quality gate fails. Fix the code (no eslint-disable comments, no new suppressions), ' +
-    `then finish again.\n\n${report}`,
-});
 
 /** A follow-up asking for doc updates, or `{}` when the docs are current (or already asked). */
 function docsNudge() {

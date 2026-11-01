@@ -28,7 +28,7 @@ import {
   getChatState,
   PROJECT_ROOT,
   readHookInput,
-  respond,
+  runGuard,
 } from './hooks.utils.mjs';
 import { normalize, readCommitMessage, stripMessages, toSegments } from './shell-parse.utils.mjs';
 
@@ -127,14 +127,20 @@ function findViolation(input) {
   );
 }
 
-const violation = findViolation(await readHookInput());
+const DENIED = 'Blocked a git/gh command that breaks the git workflow';
 
-if (violation) {
-  respond({
-    permission: 'deny',
-    user_message: 'Blocked a git/gh command that breaks the git workflow',
-    agent_message: `${violation} The workflow is in the /git skill (.cursor/skills/git/).`,
-  });
-} else {
-  respond({ permission: 'allow' });
-}
+await runGuard({
+  guard: 'git workflow',
+  check: async () => {
+    const violation = findViolation(await readHookInput());
+
+    if (!violation) return { permission: 'allow' };
+
+    return {
+      permission: 'deny',
+      user_message: DENIED,
+      agent_message: `${violation} The workflow is in the /git skill (.cursor/skills/git/).`,
+    };
+  },
+  deny: (reason) => ({ permission: 'deny', user_message: reason, agent_message: reason }),
+});

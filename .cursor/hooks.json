@@ -4,13 +4,15 @@
     "beforeSubmitPrompt": [
       {
         "command": "node .cursor/hooks/require-issue.mjs",
-        "timeout": 10
+        "timeout": 10,
+        "failClosed": true
       }
     ],
     "beforeShellExecution": [
       {
         "command": "node .cursor/hooks/guard-git-workflow.mjs",
-        "timeout": 10
+        "timeout": 10,
+        "failClosed": true
       }
     ],
     "postToolUse": [
