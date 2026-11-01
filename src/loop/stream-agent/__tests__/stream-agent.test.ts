@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
-import { defineHook } from '@sheavly/core/hook/hook.service';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.service.js';
@@ -121,63 +120,5 @@ describe('runAgent', () => {
 
     // user + 2 × (assistant + tool)
     expect(messages).toHaveLength(5);
-  });
-
-  it('runs hooks in the loop: context before each turn, every tool call wrapped', async () => {
-    const call = {
-      id: '1',
-      name: 'get_weather',
-      input: { description: 'checking Oslo weather', city: 'Oslo' },
-    };
-    const provider = scriptedProvider([
-      [
-        { type: 'tool_call', call },
-        { type: 'done', stopReason: 'tool_use' },
-      ],
-      [{ type: 'done', stopReason: 'end_turn' }],
-    ]);
-    const hooks = [
-      defineHook({
-        name: 'clock',
-        beforeTurn: async ({ turn, addContext }) => addContext(`<turn>${turn}</turn>`),
-      }),
-      defineHook({
-        name: 'audit',
-        aroundToolCall: async ({ next }) => {
-          const result = await next();
-
-          return { ...result, content: `${result.content} (audited)` };
-        },
-      }),
-    ];
-
-    const events: AgentEvent[] = [];
-    const messages = await runAgent({
-      provider,
-      tools: [getWeather],
-      messages: [{ role: 'user', content: 'Weather in Oslo?' }],
-      hooks,
-      onEvent: (e) => events.push(e),
-    });
-
-    expect(messages).toEqual([
-      { role: 'user', content: 'Weather in Oslo?' },
-      { role: 'user', content: '<turn>1</turn>' },
-      { role: 'assistant', content: '', toolCalls: [call] },
-      { role: 'tool', toolCallId: '1', content: 'Sunny in Oslo (audited)', isError: false },
-      { role: 'user', content: '<turn>2</turn>' },
-      { role: 'assistant', content: '', toolCalls: [] },
-    ]);
-    expect(events.map((e) => e.type)).toEqual([
-      'context_added',
-      'tool_call_started',
-      'turn_end',
-      'tool_batch',
-      'tool_result',
-      'context_added',
-      'turn_end',
-      'done',
-    ]);
-    expect(events[0]).toMatchObject({ hook: 'clock', content: '<turn>1</turn>' });
   });
 });

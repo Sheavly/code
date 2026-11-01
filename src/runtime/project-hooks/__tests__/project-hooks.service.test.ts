@@ -221,6 +221,25 @@ describe('loadProjectHooks', () => {
     expect(await loadError(root)).toMatch(/outside the workspace/);
   });
 
+  it('accepts every handler from a file: sessionStart, afterTurn, onError', async () => {
+    const root = await project({
+      type: 'module',
+      manifest: manifestOf('hooks/lifecycle.js'),
+      files: {
+        'hooks/lifecycle.js':
+          "export default { name: 'lifecycle', sessionStart: async () => {}, afterTurn: async () => {}, onError: async () => {} };\n",
+      },
+    });
+    const [hook] = await loadProjectHooks({ root });
+
+    expect(Object.keys(hook ?? {}).sort()).toEqual([
+      'afterTurn',
+      'name',
+      'onError',
+      'sessionStart',
+    ]);
+  });
+
   it('rejects two hooks with the same name', async () => {
     const root = await project({
       type: 'module',

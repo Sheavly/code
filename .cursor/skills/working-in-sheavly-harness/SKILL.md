@@ -67,9 +67,9 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 
 **A loop event**: add it to the `AgentEventBody` union in `loop/events/events.types.ts` and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
 
-**A hook**: `defineHook({ name, beforeTurn?, aroundToolCall? })` from `@sheavly/core/hook/hook.service`, passed in the loop's `hooks` option (order matters). `beforeTurn` adds context with `addContext` (a user message kept in history, emitted as `context_added`); `aroundToolCall` calls `next()` to continue, or returns a result to block. A new hook point is a new optional handler on `Hook`, run from `loop/hooks/hooks.service.ts`.
+**A hook**: `defineHook({ name, sessionStart?, beforeTurn?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.service`, passed in the loop's `hooks` option (order matters). `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (its own errors are ignored, the run's error is rethrown). A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.utils.ts` and run from `loop/hooks/hooks.service.ts`.
 
-**A project hook** (`.sheavly/`): listed in `.sheavly/hooks.json`, loaded by `runtime/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.utils.ts`. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply.
+**A project hook** (`.sheavly/`): listed in `.sheavly/hooks.json`, loaded by `runtime/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.utils.ts` (a `satisfies` check fails the typecheck if it is missing). Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply.
 
 ## Rules
 

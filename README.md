@@ -133,7 +133,7 @@ A hook file exports the hook as its default (`export default { ... }` or `module
 ```js
 export default {
   name: 'audit',
-  aroundToolCall: async ({ call, next }) => next(), // or beforeTurn: async ({ addContext }) => ...
+  aroundToolCall: async ({ call, next }) => next(), // also: sessionStart, beforeTurn, afterTurn, onError
 };
 ```
 
@@ -174,7 +174,7 @@ packages/core/src/
   provider/        Provider, ProviderRequest, ToolDefinition (the backend contract)
   tool/            Tool types, defineTool, runTool, describeCall
   adapter/         Adapter types, defineAdapter
-  hook/            Hook types (beforeTurn, aroundToolCall), defineHook
+  hook/            Hook types (sessionStart, beforeTurn, aroundToolCall, afterTurn, onError), defineHook
 ```
 
 Packages are consumed as TypeScript source (`exports` points at `src/*.ts`; nothing is built) and

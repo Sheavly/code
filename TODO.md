@@ -41,16 +41,19 @@ backends that can be swapped while running.
 
 ## More hooks
 
-"We're missing a bunch." Today there are only `beforeTurn` and `aroundToolCall`. A draft list, as
-a starting point to add to or trim:
+"We're missing a bunch." A draft list, as a starting point to add to or trim:
 
-- [ ] **`sessionStart`:** once, when a run starts: set up state, add opening context.
-- [ ] **`afterTurn`:** after each model call: look at or post-process the reply before the next
-      turn.
-- [ ] **`onError`:** when something fails (a provider error, a hook throwing): log it, retry, or
-      turn it into a message.
+- [x] **`sessionStart`:** once, when a run starts: set up state, add opening context. Each
+      sub-agent run has its own.
+- [x] **`afterTurn`:** after each model call, once its reply and tool results are in history:
+      observe, record, or fail the run.
+- [x] **`onError`:** when the run fails (a provider error, a hook throwing): log or report it.
+      The error still reaches the caller.
+  - [ ] Recovering instead: retry the turn, or turn the error into a message for the model.
 - [ ] **Context compaction:** around shortening long histories: choose what to keep, summarize,
       or add context back after compacting.
+  - [ ] Blocked: the loop doesn't compact yet. Build compaction first (when, and how much to
+        keep), then add `beforeCompact` / `afterCompact` hooks around it.
 
 ## Later
 
