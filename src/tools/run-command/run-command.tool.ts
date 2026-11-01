@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { runProcess } from '../../runtime/process/process.service.js';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
+import { confirmArguments } from './arguments.service.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { checkAllowed, formatResult } from './run-command.utils.js';
@@ -12,6 +13,7 @@ export function createRunCommandTool({
   skipAllowList = false,
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
+  approvals,
 }: RunCommandOptions) {
   return defineTool({
     name: 'run_command',
@@ -19,7 +21,10 @@ export function createRunCommandTool({
       (skipAllowList
         ? 'Run a shell command in the workspace root.'
         : `Run a command in the workspace root. Only these are allowed: ${allowList.join(', ')}. ` +
-          'No shell syntax (pipes, redirects, chaining).') +
+          'No shell syntax (pipes, redirects, chaining). The user must approve commands whose ' +
+          'arguments reach outside the workspace, name .env files or use globs, and git ' +
+          'commands that can print file contents (git diff, git log -p, git show); prefer ' +
+          'git status -sb, git log --oneline and git diff --stat.') +
       (tasks ? ' Set background: true for servers, watchers, or slow commands.' : ''),
     inputSchema: z.object({
       command: z.string().min(1).describe('The command to run, e.g. `git status`'),
@@ -33,6 +38,20 @@ export function createRunCommandTool({
     }),
     execute: async ({ input: { command, background }, signal, context }) => {
       const [file, ...args] = skipAllowList ? [command] : checkAllowed({ command, allowList });
+
+      // The allow list is the first gate; risky arguments of an allowed command are the user's call.
+      if (!skipAllowList) {
+        await confirmArguments({
+          workspace,
+          command,
+          file,
+          args,
+          approvals,
+          call: { callId: context.callId, sessionId: context.session?.id },
+          signal,
+        });
+      }
+
       const options = { file, args, cwd: workspace.root, shell: skipAllowList };
 
       if (background) {

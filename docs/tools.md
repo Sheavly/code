@@ -20,7 +20,7 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 | Tool                                            | Where                                     | What it does                                                             |
 | ----------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
 | `read_file`, `write_file`, `edit_file`          | `read-file/`, `write-file/`, `edit-file/` | File access in the workspace (below)                                     |
-| `run_command`                                   | `run-command/`                            | Allow-listed commands; `background: true` for tasks                      |
+| `run_command`                                   | `run-command/`                            | Allow-listed commands; `background: true` for tasks ([below](#commands)) |
 | `task_status`, `cancel_task`                    | `tasks/`                                  | Check on and stop background tasks                                       |
 | `start_agent`, `report_status`, `message_agent` | `sub-agent/`                              | Sub-agents, their status, and steering them ([sessions.md](sessions.md)) |
 
@@ -61,6 +61,68 @@ refused.
 
 Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check),
 `readIfExists`, `writeText`, and the `.env` guard all three tools use.
+
+## Commands
+
+`run_command` checks a command in three steps before running it, unless `skipAllowList` is set:
+
+1. **Allow list:** its first words must match an entry in `allow-list.constants.ts`, and it may
+   not contain shell syntax. Anything else is refused; the user isn't asked.
+2. **Arguments** (`arguments.service.ts`): operands, `--opt=value` values, values attached to
+   short options (`-O../x`) and every word after `--` are checked with the same sandbox rules as
+   the file tools. An argument needs the user's approval if it reaches outside the workspace
+   (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,
+   `:(top).env`, `.\env`, a symlink to one, or any glob: git's `*`, `?` and `[...]` cross `/`, so
+   `c*` or `config?.env` reach `config/.env`). Arguments that aren't existing paths (`HEAD~1`, a
+   test name) pass.
+3. **Git output** (`git-output.utils.ts`): a git command that can print or write file contents
+   needs approval whatever its arguments, since a patch shows a committed `.env` without naming
+   it. This is an allowlist, not a list of patch flags (those always miss one: `--patch-with-stat`,
+   `status -v`, or `-G` matches that leak a secret one guess at a time): `git status`, `git log`
+   and `git diff` run without asking only when every flag is one known to show no contents
+   (`git status -sb`, `git log --oneline -n 5`, `git diff --stat`), and a diff also needs a
+   summary flag. Any other flag, subcommand or plain `git diff` asks.
+
+Test runners on the allow list (`npm test`, `npx vitest run`) run workspace code, which can read
+anything the process can; argument checks can't stop that. Isolating the process itself is
+[#4](https://github.com/Sheavly/code/issues/4).
+
+### Approvals: the harness asks, the UI renders
+
+The harness renders no prompt. A command that needs approval waits in an `ApprovalRegistry`
+(`src/runtime/approvals/`; `createHarness` makes one, as `harness.approvals`), which emits typed
+`ApprovalUpdate` events to its subscribers. The UI subscribes, shows each request its own way,
+and answers with `respond`:
+
+```ts
+harness.approvals.subscribe((update) => {
+  if (update.type === 'approval_requested') ui.show(update.request);
+});
+harness.approvals.respond({ id: request.id, response: { decision: 'approve' } });
+```
+
+| Update               | Carries                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `approval_requested` | `request`: `id`, `callId`, `sessionId`, `tool`, `command`, `concerns`, `options`    |
+| `approval_resolved`  | `id` and the `response`, once it's answered                                         |
+| `approval_cancelled` | `id`: the waiting call was interrupted (its `signal` aborted) before an answer came |
+
+`concerns` is `{ argument, reason }[]`; `options` is `['approve', 'skip', 'skip_with_message']`.
+The tool waits (the run's other tools and the model stream carry on) until `respond` is called
+with one of:
+
+- `{ decision: 'approve' }`: the command runs as asked.
+- `{ decision: 'skip' }`: the command doesn't run; the model gets an error result naming the
+  arguments.
+- `{ decision: 'skip_with_message', message }`: the command doesn't run, and the message is added
+  to that result ("Instead, the user says: …"), so it steers the model's next step.
+
+`respond` validates the answer with zod and throws for a malformed one or an id that isn't
+waiting; `pending()` lists open requests for a UI that connects late. With no subscriber (a
+headless run, the demo, the workbook) those commands are refused right away instead of waiting.
+
+These updates come from the registry, not the loop's event stream: a tool result waiting in that
+ordered stream would hold back the request it waits for.
 
 ## File changes: the harness emits, the UI renders
 
