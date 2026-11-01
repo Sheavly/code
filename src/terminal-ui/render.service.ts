@@ -61,6 +61,9 @@ export class Renderer {
       case 'context_added':
         this.write(`\n＋ ${event.hook} added context (${event.content.length} chars)\n`);
         break;
+      case 'hook_failed':
+        this.write(`\n✗ hook ${event.hook} failed in ${event.handler}: ${event.error}\n`);
+        break;
       case 'turn_end':
         this.#turnEnd(event);
         break;
