@@ -1,0 +1,17 @@
+{
+  "name": "@sheavly/core",
+  "version": "0.0.0",
+  "description": "Contracts and the tool definition the harness, its tools and its providers are written against",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

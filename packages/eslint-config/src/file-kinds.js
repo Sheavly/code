@@ -1,0 +1,51 @@
+/**
+ * The `<kind>` in `<module>.<kind>.ts`, each with the policy the structure rules read.
+ * A genuinely new kind is added here (with its
+ * policy), never worked around with an odd file name.
+ *
+ * - `exports`: what the file may export. `types`: only types; `constants`: only literal /
+ *   `as const` values; `code`: functions, classes and computed values, but no exported types
+ *   or literal constants (those go in the module's types/constants file).
+ * - `maxLines`: lines of code (blank and comment lines aside) before a file is doing more than
+ *   one job. `null` = no limit (pure helpers grow with their subject).
+ */
+const LINES = { THIN: 150, DEFAULT: 300, TEST: 500, UNLIMITED: null };
+
+export const FILE_KIND_POLICIES = {
+  /** Shared contracts. */
+  types: { exports: 'types', maxLines: LINES.DEFAULT },
+  /** Literal values, `as const` objects. */
+  constants: { exports: 'constants', maxLines: LINES.DEFAULT },
+  /** Pure helpers: no I/O, no state. */
+  utils: { exports: 'code', maxLines: LINES.UNLIMITED },
+  /** Stateful or I/O-doing code: classes, services, the loop. */
+  service: { exports: 'code', maxLines: LINES.DEFAULT },
+  /** Error classes. */
+  errors: { exports: 'code', maxLines: LINES.THIN },
+  /** One agent tool: `create<Name>Tool` returning `defineTool(...)`. */
+  tool: { exports: 'code', maxLines: LINES.THIN },
+  /** One model backend: `defineAdapter(...)`. */
+  adapter: { exports: 'code', maxLines: LINES.THIN },
+  /** Test-only fakes (src/testing/). */
+  fake: { exports: 'code', maxLines: LINES.DEFAULT },
+  /** Vitest files, in a `__tests__` folder beside the module they test. */
+  test: { exports: 'code', maxLines: LINES.TEST },
+};
+
+export const FILE_KINDS = Object.keys(FILE_KIND_POLICIES);
+
+/** The folder test files live in, beside the module they test. */
+export const TEST_FOLDER = '__tests__';
+
+/** Lines of code for files without a kind (entry points, the demo). */
+export const DEFAULT_MAX_LINES = LINES.DEFAULT;
+
+const KEBAB = '[a-z0-9]+(?:-[a-z0-9]+)*';
+const KIND_IN_NAME = new RegExp(`^${KEBAB}(?:\\.${KEBAB})*\\.(${KEBAB})\\.ts$`);
+
+/** The kind in a file name (`tasks.service.ts` → `service`), or null when it names none. */
+export function kindOfFile(fileName) {
+  const kind = KIND_IN_NAME.exec(fileName.split(/[\\/]/).at(-1))?.[1];
+
+  return kind && FILE_KINDS.includes(kind) ? kind : null;
+}

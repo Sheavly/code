@@ -1,0 +1,127 @@
+import { z } from 'zod';
+import type { Message, ToolCall } from '@sheavly/core/message/message.types';
+import type { EventStep, FunctionCallItem, ResponsesEvent } from './responses.types.js';
+
+// --- Streamed events we care about (everything else is ignored) ---
+
+const functionCallItemSchema = z.object({
+  type: z.literal('function_call'),
+  call_id: z.string(),
+  name: z.string(),
+  arguments: z.string(),
+});
+
+/** Kept whole (`loose`) so it can be resent exactly as received. Useless without encrypted_content. */
+const reasoningOutputItemSchema = z.looseObject({
+  type: z.literal('reasoning'),
+  encrypted_content: z.string().min(1),
+});
+
+export const responsesEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('response.output_text.delta'), delta: z.string() }),
+  z.object({
+    type: z.literal('response.output_item.done'),
+    item: z.discriminatedUnion('type', [functionCallItemSchema, reasoningOutputItemSchema]),
+  }),
+  z.object({
+    type: z.literal('response.incomplete'),
+    response: z.object({ incomplete_details: z.object({ reason: z.string() }).nullish() }),
+  }),
+  z.object({
+    type: z.literal('response.failed'),
+    response: z.object({ error: z.object({ message: z.string() }).nullish() }),
+  }),
+  // Mid-stream errors (e.g. Azure `too_many_requests`) arrive as HTTP 200 + this event.
+  z.object({
+    type: z.literal('error'),
+    error: z.object({ message: z.string(), code: z.string().nullish() }).optional(),
+    message: z.string().optional(),
+  }),
+]);
+
+/**
+ * What one Responses API event means for us.
+ * `reasoningSource` undefined = reasoning is off, so reasoning items are dropped.
+ */
+export function handleEvent(params: {
+  event: ResponsesEvent;
+  reasoningSource: string | undefined;
+}): EventStep {
+  const { event, reasoningSource } = params;
+
+  switch (event.type) {
+    case 'response.output_text.delta':
+      return { event: { type: 'text_delta', text: event.delta } };
+    case 'response.output_item.done':
+      if (event.item.type !== 'reasoning') {
+        return {
+          event: { type: 'tool_call', call: toToolCall(event.item) },
+          stopReason: 'tool_use',
+        };
+      }
+
+      return reasoningSource
+        ? { event: { type: 'reasoning', item: { source: reasoningSource, data: event.item } } }
+        : {};
+    case 'response.incomplete':
+      return event.response.incomplete_details?.reason === 'max_output_tokens'
+        ? { stopReason: 'max_tokens' }
+        : {};
+    case 'response.failed':
+      throw new Error(`Responses API failed: ${event.response.error?.message ?? 'unknown error'}`);
+    case 'error':
+      throw new Error(
+        `Responses API stream error: ${event.error?.message ?? event.message ?? 'unknown error'}`,
+      );
+  }
+}
+
+// --- Translation between our Message shape and Responses API input items ---
+
+/**
+ * `reasoningSource`: resend reasoning items produced by this backend + model; others are dropped
+ * (another provider's encrypted reasoning would be rejected). Undefined = send none.
+ *
+ * Order within an assistant turn: reasoning → text → function calls, matching how the
+ * Responses API emits them (the model reasons, then acts).
+ */
+export function toInputItems(params: {
+  message: Message;
+  reasoningSource: string | undefined;
+}): unknown[] {
+  const { message, reasoningSource } = params;
+
+  switch (message.role) {
+    case 'user':
+      return [{ role: 'user', content: message.content }];
+    case 'assistant':
+      return [
+        ...(message.reasoning ?? [])
+          .filter((item) => item.source === reasoningSource)
+          .map((item) => item.data),
+        ...(message.content ? [{ role: 'assistant', content: message.content }] : []),
+        ...message.toolCalls.map((call) => ({
+          type: 'function_call',
+          call_id: call.id,
+          name: call.name,
+          arguments: JSON.stringify(call.input),
+        })),
+      ];
+    case 'tool':
+      return [
+        { type: 'function_call_output', call_id: message.toolCallId, output: message.content },
+      ];
+  }
+}
+
+function toToolCall(item: FunctionCallItem): ToolCall {
+  let input: unknown;
+
+  try {
+    input = JSON.parse(item.arguments);
+  } catch {
+    input = item.arguments; // invalid JSON: the tool's zod schema will reject it and tell the model
+  }
+
+  return { id: item.call_id, name: item.name, input };
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+
+# Lockfiles
+package-lock.json
+
+# Written by eslint --suppress-*/--prune-suppressions (no trailing newline)
+**/eslint-suppressions.json

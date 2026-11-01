@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // A JS package: no build and no type errors to check (`checkJs` stays off). The project
+    // exists so ESLint has type info for its files, which `no-deprecated` needs.
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": ["src"]
+}

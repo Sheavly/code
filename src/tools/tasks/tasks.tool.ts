@@ -1,0 +1,58 @@
+import { z } from 'zod';
+import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import { formatTask } from '../../runtime/tasks/tasks.utils.js';
+import { defineTool } from '@sheavly/core/tool/tool.service';
+
+/** Lets the agent check on background tasks: one task (with output) or a list of all. */
+export function createTaskStatusTool(tasks: TaskRegistry) {
+  return defineTool({
+    name: 'task_status',
+    description:
+      "Show background tasks. With an id: that task's status and recent output. Without: all tasks.",
+    inputSchema: z.object({
+      id: z.string().optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
+    }),
+    execute: async ({ input: { id } }) => {
+      if (id) {
+        const task = tasks.get(id);
+
+        if (!task) throw new Error(`No task with id ${id}`);
+
+        return formatTask({ task });
+      }
+
+      const all = tasks.list();
+
+      if (all.length === 0) return 'No background tasks.';
+
+      return all.map((task) => formatTask({ task, outputChars: 0 })).join('\n');
+    },
+  });
+}
+
+/** Lets the agent stop a background task; waits until its process has exited. */
+export function createCancelTaskTool(tasks: TaskRegistry) {
+  return defineTool({
+    name: 'cancel_task',
+    description: 'Stop a running background task (kills its process and everything it started).',
+    inputSchema: z.object({ id: z.string().describe('Task id, e.g. t1') }),
+    execute: async ({ input: { id } }) => {
+      const before = tasks.get(id);
+
+      if (!before) throw new Error(`No task with id ${id}`);
+
+      if (before.status !== 'running') {
+        return `Task ${id} already ${before.status}.\n${formatTask({ task: before })}`;
+      }
+
+      const after = await tasks.cancel(id);
+
+      return `Cancelled task ${id}.\n${formatTask({ task: after ?? before })}`;
+    },
+  });
+}
+
+/** The tools for checking on and stopping background tasks, sharing one registry with run_command. */
+export function createTaskTools(tasks: TaskRegistry) {
+  return [createTaskStatusTool(tasks), createCancelTaskTool(tasks)];
+}
