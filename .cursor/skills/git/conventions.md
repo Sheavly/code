@@ -146,7 +146,7 @@ Review bottom up, one commit at a time.
 
 ## How to review
 
-- Read carefully: `sample.service.ts` in commit 3 (when the switch is read).
+- Read carefully: `sample.helper.ts` in commit 3 (when the switch is read).
 - Skim: the adapter registration in commit 2.
 
 ## Test plan

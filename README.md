@@ -224,9 +224,9 @@ The app's layers:
 
 ```
 src/
-  runtime/                      stateful services; no loop, tools or providers
+  runtime/                      services and helpers; no loop, tools or providers
     workspace/                  path confinement: root and path checks (not an OS sandbox)
-    process/                    spawning, process-group kill, secret scrubbing
+    process/                    ProcessRunner: spawning, process-group kill, secret scrubbing
     tasks/                      background task registry
     project-hooks/              loads .sheavly/hooks.json and its hook files
   tools/                        one folder per tool; no loop or providers
@@ -250,6 +250,7 @@ tools/run-command/
   run-command.types.ts          RunCommandOptions
   run-command.constants.ts      DEFAULT_COMMAND_TIMEOUT_MS
   run-command.utils.ts          checkAllowed, formatResult (pure)
+  arguments.helper.ts           findConcerns, confirmArguments (workspace checks: I/O)
   allow-list.constants.ts  allow-list.types.ts  allow-list.utils.ts
   __tests__/                    run-command.tool.test.ts, allow-list.utils.test.ts
 ```
@@ -327,22 +328,26 @@ workspace uses in `base.js`. Each workspace's `eslint.config.js` is
 root lints every workspace with its own config. Each convention is its own rule ID, so an override
 switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
 
-| Kind        | Holds                                   | May export                   | Max lines |
-| ----------- | --------------------------------------- | ---------------------------- | --------- |
-| `types`     | shared shapes                           | only types (imports `type`s) | 300       |
-| `constants` | literal values, `as const`              | only literals                | 300       |
-| `utils`     | pure helpers: no I/O, no services       | code                         | none      |
-| `service`   | stateful or I/O code, classes, the loop | code                         | 300       |
-| `tool`      | one agent tool (`defineTool`)           | code                         | 150       |
-| `adapter`   | one model backend (`defineAdapter`)     | code                         | 150       |
-| `errors`    | error classes                           | code                         | 150       |
-| `fake`      | test-only fakes in `src/testing/`       | code                         | 300       |
-| `test`      | Vitest files in `__tests__/`            | code                         | 500       |
+| Kind        | Holds                                                    | May export                   | Max lines |
+| ----------- | -------------------------------------------------------- | ---------------------------- | --------- |
+| `types`     | shared shapes                                            | only types (imports `type`s) | 300       |
+| `constants` | literal values, `as const`                               | only literals                | 300       |
+| `utils`     | pure helpers: no I/O, no services                        | code                         | none      |
+| `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                | 300       |
+| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | 300       |
+| `service`   | code that owns state                                     | code, at least one class     | 300       |
+| `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
+| `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
+| `errors`    | error classes                                            | code                         | 150       |
+| `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
+| `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
 
 - `harness/file-kind`: every module file is named `<name>.<kind>.ts` (kebab-case, known kind);
   tests only in `__tests__/`, and only tests there.
 - `harness/kind-contents`: code files export no types and no literal constants; those go in the
-  module's `*.types.ts` / `*.constants.ts`. Unexported local types and values are fine.
+  module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` exports a class, a `*.helper.ts`
+  none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
+  schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
 - **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline

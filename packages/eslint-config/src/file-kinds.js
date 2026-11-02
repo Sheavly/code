@@ -8,6 +8,10 @@
  *   or literal constants (those go in the module's types/constants file).
  * - `maxLines`: lines of code (blank and comment lines aside) before a file is doing more than
  *   one job. `null` = no limit (pure helpers grow with their subject).
+ * - `classes` (optional): `required` (it exports at least one class) or `forbidden` (it exports
+ *   none). Left out, a kind may export classes or not.
+ * - `schemas` (optional): `allowed` means it may export zod schemas. Only validators may; a
+ *   schema anywhere else stays unexported, or moves to the module's `*.validator.ts`.
  */
 const LINES = { THIN: 150, DEFAULT: 300, TEST: 500, UNLIMITED: null };
 
@@ -22,18 +26,18 @@ export const FILE_KIND_POLICIES = {
    * Validation at the edge: zod schemas for external input (files, env, API events, hook exports,
    * tool calls) and the `parse*` functions that turn `unknown` into typed data. Pure, like utils.
    */
-  validator: { exports: 'code', maxLines: LINES.DEFAULT },
+  validator: { exports: 'code', maxLines: LINES.DEFAULT, schemas: 'allowed' },
   /** Stateless functions that may do I/O or call services. Functions only, no classes. */
-  helper: { exports: 'code', maxLines: LINES.DEFAULT },
+  helper: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'forbidden' },
   /** Code that owns state: it exports a class. */
-  service: { exports: 'code', maxLines: LINES.DEFAULT },
+  service: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'required' },
   /** Error classes. */
   errors: { exports: 'code', maxLines: LINES.THIN },
   /** One agent tool: `create<Name>Tool` returning `defineTool(...)`. */
   tool: { exports: 'code', maxLines: LINES.THIN },
   /** One model backend: `defineAdapter(...)`. */
   adapter: { exports: 'code', maxLines: LINES.THIN },
-  /** Test-only fakes (src/testing/). */
+  /** Test-only fakes, in a `testing/` folder. */
   fake: { exports: 'code', maxLines: LINES.DEFAULT },
   /** Vitest files, in a `__tests__` folder beside the module they test. */
   test: { exports: 'code', maxLines: LINES.TEST },
