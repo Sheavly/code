@@ -4,7 +4,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ProjectHooksError } from '../errors/project-hooks.errors.js';
 
-/** Hook folders (real paths) whose files may only import inside themselves. */
+/**
+ * Module-level on purpose. Node's module hooks (`registerHooks`) apply to every import in the
+ * process, so there is one registration per process whatever owns it; injecting this per harness
+ * would isolate nothing. And it must stay: a loaded hook can `import()` lazily inside a handler
+ * long after loading, and that import has to be confined too. What's here is only which folders
+ * are confined (hook folders, real paths) and whether the hook is registered; nothing is ordered.
+ */
 const confined = new Set<string>();
 let registered = false;
 

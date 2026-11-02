@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { withFileLock } from '../file-locks.helper.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { FileLocks } from '../file-locks.service.js';
+
+/** A fresh set of locks per test, so no queue leaks from one test into the next. */
+let locks: FileLocks;
+
+beforeEach(() => {
+  locks = new FileLocks();
+});
 
 const signal = new AbortController().signal;
 
@@ -10,7 +17,7 @@ const queue = (params: {
   gate?: Promise<undefined>;
   abortWith?: AbortSignal;
 }) =>
-  withFileLock({
+  locks.run({
     file: 'same',
     signal: params.abortWith ?? signal,
     change: async () => {
@@ -21,10 +28,10 @@ const queue = (params: {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 
-describe('withFileLock', () => {
+describe('FileLocks', () => {
   it('lets changes to different files run at the same time', async () => {
     const other = Promise.withResolvers<undefined>();
-    const first = withFileLock({
+    const first = locks.run({
       file: 'a',
       signal,
       change: async () => {
@@ -33,7 +40,7 @@ describe('withFileLock', () => {
         return 'a';
       },
     });
-    const second = withFileLock({
+    const second = locks.run({
       file: 'b',
       signal,
       change: () => {
@@ -62,12 +69,12 @@ describe('withFileLock', () => {
   });
 
   it('releases the file when a change throws', async () => {
-    const failed = withFileLock({
+    const failed = locks.run({
       file: 'same',
       signal,
       change: () => Promise.reject(new Error('boom')),
     });
-    const next = withFileLock({ file: 'same', signal, change: () => Promise.resolve('next') });
+    const next = locks.run({ file: 'same', signal, change: () => Promise.resolve('next') });
 
     await expect(failed).rejects.toThrow('boom');
     expect(await next).toBe('next');
@@ -118,7 +125,33 @@ describe('withFileLock', () => {
     const change = () => Promise.resolve('ran');
 
     await expect(
-      withFileLock({ file: 'same', signal: AbortSignal.abort(new Error('gone')), change }),
+      locks.run({ file: 'same', signal: AbortSignal.abort(new Error('gone')), change }),
     ).rejects.toThrow('gone');
+  });
+
+  it('keeps each instance separate: another set of locks never waits on this one', async () => {
+    const gate = Promise.withResolvers<undefined>();
+    const held = locks.run({ file: 'same', signal, change: () => gate.promise });
+    const other = new FileLocks();
+
+    await expect(
+      other.run({ file: 'same', signal, change: () => Promise.resolve('free') }),
+    ).resolves.toBe('free');
+
+    gate.resolve(undefined);
+    await held;
+  });
+
+  it('forgets a file once every change on it has settled', async () => {
+    const gate = Promise.withResolvers<undefined>();
+    const running = locks.run({ file: 'same', signal, change: () => gate.promise });
+
+    expect(locks.busy).toBe(1);
+
+    gate.resolve(undefined);
+    await running;
+    await settle();
+
+    expect(locks.busy).toBe(0);
   });
 });

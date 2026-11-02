@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createEditFileTool } from '../edit-file.tool.js';
+import { useFileLocks } from '../../../testing/file-locks.fake.js';
 import { applyEdit } from '../edit-file.utils.js';
 
 const signal = new AbortController().signal;
@@ -15,9 +16,11 @@ const temp = useTempWorkspace({
   outside: { 'outside.txt': 'const a = 1;\n' },
 });
 
+const fileLocks = useFileLocks();
+
 const edit = (input: { path: string; oldText: string; newText: string; replaceAll?: boolean }) =>
   runTool({
-    tools: [createEditFileTool({ workspace: temp.workspace })],
+    tools: [createEditFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current })],
     call: { id: '1', name: 'edit_file', input: { description: `editing ${input.path}`, ...input } },
     signal,
   });

@@ -1,4 +1,5 @@
 import type { ApprovalRegistry } from '../../runtime/approvals/approvals.service.js';
+import type { ProcessRunner } from '../../runtime/process/process.service.js';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 
@@ -17,4 +18,9 @@ export type RunCommandOptions = {
    * with no one subscribed to it (a headless run), those commands are refused.
    */
   approvals?: ApprovalRegistry | undefined;
+  /**
+   * Runs the commands and stops any still running when the process exits: pass the harness's
+   * one runner. Without one, the tool gets its own.
+   */
+  processes?: ProcessRunner;
 };

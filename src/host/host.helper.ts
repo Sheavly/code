@@ -9,6 +9,8 @@ import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.helper.
 import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import { FileLocks } from '../runtime/file-locks/file-locks.service.js';
+import { ProcessRunner } from '../runtime/process/process.service.js';
 import { TrustStore } from '../runtime/trust/trust.service.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { createEditFileTool } from '../tools/edit-file/edit-file.tool.js';
@@ -96,10 +98,15 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
   const approvals = new ApprovalRegistry();
   const mainSession = sessions.startMain({ title: title.slice(0, 60) });
   const agentsMd = createAgentsMdHook({ root: workspace.root });
+  // One set of file locks and one process runner for the whole harness: the main agent's tools
+  // and every sub-agent's copies share them, so edits to one file never overlap and every
+  // command the harness started is stopped when it exits.
+  const fileLocks = new FileLocks();
+  const processes = new ProcessRunner();
   const fileTools = [
     createReadFileTool({ workspace }),
-    createWriteFileTool({ workspace }),
-    createEditFileTool({ workspace }),
+    createWriteFileTool({ workspace, fileLocks }),
+    createEditFileTool({ workspace, fileLocks }),
   ];
 
   return {
@@ -114,7 +121,7 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
     hooks: [agentsMd, ...projectHooks.hooks],
     tools: [
       ...fileTools,
-      createRunCommandTool({ workspace, skipAllowList, tasks, approvals }),
+      createRunCommandTool({ workspace, skipAllowList, tasks, approvals, processes }),
       ...createTaskTools(tasks),
       // Sub-agents get the file tools and the AGENTS.md hook (not the .sheavly hooks).
       createSubAgentTool({

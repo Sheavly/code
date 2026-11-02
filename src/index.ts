@@ -25,8 +25,10 @@ export type * from '@sheavly/core/hook/hook.types';
 export { createReadFileTool } from './tools/read-file/read-file.tool.js';
 export { createWriteFileTool } from './tools/write-file/write-file.tool.js';
 export { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
+export { FileLocks } from './runtime/file-locks/file-locks.service.js';
 export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
+export { ProcessRunner } from './runtime/process/process.service.js';
 export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';
 export { ApprovalRegistry } from './runtime/approvals/approvals.service.js';
 export type {

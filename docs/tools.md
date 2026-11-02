@@ -46,7 +46,7 @@ tell the model how to fix the call (read the file first, add surrounding lines, 
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
 
 Tool calls in a turn run in parallel, so `write_file` and `edit_file` share a per-file lock
-(`withFileLock` in `runtime/file-locks/`), keyed by the file's real path (a symlink and its
+(a `FileLocks` from `runtime/file-locks/`, one per harness), keyed by the file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
 apply one after the other, each starting from what the previous one wrote; changes to different
 files still run at the same time. A call aborted while it waits gives up its place.

@@ -20,7 +20,7 @@ const FRONT_END_FILES = ['src/demo.ts', 'src/terminal-ui/**/*.ts', 'src/workbook
  */
 const HOST_FILES = [
   'src/host/**/*.ts',
-  'src/runtime/process/process.helper.ts',
+  'src/runtime/process/process.service.ts',
   ...FRONT_END_FILES,
 ];
 /** Hosts' command-line entry points: files without a kind. */
