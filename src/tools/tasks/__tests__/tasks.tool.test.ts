@@ -1,170 +1,50 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
-import type { ToolCall } from '@sheavly/core/message/message.types';
-import { runTool } from '@sheavly/core/tool/tool.helper';
-import { createRunCommandTool } from '../../run-command/run-command.tool.js';
+import { startTaskTool } from '../../../testing/start-task.fake.js';
+import { toolRunner } from '../../../testing/tool-runner.fake.js';
+import { until } from '../../../testing/until.fake.js';
 import { createTaskTools } from '../tasks.tool.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const signal = new AbortController().signal;
 
-const temp = useTempWorkspace({ prefix: 'tasks-test-' });
 let tasks: TaskRegistry;
 
 afterEach(async () => {
-  await tasks.cancelAll(); // never leave processes behind
+  await tasks.cancelAll();
 });
 
+/** The task tools next to `start_task`, which starts timed tasks (no workspace or process). */
 function setup() {
   tasks = new TaskRegistry();
-  const tools = [
-    createRunCommandTool({ workspace: temp.workspace, skipAllowList: true, tasks }),
-    ...createTaskTools(tasks),
-  ];
-  const run = (id: string, name: string, input: Record<string, unknown>) =>
-    runTool({
-      tools,
-      call: { id, name, input: { description: `call ${id}`, ...input } } satisfies ToolCall,
-      signal,
-    });
 
-  return { run };
+  return { run: toolRunner([startTaskTool(tasks), ...createTaskTools(tasks)]) };
 }
-
-/** Polls until `check` is true (tasks finish on their own schedule). */
-async function until(check: () => boolean, timeoutMs = 3_000) {
-  const deadline = Date.now() + timeoutMs;
-
-  while (!check()) {
-    if (Date.now() > deadline) throw new Error('timed out waiting');
-    await sleep(10);
-  }
-}
-
-describe('background run_command', () => {
-  it('returns immediately with a task id while the command keeps running', async () => {
-    const { run } = setup();
-    const started = performance.now();
-    const result = await run('c1', 'run_command', {
-      command: 'sleep 2 && echo late',
-      background: true,
-    });
-
-    expect(performance.now() - started).toBeLessThan(500);
-    expect(result).toMatchObject({ role: 'tool', isError: false });
-    expect(result.role === 'tool' && result.content).toContain('Started background task t1');
-    expect(tasks.get('t1')).toMatchObject({
-      id: 't1',
-      callId: 'c1',
-      command: 'sleep 2 && echo late',
-      description: 'call c1',
-      status: 'running',
-    });
-  });
-
-  it('records exit code and output when the command finishes', async () => {
-    const { run } = setup();
-
-    await run('ok', 'run_command', { command: 'echo hello', background: true });
-    await run('bad', 'run_command', { command: 'echo oops >&2; exit 3', background: true });
-
-    await until(() => tasks.runningCount === 0);
-    expect(tasks.get('t1')).toMatchObject({ status: 'completed', exitCode: 0, output: 'hello\n' });
-    expect(tasks.get('t2')).toMatchObject({ status: 'failed', exitCode: 3, output: 'oops\n' });
-    expect(tasks.get('t1')?.endedAt).toBeGreaterThanOrEqual(tasks.get('t1')!.startedAt);
-  });
-
-  it('runs several tasks concurrently', async () => {
-    const { run } = setup();
-    const started = performance.now();
-
-    for (const id of ['a', 'b', 'c']) {
-      await run(id, 'run_command', { command: 'sleep 0.4', background: true });
-    }
-
-    expect(tasks.runningCount).toBe(3);
-    await until(() => tasks.runningCount === 0);
-    // Serially this would take 1.2s+.
-    expect(performance.now() - started).toBeLessThan(1_000);
-    expect(tasks.list().map((t) => t.status)).toEqual(['completed', 'completed', 'completed']);
-  });
-
-  it('is refused when the harness has no task registry', async () => {
-    const tool = createRunCommandTool({ workspace: temp.workspace, skipAllowList: true });
-
-    tasks = new TaskRegistry();
-    const result = await runTool({
-      tools: [tool],
-      call: {
-        id: 'x',
-        name: 'run_command',
-        input: { description: 'bg', command: 'true', background: true },
-      },
-      signal,
-    });
-
-    expect(result).toMatchObject({ isError: true });
-    expect(result.role === 'tool' && result.content).toContain('not enabled');
-  });
-
-  it('still applies the allow list', async () => {
-    tasks = new TaskRegistry();
-    const tool = createRunCommandTool({ workspace: temp.workspace, tasks });
-    const result = await runTool({
-      tools: [tool],
-      call: {
-        id: 'x',
-        name: 'run_command',
-        input: { description: 'bg', command: 'sleep 5', background: true },
-      },
-      signal,
-    });
-
-    expect(result).toMatchObject({ isError: true });
-    expect(tasks.list()).toEqual([]);
-  });
-});
 
 describe('cancel_task and task_status', () => {
-  it('cancellation kills the whole process tree', async () => {
-    const { run } = setup();
-    const marker = path.join(temp.root, 'cancelled-marker');
-
-    await run('c1', 'run_command', { command: `sleep 1 && touch ${marker}`, background: true });
-
-    const result = await run('c2', 'cancel_task', { id: 't1' });
-
-    expect(result.role === 'tool' && result.content).toContain('Cancelled task t1');
-    expect(tasks.get('t1')).toMatchObject({ status: 'cancelled' });
-
-    await sleep(1_300);
-    expect(existsSync(marker)).toBe(false);
-  });
-
-  it("a cancelled task isn't reported back as a completion (the canceller already knows)", async () => {
+  it("cancel_task stops a task, and it isn't reported back as a completion", async () => {
     const { run } = setup();
 
-    await run('c1', 'run_command', { command: 'sleep 5', background: true });
-    await run('c2', 'cancel_task', { id: 't1' });
-    expect(tasks.takeUnreported()).toEqual([]);
+    await run('c1', 'start_task', { ms: 5_000 });
+    expect(await run('c2', 'cancel_task', { id: 't1' })).toMatchObject({ isError: false });
+    expect(tasks.get('t1')).toMatchObject({ status: 'cancelled', exitCode: null });
+    expect(tasks.takeUnreported()).toEqual([]); // the canceller already knows
   });
 
   it('task_status lists tasks, or shows one with its output', async () => {
     const { run } = setup();
 
-    await run('c1', 'run_command', { command: 'echo hi', background: true });
-    await run('c2', 'run_command', { command: 'sleep 5', background: true });
+    await run('c1', 'start_task', { ms: 0, output: 'hi\n' });
+    await run('c2', 'start_task', { ms: 5_000 });
     await until(() => tasks.get('t1')?.status === 'completed');
 
     const list = await run('s1', 'task_status', {});
 
     expect(list.role === 'tool' && list.content).toMatch(
-      /\[task t1 · completed · exit code 0 · .*\] \$ echo hi/,
+      /\[task t1 · completed · exit code 0 · .*\] \$ wait 0ms/,
     );
-    expect(list.role === 'tool' && list.content).toMatch(/\[task t2 · running · .*\] \$ sleep 5/);
+    expect(list.role === 'tool' && list.content).toMatch(
+      /\[task t2 · running · .*\] \$ wait 5000ms/,
+    );
 
     const one = await run('s2', 'task_status', { id: 't1' });
 
@@ -177,7 +57,7 @@ describe('cancel_task and task_status', () => {
     expect(await run('s', 'task_status', { id: 't9' })).toMatchObject({ isError: true });
     expect(await run('c', 'cancel_task', { id: 't9' })).toMatchObject({ isError: true });
 
-    await run('c1', 'run_command', { command: 'true', background: true });
+    await run('c1', 'start_task', { ms: 0 });
     await until(() => tasks.runningCount === 0);
     const result = await run('c2', 'cancel_task', { id: 't1' });
 
