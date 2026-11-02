@@ -23,7 +23,8 @@
     "demo": "tsx --conditions=@sheavly/source src/demo.ts",
     "typecheck:root": "tsc --noEmit",
     "lint:root": "eslint . --ignore-pattern 'packages/'",
-    "test:root": "vitest run"
+    "test:root": "vitest run",
+    "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd"
   },
   "type": "module",
   "dependencies": {
