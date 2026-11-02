@@ -1,14 +1,7 @@
 import type { z } from 'zod';
-import type { ToolMessage } from '../message/message.types.js';
-import type { SessionRef } from '../session/session.types.js';
-
-/**
- * Data a tool returns for a UI, never for history (so it costs no tokens). `kind` names it
- * (`file_change`, `file_read`, ...); the tool that emits it defines the kind and the rest of its
- * shape, and a UI renders the kinds it knows and skips the others. The harness passes it through
- * hooks and onto the `tool_result` event without looking inside.
- */
-export type ToolArtifact = { kind: string; [field: string]: unknown };
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** What `execute` returns: text for the model, plus any artifacts for the UI. */
 export type ToolOutput = string | { content: string; artifacts?: readonly ToolArtifact[] };

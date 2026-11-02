@@ -45,6 +45,7 @@ export { createAgentsMdHook, findAgentsFiles } from './runtime/agents-md/agents-
 export type { AgentsFile, AgentsMdHookOptions } from './runtime/agents-md/agents-md.types.js';
 export { ProjectHooksError } from './runtime/errors/project-hooks.errors.js';
 export type { HooksManifest } from './runtime/project-hooks/project-hooks.types.js';
+export type * from '@sheavly/protocol/message/message.types';
 export type * from '@sheavly/core/message/message.types';
 export type * from '@sheavly/core/provider/provider.types';
 export { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
@@ -58,7 +59,7 @@ export { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 export { SessionRegistry } from './runtime/sessions/sessions.service.js';
 export { MAX_SESSION_DEPTH } from './runtime/sessions/sessions.constants.js';
 export type { RunSession } from './runtime/sessions/sessions.types.js';
-export type * from '@sheavly/core/session/session.types';
+export type * from '@sheavly/protocol/session/session.types';
 export { createSubAgentTool } from './tools/sub-agent/sub-agent.tool.js';
 export { createReportStatusTool } from './tools/sub-agent/report-status.tool.js';
 export { createMessageAgentTool } from './tools/sub-agent/message-agent.tool.js';

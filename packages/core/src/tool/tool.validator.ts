@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ToolCall } from '../message/message.types.js';
+import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
 // The call description: added by the harness to every tool's input schema, filled in by the model.
 

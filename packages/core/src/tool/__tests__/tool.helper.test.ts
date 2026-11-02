@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { echoTool as echo } from '../../testing/echo-tool.fake.js';
 import { runTool } from '../tool.helper.js';
-import type { ToolArtifact } from '../tool.types.js';
 import { defineTool } from '../tool.utils.js';
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
 const signal = new AbortController().signal;
 
