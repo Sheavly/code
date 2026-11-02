@@ -54,7 +54,7 @@ Decide where something lives before writing it. The first question: **would a no
 
 - The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`, `ApprovalUpdate`) and exposes registries a UI answers through (`approvals.respond`, `sessions.send`). It renders nothing, prompts no one and reads no terminal input.
 - Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
-- Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/workbook/`; the renderer in `@sheavly/terminal-ui` writes through a function the front end gives it. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
+- Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/workbook/`; the renderer in `@sheavly/terminal-ui` writes through a function the front end gives it. A workspace in `apps/` is a front end by where it is: `baseConfig` lets its source do terminal I/O, print and read env, so an app names no files. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
 - `@sheavly/host` wires a run and holds no UI; nothing below the apps imports a front end.
 
 ## Two entry points: generic, and coding on top

@@ -36,16 +36,18 @@ async function enabledRules(dir) {
     .sort();
 }
 
-/** A workspace that only calls `baseConfig`: what every workspace gets at the least. */
 /**
  * A workspace that only calls `baseConfig`: what every workspace gets at the least. A test-only
- * one (`sheavly.testOnly`, like `@sheavly/testing`) has the test rules on all its source.
+ * one (`sheavly.testOnly`, like `@sheavly/testing`) has the test rules on all its source; an app
+ * may read env, print and use the terminal.
  */
 async function baselineRules(params = {}) {
-  const { testOnly = false } = params;
-  const dir = mkdtempSync(path.join(tmpdir(), 'zz-synthetic-workspace-'));
+  const { testOnly = false, app = false } = params;
+  const parent = mkdtempSync(path.join(tmpdir(), 'zz-synthetic-workspace-'));
+  // An app is a workspace in an `apps/` folder: baseConfig reads that from where it is.
+  const dir = path.join(parent, app ? 'apps' : 'packages', 'zz');
 
-  mkdirSync(path.join(dir, 'src'));
+  mkdirSync(path.join(dir, 'src'), { recursive: true });
   writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
   writeFileSync(
     path.join(dir, 'package.json'),
@@ -60,13 +62,29 @@ async function baselineRules(params = {}) {
 }
 
 const isTestOnly = (dir) => readJson(path.join(dir, 'package.json')).sheavly?.testOnly === true;
+const isApp = (dir) => path.basename(path.dirname(dir)) === 'apps';
 const WORKSPACES = workspaceDirs(REPO_ROOT);
 const BASELINE = await baselineRules();
 const TEST_ONLY_BASELINE = await baselineRules({ testOnly: true });
+const APP_BASELINE = await baselineRules({ app: true });
+
+/** What a workspace of this kind gets from the shared config alone. */
+function baselineFor(dir) {
+  if (isTestOnly(dir)) return TEST_ONLY_BASELINE;
+
+  return isApp(dir) ? APP_BASELINE : BASELINE;
+}
 
 it('reads the app and at least one package from the root workspaces', () => {
   expect(WORKSPACES).toContain(REPO_ROOT);
   expect(WORKSPACES.length).toBeGreaterThan(1);
+});
+
+it('lets an app, and only an app, read env, print and use the terminal', () => {
+  const offInApps = ['harness/no-process-env', 'harness/no-terminal-io', 'no-console'];
+
+  expect(BASELINE).toEqual(expect.arrayContaining(offInApps));
+  expect(APP_BASELINE.filter((rule) => offInApps.includes(rule))).toEqual([]);
 });
 
 it('gets the harness rules from the shared config alone', () => {
@@ -98,7 +116,7 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
       const enabled = new Set(await enabledRules(dir));
 
       expect(
-        (isTestOnly(dir) ? TEST_ONLY_BASELINE : BASELINE).filter((rule) => !enabled.has(rule)),
+        baselineFor(dir).filter((rule) => !enabled.has(rule)),
         `${name} turns off shared rules. Keep them on; a justified exception is a files: override with a reason, on the files it is for.`,
       ).toEqual([]);
     });
