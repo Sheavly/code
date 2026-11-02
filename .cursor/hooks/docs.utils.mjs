@@ -13,7 +13,7 @@ const DOC_SOURCES = [
     sources: [
       /^packages\/protocol\/src\/session\//,
       /^packages\/runtime\/src\/sessions\//,
-      /^src\/tools\/sub-agent\//,
+      /^packages\/tools\/src\/sub-agent\//,
     ],
   },
   {

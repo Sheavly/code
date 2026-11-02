@@ -72,7 +72,8 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                      |
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/` |
 | `src/runtime/`            | The workspace-bound services, until #29 moves them: workspace path confinement, processes, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`)   |
-| `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                      |
+| `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                          |
+| `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                |
 | `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                           |
 | `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                   |
 | `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                        |
@@ -256,33 +257,32 @@ The harness fails loudly, and ESLint enforces it in every workspace and on `.cur
 
 Each area keeps its own classes, since the layers can't all import one another:
 
-| Where                            | Classes                                                                            |
-| -------------------------------- | ---------------------------------------------------------------------------------- |
-| `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong                                    |
-| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                         |
-| `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts` |
-| `src/runtime/errors/`            | Tools, loop, hosts and the workspace-bound runtime (below)                         |
-| `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                            |
+| Where                            | Classes                                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong; `ToolCallError`: a tool refused a call |
+| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                              |
+| `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
+| `src/runtime/errors/`            | Tools, loop, hosts and the workspace-bound runtime (below)                              |
+| `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                                 |
 
-| `src/runtime/errors/` class            | Thrown when                                                                                                                 |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `WorkspaceError`                       | A path is outside the workspace, or a broken symlink                                                                        |
-| `PathCheckError` (`path`, `code`)      | A path couldn't be checked at all (`EACCES`, `ELOOP`); never "missing"                                                      |
-| `ProjectHooksError`                    | `.sheavly/` hooks can't be read, validated or loaded                                                                        |
-| `ProcessKillError` (`pid`, `code`)     | A command's process group couldn't be stopped; it may still be running                                                      |
-| `ProcessInterruptedError`              | The run was interrupted before a command started                                                                            |
-| `ApprovalRequestError` (`reason`)      | No one listens for approvals, or an answer names no waiting request                                                         |
-| `ApprovalListenerError` (`update`)     | An approval subscriber threw                                                                                                |
-| `CommandRefusedError` (`reason`)       | A command needed approval nobody could give, or the user skipped it                                                         |
-| `ToolCallError` (`reason`)             | A tool refused a call (`not_found`, `invalid_input`, `forbidden`, `unavailable`); the message tells the model how to fix it |
-| `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor)                                                 |
-| `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                                                                           |
-| `TrustStoreError` (`file`)             | The workspace trust store exists but can't be read, parsed or written                                                       |
-| `HookError` (`hook`, `handler`)        | An `onError` handler threw (reported as `hook_failed`)                                                                      |
-| `StreamEndedError`                     | A run's event stream ended without `done`                                                                                   |
-| `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                                                                          |
-| `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                                                                      |
-| `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                                                                   |
+| `src/runtime/errors/` class            | Thrown when                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `WorkspaceError`                       | A path is outside the workspace, or a broken symlink                        |
+| `PathCheckError` (`path`, `code`)      | A path couldn't be checked at all (`EACCES`, `ELOOP`); never "missing"      |
+| `ProjectHooksError`                    | `.sheavly/` hooks can't be read, validated or loaded                        |
+| `ProcessKillError` (`pid`, `code`)     | A command's process group couldn't be stopped; it may still be running      |
+| `ProcessInterruptedError`              | The run was interrupted before a command started                            |
+| `ApprovalRequestError` (`reason`)      | No one listens for approvals, or an answer names no waiting request         |
+| `ApprovalListenerError` (`update`)     | An approval subscriber threw                                                |
+| `CommandRefusedError` (`reason`)       | A command needed approval nobody could give, or the user skipped it         |
+| `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor) |
+| `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                           |
+| `TrustStoreError` (`file`)             | The workspace trust store exists but can't be read, parsed or written       |
+| `HookError` (`hook`, `handler`)        | An `onError` handler threw (reported as `hook_failed`)                      |
+| `StreamEndedError`                     | A run's event stream ended without `done`                                   |
+| `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                          |
+| `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                      |
+| `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                   |
 
 `@sheavly/runtime/errors/errors.utils` has `errorMessage`, `errorCode` and `isMissingPath`
 (`ENOENT` / `ENOTDIR` only). Each error class moves to the package that throws it as #29 splits the
@@ -297,7 +297,7 @@ app; the table lists them where they are today.
 - A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
   for a Responses API backend; another protocol gets its own folder next to `responses/` (see
   [the package README](../packages/providers/README.md)).
-- A tool: `src/tools/<name>/` (see [tools.md](tools.md)).
+- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `src/tools/<name>/` until #29 moves those (see [tools.md](tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
 - Something a UI must show: a new event in `agentEventBodySchema`
   (`packages/protocol/src/event/event.validator.ts`).

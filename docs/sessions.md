@@ -22,7 +22,7 @@ how the run ended: `completed`, `interrupted`, `max_turns`, `failed`) and timest
 
 - `startMain` starts the main session; `startChild({ parentId, title })` starts a sub-agent. It
   throws if the parent is unknown, has ended, or is at the depth cap.
-- Every refusal is a `SessionError` (`src/runtime/errors/`) with a `reason` (`unknown_session`,
+- Every refusal is a `SessionError` (`@sheavly/runtime/errors/`) with a `reason` (`unknown_session`,
   `parent_ended`, `too_deep`, `session_ended`, `not_an_ancestor`) and the `sessionId` it was
   about, so a caller tells the cases apart without reading the message.
 - `lineage(id)` walks a session up to the main session; `children(id)` lists the ones it started.
@@ -32,7 +32,7 @@ how the run ended: `completed`, `interrupted`, `max_turns`, `failed`) and timest
 
 ## Sub-agents
 
-`createSubAgentTool(options)` (`src/tools/sub-agent/`) is the `start_agent` tool: it starts a
+`createSubAgentTool(options)` (`@sheavly/tools/sub-agent/`) is the `start_agent` tool: it starts a
 sub-agent on one task, `{ title, task }`.
 
 - **A background task.** The sub-agent runs as a task in the parent's `TaskRegistry`, so the
