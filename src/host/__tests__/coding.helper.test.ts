@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { TrustStore } from '../../runtime/trust/trust.service.js';
+import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { createCodingHarness } from '../coding.helper.js';
 

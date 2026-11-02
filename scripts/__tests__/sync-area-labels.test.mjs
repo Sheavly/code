@@ -29,7 +29,6 @@ const createRepo = () =>
   createTempRepo({
     'packages/core/package.json': '{}',
     'src/loop/loop.ts': '',
-    'src/testing/fixtures.ts': '',
   });
 const IN_STEP = ['area/core', 'area/loop', 'area/tooling', 'security', 'documentation'];
 
@@ -76,7 +75,7 @@ describe('area label sync', () => {
     );
   });
 
-  it('creates the whole set in a repo with none, without src/testing', () => {
+  it('creates the whole set in a repo with none', () => {
     const { gh } = createGh({ labels: [] });
 
     expect(syncAreaLabels({ repoRoot: createRepo(), gh }).created).toEqual([

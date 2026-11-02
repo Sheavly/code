@@ -1,5 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import type { Workspace } from '../../runtime/workspace/workspace.service.js';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
 
 /**

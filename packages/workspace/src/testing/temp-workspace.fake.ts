@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
-import { Workspace } from '../runtime/workspace/workspace.service.js';
+import { Workspace } from '../workspace/workspace.service.js';
 import type { TempWorkspace } from './testing.types.js';
 
 async function writeFiles(params: { dir: string; files: Record<string, string> }) {

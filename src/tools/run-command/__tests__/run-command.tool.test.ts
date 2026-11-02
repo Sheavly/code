@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { Workspace } from '../../../runtime/workspace/workspace.service.js';
+import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createRunCommandTool } from '../run-command.tool.js';

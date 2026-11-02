@@ -6,7 +6,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { approveEverything } from '@sheavly/runtime/testing/approvals.fake';
-import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
+import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
 

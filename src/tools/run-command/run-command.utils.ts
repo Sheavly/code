@@ -1,5 +1,5 @@
-import { MAX_OUTPUT_CHARS } from '../../runtime/process/process.constants.js';
-import type { ProcessResult } from '../../runtime/process/process.types.js';
+import { MAX_OUTPUT_CHARS } from '@sheavly/workspace/process/process.constants';
+import type { ProcessResult } from '@sheavly/workspace/process/process.types';
 import { isAllowed, parseCommand } from './allow-list.utils.js';
 import {
   DIFF_SUBCOMMANDS,

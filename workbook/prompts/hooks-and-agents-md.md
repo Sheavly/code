@@ -5,9 +5,9 @@ check:
   {
     'areas':
       [
-        'src/runtime/project-hooks',
-        'src/runtime/agents-md',
-        'src/runtime/trust',
+        'packages/workspace/src/project-hooks',
+        'packages/workspace/src/agents-md',
+        'packages/workspace/src/trust',
         'src/host',
         'packages/host/src',
         'src/workbook',

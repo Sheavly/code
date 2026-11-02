@@ -1,4 +1,4 @@
-import type { Workspace } from '../runtime/workspace/workspace.service.js';
+import type { Workspace } from '../workspace/workspace.service.js';
 
 /** A temp workspace from `useTempWorkspace`; readable only while its tests run. */
 export type TempWorkspace = {

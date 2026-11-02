@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileChange } from '../files/files.types.js';
-import type { FileLocks } from '../../runtime/file-locks/file-locks.service.js';
-import type { Workspace } from '../../runtime/workspace/workspace.service.js';
+import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
 import { applyEdit } from './edit-file.utils.js';

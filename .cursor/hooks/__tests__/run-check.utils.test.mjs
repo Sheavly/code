@@ -5,15 +5,15 @@ describe('runSourceFiles', () => {
   it('keeps the source that changes what a run does', () => {
     expect(
       runSourceFiles([
-        'src/runtime/trust/trust.service.ts',
+        'packages/workspace/src/trust/trust.service.ts',
         'src/demo.ts',
         'packages/core/src/hook/hook.service.ts',
         'src/workbook/run.service.ts',
       ]),
     ).toEqual([
       'packages/core/src/hook/hook.service.ts',
+      'packages/workspace/src/trust/trust.service.ts',
       'src/demo.ts',
-      'src/runtime/trust/trust.service.ts',
       'src/workbook/run.service.ts',
     ]);
   });
