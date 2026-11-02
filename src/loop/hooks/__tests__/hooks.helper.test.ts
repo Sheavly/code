@@ -10,7 +10,7 @@ import {
   runOnError,
   runSessionStart,
   runToolCall,
-} from '../hooks.service.js';
+} from '../hooks.helper.js';
 
 const signal = new AbortController().signal;
 

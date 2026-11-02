@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { z } from 'zod';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { runSession } from '../loop/stream-agent/stream-agent.service.js';
+import { runSession } from '../loop/stream-agent/stream-agent.helper.js';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import { createAgentsMdHook } from '../runtime/agents-md/agents-md.helper.js';
 import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.helper.js';

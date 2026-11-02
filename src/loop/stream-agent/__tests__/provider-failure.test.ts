@@ -7,7 +7,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { AgentEvent } from '../../events/events.types.js';
 import { STOPPED_BY_FAILURE } from '../stream-agent.constants.js';
-import { streamAgent } from '../stream-agent.service.js';
+import { streamAgent } from '../stream-agent.helper.js';
 
 const call = (id: string, name: string): ToolCall => ({
   id,

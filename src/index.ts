@@ -1,5 +1,5 @@
 // The package's one public entry point (`main`). Inside src/, import from the defining file.
-export { runAgent, runSession, streamAgent } from './loop/stream-agent/stream-agent.service.js';
+export { runAgent, runSession, streamAgent } from './loop/stream-agent/stream-agent.helper.js';
 export type { AgentOptions, RunAgentOptions } from './loop/stream-agent/stream-agent.types.js';
 export type {
   AgentEvent,

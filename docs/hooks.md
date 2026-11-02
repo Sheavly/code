@@ -100,7 +100,7 @@ a package, a symlink out of `.sheavly/`, a `require` of either) fails to load wi
 1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.
 2. Add it to `HANDLERS` in `hook.utils.ts` and to `hookExportSchema` in
    `src/runtime/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
-3. Add a runner in `src/loop/hooks/hooks.service.ts` and call it from the loop.
+3. Add a runner in `src/loop/hooks/hooks.helper.ts` and call it from the loop.
 4. Test it in `src/loop/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 
 Not built yet: a user-level `~/.sheavly/`, and

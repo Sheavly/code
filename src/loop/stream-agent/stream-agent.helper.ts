@@ -3,12 +3,12 @@ import { whenAborted } from '../abort/abort.utils.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '../events/events.types.js';
 import { OrderedQueue } from '../queue/queue.service.js';
 import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
-import { runOnError, runSessionStart } from '../hooks/hooks.service.js';
+import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
 import { StreamEndedError } from '../../runtime/errors/hooks.errors.js';
 import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
 import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
-import { runTurn } from './turn.service.js';
+import { runTurn } from './turn.helper.js';
 
 /**
  * Runs the agent and yields one typed, sequenced event per step.

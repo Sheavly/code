@@ -5,7 +5,7 @@ import { createRunCommandTool } from '../../../tools/run-command/run-command.too
 import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
 import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { streamAgent } from '../stream-agent.service.js';
+import { streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '../../events/events.types.js';
 import type { AgentOptions } from '../stream-agent.types.js';
 

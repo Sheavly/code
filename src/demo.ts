@@ -20,7 +20,7 @@
 import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { z } from 'zod';
-import { streamAgent } from './loop/stream-agent/stream-agent.service.js';
+import { streamAgent } from './loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from './host/host.constants.js';
 import { createHarness, providerFromEnv, trustStoreFromEnv } from './host/host.service.js';
 import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
