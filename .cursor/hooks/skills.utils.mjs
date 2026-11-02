@@ -17,6 +17,10 @@ const isGlobList = (value) =>
 
 /** What is wrong with a skill's metadata; [] when it is valid. A misspelt key is never ignored. */
 export function metadataProblems(metadata) {
+  if (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata)) {
+    return ['it must be a JSON object with `governs` (and `manual` when that is empty)'];
+  }
+
   const known = new Set(['governs', 'manual']);
   const unknown = Object.keys(metadata)
     .filter((key) => !known.has(key))

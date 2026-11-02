@@ -71,6 +71,12 @@ describe('skill metadata', () => {
     expect(metadataProblems({ governs: [], manual: ' ' })).toContain('`manual` must be a reason');
   });
 
+  it('rejects metadata that is not an object, instead of crashing', () => {
+    for (const metadata of [null, 'docs/**', 3, ['docs/**']]) {
+      expect(metadataProblems(metadata)).toEqual([expect.stringContaining('JSON object')]);
+    }
+  });
+
   it('fails on a skill without a harness.json, saying what to add', () => {
     skill(undefined);
 
@@ -126,6 +132,28 @@ describe('the post-edit hook', () => {
     expect(
       runEditHook({ cwd: project, stateDir, file: 'notes/zz.md' }).additional_context ?? '',
     ).not.toContain('zz-skill');
+  });
+
+  it('reports a state write that fails in place of the hint, keeping the other notes', () => {
+    skill({ governs: ['docs/**'] });
+    write({ 'state-file': '' });
+
+    // The state dir is a file, so recording the hint fails with ENOTDIR or EEXIST.
+    const response = runEditHook({
+      cwd: project,
+      stateDir: path.join(project, 'state-file'),
+      file: 'docs/zz.md',
+    });
+
+    expect(response.additional_context).toMatch(/E(NOTDIR|EXIST)/);
+  });
+
+  it('reports null metadata in place of the hint', () => {
+    skill(null);
+
+    expect(
+      runEditHook({ cwd: project, stateDir, file: 'docs/zz.md' }).additional_context,
+    ).toContain('JSON object');
   });
 
   it('reports broken metadata in place of the hint, without blocking the edit', () => {

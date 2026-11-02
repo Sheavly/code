@@ -90,10 +90,14 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
 try {
   notes.push(...hintGoverningSkills({ conversationId, relative }));
 } catch (caughtError) {
-  // Advisory: a broken skill metadata file is reported in place of the hint, never blocks.
-  if (!(caughtError instanceof ProjectReadError || caughtError instanceof HookStateError)) {
-    throw caughtError;
-  }
+  // Advisory: broken skill metadata, or a state write that fails (read-only home, full disk:
+  // a Node error with a `code`), is reported in place of the hint and never blocks the edit.
+  const expected =
+    caughtError instanceof ProjectReadError ||
+    caughtError instanceof HookStateError ||
+    Boolean(caughtError?.code);
+
+  if (!expected) throw caughtError;
 
   notes.push(caughtError.message);
 }
