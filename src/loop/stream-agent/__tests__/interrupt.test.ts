@@ -10,7 +10,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { createRunCommandTool } from '../../../tools/run-command/run-command.tool.js';
 import type { Message, StreamEvent, ToolCall } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { runAgent, streamAgent } from '../stream-agent.service.js';
+import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '../../events/events.types.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

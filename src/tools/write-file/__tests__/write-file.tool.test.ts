@@ -3,6 +3,7 @@ import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
+import { useFileLocks } from '../../../testing/file-locks.fake.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../write-file.tool.js';
@@ -15,9 +16,11 @@ const temp = useTempWorkspace({
   outside: { 'outside.txt': 'outside\n' },
 });
 
+const fileLocks = useFileLocks();
+
 const write = (filePath: string, content: string) =>
   runTool({
-    tools: [createWriteFileTool({ workspace: temp.workspace })],
+    tools: [createWriteFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current })],
     call: {
       id: '1',
       name: 'write_file',
@@ -113,9 +116,10 @@ describe('write_file', () => {
   it('takes turns with parallel edit_file calls on one file, each from the last one written', async () => {
     const lines = ['a = 0;', 'b = 0;', 'c = 0;'];
     const base = `${lines.join('\n')}\n`;
+    // Both tools on the test's one set of locks, as `createHarness` wires them.
     const tools = [
-      createWriteFileTool({ workspace: temp.workspace }),
-      createEditFileTool({ workspace: temp.workspace }),
+      createWriteFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current }),
+      createEditFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current }),
     ];
     const call = (name: string, input: Record<string, unknown>) =>
       runTool({ tools, call: { id: name, name, input: { description: name, ...input } }, signal });

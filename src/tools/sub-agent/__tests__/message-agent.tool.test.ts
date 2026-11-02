@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { AgentEvent } from '../../../loop/events/events.types.js';
-import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.service.js';
+import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
 import { calls, createStepPicker, say, toolCall } from '../../../testing/routed-provider.fake.js';

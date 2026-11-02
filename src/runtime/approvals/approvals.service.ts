@@ -12,7 +12,7 @@ import type {
   ApprovalResponse,
   ApprovalUpdate,
 } from './approvals.types.js';
-import { approvalResponseSchema } from './approvals.utils.js';
+import { approvalResponseSchema } from './approvals.validator.js';
 
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };

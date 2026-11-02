@@ -7,13 +7,7 @@ import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
-import {
-  diffResults,
-  mergeTextDeltas,
-  parseCommand,
-  parsePromptFile,
-  runId,
-} from '../workbook.utils.js';
+import { diffResults, mergeTextDeltas, parseCommand, runId } from '../workbook.utils.js';
 
 /** A workbook folder per test: one stored prompt, and a fixture workspace for it. */
 const temp = useTempWorkspace({
@@ -29,30 +23,6 @@ const temp = useTempWorkspace({
 async function tempWorkbook(): Promise<WorkbookStore> {
   return new WorkbookStore(temp.root);
 }
-
-describe('parsePromptFile', () => {
-  it('reads front matter and the prompt text', () => {
-    expect(
-      parsePromptFile({ name: 'x', source: '---\nworkspace: basic\nmaxTurns: 7\n---\nDo it.\n' }),
-    ).toEqual({ name: 'x', text: 'Do it.', workspace: 'basic', maxTurns: 7 });
-  });
-
-  it('treats a file without front matter as just the prompt', () => {
-    expect(parsePromptFile({ name: 'x', source: 'Just this.\n' })).toEqual({
-      name: 'x',
-      text: 'Just this.',
-    });
-  });
-
-  it('rejects an empty prompt or bad settings, naming the prompt', () => {
-    expect(() =>
-      parsePromptFile({ name: 'empty', source: '---\nworkspace: basic\n---\n' }),
-    ).toThrow('Prompt "empty" is invalid');
-    expect(() => parsePromptFile({ name: 'bad', source: '---\nmaxTurns: 0\n---\nHi\n' })).toThrow(
-      'Prompt "bad" is invalid',
-    );
-  });
-});
 
 describe('runId', () => {
   it('numbers runs and names them after the prompt, so they sort in order', () => {

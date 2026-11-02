@@ -6,10 +6,10 @@ import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
+import { runAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { callOnceProvider } from '../../../testing/scripted-provider.fake.js';
 import { TrustStore } from '../../trust/trust.service.js';
-import { loadProjectHooks } from '../project-hooks.service.js';
+import { loadProjectHooks } from '../project-hooks.helper.js';
 import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
 
 const ESM = (name: string) =>

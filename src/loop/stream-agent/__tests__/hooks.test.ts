@@ -5,7 +5,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
-import { runAgent, streamAgent } from '../stream-agent.service.js';
+import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '../../events/events.types.js';
 
 const ping = defineTool({

@@ -12,10 +12,10 @@
  * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
  */
 import path from 'node:path';
-import { providerFromEnv } from '../host/host.service.js';
-import { checkWorkbook } from './check.service.js';
-import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.service.js';
-import { runWorkbook } from './run.service.js';
+import { providerFromEnv } from '../host/host.helper.js';
+import { checkWorkbook } from './check.helper.js';
+import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
+import { runWorkbook } from './run.helper.js';
 import { WorkbookStore } from './store.service.js';
 import { WORKBOOK_DIR } from './workbook.constants.js';
 import { parseCommand, usage } from './workbook.utils.js';

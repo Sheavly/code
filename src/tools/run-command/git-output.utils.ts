@@ -3,7 +3,7 @@
  * one (`--patch-with-stat`, `status -v`, `-G` guesses), so this is an allowlist: a git command
  * runs without asking only when every flag is one known to show no file contents, and a diff
  * also asks for a summary. Anything else needs the user's approval. Pure helpers;
- * `arguments.service.ts` turns the result into approval concerns.
+ * `arguments.helper.ts` turns the result into approval concerns.
  */
 import type { ApprovalConcern } from '../../runtime/approvals/approvals.types.js';
 

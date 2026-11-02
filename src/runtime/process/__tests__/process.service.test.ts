@@ -1,20 +1,26 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessKillError } from '../../errors/process.errors.js';
-import { runProcess } from '../process.service.js';
+import { ProcessRunner } from '../process.service.js';
 
 const signal = new AbortController().signal;
+/** A fresh runner per test, so no live group or exit hook leaks into the next one. */
+let runner: ProcessRunner;
 const printEnv = (env: Record<string, string> = {}) =>
-  runProcess({ file: 'env', args: [], cwd: process.cwd(), shell: false, signal, env });
+  runner.run({ file: 'env', args: [], cwd: process.cwd(), shell: false, signal, env });
+
+beforeEach(() => {
+  runner = new ProcessRunner();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe('runProcess kill', () => {
+describe('ProcessRunner kill', () => {
   it('fails the command with a ProcessKillError when its group cannot be killed', async () => {
     const controller = new AbortController();
     const eperm = Object.assign(new Error('not permitted'), { code: 'EPERM' });
-    const running = runProcess({
+    const running = runner.run({
       file: 'sleep',
       args: ['5'],
       cwd: process.cwd(),
@@ -37,7 +43,7 @@ describe('runProcess kill', () => {
   });
 });
 
-describe('runProcess env', () => {
+describe('ProcessRunner env', () => {
   it('drops env vars that look like secrets', async () => {
     vi.stubEnv('HARNESS_TEST_API_KEY', 'hunter2');
     vi.stubEnv('HARNESS_TEST_PLAIN', 'kept');
@@ -56,5 +62,40 @@ describe('runProcess env', () => {
     expect(output).toContain('HARNESS_TEST_PLAIN=override');
     expect(output).toContain('HARNESS_TEST_NEW=1');
     expect(output).not.toContain('inherited');
+  });
+});
+
+describe('ProcessRunner groups', () => {
+  it('tracks a running group, and removes its exit hook once nothing runs', async () => {
+    const before = process.listenerCount('exit');
+    const running = runner.run({
+      file: 'true',
+      args: [],
+      cwd: process.cwd(),
+      shell: false,
+      signal,
+    });
+
+    expect(runner.running).toBe(1);
+    expect(process.listenerCount('exit')).toBe(before + 1);
+
+    await running;
+
+    expect(runner.running).toBe(0);
+    expect(process.listenerCount('exit')).toBe(before);
+  });
+
+  it('keeps each runner separate: another one tracks none of these groups', async () => {
+    const other = new ProcessRunner();
+    const running = runner.run({
+      file: 'true',
+      args: [],
+      cwd: process.cwd(),
+      shell: false,
+      signal,
+    });
+
+    expect(other.running).toBe(0);
+    await running;
   });
 });

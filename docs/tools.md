@@ -46,7 +46,7 @@ tell the model how to fix the call (read the file first, add surrounding lines, 
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
 
 Tool calls in a turn run in parallel, so `write_file` and `edit_file` share a per-file lock
-(`withFileLock` in `runtime/file-locks/`), keyed by the file's real path (a symlink and its
+(a `FileLocks` from `runtime/file-locks/`, one per harness), keyed by the file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
 apply one after the other, each starting from what the previous one wrote; changes to different
 files still run at the same time. A call aborted while it waits gives up its place.
@@ -78,7 +78,7 @@ guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
 1. **Allow list:** its first words must match an entry in `allow-list.constants.ts`, and it may
    not contain shell syntax. Anything else is refused; the user isn't asked.
-2. **Arguments** (`arguments.service.ts`): operands, `--opt=value` values, values attached to
+2. **Arguments** (`arguments.helper.ts`): operands, `--opt=value` values, values attached to
    short options (`-O../x`) and every word after `--` are checked with the same path rules as
    the file tools. An argument needs the user's approval if it reaches outside the workspace
    (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,

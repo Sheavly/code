@@ -2,16 +2,26 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { withFileLock } from '../../runtime/file-locks/file-locks.service.js';
+import type { FileLocks } from '../../runtime/file-locks/file-locks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
-import { readIfExists, resolveWritable, writeText } from '../files/files.service.js';
+import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
 
 /**
  * Creates or overwrites a UTF-8 text file inside the workspace (creating parent folders).
  * The result carries the file's before/after content, for a UI to show the diff.
+ *
+ * `fileLocks` orders changes to the same file. It's required, not defaulted: every writer of a
+ * file must share one instance (the harness's), and a tool that made its own would silently let
+ * a parallel write or edit overlap.
  */
-export function createWriteFileTool({ workspace }: { workspace: Workspace }) {
+export function createWriteFileTool({
+  workspace,
+  fileLocks,
+}: {
+  workspace: Workspace;
+  fileLocks: FileLocks;
+}) {
   return defineTool({
     name: 'write_file',
     description:
@@ -24,7 +34,7 @@ export function createWriteFileTool({ workspace }: { workspace: Workspace }) {
     execute: async ({ input: { path: requested, content }, signal }) => {
       const real = await resolveWritable({ workspace, requested });
 
-      return withFileLock({
+      return fileLocks.run({
         file: real,
         signal,
         change: async () => {

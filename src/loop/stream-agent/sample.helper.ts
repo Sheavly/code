@@ -9,7 +9,7 @@ import { toDefinition } from '@sheavly/core/tool/tool.utils';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
 import type { DescribedCall, ToolOutcome } from '../events/events.types.js';
-import { runToolCall } from '../hooks/hooks.service.js';
+import { runToolCall } from '../hooks/hooks.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
 import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 

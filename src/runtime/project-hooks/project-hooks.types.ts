@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { TrustState } from '../trust/trust.types.js';
-import type { hooksManifestSchema } from './project-hooks.utils.js';
+import type { hooksManifestSchema } from './project-hooks.validator.js';
 
 /** `.sheavly/hooks.json`, after validation (`enabled` defaults to true). */
 export type HooksManifest = z.infer<typeof hooksManifestSchema>;

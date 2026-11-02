@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { createDefaultRegistry } from '../default-registry.service.js';
+import { createDefaultRegistry } from '../default-registry.helper.js';
 import { AdapterRegistry } from '../registry.service.js';
 
 describe('AdapterRegistry', () => {

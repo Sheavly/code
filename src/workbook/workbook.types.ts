@@ -5,7 +5,7 @@ import type {
   runMetaSchema,
   runResultSchema,
   stateSchema,
-} from './workbook.utils.js';
+} from './workbook.validator.js';
 
 /** A stored prompt: its name (the file name) and what it says, plus optional settings. */
 export type StoredPrompt = z.infer<typeof promptFileSchema> & { name: string };

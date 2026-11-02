@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { collect, fakeFetch } from '@sheavly/core/testing/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { defineResponsesAdapter } from '../responses.service.js';
+import { defineResponsesAdapter } from '../responses.helper.js';
 
 const request: ProviderRequest = {
   messages: [{ role: 'user', content: 'hi' }],

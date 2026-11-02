@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
-import type { responsesEventSchema } from './events.utils.js';
+import type { responsesEventSchema } from './responses.validator.js';
 
 /**
  * Where and how to reach one backend that speaks the OpenAI Responses API. Backends differ only

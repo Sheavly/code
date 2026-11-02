@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { runProcess } from '../../runtime/process/process.service.js';
+import { ProcessRunner } from '../../runtime/process/process.service.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
-import { confirmArguments } from './arguments.service.js';
+import { confirmArguments } from './arguments.helper.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';
@@ -15,6 +15,7 @@ export function createRunCommandTool({
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
   approvals,
+  processes = new ProcessRunner(),
 }: RunCommandOptions) {
   return defineTool({
     name: 'run_command',
@@ -76,7 +77,7 @@ export function createRunCommandTool({
           description: context.description,
           callId: context.callId,
           run: ({ signal: taskSignal, onOutput }) =>
-            runProcess({ ...options, signal: taskSignal, onOutput }),
+            processes.run({ ...options, signal: taskSignal, onOutput }),
         });
 
         return (
@@ -85,7 +86,7 @@ export function createRunCommandTool({
         );
       }
 
-      const result = await runProcess({ ...options, timeoutMs, signal });
+      const result = await processes.run({ ...options, timeoutMs, signal });
 
       return formatResult({ command, result });
     },

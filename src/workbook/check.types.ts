@@ -4,7 +4,7 @@ import type {
   checkStepSchema,
   runExpectationSchema,
   runSourcesSchema,
-} from './check.utils.js';
+} from './check.validator.js';
 
 /** A stored prompt's `check`: what its runs must and must not show, and which areas it covers. */
 export type Check = z.infer<typeof checkSchema>;

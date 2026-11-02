@@ -6,7 +6,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { SessionUpdate } from '@sheavly/core/session/session.types';
-import { runSession } from '../../../loop/stream-agent/stream-agent.service.js';
+import { runSession } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
@@ -295,7 +295,7 @@ describe('report_status', () => {
 
 describe('main sessions', () => {
   it('a run without a session gets its own main session id on done', async () => {
-    const { streamAgent } = await import('../../../loop/stream-agent/stream-agent.service.js');
+    const { streamAgent } = await import('../../../loop/stream-agent/stream-agent.helper.js');
     const ids: string[] = [];
 
     for (let i = 0; i < 2; i++) {

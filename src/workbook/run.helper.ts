@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import type { Message } from '@sheavly/core/message/message.types';
-import { streamAgent } from '../loop/stream-agent/stream-agent.service.js';
+import { streamAgent } from '../loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
-import { createHarness, trustStoreFromEnv } from '../host/host.service.js';
+import { createHarness, trustStoreFromEnv } from '../host/host.helper.js';
 import type { ProviderSettings } from '../host/host.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
 import type { TrustStore } from '../runtime/trust/trust.service.js';

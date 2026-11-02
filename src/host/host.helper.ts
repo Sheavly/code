@@ -1,15 +1,16 @@
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { z } from 'zod';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { runSession } from '../loop/stream-agent/stream-agent.service.js';
-import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.service';
-import { createAgentsMdHook } from '../runtime/agents-md/agents-md.service.js';
-import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.service.js';
+import { runSession } from '../loop/stream-agent/stream-agent.helper.js';
+import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
+import { createAgentsMdHook } from '../runtime/agents-md/agents-md.helper.js';
+import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.helper.js';
 import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import { FileLocks } from '../runtime/file-locks/file-locks.service.js';
+import { ProcessRunner } from '../runtime/process/process.service.js';
 import { TrustStore } from '../runtime/trust/trust.service.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { createEditFileTool } from '../tools/edit-file/edit-file.tool.js';
@@ -19,13 +20,9 @@ import { createMessageAgentTool } from '../tools/sub-agent/message-agent.tool.js
 import { createSubAgentTool } from '../tools/sub-agent/sub-agent.tool.js';
 import { createTaskTools } from '../tools/tasks/tasks.tool.js';
 import { createWriteFileTool } from '../tools/write-file/write-file.tool.js';
-import {
-  DEFAULT_ADAPTER,
-  DEFAULT_MODEL,
-  HOST_MAX_TURNS,
-  TRUST_STORE_PATH,
-} from './host.constants.js';
+import { HOST_MAX_TURNS, TRUST_STORE_PATH } from './host.constants.js';
 import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js';
+import { parseProviderEnv } from './host.validator.js';
 
 /**
  * The model backend from the environment (and `.env`, if present): `ADAPTER` is "openai" (the
@@ -34,25 +31,7 @@ import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js'
 export function providerFromEnv(): ProviderSettings {
   if (existsSync('.env')) process.loadEnvFile('.env');
 
-  const env = z
-    .discriminatedUnion('ADAPTER', [
-      z.object({
-        ADAPTER: z.literal('openai'),
-        OPENAI_API_KEY: z.string().min(1, 'Set OPENAI_API_KEY'),
-        MODEL: z.string().default(DEFAULT_MODEL),
-      }),
-      z.object({
-        ADAPTER: z.literal('azure'),
-        AZURE_OPENAI_API_KEY: z.string().min(1, 'Set AZURE_OPENAI_API_KEY'),
-        AZURE_OPENAI_BASE_URL: z.string().min(1, 'Set AZURE_OPENAI_BASE_URL'),
-        AZURE_OPENAI_DEPLOYMENT: z.string().default(DEFAULT_MODEL),
-        AZURE_OPENAI_API_VERSION: z
-          .string()
-          .optional()
-          .transform((v) => (v === '' ? undefined : v)), // an empty line in .env means "not set"
-      }),
-    ])
-    .parse({ ...process.env, ADAPTER: process.env.ADAPTER ?? DEFAULT_ADAPTER });
+  const env = parseProviderEnv(process.env);
   const registry = createDefaultRegistry();
 
   if (env.ADAPTER === 'azure') {
@@ -119,10 +98,15 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
   const approvals = new ApprovalRegistry();
   const mainSession = sessions.startMain({ title: title.slice(0, 60) });
   const agentsMd = createAgentsMdHook({ root: workspace.root });
+  // One set of file locks and one process runner for the whole harness: the main agent's tools
+  // and every sub-agent's copies share them, so edits to one file never overlap and every
+  // command the harness started is stopped when it exits.
+  const fileLocks = new FileLocks();
+  const processes = new ProcessRunner();
   const fileTools = [
     createReadFileTool({ workspace }),
-    createWriteFileTool({ workspace }),
-    createEditFileTool({ workspace }),
+    createWriteFileTool({ workspace, fileLocks }),
+    createEditFileTool({ workspace, fileLocks }),
   ];
 
   return {
@@ -137,7 +121,7 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
     hooks: [agentsMd, ...projectHooks.hooks],
     tools: [
       ...fileTools,
-      createRunCommandTool({ workspace, skipAllowList, tasks, approvals }),
+      createRunCommandTool({ workspace, skipAllowList, tasks, approvals, processes }),
       ...createTaskTools(tasks),
       // Sub-agents get the file tools and the AGENTS.md hook (not the .sheavly hooks).
       createSubAgentTool({

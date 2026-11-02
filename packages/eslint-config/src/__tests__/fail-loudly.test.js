@@ -71,7 +71,7 @@ ruleTester.run('no-raw-error', harnessPlugin.rules['no-raw-error'], {
     ].map((code) => ({ code, filename: 'src/runtime/x/x.service.ts' })),
     // Every other source area, the providers and the packages included.
     ...[
-      'packages/providers/src/responses/responses.service.ts',
+      'packages/providers/src/responses/responses.helper.ts',
       'packages/core/src/tool/tool.helper.ts',
       'src/workbook/store.service.ts',
       '.cursor/hooks/hooks.utils.mjs',

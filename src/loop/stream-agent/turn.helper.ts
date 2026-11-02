@@ -4,9 +4,9 @@ import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { taskNotification } from '../../runtime/tasks/tasks.utils.js';
 import type { DoneReason } from '../events/events.types.js';
-import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.service.js';
+import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
-import { sample } from './sample.service.js';
+import { sample } from './sample.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */

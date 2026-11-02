@@ -3,18 +3,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  checkSchema,
-  formatReport,
-  judgeRun,
-  runSourcesSchema,
-  touchesAreas,
-} from '../check.utils.js';
-import { appendToWorkspace, selectChecks } from '../check.service.js';
+import { formatReport, judgeRun, touchesAreas } from '../check.utils.js';
+import { runSourcesSchema } from '../check.validator.js';
+import { appendToWorkspace, selectChecks } from '../check.helper.js';
 import { WorkbookStore } from '../store.service.js';
 import type { CheckOutcome, Observed } from '../check.types.js';
 import type { StoredPrompt } from '../workbook.types.js';
-import { parsePromptFile } from '../workbook.utils.js';
 
 const observed: Observed = {
   transcript: '＋ house-rules added context (59 chars)\n[AGENTS.md OK] The answer is 41. Sheavly\n',
@@ -71,42 +65,6 @@ describe('judgeRun', () => {
     expect(judgeRun({ expectation: { expect: { reply: ['/A\\.B/i'] } }, observed: run })).toEqual(
       [],
     );
-  });
-});
-
-describe('checkSchema', () => {
-  it('rejects a check with no expectations, or with steps and top-level ones at once', () => {
-    expect(checkSchema.safeParse({ areas: ['src/x'] }).success).toBe(false);
-    expect(
-      checkSchema.safeParse({
-        areas: ['src/x'],
-        expect: { reply: ['x'] },
-        steps: [{ run: {} }],
-      }).success,
-    ).toBe(false);
-    expect(checkSchema.safeParse({ areas: ['src/x'], typo: true, expect: {} }).success).toBe(false);
-  });
-});
-
-describe('parsePromptFile with a check', () => {
-  it('reads a JSON value that goes on over indented lines', () => {
-    const prompt = parsePromptFile({
-      name: 'p',
-      source:
-        '---\nworkspace: basic\ncheck: {\n    "areas": ["src/x"],\n    "expect": { "reply": ["ok"] }\n  }\n---\n\nSay ok.\n',
-    });
-
-    expect(prompt).toMatchObject({
-      workspace: 'basic',
-      text: 'Say ok.',
-      check: { areas: ['src/x'], expect: { reply: ['ok'] } },
-    });
-  });
-
-  it('names the prompt and the key when the JSON is broken', () => {
-    expect(() =>
-      parsePromptFile({ name: 'broken', source: '---\ncheck: { "areas": [\n---\n\nHi\n' }),
-    ).toThrow(/Prompt "broken" is invalid:\ncheck:/);
   });
 });
 
