@@ -9,8 +9,7 @@ import {
   toolsUsed,
 } from './workbook.utils.js';
 import { WorkbookNotFoundError } from '../runtime/errors/workbook.errors.js';
-
-type Write = (text: string) => void;
+import type { Write } from '../terminal-ui/render.types.js';
 
 /** `list`: the stored prompts, and the latest runs with how they ended. */
 export async function listWorkbook(params: { store: WorkbookStore; write: Write }): Promise<void> {
