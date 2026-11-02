@@ -74,7 +74,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `src/runtime/`            | The workspace-bound services, until #29 moves them: workspace path confinement, processes, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`)   |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                          |
 | `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                |
-| `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                           |
+| `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                          |
 | `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                   |
 | `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                        |
 | `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                |
@@ -260,6 +260,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | Where                            | Classes                                                                                 |
 | -------------------------------- | --------------------------------------------------------------------------------------- |
 | `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong; `ToolCallError`: a tool refused a call |
+| `packages/loop/src/errors/`      | `HookError`, `StreamEndedError`                                                         |
 | `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                              |
 | `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
 | `src/runtime/errors/`            | Tools, loop, hosts and the workspace-bound runtime (below)                              |
@@ -278,8 +279,6 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor) |
 | `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                           |
 | `TrustStoreError` (`file`)             | The workspace trust store exists but can't be read, parsed or written       |
-| `HookError` (`hook`, `handler`)        | An `onError` handler threw (reported as `hook_failed`)                      |
-| `StreamEndedError`                     | A run's event stream ended without `done`                                   |
 | `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                          |
 | `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                      |
 | `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                   |
