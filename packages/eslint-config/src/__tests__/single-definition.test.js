@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Linter, RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
 import { afterAll, describe, expect, it } from 'vitest';
 import { harnessPlugin } from '../plugin.js';
+import { tempWorkspace, writeFiles } from '../testing/workspace.fake.js';
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
@@ -13,24 +14,10 @@ RuleTester.it = it;
 const rule = harnessPlugin.rules['single-definition'];
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
-function write(root, files) {
-  for (const [file, content] of Object.entries(files)) {
-    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
-    writeFileSync(
-      path.join(root, file),
-      typeof content === 'string' ? content : JSON.stringify(content),
-    );
-  }
-}
-
 /** A workspace on disk: an app at the root (`src/`) and packages in `packages/*`. */
-function workspace(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'single-definition-'));
-
-  write(root, { 'package.json': { name: '@x/app', workspaces: ['packages/*'] }, ...files });
-
-  return root;
-}
+const workspace = (files) =>
+  tempWorkspace({ 'package.json': { name: '@x/app', workspaces: ['packages/*'] }, ...files });
+const write = (root, files) => writeFiles({ root, files });
 
 const root = workspace({
   'src/tools/tools.types.ts': 'export type Write = (text: string) => void;\n',

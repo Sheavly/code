@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   areaLabel,
   checkCommitMessage,
@@ -14,9 +14,15 @@ import {
   listAreaLabels,
   listScopes,
 } from '../git-workflow.utils.mjs';
-import { REPO_ROOT } from '../../../scripts/__tests__/temp-repo.utils.mjs';
+import {
+  createTempRepo,
+  REPO_ROOT,
+  removeTempRepos,
+} from '../../../scripts/__tests__/temp-repo.utils.mjs';
 
 const SCOPES = ['core', 'loop', 'tools'];
+
+afterEach(removeTempRepos);
 
 describe('issues in prompts', () => {
   it.each([
@@ -80,11 +86,20 @@ describe('headers', () => {
     expect(checkHeader({ header: `fix: ${'a'.repeat(70)}`, scopes: SCOPES })[0]).toContain('72');
   });
 
-  it('reads scopes from the packages and src/ folders, without testing', () => {
+  it('reads scopes from the packages, apps and src/ folders, without the test-only layers', () => {
     const scopes = listScopes(REPO_ROOT);
 
     expect(scopes).toEqual(expect.arrayContaining(['core', 'eslint-config', 'loop', 'tools']));
     expect(scopes).not.toContain('testing');
+  });
+
+  it('reads an apps/ workspace as a scope', () => {
+    const root = createTempRepo({
+      'apps/cli/package.json': '{}',
+      'packages/core/package.json': '{}',
+    });
+
+    expect(listScopes(root)).toEqual(['cli', 'core']);
   });
 });
 

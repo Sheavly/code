@@ -57,6 +57,10 @@
     "//#jscpd": {
       "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
       "outputs": []
+    },
+    "//#layout": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "outputs": []
     }
   }
 }

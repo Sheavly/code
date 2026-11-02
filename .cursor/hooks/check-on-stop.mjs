@@ -1,6 +1,7 @@
 // stop: before the agent finishes, run the quality gate (typecheck + ESLint for the affected
-// workspaces through turbo, then Prettier + knip + jscpd on the whole repo). If any fails, send a
-// follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in hooks.json.
+// workspaces through turbo, then Prettier + knip + the layout check + jscpd on the whole repo). If
+// any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit`
+// in hooks.json.
 // Problems baselined in eslint-suppressions.json, knip-baseline.json and .jscpd-baseline.json
 // don't count; new ones do.
 // Once the gate passes, nudge (once per set of files) when source files changed but the doc in
@@ -81,6 +82,15 @@ function runGate() {
     failures.push(
       '## knip (remove the unused code, exports or dependencies; change dependencies with ' +
         `\`npm install|uninstall\`, never by editing package.json)\n${knip.output}`,
+    );
+  }
+
+  // The workspace layout: every workspace set up like the others, source only in a workspace.
+  const layout = runNpmScript('layout');
+
+  if (!layout.ok) {
+    failures.push(
+      `## Layout (packages/eslint-config/src/layout.js; \`npm run layout\`)\n${layout.output}`,
     );
   }
 

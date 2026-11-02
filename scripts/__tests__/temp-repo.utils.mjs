@@ -1,8 +1,9 @@
 // Throwaway repos for the script tests, with this repo's node_modules linked in so the real
 // jscpd and knip run against them.
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { writeFiles } from '../../packages/eslint-config/src/testing/workspace.fake.js';
 
 export const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -15,10 +16,7 @@ export function createTempRepo(files) {
   roots.push(root);
   symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(root, 'node_modules'), 'junction');
 
-  for (const [file, content] of Object.entries(files)) {
-    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
-    writeFileSync(path.join(root, file), content);
-  }
+  writeFiles({ root, files });
 
   return root;
 }

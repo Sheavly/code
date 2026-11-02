@@ -3,7 +3,8 @@
 // up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
 // events, no UI unless the issue asks (architecture.utils.mjs). The first edit of a file a skill
-// governs names that skill (skills.utils.mjs). Every edit or deletion of project
+// governs names that skill (skills.utils.mjs), and source outside every workspace's src/ is
+// reported (layout.utils.mjs). Every edit or deletion of project
 // source is recorded in the chat's state, so the stop hook checks only chats that changed this
 // checkout. Advisory: it never blocks the edit. The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule } from './architecture.utils.mjs';
@@ -22,6 +23,7 @@ import {
   updateChatState,
 } from './hooks.utils.mjs';
 import { hintGoverningSkills } from './skills.utils.mjs';
+import { strayEditNote } from './layout.utils.mjs';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -86,23 +88,37 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
   }
 }
 
+// TypeScript outside every workspace's src/ is reported now, not first at the stop check.
+advise(() => {
+  const stray = strayEditNote(relative);
+
+  return stray ? [stray] : [];
+});
+
 // The skill that governs this file (its `harness.json` `governs` globs), named once per chat.
-try {
-  notes.push(...hintGoverningSkills({ conversationId, relative }));
-} catch (caughtError) {
-  // Advisory: broken skill metadata, or a state write that fails (read-only home, full disk:
-  // a Node error with a `code`), is reported in place of the hint and never blocks the edit.
-  const expected =
-    caughtError instanceof ProjectReadError ||
-    caughtError instanceof HookStateError ||
-    Boolean(caughtError?.code);
-
-  if (!expected) throw caughtError;
-
-  notes.push(caughtError.message);
-}
+advise(() => hintGoverningSkills({ conversationId, relative }));
 
 respond(notes.length > 0 ? { additional_context: notes.join('\n\n') } : {});
+
+/**
+ * Adds the notes `produce` returns. Advisory: a project file it can't read (a malformed
+ * package.json, broken skill metadata) or a state write that fails (read-only home, full disk:
+ * a Node error with a `code`) is reported in place of its notes and never blocks the edit.
+ */
+function advise(produce) {
+  try {
+    notes.push(...produce());
+  } catch (caughtError) {
+    const expected =
+      caughtError instanceof ProjectReadError ||
+      caughtError instanceof HookStateError ||
+      Boolean(caughtError?.code);
+
+    if (!expected) throw caughtError;
+
+    notes.push(caughtError.message);
+  }
+}
 
 /**
  * Advisory: a state write that fails (read-only home, full disk, a corrupt state file) must not

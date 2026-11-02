@@ -19,7 +19,7 @@ import { TYPESCRIPT_RULES } from './typescript.js';
 const TYPED_FILES = ['**/*.ts'];
 const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
 
-export const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
+const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
 /** Where the conventions and structure rules apply: a workspace's own TypeScript source. */
 const SOURCE_FILES = ['src/**/*.ts'];
 /** Files outside any tsconfig (root configs) that still get type info, from a default project. */
@@ -97,6 +97,10 @@ export function baseConfig(params) {
         // A type a workspace package exports is defined there only; the packages and their types
         // are read from the workspace, so new ones are covered without editing the rule.
         'harness/single-definition': 'error',
+        // Every workspace is in the layout (layout.js), which holds together.
+        'harness/layout': 'error',
+        // Imports follow the layout's graph and the split app's layers; tests are checked too.
+        'harness/imports': 'error',
       },
     },
 

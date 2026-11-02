@@ -66,6 +66,16 @@ describe('area label sync', () => {
     ]);
   });
 
+  it('names an app workspace after apps/', () => {
+    const repoRoot = createTempRepo({ 'apps/cli/package.json': '{}' });
+    const { gh, calls } = createGh({ labels: [] });
+
+    expect(syncAreaLabels({ repoRoot, gh }).created).toContain('area/cli');
+    expect(calls).toContainEqual(
+      expect.arrayContaining(['area/cli', 'Commit scope cli: apps/cli']),
+    );
+  });
+
   it('creates the whole set in a repo with none, without src/testing', () => {
     const { gh } = createGh({ labels: [] });
 
