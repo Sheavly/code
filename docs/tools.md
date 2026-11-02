@@ -26,7 +26,8 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 
 ## File tools
 
-All three go through the `Workspace` sandbox (`src/runtime/workspace/`): paths are relative to
+All three go through `Workspace` path confinement (`src/runtime/workspace/`), which is not an OS
+sandbox ([trust model](overview.md#trust-model)): paths are relative to
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
 symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes
 inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.git/hooks/x`,
@@ -78,12 +79,12 @@ guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 1. **Allow list:** its first words must match an entry in `allow-list.constants.ts`, and it may
    not contain shell syntax. Anything else is refused; the user isn't asked.
 2. **Arguments** (`arguments.service.ts`): operands, `--opt=value` values, values attached to
-   short options (`-O../x`) and every word after `--` are checked with the same sandbox rules as
+   short options (`-O../x`) and every word after `--` are checked with the same path rules as
    the file tools. An argument needs the user's approval if it reaches outside the workspace
    (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,
    `:(top).env`, `.\env`, a symlink to one, or any glob: git's `*`, `?` and `[...]` cross `/`, so
    `c*` or `config?.env` reach `config/.env`). Arguments that aren't existing paths (`HEAD~1`, a
-   test name) pass. One the sandbox can't check at all (unreadable, a symlink loop: a
+   test name) pass. One the path check can't check at all (unreadable, a symlink loop: a
    `PathCheckError`) is never treated as "not a path": it needs approval, as "could not be
    checked (ELOOP)".
 3. **Git output** (`git-output.utils.ts`): a git command that can print or write file contents
@@ -111,7 +112,8 @@ add one is refused), and git older than 2.42 ignores `attr.tree`.
 
 Test runners on the allow list (`npm test`, `npx vitest run`) run workspace code, which can read
 anything the process can; argument checks can't stop that. Isolating the process itself is
-[#4](https://github.com/Sheavly/code/issues/4).
+[#4](https://github.com/Sheavly/code/issues/4); until then, see the
+[trust model](overview.md#trust-model).
 
 ### Approvals: the harness asks, the UI renders
 

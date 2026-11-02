@@ -25,17 +25,17 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 @sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Where                | What lives there                                                                                                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                |
-| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                                       |
-| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
-| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                 |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                      |
-| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                    |
-| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                   |
-| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                 |
-| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                 |
+| Where                | What lives there                                                                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                         |
+| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                                                |
+| `src/runtime/`       | Stateful services: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
+| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                          |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                               |
+| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                             |
+| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                            |
+| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                          |
+| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                          |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
@@ -79,6 +79,41 @@ history stays valid. If the run fails, `onError` hooks are told and the error is
 `onError` handler that fails is reported as a `hook_failed` event, never in place of that error. A
 model call that fails after it started tools (a cut-off stream, an error event) first stops those
 tools and emits their results, so every `tool_call_started` is answered, then fails the run.
+
+## Trust model
+
+The harness is for **trusted local repositories**. It checks what the agent asks for, but it is
+not an OS sandbox: nothing isolates the processes it runs from the rest of the machine. For a repo
+you don't trust, run the harness in a container or VM.
+
+What `Workspace` (`src/runtime/workspace/`) and the tools enforce is **path confinement**:
+
+- The file tools resolve every path inside the workspace root and refuse anything that ends up
+  outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
+  inside `.git` are refused ([tools.md](tools.md#file-tools)).
+- `run_command` runs only allow-listed commands without shell syntax, checks their arguments with
+  the same path rules, asks for approval when one reaches outside or can name a `.env` file, and
+  sets git config that blocks most ways a repo can make git run programs
+  ([tools.md](tools.md#commands)).
+- Commands get the harness's env without the variables whose names look like secrets (`KEY`,
+  `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL`). This is a filter on names, not complete scrubbing:
+  a secret in a value under another name (`DATABASE_URL`), `SSH_AUTH_SOCK` and credential files
+  the user can read (`~/.npmrc`, `~/.aws/credentials`) still reach commands.
+
+What runs with the user's full rights, outside those checks:
+
+- **Allowed commands, and anything they execute.** `npm test` runs the repo's npm scripts, test
+  config and test files; those can read, write or send anything the user can. Argument checks
+  don't reach inside them. Isolating commands is [#4](https://github.com/Sheavly/code/issues/4).
+- **Any command, with `skipAllowList`.** With it set (`RUN_COMMAND_SKIP_ALLOW_LIST=true` in the
+  demo), `run_command` runs whatever shell command the model writes, with no allow list, argument
+  checks or approvals.
+- **Git filter drivers a repo brings.** A filter defined in a cloned repo's `.git/config` and
+  named in a committed `.gitattributes` still runs when an allowed `git status` or `git diff`
+  does; on git older than 2.42, so does one an edited `.gitattributes` turns on.
+- **`.sheavly/` project hooks.** They run inside the harness process, with its rights and its env
+  (keys included). They load only in a workspace the user trusted, and only until `.sheavly/`
+  changes ([hooks.md](hooks.md#workspace-trust)), but once loaded nothing confines what they do.
 
 ## Errors
 
