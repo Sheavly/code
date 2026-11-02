@@ -8,18 +8,18 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 ## Layers (imports only point down)
 
 ```
-@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
+@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer            | Holds                                                               | May import    |
-| ---------------- | ------------------------------------------------------------------- | ------------- |
-| `packages/core`  | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter` | zod only      |
-| `src/providers/` | Adapters, registry, `ProviderSwitch`, Responses client              | core          |
-| `src/runtime/`   | Stateful services: workspace sandbox, processes, tasks, approvals   | core          |
-| `src/tools/`     | One folder per tool                                                 | core, runtime |
-| `src/loop/`      | `streamAgent` / `runAgent`, events, queue, abort                    | core, runtime |
-| `src/host/`      | `createHarness`: wires a run, the model from env. No UI             | all above     |
-| Front ends       | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts` | anything      |
+| Layer                | Holds                                                                      | May import    |
+| -------------------- | -------------------------------------------------------------------------- | ------------- |
+| `packages/core`      | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter`        | zod only      |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch          | core, zod     |
+| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals | core          |
+| `src/tools/`         | One folder per tool                                                        | core, runtime |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                           | core, runtime |
+| `src/host/`          | `createHarness`: wires a run, the model from env. No UI                    | all above     |
+| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`        | anything      |
 
 ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -37,6 +37,7 @@ Design docs live in `docs/` (overview, tools, hooks, sessions). When a feature l
 npm workspaces in `packages/`, consumed as TypeScript source by subpath (`import { defineTool } from '@sheavly/core/tool/tool.service'`); nothing is built.
 
 - `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new contract shared by tools, providers and a future UI goes here.
+- `packages/providers`: the model backends (`@sheavly/providers`), imported only by `src/host/` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
 - A new package: `npm init -y -w packages/<name>`, then `npm pkg set -w packages/<name> ...` (never hand-edit `package.json`), an `eslint.config.js` calling `baseConfig({ tsconfigRootDir: import.meta.dirname })`, and a `tsconfig.json` extending `../../tsconfig.base.json` with `rootDir: "src"`. Depend on it with `npm install <name>@0.0.0`.
 
@@ -53,7 +54,7 @@ src/tools/run-command/
   __tests__/run-command.tool.test.ts
 ```
 
-Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `fake` (src/testing/), `test`. Policies (exports, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there.
+Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `fake` (a `testing/` folder), `test`. Policies (exports, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there.
 
 - A code file never exports a type or a literal constant: move it to the module's `*.types.ts` / `*.constants.ts` (`harness/kind-contents`). Unexported local ones may stay.
 - `*.types.ts` imports only with `import type`; derive schema types there with `z.infer<typeof xSchema>`.
@@ -75,7 +76,7 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 
 **A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
 
-**A provider**: one folder, `src/providers/<name>/<name>.adapter.ts`. A Responses API backend uses `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `src/providers/responses/responses.service.ts`): a pure map from config to endpoint. Any other uses `defineAdapter({ kind, description, configSchema, create: ({ config, deps }) => ... })` (from `@sheavly/core/adapter/adapter.service`). Register it in `registry/default-registry.service.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
+**A provider**: see `packages/providers/README.md`. A Responses API backend is one folder, `packages/providers/src/<name>/<name>.adapter.ts`, using `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `responses/responses.service.ts`): a pure map from config to endpoint. Another protocol (Anthropic, Gemini, Chat Completions) gets its own protocol folder next to `responses/` and backends on it; it never reuses `responses/`. Anything else uses `defineAdapter` (from `@sheavly/core/adapter/adapter.service`). Register built-ins in `registry/default-registry.service.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
 
 **A loop event**: add it to the `AgentEventBody` union in `loop/events/events.types.ts` and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
 
@@ -89,9 +90,9 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 - Interrupts must leave history valid: every tool call gets a result message, even a placeholder.
 - Keep files within their kind's line limit (`file-kinds.js`; `utils` has none, since pure helpers grow with their subject) and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
 - No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in `eslint.config.js`, with a reason.
-- Fakes live only in `src/testing/` (`fake-fetch.fake.ts`, `scripted-provider.fake.ts`). No mock data in dev or prod code.
+- Fakes live in a `testing/` folder: the app's in `src/testing/` (`scripted-provider.fake.ts`, `temp-workspace.fake.ts`), shared ones in `packages/core/src/testing/` (`fake-fetch.fake.ts`), and a package's own in its `src/testing/` (`packages/providers/src/testing/`), since a package can't import the app. No mock data in dev or prod code.
 - Never edit `package.json` by hand: use `npm install -D <pkg>` / `npm pkg set`.
-- Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (`src/runtime/errors/`, `src/providers/errors/`, `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
+- Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (`src/runtime/errors/`, `packages/providers/src/errors/`, `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
 - Real-model checks: when a change alters what a run does, run `npm run workbook -- check` once it's done (the `/git` review step asks for it, and the stop hook nudges once). It runs only the checks whose `areas` the change touched. A new behaviour gets a `check` on a stored prompt (`workbook/README.md`). It's manual and on demand: never put it in CI or `npm run check`, and don't run `src/demo.ts` or the workbook otherwise, since both call a paid model API.
 
 ## Tests

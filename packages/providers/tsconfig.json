@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // A source package: consumers import its .ts files directly (see `exports`), nothing is built.
+    // `rootDir` makes an import from outside the package a type error.
+    "rootDir": "src",
+    "noEmit": true
+  },
+  "include": ["src"]
+}

@@ -8,6 +8,7 @@
       "ignore": ["workbook/workspaces/**"]
     },
     "packages/core": {},
+    "packages/providers": {},
     "packages/eslint-config": {}
   }
 }
