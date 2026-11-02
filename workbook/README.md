@@ -68,6 +68,13 @@ point (only `result.json` is then missing, which marks the run unfinished):
 - **`run <prompt> --continue <run>`** does the same with a stored prompt as the next message.
 - **`run <prompt> --keep`** reuses the prompt's last workspace instead of a fresh copy, so work
   builds up across runs (without the old conversation).
+
+A fresh copy of a committed fixture is trusted, so its `.sheavly/` hooks run: it's this repo's
+own code. A kept (`--keep`) or continued workspace isn't trusted automatically, since the agent
+may have edited its hooks. Add `--trust` to run them anyway (`run <prompt> --keep --trust`,
+`continue --trust "<text>"`). A run whose hooks were skipped says so at the top of its
+transcript. See [docs/hooks.md](../docs/hooks.md#workspace-trust).
+
 - Every run gets the next number (`0001-…`, `0002-…`), so `list` and `diff` read in order.
   Run ids can be shortened to their number: `show 7`, `diff 3 7`.
 

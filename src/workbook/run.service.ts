@@ -2,12 +2,12 @@ import { execFileSync } from 'node:child_process';
 import type { Message } from '@sheavly/core/message/message.types';
 import { streamAgent } from '../loop/stream-agent/stream-agent.service.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
-import { createHarness } from '../host/host.service.js';
+import { createHarness, trustStoreFromEnv } from '../host/host.service.js';
 import type { ProviderSettings } from '../host/host.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
 import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
 import { Renderer } from '../terminal-ui/render.service.js';
-import { shortId } from '../terminal-ui/render.utils.js';
+import { projectTrustNotice, shortId } from '../terminal-ui/render.utils.js';
 import { RunRecorder } from './recorder.service.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';
@@ -29,9 +29,10 @@ export async function runWorkbook(params: {
     id: (number) => runId({ number, prompt: request.name }),
   });
   const { history, workspace: previousWorkspace } = await startingPoint({ store, request });
-  const workspaceRoot =
-    previousWorkspace ??
-    (await store.workspace({ prompt: request.stored, key: request.name, keep: request.keep }));
+  const workspace = previousWorkspace
+    ? { dir: previousWorkspace, fresh: false }
+    : await store.workspace({ prompt: request.stored, key: request.name, keep: request.keep });
+  const workspaceRoot = workspace.dir;
   // The recorder is created first so the model-call hook below can write to it.
   const recorder = new RunRecorder(paths);
   const write = (text: string) => {
@@ -43,6 +44,10 @@ export async function runWorkbook(params: {
     provider: settings.provider,
     workspaceRoot,
     title: request.text,
+    trustStore: trustStoreFromEnv(),
+    // A fresh copy of a committed fixture is this repo's own code, so its hooks run. A kept or
+    // continued workspace the agent may have edited needs trust like any other: `--trust`.
+    trustWorkspace: workspace.fresh || request.trust,
     onModelCall: (sent) => {
       recorder.modelCall(sent);
       if (request.showModelCalls) view.renderer?.modelCall(sent);
@@ -72,6 +77,11 @@ export async function runWorkbook(params: {
   write(`→ run ${paths.id} · ${settings.adapter} / ${settings.model}\n`);
   write(`→ workspace ${harness.workspace.root}\n`);
   if (request.continues) write(`→ continues ${request.continues} (${history.length} messages)\n`);
+
+  // Written to the transcript too, so a saved run shows its hooks were skipped and why.
+  const trustNotice = projectTrustNotice(harness.projectTrust);
+
+  if (trustNotice) write(`${trustNotice}\n`);
   write(`→ main session ${shortId(mainSession.id)}\n→ ${request.text}\n\n`);
 
   const interrupt = interruptOnCtrlC(write);

@@ -125,6 +125,7 @@ const USAGE = `Usage: npm run workbook -- <command>
   diff <run-a> <run-b>     compare two runs: outcome, counts, tools used, final answer
 
   --model-calls            also print every model call (tools, system prompt, latest message)
+  --trust                  trust the workspace's .sheavly/ hooks (a fresh fixture copy already is)
 
 Runs are saved in workbook/runs/<id>/ as they happen; "last" means the most recent run.`;
 
@@ -144,6 +145,7 @@ export function parseCommand(argv: string[]): Command {
   const words = argv.filter((arg) => !arg.startsWith('--') && !flagValues.has(arg));
   const [name, ...rest] = words;
   const showModelCalls = flags.has('--model-calls');
+  const trust = flags.has('--trust');
 
   switch (name) {
     case 'run':
@@ -154,19 +156,20 @@ export function parseCommand(argv: string[]): Command {
             continueRun: valueOf('--continue'),
             fresh: !flags.has('--keep'),
             showModelCalls,
+            trust,
           }
         : { name: 'help' };
     case 'ask':
       return rest.length > 0
-        ? { name: 'ask', text: rest.join(' '), showModelCalls }
+        ? { name: 'ask', text: rest.join(' '), showModelCalls, trust }
         : { name: 'help' };
     case 'continue':
       // `continue "text"` (the last run) or `continue <run> "text"`.
       if (rest.length === 0) return { name: 'help' };
 
       return rest.length === 1
-        ? { name: 'continue', text: rest[0] ?? '', showModelCalls }
-        : { name: 'continue', run: rest[0], text: rest.slice(1).join(' '), showModelCalls };
+        ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust }
+        : { name: 'continue', run: rest[0], text: rest.slice(1).join(' '), showModelCalls, trust };
     case 'list':
       return { name: 'list' };
     case 'show':

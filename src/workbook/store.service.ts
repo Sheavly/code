@@ -106,18 +106,19 @@ export class WorkbookStore {
 
   /**
    * The workspace a run works in: a fresh copy of the prompt's fixture (or an empty folder), or,
-   * with `keep`, the prompt's existing workspace from the last run, so work builds up.
+   * with `keep`, the prompt's existing workspace from the last run, so work builds up. `fresh`
+   * says which: only a fresh copy is just the committed fixture, safe to trust.
    */
   async workspace(params: {
     prompt: StoredPrompt | undefined;
     key: string;
     keep: boolean;
-  }): Promise<string> {
+  }): Promise<{ dir: string; fresh: boolean }> {
     const { prompt, key, keep } = params;
     const dir = path.join(this.workspacesDir, 'runs', key);
     const exists = (await entriesIfThere(dir)) !== undefined;
 
-    if (keep && exists) return dir;
+    if (keep && exists) return { dir, fresh: false };
 
     await rm(dir, { recursive: true, force: true });
 
@@ -131,7 +132,7 @@ export class WorkbookStore {
     // git-ignored, and a fixture that looks like it holds secrets shouldn't be committed.
     await writeFile(path.join(dir, '.env'), FAKE_ENV);
 
-    return dir;
+    return { dir, fresh: true };
   }
 
   /** A run by id, or `last` / undefined for the latest. */
