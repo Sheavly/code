@@ -25,17 +25,17 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 @sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Where                | What lives there                                                                                                                                                |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                               |
-| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                      |
-| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, approvals, file locks, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
-| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                     |
-| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                   |
-| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                  |
-| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                |
-| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                |
+| Where                | What lives there                                                                                                                                                                 |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                |
+| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                                       |
+| `src/runtime/`       | Stateful services: workspace sandbox, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
+| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                 |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                      |
+| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                    |
+| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                   |
+| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                 |
+| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                 |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
@@ -112,6 +112,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `ToolCallError` (`reason`)             | A tool refused a call (`not_found`, `invalid_input`, `forbidden`, `unavailable`); the message tells the model how to fix it |
 | `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor)                                                 |
 | `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                                                                           |
+| `TrustStoreError` (`file`)             | The workspace trust store exists but can't be read, parsed or written                                                       |
 | `HookError` (`hook`, `handler`)        | An `onError` handler threw (reported as `hook_failed`)                                                                      |
 | `StreamEndedError`                     | A run's event stream ended without `done`                                                                                   |
 | `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                                                                          |

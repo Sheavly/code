@@ -90,6 +90,9 @@ Demo settings, as environment variables (see the top of `src/demo.ts`):
   system prompt and latest user message.
 - `SESSIONS_SSE_LOG=<file>`: writes the session server-sent event stream (what a UI would read)
   to a file.
+- `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
+  `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
+  `.sheavly/` hooks: `npx tsx src/demo.ts --trust "your prompt"`.
 
 ## Using other backends
 
@@ -155,8 +158,14 @@ export default {
 - Node runs TypeScript by removing the types: no `enum`, `namespace` or parameter properties.
 - `.js` / `.ts` follow your package.json `"type"`. A hook in the other module format fails with
   a message to rename it to `.cjs` / `.cts` or `.mjs` / `.mts`, which load the same everywhere.
-- `loadProjectHooks({ root })` loads them once at startup; pass them after your own hooks
-  (`hooks: [...hostHooks, ...projectHooks]`), so yours wrap the project's.
+- `loadProjectHooks({ root, trust })` loads them once at startup; pass them after your own hooks
+  (`hooks: [...hostHooks, ...projectHooks.hooks]`), so yours wrap the project's.
+- **Only in a trusted workspace.** Hook files are code from the repo, so the harness loads none
+  until you trust the workspace: run the demo once with `--trust`. It's remembered (outside the
+  repo, in `~/.config/sheavly/trusted-workspaces.json`, or `SHEAVLY_TRUST_FILE`) until anything in
+  `.sheavly/` changes; then the hooks are skipped again until you review and trust it again. A
+  hook may import only files inside `.sheavly/` and Node built-ins, since nothing else is covered
+  by that trust. See [docs/hooks.md](docs/hooks.md#workspace-trust).
 
 ## Adding a new provider
 

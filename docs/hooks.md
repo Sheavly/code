@@ -54,15 +54,43 @@ reads AGENTS.md files and adds them as system instructions.
   hooks/            hook files: .js .mjs .cjs .ts .mts .cts, ESM or CommonJS
 ```
 
-- `loadProjectHooks({ root })` (`src/runtime/project-hooks/`) loads them once at startup, in
-  manifest order (`"enabled": false` skips one). Anything broken stops startup with the file
-  name and the reason.
+- `loadProjectHooks({ root, trust, grant? })` (`src/runtime/project-hooks/`) loads them once at
+  startup, in manifest order (`"enabled": false` skips one), and returns `{ hooks, trust }`.
+  Anything broken stops startup with the file name and the reason.
 - Each file's default export is the hook (`export default` or `module.exports`). It's validated
   like `defineHook`, so plain JavaScript hooks need nothing installed.
 - Node runs TypeScript by removing types: no `enum`, `namespace` or parameter properties.
 - Plain `.js` / `.ts` follow the project's package.json `"type"`. A hook in the other format
   fails with a message to rename it (`.cjs` / `.cts` or `.mjs` / `.mts`).
-- Hosts pass them inside their own: `hooks: [...hostHooks, ...projectHooks]`.
+- Hosts pass them inside their own: `hooks: [...hostHooks, ...projectHooks.hooks]`.
+
+### Workspace trust
+
+Hook files are code from the repo, and loading one runs it with the user's full rights. So
+`.sheavly/` hooks load only in a workspace the user trusts; otherwise none of their files is
+even imported.
+
+- `TrustStore` (`src/runtime/trust/`) keeps the trusted workspaces in one file outside every
+  repo, so a repo can't trust itself: `trustStoreFromEnv()` picks `SHEAVLY_TRUST_FILE`, else
+  `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json` (default `~/.config/sheavly/`).
+- Each entry is the workspace's real path and a fingerprint (SHA-256) of every file in its
+  `.sheavly/` folder when it was trusted. Any later added, removed or edited file there makes it
+  `changed`, so new hook code never runs on an old "yes".
+- `trust` in the result is `trusted` (hooks loaded), `untrusted` (never trusted), `changed`
+  (trusted, but `.sheavly/` changed since) or `no_hooks` (no `hooks.json`; nothing to trust).
+- The harness never asks. A host shows `harness.projectTrust` its own way, and trusts the
+  workspace when the user says so: `createHarness({ trustWorkspace: true })`, which is the demo's
+  `--trust`. The workbook trusts a fresh copy of its committed fixture, and takes `--trust` for a kept or
+  continued workspace. Both print `projectTrustNotice` (`terminal-ui/render.utils.ts`) when hooks were skipped.
+- A store that can't be read, parsed or written throws a `TrustStoreError` naming the file; it
+  is never read as "nothing trusted".
+
+The fingerprint covers `.sheavly/` only, so a trusted hook may import only what it covers: files
+whose real path is inside `.sheavly/`, and Node built-ins (`node:fs`). Anything else (`../src/x.js`,
+a package, a symlink out of `.sheavly/`, a `require` of either) fails to load with a
+`ProjectHooksError`, before its code runs: otherwise a later change to it would run on an old
+"yes". `import type` is fine, since Node removes it. This is a Node resolve hook
+(`confine.service.ts`), in place for the rest of the process once hooks load.
 
 ## Adding a hook point
 
@@ -72,5 +100,5 @@ reads AGENTS.md files and adds them as system instructions.
 3. Add a runner in `src/loop/hooks/hooks.service.ts` and call it from the loop.
 4. Test it in `src/loop/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 
-Not built yet: workspace trust before loading `.sheavly/`, a user-level `~/.sheavly/`, and
+Not built yet: a user-level `~/.sheavly/`, and
 hooks around context compaction (the loop doesn't compact yet). See [#13](https://github.com/Sheavly/code/issues/13).
