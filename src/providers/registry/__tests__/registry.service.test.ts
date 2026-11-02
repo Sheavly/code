@@ -33,7 +33,7 @@ describe('AdapterRegistry', () => {
 
   it('rejects unknown kinds and lists what is available', () => {
     expect(() => createDefaultRegistry().create('nope', {})).toThrow(
-      'Unknown adapter: nope (available: openai, azure, astra)',
+      'Unknown adapter: nope (available: openai, azure)',
     );
   });
 
@@ -52,7 +52,7 @@ describe('AdapterRegistry', () => {
 });
 
 describe('defaults', () => {
-  it('defaults to OpenAI with GPT-6.1 Sol, not Astra', async () => {
+  it('defaults to OpenAI with GPT-6.1 Sol', async () => {
     expect(DEFAULT_ADAPTER).toBe('openai');
     expect(DEFAULT_MODEL).toBe('gpt-6.1-sol');
 
@@ -62,12 +62,6 @@ describe('defaults', () => {
       createDefaultRegistry({ fetch }).create(DEFAULT_ADAPTER, { apiKey: 'k' }).stream(request),
     );
     expect(requests[0]?.body.model).toBe('gpt-6.1-sol');
-  });
-
-  it('requires Astra users to pick a model explicitly', () => {
-    expect(() => createDefaultRegistry().create('astra', { apiKey: 'k' })).toThrow(
-      'Invalid config for astra',
-    );
   });
 });
 
@@ -114,13 +108,6 @@ describe('built-in adapters', () => {
       url: 'https://res.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview',
       model: 'gpt-6.1-sol',
       auth: ['api-key', 'az-3'],
-    },
-    {
-      kind: 'astra',
-      config: { apiKey: 'as-1', model: 'openai/gpt-6-luna' },
-      url: 'https://platform.astragpt.net/api/v1/responses',
-      model: 'openai/gpt-6-luna',
-      auth: ['authorization', 'Bearer as-1'],
     },
   ] as const;
 

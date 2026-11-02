@@ -4,7 +4,7 @@ import type { responsesEventSchema } from './responses.utils.js';
 
 /**
  * Shared Provider config for any backend that speaks the OpenAI Responses API
- * (OpenAI, Azure OpenAI, AstraAPI, ...). Backends differ only in URL, auth headers and model.
+ * (OpenAI, Azure OpenAI, ...). Backends differ only in URL, auth headers and model.
  */
 export type ResponsesConfig = {
   /** Base URL including the version segment, e.g. `https://api.openai.com/v1`. */

@@ -175,13 +175,13 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
     expect(requests[1]?.body.input).toContainEqual(reasoningItem(1));
   });
 
-  it('is off by default for astra', async () => {
+  it('is off when an adapter config turns it off', async () => {
     const { fetch, requests } = fakeFetchSequence({ responses: turns });
 
     await runAgent({
-      provider: createDefaultRegistry({ fetch }).create('astra', {
+      provider: createDefaultRegistry({ fetch }).create('openai', {
         apiKey: 'k',
-        model: 'openai/gpt-6-luna',
+        reasoning: false,
       }),
       tools: [lookup],
       messages: [{ role: 'user', content: 'what is x?' }],

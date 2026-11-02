@@ -59,7 +59,6 @@ export { createDefaultRegistry } from './providers/adapters/adapters.service.js'
 export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './providers/adapters/adapters.constants.js';
 export { openaiAdapter } from './providers/adapters/openai.adapter.js';
 export { azureAdapter } from './providers/adapters/azure.adapter.js';
-export { astraAdapter } from './providers/adapters/astra.adapter.js';
 export { ProviderSwitch } from './providers/switch/switch.service.js';
 export { SessionRegistry } from './runtime/sessions/sessions.service.js';
 export { MAX_SESSION_DEPTH } from './runtime/sessions/sessions.constants.js';

@@ -1,6 +1,6 @@
 # @sheavly/harness
 
-A TypeScript agent loop with pluggable model adapters (OpenAI, Azure, Astra).
+A TypeScript agent loop with pluggable model adapters (OpenAI, Azure).
 
 Design notes for building on the harness are in [docs/](docs/README.md).
 
@@ -112,13 +112,6 @@ const providers = new ProviderSwitch()
       baseUrl: 'https://<resource>.openai.azure.com/openai/v1',
       deployment: '<your-deployment-name>',
     }),
-  )
-  .add(
-    'astra',
-    registry.create('astra', {
-      apiKey: process.env.ASTRA_API_KEY,
-      model: 'openai/gpt-6-luna',
-    }),
   );
 
 providers.use('azure'); // swap at runtime; applies from the next model call
@@ -214,7 +207,7 @@ The app's layers:
 src/
   providers/                    model backends; only depend on @sheavly/core
     registry/                   AdapterRegistry
-    adapters/                   openai (default), azure, astra: one *.adapter.ts each
+    adapters/                   openai (default), azure: one *.adapter.ts each
     responses/                  shared Responses API client, SSE reader
     switch/                     ProviderSwitch (runtime swapping)
   runtime/                      stateful services; no loop, tools or providers
