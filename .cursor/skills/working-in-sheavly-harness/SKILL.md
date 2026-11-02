@@ -104,17 +104,22 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 ## Quality gate
 
 ```bash
-npm run check      # tsc --noEmit → eslint . → prettier --check . → knip → jscpd → vitest run
+npm run check            # the whole gate through turbo (turbo.json): each workspace's typecheck, lint, test, then the root's, plus prettier, knip, jscpd
+npm run check:affected   # only the workspaces changed since main and their dependents; repo-wide checks in full
+npm run check -- --force # bypass the turbo cache
+npx turbo run test --filter=@sheavly/core   # one workspace's task (or `npm run test -w @sheavly/core`)
 npm run lint:fix   # ESLint auto-fixes, then Prettier (in that order)
 npm run format     # Prettier only
 ```
+
+Every workspace has its own `typecheck`, `lint` and `test` scripts that check only its files; a new package needs all three. Results are cached in `.turbo/cache` by their inputs; while the app is the root package, a change in core or providers reruns everything (#29).
 
 knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied code; `.jscpd.json`) fail only on findings not in `knip-baseline.json` / `.jscpd-baseline.json`. Remove dead code; reuse or extract duplicated code. Never hand-edit the baselines or add `jscpd:ignore` comments; after fixing baselined debt run `npm run knip:baseline` / `npm run jscpd:baseline` (prune-only: they never add entries). After deleting dead code, re-run `npm run knip`: removing one export often leaves what it used unused. `npx knip --fix --fix-type exports,types` is allowed; never the `dependencies`/`files` fix types. Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
 
 Cursor hooks (`.cursor/hooks.json`) run this automatically:
 
 - **After each Write**, the edited file is formatted with Prettier, then linted. If the hook says "Prettier reformatted the file", re-read the file before editing it again, since old `old_string` text may no longer match.
-- **On stop**, typecheck, Prettier check, ESLint, knip and jscpd run, but only for a chat that edited or deleted project source in this checkout (recorded by the Write and Delete hook). A chat that only answered questions, worked in another worktree or edited only through the shell is not checked, so it never gets another chat's unfinished work. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
+- **On stop**, typecheck and ESLint run for the affected workspaces (through turbo, so cached results are reused), then Prettier check, knip and jscpd on the whole repo, but only for a chat that edited or deleted project source in this checkout (recorded by the Write and Delete hook). A chat that only answered questions, worked in another worktree or edited only through the shell is not checked, so it never gets another chat's unfinished work. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs (see Packages).
 
 Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 
