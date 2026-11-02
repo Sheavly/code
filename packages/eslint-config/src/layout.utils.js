@@ -3,7 +3,7 @@
 // layout check (`scripts/check-layout.mjs`) both use it, so they can't disagree.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { LAYOUT } from './layout.js';
+import { LAYOUT, NOT_SOURCE } from './layout.js';
 import { workspaceDirs } from './rules/workspace-types.js';
 
 /** Every workspace on disk (the root app and each `workspaces` match): its dir and name. */
@@ -82,4 +82,37 @@ export function layoutProblems(layout = LAYOUT) {
     ...graphProblems({ name, entry, layout }),
     ...layerProblems({ name, entry, layout }),
   ]);
+}
+
+const TYPESCRIPT = /\.[cm]?tsx?$/;
+
+/** What to do about TypeScript outside every workspace's `src/`. */
+export const STRAY_SOURCE =
+  "source lives in a workspace's src/. Move it, or list why it isn't source in NOT_SOURCE (packages/eslint-config/src/layout.js).";
+
+/**
+ * `file` matches `glob`. A trailing `/**` takes everything below, dot folders included
+ * (`path.matchesGlob` skips those, and a fixture's `.sheavly/` is still not harness source).
+ */
+function matchesPath(params) {
+  const { file, glob } = params;
+
+  return glob.endsWith('/**') ? file.startsWith(glob.slice(0, -2)) : path.matchesGlob(file, glob);
+}
+
+/**
+ * True when `file` (`/`-separated, from the root) is TypeScript outside every workspace's `src/`
+ * and `notSource` doesn't say why it may be.
+ */
+export function isStraySource(params) {
+  const { workspaces, file, notSource = NOT_SOURCE } = params;
+  const sources = workspaces.map(({ relative }) =>
+    relative === '.' ? 'src/' : `${relative}/src/`,
+  );
+
+  return (
+    TYPESCRIPT.test(file) &&
+    !sources.some((src) => file.startsWith(src)) &&
+    !Object.keys(notSource).some((glob) => matchesPath({ file, glob }))
+  );
 }
