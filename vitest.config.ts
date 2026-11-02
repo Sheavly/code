@@ -10,8 +10,10 @@ export default defineConfig({
   test: {
     // Tests live in __tests__ folders (enforced by ESLint too, so none is silently skipped),
     // in the app, in every package (the ESLint rules are tested with RuleTester) and in scripts/.
+    // Globs are relative to the directory Vitest runs in: a package's `test` script runs this
+    // config from the package, where `src/` is its own source and the other globs match nothing.
     include: [
-      'src/**/__tests__/**/*.test.ts',
+      'src/**/__tests__/**/*.test.{ts,js}',
       'packages/*/src/**/__tests__/**/*.test.{ts,js}',
       'scripts/__tests__/*.test.mjs',
       '.cursor/hooks/__tests__/*.test.mjs',
