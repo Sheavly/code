@@ -9,7 +9,7 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { startTaskTool } from '../../../testing/start-task.fake.js';
 import { streamAgent } from '../stream-agent.helper.js';
 
