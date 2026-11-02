@@ -1,0 +1,18 @@
+{
+  // The published form: `dist/` for plain Node, built in dependency order by `tsc -b`. Tests and
+  // test-only fakes stay out of it; dev and tests read `src/` through the `@sheavly/source`
+  // condition instead (see `exports` in package.json).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.build.tsbuildinfo",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // Resolve other workspace packages to their built `dist/`, never their source.
+    "customConditions": []
+  },
+  "exclude": ["src/**/__tests__", "src/testing"]
+}
