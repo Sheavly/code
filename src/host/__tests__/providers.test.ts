@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { runAgent } from '../../loop/stream-agent/stream-agent.helper.js';
-import { fakeFetchSequence } from '@sheavly/core/testing/fake-fetch.fake';
+import { fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
