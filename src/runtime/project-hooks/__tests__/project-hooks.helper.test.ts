@@ -7,7 +7,7 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
-import { callOnceProvider } from '../../../testing/scripted-provider.fake.js';
+import { callOnceProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '../../trust/trust.service.js';
 import { loadProjectHooks } from '../project-hooks.helper.js';
 import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
