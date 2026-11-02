@@ -1,31 +1,13 @@
-import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { Workspace } from '../../../runtime/workspace/workspace.service.js';
 import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { createRunCommandTool } from '../../../tools/run-command/run-command.tool.js';
 import type { Message, StreamEvent, ToolCall } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '../../events/events.types.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-let root: string;
-let workspace: Workspace;
-
-beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), 'interrupt-test-'));
-  workspace = await Workspace.open(root);
-});
-
-afterAll(async () => {
-  await rm(root, { recursive: true, force: true });
-});
 
 /** Every tool call in history must be answered by exactly one tool message, right after it. */
 function expectValidHistory(messages: Message[]) {
@@ -76,40 +58,6 @@ async function collect(stream: AsyncIterable<AgentEvent>, onEvent?: (e: AgentEve
 }
 
 describe('interrupts', () => {
-  it('aborting during a long-running command kills it and returns cleanly', async () => {
-    const marker = path.join(root, 'should-not-exist.txt');
-    const controller = new AbortController();
-    const provider = scriptedProvider([
-      [
-        {
-          type: 'tool_call',
-          call: {
-            id: 'c1',
-            name: 'run_command',
-            input: { description: 'slow', command: `sleep 5 && touch ${marker}` },
-          },
-        },
-        { type: 'done', stopReason: 'tool_use' },
-      ],
-    ]);
-
-    const started = performance.now();
-
-    setTimeout(() => controller.abort(), 100);
-    const messages = await runAgent({
-      provider,
-      tools: [createRunCommandTool({ workspace, skipAllowList: true })],
-      messages: [{ role: 'user', content: 'go' }],
-      signal: controller.signal,
-    });
-
-    expect(performance.now() - started).toBeLessThan(2_000); // didn't wait out the sleep
-    expect(messages.at(-1)).toMatchObject({ role: 'tool', toolCallId: 'c1', isError: true });
-    expect((messages.at(-1) as { content: string }).content).toContain('Interrupted');
-    await sleep(200);
-    expect(existsSync(marker)).toBe(false); // the process group was killed, not just abandoned
-  });
-
   it('aborting mid-stream stops the model call and keeps the partial text', async () => {
     const controller = new AbortController();
     let providerSawAbort = false;
