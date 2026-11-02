@@ -27,9 +27,16 @@ export type Command =
       continueRun?: string | undefined;
       fresh: boolean;
       showModelCalls: boolean;
+      trust: boolean;
     }
-  | { name: 'ask'; text: string; showModelCalls: boolean }
-  | { name: 'continue'; run?: string | undefined; text: string; showModelCalls: boolean }
+  | { name: 'ask'; text: string; showModelCalls: boolean; trust: boolean }
+  | {
+      name: 'continue';
+      run?: string | undefined;
+      text: string;
+      showModelCalls: boolean;
+      trust: boolean;
+    }
   | { name: 'list' }
   | { name: 'show'; run?: string | undefined }
   | { name: 'step'; run?: string | undefined; from?: number | undefined }
@@ -50,4 +57,6 @@ export type RunRequest = {
   /** Reuse the prompt's last workspace instead of a fresh copy. */
   keep: boolean;
   showModelCalls: boolean;
+  /** `--trust`: trust the workspace's `.sheavly/` hooks, whether or not it's a fresh fixture copy. */
+  trust: boolean;
 };

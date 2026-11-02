@@ -38,6 +38,7 @@ try {
           continues,
           keep: !command.fresh,
           showModelCalls: command.showModelCalls,
+          trust: command.trust,
         },
       });
 
@@ -54,6 +55,7 @@ try {
           text: command.text,
           keep: false,
           showModelCalls: command.showModelCalls,
+          trust: command.trust,
         },
       });
 
@@ -73,6 +75,7 @@ try {
           continues,
           keep: true,
           showModelCalls: command.showModelCalls,
+          trust: command.trust,
         },
       });
 

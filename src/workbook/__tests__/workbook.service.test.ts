@@ -70,8 +70,14 @@ describe('parseCommand', () => {
       continueRun: 'last',
       fresh: true,
       showModelCalls: true,
+      trust: false,
     });
     expect(parseCommand(['run', 'guards', '--keep'])).toMatchObject({ fresh: false });
+    expect(parseCommand(['run', 'guards', '--keep', '--trust'])).toMatchObject({ trust: true });
+    expect(parseCommand(['continue', '--trust', 'and then'])).toMatchObject({
+      text: 'and then',
+      trust: true,
+    });
     expect(parseCommand(['ask', 'hello', 'there'])).toMatchObject({
       name: 'ask',
       text: 'hello there',
@@ -202,24 +208,23 @@ describe('WorkbookStore', () => {
     });
     await expect(store.prompt('missing')).rejects.toThrow('No stored prompt "missing"');
 
-    const dir = await store.workspace({ prompt, key: 'demo', keep: false });
+    const first = await store.workspace({ prompt, key: 'demo', keep: true });
 
-    await writeFile(path.join(dir, 'notes.md'), 'changed by a run\n');
-    expect(await readFile(path.join(dir, '.env'), 'utf8')).toContain('SECRET=');
+    // A first --keep run has nothing to keep: it copies the fixture fresh, safe to trust.
+    expect(first.fresh).toBe(true);
+    await writeFile(path.join(first.dir, 'notes.md'), 'changed by a run\n');
+    expect(await readFile(path.join(first.dir, '.env'), 'utf8')).toContain('SECRET=');
 
-    // --keep reuses the last workspace (work builds up); otherwise it starts fresh.
-    expect(
-      await readFile(
-        path.join(await store.workspace({ prompt, key: 'demo', keep: true }), 'notes.md'),
-        'utf8',
-      ),
-    ).toBe('changed by a run\n');
-    expect(
-      await readFile(
-        path.join(await store.workspace({ prompt, key: 'demo', keep: false }), 'notes.md'),
-        'utf8',
-      ),
-    ).toBe('fixture\n');
+    // --keep reuses the last workspace (work builds up, so not fresh); otherwise it starts fresh.
+    const kept = await store.workspace({ prompt, key: 'demo', keep: true });
+
+    expect(kept.fresh).toBe(false);
+    expect(await readFile(path.join(kept.dir, 'notes.md'), 'utf8')).toBe('changed by a run\n');
+
+    const fresh = await store.workspace({ prompt, key: 'demo', keep: false });
+
+    expect(fresh.fresh).toBe(true);
+    expect(await readFile(path.join(fresh.dir, 'notes.md'), 'utf8')).toBe('fixture\n');
     // The fixture itself is never touched.
     expect(await readFile(path.join(store.workspacesDir, 'basic', 'notes.md'), 'utf8')).toBe(
       'fixture\n',
