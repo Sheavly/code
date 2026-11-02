@@ -30,7 +30,8 @@ const layout = {
     dir: 'packages/coding',
     kind: 'package',
     domain: 'coding',
-    dependsOn: ['@x/core', '@x/testing'],
+    dependsOn: ['@x/core'],
+    devDependsOn: ['@x/testing', '@x/protocol'],
   },
   '@x/testing': {
     dir: 'packages/testing',
@@ -83,6 +84,11 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         code: "import { fake } from '@x/testing/fake/fake.fake';",
         filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
       },
+      // A dev dependency from a test.
+      {
+        code: "import { x } from '@x/protocol/a/a.utils';",
+        filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
+      },
       // The app being split: a layer importing a layer it lists, or its own.
       { code: "import { x } from '../runtime/tasks/tasks.service.js';", filename: LOOP_FILE },
       { code: "import { x } from './sample.helper.js';", filename: LOOP_FILE },
@@ -101,6 +107,12 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
       {
         code: "import { x } from '@x/coding/files/files.utils';",
         filename: CORE_FILE,
+        errors: error('notInGraph'),
+      },
+      // A dev dependency from source: only tests may import it.
+      {
+        code: "import { x } from '@x/protocol/a/a.utils';",
+        filename: CODING_FILE,
         errors: error('notInGraph'),
       },
       // A package importing an app.

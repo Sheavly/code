@@ -5,7 +5,7 @@
 // stacked on another issue branch (.cursor/skills/git/stacks.md).
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
-import { LAYOUT } from '../../packages/eslint-config/src/layout.js';
+import { SPLIT_APP } from '../../packages/eslint-config/src/layout.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 
 export const NO_ISSUE = 'NO-ISSUE';
@@ -78,11 +78,9 @@ function listDirs(dir) {
 
 /** The test-only layers of the app being split (`testing`): fakes, never a commit scope. */
 const TEST_ONLY_LAYERS = new Set(
-  Object.values(LAYOUT).flatMap((entry) =>
-    Object.entries(entry.layers ?? {})
-      .filter(([, layer]) => !Array.isArray(layer) && layer.testOnly)
-      .map(([name]) => name),
-  ),
+  Object.entries(SPLIT_APP.layers)
+    .filter(([, layer]) => !Array.isArray(layer) && layer.testOnly)
+    .map(([name]) => name),
 );
 
 /**

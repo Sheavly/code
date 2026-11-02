@@ -184,7 +184,7 @@ Adapters have no default model: the caller picks it (the hosts' default is `DEFA
 ## Project layout
 
 Every layer holds one folder per module, and every file is `<name>.<kind>.ts`. Imports only point
-"down" the layers (`harness/imports`, from the layout in `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
+"down" the layers (`harness/imports`: the workspace graph from each `package.json`, and this app's `src/` layers from `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
 packages (npm workspaces):
 
 ```
@@ -296,13 +296,20 @@ only when its issue asks for one.
 
 ### Workspace layout (`npm run layout`)
 
-`scripts/check-layout.mjs` holds the files on disk to the layout in
-`packages/eslint-config/src/layout.js`. Every workspace has a layout entry at its directory, is
-named `@sheavly/<folder>` (the root app keeps its name until #29), has an `eslint.config.js` calling
-`baseConfig`, a `tsconfig.json` extending `tsconfig.base.json` with `rootDir: "src"` and a
-`knip.json` entry, and depends on exactly the `@sheavly/*` workspaces its `dependsOn` lists (dev
-dependencies only on tooling or test-only ones). TypeScript outside a workspace's `src/` fails,
-apart from what `NOT_SOURCE` lists with a reason. The imports themselves are `harness/imports`.
+The layout is read from the workspaces, never listed by hand: which workspaces exist from the
+root `package.json` `workspaces`, package or app from the folder (`packages/*`, `apps/*`, the root
+app being split), the graph from each workspace's own `dependencies` (`devDependencies` for its
+tests), and its domain from its `sheavly` field (`npm pkg set sheavly.domain=<generic|coding|tooling>`).
+Only two parts are written in `packages/eslint-config/src/layout.js`, on purpose: the root app's
+`src/` layers (a policy, until #29) and `NOT_SOURCE` (reviewed exceptions).
+
+`scripts/check-layout.mjs` holds the workspaces to it: each has a domain, is named
+`@sheavly/<folder>` (the root app keeps its name until #29), depends on no app, a generic one on
+no coding one, and on tooling or test-only ones only as dev dependencies; each has an
+`eslint.config.js` calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
+`rootDir: "src"`. TypeScript outside a workspace's `src/` fails, apart from what `NOT_SOURCE`
+lists with a reason. knip finds the workspaces itself, so `knip.json` lists only the root's
+settings. The imports themselves are `harness/imports`.
 
 ### Dead code and duplication (knip, jscpd)
 
@@ -359,10 +366,11 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
-- `harness/layout` and `harness/imports`: every workspace is in the layout
-  (`packages/eslint-config/src/layout.js`), and imports follow its graph: `@sheavly/*` only along
-  `dependsOn` (never an app, never coding from generic), test-only workspaces only from tests and
-  fakes, no relative import across workspace roots, and this app's `src/` layers until #29.
+- `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
+  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge), and
+  imports follow the graph: another workspace only if `package.json` depends on it (dev
+  dependencies for tests), test-only workspaces only from tests and fakes, no relative import
+  across workspace roots, and this app's `src/` layers until #29.
 - `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

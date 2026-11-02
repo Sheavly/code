@@ -1,6 +1,6 @@
 // The workspace layout for the post-edit hook: TypeScript written outside every workspace's src/
 // is reported on the edit, not first at the stop check (scripts/check-layout.mjs fails it there).
-// The rules live in the shared layout (packages/eslint-config/src/layout.js), so the hook, the
+// The rules live in the shared layout helpers (packages/eslint-config/src/layout.utils.js), so the hook, the
 // check and lint can't disagree.
 import {
   isStraySource,

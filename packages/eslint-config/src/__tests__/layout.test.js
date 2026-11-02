@@ -2,55 +2,108 @@ import path from 'node:path';
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
 import { afterAll, describe, expect, it } from 'vitest';
-import { LAYOUT } from '../layout.js';
-import { layoutProblems, listWorkspaces } from '../layout.utils.js';
+import { layoutProblems, readLayout } from '../layout.utils.js';
 import { harnessPlugin } from '../plugin.js';
-import { tempWorkspace } from '../testing/workspace.fake.js';
+import { tempWorkspace, writeFiles } from '../testing/workspace.fake.js';
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
 RuleTester.it = it;
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
+const SPLIT_APP = { dir: '.', layers: { a: ['@sheavly/base'], 'main.ts': ['a'] } };
 
-/** A workspace on disk: `files` relative to its root, JSON for objects. */
+/** A repo whose workspaces are `packages` (folder → manifest fields), with a root app. */
+function repo(packages, app = { dependencies: { '@sheavly/base': '0' } }) {
+  return tempWorkspace({
+    'package.json': {
+      name: '@sheavly/app',
+      workspaces: ['packages/*', 'apps/*'],
+      sheavly: { domain: 'coding' },
+      ...app,
+    },
+    ...Object.fromEntries(
+      Object.entries(packages).map(([dir, fields]) => [
+        `${dir}/package.json`,
+        { name: `@sheavly/${path.basename(dir)}`, ...fields },
+      ]),
+    ),
+  });
+}
 
-const root = tempWorkspace({
-  'package.json': { name: '@x/app', workspaces: ['packages/*'] },
-  'packages/base/package.json': { name: '@x/base' },
-  'packages/stray/package.json': { name: '@x/stray' },
+const generic = { sheavly: { domain: 'generic' } };
+const root = repo({
+  'packages/base': generic,
+  'packages/coding': { sheavly: { domain: 'coding' }, dependencies: { '@sheavly/base': '0' } },
+  'packages/bare': {},
+  'packages/upward': { ...generic, dependencies: { '@sheavly/coding': '0' } },
 });
-const layout = {
-  '@x/base': { dir: 'packages/base', kind: 'package', domain: 'generic', dependsOn: [] },
-  '@x/app': {
-    dir: '.',
-    kind: 'app',
-    domain: 'coding',
-    dependsOn: ['@x/base'],
-    layers: { a: ['@x/base'], 'main.ts': ['a'] },
-  },
-};
 const at = (file) => path.join(root, file);
-const options = [{ root, layout }];
+const options = [{ root, splitApp: SPLIT_APP }];
+
+describe('readLayout', () => {
+  it('derives kind from the folder, dependsOn from package.json and domain from its sheavly field', () => {
+    const layout = readLayout({ root, splitApp: SPLIT_APP });
+
+    expect(layout['@sheavly/coding']).toEqual({
+      dir: 'packages/coding',
+      kind: 'package',
+      domain: 'coding',
+      testOnly: false,
+      dependsOn: ['@sheavly/base'],
+      devDependsOn: [],
+    });
+    expect(layout['@sheavly/app']).toMatchObject({
+      dir: '.',
+      kind: 'app',
+      layers: SPLIT_APP.layers,
+    });
+  });
+
+  it('picks up a workspace added after the rule was written, with no edit anywhere else', () => {
+    const grown = repo({ 'packages/base': generic });
+
+    writeFiles({
+      root: grown,
+      files: { 'apps/cli/package.json': { name: '@sheavly/cli', sheavly: { domain: 'coding' } } },
+    });
+
+    expect(readLayout({ root: grown })['@sheavly/cli']).toMatchObject({
+      kind: 'app',
+      domain: 'coding',
+    });
+  });
+});
 
 new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
   'layout',
   harnessPlugin.rules.layout,
   {
     valid: [
-      { code: '', filename: at('src/a/a.utils.ts'), options },
       { code: '', filename: at('packages/base/src/b/b.utils.ts'), options },
-      { code: '', filename: at('src/main.ts'), options },
-      // A layer's tests are in its folder; a workspace without layers has none to check.
-      { code: '', filename: at('src/a/__tests__/a.utils.test.ts'), options },
-    ],
-    invalid: [
-      // A workspace on disk the layout doesn't list.
+      { code: '', filename: at('packages/coding/src/c/c.utils.ts'), options },
       {
         code: '',
-        filename: at('packages/stray/src/s/s.utils.ts'),
+        filename: at('src/main.ts'),
         options,
-        errors: [{ messageId: 'missing' }],
+      },
+      // Outside every workspace: the layout check reports stray source.
+      { code: '', filename: at('tools/gen.ts'), options },
+    ],
+    invalid: [
+      // A workspace without a domain: the message says how to set one.
+      {
+        code: '',
+        filename: at('packages/bare/src/x/x.utils.ts'),
+        options,
+        errors: [{ messageId: 'broken' }],
+      },
+      // A generic workspace depending on a coding one.
+      {
+        code: '',
+        filename: at('packages/upward/src/x/x.utils.ts'),
+        options,
+        errors: [{ messageId: 'broken' }],
       },
       // A new src/ folder, or root file, of the app being split that isn't one of its layers.
       {
@@ -59,87 +112,90 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         options,
         errors: [{ messageId: 'newLayer' }],
       },
-      { code: '', filename: at('src/zz.ts'), options, errors: [{ messageId: 'newLayer' }] },
-      // A layout that doesn't hold together fails every file until it is fixed.
-      {
-        code: '',
-        filename: at('src/a/a.utils.ts'),
-        options: [
-          {
-            root,
-            layout: { ...layout, '@x/base': { ...layout['@x/base'], dependsOn: ['@x/app'] } },
-          },
-        ],
-        errors: [{ messageId: 'broken' }],
-      },
     ],
   },
 );
 
 describe('layoutProblems', () => {
   const pkg = (fields) => ({
-    dir: 'packages/p',
+    dir: `packages/${fields.name ?? 'p'}`,
     kind: 'package',
     domain: 'generic',
+    testOnly: false,
     dependsOn: [],
+    devDependsOn: [],
     ...fields,
   });
 
-  it('passes a graph that points down', () => {
-    expect(layoutProblems(layout)).toEqual([]);
-  });
-
-  it('fails a workspace importing an app, generic importing coding, tooling or an unknown one', () => {
+  it('says what to run for a missing domain, and names a workspace after its folder', () => {
+    expect(layoutProblems({ '@sheavly/p': pkg({ domain: undefined }) })).toEqual([
+      '@sheavly/p has no domain: run `npm pkg set sheavly.domain=<generic|coding|tooling> -w packages/p`',
+    ]);
+    expect(layoutProblems({ '@x/p': pkg({}) })).toEqual([
+      '@x/p must be named @sheavly/p, after its folder',
+    ]);
+    // The root app isn't one of its own workspaces: npm takes no -w for it.
     expect(
       layoutProblems({
-        '@x/app': { dir: '.', kind: 'app', domain: 'coding', dependsOn: [] },
-        '@x/coding': pkg({ domain: 'coding' }),
-        '@x/lint': pkg({ domain: 'tooling' }),
-        '@x/a': pkg({ dependsOn: ['@x/app'] }),
-        '@x/b': pkg({ dependsOn: ['@x/coding'] }),
-        '@x/c': pkg({ dependsOn: ['@x/lint'] }),
-        '@x/d': pkg({ dependsOn: ['@x/gone'] }),
+        '@sheavly/app': { ...pkg({}), dir: '.', kind: 'app', domain: undefined, layers: {} },
       }),
     ).toEqual([
-      '@x/a depends on @x/app, an app: nothing imports an app',
-      '@x/b is generic but depends on @x/coding, a coding workspace',
-      '@x/c depends on @x/lint, a tooling workspace: source never imports it',
-      "@x/d depends on @x/gone, which the layout doesn't list",
+      '@sheavly/app has no domain: run `npm pkg set sheavly.domain=<generic|coding|tooling>`',
+    ]);
+  });
+
+  it('fails an app, a coding workspace from a generic one, or a tooling or test one at runtime', () => {
+    const layout = {
+      '@sheavly/app': { ...pkg({ name: 'app' }), dir: 'apps/app', kind: 'app' },
+      '@sheavly/coding': pkg({ name: 'coding', domain: 'coding' }),
+      '@sheavly/lint': pkg({ name: 'lint', domain: 'tooling' }),
+      '@sheavly/fakes': pkg({ name: 'fakes', testOnly: true }),
+      '@sheavly/a': pkg({
+        name: 'a',
+        dependsOn: ['@sheavly/app', '@sheavly/coding', '@sheavly/lint', '@sheavly/fakes'],
+      }),
+    };
+
+    expect(layoutProblems(layout)).toEqual([
+      '@sheavly/a depends on @sheavly/app, an app: nothing imports an app',
+      '@sheavly/a is generic but depends on @sheavly/coding, a coding workspace',
+      '@sheavly/a depends on @sheavly/lint, which source never imports: make it a dev dependency',
+      '@sheavly/a depends on @sheavly/fakes, which source never imports: make it a dev dependency',
+    ]);
+  });
+
+  it('allows tooling and test-only dev dependencies, and nothing else there', () => {
+    const layout = {
+      '@sheavly/lint': pkg({ name: 'lint', domain: 'tooling' }),
+      '@sheavly/base': pkg({ name: 'base' }),
+      '@sheavly/a': pkg({ name: 'a', devDependsOn: ['@sheavly/lint', '@sheavly/base'] }),
+    };
+
+    expect(layoutProblems(layout)).toEqual([
+      '@sheavly/a has @sheavly/base as a dev dependency, but only tooling and test-only workspaces may be: make it a dependency',
     ]);
   });
 
   it("fails a layer that imports what its app doesn't depend on, or no layer at all", () => {
-    expect(
-      layoutProblems({
-        ...layout,
-        '@x/other': pkg({}),
-        '@x/app': {
-          ...layout['@x/app'],
-          layers: { tools: ['@x/other'], loop: ['tools', 'nowhere'] },
-        },
-      }),
-    ).toEqual([
-      "@x/app's layer tools imports @x/other, which @x/app doesn't depend on",
-      "@x/app's layer loop imports nowhere, which is neither a layer nor a workspace",
-    ]);
-  });
+    const app = {
+      ...pkg({ name: 'app' }),
+      dir: '.',
+      kind: 'app',
+      domain: 'coding',
+      layers: { tools: ['@sheavly/other'], loop: ['tools', 'nowhere'] },
+    };
 
-  it('fails an unknown kind or domain', () => {
-    expect(layoutProblems({ '@x/a': pkg({ kind: 'lib', domain: 'misc' }) })).toEqual([
-      '@x/a has kind lib',
-      '@x/a has domain misc',
+    expect(
+      layoutProblems({ '@sheavly/other': pkg({ name: 'other' }), '@sheavly/app': app }),
+    ).toEqual([
+      "@sheavly/app's layer tools imports @sheavly/other, which @sheavly/app doesn't depend on",
+      "@sheavly/app's layer loop imports nowhere, which is neither a layer nor a workspace",
     ]);
   });
 });
 
 describe("this repo's layout", () => {
-  it('holds together', () => {
-    expect(layoutProblems(LAYOUT)).toEqual([]);
-  });
-
-  it('lists every workspace on disk, at its directory', () => {
-    const onDisk = listWorkspaces(REPO_ROOT).map(({ name, relative }) => [name, relative]);
-
-    expect(onDisk.filter(([name, relative]) => LAYOUT[name]?.dir !== relative)).toEqual([]);
+  it('holds together, read from the workspaces', () => {
+    expect(layoutProblems(readLayout({ root: REPO_ROOT }))).toEqual([]);
   });
 });

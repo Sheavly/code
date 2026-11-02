@@ -90,7 +90,7 @@ function runGate() {
 
   if (!layout.ok) {
     failures.push(
-      `## Layout (packages/eslint-config/src/layout.js; \`npm run layout\`)\n${layout.output}`,
+      `## Layout (\`npm run layout\`; see the README's "Workspace layout")\n${layout.output}`,
     );
   }
 
