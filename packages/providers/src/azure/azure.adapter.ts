@@ -1,7 +1,6 @@
 import { z } from 'zod';
-import { defineAdapter } from '@sheavly/core/adapter/adapter.service';
-import { createResponsesProvider } from '../responses/responses.service.js';
-import { apiKeySchema, reasoningSchema } from './adapters.utils.js';
+import { apiKeySchema, reasoningSchema } from '../responses/adapter-config.utils.js';
+import { defineResponsesAdapter } from '../responses/responses.service.js';
 
 /**
  * `baseUrl` accepts any of these, including the portal's "Target URI" pasted as-is:
@@ -27,7 +26,7 @@ const azureApiVersion = z
   );
 
 /** Azure OpenAI. `deployment` is your deployment name (sent as the model). */
-export const azureAdapter = defineAdapter({
+export const azureAdapter = defineResponsesAdapter({
   kind: 'azure',
   description: 'Azure OpenAI Responses API',
   configSchema: z.object({
@@ -37,16 +36,14 @@ export const azureAdapter = defineAdapter({
     apiVersion: azureApiVersion.optional(),
     reasoning: reasoningSchema.default(true),
   }),
-  create: ({ config, deps }) => {
+  toEndpoint: (config) => {
     const apiVersion = config.apiVersion ?? config.baseUrl.apiVersion;
 
-    return createResponsesProvider({
+    return {
       baseUrl: config.baseUrl.url,
       model: config.deployment,
       headers: { 'api-key': config.apiKey },
       ...(apiVersion ? { query: { 'api-version': apiVersion } } : {}),
-      reasoning: config.reasoning,
-      fetch: deps.fetch,
-    });
+    };
   },
 });

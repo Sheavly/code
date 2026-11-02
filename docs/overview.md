@@ -22,20 +22,20 @@ this rule from the project skill the first time a chat edits harness source.
 Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 
 ```
-@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
+@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Where                | What lives there                                                                                                                                                                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/src/` | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                         |
-| `src/providers/`     | Model backends: adapter registry, OpenAI / Azure / Astra, Responses client                                                                                                                |
-| `src/runtime/`       | Stateful services: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
-| `src/tools/`         | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                          |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                               |
-| `src/host/`          | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                             |
-| `src/terminal-ui/`   | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                            |
-| `src/demo.ts`        | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                          |
-| `src/workbook/`      | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                          |
+| Where                     | What lives there                                                                                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core/src/`      | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                         |
+| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                          |
+| `src/runtime/`            | Stateful services: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
+| `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                          |
+| `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                               |
+| `src/host/`               | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                             |
+| `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                            |
+| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                          |
+| `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                          |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
@@ -130,7 +130,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | Where                            | Classes                                                    |
 | -------------------------------- | ---------------------------------------------------------- |
 | `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong            |
-| `src/providers/errors/`          | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError` |
+| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError` |
 | `src/runtime/errors/`            | Runtime, tools, loop and hosts (below)                     |
 | `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`    |
 
@@ -160,7 +160,9 @@ only).
 ## Where the next work goes
 
 - A contract other packages or a UI depend on: `packages/core/src/<module>/`.
-- A model backend: `src/providers/adapters/<name>.adapter.ts`.
+- A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
+  for a Responses API backend; another protocol gets its own folder next to `responses/` (see
+  [the package README](../packages/providers/README.md)).
 - A tool: `src/tools/<name>/` (see [tools.md](tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
 - Something a UI must show: a new event in `src/loop/events/events.types.ts`.

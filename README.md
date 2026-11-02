@@ -1,6 +1,6 @@
 # @sheavly/harness
 
-A TypeScript agent loop with pluggable model adapters (OpenAI, Azure, Astra).
+A TypeScript agent loop with pluggable model adapters (OpenAI, Azure).
 
 Design notes for building on the harness are in [docs/](docs/README.md).
 
@@ -104,20 +104,16 @@ import { createDefaultRegistry, ProviderSwitch } from './src/index.js';
 const registry = createDefaultRegistry();
 
 const providers = new ProviderSwitch()
-  .add('sol', registry.create('openai', { apiKey: process.env.OPENAI_API_KEY }))
+  .add(
+    'sol',
+    registry.create('openai', { apiKey: process.env.OPENAI_API_KEY, model: 'gpt-6.1-sol' }),
+  )
   .add(
     'azure',
     registry.create('azure', {
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       baseUrl: 'https://<resource>.openai.azure.com/openai/v1',
       deployment: '<your-deployment-name>',
-    }),
-  )
-  .add(
-    'astra',
-    registry.create('astra', {
-      apiKey: process.env.ASTRA_API_KEY,
-      model: 'openai/gpt-6-luna',
     }),
   );
 
@@ -169,10 +165,18 @@ export default {
 
 ## Adding a new provider
 
-Write an adapter in `src/providers/adapters/<name>.adapter.ts` with
-`defineAdapter({ kind, description, configSchema, create })` (from `@sheavly/core/adapter/adapter.service`)
-and call `registry.register(myAdapter)`.
-Nothing in the core needs to change.
+Providers are their own package, `@sheavly/providers` (`packages/providers/`); its
+[README](packages/providers/README.md) describes adding one. In short:
+
+- A backend that speaks the OpenAI Responses API is one folder with a `<name>.adapter.ts` calling
+  `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })`: a pure map from its
+  config to a base URL, model and headers. Streaming, tool calls and reasoning are shared.
+- Another protocol (Anthropic Messages, Google Gemini, Chat Completions) gets its own protocol
+  folder next to `responses/`, with backends on it. Only the `Provider` contract is shared.
+- Register it with `registry.register(myAdapter)`, or add it to `createDefaultRegistry`.
+
+Adapters have no default model: the caller picks it (the hosts' default is `DEFAULT_MODEL` in
+`src/host/host.constants.ts`). Nothing in the core needs to change.
 
 ## Project layout
 
@@ -185,6 +189,8 @@ packages/
   core/            @sheavly/core: contracts (Message, ToolCall, Provider, ...), the tool
                    definition (defineTool, runTool) and the adapter definition (defineAdapter).
                    What tools and providers are written against.
+  providers/       @sheavly/providers: model backends. responses/ (the Responses protocol),
+                   openai/ and azure/ (backends on it), registry/, switch/
   eslint-config/   @sheavly/eslint-config: the shared ESLint config and harness/* rules
 ```
 
@@ -207,16 +213,11 @@ makes that a type error).
 The app's layers:
 
 ```
-@sheavly/core  ←  providers, runtime  ←  tools  ←  loop  ←  demo.ts (host)
+@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  demo.ts (host)
 ```
 
 ```
 src/
-  providers/                    model backends; only depend on @sheavly/core
-    registry/                   AdapterRegistry
-    adapters/                   openai (default), azure, astra: one *.adapter.ts each
-    responses/                  shared Responses API client, SSE reader
-    switch/                     ProviderSwitch (runtime swapping)
   runtime/                      stateful services; no loop, tools or providers
     workspace/                  path confinement: root and path checks (not an OS sandbox)
     process/                    spawning, process-group kill, secret scrubbing
@@ -319,7 +320,7 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   handle only what it expects, or pass it on as `cause`. Turning every error into a default
   (`[]`, `undefined`, a fresh error without the cause) fails.
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
-  a class from its area's errors (`src/runtime/errors/`, `src/providers/errors/`,
+  a class from its area's errors (`src/runtime/errors/`, `packages/providers/src/errors/`,
   `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [docs/overview.md](docs/overview.md#errors).
 

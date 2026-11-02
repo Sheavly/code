@@ -28,22 +28,11 @@ const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */
 const ENTRY_FILE = 'src/index.ts';
 
-// --- Layers: imports only point "down": @sheavly/core ← providers, runtime ← tools ← loop ← hosts ---
+// --- Layers: imports only point "down": @sheavly/core ← @sheavly/providers, runtime ← tools ← loop ← hosts ---
+// Providers are their own package (packages/providers): its `rootDir` makes an import of the app a
+// type error, so it needs no entry here. Only the hosts and the entry may import it (below).
 
 const LAYERS = [
-  {
-    files: ['src/providers/**/*.ts'],
-    forbidden: [
-      '**/loop/**',
-      '**/tools/**',
-      '**/runtime/**',
-      '**/host/**',
-      '**/terminal-ui/**',
-      '**/workbook/**',
-      '**/demo.js',
-    ],
-    message: 'Providers only depend on core: they must not know about the loop, tools or runtime.',
-  },
   {
     files: ['src/runtime/**/*.ts'],
     forbidden: [

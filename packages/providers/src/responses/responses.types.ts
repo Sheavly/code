@@ -1,18 +1,23 @@
 import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
-import type { responsesEventSchema } from './responses.utils.js';
+import type { responsesEventSchema } from './events.utils.js';
 
 /**
- * Shared Provider config for any backend that speaks the OpenAI Responses API
- * (OpenAI, Azure OpenAI, AstraAPI, ...). Backends differ only in URL, auth headers and model.
+ * Where and how to reach one backend that speaks the OpenAI Responses API. Backends differ only
+ * in this: an adapter's `toEndpoint` maps its config to one.
  */
-export type ResponsesConfig = {
+export type ResponsesEndpoint = {
   /** Base URL including the version segment, e.g. `https://api.openai.com/v1`. */
   baseUrl: string;
   model: string;
+  /** Auth and any other headers the backend needs. */
   headers: Record<string, string>;
   /** Extra query parameters, e.g. Azure's `api-version`. */
   query?: Record<string, string>;
+};
+
+export type ResponsesProviderConfig = {
+  endpoint: ResponsesEndpoint;
   /**
    * Request encrypted reasoning and resend it on later turns (default true).
    * We run stateless (`store: false`), so this is how the model keeps its chain of thought
@@ -22,13 +27,8 @@ export type ResponsesConfig = {
   fetch: typeof fetch;
 };
 
-/** Adapter config for a Responses backend authenticated with a Bearer API key. */
-export type BearerResponsesConfig = {
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-  reasoning: boolean;
-};
+/** The config every Responses adapter's schema must produce, besides its own fields. */
+export type ResponsesAdapterConfig = { reasoning: boolean };
 
 /** A streamed Responses API event we use (everything else is skipped). */
 export type ResponsesEvent = z.infer<typeof responsesEventSchema>;

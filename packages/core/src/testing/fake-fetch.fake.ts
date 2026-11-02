@@ -1,4 +1,6 @@
 /** Test-only: a fake `fetch` that records requests and replies with SSE streams. */
+import type { z } from 'zod';
+import type { Adapter } from '../adapter/adapter.types.js';
 import type { RecordedRequest } from './testing.types.js';
 
 /** Events that end a Responses stream; a reply without one gets `response.completed` added. */
@@ -56,4 +58,24 @@ export async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   for await (const item of iterable) items.push(item);
 
   return items;
+}
+
+/** The request `adapter` sends for one user message, given a `config` it validates first. */
+export async function requestSentBy<TSchema extends z.ZodType>(params: {
+  adapter: Adapter<TSchema>;
+  config: unknown;
+}): Promise<RecordedRequest | undefined> {
+  const { adapter, config } = params;
+  const { fetch, requests } = fakeFetch([]);
+  const provider = adapter.create({ config: adapter.configSchema.parse(config), deps: { fetch } });
+
+  await collect(
+    provider.stream({
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+      signal: new AbortController().signal,
+    }),
+  );
+
+  return requests[0];
 }

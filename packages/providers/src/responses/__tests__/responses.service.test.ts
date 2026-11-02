@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collect, fakeFetch, fakeFetchSequence } from '../../../testing/fake-fetch.fake.js';
+import { collect, fakeFetch, fakeFetchSequence } from '@sheavly/core/testing/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { createResponsesProvider } from '../responses.service.js';
 
@@ -12,9 +12,7 @@ const request = (overrides: Partial<ProviderRequest> = {}): ProviderRequest => (
 
 const provider = (fetch: typeof globalThis.fetch) =>
   createResponsesProvider({
-    baseUrl: 'https://example.test/v1',
-    model: 'm',
-    headers: { 'x-key': 'k' },
+    endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: { 'x-key': 'k' } },
     fetch,
   });
 

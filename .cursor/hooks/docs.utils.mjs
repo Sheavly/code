@@ -26,6 +26,7 @@ const DOC_SOURCES = [
     ],
   },
   { doc: 'docs/tools.md', sources: [/^packages\/core\/src\/tool\//, /^src\/tools\//] },
+  { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
   {
     doc: 'docs/overview.md',
     sources: [/^packages\/core\/src\//, /^src\//, /^eslint\.config\.js$/],

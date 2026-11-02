@@ -11,12 +11,5 @@ export type TempWorkspace = {
   readonly workspace: Workspace;
 };
 
-/** A request seen by `fakeFetch`. */
-export type RecordedRequest = {
-  url: string;
-  headers: Record<string, string>;
-  body: Record<string, unknown>;
-};
-
 /** One model reply for `routedProvider`, computed from the request it answers. */
 export type Script = (request: ProviderRequest) => StreamEvent[];
