@@ -1,5 +1,5 @@
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
-import { CommandRefusedError } from '../../runtime/errors/run-command.errors.js';
+import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { PathCheckError, WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';

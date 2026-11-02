@@ -22,7 +22,7 @@ import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { HOST_MAX_TURNS } from '@sheavly/host/host/host.constants';
-import { createCodingHarness, trustStoreFromEnv } from './host/coding.helper.js';
+import { createCodingHarness, trustStoreFromEnv } from '@sheavly/coding/preset/coding.helper';
 import { providerFromEnv } from '@sheavly/host/host/host.helper';
 import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
 import { Renderer } from './terminal-ui/render.service.js';

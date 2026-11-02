@@ -14,10 +14,6 @@ import { defineConfig, globalIgnores } from 'eslint/config';
  * when its issue asks for one, so review sees it.
  */
 const FRONT_END_FILES = ['src/demo.ts', 'src/terminal-ui/**/*.ts', 'src/workbook/**/*.ts'];
-/**
- * Hosts read env; the front ends also talk to the terminal. `src/host/` wires a run (no UI); `src/workbook/` is a host with its own CLI.
- */
-const HOST_FILES = ['src/host/**/*.ts', ...FRONT_END_FILES];
 /** Hosts' command-line entry points: files without a kind. */
 const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */
@@ -35,7 +31,8 @@ export default defineConfig([
     frontEndFiles: FRONT_END_FILES,
   }),
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
-  { files: HOST_FILES, rules: { 'harness/no-process-env': 'off' } },
+  // The front ends are the hosts: they read env (the demo and the workbook CLI).
+  { files: FRONT_END_FILES, rules: { 'harness/no-process-env': 'off' } },
   { files: FRONT_END_FILES, rules: { 'no-console': 'off' } },
   // CLIs: they report to the terminal.
   { files: ['.cursor/hooks/**/*.mjs', 'scripts/**/*.mjs'], rules: { 'no-console': 'off' } },

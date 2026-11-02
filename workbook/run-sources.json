@@ -1,8 +1,6 @@
 {
   "description": "Source that changes what a run does, so a change to it needs a real-model check (npm run workbook -- check). Read by the check command and by the stop hook's nudge, so both agree. include: path prefixes; exclude: substrings that mark tests and fakes.",
   "include": [
-    "src/host/",
-    "src/tools/",
     "src/workbook/",
     "src/demo.ts",
     "packages/core/src/",
@@ -11,7 +9,8 @@
     "packages/tools/src/",
     "packages/loop/src/",
     "packages/host/src/",
-    "packages/workspace/src/"
+    "packages/workspace/src/",
+    "packages/coding/src/"
   ],
   "exclude": ["__tests__/", "/testing/", ".test.", ".fake.ts"]
 }

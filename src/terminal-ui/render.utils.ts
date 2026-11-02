@@ -1,4 +1,4 @@
-import type { FileRead } from '../tools/read-file/read-file.types.js';
+import type { FileRead } from '@sheavly/coding/read-file/read-file.types';
 import { z } from 'zod';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';

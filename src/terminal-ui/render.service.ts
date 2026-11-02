@@ -1,7 +1,7 @@
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { isFileChange } from '../tools/files/files.utils.js';
-import { isFileRead } from '../tools/read-file/read-file.utils.js';
+import { isFileChange } from '@sheavly/coding/files/files.utils';
+import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import type { Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, oneLine, seconds, shortId } from './render.utils.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';

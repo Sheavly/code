@@ -30,6 +30,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@sheavly/coding": "^0.0.0",
     "@sheavly/core": "^0.0.0",
     "@sheavly/host": "^0.0.0",
     "@sheavly/loop": "^0.0.0",
@@ -42,7 +43,6 @@
   },
   "devDependencies": {
     "@sheavly/eslint-config": "^0.0.0",
-    "@sheavly/testing": "^0.0.0",
     "@types/node": "^26.6.6",
     "eslint": "^10.14.0",
     "jscpd": "^5.4.2",

@@ -5,9 +5,9 @@ check:
   {
     'areas':
       [
-        'src/tools/write-file',
-        'src/tools/edit-file',
-        'src/tools/files',
+        'packages/coding/src/write-file',
+        'packages/coding/src/edit-file',
+        'packages/coding/src/files',
         'packages/workspace/src/file-locks',
         'packages/workspace/src/workspace',
       ],
