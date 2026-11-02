@@ -22,7 +22,13 @@ const root = tempWorkspace({
 });
 const layout = {
   '@x/base': { dir: 'packages/base', kind: 'package', domain: 'generic', dependsOn: [] },
-  '@x/app': { dir: '.', kind: 'app', domain: 'coding', dependsOn: ['@x/base'] },
+  '@x/app': {
+    dir: '.',
+    kind: 'app',
+    domain: 'coding',
+    dependsOn: ['@x/base'],
+    layers: { a: ['@x/base'], 'main.ts': ['a'] },
+  },
 };
 const at = (file) => path.join(root, file);
 const options = [{ root, layout }];
@@ -34,6 +40,9 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
     valid: [
       { code: '', filename: at('src/a/a.utils.ts'), options },
       { code: '', filename: at('packages/base/src/b/b.utils.ts'), options },
+      { code: '', filename: at('src/main.ts'), options },
+      // A layer's tests are in its folder; a workspace without layers has none to check.
+      { code: '', filename: at('src/a/__tests__/a.utils.test.ts'), options },
     ],
     invalid: [
       // A workspace on disk the layout doesn't list.
@@ -43,6 +52,14 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         options,
         errors: [{ messageId: 'missing' }],
       },
+      // A new src/ folder, or root file, of the app being split that isn't one of its layers.
+      {
+        code: '',
+        filename: at('src/zz/zz.utils.ts'),
+        options,
+        errors: [{ messageId: 'newLayer' }],
+      },
+      { code: '', filename: at('src/zz.ts'), options, errors: [{ messageId: 'newLayer' }] },
       // A layout that doesn't hold together fails every file until it is fixed.
       {
         code: '',

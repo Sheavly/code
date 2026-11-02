@@ -10,6 +10,7 @@
 //   testOnly   imported only from tests and fakes (`@sheavly/testing`)
 //   layers     for the one app still being split (#29): its `src/` folders and root files, each
 //              with what it may import (other layers and packages), so every move is checked.
+//              A src/ folder or root file that isn't one of them fails `harness/layout`.
 //              Tests and fakes skip the layer rules: they wire concrete pieces together.
 //
 // A new workspace, or a new folder in the app being split, is added here in the same change.
