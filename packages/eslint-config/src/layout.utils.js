@@ -161,14 +161,23 @@ function identityProblems(params) {
 /** What is wrong with one workspace's entry: its domain, its name, its edges and its layers. */
 export function entryProblems(params) {
   const { name, entry, layout } = params;
-  const devProblems = entry.devDependsOn
-    .filter(
-      (dependency) => layout[dependency]?.domain !== 'tooling' && !layout[dependency]?.testOnly,
-    )
-    .map(
-      (dependency) =>
-        `${name} has ${dependency} as a dev dependency, but only tooling and test-only workspaces may be: make it a dependency`,
-    );
+  // A test may use any workspace below it (a real tool to drive the loop with), but never an
+  // app, and a generic workspace's tests never a coding one: they must run without a project.
+  const devProblems = entry.devDependsOn.flatMap((dependency) => {
+    const target = layout[dependency];
+
+    if (target?.kind === 'app') {
+      return [`${name} has ${dependency} as a dev dependency, an app: nothing imports an app`];
+    }
+
+    if (entry.domain === 'generic' && target?.domain === 'coding') {
+      return [
+        `${name} is generic but its tests depend on ${dependency}, a coding workspace: they must run without a project`,
+      ];
+    }
+
+    return [];
+  });
 
   return [
     ...identityProblems({ name, entry }),

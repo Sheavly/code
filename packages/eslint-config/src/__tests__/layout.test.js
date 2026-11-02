@@ -164,15 +164,21 @@ describe('layoutProblems', () => {
     ]);
   });
 
-  it('allows tooling and test-only dev dependencies, and nothing else there', () => {
+  it('allows any dev dependency below, but never an app, nor coding from a generic one', () => {
     const layout = {
       '@sheavly/lint': pkg({ name: 'lint', domain: 'tooling' }),
       '@sheavly/base': pkg({ name: 'base' }),
-      '@sheavly/a': pkg({ name: 'a', devDependsOn: ['@sheavly/lint', '@sheavly/base'] }),
+      '@sheavly/coding': pkg({ name: 'coding', domain: 'coding' }),
+      '@sheavly/cli': { ...pkg({ name: 'cli' }), dir: 'apps/cli', kind: 'app' },
+      '@sheavly/a': pkg({
+        name: 'a',
+        devDependsOn: ['@sheavly/lint', '@sheavly/base', '@sheavly/coding', '@sheavly/cli'],
+      }),
     };
 
     expect(layoutProblems(layout)).toEqual([
-      '@sheavly/a has @sheavly/base as a dev dependency, but only tooling and test-only workspaces may be: make it a dependency',
+      '@sheavly/a is generic but its tests depend on @sheavly/coding, a coding workspace: they must run without a project',
+      '@sheavly/a has @sheavly/cli as a dev dependency, an app: nothing imports an app',
     ]);
   });
 
