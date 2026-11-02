@@ -54,5 +54,8 @@
   "workspaces": [
     "packages/*"
   ],
-  "packageManager": "npm@12.2.1"
+  "packageManager": "npm@12.2.1",
+  "sheavly": {
+    "domain": "coding"
+  }
 }
