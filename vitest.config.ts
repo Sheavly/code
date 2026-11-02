@@ -3,22 +3,28 @@ import { defineConfig } from 'vitest/config';
 
 /** Workspace packages export their source under this condition (see `tsconfig.base.json`). */
 const SOURCE_CONDITION = '@sheavly/source';
+/** `vitest --mode all` (`npm run test:watch`): one run over every workspace's tests. */
+const ALL_WORKSPACES_MODE = 'all';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   // Tests import workspace packages from source, so nothing is built before `vitest`.
   ssr: { resolve: { conditions: [SOURCE_CONDITION, ...defaultServerConditions] } },
   test: {
     // Tests live in __tests__ folders (enforced by ESLint too, so none is silently skipped),
     // in the app, in every package (the ESLint rules are tested with RuleTester) and in scripts/.
+    // Globs are relative to the directory Vitest runs in: a package's `test` script runs this
+    // config from the package, where `src/` is its own source and the other globs match nothing.
+    // From the root it runs the app's, the scripts' and the hooks' tests; `npm test` runs all
+    // workspaces through turbo. The watcher adds the packages' tests, so one process watches all.
     include: [
-      'src/**/__tests__/**/*.test.ts',
-      'packages/*/src/**/__tests__/**/*.test.{ts,js}',
+      'src/**/__tests__/**/*.test.{ts,js}',
       'scripts/__tests__/*.test.mjs',
       '.cursor/hooks/__tests__/*.test.mjs',
+      ...(mode === ALL_WORKSPACES_MODE ? ['packages/*/src/**/__tests__/**/*.test.{ts,js}'] : []),
     ],
     environment: 'node',
     // `.sheavly` hooks are user code the harness loads with Node's own `import()`. Vite must not
     // transform them in tests, or ESM/CommonJS and TypeScript rules would differ from production.
     server: { deps: { external: [/\/\.sheavly\//] } },
   },
-});
+}));

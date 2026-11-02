@@ -14,3 +14,4 @@ package-lock.json
 # The workbook: what the agent reads and writes, and saved runs
 workbook/workspaces/
 workbook/runs/
+.turbo

@@ -48,6 +48,9 @@ npm run format      # Prettier: format everything
 npm run check       # the full quality gate: typecheck + lint + format check + knip + jscpd + tests
 ```
 
+`test`, `typecheck`, `lint` and `check` run through Turborepo, so a rerun reuses every result whose
+inputs didn't change (see "Code quality").
+
 The tests use a fake `fetch` and scripted providers, so they never call a real API.
 
 ## 4. First real model call (costs money)
@@ -253,9 +256,37 @@ tools/run-command/
 
 ## Code quality
 
-`npm run check` is the quality gate: `tsc --noEmit`, then ESLint, then `prettier --check`, then
-knip and jscpd, then the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on
-every PR.
+`npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd and the
+tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
+
+### The pipeline (Turborepo)
+
+`npm run check` runs every task in `turbo.json`, along the dependency graph npm workspaces define:
+
+- **Per workspace:** every package has its own `typecheck`, `lint` and `test` scripts, which check
+  only its files. Each runs after the same task in the packages it imports (`^typecheck`, …).
+- **The root** (`//#` tasks): `typecheck:root`, `lint:root` and `test:root` check the app (`src/`),
+  `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip` and `jscpd` check the
+  whole repo.
+- **Cache:** each result is cached in `.turbo/cache` (per checkout, so worktrees never share one)
+  by its inputs, so a second `npm run check` with no changes runs nothing. A change in
+  `turbo.json`, `tsconfig.base.json`, `.prettierrc.json`, `vitest.config.ts`,
+  `packages/eslint-config` or the lockfile invalidates every result.
+- **Affected only:** `npm run check:affected` runs the workspace tasks only for workspaces changed
+  since `main` (committed or not) and those that depend on them, then the repo-wide checks in full.
+  CI runs it on PRs and restores `.turbo/cache` from `main`'s last run; the stop hook runs the
+  affected typecheck and lint.
+- **Known limit:** the app is the root package and depends on `@sheavly/core` and
+  `@sheavly/providers`, and turbo hashes a root's dependencies into every task. So a change in
+  either package reruns every task, and one in a root file marks every workspace affected, until
+  #29 moves the app into its own workspace.
+
+```bash
+npx turbo run test --filter=@sheavly/providers   # one workspace's task (and what it imports)
+npm run test -w @sheavly/providers               # the same, without turbo
+npm run check -- --force                         # bypass the cache: rerun everything
+npx turbo run lint --dry                         # what would run, and what is cached
+```
 
 The harness is a backend: `harness/no-terminal-io` (in `@sheavly/eslint-config`, so every
 workspace gets it) fails `node:readline`, `node:tty` and `process.stdin/stdout/stderr` outside
@@ -345,12 +376,12 @@ lines between steps (auto-fixed with `npm run lint:fix`).
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
-| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                  |
-| ------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                         |
-| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms. |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                                                                    |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + Prettier check + ESLint + knip + jscpd (new jscpd clones only). On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                 |
+| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                    |
+| ------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                           |
+| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.   |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                                                                      |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + jscpd (new jscpd clones only) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds. |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**

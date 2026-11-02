@@ -1,0 +1,62 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  // The quality gate (`npm run check`), cached by inputs. Every workspace runs its own
+  // `typecheck`, `lint` and `test`; each depends on the same task in the workspaces it imports
+  // (`^`), so a change in a dependency reruns its dependents. The `//#` tasks are the root's:
+  // the app, `scripts/`, `.cursor/hooks/` and root configs, plus the repo-wide checks.
+  // No `build` task: the gate reads source (the `@sheavly/source` condition).
+  // The cache stays in this checkout (turbo would otherwise share the main worktree's), so a
+  // worktree never writes into another one.
+  "cacheDir": ".turbo/cache",
+  // A change in a shared config or the lockfile invalidates every cached result. So does a change
+  // in a package the root depends on (turbo always hashes those globally): while the app is the
+  // root package, a change in core or providers reruns everything (#29 moves the app out).
+  "globalDependencies": [
+    "tsconfig.base.json",
+    ".prettierrc.json",
+    "vitest.config.ts",
+    "package-lock.json",
+    "packages/eslint-config/package.json",
+    "packages/eslint-config/src/**"
+  ],
+  // Some tests make throwaway git repos and commits; CI gives them an identity.
+  "globalPassThroughEnv": ["GIT_AUTHOR_*", "GIT_COMMITTER_*"],
+  "tasks": {
+    "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
+    "lint": { "dependsOn": ["^lint"], "outputs": [] },
+    "test": { "dependsOn": ["^test"], "outputs": [] },
+
+    // The root's own files. The app imports the packages from source, so their source counts.
+    "//#typecheck:root": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
+      "outputs": []
+    },
+    "//#lint:root": {
+      "dependsOn": ["^lint"],
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
+      "outputs": []
+    },
+    "//#test:root": {
+      "dependsOn": ["^test"],
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
+      "outputs": []
+    },
+
+    // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the packages out, and
+    // an explicit glob ignores .gitignore, so a package's tracked files are named: its top-level
+    // files and `src/` (not its node_modules, dist or .turbo, which runs and builds write).
+    "//#format:check": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "outputs": []
+    },
+    "//#knip": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "outputs": []
+    },
+    "//#jscpd": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "outputs": []
+    }
+  }
+}

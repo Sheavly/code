@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "scripts": {
-    "test": "vitest run",
+    "test": "turbo run test test:root",
     "dev": "tsx watch --conditions=@sheavly/source src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc -b tsconfig.build.json",
-    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
-    "test:watch": "vitest",
-    "lint": "eslint .",
+    "typecheck": "turbo run typecheck typecheck:root",
+    "test:watch": "vitest --mode all",
+    "lint": "turbo run lint lint:root",
     "lint:fix": "eslint . --fix && prettier --write . --log-level warn",
     "lint:prune": "eslint . --prune-suppressions",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run knip && npm run jscpd && npm test",
+    "check": "turbo run typecheck typecheck:root lint lint:root test test:root format:check knip jscpd",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip --preprocessor ./scripts/knip-baseline.mjs",
@@ -20,7 +20,11 @@
     "jscpd": "node scripts/jscpd.mjs",
     "jscpd:baseline": "node scripts/jscpd-baseline.mjs",
     "workbook": "tsx --conditions=@sheavly/source src/workbook/workbook.ts",
-    "demo": "tsx --conditions=@sheavly/source src/demo.ts"
+    "demo": "tsx --conditions=@sheavly/source src/demo.ts",
+    "typecheck:root": "tsc --noEmit",
+    "lint:root": "eslint . --ignore-pattern 'packages/'",
+    "test:root": "vitest run",
+    "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd"
   },
   "type": "module",
   "dependencies": {
@@ -36,6 +40,7 @@
     "knip": "^6.44.1",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
+    "turbo": "^2.11.10",
     "typescript": "~6.0.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
@@ -46,5 +51,6 @@
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "packageManager": "npm@12.2.1"
 }

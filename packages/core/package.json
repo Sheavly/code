@@ -17,6 +17,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc -b tsconfig.build.json"
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts"
   }
 }

@@ -164,3 +164,26 @@ export function formatNewClones(output) {
 
   return kept.some((line) => line.includes('[NEW]')) ? kept.join('\n') : output;
 }
+
+/** A task's own line: `@sheavly/core:lint: …` (the root package is `//`), not turbo's `pkg#task:`. */
+const TURBO_TASK_LINE = /^[^\s#]+:\S+: (.*)$/;
+/** What npm and turbo add around a task's own output. */
+const TURBO_NOISE = /^(npm (notice|error) |cache (miss|hit|bypass)|\s*$)/;
+
+/**
+ * turbo's `--output-logs=errors-only` report cut to what the failing tasks' tools printed (no npm
+ * lifecycle lines, no turbo progress), plus its `Failed:` line. Falls back to the whole output
+ * when it has no task line in it (turbo itself failed to start).
+ */
+export function formatTurboReport(output) {
+  const kept = [];
+
+  for (const line of stripVTControlCharacters(output).split('\n')) {
+    const task = TURBO_TASK_LINE.exec(line);
+
+    if (task && !TURBO_NOISE.test(task[1] ?? '')) kept.push(line);
+    else if (line.startsWith('Failed:')) kept.push(line.trim());
+  }
+
+  return kept.length > 0 ? kept.join('\n') : output;
+}

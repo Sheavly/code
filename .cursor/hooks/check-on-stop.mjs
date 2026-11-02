@@ -1,20 +1,20 @@
-// stop: before the agent finishes, run the quality gate (typecheck + Prettier + ESLint + knip +
-// jscpd). If any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with
-// `loop_limit` in hooks.json. Problems baselined in eslint-suppressions.json, knip-baseline.json
-// and .jscpd-baseline.json don't count; new ones do.
+// stop: before the agent finishes, run the quality gate (typecheck + ESLint for the affected
+// workspaces through turbo, then Prettier + knip + jscpd on the whole repo). If any fails, send a
+// follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in hooks.json.
+// Problems baselined in eslint-suppressions.json, knip-baseline.json and .jscpd-baseline.json
+// don't count; new ones do.
 // Once the gate passes, nudge (once per set of files) when source files changed but the doc in
 // docs/ that describes them didn't (see docs.utils.mjs).
 // Only a chat that changed project source in this checkout (a Write or Delete, recorded by
 // lint-edited-file.mjs) is checked, so a chat that only answered questions, worked in another
 // worktree or edited only through the shell never gets another chat's half-finished work back as
 // failures.
-import { globSync } from 'node:fs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
 import {
-  formatEslintReport,
   formatNewClones,
+  formatTurboReport,
   getChatState,
   readHookInput,
   respond,
@@ -23,7 +23,6 @@ import {
 } from './hooks.utils.mjs';
 
 const MAX_REPORT_LINES = 60;
-const TS_PACKAGE_CONFIGS = globSync('packages/*/tsconfig.json');
 
 /** The hook's response: `{}`, a gate failure report, or the docs nudge. */
 async function decide() {
@@ -52,27 +51,27 @@ async function decide() {
 function runGate() {
   const failures = [];
 
-  // The app, then every TypeScript package (each has its own tsconfig.json).
-  for (const project of ['tsconfig.json', ...TS_PACKAGE_CONFIGS]) {
-    const typecheck = runBin('tsc', ['--noEmit', '-p', project]);
+  // Typecheck and ESLint per workspace, through turbo: only the workspaces this branch and its
+  // uncommitted changes affect, and nothing whose inputs a cached run already passed.
+  const workspaces = runBin('turbo', [
+    'run',
+    ...['typecheck', 'typecheck:root', 'lint', 'lint:root'],
+    '--affected',
+    '--continue',
+    '--output-logs=errors-only',
+  ]);
 
-    if (!typecheck.ok) failures.push(`## Typecheck (tsc -p ${project})\n${typecheck.output}`);
+  if (!workspaces.ok) {
+    failures.push(`## Typecheck and ESLint (turbo)\n${formatTurboReport(workspaces.output)}`);
   }
 
+  // Repo-wide: always the whole repo.
   const format = runBin('prettier', ['--check', '--log-level', 'warn', '.']);
 
   if (!format.ok) {
     failures.push(
       `## Prettier (fix with \`npx prettier --write <file>\` or \`npm run format\`)\n${format.output}`,
     );
-  }
-
-  const lint = runBin('eslint', ['--format', 'json', '.']);
-
-  if (!lint.ok) {
-    const problems = lint.output.startsWith('[') ? formatEslintReport(lint.output) : [lint.output];
-
-    failures.push(`## ESLint\n${problems.join('\n')}`);
   }
 
   // Dead code and duplication, minus what knip-baseline.json / .jscpd-baseline.json record.
