@@ -218,7 +218,7 @@ src/
     responses/                  shared Responses API client, SSE reader
     switch/                     ProviderSwitch (runtime swapping)
   runtime/                      stateful services; no loop, tools or providers
-    workspace/                  sandbox root and path checks
+    workspace/                  path confinement: root and path checks (not an OS sandbox)
     process/                    spawning, process-group kill, secret scrubbing
     tasks/                      background task registry
     project-hooks/              loads .sheavly/hooks.json and its hook files

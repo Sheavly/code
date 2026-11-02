@@ -22,14 +22,14 @@ VSCode won by architecture, not features: a small core, built-in features that u
 extensions, a protocol (LSP) that decoupled language smarts from the editor, and configuration that
 lives in the repo. The harness takes the same shape:
 
-| VSCode                          | Sheavly                                                                     |
-| ------------------------------- | --------------------------------------------------------------------------- |
-| Small core, extension API       | `@sheavly/core`: `defineTool`, `defineAdapter`, `defineHook`                |
-| Built-ins use the public API    | Built-in tools, adapters and hooks are written against `@sheavly/core` only |
-| LSP: one server, every editor   | The harness is a backend: typed events and registries, any UI is a client   |
-| `.vscode/` settings in the repo | `.sheavly/`: project hooks, and later rules, skills, tools and policies     |
-| Workspace Trust                 | Approvals and the `Workspace` sandbox as first-class, declared permissions  |
-| Marketplace                     | Tools, hooks and adapters as installable packages                           |
+| VSCode                          | Sheavly                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| Small core, extension API       | `@sheavly/core`: `defineTool`, `defineAdapter`, `defineHook`                    |
+| Built-ins use the public API    | Built-in tools, adapters and hooks are written against `@sheavly/core` only     |
+| LSP: one server, every editor   | The harness is a backend: typed events and registries, any UI is a client       |
+| `.vscode/` settings in the repo | `.sheavly/`: project hooks, and later rules, skills, tools and policies         |
+| Workspace Trust                 | Approvals and `Workspace` path confinement as first-class, declared permissions |
+| Marketplace                     | Tools, hooks and adapters as installable packages                               |
 
 In one line: **your loop, your keys, your UI. Every decision the agent makes is a hook you can
 change, and every run is a file you can replay.**

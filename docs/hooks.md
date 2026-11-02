@@ -66,8 +66,11 @@ reads AGENTS.md files and adds them as system instructions.
 
 ### Workspace trust
 
-Hook files are code from the repo, and loading one runs it with the user's full rights. So
-`.sheavly/` hooks load only in a workspace the user trusts; otherwise none of their files is
+Hook files are code from the repo, and loading one runs it with the user's full rights: hooks run
+in-process, inside the harness, with its env (keys included), and nothing confines what they do
+once loaded ([trust model](overview.md#trust-model)). So
+`.sheavly/` hooks load only in a workspace the user trusts
+([#3](https://github.com/Sheavly/code/issues/3)); otherwise none of their files is
 even imported.
 
 - `TrustStore` (`src/runtime/trust/`) keeps the trusted workspaces in one file outside every
