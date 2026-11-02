@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { echoTool as echo } from '../../testing/echo-tool.fake.js';
 import { runTool } from '../tool.helper.js';
+import type { ToolArtifact } from '../tool.types.js';
+import { defineTool } from '../tool.utils.js';
 
 const signal = new AbortController().signal;
 
@@ -35,5 +38,34 @@ describe('runTool', () => {
     });
 
     expect(result).toMatchObject({ isError: true, content: 'Unknown tool: nope' });
+  });
+});
+
+describe('runTool: artifacts', () => {
+  const call = { id: '1', name: 'parse', input: { description: 'parsing' } };
+  const tool = (artifacts?: ToolArtifact[]) =>
+    defineTool({
+      name: 'parse',
+      description: '',
+      inputSchema: z.object({}),
+      execute: async () => ({ content: 'Parsed 2 rows', ...(artifacts && { artifacts }) }),
+    });
+
+  it("are passed on as the tool returned them, apart from the history message's fields", async () => {
+    const artifacts = [{ kind: 'table', columns: ['a', 'b'], rows: 2 }];
+    const result = await runTool({ tools: [tool(artifacts)], call, signal });
+
+    expect(result).toEqual({
+      role: 'tool',
+      toolCallId: '1',
+      content: 'Parsed 2 rows',
+      isError: false,
+      artifacts,
+    });
+  });
+
+  it('are left out when there are none', async () => {
+    expect(await runTool({ tools: [tool()], call, signal })).not.toHaveProperty('artifacts');
+    expect(await runTool({ tools: [tool([])], call, signal })).not.toHaveProperty('artifacts');
   });
 });

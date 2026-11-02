@@ -1,10 +1,9 @@
 import type { Message, ToolCall, ToolMessage, TurnStopReason } from '../message/message.types.js';
-import type { FileChange, FileRead } from '../tool/tool.types.js';
+import type { ToolArtifact } from '../tool/tool.types.js';
 
-/** What a tool call produced: the text for history, and any file change or read (for the UI). */
+/** What a tool call produced: the text for history, and any artifacts (for the UI). */
 export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
-  change?: FileChange | undefined;
-  read?: FileRead | undefined;
+  artifacts?: readonly ToolArtifact[] | undefined;
 };
 
 /** For handlers that add context: the history so far (a snapshot) and a way to add to it. */
