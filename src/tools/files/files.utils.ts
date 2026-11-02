@@ -1,7 +1,7 @@
 import path from 'node:path';
-import type { ToolArtifact } from '@sheavly/core/tool/tool.types';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 import type { FileChange } from './files.types.js';
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
 /** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
 export function isEnvFile(filePath: string): boolean {

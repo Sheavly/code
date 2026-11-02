@@ -1,5 +1,5 @@
-import type { ToolArtifact } from '@sheavly/core/tool/tool.types';
 import type { FileRead, ShownLines } from './read-file.types.js';
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
 /** A text file as lines, without the final empty "line" a trailing newline leaves. */
 type Lines = { lines: string[]; endsWithNewline: boolean };
