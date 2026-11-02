@@ -2,6 +2,8 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/core/session/session.types';
 import type { AgentEvent } from '../loop/events/events.types.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import { isFileChange } from '../tools/files/files.utils.js';
+import { isFileRead } from '../tools/read-file/read-file.utils.js';
 import type { Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, oneLine, seconds, shortId } from './render.utils.js';
 
@@ -126,11 +128,13 @@ export class Renderer {
   }
 
   #toolResult(event: EventOf<'tool_result'>): void {
-    const { message, description, durationMs, change, read } = event;
+    const { message, description, durationMs, artifacts = [] } = event;
 
     if (message.role !== 'tool') return;
-    // A real UI would render `change.before` / `change.after` as a diff; this just names it.
-    const summary = change ? message.content : `${message.content.length} chars`;
+    // A real UI would render a change's `before` / `after` as a diff; this just names it.
+    const changed = artifacts.some(isFileChange);
+    const read = artifacts.find(isFileRead);
+    const summary = changed ? message.content : `${message.content.length} chars`;
     const detail = message.isError
       ? firstLine(message.content)
       : ((read && describeRead(read)) ?? summary);

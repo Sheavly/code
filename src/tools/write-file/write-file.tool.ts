@@ -6,6 +6,7 @@ import type { FileLocks } from '../../runtime/file-locks/file-locks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
+import type { FileChange } from '../files/files.types.js';
 
 /**
  * Creates or overwrites a UTF-8 text file inside the workspace (creating parent folders).
@@ -46,9 +47,16 @@ export function createWriteFileTool({
           const relative = workspace.relative(real);
           const verb = before === null ? 'Created' : 'Overwrote';
 
+          const change: FileChange = {
+            kind: 'file_change',
+            path: relative,
+            before,
+            after: content,
+          };
+
           return {
             content: describeChange({ verb, path: relative, before, after: content }),
-            change: { path: relative, before, after: content },
+            artifacts: [change],
           };
         },
       });

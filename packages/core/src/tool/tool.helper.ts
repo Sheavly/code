@@ -6,7 +6,7 @@ import { withDescription } from './tool.validator.js';
 
 /**
  * Validates input, runs the tool, and always returns a tool message (never throws), with the
- * tool's file change if it made one.
+ * tool's artifacts if it returned any.
  */
 export async function runTool(params: {
   tools: Tool[];
@@ -44,9 +44,9 @@ export async function runTool(params: {
 
     if (typeof output === 'string') return result(output);
 
-    const { content, change, read } = output;
+    const { content, artifacts } = output;
 
-    return { ...result(content), ...(change && { change }), ...(read && { read }) };
+    return { ...result(content), ...(artifacts?.length ? { artifacts } : {}) };
   } catch (caughtError) {
     const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
 

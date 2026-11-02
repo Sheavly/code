@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '../../../runtime/workspace/workspace.service.js';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createReadFileTool } from '../read-file.tool.js';
+import { isFileRead } from '../read-file.utils.js';
 import { isEnvFile } from '../../files/files.utils.js';
 
 let base: string;
@@ -67,21 +68,24 @@ describe('read_file', () => {
     expect(tooMuch).toMatchObject({ isError: false });
     expect(tooMuch.content).toContain('startLine 1001');
     // What a UI gets, next to the text: the range this call covered.
-    expect(range.read).toEqual({
-      path: 'big.txt',
-      startLine: 10,
-      endLine: 12,
-      totalLines: 1200,
+    expect(range.artifacts).toEqual([
+      {
+        kind: 'file_read',
+        path: 'big.txt',
+        startLine: 10,
+        endLine: 12,
+        totalLines: 1200,
+        whole: false,
+      },
+    ]);
+    expect(whole.artifacts?.find(isFileRead)).toMatchObject({
+      startLine: 1,
+      endLine: 1000,
       whole: false,
     });
-    expect(whole.read).toMatchObject({ startLine: 1, endLine: 1000, whole: false });
-    expect((await read('index.ts')).read).toEqual({
-      path: 'index.ts',
-      startLine: 1,
-      endLine: 1,
-      totalLines: 1,
-      whole: true,
-    });
+    expect((await read('index.ts')).artifacts).toEqual([
+      { kind: 'file_read', path: 'index.ts', startLine: 1, endLine: 1, totalLines: 1, whole: true },
+    ]);
   });
 
   it('fails open on a range past the end: an empty read with the file length, not an error', async () => {

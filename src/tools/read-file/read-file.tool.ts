@@ -4,6 +4,7 @@ import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
+import type { FileRead } from './read-file.types.js';
 import { assertNotEnvFile } from '../files/files.utils.js';
 
 /**
@@ -42,17 +43,17 @@ export function createReadFileTool({ workspace }: { workspace: Workspace }) {
         maxChars: MAX_READ_CHARS,
       });
 
-      return {
-        content: note ? `${content}\n${note}` : content,
-        // For the UI: which lines this call covered, so it can say "read x" or "read x lines a–b".
-        read: {
-          path: workspace.relative(real),
-          startLine: lines.start,
-          endLine: lines.end,
-          totalLines: lines.total,
-          whole: lines.whole,
-        },
+      const read: FileRead = {
+        kind: 'file_read',
+        path: workspace.relative(real),
+        startLine: lines.start,
+        endLine: lines.end,
+        totalLines: lines.total,
+        whole: lines.whole,
       };
+
+      // For the UI: which lines this call covered, so it can say "read x" or "read x lines a–b".
+      return { content: note ? `${content}\n${note}` : content, artifacts: [read] };
     },
   });
 }

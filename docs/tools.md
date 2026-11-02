@@ -7,9 +7,10 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 
 - `inputSchema` is a `z.object`. Don't add a `description` field: the harness adds one for the
   model's plain-language note ("reading index.ts") and strips it before `execute`.
-- `execute({ input, signal, context })` returns text for the model, or `{ content, change }`
-  when it changed a file (below). Throw an `Error` with a clear message on failure:
-  `runTool` turns it into an error result, so one failing tool never stops the others.
+- `execute({ input, signal, context })` returns text for the model, or `{ content, artifacts }`
+  to also give a UI data the model never sees, like a file's diff (see "Artifacts" below). Throw
+  an `Error` with a clear message on failure: `runTool` turns it into an error result, so one
+  failing tool never stops the others.
 - `context` has the `callId`, the model's `description`, and the calling `session` (its id,
   parent, main session and depth; see [sessions.md](sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
@@ -60,9 +61,10 @@ returns what fits, plus a note at the end saying which lines were shown, why, an
 [Showing lines 1–1000 of 1500. read_file returns at most 1000 lines per call. To read on, call read_file with startLine 1001.]
 ```
 
-Next to the text, `read_file` returns a `FileRead` (`{ path, startLine, endLine, totalLines,
-whole }`), which the loop puts on the `tool_result` event as `read`, like `change` for writes.
-The model never sees it; it's for a UI. The demo shows `read src/a.ts` when `whole` is true, and
+Next to the text, `read_file` returns a `FileRead` artifact (`{ kind: 'file_read', path,
+startLine, endLine, totalLines, whole }`, in `src/tools/read-file/read-file.types.ts`), which the
+loop puts on the `tool_result` event's `artifacts`, like the `FileChange` of writes. The model
+never sees it; it's for a UI. The demo shows `read src/a.ts` when `whole` is true, and
 `read src/a.ts lines 40–45 (of 1500)` otherwise.
 
 A range past the end, a reversed range or a line number that isn't one is adjusted the same way,
@@ -160,25 +162,41 @@ throws; on `approval_cancelled` the call fails with that error.
 These updates come from the registry, not the loop's event stream: a tool result waiting in that
 ordered stream would hold back the request it waits for.
 
-## File changes: the harness emits, the UI renders
+## Artifacts: the tool returns them, the harness passes them on, the UI renders them
 
-A tool that changes a file returns `{ content, change }`, where `change` is a `FileChange`
-(`@sheavly/core/tool/tool.types`):
+A tool can return data for a UI next to its text: `{ content, artifacts }`, where each artifact
+is a `ToolArtifact` (`@sheavly/core/tool/tool.types`), an object tagged with a `kind`:
+
+```ts
+type ToolArtifact = { kind: string; [field: string]: unknown };
+```
+
+- The tool owns its kinds: it names them and defines their shape, next to itself. A parser could
+  return `{ kind: 'table', columns, rows }` without any change to core or the loop.
+- The model sees only `content`. Artifacts are never put in history, so they cost no tokens.
+- The loop puts them, as the tool returned them, on the `tool_result` event (`artifacts`; left
+  out when there are none). It never looks inside.
+- An `aroundToolCall` hook sees them on the result of `next()`, and can drop, replace or add some.
+- A UI renders the kinds it knows and skips the rest. The built-in kinds come with a type guard
+  for narrowing: `isFileChange` (`src/tools/files/files.utils.ts`) and `isFileRead`
+  (`src/tools/read-file/read-file.utils.ts`), both exported from `src/index.ts`.
+
+### File changes
+
+`write_file` and `edit_file` return a `FileChange` artifact (`src/tools/files/files.types.ts`):
 
 ```ts
 type FileChange = {
+  kind: 'file_change';
   path: string; // relative to the workspace root
   before: string | null; // null: the tool created the file
   after: string;
 };
 ```
 
-- The model sees only `content`, a one-line summary (`Edited src/a.ts (4 → 5 lines)`).
-  `change` is never put in history, so it costs no tokens.
-- The loop puts `change` on the `tool_result` event. A UI renders the diff from `before` and
-  `after`; how (unified, side by side, word-level) is the UI's choice. The demo just prints the
-  summary.
-- An `aroundToolCall` hook sees `change` on the result of `next()`, and can drop or replace it.
+- The model sees a one-line summary (`Edited src/a.ts (4 → 5 lines)`).
+- A UI renders the diff from `before` and `after`; how (unified, side by side, word-level) is
+  the UI's choice. The demo just prints the summary.
 
 Full content, not a computed diff, keeps the harness simple and lets every UI diff its own way.
 For very large files this may need a size limit or a diff format later.

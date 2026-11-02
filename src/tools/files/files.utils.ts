@@ -1,5 +1,7 @@
 import path from 'node:path';
+import type { ToolArtifact } from '@sheavly/core/tool/tool.types';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import type { FileChange } from './files.types.js';
 
 /** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
 export function isEnvFile(filePath: string): boolean {
@@ -66,4 +68,9 @@ export function describeChange(params: {
     text === null || text === '' ? 0 : text.split('\n').length;
 
   return `${verb} ${file} (${lines(before)} → ${lines(after)} lines)`;
+}
+
+/** True if `artifact` is the file change `write_file` or `edit_file` returned. */
+export function isFileChange(artifact: ToolArtifact): artifact is FileChange {
+  return artifact.kind === 'file_change';
 }

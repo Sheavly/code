@@ -1,5 +1,5 @@
 import type { ToolCall } from '@sheavly/core/message/message.types';
-import type { FileRead } from '@sheavly/core/tool/tool.types';
+import type { FileRead } from '../tools/read-file/read-file.types.js';
 import { z } from 'zod';
 import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
 
