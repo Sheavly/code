@@ -10,6 +10,9 @@ export const RUNS_DIR = 'runs';
 /** Scratch projects the agent works in; each run gets a fresh copy, or keeps the last one. */
 export const WORKSPACES_DIR = 'workspaces';
 
+/** Which changed files need a real-model check: read by `check` and by the stop hook. */
+export const RUN_SOURCES_FILE = 'run-sources.json';
+
 /** The workbook's memory between runs: the last run per prompt, and run counters. */
 export const STATE_FILE = 'state.json';
 

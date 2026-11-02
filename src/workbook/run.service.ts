@@ -5,6 +5,7 @@ import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createHarness, trustStoreFromEnv } from '../host/host.service.js';
 import type { ProviderSettings } from '../host/host.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
+import type { TrustStore } from '../runtime/trust/trust.service.js';
 import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
 import { Renderer } from '../terminal-ui/render.service.js';
 import { projectTrustNotice, shortId } from '../terminal-ui/render.utils.js';
@@ -22,8 +23,10 @@ export async function runWorkbook(params: {
   store: WorkbookStore;
   settings: ProviderSettings;
   request: RunRequest;
-}): Promise<RunResult> {
-  const { store, settings, request } = params;
+  /** Where trust is remembered: the user's store by default, a throwaway one for `check`. */
+  trustStore?: TrustStore;
+}): Promise<RunResult & { id: string }> {
+  const { store, settings, request, trustStore = trustStoreFromEnv() } = params;
   const paths = await store.beginRun({
     prompt: request.name,
     id: (number) => runId({ number, prompt: request.name }),
@@ -44,7 +47,7 @@ export async function runWorkbook(params: {
     provider: settings.provider,
     workspaceRoot,
     title: request.text,
-    trustStore: trustStoreFromEnv(),
+    trustStore,
     // A fresh copy of a committed fixture is this repo's own code, so its hooks run. A kept or
     // continued workspace the agent may have edited needs trust like any other: `--trust`.
     trustWorkspace: workspace.fresh || request.trust,
@@ -126,7 +129,7 @@ export async function runWorkbook(params: {
 
   process.stdout.write(`\n→ saved to ${paths.dir}\n`);
 
-  return result;
+  return { ...result, id: paths.id };
 }
 
 /** A follow-up starts from that run's conversation, in that run's workspace. */

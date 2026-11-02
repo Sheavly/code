@@ -115,7 +115,7 @@ export class WorkbookStore {
     keep: boolean;
   }): Promise<{ dir: string; fresh: boolean }> {
     const { prompt, key, keep } = params;
-    const dir = path.join(this.workspacesDir, 'runs', key);
+    const dir = this.runWorkspaceDir(key);
     const exists = (await entriesIfThere(dir)) !== undefined;
 
     if (keep && exists) return { dir, fresh: false };
@@ -133,6 +133,11 @@ export class WorkbookStore {
     await writeFile(path.join(dir, '.env'), FAKE_ENV);
 
     return { dir, fresh: true };
+  }
+
+  /** Where runs of the prompt `key` work: kept between runs with `--keep`, else made fresh. */
+  runWorkspaceDir(key: string): string {
+    return path.join(this.workspacesDir, 'runs', key);
   }
 
   /** A run by id, or `last` / undefined for the latest. */

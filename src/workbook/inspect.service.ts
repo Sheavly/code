@@ -1,8 +1,13 @@
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
-import type { AgentEvent } from '../loop/events/events.types.js';
 import type { WorkbookStore } from './store.service.js';
-import { describeEvent, diffResults, mergeTextDeltas } from './workbook.utils.js';
+import {
+  describeEvent,
+  diffResults,
+  finalAnswer,
+  mergeTextDeltas,
+  toolsUsed,
+} from './workbook.utils.js';
 import { WorkbookNotFoundError } from '../runtime/errors/workbook.errors.js';
 
 type Write = (text: string) => void;
@@ -161,20 +166,4 @@ export async function diffRuns(params: {
   write(`${a.id} → ${b.id}\n`);
 
   for (const line of diffResults({ a, b })) write(`  ${line}\n`);
-}
-
-/** Tool names in the order they were first called. */
-function toolsUsed(events: AgentEvent[]): string[] {
-  const names = events.filter((e) => e.type === 'tool_call_started').map((e) => e.call.name);
-
-  return [...new Set(names)];
-}
-
-/** The text of the main session's last reply. */
-function finalAnswer(events: AgentEvent[]): string {
-  const done = events.findLast((e) => e.type === 'done');
-
-  if (done?.type !== 'done') return '';
-
-  return done.messages.findLast((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
 }
