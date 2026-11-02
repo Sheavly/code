@@ -1,4 +1,12 @@
 {
+  // `npm run build`: `tsc -b` builds the referenced packages first (core, then providers), then the
+  // app to `dist/`, all for plain Node. Tests and fakes stay out.
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "dist/tsconfig.build.tsbuildinfo",
+    // Resolve workspace packages to their built `dist/`, never their source.
+    "customConditions": []
+  },
+  "references": [{ "path": "packages/providers/tsconfig.build.json" }],
   "exclude": ["src/**/__tests__", "src/testing"]
 }
