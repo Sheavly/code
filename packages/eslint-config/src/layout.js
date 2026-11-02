@@ -50,3 +50,12 @@ export const LAYOUT = {
     },
   },
 };
+
+/**
+ * TypeScript outside every workspace's `src/` that isn't harness source, each with why. Anything
+ * else there fails the layout check (`scripts/check-layout.mjs`).
+ */
+export const NOT_SOURCE = {
+  '*.config.ts': 'root tool configs (Vitest), loaded by the tool, not part of any workspace',
+  'workbook/workspaces/**': 'the projects the workbook agent reads and writes, not harness source',
+};

@@ -4,6 +4,8 @@
     // A JS package: no build and no type errors to check (`checkJs` stays off). The project
     // exists so ESLint has type info for its files, which `no-deprecated` needs.
     "allowJs": true,
+    // `rootDir` makes an import from outside the package a type error, as in every workspace.
+    "rootDir": "src",
     "noEmit": true
   },
   "include": ["src"]
