@@ -3,7 +3,7 @@ description: steer a running sub-agent with message_agent ("puppies"), without c
 workspace: basic
 check:
   {
-    'areas': ['src/tools/sub-agent', 'src/runtime/sessions'],
+    'areas': ['packages/tools/src/sub-agent', 'packages/runtime/src/sessions'],
     'expect':
       { 'tools': ['start_agent', 'message_agent'], 'reply': ['/pupp/i'], 'outcome': 'completed' },
   }

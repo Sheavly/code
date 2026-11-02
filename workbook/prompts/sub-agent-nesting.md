@@ -3,7 +3,7 @@ description: three levels of sub-agents; the third must not have start_agent
 workspace: basic
 check:
   {
-    'areas': ['src/tools/sub-agent', 'src/runtime/sessions', 'src/host'],
+    'areas': ['packages/tools/src/sub-agent', 'packages/runtime/src/sessions', 'src/host'],
     'expect': { 'tools': ['start_agent'], 'reply': ['start_agent'], 'outcome': 'completed' },
   }
 ---
