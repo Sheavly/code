@@ -1,10 +1,10 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { SessionRef } from '@sheavly/core/session/session.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** Which model backend a host runs against, read from the environment. */
 export type ProviderSettings = {
