@@ -16,7 +16,8 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 | `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                                | zod only                |
 | `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                        | protocol, zod           |
 | `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                               | protocol, core, zod     |
-| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals                                      | protocol, core          |
+| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                            | protocol, core          |
+| `src/runtime/`       | The workspace-bound services, until #29 moves them: workspace confinement, processes, trust, file locks         | protocol, core, runtime |
 | `src/tools/`         | One folder per tool                                                                                             | protocol, core, runtime |
 | `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                                                                | protocol, core, runtime |
 | `src/host/`          | `createHarness` (generic) and `createCodingHarness` (the coding preset): wires a run, the model from env. No UI | all above               |
@@ -34,7 +35,7 @@ Decide where something lives before writing it. The first question: **would a no
 | A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then the loop           | protocol, then loop  |
 | A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                       | (already a package)  |
 | A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                     | (already a package)  |
-| A stateful service the host creates (tasks, sessions, approvals, locks)         | `src/runtime/<module>/`                                               | `@sheavly/runtime`   |
+| A stateful service the host creates (tasks, sessions, approvals)                | `@sheavly/runtime`                                                    | (already a package)  |
 | A generic tool (no files, no commands)                                          | `src/tools/<name>/`                                                   | `@sheavly/tools`     |
 | Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset          | `@sheavly/workspace` |
 | A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`                      | `@sheavly/coding`    |
@@ -56,7 +57,7 @@ Decide where something lives before writing it. The first question: **would a no
 
 - `createHarness` (`host/host.helper.ts`) is for any LLM project, with or without a repo: the caller's `tools` and `hooks`, plus the task and sub-agent tools and the registries. It opens no workspace, reads no AGENTS.md or `.sheavly/` and needs no trust store.
 - `createCodingHarness` (`host/coding.helper.ts`) is the coding preset the demo and the workbook use: it opens the `Workspace`, checks trust, loads the AGENTS.md and `.sheavly/` hooks, adds the file tools and `run_command` (sharing one `FileLocks` and one `ProcessRunner`), then calls `createHarness`.
-- Generic code never needs a project on disk or a coding tool. The loop, `runtime/sessions`, `runtime/tasks`, `runtime/approvals`, `tools/sub-agent`, `tools/tasks` and `createHarness` (and their tests) import no workspace-bound service (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) and no coding tool (`read-file`, `write-file`, `edit-file`, `files`, `run-command`). A generic test that needs a background task uses `startTaskTool` (`src/testing/start-task.fake.ts`). New coding wiring goes in the preset, never in `createHarness`. See `docs/overview.md`, "Entry points".
+- Generic code never needs a project on disk or a coding tool. The loop, `@sheavly/runtime` (sessions, tasks, approvals), `tools/sub-agent`, `tools/tasks` and `createHarness` (and their tests) import no workspace-bound service (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) and no coding tool (`read-file`, `write-file`, `edit-file`, `files`, `run-command`). A generic test that needs a background task uses `startTaskTool` (`@sheavly/runtime/testing/start-task.fake`). New coding wiring goes in the preset, never in `createHarness`. See `docs/overview.md`, "Entry points".
 
 ## Packages
 
@@ -95,7 +96,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - Module-level functions with more than one input (outside tests) take one destructured `params` object: `function f(params: { a: A; b: B }) { const { a, b } = params; }`.
 - `type`, never `interface`. Named exports only. No re-exports (barrels) except `src/index.ts`, the package entry. Name caught errors `caughtError`.
 - No deprecated APIs (`@typescript-eslint/no-deprecated`, in `.ts` and `.js`/`.mjs` alike): use the replacement the error names, never a workaround that hides the `@deprecated` tag.
-- Import from the defining file (`../../runtime/tasks/tasks.service.js`) or a package subpath, never from `src/index.ts`.
+- Import from the defining file (`../files/files.utils.js`) or a package subpath (`@sheavly/runtime/tasks/tasks.service`), never from `src/index.ts`.
 - When a file hits its kind's line limit, split it by responsibility into another `<name>.<kind>.ts` in the same folder (as `stream-agent/` does with `turn.helper.ts` and `sample.helper.ts`).
 
 ## Adding things
@@ -108,7 +109,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `tools/files/files.helper.ts`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`runtime/process/process.service.ts`) and the allow list.
 - Wire the tool into `src/demo.ts`, and export it from `src/index.ts`.
 
-**A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
+**A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`@sheavly/runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
 
 **A provider**: see `packages/providers/README.md`. A Responses API backend is one folder, `packages/providers/src/<name>/<name>.adapter.ts`, using `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `responses/responses.helper.ts`): a pure map from config to endpoint. Another protocol (Anthropic, Gemini, Chat Completions) gets its own protocol folder next to `responses/` and backends on it; it never reuses `responses/`. Anything else uses `defineAdapter` (from `@sheavly/core/adapter/adapter.utils`). Register built-ins in `registry/default-registry.helper.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
 
