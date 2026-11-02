@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { z } from 'zod';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runSession } from '../loop/stream-agent/stream-agent.service.js';
@@ -9,6 +11,7 @@ import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.service
 import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
 import { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import { TrustStore } from '../runtime/trust/trust.service.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { createEditFileTool } from '../tools/edit-file/edit-file.tool.js';
 import { createReadFileTool } from '../tools/read-file/read-file.tool.js';
@@ -17,7 +20,7 @@ import { createMessageAgentTool } from '../tools/sub-agent/message-agent.tool.js
 import { createSubAgentTool } from '../tools/sub-agent/sub-agent.tool.js';
 import { createTaskTools } from '../tools/tasks/tasks.tool.js';
 import { createWriteFileTool } from '../tools/write-file/write-file.tool.js';
-import { HOST_MAX_TURNS } from './host.constants.js';
+import { HOST_MAX_TURNS, TRUST_STORE_PATH } from './host.constants.js';
 import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js';
 
 /**
@@ -69,6 +72,21 @@ export function providerFromEnv(): ProviderSettings {
 }
 
 /**
+ * The user's workspace trust store: `SHEAVLY_TRUST_FILE`, or `trusted-workspaces.json` under
+ * `$XDG_CONFIG_HOME/sheavly` (default `~/.config/sheavly`). Outside every repo, so a repo can't
+ * trust itself. Shared by every host.
+ */
+export function trustStoreFromEnv(): TrustStore {
+  // An empty variable (a blank line in .env) counts as not set.
+  const set = (value: string | undefined) => (value === '' ? undefined : value);
+  const configHome = set(process.env.XDG_CONFIG_HOME) ?? path.join(os.homedir(), '.config');
+
+  return new TrustStore({
+    file: set(process.env.SHEAVLY_TRUST_FILE) ?? path.join(configHome, ...TRUST_STORE_PATH),
+  });
+}
+
+/**
  * Wires one run the way every host does: the workspace, every tool (files, commands, tasks,
  * sub-agents), the AGENTS.md hook and the project's `.sheavly` hooks, and the session and task
  * registries. `onModelCall` sees every model call, main session and sub-agents alike.
@@ -76,8 +94,13 @@ export function providerFromEnv(): ProviderSettings {
 export async function createHarness(options: HarnessOptions): Promise<Harness> {
   const { workspaceRoot, skipAllowList = false, title, onModelCall } = options;
   const workspace = await Workspace.open(workspaceRoot);
-  // A broken `.sheavly` hook stops the host here, with the file and the reason.
-  const projectHooks = await loadProjectHooks({ root: workspace.root });
+  // A broken `.sheavly` hook stops the host here, with the file and the reason. An untrusted
+  // workspace loads none: `projectTrust` says why, for the UI to show.
+  const projectHooks = await loadProjectHooks({
+    root: workspace.root,
+    trust: options.trustStore ?? trustStoreFromEnv(),
+    grant: options.trustWorkspace ?? false,
+  });
   const provider: Provider = onModelCall
     ? {
         stream: (request) => {
@@ -105,8 +128,9 @@ export async function createHarness(options: HarnessOptions): Promise<Harness> {
     mainSession,
     tasks,
     approvals,
-    projectHooks,
-    hooks: [agentsMd, ...projectHooks],
+    projectHooks: projectHooks.hooks,
+    projectTrust: projectHooks.trust,
+    hooks: [agentsMd, ...projectHooks.hooks],
     tools: [
       ...fileTools,
       createRunCommandTool({ workspace, skipAllowList, tasks, approvals }),

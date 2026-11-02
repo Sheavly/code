@@ -1,6 +1,7 @@
 import type { ToolCall } from '@sheavly/core/message/message.types';
 import type { FileRead } from '@sheavly/core/tool/tool.types';
 import { z } from 'zod';
+import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
 
 /** Text squeezed onto one line, cut at `max` characters with an ellipsis. */
 export function oneLine(params: { text: string; max: number }): string {
@@ -43,4 +44,20 @@ export function describeRead(read: FileRead): string {
   }
 
   return `read ${read.path} lines ${read.startLine}–${read.endLine} (of ${read.totalLines})`;
+}
+
+/**
+ * Why a workspace's `.sheavly/` hooks were skipped, for a front end to print, or undefined when
+ * nothing was skipped. Shared by every host with a `--trust` flag.
+ */
+export function projectTrustNotice(trust: ProjectTrust): string | undefined {
+  if (trust === 'untrusted') {
+    return '⚠ .sheavly/ hooks not loaded: this workspace is not trusted. They run code from the repo; review .sheavly/, then rerun with --trust.';
+  }
+
+  if (trust === 'changed') {
+    return '⚠ .sheavly/ hooks not loaded: .sheavly/ changed since you trusted this workspace. Review the changes, then rerun with --trust.';
+  }
+
+  return undefined;
 }

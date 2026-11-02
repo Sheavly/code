@@ -10,6 +10,8 @@
  * SHOW_MODEL_CALLS=true prints every model call (main session and sub-agents): its task, tools
  *   and system instructions.
  * SESSIONS_SSE_LOG=<file> writes the session registry's server-sent event stream to a file.
+ * --trust trusts the workspace's .sheavly/ hooks (they run repo code); without it, an untrusted
+ *   workspace runs none. SHEAVLY_TRUST_FILE moves the trust store (default ~/.config/sheavly/).
  * This calls the real API and costs money (a fraction of a cent for a short prompt).
  *
  * For stored prompts, saved runs and inspecting what happened, use the workbook instead
@@ -20,13 +22,18 @@ import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from './loop/stream-agent/stream-agent.service.js';
 import { HOST_MAX_TURNS } from './host/host.constants.js';
-import { createHarness, providerFromEnv } from './host/host.service.js';
+import { createHarness, providerFromEnv, trustStoreFromEnv } from './host/host.service.js';
 import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
 import { Renderer } from './terminal-ui/render.service.js';
-import { shortId } from './terminal-ui/render.utils.js';
+import { projectTrustNotice, shortId } from './terminal-ui/render.utils.js';
 
 const { adapter, model, provider } = providerFromEnv();
-const prompt = process.argv.slice(2).join(' ') || 'Read package.json and tell me the project name.';
+const args = process.argv.slice(2);
+/** `--trust`: trust this workspace's `.sheavly/` hooks (remembered until `.sheavly/` changes). */
+const trustWorkspace = args.includes('--trust');
+const prompt =
+  args.filter((arg) => arg !== '--trust').join(' ') ||
+  'Read package.json and tell me the project name.';
 const write = (text: string) => void process.stdout.write(text);
 const workspaceRoot = z
   .string()
@@ -43,6 +50,8 @@ const harness = await createHarness({
   workspaceRoot,
   skipAllowList,
   title: prompt,
+  trustStore: trustStoreFromEnv(),
+  trustWorkspace,
   ...(showModelCalls && { onModelCall: (request) => view.renderer?.modelCall(request) }),
 });
 const { workspace, sessions, mainSession, tasks } = harness;
@@ -58,6 +67,10 @@ if (skipAllowList) console.log('⚠ run_command allow list is OFF: any shell com
 if (harness.projectHooks.length > 0) {
   console.log(`→ hooks from .sheavly: ${harness.projectHooks.map((hook) => hook.name).join(', ')}`);
 }
+
+const trustNotice = projectTrustNotice(harness.projectTrust);
+
+if (trustNotice) console.log(trustNotice);
 
 console.log(`→ ${prompt}\n`);
 console.log(`→ main session ${shortId(mainSession.id)}`);

@@ -8,6 +8,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { callOnceProvider } from '../../../testing/scripted-provider.fake.js';
+import { TrustStore } from '../../trust/trust.service.js';
 import { loadProjectHooks } from '../project-hooks.service.js';
 import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
 
@@ -27,7 +28,11 @@ const TS_CJS = (name: string) =>
 let roots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(roots.map((root) => rm(root, { recursive: true, force: true })));
+  await Promise.all(
+    roots
+      .flatMap((root) => [root, `${root}.trusted.json`])
+      .map((file) => rm(file, { recursive: true, force: true })),
+  );
   roots = [];
 });
 
@@ -76,10 +81,19 @@ async function contextFrom(hooks: Hook[]): Promise<string[]> {
   return added;
 }
 
+/**
+ * Loads `root`'s hooks as a host does after the user trusted it (`grant`), with a trust store of
+ * its own in the temp project, so these tests are about loading, not trust.
+ */
+async function loadTrusted(root: string): Promise<Hook[]> {
+  return (await loadProjectHooks({ root, trust: trustStoreIn(root), grant: true })).hooks;
+}
+
+/** A trust store beside the temp project, never inside it (a repo can't hold its own trust). */
+const trustStoreIn = (root: string) => new TrustStore({ file: `${root}.trusted.json` });
+
 async function loadError(root: string): Promise<string> {
-  const failure: unknown = await loadProjectHooks({ root }).catch(
-    (caughtError: unknown) => caughtError,
-  );
+  const failure: unknown = await loadTrusted(root).catch((caughtError: unknown) => caughtError);
 
   expect(failure).toBeInstanceOf(ProjectHooksError);
 
@@ -88,7 +102,12 @@ async function loadError(root: string): Promise<string> {
 
 describe('loadProjectHooks', () => {
   it('returns no hooks when there is no .sheavly/hooks.json', async () => {
-    expect(await loadProjectHooks({ root: await project({}) })).toEqual([]);
+    const root = await project({});
+
+    expect(await loadProjectHooks({ root, trust: trustStoreIn(root) })).toEqual({
+      hooks: [],
+      trust: 'no_hooks',
+    });
   });
 
   it.each([
@@ -105,7 +124,7 @@ describe('loadProjectHooks', () => {
         files: { [`hooks/${file}`]: source(file) },
       });
 
-      expect(await contextFrom(await loadProjectHooks({ root }))).toEqual([file]);
+      expect(await contextFrom(await loadTrusted(root))).toEqual([file]);
     },
   );
 
@@ -122,7 +141,7 @@ describe('loadProjectHooks', () => {
         },
       });
 
-      expect(await contextFrom(await loadProjectHooks({ root }))).toEqual(['a', 'b', 'c', 'd']);
+      expect(await contextFrom(await loadTrusted(root))).toEqual(['a', 'b', 'c', 'd']);
     }
   });
 
@@ -144,7 +163,7 @@ describe('loadProjectHooks', () => {
       },
     });
 
-    expect(await contextFrom(await loadProjectHooks({ root }))).toEqual(['second', 'first']);
+    expect(await contextFrom(await loadTrusted(root))).toEqual(['second', 'first']);
   });
 
   it('tells you to rename a CommonJS .js hook in an ESM project to .cjs', async () => {
@@ -231,7 +250,7 @@ describe('loadProjectHooks', () => {
           "export default { name: 'lifecycle', sessionStart: async () => {}, afterTurn: async () => {}, onError: async () => {} };\n",
       },
     });
-    const [hook] = await loadProjectHooks({ root });
+    const [hook] = await loadTrusted(root);
 
     expect(Object.keys(hook ?? {}).sort()).toEqual([
       'afterTurn',
@@ -290,7 +309,7 @@ describe('project hooks in the loop', () => {
       provider: callOnceProvider(call),
       tools: [ping],
       messages: [{ role: 'user', content: 'ping' }],
-      hooks: [host, ...(await loadProjectHooks({ root }))],
+      hooks: [host, ...(await loadTrusted(root))],
     });
 
     expect(order).toEqual(['host in', 'project in', 'tool', 'project out', 'host out']);
