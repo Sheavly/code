@@ -1,6 +1,6 @@
 /** Test-only: a fake `fetch` that records requests and replies with SSE streams. */
 import type { z } from 'zod';
-import type { Adapter } from '@sheavly/core/adapter/adapter.types';
+import type { Adapter } from '../adapter/adapter.types.js';
 import type { RecordedRequest } from './testing.types.js';
 
 /** Events that end a Responses stream; a reply without one gets `response.completed` added. */

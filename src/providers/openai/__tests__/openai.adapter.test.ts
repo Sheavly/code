@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requestSentBy } from '../../../testing/fake-fetch.fake.js';
+import { requestSentBy } from '@sheavly/core/testing/fake-fetch.fake';
 import { openaiAdapter } from '../openai.adapter.js';
 
 const sent = (config: unknown) => requestSentBy({ adapter: openaiAdapter, config });

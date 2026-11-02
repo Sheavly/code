@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
-import { collect } from '../../../testing/fake-fetch.fake.js';
+import { collect } from '@sheavly/core/testing/fake-fetch.fake';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { ProviderSwitch } from '../switch.service.js';

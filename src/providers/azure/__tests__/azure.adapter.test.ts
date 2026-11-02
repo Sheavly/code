@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requestSentBy } from '../../../testing/fake-fetch.fake.js';
+import { requestSentBy } from '@sheavly/core/testing/fake-fetch.fake';
 import { azureAdapter } from '../azure.adapter.js';
 
 const sent = (config: unknown) => requestSentBy({ adapter: azureAdapter, config });
