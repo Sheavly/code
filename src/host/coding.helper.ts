@@ -13,7 +13,7 @@ import { createReadFileTool } from '../tools/read-file/read-file.tool.js';
 import { createRunCommandTool } from '../tools/run-command/run-command.tool.js';
 import { createWriteFileTool } from '../tools/write-file/write-file.tool.js';
 import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
-import { TRUST_STORE_PATH } from './host.constants.js';
+import { TRUST_STORE_PATH } from './coding.constants.js';
 import { createHarness } from './host.helper.js';
 
 /**
