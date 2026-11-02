@@ -1,13 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { AgentEvent } from '../../loop/events/events.types.js';
 import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
 import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
 import { diffResults, mergeTextDeltas, parseCommand, runId } from '../workbook.utils.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 /** A workbook folder per test: one stored prompt, and a fixture workspace for it. */
 const temp = useTempWorkspace({

@@ -1,8 +1,8 @@
 import path from 'node:path';
-import type { AgentEvent } from '../loop/events/events.types.js';
 import { firstLine, oneLine, shortId } from '../terminal-ui/render.utils.js';
 import { RUN_FILES } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 /** `0007-write-and-edit`: the run number, then the prompt name, so runs sort in order. */
 export function runId(params: { number: number; prompt: string }): string {

@@ -1,5 +1,4 @@
 import { execFileSync } from 'node:child_process';
-import type { Message } from '@sheavly/core/message/message.types';
 import { streamAgent } from '../loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createCodingHarness, trustStoreFromEnv } from '../host/coding.helper.js';
@@ -13,6 +12,7 @@ import { RunRecorder } from './recorder.service.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';
 import { runId } from './workbook.utils.js';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
  * One workbook run: claims a run folder, prepares the workspace, wires the harness like the demo,
