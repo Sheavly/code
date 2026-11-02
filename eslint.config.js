@@ -13,7 +13,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
  * else is a backend that emits typed events. Keep this list short; a new UI is added here only
  * when its issue asks for one, so review sees it.
  */
-const FRONT_END_FILES = ['src/demo.ts', 'src/terminal-ui/**/*.ts', 'src/workbook/**/*.ts'];
+const FRONT_END_FILES = ['src/demo.ts', 'src/workbook/**/*.ts'];
 /** Hosts' command-line entry points: files without a kind. */
 const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */

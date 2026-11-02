@@ -11,18 +11,19 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 @sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer                | Holds                                                                                                      | May import              |
-| -------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                           | zod only                |
-| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                   | protocol, zod           |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                          | protocol, core, zod     |
-| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                       | protocol, core          |
-| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md | protocol, core, runtime |
-| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                  | protocol, core, runtime |
-| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                   | protocol, core, runtime |
-| `packages/host`      | `@sheavly/host`: `createHarness`, wires a run, the model from env. No UI                                   | all above               |
-| `packages/coding`    | `@sheavly/coding` (coding): the file tools, `run_command`, `createCodingHarness`                           | all above               |
-| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                        | anything                |
+| Layer                  | Holds                                                                                                      | May import                                 |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `packages/protocol`    | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                           | zod only                                   |
+| `packages/core`        | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                   | protocol, zod                              |
+| `packages/providers`   | `@sheavly/providers`: protocol layers, backends, registry, switch                                          | protocol, core, zod                        |
+| `packages/runtime`     | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                       | protocol, core                             |
+| `packages/workspace`   | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md | protocol, core, runtime                    |
+| `packages/tools`       | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                  | protocol, core, runtime                    |
+| `packages/loop`        | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                   | protocol, core, runtime                    |
+| `packages/host`        | `@sheavly/host`: `createHarness`, wires a run, the model from env. No UI                                   | all above                                  |
+| `packages/coding`      | `@sheavly/coding` (coding): the file tools, `run_command`, `createCodingHarness`                           | all above                                  |
+| `packages/terminal-ui` | `@sheavly/terminal-ui` (coding): the `Renderer` the terminal front ends print a run with                   | protocol, core, runtime, workspace, coding |
+| Front ends             | `src/workbook/`, `src/demo.ts`                                                                             | anything                                   |
 
 ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only this app's `src/` layers (until #29 splits it) and `NOT_SOURCE` are written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain, or a `src/` folder that isn't a layer, fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -44,7 +45,8 @@ Decide where something lives before writing it. The first question: **would a no
 | Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                    | (already a package) |
 | A fake for tests                                                                | `@sheavly/testing`, or the `src/testing/` of the package it fakes  | (already a package) |
 | A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                           | (already a package) |
-| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`                 | `apps/<name>`       |
+| How a run looks in a terminal (the `Renderer`)                                  | `@sheavly/terminal-ui`                                             | (already a package) |
+| A UI: something that reads the terminal, prints, or reads env                   | `src/workbook/`, `src/demo.ts`                                     | `apps/<name>`       |
 
 **A new package, instead of a folder in an existing one**, when all of these hold: it has its own reason to change (not just more of what a package already does); something that shouldn't get the rest of an existing package needs it (a generic consumer, or a UI that needs only the wire contract); and its dependencies point down the graph. Otherwise it is a module folder in the package that owns the concern. Create a package or app with `npm run new` (see Packages), never by hand.
 
@@ -52,7 +54,7 @@ Decide where something lives before writing it. The first question: **would a no
 
 - The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`, `ApprovalUpdate`) and exposes registries a UI answers through (`approvals.respond`, `sessions.send`). It renders nothing, prompts no one and reads no terminal input.
 - Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
-- Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/terminal-ui/`, `src/workbook/`. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
+- Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/workbook/`; the renderer in `@sheavly/terminal-ui` writes through a function the front end gives it. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
 - `@sheavly/host` wires a run and holds no UI; nothing below the apps imports a front end.
 
 ## Two entry points: generic, and coding on top
@@ -115,7 +117,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 
 **A provider**: see `packages/providers/README.md`. A Responses API backend is one folder, `packages/providers/src/<name>/<name>.adapter.ts`, using `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `responses/responses.helper.ts`): a pure map from config to endpoint. Another protocol (Anthropic, Gemini, Chat Completions) gets its own protocol folder next to `responses/` and backends on it; it never reuses `responses/`. Anything else uses `defineAdapter` (from `@sheavly/core/adapter/adapter.utils`). Register built-ins in `registry/default-registry.helper.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
 
-**A loop event**: add its schema to `agentEventBodySchema` in `packages/protocol/src/event/event.validator.ts` (then `npm run schema -w @sheavly/protocol`) and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
+**A loop event**: add its schema to `agentEventBodySchema` in `packages/protocol/src/event/event.validator.ts` (then `npm run schema -w @sheavly/protocol`) and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `@sheavly/terminal-ui`'s `Renderer`.
 
 **A hook**: `defineHook({ name, sessionStart?, beforeTurn?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters). `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history; the built-in `createAgentsMdHook` in `@sheavly/workspace` (`agents-md/`) uses it); `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event). A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.utils.ts` and run from `@sheavly/loop/hooks/hooks.helper`.
 

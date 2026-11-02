@@ -21,6 +21,7 @@ const LOOP = '@sheavly/loop';
 const HOST = '@sheavly/host';
 const WORKSPACE = '@sheavly/workspace';
 const CODING = '@sheavly/coding';
+const TERMINAL_UI = '@sheavly/terminal-ui';
 
 /**
  * The app being split (#29): its `src/` folders and root files, each with what it may import
@@ -34,9 +35,8 @@ export const SPLIT_APP = {
   layers: {
     // What is left in src/runtime: the workbook's errors, which move with the workbook app.
     runtime: [RUNTIME],
-    'terminal-ui': [PROTOCOL, CORE, RUNTIME, WORKSPACE, CODING],
-    workbook: [PROTOCOL, CORE, RUNTIME, HOST, WORKSPACE, CODING, LOOP, 'runtime', 'terminal-ui'],
-    'demo.ts': [HOST, CODING, LOOP, 'terminal-ui'],
+    workbook: [PROTOCOL, CORE, RUNTIME, HOST, WORKSPACE, CODING, LOOP, TERMINAL_UI, 'runtime'],
+    'demo.ts': [HOST, CODING, LOOP, TERMINAL_UI],
     'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, HOST, WORKSPACE, CODING, LOOP],
   },
 };

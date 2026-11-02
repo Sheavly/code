@@ -5,9 +5,9 @@ import { createCodingHarness, trustStoreFromEnv } from '@sheavly/coding/preset/c
 import type { ProviderSettings } from '@sheavly/host/host/host.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
-import { Renderer } from '../terminal-ui/render.service.js';
-import { projectTrustNotice, shortId } from '../terminal-ui/render.utils.js';
+import { SAME_KEYPRESS_MS } from '@sheavly/terminal-ui/render/render.constants';
+import { Renderer } from '@sheavly/terminal-ui/render/render.service';
+import { projectTrustNotice, shortId } from '@sheavly/terminal-ui/render/render.utils';
 import { RunRecorder } from './recorder.service.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';
