@@ -94,6 +94,9 @@ export function baseConfig(params) {
         'harness/no-process-env': 'error',
         'harness/params-object': 'error',
         'harness/no-barrel': 'error',
+        // A type a workspace package exports is defined there only; the packages and their types
+        // are read from the workspace, so new ones are covered without editing the rule.
+        'harness/single-definition': 'error',
       },
     },
 

@@ -349,6 +349,13 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
+- `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
+  outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
+  exported or not (another folder, another package, a second types file of the same package), or
+  re-exported from a file that isn't its owner (`export type { X } from`, `export type * from`),
+  fails with where the original lives, how to import it and how to change it (its schema, for a
+  protocol type). Owners are read from the workspace on disk, so a new package, folder or type is
+  covered without editing the rule.
 - **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
