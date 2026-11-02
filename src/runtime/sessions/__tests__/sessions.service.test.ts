@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionUpdate } from '@sheavly/core/session/session.types';
 import { SessionRegistry } from '../sessions.service.js';
 import { toServerSentEvent } from '../sessions.utils.js';
 import { startDeepestSession } from '../../../testing/sessions.fake.js';
+import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 
 describe('SessionRegistry', () => {
   it('gives every session a unique id, linked to its parent and the main session', () => {

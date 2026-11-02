@@ -1,5 +1,5 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
-import type { TaskInfo } from './tasks.types.js';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
 /** One readable block for the model: header line, command, then output (tail only if asked). */
 export function formatTask(params: { task: TaskInfo; outputChars?: number }): string {

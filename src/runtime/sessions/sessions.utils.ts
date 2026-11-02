@@ -1,4 +1,4 @@
-import type { InboxMessage, SessionUpdate } from '@sheavly/core/session/session.types';
+import type { InboxMessage, SessionUpdate } from '@sheavly/protocol/session/session.types';
 
 /**
  * One server-sent event for a session update: the update type as the SSE event name, the
