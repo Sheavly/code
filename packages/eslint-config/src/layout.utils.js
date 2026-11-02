@@ -25,7 +25,7 @@ export function workspaceOfFile(params) {
 }
 
 /** A layer's entry, as `{ testOnly, dependsOn }` whether it was written as a list or an object. */
-function layerEntry(entry) {
+export function layerEntry(entry) {
   return Array.isArray(entry)
     ? { testOnly: false, dependsOn: entry }
     : { testOnly: false, ...entry };

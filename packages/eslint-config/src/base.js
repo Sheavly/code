@@ -99,6 +99,8 @@ export function baseConfig(params) {
         'harness/single-definition': 'error',
         // Every workspace is in the layout (layout.js), which holds together.
         'harness/layout': 'error',
+        // Imports follow the layout's graph and the split app's layers; tests are checked too.
+        'harness/imports': 'error',
       },
     },
 

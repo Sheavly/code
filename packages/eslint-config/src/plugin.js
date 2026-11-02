@@ -1,4 +1,5 @@
 import { fileKind } from './rules/file-kind.js';
+import { importsRule } from './rules/imports.js';
 import { kindContents } from './rules/kind-contents.js';
 import { layoutRule } from './rules/layout.js';
 import { noRawError } from './rules/no-raw-error.js';
@@ -12,6 +13,7 @@ export const harnessPlugin = {
   meta: { name: 'harness' },
   rules: {
     'file-kind': fileKind,
+    imports: importsRule,
     'kind-contents': kindContents,
     layout: layoutRule,
     'no-raw-error': noRawError,

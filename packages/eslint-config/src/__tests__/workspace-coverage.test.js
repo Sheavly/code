@@ -66,6 +66,7 @@ it('gets the harness rules from the shared config alone', () => {
       'harness/pure-imports',
       'harness/single-definition',
       'harness/layout',
+      'harness/imports',
       'harness/no-raw-error',
       'harness/no-silent-catch',
     ]),

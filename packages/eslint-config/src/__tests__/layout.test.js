@@ -1,5 +1,3 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
@@ -7,6 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { LAYOUT } from '../layout.js';
 import { layoutProblems, listWorkspaces } from '../layout.utils.js';
 import { harnessPlugin } from '../plugin.js';
+import { tempWorkspace } from '../testing/workspace.fake.js';
 
 RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
@@ -15,21 +14,9 @@ RuleTester.it = it;
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 
 /** A workspace on disk: `files` relative to its root, JSON for objects. */
-function workspace(files) {
-  const root = mkdtempSync(path.join(tmpdir(), 'layout-'));
 
-  for (const [file, content] of Object.entries({
-    'package.json': { name: '@x/app', workspaces: ['packages/*'] },
-    ...files,
-  })) {
-    mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
-    writeFileSync(path.join(root, file), JSON.stringify(content));
-  }
-
-  return root;
-}
-
-const root = workspace({
+const root = tempWorkspace({
+  'package.json': { name: '@x/app', workspaces: ['packages/*'] },
   'packages/base/package.json': { name: '@x/base' },
   'packages/stray/package.json': { name: '@x/stray' },
 });
