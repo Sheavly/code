@@ -2,7 +2,14 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { architectureRule, coveredByRule, sectionOf } from '../architecture.utils.mjs';
+import { readLayout } from '../../../packages/eslint-config/src/layout.utils.js';
+import {
+  architectureRule,
+  coveredByRule,
+  sectionOf,
+  WHERE_CODE_GOES,
+  whereCodeGoes,
+} from '../architecture.utils.mjs';
 import { runEditHook } from './run-hook.utils.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
@@ -78,6 +85,37 @@ describe('the architecture rule', () => {
   it('is not injected for edits outside harness source', () => {
     expect(edited({ file: 'docs/x.md' }).additional_context ?? '').not.toContain(
       'Architecture rule',
+    );
+  });
+});
+
+describe('"Where code goes"', () => {
+  it('is read from the project skill: the table and the new-package criteria', () => {
+    const guide = whereCodeGoes();
+
+    expect(guide).toContain(WHERE_CODE_GOES);
+    expect(guide).toContain('would a non-coding LLM project');
+    expect(guide).toContain('A new package, instead of a folder');
+    expect(guide).not.toContain('## Backend only');
+  });
+
+  it('names every workspace the layout reads, so a new one needs a row', () => {
+    const guide = whereCodeGoes() ?? '';
+    const missing = Object.keys(readLayout({ root: ROOT })).filter(
+      (name) => name !== '@sheavly/harness' && !guide.includes(`\`${name}\``),
+    );
+
+    expect(missing).toEqual([]);
+  });
+
+  it('is injected once per chat, on its first edit of harness source', () => {
+    const first = edited({ file: 'src/host/x.service.ts' });
+    const second = edited({ file: 'src/host/x.service.ts' });
+
+    expect(first.additional_context).toContain('Where code goes in this project');
+    expect(second.additional_context ?? '').not.toContain('Where code goes');
+    expect(edited({ file: 'docs/x.md', chat: 'c3' }).additional_context ?? '').not.toContain(
+      'Where code goes',
     );
   });
 });

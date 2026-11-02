@@ -2,12 +2,13 @@
 // and hand the problems straight back, so they're fixed while the file is fresh instead of piling
 // up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
-// events, no UI unless the issue asks (architecture.utils.mjs). The first edit of a file a skill
-// governs names that skill (skills.utils.mjs), and source outside every workspace's src/ is
-// reported (layout.utils.mjs). Every edit or deletion of project
-// source is recorded in the chat's state, so the stop hook checks only chats that changed this
-// checkout. Advisory: it never blocks the edit. The stop hook (check-on-stop.mjs) enforces.
-import { architectureRule, coveredByRule } from './architecture.utils.mjs';
+// events, no UI unless the issue asks; the first edit also injects "Where code goes" (both from
+// the project skill, architecture.utils.mjs). The first edit of a file a skill governs names that
+// skill (skills.utils.mjs), and source outside every workspace's src/ is reported
+// (layout.utils.mjs). Every edit or deletion of project source is recorded in the chat's state, so
+// the stop hook checks only chats that changed this checkout. Advisory: it never blocks the edit.
+// The stop hook (check-on-stop.mjs) enforces.
+import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
@@ -85,6 +86,17 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
   if (rule) {
     notes.push(rule);
     remember({ architectureRuleShown: true });
+  }
+}
+
+// "Where code goes" once per chat, on its first edit of harness source: before more code lands in
+// the wrong package.
+if (coveredByRule(relative) && readState()?.whereCodeGoesShown !== true) {
+  const guide = whereCodeGoes();
+
+  if (guide) {
+    notes.push(guide);
+    remember({ whereCodeGoesShown: true });
   }
 }
 
