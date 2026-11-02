@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
-import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
+import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { streamAgent } from '../stream-agent.helper.js';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
-import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
+import { runSession, streamAgent } from '../../stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import {
@@ -11,8 +11,8 @@ import {
   toolCall,
 } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
-import { createMessageAgentTool } from '../message-agent.tool.js';
-import { createSubAgentTool } from '../sub-agent.tool.js';
+import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
+import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 /** A promise you resolve later: holds a scripted step until the test lets it go. */

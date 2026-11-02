@@ -33,7 +33,7 @@ export {
   createCancelTaskTool,
   createTaskStatusTool,
   createTaskTools,
-} from './tools/tasks/tasks.tool.js';
+} from '@sheavly/tools/tasks/tasks.tool';
 export { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 export { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
 export type { StartTask } from '@sheavly/runtime/tasks/tasks.types';
@@ -60,7 +60,7 @@ export { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 export { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 export type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 export type * from '@sheavly/protocol/session/session.types';
-export { createSubAgentTool } from './tools/sub-agent/sub-agent.tool.js';
-export { createReportStatusTool } from './tools/sub-agent/report-status.tool.js';
-export { createMessageAgentTool } from './tools/sub-agent/message-agent.tool.js';
-export type { RunNestedAgent, SubAgentOptions } from './tools/sub-agent/sub-agent.types.js';
+export { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+export { createReportStatusTool } from '@sheavly/tools/sub-agent/report-status.tool';
+export { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
+export type { RunNestedAgent, SubAgentOptions } from '@sheavly/tools/sub-agent/sub-agent.types';

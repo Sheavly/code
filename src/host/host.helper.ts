@@ -5,9 +5,9 @@ import { createDefaultRegistry } from '@sheavly/providers/registry/default-regis
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { createMessageAgentTool } from '../tools/sub-agent/message-agent.tool.js';
-import { createSubAgentTool } from '../tools/sub-agent/sub-agent.tool.js';
-import { createTaskTools } from '../tools/tasks/tasks.tool.js';
+import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
+import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { HOST_MAX_TURNS } from './host.constants.js';
 import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js';
 import { parseProviderEnv } from './host.validator.js';
