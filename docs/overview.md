@@ -28,6 +28,43 @@ layers are a policy in `packages/eslint-config/src/layout.js`. A workspace witho
 @sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
+As packages (#74): today `protocol`, `core` and `providers` are workspaces and the rest is the one
+app being split (#29). Each arrow points from a workspace to what it may depend on; generic
+workspaces never depend on coding ones, nothing depends on an app, and `eslint-config` is a dev
+dependency only.
+
+```mermaid
+flowchart BT
+  subgraph generic
+    protocol["@sheavly/protocol"]
+    core["@sheavly/core"]
+    providers["@sheavly/providers"]
+    runtime["@sheavly/runtime (#29)"]
+    tools["@sheavly/tools (#29)"]
+    loop["@sheavly/loop (#29)"]
+    host["@sheavly/host (#29)"]
+  end
+  subgraph coding
+    workspace["@sheavly/workspace (#29)"]
+    codingPkg["@sheavly/coding (#29)"]
+  end
+  subgraph apps
+    app["apps/* (#29; today the root app)"]
+  end
+  core --> protocol
+  providers --> core
+  runtime --> core
+  tools --> runtime
+  loop --> runtime
+  host --> loop & tools & providers
+  workspace --> runtime
+  codingPkg --> workspace & tools
+  app --> host & codingPkg
+```
+
+A new workspace comes from `npm run new` (README, "Workspace layout"); the project skill's
+"Where code goes" says which one something belongs in.
+
 | Where                     | What lives there                                                                                                                                                                             |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                        |
