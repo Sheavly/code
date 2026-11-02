@@ -45,7 +45,7 @@ npm run test:watch  # re-run on save
 npm run typecheck   # type errors only
 npm run lint        # ESLint (see "Code quality" below)
 npm run format      # Prettier: format everything
-npm run check       # the full quality gate: typecheck + lint + format check + knip + jscpd + tests
+npm run check       # the full quality gate: typecheck + lint + format check + knip + jscpd + layout + tests
 ```
 
 `test`, `typecheck`, `lint` and `check` run through Turborepo, so a rerun reuses every result whose
@@ -257,8 +257,8 @@ tools/run-command/
 
 ## Code quality
 
-`npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd and the
-tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
+`npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd, the
+layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
 
 ### The pipeline (Turborepo)
 
@@ -293,6 +293,16 @@ The harness is a backend: `harness/no-terminal-io` (in `@sheavly/eslint-config`,
 workspace gets it) fails `node:readline`, `node:tty` and `process.stdin/stdout/stderr` outside
 the front-end files named in `FRONT_END_FILES` (`eslint.config.js`). A new UI is added to that list
 only when its issue asks for one.
+
+### Workspace layout (`npm run layout`)
+
+`scripts/check-layout.mjs` holds the files on disk to the layout in
+`packages/eslint-config/src/layout.js`. Every workspace has a layout entry at its directory, is
+named `@sheavly/<folder>` (the root app keeps its name until #29), has an `eslint.config.js` calling
+`baseConfig`, a `tsconfig.json` extending `tsconfig.base.json` with `rootDir: "src"` and a
+`knip.json` entry, and depends on exactly the `@sheavly/*` workspaces its `dependsOn` lists (dev
+dependencies only on tooling or test-only ones). TypeScript outside a workspace's `src/` fails,
+apart from what `NOT_SOURCE` lists with a reason. The imports themselves are `harness/imports`.
 
 ### Dead code and duplication (knip, jscpd)
 
@@ -349,6 +359,10 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
+- `harness/layout` and `harness/imports`: every workspace is in the layout
+  (`packages/eslint-config/src/layout.js`), and imports follow its graph: `@sheavly/*` only along
+  `dependsOn` (never an app, never coding from generic), test-only workspaces only from tests and
+  fakes, no relative import across workspace roots, and this app's `src/` layers until #29.
 - `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

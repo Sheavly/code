@@ -12,7 +12,7 @@
     "lint": "turbo run lint lint:root",
     "lint:fix": "eslint . --fix && prettier --write . --log-level warn",
     "lint:prune": "eslint . --prune-suppressions",
-    "check": "turbo run typecheck typecheck:root lint lint:root test test:root format:check knip jscpd",
+    "check": "turbo run typecheck typecheck:root lint lint:root test test:root format:check knip jscpd layout",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip --preprocessor ./scripts/knip-baseline.mjs",
@@ -24,7 +24,8 @@
     "typecheck:root": "tsc --noEmit",
     "lint:root": "eslint . --ignore-pattern 'packages/'",
     "test:root": "vitest run",
-    "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd"
+    "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
+    "layout": "node scripts/check-layout.mjs"
   },
   "type": "module",
   "dependencies": {
