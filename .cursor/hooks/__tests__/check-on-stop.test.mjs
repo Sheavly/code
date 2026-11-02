@@ -63,6 +63,12 @@ describe('the stop hook', () => {
     expect(stop('editor').followup_message).toContain('The quality gate fails');
   });
 
+  it('runs the layout check with the rest of the gate', () => {
+    edit('editor', 'docs/x.md');
+
+    expect(stop('editor').followup_message).toContain('## Layout');
+  });
+
   it('runs the gate for a chat that deleted project source', () => {
     edit('deleter', 'src/gone.ts');
 

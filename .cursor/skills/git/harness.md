@@ -34,7 +34,9 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 **Already enforced, stay quiet:** a new type in an existing `*.types.ts`
 (`harness/single-definition`), a new workspace's rules and scripts (`workspace-coverage.test.js`),
 a new skill's metadata (`skills.utils.test.mjs`), a new scope's area label
-(`sync-area-labels.mjs`), file names and kinds (`harness/file-kind`).
+(`sync-area-labels.mjs`), file names and kinds (`harness/file-kind`), a new workspace's layout entry, configs and
+dependencies (`harness/layout`, `npm run layout`), imports across workspaces and layers
+(`harness/imports`).
 
 ## What to add
 

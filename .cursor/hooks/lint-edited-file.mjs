@@ -3,7 +3,8 @@
 // up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
 // events, no UI unless the issue asks (architecture.utils.mjs). The first edit of a file a skill
-// governs names that skill (skills.utils.mjs). Every edit or deletion of project
+// governs names that skill (skills.utils.mjs), and source outside every workspace's src/ is
+// reported (layout.utils.mjs). Every edit or deletion of project
 // source is recorded in the chat's state, so the stop hook checks only chats that changed this
 // checkout. Advisory: it never blocks the edit. The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule } from './architecture.utils.mjs';
@@ -22,6 +23,7 @@ import {
   updateChatState,
 } from './hooks.utils.mjs';
 import { hintGoverningSkills } from './skills.utils.mjs';
+import { strayEditNote } from './layout.utils.mjs';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -85,6 +87,11 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
     remember({ architectureRuleShown: true });
   }
 }
+
+// TypeScript outside every workspace's src/ is reported now, not first at the stop check.
+const stray = strayEditNote(relative);
+
+if (stray) notes.push(stray);
 
 // The skill that governs this file (its `harness.json` `governs` globs), named once per chat.
 try {

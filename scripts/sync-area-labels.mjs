@@ -1,5 +1,5 @@
 // Keeps the issue labels that say where work lives in step with the commit scopes: one
-// `area/<scope>` per package and src/ folder (listScopes, the same source as the commit format),
+// `area/<scope>` per workspace in packages/ and apps/ and src/ folder (listScopes, the same source as the commit format),
 // plus `area/tooling` and the cross-cutting `security`. Runs on every push to main
 // (.github/workflows/sync-labels.yml), so a new folder gets its label when it lands.
 //
@@ -33,7 +33,8 @@ function describeArea(params) {
   }
 
   const scope = label.slice(AREA_PREFIX.length);
-  const folder = existsSync(path.join(repoRoot, 'packages', scope)) ? 'packages' : 'src';
+  const folder =
+    ['packages', 'apps'].find((parent) => existsSync(path.join(repoRoot, parent, scope))) ?? 'src';
 
   return `Commit scope ${scope}: ${folder}/${scope}`;
 }

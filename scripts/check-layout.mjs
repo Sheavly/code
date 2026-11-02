@@ -17,10 +17,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { LAYOUT, NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
-import { listWorkspaces } from '../packages/eslint-config/src/layout.utils.js';
+import {
+  isStraySource,
+  listWorkspaces,
+  STRAY_SOURCE,
+} from '../packages/eslint-config/src/layout.utils.js';
 
 const SCOPE = '@sheavly/';
-const TYPESCRIPT = /\.[cm]?tsx?$/;
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
@@ -133,31 +136,13 @@ function dependencyProblems(params) {
   return problems;
 }
 
-/**
- * `file` matches `glob`. A trailing `/**` takes everything below, dot folders included
- * (`path.matchesGlob` skips those, and a fixture's `.sheavly/` is still not harness source).
- */
-function matchesPath(params) {
-  const { file, glob } = params;
-
-  return glob.endsWith('/**') ? file.startsWith(glob.slice(0, -2)) : path.matchesGlob(file, glob);
-}
-
 /** TypeScript files outside every workspace's `src/`, apart from what `NOT_SOURCE` lists. */
 function strayProblems(params) {
   const { workspaces, files, notSource } = params;
-  const sources = workspaces.map(({ relative }) =>
-    relative === '.' ? 'src/' : `${relative}/src/`,
-  );
 
   return files
-    .filter((file) => TYPESCRIPT.test(file))
-    .filter((file) => !sources.some((src) => file.startsWith(src)))
-    .filter((file) => !Object.keys(notSource).some((glob) => matchesPath({ file, glob })))
-    .map(
-      (file) =>
-        `${file}: source lives in a workspace's src/. Move it, or list why it isn't source in NOT_SOURCE (packages/eslint-config/src/layout.js).`,
-    );
+    .filter((file) => isStraySource({ workspaces, file, notSource }))
+    .map((file) => `${file}: ${STRAY_SOURCE}`);
 }
 
 /** Every layout problem in the repo at `root`, given its tracked and untracked `files`. */

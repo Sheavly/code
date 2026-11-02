@@ -5,6 +5,7 @@
 // stacked on another issue branch (.cursor/skills/git/stacks.md).
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
+import { LAYOUT } from '../../packages/eslint-config/src/layout.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 
 export const NO_ISSUE = 'NO-ISSUE';
@@ -75,14 +76,26 @@ function listDirs(dir) {
   }
 }
 
+/** The test-only layers of the app being split (`testing`): fakes, never a commit scope. */
+const TEST_ONLY_LAYERS = new Set(
+  Object.values(LAYOUT).flatMap((entry) =>
+    Object.entries(entry.layers ?? {})
+      .filter(([, layer]) => !Array.isArray(layer) && layer.testOnly)
+      .map(([name]) => name),
+  ),
+);
+
 /**
- * Valid commit scopes: each package (`core`, `eslint-config`) and each top-level folder of the
- * app's `src/` (`loop`, `tools`, …), read from disk so a new one needs no edit here.
+ * Valid commit scopes, read from disk so a new one needs no edit here: each workspace folder in
+ * `packages/` and `apps/` (`core`, `eslint-config`), and each `src/` folder of the app being split
+ * (`loop`, `tools`, …) until #29 moves them into workspaces, minus the layers the layout marks
+ * test-only (packages/eslint-config/src/layout.js).
  */
 export function listScopes(repoRoot) {
   const scopes = [
     ...listDirs(path.join(repoRoot, 'packages')),
-    ...listDirs(path.join(repoRoot, 'src')).filter((name) => name !== 'testing'),
+    ...listDirs(path.join(repoRoot, 'apps')),
+    ...listDirs(path.join(repoRoot, 'src')).filter((name) => !TEST_ONLY_LAYERS.has(name)),
   ];
 
   return [...new Set(scopes)].sort();
