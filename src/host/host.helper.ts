@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { runSession } from '../loop/stream-agent/stream-agent.helper.js';
+import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';

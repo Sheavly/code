@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
+import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { Workspace } from '../../../runtime/workspace/workspace.service.js';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
