@@ -21,8 +21,8 @@ const DOC_SOURCES = [
     sources: [
       /^packages\/core\/src\/hook\//,
       /^packages\/loop\/src\/hooks\//,
-      /^src\/runtime\/project-hooks\//,
-      /^src\/runtime\/agents-md\//,
+      /^packages\/workspace\/src\/project-hooks\//,
+      /^packages\/workspace\/src\/agents-md\//,
     ],
   },
   { doc: 'docs/tools.md', sources: [/^packages\/core\/src\/tool\//, /^src\/tools\//] },

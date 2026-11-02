@@ -67,7 +67,7 @@ does is done. The `/git` review step asks for it, and the stop hook nudges once 
 workspace: basic
 check:
   {
-    'areas': ['src/runtime/trust', 'src/host'],
+    'areas': ['packages/workspace/src/trust', 'src/host'],
     'expect': { 'reply': ['[AGENTS.md OK]', '/Sheavly\W*$/'], 'tools': ['read_file'] },
     'forbid': { 'transcript': ['hooks not loaded'] },
   }
@@ -76,7 +76,7 @@ check:
 
 - **`check`** is JSON, or the YAML flow style Prettier rewrites it to (single quotes, trailing
   commas). It may go on over indented lines. No YAML library is needed.
-- **`areas`**: source paths (`src/runtime/trust`, a file or a folder) whose changes make the check
+- **`areas`**: source paths (`packages/workspace/src/trust`, a file or a folder) whose changes make the check
   relevant. `check` with no names runs only these, and lists changed source no check covers.
 - **`expect` / `forbid`**: `transcript` (what was printed) and `reply` (the final answer) take
   substrings, or regexes written `/…/flags`. `events` (types such as `context_added`) and `tools`

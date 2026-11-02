@@ -404,7 +404,7 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   handle only what it expects, or pass it on as `cause`. Turning every error into a default
   (`[]`, `undefined`, a fresh error without the cause) fails.
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
-  a class from its area's errors (`src/runtime/errors/`, `packages/providers/src/errors/`,
+  a class from its area's errors (each package's `src/errors/`, the app's `src/runtime/errors/`,
   `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [docs/overview.md](docs/overview.md#errors).
 

@@ -25,7 +25,7 @@ Two ways to tell the model something:
 
 ## Built-in: AGENTS.md
 
-`createAgentsMdHook({ root, cwd? })` (`src/runtime/agents-md/`) is a `beforeTurn` hook that
+`createAgentsMdHook({ root, cwd? })` (`@sheavly/workspace/agents-md/`) is a `beforeTurn` hook that
 reads AGENTS.md files and adds them as system instructions.
 
 - It looks in every folder from `root` down to `cwd` (default: `root`), like git walks up from
@@ -57,7 +57,7 @@ reads AGENTS.md files and adds them as system instructions.
   hooks/            hook files: .js .mjs .cjs .ts .mts .cts, ESM or CommonJS
 ```
 
-- `loadProjectHooks({ root, trust, grant? })` (`src/runtime/project-hooks/`) loads them once at
+- `loadProjectHooks({ root, trust, grant? })` (`@sheavly/workspace/project-hooks/`) loads them once at
   startup, in manifest order (`"enabled": false` skips one), and returns `{ hooks, trust }`.
   Anything broken stops startup with the file name and the reason.
 - Each file's default export is the hook (`export default` or `module.exports`). It's validated
@@ -76,7 +76,7 @@ once loaded ([trust model](overview.md#trust-model)). So
 ([#3](https://github.com/Sheavly/code/issues/3)); otherwise none of their files is
 even imported.
 
-- `TrustStore` (`src/runtime/trust/`) keeps the trusted workspaces in one file outside every
+- `TrustStore` (`@sheavly/workspace/trust/`) keeps the trusted workspaces in one file outside every
   repo, so a repo can't trust itself: `trustStoreFromEnv()` picks `SHEAVLY_TRUST_FILE`, else
   `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json` (default `~/.config/sheavly/`).
 - Each entry is the workspace's real path and a fingerprint (SHA-256) of every file in its
@@ -102,7 +102,7 @@ a package, a symlink out of `.sheavly/`, a `require` of either) fails to load wi
 
 1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.
 2. Add it to `HANDLERS` in `hook.utils.ts` and to `hookExportSchema` in
-   `src/runtime/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
+   `packages/workspace/src/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
 3. Add a runner in `packages/loop/src/hooks/hooks.helper.ts` and call it from the loop.
 4. Test it in `packages/loop/src/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 
