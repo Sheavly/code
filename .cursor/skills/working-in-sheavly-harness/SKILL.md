@@ -24,6 +24,27 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 
 ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only this app's `src/` layers (until #29 splits it) and `NOT_SOURCE` are written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain, or a `src/` folder that isn't a layer, fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
+## Where code goes
+
+Decide where something lives before writing it. The first question: **would a non-coding LLM project (a text extractor, a chat wrapper) need this?** Yes: it is generic, and goes where it knows nothing about files, workspaces or code. No: it is coding, and only the coding preset reaches it. Then pick the row. Until #29 finishes splitting the app, some homes are still `src/` folders; the last column is the package each one becomes.
+
+| You are adding…                                                                 | It goes in                                                   | Once #29 lands       |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------- |
+| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`     | (already a package)  |
+| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then the loop  | protocol, then loop  |
+| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                              | (already a package)  |
+| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                            | (already a package)  |
+| A stateful service the host creates (tasks, sessions, approvals, locks)         | `src/runtime/<module>/`                                      | `@sheavly/runtime`   |
+| A generic tool (no files, no commands)                                          | `src/tools/<name>/`                                          | `@sheavly/tools`     |
+| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset | `@sheavly/workspace` |
+| A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`             | `@sheavly/coding`    |
+| Wiring a run, a transport, the model from env                                   | `src/host/`                                                  | `@sheavly/host`      |
+| A fake for tests                                                                | `src/testing/` (a package's own: its `src/testing/`)         | `@sheavly/testing`   |
+| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                     | (already a package)  |
+| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`           | `apps/<name>`        |
+
+**A new package, instead of a folder in an existing one**, when all of these hold: it has its own reason to change (not just more of what a package already does); something that shouldn't get the rest of an existing package needs it (a generic consumer, or a UI that needs only the wire contract); and its dependencies point down the graph. Otherwise it is a module folder in the package that owns the concern. Create a package or app with `npm run new` (see Packages), never by hand.
+
 ## Backend only: typed events, no UI
 
 - The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`, `ApprovalUpdate`) and exposes registries a UI answers through (`approvals.respond`, `sessions.send`). It renders nothing, prompts no one and reads no terminal input.
@@ -48,7 +69,7 @@ npm workspaces in `packages/`, imported by subpath (`import { defineTool } from 
 - `packages/providers`: the model backends (`@sheavly/providers`), imported only by `src/host/` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
 - **Enforce what you add.** When you introduce a package, a convention or a pattern the harness doesn't check yet, add the check in the same change (a `harness/*` rule here, a layer in `layout.js`, a `file-kinds.js` policy, a test), never a gap or a doc-only note; derive it from the code (workspaces, file names, exports) rather than a hand-kept list, so it grows by itself, and make its message say what to do instead. `harness/single-definition` is the model: every `*.types.ts` in the app and the packages owns the types it exports, read from disk, so a copy anywhere else (another folder, package or file, exported, local or re-exported) fails with where the original lives; exemptions go by file role (tests, fakes), never by name.
-- A new package: `npm init -y -w packages/<name>`, `npm pkg set sheavly.domain=<generic|coding|tooling> -w packages/<name>`, then `npm pkg set -w packages/<name> ...` (never hand-edit `package.json`): `exports` with `@sheavly/source` → `./src/*.ts`, `types` → `./dist/*.d.ts` and `default` → `./dist/*.js`, and `"build": "tsc -b tsconfig.build.json"`. Add an `eslint.config.js` calling `baseConfig({ tsconfigRootDir: import.meta.dirname })`, a `tsconfig.json` extending `../../tsconfig.base.json` with `rootDir: "src"` and `outDir: "dist"`, and a `tsconfig.build.json` like core's (composite, emits, clears `customConditions`, excludes `__tests__` and `testing`, references the packages it depends on). Reference it from the root `tsconfig.build.json` (or from a package that depends on it), and depend on it with `npm install <name>@0.0.0`.
+- A new package or app: `npm run new -- package|app <name> --domain <generic|coding|tooling> --description "…" [--depends-on core,protocol]`. It refuses a dependency the graph doesn't allow, creates the workspace through npm (never a hand-written `package.json`) with its configs, README and a first test, and prints the `npm install` to run with each dependency's first import. It passes `npm run check` as it is. Reference a package you build for plain Node from the root `tsconfig.build.json` (or from a package that depends on it).
 
 ## File structure
 
