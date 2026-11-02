@@ -8,18 +8,19 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 ## Layers (imports only point down)
 
 ```
-@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
+@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer                | Holds                                                                                                           | May import    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- | ------------- |
-| `packages/core`      | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter`                                             | zod only      |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                               | core, zod     |
-| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals                                      | core          |
-| `src/tools/`         | One folder per tool                                                                                             | core, runtime |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                                                                | core, runtime |
-| `src/host/`          | `createHarness` (generic) and `createCodingHarness` (the coding preset): wires a run, the model from env. No UI | all above     |
-| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                             | anything      |
+| Layer                | Holds                                                                                                           | May import              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                                | zod only                |
+| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                        | protocol, zod           |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                               | protocol, core, zod     |
+| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals                                      | protocol, core          |
+| `src/tools/`         | One folder per tool                                                                                             | protocol, core, runtime |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                                                                | protocol, core, runtime |
+| `src/host/`          | `createHarness` (generic) and `createCodingHarness` (the coding preset): wires a run, the model from env. No UI | all above               |
+| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                             | anything                |
 
 ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -42,7 +43,8 @@ Design docs live in `docs/` (overview, tools, hooks, sessions). When a feature l
 
 npm workspaces in `packages/`, imported by subpath (`import { defineTool } from '@sheavly/core/tool/tool.utils'`). Each is built to its own `dist/` for plain Node (`npm run build`, `tsc -b` in dependency order); dev, tests and typecheck read its source through the `@sheavly/source` export condition, so nothing is built before `vitest` (`docs/overview.md`, "Packages").
 
-- `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new contract shared by tools, providers and a future UI goes here.
+- `packages/protocol`: the wire contract, everything sent to or accepted from a UI (`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them). Each is a zod schema in a `<module>.validator.ts`, its type `z.infer` of it in `<module>.types.ts`; never write a wire type by hand. It imports zod only (its `eslint.config.js` and `rootDir`). After changing a schema, run `npm run schema -w @sheavly/protocol`: a test fails while `contract.schema.json` is out of date. What a provider streams and the code contracts (`Tool`, `Hook`, `Adapter`) stay in core.
+- `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new code contract shared by tools and providers goes here; one a UI sees goes in protocol.
 - `packages/providers`: the model backends (`@sheavly/providers`), imported only by `src/host/` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
 - A new package: `npm init -y -w packages/<name>`, then `npm pkg set -w packages/<name> ...` (never hand-edit `package.json`): `exports` with `@sheavly/source` → `./src/*.ts`, `types` → `./dist/*.d.ts` and `default` → `./dist/*.js`, and `"build": "tsc -b tsconfig.build.json"`. Add an `eslint.config.js` calling `baseConfig({ tsconfigRootDir: import.meta.dirname })`, a `tsconfig.json` extending `../../tsconfig.base.json` with `rootDir: "src"` and `outDir: "dist"`, and a `tsconfig.build.json` like core's (composite, emits, clears `customConditions`, excludes `__tests__` and `testing`, references the packages it depends on). Reference it from the root `tsconfig.build.json` (or from a package that depends on it), and depend on it with `npm install <name>@0.0.0`.
@@ -88,7 +90,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 
 **A provider**: see `packages/providers/README.md`. A Responses API backend is one folder, `packages/providers/src/<name>/<name>.adapter.ts`, using `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `responses/responses.helper.ts`): a pure map from config to endpoint. Another protocol (Anthropic, Gemini, Chat Completions) gets its own protocol folder next to `responses/` and backends on it; it never reuses `responses/`. Anything else uses `defineAdapter` (from `@sheavly/core/adapter/adapter.utils`). Register built-ins in `registry/default-registry.helper.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
 
-**A loop event**: add it to the `AgentEventBody` union in `loop/events/events.types.ts` and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
+**A loop event**: add its schema to `agentEventBodySchema` in `packages/protocol/src/event/event.validator.ts` (then `npm run schema -w @sheavly/protocol`) and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
 
 **A hook**: `defineHook({ name, sessionStart?, beforeTurn?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters). `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history; the built-in `createAgentsMdHook` in `runtime/agents-md/` uses it); `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event). A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.utils.ts` and run from `loop/hooks/hooks.helper.ts`.
 

@@ -8,7 +8,7 @@ on its own or get lost.
 ## Sessions
 
 `SessionRegistry` (`src/runtime/sessions/`) holds the session tree of one main run. A session
-is a `SessionRef` (`packages/core/src/session/`):
+is a `SessionRef` (`packages/protocol/src/session/`):
 
 | Field      | What it is                                                    |
 | ---------- | ------------------------------------------------------------- |

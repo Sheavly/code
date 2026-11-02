@@ -165,7 +165,7 @@ ordered stream would hold back the request it waits for.
 ## Artifacts: the tool returns them, the harness passes them on, the UI renders them
 
 A tool can return data for a UI next to its text: `{ content, artifacts }`, where each artifact
-is a `ToolArtifact` (`@sheavly/core/tool/tool.types`), an object tagged with a `kind`:
+is a `ToolArtifact` (`@sheavly/protocol/event/event.types`), an object tagged with a `kind`:
 
 ```ts
 type ToolArtifact = { kind: string; [field: string]: unknown };

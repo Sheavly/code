@@ -22,12 +22,13 @@ this rule from the project skill the first time a chat edits harness source.
 Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 
 ```
-@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
+@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
 | Where                     | What lives there                                                                                                                                                                             |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/core/src/`      | Contracts only: `message/`, `provider/`, `tool/`, `adapter/`, `hook/`, `session/`                                                                                                            |
+| `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                        |
+| `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                         |
 | `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                             |
 | `src/runtime/`            | Services and helpers: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
 | `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                             |
@@ -82,7 +83,7 @@ the coding preset reaches them, so they can move into their own packages
 
 Workspace packages (`packages/*`) are **built**: each compiles its own `dist/` (`.js`, `.d.ts`,
 source maps) with `tsc -b`, and the app's build references them, so `npm run build` compiles
-`@sheavly/core`, then `@sheavly/providers`, then the app, in dependency order. Each package's
+`@sheavly/protocol`, then `@sheavly/core`, then `@sheavly/providers`, then the app, in dependency order. Each package's
 `exports` has two targets per subpath:
 
 ```json
@@ -107,6 +108,25 @@ loader. Why `tsc -b`, not a bundler or a task runner: the source already uses `.
 library mode, tsup) would merge those files and needs a plugin for declarations. A task runner
 (Turborepo) only orders and caches each package's `build` script; it can be added on top of these
 scripts once there are enough packages for caching to matter (#74).
+
+## The wire contract
+
+`@sheavly/protocol` is the bottom layer: everything the harness sends a UI or accepts from one
+(`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them),
+defined once as zod schemas. Every type is `z.infer` of its schema, so the TypeScript types and
+what goes over the wire can't drift. It depends on zod only; its `eslint.config.js` keeps the
+other workspace packages out, and its `rootDir` the app.
+
+- A TypeScript UI imports the types (`@sheavly/protocol/event/event.types`) and can parse what it
+  receives with the schemas (`event.validator`).
+- Any other client reads `packages/protocol/contract.schema.json`, the whole contract as one JSON
+  Schema (draft 2020-12, every type under `$defs`). `npm run schema -w @sheavly/protocol` writes it
+  from the schemas, and a test fails when the committed file is out of date.
+- A loop test (`wire-contract.test.ts`) parses every event and session update of a scripted run
+  against its schema.
+- Only the wire contract lives there. What a provider streams (`StreamEvent`, `StopReason`) and
+  the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
+  `Sequenced<T>` in the loop.
 
 ## The provider contract
 
@@ -227,10 +247,14 @@ only).
 
 ## Where the next work goes
 
-- A contract other packages or a UI depend on: `packages/core/src/<module>/`.
+- Something sent to or accepted from a UI (an event, an update, an answer): a zod schema in
+  `packages/protocol/src/<module>/<module>.validator.ts`, its type inferred in
+  `<module>.types.ts`; then `npm run schema -w @sheavly/protocol` (see "The wire contract").
+- A code contract other packages depend on (a tool, a hook, a provider): `packages/core/src/<module>/`.
 - A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
   for a Responses API backend; another protocol gets its own folder next to `responses/` (see
   [the package README](../packages/providers/README.md)).
 - A tool: `src/tools/<name>/` (see [tools.md](tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
-- Something a UI must show: a new event in `src/loop/events/events.types.ts`.
+- Something a UI must show: a new event in `agentEventBodySchema`
+  (`packages/protocol/src/event/event.validator.ts`).
