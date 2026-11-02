@@ -22,6 +22,14 @@ Review bottom up, one commit at a time.
 - Read carefully:
 - Skim:
 
+## Harness impact
+
+<!-- What enforces each new package or pattern this adds (rule, test or hook, and its commit), or
+`none: <reason>`. Triggers and what to add: .cursor/skills/git/harness.md. CI fails it missing or
+empty. -->
+
+-
+
 ## Test plan
 
 - [ ] `npm run check` on the current head.

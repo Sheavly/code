@@ -8,6 +8,8 @@ here from step 4 on ([stacks.md](stacks.md)).
    (otherwise run [sync.md](sync.md) first).
 2. **Review** the branch with [review.md](review.md) and settle its findings before anything is
    pushed.
+   Then run the mechanical triggers of [harness.md](harness.md) against the diff: each one the
+   branch hits needs its enforcement committed, before the push.
 3. **Push**: `git push -u origin HEAD` the first time, `git push` after. After a fold or reshape
    while the PR is a draft ([fix.md](fix.md)), `git push --force-with-lease`.
 4. **Open the PR** once, as a draft unless the user asked for it to be ready for review. Write the
@@ -54,6 +56,9 @@ Plain, factual English for a reviewer who hasn't followed the chat. No emojis, n
   mechanical fixes).
 - `## Size`: only when the diff is large. What most of the lines are, and the reviewable size.
 - `## Before merging` (optional): manual steps outside the code, as a checklist.
+- `## Harness impact`: one bullet per [harness.md](harness.md) trigger the diff hits, naming
+  what enforces it (the rule, test or hook, and its commit), or `none: <reason>`. CI fails a body
+  without it, with it empty, or with a bare `none`.
 - `## Test plan`: a checklist. `[x]` for what was actually run on the current head (CI, local
   runs), `[ ]` for what is still to do. Include the Bugbot and security reviews of the current head
   ([review.md](review.md)) and what was left open by decision, and the real-model check's result
