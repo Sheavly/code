@@ -1,4 +1,4 @@
-import type { Message } from '@sheavly/core/message/message.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 // Translation from our Message shape to Responses API input items.
 
