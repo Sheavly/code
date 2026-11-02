@@ -50,6 +50,15 @@ describe('the layout note on an edit', () => {
     rmSync(bare, { recursive: true, force: true });
   });
 
+  it("reports an unreadable package.json in place of the note, keeping the hook's other notes", () => {
+    writeFiles({ root: project, files: { 'packages/core/package.json': '{ half-written' } });
+
+    expect(() => strayEditNote('tools/gen.ts', project)).toThrow(/workspace package\.json files/);
+    expect(
+      runEditHook({ cwd: project, stateDir, file: 'tools/gen.ts' }).additional_context,
+    ).toContain('Could not read the workspace package.json files');
+  });
+
   it('reaches the agent from the post-edit hook right away', () => {
     const stray = runEditHook({ cwd: project, stateDir, file: 'tools/gen.ts' });
     const inside = runEditHook({ cwd: project, stateDir, file: 'src/loop/turn.helper.ts' });

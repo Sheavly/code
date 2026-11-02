@@ -89,27 +89,36 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
 }
 
 // TypeScript outside every workspace's src/ is reported now, not first at the stop check.
-const stray = strayEditNote(relative);
+advise(() => {
+  const stray = strayEditNote(relative);
 
-if (stray) notes.push(stray);
+  return stray ? [stray] : [];
+});
 
 // The skill that governs this file (its `harness.json` `governs` globs), named once per chat.
-try {
-  notes.push(...hintGoverningSkills({ conversationId, relative }));
-} catch (caughtError) {
-  // Advisory: broken skill metadata, or a state write that fails (read-only home, full disk:
-  // a Node error with a `code`), is reported in place of the hint and never blocks the edit.
-  const expected =
-    caughtError instanceof ProjectReadError ||
-    caughtError instanceof HookStateError ||
-    Boolean(caughtError?.code);
-
-  if (!expected) throw caughtError;
-
-  notes.push(caughtError.message);
-}
+advise(() => hintGoverningSkills({ conversationId, relative }));
 
 respond(notes.length > 0 ? { additional_context: notes.join('\n\n') } : {});
+
+/**
+ * Adds the notes `produce` returns. Advisory: a project file it can't read (a malformed
+ * package.json, broken skill metadata) or a state write that fails (read-only home, full disk:
+ * a Node error with a `code`) is reported in place of its notes and never blocks the edit.
+ */
+function advise(produce) {
+  try {
+    notes.push(...produce());
+  } catch (caughtError) {
+    const expected =
+      caughtError instanceof ProjectReadError ||
+      caughtError instanceof HookStateError ||
+      Boolean(caughtError?.code);
+
+    if (!expected) throw caughtError;
+
+    notes.push(caughtError.message);
+  }
+}
 
 /**
  * Advisory: a state write that fails (read-only home, full disk, a corrupt state file) must not
