@@ -153,11 +153,11 @@ describe('runToolCall', () => {
       isError: true,
     });
   });
-  it("passes a tool's file change through, and lets a hook see or drop it", async () => {
-    const change = { path: 'a.ts', before: 'x', after: 'y' };
-    const writer = defineTool({
+  it("passes a tool's artifacts through, and lets a hook see or drop them", async () => {
+    const artifacts = [{ kind: 'table', columns: ['a', 'b'], rows: [[1, 2]] }];
+    const parser = defineTool({
       ...echo,
-      execute: async () => ({ content: 'Edited a.ts', change }),
+      execute: async () => ({ content: 'Parsed 1 row', artifacts }),
     });
     let seen: unknown;
     const observe = defineHook({
@@ -165,25 +165,25 @@ describe('runToolCall', () => {
       aroundToolCall: async ({ next }) => {
         const result = await next();
 
-        seen = result.change;
+        seen = result.artifacts;
 
         return result;
       },
     });
     const drop = defineHook({
       name: 'drop',
-      aroundToolCall: async ({ next }) => ({ ...(await next()), change: undefined }),
+      aroundToolCall: async ({ next }) => ({ ...(await next()), artifacts: undefined }),
     });
 
-    const kept = await runToolCall({ hooks: [observe], tools: [writer], call, signal });
-    const dropped = await runToolCall({ hooks: [drop], tools: [writer], call, signal });
+    const kept = await runToolCall({ hooks: [observe], tools: [parser], call, signal });
+    const dropped = await runToolCall({ hooks: [drop], tools: [parser], call, signal });
 
-    expect(seen).toEqual(change);
+    expect(seen).toEqual(artifacts);
     expect(kept).toEqual({
-      message: { role: 'tool', toolCallId: 'c1', content: 'Edited a.ts', isError: false },
-      change,
+      message: { role: 'tool', toolCallId: 'c1', content: 'Parsed 1 row', isError: false },
+      artifacts,
     });
-    expect(dropped.change).toBeUndefined();
+    expect(dropped.artifacts).toBeUndefined();
   });
 });
 

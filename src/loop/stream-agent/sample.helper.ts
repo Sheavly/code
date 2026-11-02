@@ -106,7 +106,7 @@ async function startTool(params: {
   const { tools, hooks = [], tasks, session, signal } = start;
   const { call, description } = described;
   const started = performance.now();
-  const { message, change, read } = await Promise.race([
+  const { message, artifacts } = await Promise.race([
     runToolCall({ hooks, tools, call, signal, session }),
     stopped.then((content) => {
       const placeholder: ToolMessage = {
@@ -116,7 +116,7 @@ async function startTool(params: {
         isError: true,
       };
 
-      return { message: placeholder, change: undefined, read: undefined };
+      return { message: placeholder, artifacts: undefined };
     }),
   ]);
   const durationMs = performance.now() - started;
@@ -133,7 +133,6 @@ async function startTool(params: {
     description,
     message,
     durationMs,
-    ...(change && { change }),
-    ...(read && { read }),
+    ...(artifacts?.length ? { artifacts } : {}),
   };
 }

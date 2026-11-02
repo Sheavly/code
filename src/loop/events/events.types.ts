@@ -1,6 +1,6 @@
 import type { Sequenced } from '../queue/queue.types.js';
 import type { TaskInfo } from '../../runtime/tasks/tasks.types.js';
-import type { FileChange, FileRead } from '@sheavly/core/tool/tool.types';
+import type { ToolArtifact } from '@sheavly/core/tool/tool.types';
 import type { InboxMessage, SessionRef } from '@sheavly/core/session/session.types';
 import type {
   Message,
@@ -36,16 +36,15 @@ export type AgentEventBody =
   /** The turn ended with these calls; their results follow in this order. */
   | { type: 'tool_batch'; calls: DescribedCall[] }
   /**
-   * A tool's result, released only after the turn ended and all earlier results were. `change`:
-   * the file a tool created or edited (path, before, after), for a UI to render as a diff.
+   * A tool's result, released only after the turn ended and all earlier results were.
+   * `artifacts`: what the tool returned for a UI (a file diff, a read range, a parsed table),
+   * passed on as the tool (or a hook) left them. A UI renders the kinds it knows.
    */
   | ({
       type: 'tool_result';
       message: Message;
       durationMs: number;
-      change?: FileChange;
-      /** What a read covered (path, lines, whole file or not), for a UI to show. */
-      read?: FileRead;
+      artifacts?: readonly ToolArtifact[];
     } & DescribedCall)
   /** In place of `tool_result` when the call launched a background task: it's still running. */
   | ({ type: 'task_running'; task: TaskInfo; message: Message; durationMs: number } & DescribedCall)

@@ -122,28 +122,29 @@ describe('runAgent', () => {
     expect(messages).toHaveLength(5);
   });
 
-  it("puts a tool's file change on tool_result, never in the model's history", async () => {
-    const change = { path: 'a.ts', before: null, after: 'x' };
-    const writer = defineTool({
-      name: 'writer',
-      description: 'Writes a file',
+  it("puts a tool's artifacts on tool_result unchanged, never in the model's history", async () => {
+    const artifacts = [{ kind: 'table', columns: ['a', 'b'], rows: [[1, 2]] }];
+    const parser = defineTool({
+      name: 'parser',
+      description: 'Parses a file',
       inputSchema: z.object({}),
-      execute: async () => ({ content: 'Created a.ts', change }),
+      execute: async () => ({ content: 'Parsed 1 row', artifacts }),
     });
-    const call = { id: '1', name: 'writer', input: { description: 'writing a.ts' } };
+    const call = { id: '1', name: 'parser', input: { description: 'parsing a.csv' } };
     const events: AgentEvent[] = [];
     const messages = await runAgent({
       provider: callOnceProvider(call),
-      tools: [writer],
-      messages: [{ role: 'user', content: 'write' }],
+      tools: [parser],
+      messages: [{ role: 'user', content: 'parse' }],
       onEvent: (e) => events.push(e),
     });
 
-    expect(events.find((e) => e.type === 'tool_result')).toMatchObject({ change });
+    expect(events.find((e) => e.type === 'tool_result')).toMatchObject({ artifacts });
+    expect(JSON.stringify(messages)).not.toContain('columns');
     expect(messages[2]).toEqual({
       role: 'tool',
       toolCallId: '1',
-      content: 'Created a.ts',
+      content: 'Parsed 1 row',
       isError: false,
     });
   });
