@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { runProcess } from '../../runtime/process/process.service.js';
+import { runProcess } from '../../runtime/process/process.helper.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
 import { confirmArguments } from './arguments.service.js';

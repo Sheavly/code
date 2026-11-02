@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { callOnceProvider, scriptedProvider } from '../../../testing/scripted-provider.fake.js';
-import { createAgentsMdHook, findAgentsFiles } from '../agents-md.service.js';
+import { createAgentsMdHook, findAgentsFiles } from '../agents-md.helper.js';
 import { agentsDirs, formatAgentsInstructions } from '../agents-md.utils.js';
 
 /**

@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { approvalResponseSchema } from './approvals.utils.js';
+import type { approvalResponseSchema } from './approvals.validator.js';
 
 /** One argument that makes a command need approval, and why. */
 export type ApprovalConcern = { argument: string; reason: string };

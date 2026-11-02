@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { trustStoreSchema } from './trust.utils.js';
+import type { trustStoreSchema } from './trust.validator.js';
 
 /** The trust store file, after validation. */
 export type TrustStoreData = z.infer<typeof trustStoreSchema>;

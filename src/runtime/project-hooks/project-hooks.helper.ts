@@ -1,15 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { z } from 'zod';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { Workspace } from '../workspace/workspace.service.js';
-import { confineImports } from './confine.service.js';
+import { confineImports } from './confine.helper.js';
 import type { TrustStore } from '../trust/trust.service.js';
 import { HOOKS_MANIFEST, SHEAVLY_DIR } from './project-hooks.constants.js';
 import { ProjectHooksError } from '../errors/project-hooks.errors.js';
 import type { HooksManifest, ProjectHooks } from './project-hooks.types.js';
-import { explainImportError, hooksManifestSchema, parseHookExport } from './project-hooks.utils.js';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
+import { explainImportError } from './project-hooks.utils.js';
+import { hooksManifestSchema, parseHookExport } from './project-hooks.validator.js';
 
 /**
  * Loads the hooks listed in `<root>/.sheavly/hooks.json`, in manifest order (disabled entries
@@ -88,15 +89,12 @@ function parseManifest(text: string): HooksManifest {
     throw new ProjectHooksError(`${label(HOOKS_MANIFEST)} is not valid JSON: ${reason}`);
   }
 
-  const parsed = hooksManifestSchema.safeParse(json);
-
-  if (!parsed.success) {
-    throw new ProjectHooksError(
-      `Invalid ${label(HOOKS_MANIFEST)}:\n${z.prettifyError(parsed.error)}`,
-    );
-  }
-
-  return parsed.data;
+  return parseOrThrow({
+    schema: hooksManifestSchema,
+    input: json,
+    onInvalid: ({ details, error }) =>
+      new ProjectHooksError(`Invalid ${label(HOOKS_MANIFEST)}:\n${details}`, { cause: error }),
+  });
 }
 
 async function loadHookFile(params: { folder: Workspace; file: string }): Promise<Hook> {

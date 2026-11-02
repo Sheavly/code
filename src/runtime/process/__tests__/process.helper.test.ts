@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProcessKillError } from '../../errors/process.errors.js';
-import { runProcess } from '../process.service.js';
+import { runProcess } from '../process.helper.js';
 
 const signal = new AbortController().signal;
 const printEnv = (env: Record<string, string> = {}) =>

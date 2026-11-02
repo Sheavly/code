@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TrustStore } from '../../trust/trust.service.js';
-import { loadProjectHooks } from '../project-hooks.service.js';
+import { loadProjectHooks } from '../project-hooks.helper.js';
 
 // A hook whose file, when imported at all, leaves a mark: proves an untrusted workspace's hook
 // code never runs, not just that its hooks aren't returned.

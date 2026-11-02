@@ -93,13 +93,13 @@ whose real path is inside `.sheavly/`, and Node built-ins (`node:fs`). Anything 
 a package, a symlink out of `.sheavly/`, a `require` of either) fails to load with a
 `ProjectHooksError`, before its code runs: otherwise a later change to it would run on an old
 "yes". `import type` is fine, since Node removes it. This is a Node resolve hook
-(`confine.service.ts`), in place for the rest of the process once hooks load.
+(`confine.helper.ts`), in place for the rest of the process once hooks load.
 
 ## Adding a hook point
 
 1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.
 2. Add it to `HANDLERS` in `hook.utils.ts` and to `hookExportSchema` in
-   `src/runtime/project-hooks/project-hooks.utils.ts` (the typecheck fails if either is missed).
+   `src/runtime/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
 3. Add a runner in `src/loop/hooks/hooks.service.ts` and call it from the loop.
 4. Test it in `src/loop/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 

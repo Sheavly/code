@@ -1,12 +1,13 @@
 import { mkdir, readdir, readFile, readlink, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '../errors/errors.utils.js';
 import { TrustStoreError } from '../errors/trust.errors.js';
 import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';
 import type { FingerprintEntry, TrustState, TrustStoreData } from './trust.types.js';
-import { fingerprintOf, trustStoreSchema } from './trust.utils.js';
+import { fingerprintOf } from './trust.utils.js';
+import { trustStoreSchema } from './trust.validator.js';
 
 /**
  * Which workspaces the user trusts to run their `.sheavly/` hooks. Kept in one JSON file
@@ -104,17 +105,12 @@ export class TrustStore {
       throw new TrustStoreError({ file: this.#file, cause: caughtError });
     }
 
-    const parsed = trustStoreSchema.safeParse(json);
-
-    if (!parsed.success) {
-      throw new TrustStoreError({
-        file: this.#file,
-        cause: parsed.error,
-        reason: `invalid:\n${z.prettifyError(parsed.error)}`,
-      });
-    }
-
-    return parsed.data;
+    return parseOrThrow({
+      schema: trustStoreSchema,
+      input: json,
+      onInvalid: ({ details, error }) =>
+        new TrustStoreError({ file: this.#file, cause: error, reason: `invalid:\n${details}` }),
+    });
   }
 
   /** Written to a temp file and renamed into place, so a crash never leaves half a store. */

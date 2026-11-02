@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { withFileLock } from '../file-locks.service.js';
+import { withFileLock } from '../file-locks.helper.js';
 
 const signal = new AbortController().signal;
 
