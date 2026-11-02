@@ -1,8 +1,8 @@
-import type { ToolCall, ToolMessage } from '../message/message.types.js';
-import type { SessionRef } from '../session/session.types.js';
 import type { Tool, ToolRunResult } from './tool.types.js';
 import { validate } from '../validation/validation.validator.js';
 import { withDescription } from './tool.validator.js';
+import type { ToolCall, ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /**
  * Validates input, runs the tool, and always returns a tool message (never throws), with the

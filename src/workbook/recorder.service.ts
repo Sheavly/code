@@ -1,12 +1,12 @@
 import { createWriteStream, type WriteStream } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { Writable } from 'node:stream';
-import type { Message } from '@sheavly/core/message/message.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { AgentEvent } from '../loop/events/events.types.js';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
  * Captures everything one run outputs, into its run folder, as it happens: every loop event,

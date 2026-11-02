@@ -17,6 +17,10 @@ Its `area/*` labels (required, one per commit scope; [issues.md](issues.md), "Cl
 scopes the work should touch. When the planned commits need a scope the issue isn't labelled with,
 say so in the verdict and propose the label: `Git format` fails the PR until the issue has it.
 
+Ask the judgement triggers of [harness.md](harness.md) once per issue: if the work brings a
+convention, a trust concept or a workaround the harness doesn't check, plan its enforcement as a
+commit of this branch.
+
 ## 2. Judge the fit
 
 - **Fits:** the request does what the issue describes, or is a step towards it.

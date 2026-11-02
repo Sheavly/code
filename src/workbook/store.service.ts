@@ -2,8 +2,6 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import type { Message } from '@sheavly/core/message/message.types';
-import type { AgentEvent } from '../loop/events/events.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
 import { WorkbookNotFoundError, WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import {
@@ -28,6 +26,8 @@ import {
   runResultSchema,
   stateSchema,
 } from './workbook.validator.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
  * The workbook folder: stored prompts (`prompts/`), fixture and run workspaces

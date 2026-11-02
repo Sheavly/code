@@ -1,5 +1,10 @@
-import type { Message, ToolCall, ToolMessage, TurnStopReason } from '../message/message.types.js';
-import type { ToolArtifact } from '../tool/tool.types.js';
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type {
+  Message,
+  ToolCall,
+  ToolMessage,
+  TurnStopReason,
+} from '@sheavly/protocol/message/message.types';
 
 /** What a tool call produced: the text for history, and any artifacts (for the UI). */
 export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & {

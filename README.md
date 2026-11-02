@@ -349,6 +349,13 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
+- `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
+  outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
+  exported or not (another folder, another package, a second types file of the same package), or
+  re-exported from a file that isn't its owner (`export type { X } from`, `export type * from`),
+  fails with where the original lives, how to import it and how to change it (its schema, for a
+  protocol type). Owners are read from the workspace on disk, so a new package, folder or type is
+  covered without editing the rule.
 - **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
@@ -385,7 +392,7 @@ lines between steps (auto-fixed with `npm run lint:fix`).
 | ------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                           |
 | `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.   |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. Advisory: never blocks the edit.                                                                                                                      |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. The first edit of a file a skill governs (its `harness.json` `governs` globs) names that skill, once per chat. Advisory: never blocks the edit.       |
 | `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + jscpd (new jscpd clones only) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds. |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in

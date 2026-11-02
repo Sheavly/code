@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import type { SessionRef } from '@sheavly/core/session/session.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '../../runtime/sessions/sessions.constants.js';
 import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
@@ -10,6 +9,7 @@ import { SUB_AGENT_INSTRUCTIONS } from './sub-agent.constants.js';
 import type { SubAgentOptions } from './sub-agent.types.js';
 import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /**
  * `start_agent`: starts a sub-agent, a nested agent loop on one task, as a background task of

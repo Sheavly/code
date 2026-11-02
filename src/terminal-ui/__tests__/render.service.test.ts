@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ToolArtifact } from '@sheavly/core/tool/tool.types';
-import type { AgentEvent } from '../../loop/events/events.types.js';
 import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { Renderer } from '../render.service.js';
+import type { AgentEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 
 /** What the renderer prints for one successful `tool_result` with `artifacts`. */
 function rendered(params: { content: string; artifacts?: ToolArtifact[] }): string {

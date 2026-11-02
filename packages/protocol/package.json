@@ -1,0 +1,25 @@
+{
+  "name": "@sheavly/protocol",
+  "version": "0.0.0",
+  "description": "The UI contract: every event, update and answer the harness sends or accepts, as zod schemas",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "schema": "tsx --conditions=@sheavly/source write-schema.mjs"
+  },
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "exports": {
+    "./*": {
+      "@sheavly/source": "./src/*.ts",
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

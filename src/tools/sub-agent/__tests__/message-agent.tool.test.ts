@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
-import type { AgentEvent } from '../../../loop/events/events.types.js';
 import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
@@ -9,6 +8,7 @@ import { calls, createStepPicker, say, toolCall } from '../../../testing/routed-
 import type { Script } from '../../../testing/testing.types.js';
 import { createMessageAgentTool } from '../message-agent.tool.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 /** A promise you resolve later: holds a scripted step until the test lets it go. */
 function gate() {

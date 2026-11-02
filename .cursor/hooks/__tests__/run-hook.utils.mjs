@@ -16,3 +16,15 @@ export function runHook(params) {
 
   return JSON.parse(run.stdout);
 }
+
+/** Runs the postToolUse hook for an edit of `file` in `cwd`, in chat `chat`; returns its response. */
+export function runEditHook(params) {
+  const { cwd, file, chat = 'c1', stateDir } = params;
+
+  return runHook({
+    script: 'lint-edited-file.mjs',
+    cwd,
+    input: { conversation_id: chat, tool_input: { path: file } },
+    stateDir,
+  });
+}

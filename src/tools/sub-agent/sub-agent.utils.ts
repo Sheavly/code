@@ -1,4 +1,4 @@
-import type { Message } from '@sheavly/core/message/message.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /** A sub-agent's final reply: the last non-empty assistant text in its history. */
 export function finalReply(messages: Message[]): string {

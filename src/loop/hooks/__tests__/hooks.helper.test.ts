@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { Message, ToolCall } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { echoTool as echo } from '@sheavly/core/testing/echo-tool.fake';
 import { HookError } from '../../../runtime/errors/hooks.errors.js';
@@ -11,6 +10,7 @@ import {
   runSessionStart,
   runToolCall,
 } from '../hooks.helper.js';
+import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
 
 const signal = new AbortController().signal;
 

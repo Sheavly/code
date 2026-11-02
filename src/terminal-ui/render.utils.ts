@@ -1,7 +1,7 @@
-import type { ToolCall } from '@sheavly/core/message/message.types';
 import type { FileRead } from '../tools/read-file/read-file.types.js';
 import { z } from 'zod';
 import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
+import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
 /** Text squeezed onto one line, cut at `max` characters with an ellipsis. */
 export function oneLine(params: { text: string; max: number }): string {

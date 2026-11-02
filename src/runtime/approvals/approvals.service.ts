@@ -11,8 +11,8 @@ import type {
   ApprovalRequest,
   ApprovalResponse,
   ApprovalUpdate,
-} from './approvals.types.js';
-import { approvalResponseSchema } from './approvals.validator.js';
+} from '@sheavly/protocol/approval/approval.types';
+import { approvalResponseSchema } from '@sheavly/protocol/approval/approval.validator';
 
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };

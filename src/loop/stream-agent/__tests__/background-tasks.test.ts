@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
 import { startTaskTool } from '../../../testing/start-task.fake.js';
 import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
-import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
+import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { streamAgent } from '../stream-agent.helper.js';
-import type { AgentEvent } from '../../events/events.types.js';
 import type { AgentOptions } from '../stream-agent.types.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 let tasks: TaskRegistry;
 

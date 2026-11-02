@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { architectureRule, coveredByRule, sectionOf } from '../architecture.utils.mjs';
-import { runHook } from './run-hook.utils.mjs';
+import { runEditHook } from './run-hook.utils.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 const SKILL = '.cursor/skills/working-in-sheavly-harness/SKILL.md';
@@ -16,14 +16,7 @@ let project = '';
  * the real repo, and stays fast: without node_modules there, Prettier and ESLint don't start.
  */
 function edited(params) {
-  const { file, chat = 'c1' } = params;
-
-  return runHook({
-    script: 'lint-edited-file.mjs',
-    cwd: project,
-    input: { conversation_id: chat, tool_input: { path: file } },
-    stateDir,
-  });
+  return runEditHook({ cwd: project, stateDir, ...params });
 }
 
 beforeEach(() => {

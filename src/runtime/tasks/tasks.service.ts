@@ -4,7 +4,8 @@
  * model and UI at turn boundaries, through its one ordered event queue.
  */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
-import type { StartTask, TaskInfo, TaskResult, TaskStatus } from './tasks.types.js';
+import type { StartTask, TaskResult } from './tasks.types.js';
+import type { TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
 
 type Entry = {
   info: TaskInfo;

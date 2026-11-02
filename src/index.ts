@@ -1,19 +1,13 @@
 // The package's one public entry point (`main`). Inside src/, import from the defining file.
 export { runAgent, runSession, streamAgent } from './loop/stream-agent/stream-agent.helper.js';
 export type { AgentOptions, RunAgentOptions } from './loop/stream-agent/stream-agent.types.js';
-export type {
-  AgentEvent,
-  AgentEventBody,
-  DescribedCall,
-  DoneReason,
-} from './loop/events/events.types.js';
+export type * from '@sheavly/protocol/event/event.types';
 export { OrderedQueue } from './loop/queue/queue.service.js';
 export type { Sequenced } from './loop/queue/queue.types.js';
 export { defineTool } from '@sheavly/core/tool/tool.utils';
 export { describeCall } from '@sheavly/core/tool/tool.validator';
 export type {
   Tool,
-  ToolArtifact,
   ToolContext,
   ToolExecution,
   ToolOutput,
@@ -34,13 +28,7 @@ export type { RunCommandOptions } from './tools/run-command/run-command.types.js
 export { ProcessRunner } from './runtime/process/process.service.js';
 export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';
 export { ApprovalRegistry } from './runtime/approvals/approvals.service.js';
-export type {
-  ApprovalConcern,
-  ApprovalOption,
-  ApprovalRequest,
-  ApprovalResponse,
-  ApprovalUpdate,
-} from './runtime/approvals/approvals.types.js';
+export type * from '@sheavly/protocol/approval/approval.types';
 export {
   createCancelTaskTool,
   createTaskStatusTool,
@@ -48,7 +36,8 @@ export {
 } from './tools/tasks/tasks.tool.js';
 export { TaskRegistry } from './runtime/tasks/tasks.service.js';
 export { formatTask } from './runtime/tasks/tasks.utils.js';
-export type { StartTask, TaskInfo, TaskStatus } from './runtime/tasks/tasks.types.js';
+export type { StartTask } from './runtime/tasks/tasks.types.js';
+export type * from '@sheavly/protocol/task/task.types';
 export { Workspace } from './runtime/workspace/workspace.service.js';
 export { WorkspaceError } from './runtime/errors/workspace.errors.js';
 export { loadProjectHooks } from './runtime/project-hooks/project-hooks.helper.js';
@@ -56,6 +45,7 @@ export { createAgentsMdHook, findAgentsFiles } from './runtime/agents-md/agents-
 export type { AgentsFile, AgentsMdHookOptions } from './runtime/agents-md/agents-md.types.js';
 export { ProjectHooksError } from './runtime/errors/project-hooks.errors.js';
 export type { HooksManifest } from './runtime/project-hooks/project-hooks.types.js';
+export type * from '@sheavly/protocol/message/message.types';
 export type * from '@sheavly/core/message/message.types';
 export type * from '@sheavly/core/provider/provider.types';
 export { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
@@ -69,7 +59,7 @@ export { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 export { SessionRegistry } from './runtime/sessions/sessions.service.js';
 export { MAX_SESSION_DEPTH } from './runtime/sessions/sessions.constants.js';
 export type { RunSession } from './runtime/sessions/sessions.types.js';
-export type * from '@sheavly/core/session/session.types';
+export type * from '@sheavly/protocol/session/session.types';
 export { createSubAgentTool } from './tools/sub-agent/sub-agent.tool.js';
 export { createReportStatusTool } from './tools/sub-agent/report-status.tool.js';
 export { createMessageAgentTool } from './tools/sub-agent/message-agent.tool.js';

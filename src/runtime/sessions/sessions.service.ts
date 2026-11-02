@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { MAX_SESSION_DEPTH } from './sessions.constants.js';
+import { toServerSentEvent } from './sessions.utils.js';
+import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
   SessionInfo,
   SessionRef,
   SessionState,
   SessionUpdate,
-} from '@sheavly/core/session/session.types';
-import { MAX_SESSION_DEPTH } from './sessions.constants.js';
-import { toServerSentEvent } from './sessions.utils.js';
-import { SessionError } from '../errors/sessions.errors.js';
+} from '@sheavly/protocol/session/session.types';
 
 type Listener = (update: SessionUpdate) => void;
 

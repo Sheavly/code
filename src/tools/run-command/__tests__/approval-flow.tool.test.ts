@@ -1,18 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
+import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
-import type { AgentEvent } from '../../../loop/events/events.types.js';
 import { runAgent, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { ApprovalRegistry } from '../../../runtime/approvals/approvals.service.js';
-import type {
-  ApprovalResponse,
-  ApprovalUpdate,
-} from '../../../runtime/approvals/approvals.types.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';
+import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
  * The approval flow end to end: a UI subscribes to the registry, the tool waits for its answer,

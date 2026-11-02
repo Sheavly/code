@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ApprovalListenerError } from '../../errors/approvals.errors.js';
 import { ApprovalRegistry } from '../approvals.service.js';
-import type { ApprovalUpdate } from '../approvals.types.js';
+import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 
 const ask = (approvals: ApprovalRegistry, signal = new AbortController().signal) =>
   approvals.request({

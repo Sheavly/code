@@ -1,5 +1,4 @@
 import type { ApprovalRegistry } from '../../runtime/approvals/approvals.service.js';
-import type { ApprovalConcern } from '../../runtime/approvals/approvals.types.js';
 import { CommandRefusedError } from '../../runtime/errors/approvals.errors.js';
 import { PathCheckError, WorkspaceError } from '../../runtime/errors/workspace.errors.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
@@ -7,6 +6,7 @@ import { isMissingPath } from '../../runtime/errors/errors.utils.js';
 import { isEnvFile } from '../files/files.utils.js';
 import { namesEnvFile, pathArguments, stripPathspecMagic } from './arguments.utils.js';
 import { gitOutputConcerns } from './git-output.utils.js';
+import type { ApprovalConcern } from '@sheavly/protocol/approval/approval.types';
 
 /**
  * What in an allow-listed command needs the user's approval: a git command that can print or

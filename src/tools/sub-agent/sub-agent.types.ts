@@ -1,10 +1,10 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import type { Message } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
 import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
  * Runs one nested agent loop to its end. The host passes the loop's `runSession` here (tools

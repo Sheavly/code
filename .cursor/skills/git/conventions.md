@@ -149,6 +149,10 @@ Review bottom up, one commit at a time.
 - Read carefully: `sample.helper.ts` in commit 3 (when the switch is read).
 - Skim: the adapter registration in commit 2.
 
+## Harness impact
+
+none: a new option on an existing contract; `harness/single-definition` already covers its type.
+
 ## Test plan
 
 - [x] `npm run check` passes on the current head.
@@ -159,4 +163,5 @@ Closes #123
 ```
 
 Bad: a body that repeats the diff, says "various improvements", has no `## Commits` list or one
-that doesn't match the commits, ticks a test that wasn't run, or has no `Closes #123`.
+that doesn't match the commits, ticks a test that wasn't run, has no `## Harness impact` (or a
+bare `none`), or has no `Closes #123`.

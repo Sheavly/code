@@ -1,5 +1,5 @@
 import { errorMessage } from './errors.utils.js';
-import type { ApprovalUpdate } from '../approvals/approvals.types.js';
+import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 
 /**
  * A subscriber threw while hearing an update. Every other listener still hears it; then this

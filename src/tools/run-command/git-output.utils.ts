@@ -1,3 +1,4 @@
+import type { ApprovalConcern } from '@sheavly/protocol/approval/approval.types';
 /**
  * Which git commands can print or write file contents. A blocklist of patch flags always misses
  * one (`--patch-with-stat`, `status -v`, `-G` guesses), so this is an allowlist: a git command
@@ -5,7 +6,6 @@
  * also asks for a summary. Anything else needs the user's approval. Pure helpers;
  * `arguments.helper.ts` turns the result into approval concerns.
  */
-import type { ApprovalConcern } from '../../runtime/approvals/approvals.types.js';
 
 /** Long flags (the part before `=`) that show no file contents, per subcommand. */
 const SAFE_LONG: Record<string, ReadonlySet<string>> = {

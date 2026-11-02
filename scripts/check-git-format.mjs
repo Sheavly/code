@@ -1,6 +1,7 @@
 // CI gate for the git workflow's PR format (.cursor/skills/git/conventions.md). PRs land with a
 // squash merge, so the title is the commit that reaches main, and the body's `Closes #123` is
-// what links the PR to its issue and closes it on merge.
+// what links the PR to its issue and closes it on merge. Its `## Harness impact` section says what
+// enforces each new package or pattern, or `none: <reason>` (.cursor/skills/git/harness.md).
 //
 // The commits inside a PR are for review and their format isn't checked here (the git guard,
 // .cursor/hooks/guard-git-workflow.mjs, checks agents'), but their scopes are: each needs its
@@ -63,6 +64,44 @@ function checkIssueLink(params) {
   return [];
 }
 
+const HARNESS_IMPACT = '## Harness impact';
+const NONE_LINE = /^none: \S/;
+
+/**
+ * The body's `## Harness impact` section (.cursor/skills/git/harness.md): what enforces each new
+ * package or pattern the PR adds, or `none: <reason>`. Missing, empty or a bare `none` fails.
+ */
+export function checkHarnessImpact(body) {
+  const lines = body.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === HARNESS_IMPACT);
+
+  if (start === -1) {
+    return [
+      `The PR body needs a \`${HARNESS_IMPACT}\` section: what enforces each new package or pattern it adds, or \`none: <reason>\` (.cursor/skills/git/harness.md).`,
+    ];
+  }
+
+  const end = lines.findIndex((line, index) => index > start && /^#{1,2} /.test(line));
+  const content = lines
+    .slice(start + 1, end === -1 ? undefined : end)
+    .join('\n')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/^\s*-\s*$/gm, '') // the template's empty bullet
+    .trim();
+
+  if (content === '') {
+    return [
+      `\`${HARNESS_IMPACT}\` is empty: list what enforces each trigger, or write \`none: <reason>\`.`,
+    ];
+  }
+
+  if (/^none\b/i.test(content) && !NONE_LINE.test(content)) {
+    return [`\`${HARNESS_IMPACT}\` says none without a reason: write \`none: <reason>\`.`];
+  }
+
+  return [];
+}
+
 /** A stacked PR is based on a lower layer: a conforming issue branch, not main. */
 function checkBase(baseRef) {
   if (baseRef === BASE_BRANCH || getBranchIssue(baseRef) !== null) return [];
@@ -81,7 +120,12 @@ export function findFormatProblems(params) {
 
   if (isDependencyBotPr({ author, headRef })) return headerProblems;
 
-  return [...headerProblems, ...checkBase(baseRef), ...checkIssueLink({ body, headRef })];
+  return [
+    ...headerProblems,
+    ...checkBase(baseRef),
+    ...checkIssueLink({ body, headRef }),
+    ...checkHarnessImpact(body),
+  ];
 }
 
 /**

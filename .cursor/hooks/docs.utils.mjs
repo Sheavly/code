@@ -11,7 +11,7 @@ const DOC_SOURCES = [
   {
     doc: 'docs/sessions.md',
     sources: [
-      /^packages\/core\/src\/session\//,
+      /^packages\/protocol\/src\/session\//,
       /^src\/runtime\/sessions\//,
       /^src\/tools\/sub-agent\//,
     ],
@@ -29,7 +29,7 @@ const DOC_SOURCES = [
   { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
   {
     doc: 'docs/overview.md',
-    sources: [/^packages\/core\/src\//, /^src\//, /^eslint\.config\.js$/],
+    sources: [/^packages\/(core|protocol)\/src\//, /^src\//, /^eslint\.config\.js$/],
   },
 ];
 

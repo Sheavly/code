@@ -1,6 +1,6 @@
-import type { ToolCall } from '@sheavly/core/message/message.types';
 import { ResponsesApiError } from '../errors/providers.errors.js';
 import type { EventStep, FunctionCallItem, ResponsesEvent } from './responses.types.js';
+import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
 /**
  * What one Responses API event means for us.

@@ -4,6 +4,7 @@ import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
 import { SYNTAX_RULES, syntaxRule } from './rules/syntax-rules.js';
 import { pureImports } from './rules/pure-imports.js';
+import { singleDefinition } from './rules/single-definition.js';
 
 /** The `harness/*` rules. */
 export const harnessPlugin = {
@@ -14,6 +15,7 @@ export const harnessPlugin = {
     'no-raw-error': noRawError,
     'no-silent-catch': noSilentCatch,
     'pure-imports': pureImports,
+    'single-definition': singleDefinition,
     ...Object.fromEntries(
       Object.entries(SYNTAX_RULES).map(([name, entries]) => [name, syntaxRule(entries)]),
     ),

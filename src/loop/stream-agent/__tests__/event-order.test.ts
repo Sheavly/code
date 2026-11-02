@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { streamAgent } from '../stream-agent.helper.js';
-import type { AgentEvent } from '../../events/events.types.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

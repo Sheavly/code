@@ -37,6 +37,7 @@ when they depend on each other ([stacks.md](stacks.md)).
 | start an issue, plan the commits                                        | [start.md](start.md)                     |
 | commit, save work                                                       | [commit.md](commit.md)                   |
 | review the branch, "bugbot", "security review", check before pushing    | [review.md](review.md)                   |
+| harness impact, "is this enforced", a new package or pattern            | [harness.md](harness.md)                 |
 | change an earlier commit, review fix, reorder or reshape the commits    | [fix.md](fix.md)                         |
 | open/update the PR, push, mark ready                                    | [submit.md](submit.md)                   |
 | update, rebase, pull main                                               | [sync.md](sync.md)                       |
@@ -73,6 +74,8 @@ If the request fits several rows (for example "commit and submit"), run them in 
   `git push --force-with-lease`; never `--force`. Once the PR is ready for review, commits are only
   added on top, so nothing a reviewer has read changes ([fix.md](fix.md)). Restacking a layer onto
   a changed layer below is the one exception ([stacks.md](stacks.md)).
+- A new package or pattern the harness doesn't check yet gets its enforcement in the same PR,
+  and every PR body says so in `## Harness impact`, or `none: <reason>` ([harness.md](harness.md)).
 - PRs land squashed: `gh pr merge <n> --squash` ([merge.md](merge.md)), or
   `gh stack merge <pr> --yes --squash` for a stack.
 - `git cherry-pick` only after the user wrote "allow cherry-pick" in this chat; ask first, naming

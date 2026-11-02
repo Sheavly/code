@@ -1,5 +1,6 @@
-import type { StreamEvent, ToolCall } from '@sheavly/core/message/message.types';
+import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
 /** Test-only provider: each call to `stream` plays back the next scripted response. */
 export function scriptedProvider(responses: StreamEvent[][]): Provider {

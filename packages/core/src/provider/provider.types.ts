@@ -1,4 +1,5 @@
-import type { Message, StreamEvent } from '../message/message.types.js';
+import type { StreamEvent } from '../message/message.types.js';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 // --- Provider contract (Anthropic, OpenAI, local, ... all implement this) ---
 
