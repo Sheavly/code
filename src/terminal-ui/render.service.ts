@@ -1,11 +1,11 @@
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { SessionUpdate } from '@sheavly/core/session/session.types';
-import type { AgentEvent } from '../loop/events/events.types.js';
 import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
 import { isFileChange } from '../tools/files/files.utils.js';
 import { isFileRead } from '../tools/read-file/read-file.utils.js';
 import type { Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, oneLine, seconds, shortId } from './render.utils.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 
 type EventOf<T extends AgentEvent['type']> = Extract<AgentEvent, { type: T }>;
 
