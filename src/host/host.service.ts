@@ -4,7 +4,6 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runSession } from '../loop/stream-agent/stream-agent.service.js';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL } from '../providers/adapters/adapters.constants.js';
 import { createDefaultRegistry } from '../providers/adapters/adapters.service.js';
 import { createAgentsMdHook } from '../runtime/agents-md/agents-md.service.js';
 import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.service.js';
@@ -20,7 +19,12 @@ import { createMessageAgentTool } from '../tools/sub-agent/message-agent.tool.js
 import { createSubAgentTool } from '../tools/sub-agent/sub-agent.tool.js';
 import { createTaskTools } from '../tools/tasks/tasks.tool.js';
 import { createWriteFileTool } from '../tools/write-file/write-file.tool.js';
-import { HOST_MAX_TURNS, TRUST_STORE_PATH } from './host.constants.js';
+import {
+  DEFAULT_ADAPTER,
+  DEFAULT_MODEL,
+  HOST_MAX_TURNS,
+  TRUST_STORE_PATH,
+} from './host.constants.js';
 import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js';
 
 /**

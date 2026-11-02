@@ -56,7 +56,7 @@ export { AdapterRegistry } from './providers/registry/registry.service.js';
 export { defineAdapter } from '@sheavly/core/adapter/adapter.service';
 export type { Adapter, AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 export { createDefaultRegistry } from './providers/adapters/adapters.service.js';
-export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './providers/adapters/adapters.constants.js';
+export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './host/host.constants.js';
 export { openaiAdapter } from './providers/adapters/openai.adapter.js';
 export { azureAdapter } from './providers/adapters/azure.adapter.js';
 export { ProviderSwitch } from './providers/switch/switch.service.js';
