@@ -26,7 +26,7 @@ workbook/
 ```
 
 The code is in `src/workbook/`. It's a host like `src/demo.ts`, and shares its wiring and
-terminal output with it (`src/host/`).
+terminal output with it (`@sheavly/host`, and the coding preset in `src/host/`).
 
 ## Stored prompts
 
