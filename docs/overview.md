@@ -40,6 +40,36 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `service`, `tool`, ...); see
 the project skill in `.cursor/skills/working-in-sheavly-harness/` for the full conventions.
 
+## Packages
+
+Workspace packages (`packages/*`) are **built**: each compiles its own `dist/` (`.js`, `.d.ts`,
+source maps) with `tsc -b`, and the app's build references them, so `npm run build` compiles
+`@sheavly/core`, then `@sheavly/providers`, then the app, in dependency order. Each package's
+`exports` has two targets per subpath:
+
+```json
+"./*": { "@sheavly/source": "./src/*.ts", "types": "./dist/*.d.ts", "default": "./dist/*.js" }
+```
+
+| Where it runs                   | Reads                                      | How                                              |
+| ------------------------------- | ------------------------------------------ | ------------------------------------------------ |
+| Dev (`dev`, `demo`, `workbook`) | source                                     | `tsx --conditions=@sheavly/source`               |
+| Tests                           | source, with no build step before `vitest` | the condition in `vitest.config.ts`              |
+| Typecheck, lint                 | source                                     | `customConditions` in `tsconfig.base.json`       |
+| Production                      | `dist/`                                    | `npm run build`, then plain `node dist/index.js` |
+
+Each package's `tsconfig.build.json` clears the condition, so a build only ever links against
+another package's built output, and leaves `__tests__/` and `testing/` out: test fakes are
+available from source only and never ship. `@sheavly/eslint-config` is plain JavaScript that only
+ESLint loads, so it isn't built.
+
+Why built, not source only: a harness others embed has to run on plain Node without a TypeScript
+loader. Why `tsc -b`, not a bundler or a task runner: the source already uses `.js` imports and
+`nodenext`, so `tsc`'s output is what Node runs, one file per exported subpath. A bundler (Vite
+library mode, tsup) would merge those files and needs a plugin for declarations. A task runner
+(Turborepo) only orders and caches each package's `build` script; it can be added on top of these
+scripts once there are enough packages for caching to matter (#74).
+
 ## The provider contract
 
 A provider (`packages/core/src/provider/`) is one method, `stream(request)`, returning
