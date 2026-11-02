@@ -4,7 +4,7 @@ import { callOnceProvider, scriptedProvider } from '../../../testing/scripted-pr
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.helper.js';
-import type { AgentEvent } from '../../events/events.types.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 const getWeather = defineTool({
   name: 'get_weather',

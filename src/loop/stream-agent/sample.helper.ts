@@ -1,17 +1,18 @@
+import { toDefinition } from '@sheavly/core/tool/tool.utils';
+import { describeCall } from '@sheavly/core/tool/tool.validator';
+import { untilAborted, whenAborted } from '../abort/abort.utils.js';
+import type { ToolOutcome } from '../events/events.types.js';
+import { runToolCall } from '../hooks/hooks.helper.js';
+import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
+import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
+import type { DescribedCall } from '@sheavly/protocol/event/event.types';
 import type {
   Message,
   ReasoningItem,
   ToolCall,
   ToolMessage,
   TurnStopReason,
-} from '@sheavly/core/message/message.types';
-import { toDefinition } from '@sheavly/core/tool/tool.utils';
-import { describeCall } from '@sheavly/core/tool/tool.validator';
-import { untilAborted, whenAborted } from '../abort/abort.utils.js';
-import type { DescribedCall, ToolOutcome } from '../events/events.types.js';
-import { runToolCall } from '../hooks/hooks.helper.js';
-import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
-import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
+} from '@sheavly/protocol/message/message.types';
 
 /**
  * One model call: stream the response into an assistant message.

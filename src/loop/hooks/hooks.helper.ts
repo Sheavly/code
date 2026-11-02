@@ -1,10 +1,11 @@
-import type { Message, ToolCall, ToolMessage } from '@sheavly/core/message/message.types';
 import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
-import type { Tool, ToolArtifact, ToolRunResult } from '@sheavly/core/tool/tool.types';
-import type { SessionRef } from '@sheavly/core/session/session.types';
+import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { HookError } from '../../runtime/errors/hooks.errors.js';
+import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { Message, ToolCall, ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** Someone to tell about every context addition (the loop emits `context_added`). */
 type OnContext = (added: { hook: string; content: string }) => void;

@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { Message, StreamEvent, ToolCall } from '@sheavly/core/message/message.types';
+import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
-import type { AgentEvent } from '../../events/events.types.js';
 import { STOPPED_BY_FAILURE } from '../stream-agent.constants.js';
 import { streamAgent } from '../stream-agent.helper.js';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
 
 const call = (id: string, name: string): ToolCall => ({
   id,

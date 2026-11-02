@@ -1,17 +1,17 @@
-import type { Message } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
+import type { ToolOutcome } from '../events/events.types.js';
+import type { OrderedQueue } from '../queue/queue.service.js';
+import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type {
   AgentEvent,
   AgentEventBody,
   DescribedCall,
-  ToolOutcome,
-} from '../events/events.types.js';
-import type { OrderedQueue } from '../queue/queue.service.js';
-import type { RunSession } from '../../runtime/sessions/sessions.types.js';
-import type { SessionRef } from '@sheavly/core/session/session.types';
+} from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 export type AgentOptions = {
   provider: Provider;
