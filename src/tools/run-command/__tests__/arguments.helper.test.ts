@@ -2,7 +2,7 @@ import { symlink } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
-import { ApprovalRegistry } from '../../../runtime/approvals/approvals.service.js';
+import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { findConcerns } from '../arguments.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';

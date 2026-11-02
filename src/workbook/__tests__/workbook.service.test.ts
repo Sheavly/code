@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';

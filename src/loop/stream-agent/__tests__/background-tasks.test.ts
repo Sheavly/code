@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { startTaskTool } from '../../../testing/start-task.fake.js';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';

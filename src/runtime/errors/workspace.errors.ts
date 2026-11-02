@@ -1,4 +1,4 @@
-import { errorCode, errorMessage } from './errors.utils.js';
+import { errorCode, errorMessage } from '@sheavly/runtime/errors/errors.utils';
 
 /** A path was rejected by the workspace sandbox (outside the root, broken symlink, ...). */
 export class WorkspaceError extends Error {

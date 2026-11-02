@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { errorMessage } from './errors.utils.js';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 
 /** A file as shown in messages: relative to where the workbook was started. */
 function shown(file: string): string {

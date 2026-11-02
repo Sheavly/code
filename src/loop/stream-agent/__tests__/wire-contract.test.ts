@@ -7,10 +7,10 @@ import { agentEventSchema } from '@sheavly/protocol/event/event.validator';
 import { sessionUpdateSchema } from '@sheavly/protocol/session/session.validator';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
-import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
-import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { startTaskTool } from '../../../testing/start-task.fake.js';
+import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { streamAgent } from '../stream-agent.helper.js';
 
 // What the loop and the session registry send is what @sheavly/protocol describes: every event of

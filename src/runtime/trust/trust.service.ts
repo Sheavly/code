@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, readlink, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import { isMissingPath } from '../errors/errors.utils.js';
+import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { TrustStoreError } from '../errors/trust.errors.js';
 import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';

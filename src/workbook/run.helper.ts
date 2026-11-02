@@ -3,7 +3,7 @@ import { streamAgent } from '../loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createCodingHarness, trustStoreFromEnv } from '../host/coding.helper.js';
 import type { ProviderSettings } from '../host/host.types.js';
-import { isMissingPath } from '../runtime/errors/errors.utils.js';
+import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { TrustStore } from '../runtime/trust/trust.service.js';
 import { SAME_KEYPRESS_MS } from '../terminal-ui/render.constants.js';
 import { Renderer } from '../terminal-ui/render.service.js';

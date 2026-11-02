@@ -1,10 +1,10 @@
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { ToolOutcome } from '../events/events.types.js';
 import type { OrderedQueue } from '../queue/queue.service.js';
-import type { RunSession } from '../../runtime/sessions/sessions.types.js';
+import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type {
   AgentEvent,
   AgentEventBody,

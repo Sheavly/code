@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
-import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
-import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import {
   calls,
   createStepPicker,

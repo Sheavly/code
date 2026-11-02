@@ -5,7 +5,7 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { runAgent, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
-import { ApprovalRegistry } from '../../../runtime/approvals/approvals.service.js';
+import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';

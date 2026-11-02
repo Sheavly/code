@@ -27,16 +27,16 @@ export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
 export { ProcessRunner } from './runtime/process/process.service.js';
 export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';
-export { ApprovalRegistry } from './runtime/approvals/approvals.service.js';
+export { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 export type * from '@sheavly/protocol/approval/approval.types';
 export {
   createCancelTaskTool,
   createTaskStatusTool,
   createTaskTools,
 } from './tools/tasks/tasks.tool.js';
-export { TaskRegistry } from './runtime/tasks/tasks.service.js';
-export { formatTask } from './runtime/tasks/tasks.utils.js';
-export type { StartTask } from './runtime/tasks/tasks.types.js';
+export { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+export { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
+export type { StartTask } from '@sheavly/runtime/tasks/tasks.types';
 export type * from '@sheavly/protocol/task/task.types';
 export { Workspace } from './runtime/workspace/workspace.service.js';
 export { WorkspaceError } from './runtime/errors/workspace.errors.js';
@@ -56,9 +56,9 @@ export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './host/host.constants.js';
 export { openaiAdapter } from '@sheavly/providers/openai/openai.adapter';
 export { azureAdapter } from '@sheavly/providers/azure/azure.adapter';
 export { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
-export { SessionRegistry } from './runtime/sessions/sessions.service.js';
-export { MAX_SESSION_DEPTH } from './runtime/sessions/sessions.constants.js';
-export type { RunSession } from './runtime/sessions/sessions.types.js';
+export { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+export { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
+export type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 export type * from '@sheavly/protocol/session/session.types';
 export { createSubAgentTool } from './tools/sub-agent/sub-agent.tool.js';
 export { createReportStatusTool } from './tools/sub-agent/report-status.tool.js';

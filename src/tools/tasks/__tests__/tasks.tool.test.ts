@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { startTaskTool } from '../../../testing/start-task.fake.js';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createTaskTools } from '../tasks.tool.js';

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { MAX_SESSION_DEPTH } from '../../runtime/sessions/sessions.constants.js';
-import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
 import { createMessageAgentTool } from './message-agent.tool.js';
