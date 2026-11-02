@@ -10,7 +10,8 @@
     "packages/providers/src/",
     "packages/runtime/src/",
     "packages/tools/src/",
-    "packages/loop/src/"
+    "packages/loop/src/",
+    "packages/host/src/"
   ],
   "exclude": ["__tests__/", "/testing/", ".test.", ".fake.ts"]
 }

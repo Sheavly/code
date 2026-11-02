@@ -14,7 +14,7 @@ import { createRunCommandTool } from '../tools/run-command/run-command.tool.js';
 import { createWriteFileTool } from '../tools/write-file/write-file.tool.js';
 import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
 import { TRUST_STORE_PATH } from './coding.constants.js';
-import { createHarness } from './host.helper.js';
+import { createHarness } from '@sheavly/host/host/host.helper';
 
 /**
  * The user's workspace trust store: `SHEAVLY_TRUST_FILE`, or `trusted-workspaces.json` under

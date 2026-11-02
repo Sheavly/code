@@ -12,7 +12,7 @@
  * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
  */
 import path from 'node:path';
-import { providerFromEnv } from '../host/host.helper.js';
+import { providerFromEnv } from '@sheavly/host/host/host.helper';
 import { checkWorkbook } from './check.helper.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';

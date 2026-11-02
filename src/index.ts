@@ -52,7 +52,7 @@ export { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 export { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 export type { Adapter, AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 export { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
-export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './host/host.constants.js';
+export { DEFAULT_ADAPTER, DEFAULT_MODEL } from '@sheavly/host/host/host.constants';
 export { openaiAdapter } from '@sheavly/providers/openai/openai.adapter';
 export { azureAdapter } from '@sheavly/providers/azure/azure.adapter';
 export { ProviderSwitch } from '@sheavly/providers/switch/switch.service';

@@ -9,6 +9,7 @@ check:
         'src/runtime/agents-md',
         'src/runtime/trust',
         'src/host',
+        'packages/host/src',
         'src/workbook',
       ],
     'expect':

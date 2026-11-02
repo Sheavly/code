@@ -3,7 +3,7 @@ import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import type { ProviderSettings } from '../host/host.types.js';
+import type { ProviderSettings } from '@sheavly/host/host/host.types';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { TrustStore } from '../runtime/trust/trust.service.js';
