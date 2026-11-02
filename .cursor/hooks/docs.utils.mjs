@@ -25,7 +25,14 @@ const DOC_SOURCES = [
       /^packages\/workspace\/src\/agents-md\//,
     ],
   },
-  { doc: 'docs/tools.md', sources: [/^packages\/core\/src\/tool\//, /^src\/tools\//] },
+  {
+    doc: 'docs/tools.md',
+    sources: [
+      /^packages\/core\/src\/tool\//,
+      /^packages\/tools\/src\//,
+      /^packages\/coding\/src\/(files|read-file|write-file|edit-file|run-command)\//,
+    ],
+  },
   { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
   {
     doc: 'docs/overview.md',

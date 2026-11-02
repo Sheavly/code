@@ -2,8 +2,10 @@
 
 ## Writing a tool
 
-A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
-`defineTool({ name, description, inputSchema, execute })` (from `@sheavly/core/tool/tool.utils`).
+A tool is a folder with a `<name>.tool.ts` that returns
+`defineTool({ name, description, inputSchema, execute })` (from `@sheavly/core/tool/tool.utils`): in
+`@sheavly/tools` (`packages/tools/src/<name>/`) for a generic tool, in `@sheavly/coding`
+(`packages/coding/src/<name>/`) for one that touches files or runs commands.
 
 - `inputSchema` is a `z.object`. Don't add a `description` field: the harness adds one for the
   model's plain-language note ("reading index.ts") and strips it before `execute`.
@@ -62,7 +64,7 @@ returns what fits, plus a note at the end saying which lines were shown, why, an
 ```
 
 Next to the text, `read_file` returns a `FileRead` artifact (`{ kind: 'file_read', path,
-startLine, endLine, totalLines, whole }`, in `src/tools/read-file/read-file.types.ts`), which the
+startLine, endLine, totalLines, whole }`, in `@sheavly/coding/read-file/read-file.types`), which the
 loop puts on the `tool_result` event's `artifacts`, like the `FileChange` of writes. The model
 never sees it; it's for a UI. The demo shows `read src/a.ts` when `whole` is true, and
 `read src/a.ts lines 40–45 (of 1500)` otherwise.
@@ -71,7 +73,7 @@ A range past the end, a reversed range or a line number that isn't one is adjust
 with a note. Only the guards fail closed: `.env` files, writes inside `.git` and paths outside the
 workspace are always refused.
 
-Shared pieces live in `src/tools/files/`: `resolveWritable` (the write-path check, with the `.git`
+Shared pieces live in `@sheavly/coding/files/`: `resolveWritable` (the write-path check, with the `.git`
 guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
 ## Commands
@@ -178,12 +180,12 @@ type ToolArtifact = { kind: string; [field: string]: unknown };
   out when there are none). It never looks inside.
 - An `aroundToolCall` hook sees them on the result of `next()`, and can drop, replace or add some.
 - A UI renders the kinds it knows and skips the rest. The built-in kinds come with a type guard
-  for narrowing: `isFileChange` (`src/tools/files/files.utils.ts`) and `isFileRead`
-  (`src/tools/read-file/read-file.utils.ts`), both exported from `src/index.ts`.
+  for narrowing: `isFileChange` (`@sheavly/coding/files/files.utils`) and `isFileRead`
+  (`@sheavly/coding/read-file/read-file.utils`), both exported from `src/index.ts`.
 
 ### File changes
 
-`write_file` and `edit_file` return a `FileChange` artifact (`src/tools/files/files.types.ts`):
+`write_file` and `edit_file` return a `FileChange` artifact (`@sheavly/coding/files/files.types`):
 
 ```ts
 type FileChange = {

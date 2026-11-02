@@ -245,7 +245,7 @@ src/
 A tool folder, for example, holds everything about that tool:
 
 ```
-tools/run-command/
+packages/coding/src/run-command/
   run-command.tool.ts           createRunCommandTool (defineTool)
   run-command.types.ts          RunCommandOptions
   run-command.constants.ts      DEFAULT_COMMAND_TIMEOUT_MS
@@ -414,7 +414,7 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
 readability rules: cognitive complexity, max depth/nesting, early returns, no nested ternaries, blank
 lines between steps (auto-fixed with `npm run lint:fix`).
 
-- **Tests live in `__tests__/`** next to the code they test (`src/tools/__tests__/read-file.test.ts`).
+- **Tests live in `__tests__/`** next to the code they test (`packages/coding/src/read-file/__tests__/read-file.tool.test.ts`).
   ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.
 - **No inline escape hatches.** `eslint-disable` comments are rejected
   (`noInlineConfig`). An exception goes in a `files:` override in the config, with a reason.
