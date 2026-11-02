@@ -97,6 +97,8 @@ export function baseConfig(params) {
         // A type a workspace package exports is defined there only; the packages and their types
         // are read from the workspace, so new ones are covered without editing the rule.
         'harness/single-definition': 'error',
+        // Every workspace is in the layout (layout.js), which holds together.
+        'harness/layout': 'error',
       },
     },
 
