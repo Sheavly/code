@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
 import type { AgentEvent } from '../../../loop/events/events.types.js';
 import { runAgent, streamAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { ApprovalRegistry } from '../../../runtime/approvals/approvals.service.js';

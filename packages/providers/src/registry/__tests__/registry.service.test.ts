@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineAdapter } from '@sheavly/core/adapter/adapter.service';
+import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { createDefaultRegistry } from '../default-registry.service.js';
 import { AdapterRegistry } from '../registry.service.js';

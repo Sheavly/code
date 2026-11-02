@@ -72,7 +72,7 @@ ruleTester.run('no-raw-error', harnessPlugin.rules['no-raw-error'], {
     // Every other source area, the providers and the packages included.
     ...[
       'packages/providers/src/responses/responses.service.ts',
-      'packages/core/src/tool/tool.service.ts',
+      'packages/core/src/tool/tool.helper.ts',
       'src/workbook/store.service.ts',
       '.cursor/hooks/hooks.utils.mjs',
       // Only a folder named exactly like an exempt one counts.

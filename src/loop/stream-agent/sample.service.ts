@@ -5,7 +5,8 @@ import type {
   ToolMessage,
   TurnStopReason,
 } from '@sheavly/core/message/message.types';
-import { describeCall, toDefinition } from '@sheavly/core/tool/tool.service';
+import { toDefinition } from '@sheavly/core/tool/tool.utils';
+import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
 import type { DescribedCall, ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.service.js';

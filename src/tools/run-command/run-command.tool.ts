@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { runProcess } from '../../runtime/process/process.service.js';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
 import { confirmArguments } from './arguments.service.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';

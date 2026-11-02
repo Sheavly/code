@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { defineHook } from '@sheavly/core/hook/hook.service';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Message, ToolCall } from '@sheavly/core/message/message.types';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { echoTool as echo } from '@sheavly/core/testing/echo-tool.fake';
 import { HookError } from '../../../runtime/errors/hooks.errors.js';
 import {

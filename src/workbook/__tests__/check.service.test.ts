@@ -137,7 +137,7 @@ describe('selectChecks', () => {
         'src/runtime/trust/trust.service.ts',
         'src/loop/x.ts',
         'src/loop/__tests__/x.test.ts',
-        'packages/core/src/hook/hook.service.ts',
+        'packages/core/src/hook/hook.utils.ts',
         'src/terminal-ui/render.service.ts',
         'docs/hooks.md',
       ],
@@ -145,7 +145,7 @@ describe('selectChecks', () => {
     });
 
     expect(names(picked)).toEqual(['trust']);
-    expect(picked.uncovered).toEqual(['src/loop/x.ts', 'packages/core/src/hook/hook.service.ts']);
+    expect(picked.uncovered).toEqual(['src/loop/x.ts', 'packages/core/src/hook/hook.utils.ts']);
   });
 
   it('reports a name that matches no check, instead of passing with nothing run', () => {

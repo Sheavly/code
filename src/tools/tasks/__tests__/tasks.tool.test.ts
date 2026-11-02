@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import type { ToolCall } from '@sheavly/core/message/message.types';
-import { runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createRunCommandTool } from '../../run-command/run-command.tool.js';
 import { createTaskTools } from '../tasks.tool.js';
 

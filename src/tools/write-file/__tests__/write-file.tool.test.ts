@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../write-file.tool.js';

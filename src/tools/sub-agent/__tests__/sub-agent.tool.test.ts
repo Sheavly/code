@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineHook } from '@sheavly/core/hook/hook.service';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { SessionUpdate } from '@sheavly/core/session/session.types';
 import { runSession } from '../../../loop/stream-agent/stream-agent.service.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';

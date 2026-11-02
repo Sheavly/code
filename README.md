@@ -212,7 +212,7 @@ Packages are built: each has a `dist/` for plain Node, and `npm run build` compi
 dependency order before the app. Dev, tests and typecheck read their source instead, through the
 `@sheavly/source` export condition, so nothing is built first (see
 [docs/overview.md](docs/overview.md#packages)). They're imported by subpath:
-`import { defineTool } from '@sheavly/core/tool/tool.service'`. A package can
+`import { defineTool } from '@sheavly/core/tool/tool.utils'`. A package can
 only import what its own `package.json` depends on; `core` can't reach into the app (its `rootDir`
 makes that a type error).
 
@@ -388,7 +388,7 @@ Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) a
 output channel if a hook doesn't fire. To try one by hand:
 
 ```bash
-echo '{"tool_input":{"file_path":"packages/core/src/tool/tool.service.ts"}}' | node .cursor/hooks/lint-edited-file.mjs
+echo '{"tool_input":{"file_path":"packages/core/src/tool/tool.utils.ts"}}' | node .cursor/hooks/lint-edited-file.mjs
 echo '{"status":"completed"}' | node .cursor/hooks/check-on-stop.mjs
 ```
 

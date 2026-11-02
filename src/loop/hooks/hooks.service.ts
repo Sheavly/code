@@ -2,7 +2,8 @@ import type { Message, ToolCall, ToolMessage } from '@sheavly/core/message/messa
 import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
 import type { Tool, FileChange, FileRead, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import type { SessionRef } from '@sheavly/core/session/session.types';
-import { describeCall, runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
+import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { HookError } from '../../runtime/errors/hooks.errors.js';
 
 /** Someone to tell about every context addition (the loop emits `context_added`). */

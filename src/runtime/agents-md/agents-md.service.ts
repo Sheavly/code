@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defineHook } from '@sheavly/core/hook/hook.service';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { AGENTS_FILE, MAX_AGENTS_CHARS } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';

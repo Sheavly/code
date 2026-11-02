@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
 import { ApprovalRegistry } from '../../../runtime/approvals/approvals.service.js';
 import { approveEverything } from '../../../testing/approvals.fake.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
