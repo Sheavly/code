@@ -1,6 +1,6 @@
 /**
  * Which words of an allow-listed command may name files, and whether one can name a `.env` file.
- * Pure helpers; the workspace checks are in `arguments.service.ts`.
+ * Pure helpers; the workspace checks are in `arguments.helper.ts`.
  */
 import { isEnvFile } from '../files/files.utils.js';
 

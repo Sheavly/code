@@ -78,7 +78,7 @@ guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
 1. **Allow list:** its first words must match an entry in `allow-list.constants.ts`, and it may
    not contain shell syntax. Anything else is refused; the user isn't asked.
-2. **Arguments** (`arguments.service.ts`): operands, `--opt=value` values, values attached to
+2. **Arguments** (`arguments.helper.ts`): operands, `--opt=value` values, values attached to
    short options (`-O../x`) and every word after `--` are checked with the same path rules as
    the file tools. An argument needs the user's approval if it reaches outside the workspace
    (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,

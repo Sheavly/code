@@ -8,7 +8,7 @@ import type {
   ApprovalResponse,
 } from '../../../runtime/approvals/approvals.types.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
-import { findConcerns } from '../arguments.service.js';
+import { findConcerns } from '../arguments.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 

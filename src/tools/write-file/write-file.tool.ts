@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { withFileLock } from '../../runtime/file-locks/file-locks.helper.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
-import { readIfExists, resolveWritable, writeText } from '../files/files.service.js';
+import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
 
 /**

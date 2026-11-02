@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { runProcess } from '../../runtime/process/process.helper.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
-import { confirmArguments } from './arguments.service.js';
+import { confirmArguments } from './arguments.helper.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';

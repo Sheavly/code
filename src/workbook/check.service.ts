@@ -7,7 +7,7 @@ import type { ProviderSettings } from '../host/host.types.js';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { TrustStore } from '../runtime/trust/trust.service.js';
-import { resolveWritable } from '../tools/files/files.service.js';
+import { resolveWritable } from '../tools/files/files.helper.js';
 import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
 import {
   formatReport,
