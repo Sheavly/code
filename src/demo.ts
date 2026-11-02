@@ -1,7 +1,7 @@
 /**
  * Quick manual check: one prompt, a real model, every tool, printed as it happens.
  *
- *   npx tsx src/demo.ts "Read package.json and tell me the project name"
+ *   npm run demo -- "Read package.json and tell me the project name"
  *
  * Reads settings from the environment (or from .env if present).
  * ADAPTER picks the backend: "openai" (default) or "azure".

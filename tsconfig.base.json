@@ -4,6 +4,10 @@
     "lib": ["es2024"],
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    // Workspace packages export their source under this condition and their built `dist/` by
+    // default. Typecheck, lint, tests and `tsx` read source; plain `node` and the builds
+    // (`tsconfig.build.json`, which clear it) read `dist/`.
+    "customConditions": ["@sheavly/source"],
     "types": ["node"],
 
     "strict": true,

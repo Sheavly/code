@@ -55,7 +55,7 @@ The tests use a fake `fetch` and scripted providers, so they never call a real A
 ### OpenAI (default)
 
 ```bash
-npx tsx src/demo.ts "Say hello in five words"
+npm run demo -- "Say hello in five words"
 ```
 
 ### Azure
@@ -92,7 +92,7 @@ Demo settings, as environment variables (see the top of `src/demo.ts`):
   to a file.
 - `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
   `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
-  `.sheavly/` hooks: `npx tsx src/demo.ts --trust "your prompt"`.
+  `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
 
 ## Using other backends
 
