@@ -21,7 +21,7 @@ export const LAYOUT_RULE_OPTIONS = {
   additionalProperties: false,
 };
 
-const DOMAINS = ['generic', 'coding', 'tooling'];
+export const DOMAINS = ['generic', 'coding', 'tooling'];
 const SCOPE = '@sheavly/';
 const toPosix = (file) => file.split(path.sep).join('/');
 
@@ -103,7 +103,7 @@ function domainCommand(dir) {
 }
 
 /** Why `name` may not depend on `dependency` at runtime, or null when it may. */
-function edgeProblem(params) {
+export function edgeProblem(params) {
   const { name, entry, dependency, layout } = params;
   const target = layout[dependency];
 

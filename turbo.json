@@ -43,23 +43,48 @@
       "outputs": []
     },
 
-    // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the packages out, and
-    // an explicit glob ignores .gitignore, so a package's tracked files are named: its top-level
-    // files and `src/` (not its node_modules, dist or .turbo, which runs and builds write).
+    // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the workspaces out, and
+    // an explicit glob ignores .gitignore, so a workspace's tracked files are named: its top-level
+    // files and `src/` (not its node_modules, dist or .turbo, which runs and builds write), for
+    // packages/* and apps/* alike.
     "//#format:check": {
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "packages/*/*",
+        "packages/*/src/**",
+        "apps/*/*",
+        "apps/*/src/**"
+      ],
       "outputs": []
     },
     "//#knip": {
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "packages/*/*",
+        "packages/*/src/**",
+        "apps/*/*",
+        "apps/*/src/**"
+      ],
       "outputs": []
     },
     "//#jscpd": {
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "packages/*/*",
+        "packages/*/src/**",
+        "apps/*/*",
+        "apps/*/src/**"
+      ],
       "outputs": []
     },
     "//#layout": {
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/*", "packages/*/src/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "packages/*/*",
+        "packages/*/src/**",
+        "apps/*/*",
+        "apps/*/src/**"
+      ],
       "outputs": []
     }
   }

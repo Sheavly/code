@@ -22,10 +22,11 @@
     "workbook": "tsx --conditions=@sheavly/source src/workbook/workbook.ts",
     "demo": "tsx --conditions=@sheavly/source src/demo.ts",
     "typecheck:root": "tsc --noEmit",
-    "lint:root": "eslint . --ignore-pattern 'packages/'",
+    "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
     "test:root": "vitest run",
     "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
-    "layout": "node scripts/check-layout.mjs"
+    "layout": "node scripts/check-layout.mjs",
+    "new": "node scripts/new-workspace.mjs"
   },
   "type": "module",
   "dependencies": {
