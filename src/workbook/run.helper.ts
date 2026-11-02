@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import type { Message } from '@sheavly/core/message/message.types';
 import { streamAgent } from '../loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
-import { createHarness, trustStoreFromEnv } from '../host/host.helper.js';
+import { createCodingHarness, trustStoreFromEnv } from '../host/coding.helper.js';
 import type { ProviderSettings } from '../host/host.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
 import type { TrustStore } from '../runtime/trust/trust.service.js';
@@ -43,7 +43,7 @@ export async function runWorkbook(params: {
     recorder.transcript(text);
   };
   const view: { renderer?: Renderer } = {};
-  const harness = await createHarness({
+  const harness = await createCodingHarness({
     provider: settings.provider,
     workspaceRoot,
     title: request.text,

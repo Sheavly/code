@@ -22,7 +22,8 @@ import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from './loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from './host/host.constants.js';
-import { createHarness, providerFromEnv, trustStoreFromEnv } from './host/host.helper.js';
+import { createCodingHarness, trustStoreFromEnv } from './host/coding.helper.js';
+import { providerFromEnv } from './host/host.helper.js';
 import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
 import { Renderer } from './terminal-ui/render.service.js';
 import { projectTrustNotice, shortId } from './terminal-ui/render.utils.js';
@@ -45,7 +46,7 @@ const skipAllowList = process.env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true';
 const showModelCalls = process.env.SHOW_MODEL_CALLS === 'true';
 
 const view: { renderer?: Renderer } = {};
-const harness = await createHarness({
+const harness = await createCodingHarness({
   provider,
   workspaceRoot,
   skipAllowList,
