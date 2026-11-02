@@ -22,7 +22,7 @@ import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from './loop/stream-agent/stream-agent.helper.js';
 import { HOST_MAX_TURNS } from './host/host.constants.js';
-import { createHarness, providerFromEnv, trustStoreFromEnv } from './host/host.service.js';
+import { createHarness, providerFromEnv, trustStoreFromEnv } from './host/host.helper.js';
 import { SAME_KEYPRESS_MS } from './terminal-ui/render.constants.js';
 import { Renderer } from './terminal-ui/render.service.js';
 import { projectTrustNotice, shortId } from './terminal-ui/render.utils.js';
