@@ -34,12 +34,12 @@ ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected,
 
 Design docs live in `docs/` (overview, tools, hooks, sessions). When a feature lands, update its doc in the same change. The stop hook nudges you once when source files changed but the doc describing them didn't (`DOC_SOURCES` in `.cursor/hooks/docs.utils.mjs`); update the doc if what it says changed, otherwise just finish.
 
-npm workspaces in `packages/`, consumed as TypeScript source by subpath (`import { defineTool } from '@sheavly/core/tool/tool.service'`); nothing is built.
+npm workspaces in `packages/`, imported by subpath (`import { defineTool } from '@sheavly/core/tool/tool.service'`). Each is built to its own `dist/` for plain Node (`npm run build`, `tsc -b` in dependency order); dev, tests and typecheck read its source through the `@sheavly/source` export condition, so nothing is built before `vitest` (`docs/overview.md`, "Packages").
 
 - `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new contract shared by tools, providers and a future UI goes here.
 - `packages/providers`: the model backends (`@sheavly/providers`), imported only by `src/host/` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
-- A new package: `npm init -y -w packages/<name>`, then `npm pkg set -w packages/<name> ...` (never hand-edit `package.json`), an `eslint.config.js` calling `baseConfig({ tsconfigRootDir: import.meta.dirname })`, and a `tsconfig.json` extending `../../tsconfig.base.json` with `rootDir: "src"`. Depend on it with `npm install <name>@0.0.0`.
+- A new package: `npm init -y -w packages/<name>`, then `npm pkg set -w packages/<name> ...` (never hand-edit `package.json`): `exports` with `@sheavly/source` → `./src/*.ts`, `types` → `./dist/*.d.ts` and `default` → `./dist/*.js`, and `"build": "tsc -b tsconfig.build.json"`. Add an `eslint.config.js` calling `baseConfig({ tsconfigRootDir: import.meta.dirname })`, a `tsconfig.json` extending `../../tsconfig.base.json` with `rootDir: "src"` and `outDir: "dist"`, and a `tsconfig.build.json` like core's (composite, emits, clears `customConditions`, excludes `__tests__` and `testing`, references the packages it depends on). Reference it from the root `tsconfig.build.json` (or from a package that depends on it), and depend on it with `npm install <name>@0.0.0`.
 
 ## File structure
 

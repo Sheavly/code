@@ -55,7 +55,7 @@ The tests use a fake `fetch` and scripted providers, so they never call a real A
 ### OpenAI (default)
 
 ```bash
-npx tsx src/demo.ts "Say hello in five words"
+npm run demo -- "Say hello in five words"
 ```
 
 ### Azure
@@ -92,7 +92,7 @@ Demo settings, as environment variables (see the top of `src/demo.ts`):
   to a file.
 - `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
   `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
-  `.sheavly/` hooks: `npx tsx src/demo.ts --trust "your prompt"`.
+  `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
 
 ## Using other backends
 
@@ -205,8 +205,11 @@ packages/core/src/
   hook/            Hook types (sessionStart, beforeTurn, aroundToolCall, afterTurn, onError), defineHook
 ```
 
-Packages are consumed as TypeScript source (`exports` points at `src/*.ts`; nothing is built) and
-imported by subpath: `import { defineTool } from '@sheavly/core/tool/tool.service'`. A package can
+Packages are built: each has a `dist/` for plain Node, and `npm run build` compiles them in
+dependency order before the app. Dev, tests and typecheck read their source instead, through the
+`@sheavly/source` export condition, so nothing is built first (see
+[docs/overview.md](docs/overview.md#packages)). They're imported by subpath:
+`import { defineTool } from '@sheavly/core/tool/tool.service'`. A package can
 only import what its own `package.json` depends on; `core` can't reach into the app (its `rootDir`
 makes that a type error).
 

@@ -4,9 +4,9 @@
   "main": "dist/index.js",
   "scripts": {
     "test": "vitest run",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --conditions=@sheavly/source src/index.ts",
     "start": "node dist/index.js",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json",
     "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -19,7 +19,8 @@
     "knip:baseline": "knip --preprocessor ./scripts/knip-baseline.mjs --no-exit-code",
     "jscpd": "node scripts/jscpd.mjs",
     "jscpd:baseline": "node scripts/jscpd-baseline.mjs",
-    "workbook": "tsx src/workbook/workbook.ts"
+    "workbook": "tsx --conditions=@sheavly/source src/workbook/workbook.ts",
+    "demo": "tsx --conditions=@sheavly/source src/demo.ts"
   },
   "type": "module",
   "dependencies": {

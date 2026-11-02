@@ -1,9 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    // A source package: consumers import its .ts files directly (see `exports`), nothing is built.
+    // Dev, tests and typecheck read the .ts source (the `@sheavly/source` export condition);
+    // `tsconfig.build.json` compiles it to `outDir` for plain Node. Naming `outDir` here too lets
+    // tools that follow `exports` into `dist/` (knip) map it back to `src/`.
     // `rootDir` makes an import from outside the package a type error.
     "rootDir": "src",
+    "outDir": "dist",
     "noEmit": true
   },
   "include": ["src"]
