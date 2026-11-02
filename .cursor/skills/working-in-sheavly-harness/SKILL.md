@@ -87,12 +87,12 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 
 - All external input is validated with zod (tool inputs, adapter config, env).
 - Interrupts must leave history valid: every tool call gets a result message, even a placeholder.
-- Keep files under ~250 lines and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
+- Keep files within their kind's line limit (`file-kinds.js`; `utils` has none, since pure helpers grow with their subject) and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
 - No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in `eslint.config.js`, with a reason.
 - Fakes live only in `src/testing/` (`fake-fetch.fake.ts`, `scripted-provider.fake.ts`). No mock data in dev or prod code.
 - Never edit `package.json` by hand: use `npm install -D <pkg>` / `npm pkg set`.
 - Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (`src/runtime/errors/`, `src/providers/errors/`, `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
-- Don't run `src/demo.ts` unless asked: it calls a paid model API.
+- Real-model checks: when a change alters what a run does, run `npm run workbook -- check` once it's done (the `/git` review step asks for it, and the stop hook nudges once). It runs only the checks whose `areas` the change touched. A new behaviour gets a `check` on a stored prompt (`workbook/README.md`). It's manual and on demand: never put it in CI or `npm run check`, and don't run `src/demo.ts` or the workbook otherwise, since both call a paid model API.
 
 ## Tests
 

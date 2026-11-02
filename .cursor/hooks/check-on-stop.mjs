@@ -11,6 +11,7 @@
 import { globSync } from 'node:fs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
+import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
 import {
   formatEslintReport,
   formatNewClones,
@@ -109,22 +110,32 @@ try {
   });
 }
 
-/** A follow-up asking for doc updates, or `{}` when the docs are current (or already asked). */
+/**
+ * The follow-ups once the gate passes: docs to update, and a real-model check to run, each asked
+ * once per set of files. `{}` when nothing is left to ask.
+ */
 function docsNudge() {
   const changed = uncommittedFiles();
 
   if (!changed) return {};
 
+  const messages = [];
   const stale = onlyNew(staleDocs(changed));
 
-  if (stale.length === 0) return {};
+  if (stale.length > 0) {
+    const list = stale.map(({ doc, files }) => `- ${doc}, for: ${files.join(', ')}`).join('\n');
 
-  const list = stale.map(({ doc, files }) => `- ${doc}, for: ${files.join(', ')}`).join('\n');
-
-  return {
-    followup_message:
+    messages.push(
       'You changed files that docs/ describes, but not the docs. If what a doc says no longer ' +
-      'matches (behavior, APIs, file layout, how to add things), update it now. If nothing it ' +
-      `describes changed, just finish: you won't be asked again for these files.\n\n${list}`,
-  };
+        'matches (behavior, APIs, file layout, how to add things), update it now. If nothing it ' +
+        `describes changed, just finish: you won't be asked again for these files.\n\n${list}`,
+    );
+  }
+
+  const runFiles = runSourceFiles(changed);
+  const [runCheck] = runFiles.length > 0 ? onlyNew([{ doc: RUN_CHECK_KEY, files: runFiles }]) : [];
+
+  if (runCheck) messages.push(runCheckMessage(runCheck.files));
+
+  return messages.length > 0 ? { followup_message: messages.join('\n\n---\n\n') } : {};
 }
