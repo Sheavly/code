@@ -33,9 +33,6 @@ const TERMINAL_UI = '@sheavly/terminal-ui';
 export const SPLIT_APP = {
   dir: '.',
   layers: {
-    // What is left in src/runtime: the workbook's errors, which move with the workbook app.
-    runtime: [RUNTIME],
-    workbook: [PROTOCOL, CORE, RUNTIME, HOST, WORKSPACE, CODING, LOOP, TERMINAL_UI, 'runtime'],
     'demo.ts': [HOST, CODING, LOOP, TERMINAL_UI],
     'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, HOST, WORKSPACE, CODING, LOOP],
   },

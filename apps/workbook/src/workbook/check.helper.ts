@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import type { ProviderSettings } from '@sheavly/host/host/host.types';
-import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
+import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { resolveWritable } from '@sheavly/coding/files/files.helper';

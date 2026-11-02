@@ -8,13 +8,13 @@ describe('runSourceFiles', () => {
         'packages/workspace/src/trust/trust.service.ts',
         'src/demo.ts',
         'packages/core/src/hook/hook.service.ts',
-        'src/workbook/run.service.ts',
+        'apps/workbook/src/workbook/run.helper.ts',
       ]),
     ).toEqual([
+      'apps/workbook/src/workbook/run.helper.ts',
       'packages/core/src/hook/hook.service.ts',
       'packages/workspace/src/trust/trust.service.ts',
       'src/demo.ts',
-      'src/workbook/run.service.ts',
     ]);
   });
 

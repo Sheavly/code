@@ -8,7 +8,7 @@ import {
   mergeTextDeltas,
   toolsUsed,
 } from './workbook.utils.js';
-import { WorkbookNotFoundError } from '../runtime/errors/workbook.errors.js';
+import { WorkbookNotFoundError } from '../errors/workbook.errors.js';
 import type { Write } from '@sheavly/terminal-ui/render/render.types';
 
 /** `list`: the stored prompts, and the latest runs with how they ended. */

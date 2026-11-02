@@ -19,7 +19,7 @@
     "knip:baseline": "knip --preprocessor ./scripts/knip-baseline.mjs --no-exit-code",
     "jscpd": "node scripts/jscpd.mjs",
     "jscpd:baseline": "node scripts/jscpd-baseline.mjs",
-    "workbook": "tsx --conditions=@sheavly/source src/workbook/workbook.ts",
+    "workbook": "tsx --conditions=@sheavly/source apps/workbook/src/workbook/workbook.ts",
     "demo": "tsx --conditions=@sheavly/source src/demo.ts",
     "typecheck:root": "tsc --noEmit",
     "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
@@ -60,7 +60,8 @@
     "node": ">=24"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "packageManager": "npm@12.2.1",
   "sheavly": {

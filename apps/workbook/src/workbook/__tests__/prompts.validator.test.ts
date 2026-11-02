@@ -5,7 +5,7 @@ import { parsePromptFile } from '../workbook.validator.js';
 
 // A stored prompt's check runs when the branch touches one of its `areas`. An area that no longer
 // exists (its code moved to a package) matches nothing, so the check would silently stop running.
-const ROOT = path.resolve(import.meta.dirname, '../../..');
+const ROOT = path.resolve(import.meta.dirname, '../../../../..');
 const PROMPTS = path.join(ROOT, 'workbook/prompts');
 
 const checks = readdirSync(PROMPTS)

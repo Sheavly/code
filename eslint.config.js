@@ -13,9 +13,9 @@ import { defineConfig, globalIgnores } from 'eslint/config';
  * else is a backend that emits typed events. Keep this list short; a new UI is added here only
  * when its issue asks for one, so review sees it.
  */
-const FRONT_END_FILES = ['src/demo.ts', 'src/workbook/**/*.ts'];
+const FRONT_END_FILES = ['src/demo.ts'];
 /** Hosts' command-line entry points: files without a kind. */
-const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
+const HOST_ENTRIES = ['src/demo.ts'];
 /** The package entry (`main`): the one file that re-exports. */
 const ENTRY_FILE = 'src/index.ts';
 
@@ -31,7 +31,7 @@ export default defineConfig([
     frontEndFiles: FRONT_END_FILES,
   }),
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
-  // The front ends are the hosts: they read env (the demo and the workbook CLI).
+  // The front end is a host: the demo reads env.
   { files: FRONT_END_FILES, rules: { 'harness/no-process-env': 'off' } },
   { files: FRONT_END_FILES, rules: { 'no-console': 'off' } },
   // CLIs: they report to the terminal.

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { STATE_VERSION } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
-import { WorkbookPromptError } from '../runtime/errors/workbook.errors.js';
+import { WorkbookPromptError } from '../errors/workbook.errors.js';
 import { checkSchema } from './check.validator.js';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
