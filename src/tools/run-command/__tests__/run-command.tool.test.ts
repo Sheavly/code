@@ -5,7 +5,7 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { Workspace } from '../../../runtime/workspace/workspace.service.js';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
