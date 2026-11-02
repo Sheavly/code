@@ -184,7 +184,7 @@ Adapters have no default model: the caller picks it (the hosts' default is `DEFA
 ## Project layout
 
 Every layer holds one folder per module, and every file is `<name>.<kind>.ts`. Imports only point
-"down" the layers (`harness/imports`, from the layout in `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
+"down" the layers (`harness/imports`: the workspace graph from each `package.json`, and this app's `src/` layers from `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
 packages (npm workspaces):
 
 ```
@@ -296,13 +296,35 @@ only when its issue asks for one.
 
 ### Workspace layout (`npm run layout`)
 
-`scripts/check-layout.mjs` holds the files on disk to the layout in
-`packages/eslint-config/src/layout.js`. Every workspace has a layout entry at its directory, is
-named `@sheavly/<folder>` (the root app keeps its name until #29), has an `eslint.config.js` calling
-`baseConfig`, a `tsconfig.json` extending `tsconfig.base.json` with `rootDir: "src"` and a
-`knip.json` entry, and depends on exactly the `@sheavly/*` workspaces its `dependsOn` lists (dev
-dependencies only on tooling or test-only ones). TypeScript outside a workspace's `src/` fails,
-apart from what `NOT_SOURCE` lists with a reason. The imports themselves are `harness/imports`.
+A new workspace comes from the scaffold, never by hand:
+
+```bash
+npm run new -- package <name> --domain <generic|coding|tooling> --description "…" [--depends-on core,protocol]
+npm run new -- app <name> --domain <generic|coding|tooling> --description "…" [--depends-on …]
+```
+
+It checks each `--depends-on` against the graph first and refuses one it doesn't allow (an app,
+coding from generic, a tooling workspace), then creates `packages/<name>` or `apps/<name>` through
+`npm init -w` and `npm pkg set` (adding `apps/*` to the root `workspaces` the first time), with its
+`eslint.config.js`, `tsconfig.json`, `tsconfig.build.json`, a README and a first test. An allowed
+dependency is installed with its first import (the scaffold prints the `npm install` command):
+installed earlier, nothing would import it and knip would fail. The new workspace passes
+`npm run check` as it is.
+
+The layout is read from the workspaces, never listed by hand: which workspaces exist from the
+root `package.json` `workspaces`, package or app from the folder (`packages/*`, `apps/*`, the root
+app being split), the graph from each workspace's own `dependencies` (`devDependencies` for its
+tests), and its domain from its `sheavly` field (`npm pkg set sheavly.domain=<generic|coding|tooling>`).
+Only two parts are written in `packages/eslint-config/src/layout.js`, on purpose: the root app's
+`src/` layers (a policy, until #29) and `NOT_SOURCE` (reviewed exceptions).
+
+`scripts/check-layout.mjs` holds the workspaces to it: each has a domain, is named
+`@sheavly/<folder>` (the root app keeps its name until #29), depends on no app, a generic one on
+no coding one, and on tooling or test-only ones only as dev dependencies; each has an
+`eslint.config.js` calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
+`rootDir: "src"`. TypeScript outside a workspace's `src/` fails, apart from what `NOT_SOURCE`
+lists with a reason. knip finds the workspaces itself, so `knip.json` lists only the root's
+settings. The imports themselves are `harness/imports`.
 
 ### Dead code and duplication (knip, jscpd)
 
@@ -359,10 +381,11 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
-- `harness/layout` and `harness/imports`: every workspace is in the layout
-  (`packages/eslint-config/src/layout.js`), and imports follow its graph: `@sheavly/*` only along
-  `dependsOn` (never an app, never coding from generic), test-only workspaces only from tests and
-  fakes, no relative import across workspace roots, and this app's `src/` layers until #29.
+- `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
+  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge), and
+  imports follow the graph: another workspace only if `package.json` depends on it (dev
+  dependencies for tests), test-only workspaces only from tests and fakes, no relative import
+  across workspace roots, and this app's `src/` layers until #29.
 - `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or
@@ -402,12 +425,12 @@ lines between steps (auto-fixed with `npm run lint:fix`).
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
-| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                                                                                                                       |
-| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.                                                                                               |
-| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. The first edit of a file a skill governs (its `harness.json` `governs` globs) names that skill, once per chat. TypeScript written outside every workspace's `src/` is reported on the edit (`layout.utils.mjs`). Advisory: never blocks the edit. |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + the layout check + jscpd (new jscpd clones only) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                          |
+| Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                                                                                                                                                                                                              |
+| `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.                                                                                                                                                                                      |
+| `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. The first edit of harness source in a chat also injects the skill's "Where code goes". The first edit of a file a skill governs (its `harness.json` `governs` globs) names that skill, once per chat. TypeScript written outside every workspace's `src/` is reported on the edit (`layout.utils.mjs`). Advisory: never blocks the edit. |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + the layout check + jscpd (new jscpd clones only) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                                                                                                                 |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**

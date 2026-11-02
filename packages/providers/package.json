@@ -22,5 +22,8 @@
     "@sheavly/protocol": "^0.0.0",
     "zod": "^4.6.7"
   },
-  "private": true
+  "private": true,
+  "sheavly": {
+    "domain": "generic"
+  }
 }

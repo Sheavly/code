@@ -1,14 +1,11 @@
-// The layout check (`npm run layout`, part of `npm run check`): the files on disk follow the
-// workspace layout in packages/eslint-config/src/layout.js. Every workspace:
-//
-// - has a layout entry at its directory, and is named `@sheavly/<folder>` (the app being split,
-//   listed with `layers`, keeps its name until #29);
-// - has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json` extending
-//   `tsconfig.base.json` with `rootDir: "src"`, and a `knip.json` entry;
-// - depends (`dependencies`) on exactly the @sheavly/* workspaces its `dependsOn` lists, and on
-//   others only as dev dependencies, and only on tooling or test-only ones.
-//
-// And TypeScript lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why.
+// The layout check (`npm run layout`, part of `npm run check`): the workspaces on disk hold
+// together as the layout reads them (packages/eslint-config/src/layout.utils.js): each has a
+// domain, is named `@sheavly/<folder>` (the app being split keeps its name until #29), and depends
+// on no app, and a generic one on no coding one. Every workspace also has an `eslint.config.js`
+// calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
+// `rootDir: "src"`. And TypeScript lives only in a workspace's `src/`, apart from what
+// `NOT_SOURCE` lists and why. Lint runs the same checks on each workspace's files; this one also
+// covers a workspace with no source yet.
 //
 //   node scripts/check-layout.mjs   prints each problem and exits 1, or exits 0
 import { spawnSync } from 'node:child_process';
@@ -16,18 +13,14 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { LAYOUT, NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
+import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
 import {
   isStraySource,
+  layoutProblems,
   listWorkspaces,
+  readLayout,
   STRAY_SOURCE,
 } from '../packages/eslint-config/src/layout.utils.js';
-
-const SCOPE = '@sheavly/';
-
-function readJson(file) {
-  return JSON.parse(readFileSync(file, 'utf8'));
-}
 
 /** A tsconfig (JSON with comments), or null when it isn't there. */
 function readTsconfig(file) {
@@ -40,34 +33,8 @@ function readTsconfig(file) {
   return config;
 }
 
-function nameProblems(params) {
-  const { workspace, entry } = params;
-
-  if (!entry) {
-    return [
-      `${workspace.relative}: ${workspace.name} has no entry in packages/eslint-config/src/layout.js; add its kind, domain and dependsOn.`,
-    ];
-  }
-
-  const problems = [];
-
-  if (entry.dir !== workspace.relative) {
-    problems.push(`${workspace.relative}: the layout puts ${workspace.name} at ${entry.dir}.`);
-  }
-
-  const folder = path.basename(workspace.dir);
-
-  if (!entry.layers && workspace.name !== `${SCOPE}${folder}`) {
-    problems.push(
-      `${workspace.relative}: name it ${SCOPE}${folder}, after its folder (it is ${workspace.name}).`,
-    );
-  }
-
-  return problems;
-}
-
 function configProblems(params) {
-  const { workspace, knip } = params;
+  const { workspace } = params;
   const at = (file) => path.join(workspace.dir, file);
   const problems = [];
   const eslintConfig = at('eslint.config.js');
@@ -98,41 +65,6 @@ function configProblems(params) {
     }
   }
 
-  if (!(workspace.relative in (knip.workspaces ?? {}))) {
-    problems.push(`${workspace.relative}: add it to knip.json's "workspaces".`);
-  }
-
-  return problems;
-}
-
-function dependencyProblems(params) {
-  const { workspace, entry, layout } = params;
-  const manifest = readJson(path.join(workspace.dir, 'package.json'));
-  const ours = (deps) => Object.keys(deps ?? {}).filter((name) => name.startsWith(SCOPE));
-  const runtime = ours(manifest.dependencies);
-  const dev = ours(manifest.devDependencies);
-  const problems = [];
-
-  for (const name of runtime.filter((dep) => !entry.dependsOn.includes(dep))) {
-    problems.push(
-      `${workspace.relative}: depends on ${name}, which its layout entry's dependsOn doesn't list.`,
-    );
-  }
-
-  for (const name of entry.dependsOn.filter((dep) => !runtime.includes(dep))) {
-    problems.push(
-      `${workspace.relative}: its layout entry lists ${name}, but package.json doesn't depend on it (\`npm install ${name}@0.0.0 -w ${workspace.relative}\`).`,
-    );
-  }
-
-  for (const name of dev.filter(
-    (dep) => layout[dep]?.domain !== 'tooling' && !layout[dep]?.testOnly,
-  )) {
-    problems.push(
-      `${workspace.relative}: ${name} is a dev dependency, but only tooling and test-only workspaces may be.`,
-    );
-  }
-
   return problems;
 }
 
@@ -147,25 +79,12 @@ function strayProblems(params) {
 
 /** Every layout problem in the repo at `root`, given its tracked and untracked `files`. */
 export function findLayoutProblems(params) {
-  const { root, files, layout = LAYOUT, notSource = NOT_SOURCE } = params;
+  const { root, files, notSource = NOT_SOURCE, splitApp } = params;
   const workspaces = listWorkspaces(root);
-  const knip = existsSync(path.join(root, 'knip.json'))
-    ? readJson(path.join(root, 'knip.json'))
-    : {};
 
   return [
-    ...workspaces.flatMap((workspace) => {
-      const entry = layout[workspace.name];
-      const named = nameProblems({ workspace, entry });
-
-      if (!entry) return named;
-
-      return [
-        ...named,
-        ...configProblems({ workspace, knip }),
-        ...dependencyProblems({ workspace, entry, layout }),
-      ];
-    }),
+    ...layoutProblems(readLayout({ root, splitApp })).map((problem) => `${problem}.`),
+    ...workspaces.flatMap((workspace) => configProblems({ workspace })),
     ...strayProblems({ workspaces, files, notSource }),
   ];
 }

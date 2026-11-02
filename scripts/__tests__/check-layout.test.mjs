@@ -1,7 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { findLayoutProblems } from '../check-layout.mjs';
 import { createTempRepo, REPO_ROOT, removeTempRepos } from './temp-repo.utils.mjs';
-import { spawnSync } from 'node:child_process';
 
 afterEach(removeTempRepos);
 
@@ -11,81 +11,77 @@ const ESLINT =
   "import { baseConfig } from '@sheavly/eslint-config';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n";
 const json = (value) => JSON.stringify(value);
 
-/** A workspace that passes every check: `@sheavly/<folder>` with its files and entries. */
+/** A workspace that passes every check: `@sheavly/<folder>` with a domain and its config files. */
 function wellFormed(folder, manifest = {}) {
   return {
-    [`packages/${folder}/package.json`]: json({ name: `@sheavly/${folder}`, ...manifest }),
+    [`packages/${folder}/package.json`]: json({
+      name: `@sheavly/${folder}`,
+      sheavly: { domain: 'generic' },
+      ...manifest,
+    }),
     [`packages/${folder}/eslint.config.js`]: ESLINT,
     [`packages/${folder}/tsconfig.json`]: TSCONFIG,
     [`packages/${folder}/src/${folder}/${folder}.utils.ts`]: 'export const x = 1;\n',
   };
 }
 
-const LAYOUT = {
-  '@sheavly/app': { dir: '.', kind: 'app', domain: 'coding', dependsOn: [], layers: {} },
-  '@sheavly/base': { dir: 'packages/base', kind: 'package', domain: 'generic', dependsOn: [] },
-  '@sheavly/lint': { dir: 'packages/lint', kind: 'package', domain: 'tooling', dependsOn: [] },
-  '@sheavly/top': {
-    dir: 'packages/top',
-    kind: 'package',
-    domain: 'generic',
-    dependsOn: ['@sheavly/base'],
-  },
-};
-const KNIP = {
-  workspaces: { '.': {}, 'packages/base': {}, 'packages/lint': {}, 'packages/top': {} },
-};
-
 function repo(overrides = {}) {
   const files = {
-    'package.json': json({ name: '@sheavly/app', workspaces: ['packages/*'] }),
+    'package.json': json({
+      name: '@sheavly/harness',
+      workspaces: ['packages/*'],
+      sheavly: { domain: 'coding' },
+      dependencies: { '@sheavly/top': '0' },
+    }),
     'eslint.config.js': ESLINT,
     'tsconfig.json': json({ extends: './tsconfig.base.json', compilerOptions: { rootDir: 'src' } }),
     'src/main.ts': 'export {};\n',
-    'knip.json': json(KNIP),
     ...wellFormed('base'),
-    ...wellFormed('lint'),
+    ...wellFormed('lint', { sheavly: { domain: 'tooling' } }),
     ...wellFormed('top', {
-      dependencies: { '@sheavly/base': '^0.0.0' },
-      devDependencies: { '@sheavly/lint': '^0.0.0' },
+      dependencies: { '@sheavly/base': '0' },
+      devDependencies: { '@sheavly/lint': '0' },
     }),
     ...overrides,
   };
-  const root = createTempRepo(
-    Object.fromEntries(Object.entries(files).filter(([, content]) => content !== null)),
-  );
+  const present = Object.entries(files).filter(([, content]) => content !== null);
 
-  return { root, files: Object.keys(files).filter((file) => files[file] !== null) };
+  return {
+    root: createTempRepo(Object.fromEntries(present)),
+    files: present.map(([file]) => file),
+  };
 }
 
-const problems = (overrides, layout = LAYOUT, notSource = {}) =>
-  findLayoutProblems({ ...repo(overrides), layout, notSource });
+// This repo's split-app layers don't apply to a temp repo: its root app has none.
+const NO_LAYERS = { dir: '.', layers: {} };
+const problems = (overrides, notSource = {}) =>
+  findLayoutProblems({ ...repo(overrides), notSource, splitApp: NO_LAYERS });
 
 describe('the layout check', () => {
-  it('passes workspaces that follow the layout', () => {
+  it('passes workspaces that hold together', () => {
     expect(problems()).toEqual([]);
   });
 
-  it('fails a hand-made workspace with no layout entry', () => {
-    expect(problems(wellFormed('stray'))).toEqual([
-      expect.stringContaining(
-        '@sheavly/stray has no entry in packages/eslint-config/src/layout.js',
-      ),
+  it('covers a workspace added by hand, with no edit anywhere else: here, one without a domain', () => {
+    expect(
+      problems({
+        ...wellFormed('stray'),
+        'packages/stray/package.json': json({ name: '@sheavly/stray' }),
+      }),
+    ).toEqual([
+      expect.stringContaining('@sheavly/stray has no domain: run `npm pkg set sheavly.domain='),
     ]);
   });
 
-  it('fails a workspace not named after its folder, or listed at another directory', () => {
-    const layout = { ...LAYOUT, '@sheavly/other': { ...LAYOUT['@sheavly/base'] } };
-
+  it('fails a workspace not named after its folder', () => {
     expect(
-      problems({ 'packages/base/package.json': json({ name: '@sheavly/other' }) }, layout),
-    ).toEqual([expect.stringContaining('name it @sheavly/base')]);
-    expect(
-      problems(
-        {},
-        { ...LAYOUT, '@sheavly/base': { ...LAYOUT['@sheavly/base'], dir: 'packages/x' } },
-      ),
-    ).toEqual([expect.stringContaining('the layout puts @sheavly/base at packages/x')]);
+      problems({
+        'packages/base/package.json': json({
+          name: '@sheavly/other',
+          sheavly: { domain: 'generic' },
+        }),
+      }),
+    ).toEqual([expect.stringContaining('@sheavly/other must be named @sheavly/base')]);
   });
 
   it.each([
@@ -106,35 +102,29 @@ describe('the layout check', () => {
       { 'packages/base/tsconfig.json': json({ extends: '../../tsconfig.base.json' }) },
       '"rootDir": "src"',
     ],
-    [
-      'no knip.json entry',
-      { 'knip.json': json({ workspaces: { '.': {}, 'packages/lint': {}, 'packages/top': {} } }) },
-      'knip.json',
-    ],
   ])('fails a workspace with %s', (_, overrides, message) => {
     expect(problems(overrides)).toEqual([expect.stringContaining(message)]);
   });
 
-  it('fails dependencies off the graph: missing, extra, or a dev dependency that is not tooling', () => {
+  it('fails dependencies off the graph, read from package.json', () => {
     const top = (manifest) => ({
-      'packages/top/package.json': json({ name: '@sheavly/top', ...manifest }),
+      'packages/top/package.json': json({
+        name: '@sheavly/top',
+        sheavly: { domain: 'generic' },
+        ...manifest,
+      }),
     });
 
-    expect(problems(top({}))).toEqual([
-      expect.stringContaining("package.json doesn't depend on it"),
-    ]);
     expect(problems(top({ dependencies: { '@sheavly/base': '0', '@sheavly/lint': '0' } }))).toEqual(
       [
         expect.stringContaining(
-          "depends on @sheavly/lint, which its layout entry's dependsOn doesn't list",
+          '@sheavly/top depends on @sheavly/lint, which source never imports',
         ),
       ],
     );
-    expect(
-      problems(
-        top({ dependencies: { '@sheavly/base': '0' }, devDependencies: { '@sheavly/base': '0' } }),
-      ),
-    ).toEqual([expect.stringContaining('only tooling and test-only workspaces may be')]);
+    expect(problems(top({ devDependencies: { '@sheavly/base': '0' } }))).toEqual([
+      expect.stringContaining('only tooling and test-only workspaces may be'),
+    ]);
   });
 
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {
@@ -144,9 +134,7 @@ describe('the layout check', () => {
       expect.stringContaining('tools/gen.ts: source lives in a workspace'),
       expect.stringContaining('fixtures/app/.hidden/x.cts: source lives in a workspace'),
     ]);
-    expect(
-      problems(stray, LAYOUT, { 'tools/*.ts': 'generated', 'fixtures/**': 'a fixture' }),
-    ).toEqual([]);
+    expect(problems(stray, { 'tools/*.ts': 'generated', 'fixtures/**': 'a fixture' })).toEqual([]);
   });
 });
 

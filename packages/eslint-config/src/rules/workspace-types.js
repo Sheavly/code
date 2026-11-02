@@ -35,6 +35,9 @@ export function workspaceDirs(root) {
 
     const parent = path.join(root, pattern.slice(0, -2));
 
+    // A pattern for a folder nobody created yet (`apps/*` before the first app) matches nothing.
+    if (!existsSync(parent)) return [];
+
     return readdirSync(parent, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => path.join(parent, entry.name));

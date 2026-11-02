@@ -9,12 +9,20 @@ export const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 
 const roots = [];
 
-/** A temp directory holding `files` (path -> content), removed by `removeTempRepos`. */
-export function createTempRepo(files) {
+/**
+ * A temp directory holding `files` (path -> content), removed by `removeTempRepos`. This repo's
+ * node_modules is linked in, unless `linkNodeModules` is false: a test that runs npm itself must
+ * not let it write through the link into the real node_modules.
+ */
+export function createTempRepo(files, options = {}) {
+  const { linkNodeModules = true } = options;
   const root = mkdtempSync(path.join(os.tmpdir(), 'harness-scripts-'));
 
   roots.push(root);
-  symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(root, 'node_modules'), 'junction');
+
+  if (linkNodeModules) {
+    symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(root, 'node_modules'), 'junction');
+  }
 
   writeFiles({ root, files });
 

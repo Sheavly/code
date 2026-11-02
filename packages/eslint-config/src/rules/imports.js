@@ -1,17 +1,24 @@
-// Imports follow the workspace layout (`layout.js`). In every workspace, tests included:
+// Imports follow the workspace layout, read from the workspaces (`layout.utils.js`). In every
+// workspace, tests included:
 //
-// - `@sheavly/<x>` only if the importing workspace lists it in `dependsOn` (so never an app, and
-//   never a coding package from a generic one); a `testOnly` workspace only from tests and fakes;
+// - another workspace only if this one's package.json depends on it (its `devDependencies` count
+//   for tests and fakes); a test-only workspace only from tests and fakes;
 // - no relative import that leaves the importing workspace (`../../packages/core/...`): import
 //   another workspace by its package name;
 // - in the app being split (its `layers`), a relative import into another layer only if this
 //   layer lists it; tests and fakes are exempt there, since they wire concrete pieces together.
 import path from 'node:path';
-import { LAYOUT } from '../layout.js';
-import { layerEntry, listWorkspaces, workspaceOfFile } from '../layout.utils.js';
+import {
+  layerEntry,
+  LAYOUT_RULE_OPTIONS,
+  listWorkspaces,
+  readLayout,
+  workspaceFlag,
+  workspaceOfFile,
+} from '../layout.utils.js';
 import { findRoot } from './workspace-types.js';
 
-const LAYOUT_FILE = 'packages/eslint-config/src/layout.js';
+const LAYERS_FILE = 'packages/eslint-config/src/layout.js';
 const TEST_CODE = /(^|\/)(__tests__|testing)\//;
 
 /** The layer a path inside `src/` belongs to: its first folder, or the root file's name. */
@@ -26,24 +33,18 @@ function toPosix(file) {
 export const importsRule = {
   meta: {
     type: 'problem',
-    schema: [
-      {
-        type: 'object',
-        properties: { root: { type: 'string' }, layout: { type: 'object' } },
-        additionalProperties: false,
-      },
-    ],
+    schema: [LAYOUT_RULE_OPTIONS],
     messages: {
-      notInGraph: `{{from}} may not import {{target}}: it isn't in {{from}}'s \`dependsOn\` in ${LAYOUT_FILE}. {{why}}`,
+      notInGraph: `{{from}} may not import {{target}}: {{from}}'s package.json doesn't depend on it. {{why}}`,
       testOnly: `{{target}} is for tests and fakes only; source never imports it.`,
-      crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), along the layout in ${LAYOUT_FILE}.`,
-      crossesLayer: `The {{layer}} layer may not import {{target}}: only {{allowed}} (${LAYOUT_FILE}). If the dependency is real, pass it in as an option instead; if the layer graph should change, change the layout in review.`,
+      crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), and depend on it in package.json.`,
+      crossesLayer: `The {{layer}} layer may not import {{target}}: only {{allowed}} (${LAYERS_FILE}). If the dependency is real, pass it in as an option instead; if the layer graph should change, change the layout in review.`,
     },
   },
   create(context) {
     const options = context.options[0] ?? {};
     const root = options.root ?? findRoot(context.cwd);
-    const layout = options.layout ?? LAYOUT;
+    const layout = options.layout ?? (root && readLayout({ root, splitApp: options.splitApp }));
 
     if (!root) return {}; // harness/layout reports the missing root
 
@@ -52,7 +53,7 @@ export const importsRule = {
     const from = workspaceOfFile({ workspaces, file });
     const entry = from && layout[from.name];
 
-    if (!entry) return {}; // harness/layout reports a workspace the layout doesn't list
+    if (!entry) return {}; // a file outside every workspace: the layout check reports it
 
     const src = path.join(from.dir, 'src');
     const inSrc = file.startsWith(`${src}${path.sep}`);
@@ -69,7 +70,7 @@ export const importsRule = {
         return 'A generic workspace never imports a coding one.';
       }
 
-      return 'If the dependency is real, add it to the layout in review.';
+      return `If the dependency is real, add it: \`npm install ${target}@0.0.0${workspaceFlag(entry.dir)}\` (a dev dependency for tests).`;
     };
 
     const checkPackage = (node, specifier) => {
@@ -87,7 +88,11 @@ export const importsRule = {
         return;
       }
 
-      if (!entry.dependsOn.includes(target)) {
+      const allowed = isTestCode
+        ? [...entry.dependsOn, ...(entry.devDependsOn ?? [])]
+        : entry.dependsOn;
+
+      if (!allowed.includes(target)) {
         context.report({
           node,
           messageId: 'notInGraph',
