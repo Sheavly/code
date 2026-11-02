@@ -5,6 +5,7 @@ The [README](../README.md) covers setup and running; open work is in [GitHub Iss
 
 | Doc                        | What it covers                                                       |
 | -------------------------- | -------------------------------------------------------------------- |
+| [vision.md](vision.md)     | Why the harness exists, the principles it follows, and the roadmap   |
 | [overview.md](overview.md) | What the harness is for, its layers, and one run from start to end   |
 | [tools.md](tools.md)       | How tools are written; the file tools and their before/after changes |
 | [hooks.md](hooks.md)       | Every hook point, order rules, and `.sheavly/` project hooks         |
