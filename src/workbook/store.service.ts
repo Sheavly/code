@@ -1,6 +1,7 @@
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { z } from 'zod';
+import type { z } from 'zod';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import type { Message } from '@sheavly/core/message/message.types';
 import type { AgentEvent } from '../loop/events/events.types.js';
 import { isMissingPath } from '../runtime/errors/errors.utils.js';
@@ -20,13 +21,13 @@ import type {
   StoredPrompt,
   WorkbookState,
 } from './workbook.types.js';
+import { runPaths } from './workbook.utils.js';
 import {
   parsePromptFile,
   runMetaSchema,
-  runPaths,
   runResultSchema,
   stateSchema,
-} from './workbook.utils.js';
+} from './workbook.validator.js';
 
 /**
  * The workbook folder: stored prompts (`prompts/`), fixture and run workspaces
@@ -71,17 +72,18 @@ export class WorkbookStore {
 
     if (raw === undefined) return { ...EMPTY_STATE, lastRunByPrompt: {} };
 
-    const parsed = stateSchema.safeParse(parseJson({ file: this.#stateFile, raw }));
+    const file = this.#stateFile;
 
-    if (!parsed.success) {
-      throw new WorkbookStoreError({
-        file: this.#stateFile,
-        cause: parsed.error,
-        reason: `invalid (delete it to start over):\n${z.prettifyError(parsed.error)}`,
-      });
-    }
-
-    return parsed.data;
+    return parseOrThrow({
+      schema: stateSchema,
+      input: parseJson({ file, raw }),
+      onInvalid: ({ details, error }) =>
+        new WorkbookStoreError({
+          file,
+          cause: error,
+          reason: `invalid (delete it to start over):\n${details}`,
+        }),
+    });
   }
 
   /** Claims the next run number and folder, and remembers it as the prompt's latest run. */
@@ -276,15 +278,11 @@ function parseJson(params: { file: string; raw: string }): unknown {
 /** JSON validated against `schema`; either failure names the file. */
 function parseStored<T>(params: { file: string; raw: string; schema: z.ZodType<T> }): T {
   const { file, raw, schema } = params;
-  const parsed = schema.safeParse(parseJson({ file, raw }));
 
-  if (!parsed.success) {
-    throw new WorkbookStoreError({
-      file,
-      cause: parsed.error,
-      reason: z.prettifyError(parsed.error),
-    });
-  }
-
-  return parsed.data;
+  return parseOrThrow({
+    schema,
+    input: parseJson({ file, raw }),
+    onInvalid: ({ details, error }) =>
+      new WorkbookStoreError({ file, cause: error, reason: details }),
+  });
 }

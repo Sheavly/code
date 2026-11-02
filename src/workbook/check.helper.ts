@@ -2,21 +2,16 @@ import { execFileSync } from 'node:child_process';
 import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { z } from 'zod';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import type { ProviderSettings } from '../host/host.types.js';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { TrustStore } from '../runtime/trust/trust.service.js';
 import { resolveWritable } from '../tools/files/files.helper.js';
 import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
-import {
-  formatReport,
-  isRunSource,
-  judgeRun,
-  runSourcesSchema,
-  touchesAreas,
-} from './check.utils.js';
-import { runWorkbook } from './run.service.js';
+import { formatReport, isRunSource, judgeRun, touchesAreas } from './check.utils.js';
+import { runSourcesSchema } from './check.validator.js';
+import { runWorkbook } from './run.helper.js';
 import type { WorkbookStore } from './store.service.js';
 import { RUN_SOURCES_FILE } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
@@ -90,17 +85,12 @@ async function readRunSources(store: WorkbookStore): Promise<RunSources> {
     throw new WorkbookStoreError({ file, cause: caughtError });
   }
 
-  const parsed = runSourcesSchema.safeParse(json);
-
-  if (!parsed.success) {
-    throw new WorkbookStoreError({
-      file,
-      cause: parsed.error,
-      reason: z.prettifyError(parsed.error),
-    });
-  }
-
-  return parsed.data;
+  return parseOrThrow({
+    schema: runSourcesSchema,
+    input: json,
+    onInvalid: ({ details, error }) =>
+      new WorkbookStoreError({ file, cause: error, reason: details }),
+  });
 }
 
 /** What a saved run produced, read back from its files. */
