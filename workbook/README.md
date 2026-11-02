@@ -42,9 +42,58 @@ maxTurns: 20 # model calls per session (default 20)
 Create src/math.ts exporting a function add(a: number, b: number) …
 ```
 
-The included prompts cover the harness's features, the same checks as the live demo test:
-`hooks-and-agents-md`, `write-and-edit`, `guards`, `read-ranges`, `background-tasks`,
-`sub-agent-nesting`, `steer-sub-agent`.
+The included prompts cover the harness's features: `hooks-and-agents-md`, `write-and-edit`,
+`guards`, `read-ranges`, `background-tasks`, `sub-agent-nesting`, `steer-sub-agent`, and the
+workspace-trust cases `trust-changed` and `trust-untrusted`. Each has a `check`.
+
+## Real-model checks
+
+Unit tests use fakes, so they never show that a feature works with a real model. A **check** does:
+it runs a stored prompt for real and compares what happened with what the prompt's front matter
+says must (`expect`) and must not (`forbid`) show.
+
+```bash
+npm run workbook -- check                     # the checks whose areas this branch changed
+npm run workbook -- check trust-changed       # named ones
+npm run workbook -- check --all               # every one
+```
+
+It's manual and on demand, never part of CI or `npm run check`: every run is a paid model call
+(roughly a cent each; a multi-step check makes a few). Run it once when a change to what a run
+does is done. The `/git` review step asks for it, and the stop hook nudges once per set of files.
+
+```markdown
+---
+workspace: basic
+check:
+  {
+    'areas': ['src/runtime/trust', 'src/host'],
+    'expect': { 'reply': ['[AGENTS.md OK]', '/Sheavly\W*$/'], 'tools': ['read_file'] },
+    'forbid': { 'transcript': ['hooks not loaded'] },
+  }
+---
+```
+
+- **`check`** is JSON, or the YAML flow style Prettier rewrites it to (single quotes, trailing
+  commas). It may go on over indented lines. No YAML library is needed.
+- **`areas`**: source paths (`src/runtime/trust`, a file or a folder) whose changes make the check
+  relevant. `check` with no names runs only these, and lists changed source no check covers.
+- **`expect` / `forbid`**: `transcript` (what was printed) and `reply` (the final answer) take
+  substrings, or regexes written `/…/flags`. `events` (types such as `context_added`) and `tools`
+  (names such as `read_file`) take names. `expect.outcome` is `completed`, `failed`, ….
+- **`steps`**, for a check that needs several runs, replace the top-level `expect` / `forbid`:
+  - `{ "run": { "keep": true, "trust": true, "text": "…" }, "expect": …, "forbid": … }` is a run, with
+    the same flags as the command line;
+  - `{ "append": { "file": "…", "text": "…" } }` edits the workspace between runs (through the
+    sandbox);
+  - `{ "untrust": true }` forgets the workspace's trust.
+
+  `trust-changed` uses all three: trusted, then a hook edited, then skipped, then trusted again.
+
+A failed check is retried once, since real models aren't fully repeatable. The report marks a
+check that passed only on its retry (`~`), and lists every run it made for `show` and `step`.
+Each attempt uses a throwaway trust store, never your `~/.config`. The command exits 1 when a
+check fails.
 
 ## What a run saves
 

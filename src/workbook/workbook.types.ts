@@ -37,6 +37,7 @@ export type Command =
       showModelCalls: boolean;
       trust: boolean;
     }
+  | { name: 'check'; prompts: string[]; all: boolean }
   | { name: 'list' }
   | { name: 'show'; run?: string | undefined }
   | { name: 'step'; run?: string | undefined; from?: number | undefined }

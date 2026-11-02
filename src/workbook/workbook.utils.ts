@@ -5,6 +5,7 @@ import { firstLine, oneLine, shortId } from '../terminal-ui/render.utils.js';
 import { RUN_FILES, STATE_VERSION } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult, StoredPrompt } from './workbook.types.js';
 import { WorkbookPromptError } from '../runtime/errors/workbook.errors.js';
+import { checkSchema } from './check.utils.js';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
 
@@ -17,6 +18,8 @@ export const promptFileSchema = z.object({
   workspace: z.string().min(1).optional(),
   maxTurns: z.number().int().positive().optional(),
   description: z.string().optional(),
+  /** A real-model check of this prompt (see `check.utils.ts`): run by `workbook check`. */
+  check: checkSchema.optional(),
 });
 
 export const runMetaSchema = z.object({
@@ -60,21 +63,115 @@ export const stateSchema = z.object({
 // --- Prompts and runs ---
 
 /**
+ * Front matter lines as `key: value` fields. A value starting with `{` or `[` is JSON (or the
+ * YAML flow style Prettier formats it as), and may go on over the following indented lines (a
+ * `check`); digits are a number; anything else is text, so a plain prompt reads as before.
+ */
+function frontMatterFields(params: { name: string; lines: string[] }): Record<string, unknown> {
+  const { name, lines } = params;
+  const raw: [string, string][] = [];
+
+  for (const line of lines) {
+    const pair = /^(\w+):\s*(.*)$/.exec(line);
+    const last = raw.at(-1);
+
+    if (pair?.[1] && pair[2] !== undefined) raw.push([pair[1], pair[2]]);
+    else if (last && /^\s/.test(line)) last[1] += `\n${line}`;
+  }
+
+  return Object.fromEntries(
+    raw.map(([key, value]) => [key, frontMatterValue({ name, key, value: value.trim() })]),
+  );
+}
+
+/** A `'single'`-quoted YAML string at `start` (`''` is a quote), as a JSON string, and its end. */
+function singleQuoted(params: { text: string; start: number }): { json: string; end: number } {
+  const { text, start } = params;
+  let value = '';
+  let index = start + 1;
+
+  while (index < text.length) {
+    if (text[index] === "'" && text[index + 1] === "'") {
+      value += "'";
+      index += 2;
+    } else if (text[index] === "'") {
+      return { json: JSON.stringify(value), end: index + 1 };
+    } else {
+      value += text[index] ?? '';
+      index += 1;
+    }
+  }
+
+  return { json: JSON.stringify(value), end: index };
+}
+
+/** A `"double"`-quoted string at `start`, unchanged (escapes kept), and its end. */
+function doubleQuoted(params: { text: string; start: number }): { json: string; end: number } {
+  const { text, start } = params;
+  let index = start + 1;
+
+  while (index < text.length && text[index] !== '"') index += text[index] === '\\' ? 2 : 1;
+
+  return { json: text.slice(start, index + 1), end: index + 1 };
+}
+
+/**
+ * YAML flow style (what Prettier writes front matter as: single quotes, trailing commas) as
+ * JSON, so a `check` stays readable either way. Strings are copied, never searched, so a quote
+ * or comma inside one is kept as it is.
+ */
+function flowToJson(text: string): string {
+  let json = '';
+  let index = 0;
+
+  while (index < text.length) {
+    const char = text[index] ?? '';
+
+    if (char === "'" || char === '"') {
+      const quoted = (char === "'" ? singleQuoted : doubleQuoted)({ text, start: index });
+
+      json += quoted.json;
+      index = quoted.end;
+    } else if (char === ',' && /^\s*[}\]]/.test(text.slice(index + 1))) {
+      index += 1; // a trailing comma: JSON has none
+    } else {
+      json += char;
+      index += 1;
+    }
+  }
+
+  return json;
+}
+
+function frontMatterValue(params: { name: string; key: string; value: string }): unknown {
+  const { name, key, value } = params;
+
+  if (/^\d+$/.test(value)) return Number(value);
+  if (!/^[{[]/.test(value)) return value;
+
+  try {
+    return JSON.parse(flowToJson(value));
+  } catch (caughtError) {
+    if (!(caughtError instanceof SyntaxError)) throw caughtError;
+    throw new WorkbookPromptError({
+      name,
+      cause: caughtError,
+      problems: `${key}: ${caughtError.message}`,
+    });
+  }
+}
+
+/**
  * A stored prompt file: optional front matter (`key: value` lines between `---`), then the
  * prompt text. Plain markdown with no front matter is just a prompt.
  */
 export function parsePromptFile(params: { name: string; source: string }): StoredPrompt {
   const { name, source } = params;
   const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(source);
-  const fields: Record<string, unknown> = { text: (match ? match[2] : source)?.trim() ?? '' };
-
-  for (const line of match?.[1]?.split('\n') ?? []) {
-    const pair = /^(\w+):\s*(.*)$/.exec(line.trim());
-
-    if (pair?.[1] && pair[2] !== undefined) {
-      fields[pair[1]] = /^\d+$/.test(pair[2]) ? Number(pair[2]) : pair[2];
-    }
-  }
+  const fields: Record<string, unknown> = {
+    text: (match ? match[2] : source)?.trim() ?? '',
+    ...frontMatterFields({ name, lines: match?.[1]?.split('\n') ?? [] }),
+  };
 
   const parsed = promptFileSchema.safeParse(fields);
 
@@ -119,6 +216,8 @@ const USAGE = `Usage: npm run workbook -- <command>
     --keep                 reuse the prompt's last workspace instead of a fresh copy
   ask "<text>"             run a one-off prompt (saved like any other run)
   continue [run] "<text>"  send a follow-up to a run (default: the last one), with its history
+  check [prompt…] [--all]  run the real-model checks: the named prompts, else the ones whose
+                           areas this branch changed (--all: every one). Costs model calls.
   list                     every stored prompt, and the last runs
   show [run]               a run's summary, result and files (default: the last one)
   step [run] [--from N]    walk a run's events one at a time (Enter: next, q: quit)
@@ -170,6 +269,8 @@ export function parseCommand(argv: string[]): Command {
       return rest.length === 1
         ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust }
         : { name: 'continue', run: rest[0], text: rest.slice(1).join(' '), showModelCalls, trust };
+    case 'check':
+      return { name: 'check', prompts: rest, all: flags.has('--all') };
     case 'list':
       return { name: 'list' };
     case 'show':
@@ -280,4 +381,22 @@ export function diffResults(params: {
   }
 
   return lines;
+}
+
+// --- Reading a saved run ---
+
+/** Tool names in the order they were first called. */
+export function toolsUsed(events: AgentEvent[]): string[] {
+  const names = events.filter((e) => e.type === 'tool_call_started').map((e) => e.call.name);
+
+  return [...new Set(names)];
+}
+
+/** The text of the main session's last reply. */
+export function finalAnswer(events: AgentEvent[]): string {
+  const done = events.findLast((e) => e.type === 'done');
+
+  if (done?.type !== 'done') return '';
+
+  return done.messages.findLast((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
 }

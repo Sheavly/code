@@ -56,7 +56,8 @@ Plain, factual English for a reviewer who hasn't followed the chat. No emojis, n
 - `## Before merging` (optional): manual steps outside the code, as a checklist.
 - `## Test plan`: a checklist. `[x]` for what was actually run on the current head (CI, local
   runs), `[ ]` for what is still to do. Include the Bugbot and security reviews of the current head
-  ([review.md](review.md)) and what was left open by decision. Never tick a demo run against a paid
-  model API unless the user ran it.
+  ([review.md](review.md)) and what was left open by decision, and the real-model check's result
+  (`npm run workbook -- check`: which checks, passed, passed on retry or failed), or why the branch
+  needs none.
 - Last line: `Closes #123`, alone on its line (or `Part of #123` for a stack layer that leaves the
   issue open). CI checks it names the branch's issue.

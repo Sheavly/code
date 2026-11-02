@@ -53,6 +53,14 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    After fixing, run the checks the fixes affect and run both reviewers once more. Stop after that
    second round and give the user what is left, rather than looping.
 
-5. Push only when nothing is open, or the user has said to push anyway. Mention the outcome in the
+5. **Real-model check**, when the branch changes what a run does (source under `src/host`,
+   `loop`, `providers`, `runtime`, `tools`, `workbook`, `src/demo.ts` or `packages/core/src`):
+   `npm run workbook -- check`, after the reviews' fixes. It runs only the checks whose `areas` the
+   branch changed, retries a failure once, and lists changed source no check covers: add or
+   extend a prompt's `check` for that (`workbook/README.md`). It's a local, on-demand command and
+   never runs in CI: every run is a paid model call. Run it once when the change is done, not on
+   every commit, and not for lint, hooks, scripts or docs. A failure is fixed like a finding; one
+   that passed only on its retry is reported, not ignored.
+6. Push only when nothing is open, or the user has said to push anyway. Mention the outcome in the
    report ("Bugbot: 2 fixed, 1 left by decision; Security Review: none") so the PR body's test
    plan can list it.

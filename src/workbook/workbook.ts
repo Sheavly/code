@@ -6,12 +6,14 @@
  *   npm run workbook -- show                    what the last run did, and where its files are
  *   npm run workbook -- step                    walk its events one at a time
  *   npm run workbook -- diff 0003 0007          compare two runs
+ *   npm run workbook -- check                   real-model checks for what this branch changed
  *
  * Every run is saved in workbook/runs/<id>/ as it happens. See workbook/README.md.
  * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
  */
 import path from 'node:path';
 import { providerFromEnv } from '../host/host.service.js';
+import { checkWorkbook } from './check.service.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.service.js';
 import { runWorkbook } from './run.service.js';
 import { WorkbookStore } from './store.service.js';
@@ -80,6 +82,19 @@ try {
       });
 
       process.exitCode = exitCode(result.outcome);
+      break;
+    }
+
+    case 'check': {
+      const passed = await checkWorkbook({
+        store,
+        settings: providerFromEnv(),
+        names: command.prompts,
+        all: command.all,
+        write,
+      });
+
+      process.exitCode = passed ? 0 : 1;
       break;
     }
 
