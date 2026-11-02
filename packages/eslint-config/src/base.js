@@ -3,6 +3,8 @@
 // escape hatches. A workspace's `eslint.config.js` is
 // `baseConfig({ tsconfigRootDir: import.meta.dirname })`, plus its own layer boundaries and
 // exceptions.
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
@@ -20,10 +22,23 @@ const TYPED_FILES = ['**/*.ts'];
 const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
 
 const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
+
 /** Where the conventions and structure rules apply: a workspace's own TypeScript source. */
 const SOURCE_FILES = ['src/**/*.ts'];
 /** Files outside any tsconfig (root configs) that still get type info, from a default project. */
 const DEFAULT_PROJECT_FILES = ['*.ts', '*.js', '*.mjs'];
+
+/**
+ * The files of `tsconfigRootDir` that are test code: its tests and fakes, or all its source when
+ * the workspace is test-only (`sheavly.testOnly` in its package.json, like `@sheavly/testing`).
+ */
+function testFilesOf(tsconfigRootDir) {
+  const manifest = path.join(tsconfigRootDir, 'package.json');
+  const testOnly =
+    existsSync(manifest) && JSON.parse(readFileSync(manifest, 'utf8')).sheavly?.testOnly === true;
+
+  return testOnly ? [...TEST_FILES, ...SOURCE_FILES] : TEST_FILES;
+}
 
 function maxLines(max) {
   return max === null ? 'off' : ['error', { max, skipBlankLines: true, skipComments: true }];
@@ -45,6 +60,7 @@ const maxLinesPerKind = Object.entries(FILE_KIND_POLICIES).map(([kind, policy]) 
  */
 export function baseConfig(params) {
   const { tsconfigRootDir, entryFiles = [], frontEndFiles = [] } = params;
+  const testFiles = testFilesOf(tsconfigRootDir);
 
   return defineConfig([
     globalIgnores(['dist/', 'coverage/', 'node_modules/']),
@@ -107,7 +123,7 @@ export function baseConfig(params) {
     // --- Backend only: no terminal I/O outside the front-end files a workspace names ---
     {
       files: SOURCE_FILES,
-      ignores: [...frontEndFiles, ...TEST_FILES],
+      ignores: [...frontEndFiles, ...testFiles],
       rules: { 'harness/no-terminal-io': 'error' },
     },
 
@@ -126,7 +142,7 @@ export function baseConfig(params) {
 
     // --- Tests: may set env, assert known shapes, and repeat setup by design ---
     {
-      files: TEST_FILES,
+      files: testFiles,
       rules: {
         'harness/no-process-env': 'off',
         // Local helpers (`sleep(ms)`, `waitFor(check, ms)`) read fine positionally.
