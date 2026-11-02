@@ -32,9 +32,9 @@ Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
 | `src/runtime/`            | Services and helpers: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
 | `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                             |
 | `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                                  |
-| `src/host/`               | Wiring a run (`createHarness`) and the model from env. No UI, and no imports from a front end                                                                                                |
+| `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                          |
 | `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                               |
-| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createHarness`, prints events                                                                                                             |
+| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                       |
 | `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                             |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
@@ -42,6 +42,41 @@ Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `h
 are `validator`, stateless code that does I/O is `helper`, and only code that owns state, a
 class, is `service`. See the project skill in `.cursor/skills/working-in-sheavly-harness/` for
 the full conventions.
+
+## Entry points: a generic harness, and coding on top
+
+A run is wired in one of two ways (`src/host/`):
+
+| Entry point                                | For                                                                  | What it wires                                                                                                                                                             |
+| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`host.helper.ts`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
+| `createCodingHarness` (`coding.helper.ts`) | A coding agent in a repo (the demo, the workbook)                    | Opens the `Workspace`, checks trust and loads the `.sheavly/` hooks, adds the AGENTS.md hook, the file tools and `run_command`, then calls `createHarness` with them      |
+
+```ts
+const harness = createHarness({ provider, title: prompt, tools: [extractTool] });
+
+for await (const event of streamAgent({
+  provider: harness.provider,
+  tools: harness.tools,
+  hooks: harness.hooks,
+  messages: [{ role: 'user', content: prompt }],
+  tasks: harness.tasks,
+  session: { registry: harness.sessions, ref: harness.mainSession },
+}))
+  render(event);
+```
+
+Sub-agents get only what `subAgents` lists (`tools`, `hooks`, `instructions`); the coding preset
+gives them the file tools and the AGENTS.md hook. Pass `tasks` or `approvals` in when a tool needs
+the registry before the harness exists (as `run_command` does).
+
+The rule (from [#74](https://github.com/Sheavly/code/issues/74)): generic code never needs a project on disk or a coding tool.
+The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the generic tools
+(`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
+(`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
+(`read-file`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
+the coding preset reaches them, so they can move into their own packages
+([#29](https://github.com/Sheavly/code/issues/29)) without untangling anything.
 
 ## Packages
 

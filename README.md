@@ -235,7 +235,7 @@ src/
     stream-agent/               streamAgent / runAgent, one turn, one model call
     events/  queue/  abort/  hooks/
   testing/                      test-only fakes (*.fake.ts)
-  host/                         createHarness: wires a run; no UI
+  host/                         createHarness (generic) and createCodingHarness (the coding preset); no UI
   terminal-ui/                  front end: the terminal Renderer (demo, workbook)
   workbook/                     front end: stored prompts and saved runs
   demo.ts                       front end: reads env, wires a run, prints events

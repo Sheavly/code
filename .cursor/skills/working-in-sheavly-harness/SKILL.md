@@ -11,15 +11,15 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer                | Holds                                                                      | May import    |
-| -------------------- | -------------------------------------------------------------------------- | ------------- |
-| `packages/core`      | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter`        | zod only      |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch          | core, zod     |
-| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals | core          |
-| `src/tools/`         | One folder per tool                                                        | core, runtime |
-| `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                           | core, runtime |
-| `src/host/`          | `createHarness`: wires a run, the model from env. No UI                    | all above     |
-| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`        | anything      |
+| Layer                | Holds                                                                                                           | May import    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- | ------------- |
+| `packages/core`      | `@sheavly/core`: contracts, `defineTool`/`runTool`, `defineAdapter`                                             | zod only      |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                               | core, zod     |
+| `src/runtime/`       | Stateful services: workspace path confinement, processes, tasks, approvals                                      | core          |
+| `src/tools/`         | One folder per tool                                                                                             | core, runtime |
+| `src/loop/`          | `streamAgent` / `runAgent`, events, queue, abort                                                                | core, runtime |
+| `src/host/`          | `createHarness` (generic) and `createCodingHarness` (the coding preset): wires a run, the model from env. No UI | all above     |
+| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                             | anything      |
 
 ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -29,6 +29,12 @@ ESLint enforces this (`LAYERS` in `eslint.config.js`). If an import is rejected,
 - Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
 - Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/terminal-ui/`, `src/workbook/`. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
 - `src/host/` wires a run and holds no UI; it may not import a front end.
+
+## Two entry points: generic, and coding on top
+
+- `createHarness` (`host/host.helper.ts`) is for any LLM project, with or without a repo: the caller's `tools` and `hooks`, plus the task and sub-agent tools and the registries. It opens no workspace, reads no AGENTS.md or `.sheavly/` and needs no trust store.
+- `createCodingHarness` (`host/coding.helper.ts`) is the coding preset the demo and the workbook use: it opens the `Workspace`, checks trust, loads the AGENTS.md and `.sheavly/` hooks, adds the file tools and `run_command` (sharing one `FileLocks` and one `ProcessRunner`), then calls `createHarness`.
+- Generic code never needs a project on disk or a coding tool. The loop, `runtime/sessions`, `runtime/tasks`, `runtime/approvals`, `tools/sub-agent`, `tools/tasks` and `createHarness` (and their tests) import no workspace-bound service (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) and no coding tool (`read-file`, `write-file`, `edit-file`, `files`, `run-command`). A generic test that needs a background task uses `startTaskTool` (`src/testing/start-task.fake.ts`). New coding wiring goes in the preset, never in `createHarness`. See `docs/overview.md`, "Entry points".
 
 ## Packages
 

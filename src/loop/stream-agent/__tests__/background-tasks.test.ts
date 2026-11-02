@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
-import { createRunCommandTool } from '../../../tools/run-command/run-command.tool.js';
+import { startTaskTool } from '../../../testing/start-task.fake.js';
 import { createTaskTools } from '../../../tools/tasks/tasks.tool.js';
 import type { Message, StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
@@ -9,16 +8,15 @@ import { streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '../../events/events.types.js';
 import type { AgentOptions } from '../stream-agent.types.js';
 
-const temp = useTempWorkspace({ prefix: 'loop-tasks-test-' });
 let tasks: TaskRegistry;
 
 afterEach(async () => {
   await tasks.cancelAll();
 });
 
-const background = (id: string, command: string): StreamEvent => ({
+const background = (id: string, ms: number, output = ''): StreamEvent => ({
   type: 'tool_call',
-  call: { id, name: 'run_command', input: { description: `bg ${id}`, command, background: true } },
+  call: { id, name: 'start_task', input: { description: `bg ${id}`, ms, output } },
 });
 const say = (text: string): StreamEvent[] => [
   { type: 'text_delta', text },
@@ -44,10 +42,7 @@ function recordingProvider(turns: StreamEvent[][]) {
 function options(provider: Provider, extra: Partial<AgentOptions> = {}): AgentOptions {
   return {
     provider,
-    tools: [
-      createRunCommandTool({ workspace: temp.workspace, skipAllowList: true, tasks }),
-      ...createTaskTools(tasks),
-    ],
+    tools: [startTaskTool(tasks), ...createTaskTools(tasks)],
     messages: [{ role: 'user', content: 'go' }],
     tasks,
     ...extra,
@@ -70,7 +65,7 @@ describe('background tasks in the loop', () => {
   it("a background command doesn't block the turn: it yields task_running and the run ends", async () => {
     tasks = new TaskRegistry();
     const { provider } = recordingProvider([
-      [background('c1', 'sleep 2'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 2_000), { type: 'done', stopReason: 'tool_use' }],
       say('Started it.'),
     ]);
 
@@ -101,7 +96,7 @@ describe('background tasks in the loop', () => {
   it('the completion arrives later through the same ordered queue, and the model is told', async () => {
     tasks = new TaskRegistry();
     const { provider, requests } = recordingProvider([
-      [background('c1', 'sleep 0.3 && echo built'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 300, 'built'), { type: 'done', stopReason: 'tool_use' }],
       say('Waiting for the build.'),
       say('The build finished.'),
     ]);
@@ -138,7 +133,7 @@ describe('background tasks in the loop', () => {
   it('a completion that happens after the run is delivered at the start of the next run', async () => {
     tasks = new TaskRegistry();
     const first = recordingProvider([
-      [background('c1', 'echo quick'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 0, 'quick'), { type: 'done', stopReason: 'tool_use' }],
       say('Ok.'),
     ]);
     const firstEvents = await collect(streamAgent(options(first.provider)));
@@ -162,8 +157,8 @@ describe('background tasks in the loop', () => {
     tasks = new TaskRegistry();
     const { provider } = recordingProvider([
       [
-        background('a', 'sleep 0.2 && echo A'),
-        background('b', 'sleep 0.8 && echo B'),
+        background('a', 200, 'A'),
+        background('b', 800, 'B'),
         { type: 'done', stopReason: 'tool_use' },
       ],
       say('Both started.'),
@@ -194,7 +189,7 @@ describe('background tasks in the loop', () => {
   it('the agent can cancel a task; nothing is left to wait for, so the run ends', async () => {
     tasks = new TaskRegistry();
     const { provider } = recordingProvider([
-      [background('c1', 'sleep 5'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 5_000), { type: 'done', stopReason: 'tool_use' }],
       [
         {
           type: 'tool_call',
@@ -218,7 +213,7 @@ describe('background tasks in the loop', () => {
     tasks = new TaskRegistry();
     const controller = new AbortController();
     const { provider } = recordingProvider([
-      [background('c1', 'sleep 5'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 5_000), { type: 'done', stopReason: 'tool_use' }],
       say('Waiting.'),
     ]);
 

@@ -102,6 +102,40 @@ describe('run_command with skipAllowList', () => {
 
     expect(result.content).toContain('[timed out]');
   });
+
+  it('is killed with its process group when the run is interrupted', async () => {
+    const marker = path.join(root, 'should-not-exist.txt');
+    const controller = new AbortController();
+    const provider = scriptedProvider([
+      [
+        {
+          type: 'tool_call',
+          call: {
+            id: 'c1',
+            name: 'run_command',
+            input: { description: 'slow', command: `sleep 5 && touch ${marker}` },
+          },
+        },
+        { type: 'done', stopReason: 'tool_use' },
+      ],
+    ]);
+
+    const started = performance.now();
+
+    setTimeout(() => controller.abort(), 100);
+    const messages = await runAgent({
+      provider,
+      tools: [createRunCommandTool({ workspace, skipAllowList: true })],
+      messages: [{ role: 'user', content: 'go' }],
+      signal: controller.signal,
+    });
+
+    expect(performance.now() - started).toBeLessThan(2_000); // didn't wait out the sleep
+    expect(messages.at(-1)).toMatchObject({ role: 'tool', toolCallId: 'c1', isError: true });
+    expect((messages.at(-1) as { content: string }).content).toContain('Interrupted');
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(existsSync(marker)).toBe(false); // the process group was killed, not just abandoned
+  });
 });
 
 describe('run_command description', () => {
