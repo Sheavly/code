@@ -4,6 +4,7 @@ import type { AgentEvent } from '../loop/events/events.types.js';
 import { firstLine, oneLine, shortId } from '../terminal-ui/render.utils.js';
 import { RUN_FILES, STATE_VERSION } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult, StoredPrompt } from './workbook.types.js';
+import { WorkbookPromptError } from '../runtime/errors/workbook.errors.js';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
 
@@ -78,7 +79,11 @@ export function parsePromptFile(params: { name: string; source: string }): Store
   const parsed = promptFileSchema.safeParse(fields);
 
   if (!parsed.success) {
-    throw new Error(`Prompt "${name}" is invalid:\n${z.prettifyError(parsed.error)}`);
+    throw new WorkbookPromptError({
+      name,
+      cause: parsed.error,
+      problems: z.prettifyError(parsed.error),
+    });
   }
 
   return { name, ...parsed.data };
@@ -200,6 +205,8 @@ export function describeEvent(event: AgentEvent): string {
       return `${head}  from ${event.message.from === 'user' ? 'user' : shortId(event.message.from)}: ${firstLine(event.message.content)}`;
     case 'context_added':
       return `${head}  ${event.hook}: ${oneLine({ text: event.content, max: 80 })}`;
+    case 'hook_failed':
+      return `${head}  ${event.hook}.${event.handler}: ${firstLine(event.error)}`;
     case 'turn_end':
       return `${head}  turn ${event.turn} · ${event.stopReason}`;
     case 'done':

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ApprovalListenerError } from '../../errors/approvals.errors.js';
 import { ApprovalRegistry } from '../approvals.service.js';
 import type { ApprovalUpdate } from '../approvals.types.js';
 
@@ -97,29 +98,54 @@ describe('ApprovalRegistry', () => {
     expect(() => approvals.respond({ id: 'a1', response: { decision: 'skip' } })).toThrow();
   });
 
-  it('a listener that throws never hangs a call or stops the other listeners', async () => {
+  it('a listener that throws fails the request loudly, after every other listener heard it', async () => {
     const approvals = new ApprovalRegistry();
 
     approvals.subscribe(() => {
       throw new Error('UI bug');
     });
     const updates = listen(approvals);
-    const controller = new AbortController();
-    const interrupted = ask(approvals, controller.signal);
+    const failed = await ask(approvals).catch((caughtError: unknown) => caughtError);
 
-    controller.abort();
-    await expect(interrupted).rejects.toThrow();
+    expect(failed).toBeInstanceOf(ApprovalListenerError);
+    expect(failed).toMatchObject({ update: 'approval_requested' });
+    expect((failed as Error).message).toContain('UI bug');
+    expect(updates.map((update) => update.type)).toEqual(['approval_requested']);
+    expect(approvals.pending()).toEqual([]);
+  });
 
+  it('a listener that throws on an answer still resolves the call, then tells the responder', async () => {
+    const approvals = new ApprovalRegistry();
+    const updates = listen(approvals);
     const answered = ask(approvals);
 
-    expect(() => approvals.respond({ id: 'a2', response: { decision: 'approve' } })).not.toThrow();
+    approvals.subscribe(() => {
+      throw new Error('UI bug');
+    });
+
+    expect(() => approvals.respond({ id: 'a1', response: { decision: 'approve' } })).toThrow(
+      ApprovalListenerError,
+    );
     await expect(answered).resolves.toEqual({ decision: 'approve' });
     expect(updates.map((update) => update.type)).toEqual([
       'approval_requested',
-      'approval_cancelled',
-      'approval_requested',
       'approval_resolved',
     ]);
+  });
+
+  it('a listener that throws on a cancel fails the call with that error', async () => {
+    const approvals = new ApprovalRegistry();
+
+    listen(approvals);
+    const controller = new AbortController();
+    const interrupted = ask(approvals, controller.signal);
+
+    approvals.subscribe(() => {
+      throw new Error('UI bug');
+    });
+    controller.abort();
+
+    await expect(interrupted).rejects.toBeInstanceOf(ApprovalListenerError);
     expect(approvals.pending()).toEqual([]);
   });
 

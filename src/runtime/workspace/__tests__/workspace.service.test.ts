@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '../workspace.service.js';
-import { WorkspaceError } from '../workspace.errors.js';
+import { PathCheckError, WorkspaceError } from '../../errors/workspace.errors.js';
 
 /**
  * Layout (all inside a temp dir):
@@ -129,5 +129,23 @@ describe('resolveWrite', () => {
 
   it('blocks writing through a broken symlink (it would create the target outside)', async () => {
     await expect(workspace.resolveWrite('broken-link')).rejects.toThrow('broken symlink');
+  });
+
+  it('fails with a PathCheckError, never "missing", when a path cannot be checked', async () => {
+    const loop = path.join(root, 'loop');
+
+    await symlink('loop', loop);
+
+    try {
+      await expect(workspace.resolveWrite('loop')).rejects.toMatchObject({
+        name: 'PathCheckError',
+        code: 'ELOOP',
+        path: 'loop',
+      });
+      await expect(workspace.resolveRead('loop')).rejects.toBeInstanceOf(PathCheckError);
+      await expect(workspace.resolveRead('src/nope.ts')).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await rm(loop);
+    }
   });
 });

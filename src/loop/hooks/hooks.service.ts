@@ -3,6 +3,7 @@ import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook
 import type { Tool, FileChange, FileRead, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import type { SessionRef } from '@sheavly/core/session/session.types';
 import { describeCall, runTool } from '@sheavly/core/tool/tool.service';
+import { HookError } from '../../runtime/errors/hooks.errors.js';
 
 /** Someone to tell about every context addition (the loop emits `context_added`). */
 type OnContext = (added: { hook: string; content: string }) => void;
@@ -80,18 +81,22 @@ export async function runAfterTurn(
 }
 
 /**
- * Tells every `onError` handler, in order, that the run failed. A handler that throws is
- * skipped, so the original error is still the one the caller sees.
+ * Tells every `onError` handler, in order, that the run failed. A handler that throws doesn't
+ * stop the others, and the original error is still the one the caller sees; its failure is
+ * reported through `onHookError` as a `HookError` (the loop emits `hook_failed`).
  */
 export async function runOnError(params: {
   hooks: Hook[];
   error: unknown;
   messages: Message[];
+  onHookError: (failure: HookError) => void;
 }): Promise<void> {
-  const { hooks, error, messages } = params;
+  const { hooks, error, messages, onHookError } = params;
 
   for (const hook of hooks) {
-    await hook.onError?.({ error, messages: [...messages] }).catch(() => undefined);
+    await hook.onError?.({ error, messages: [...messages] }).catch((caughtError: unknown) => {
+      onHookError(new HookError({ hook: hook.name, handler: 'onError', cause: caughtError }));
+    });
   }
 }
 

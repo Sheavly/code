@@ -12,7 +12,7 @@ and passed in the loop's `hooks` option.
 | `beforeTurn`     | Before each model call                                  | Add context, add system instructions                                           |
 | `aroundToolCall` | Around each tool call                                   | Block it, change its input or result (including its `change` / `read` details) |
 | `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                                                  |
-| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own errors are ignored)                                       |
+| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own failure is a `hook_failed` event)                         |
 
 Two ways to tell the model something:
 
@@ -41,7 +41,9 @@ reads AGENTS.md files and adds them as system instructions.
   which nests: the first hook is outermost. It calls `next()` to continue, `next(input)` to
   change the input (validated as usual), or returns a result without calling it to block.
 - A handler that throws fails the run, except `aroundToolCall` (the call gets an error result)
-  and `onError` (ignored).
+  and `onError`: its failure doesn't stop the other `onError` handlers or replace the run's
+  error, but it is reported as a `hook_failed` event (`{ hook, handler, error }`, from a
+  `HookError` in `runtime/errors/`).
 - A sub-agent run gets only the hooks its parent passes it, and runs its own `sessionStart`.
 
 ## Project hooks: `.sheavly/`

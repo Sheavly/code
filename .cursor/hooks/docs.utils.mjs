@@ -4,6 +4,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
 const DOC_SOURCES = [
@@ -87,8 +88,9 @@ export function onlyNew(stale) {
 
   try {
     seen = JSON.parse(readFileSync(file, 'utf8'));
-  } catch {
-    // no state yet
+  } catch (caughtError) {
+    // No state yet: nothing was nudged in this clone. A corrupt file is named, never reset.
+    if (!isMissingPath(caughtError)) throw new ProjectReadError({ file, cause: caughtError });
   }
 
   const fresh = stale.filter(({ doc, files }) => seen[doc] !== files.join('\n'));

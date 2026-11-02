@@ -4,6 +4,7 @@ import type { AgentEvent, AgentEventBody, DoneReason } from '../events/events.ty
 import { OrderedQueue } from '../queue/queue.service.js';
 import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.service.js';
+import { StreamEndedError } from '../../runtime/errors/hooks.errors.js';
 import { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
 import type { RunSession } from '../../runtime/sessions/sessions.types.js';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
@@ -54,7 +55,7 @@ export async function runSession(
     if (event.type === 'done') return { reason: event.reason, messages: event.messages };
   }
 
-  throw new Error('Agent stream ended without a done event');
+  throw new StreamEndedError();
 }
 
 /** A run with no session given is a main session, in a registry of its own. */
@@ -92,7 +93,13 @@ async function drive(context: RunContext) {
       await events.consumed();
     }
   } catch (caughtError) {
-    await runOnError({ hooks, error: caughtError, messages });
+    await runOnError({
+      hooks,
+      error: caughtError,
+      messages,
+      onHookError: ({ hook, handler, message }) =>
+        events.enqueue({ type: 'hook_failed', hook, handler, error: message }),
+    });
     throw caughtError;
   }
 

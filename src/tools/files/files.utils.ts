@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
 export function isEnvFile(filePath: string): boolean {
@@ -18,10 +19,12 @@ export function assertNotGitDir(params: { relativePath: string; requested: strin
   const { relativePath, requested } = params;
 
   if (isInGitDir(relativePath)) {
-    throw new Error(
-      `Writing inside .git is not allowed (${requested}). Git config and hooks there can run ` +
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message:
+        `Writing inside .git is not allowed (${requested}). Git config and hooks there can run ` +
         'programs.',
-    );
+    });
   }
 }
 
@@ -37,7 +40,10 @@ export function assertNotEnvFile(params: {
   const { filePath, requested, action } = params;
 
   if (isEnvFile(filePath)) {
-    throw new Error(`${action} .env files is not allowed (${requested}). They contain secrets.`);
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message: `${action} .env files is not allowed (${requested}). They contain secrets.`,
+    });
   }
 }
 

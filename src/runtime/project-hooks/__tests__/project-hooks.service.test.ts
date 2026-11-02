@@ -9,7 +9,7 @@ import { defineTool } from '@sheavly/core/tool/tool.service';
 import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { callOnceProvider } from '../../../testing/scripted-provider.fake.js';
 import { loadProjectHooks } from '../project-hooks.service.js';
-import { ProjectHooksError } from '../project-hooks.errors.js';
+import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
 
 const ESM = (name: string) =>
   `export default { name: '${name}', beforeTurn: async ({ addContext }) => addContext('${name}') };\n`;

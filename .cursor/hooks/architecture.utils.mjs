@@ -3,6 +3,7 @@
 // project skill's "Backend only" section; this reads it from there, so the two never drift.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
 const SKILL = '.cursor/skills/working-in-sheavly-harness/SKILL.md';
@@ -30,14 +31,19 @@ export function sectionOf(params) {
 
 /** The rule as injected context, or null if the skill lost its section (never block an edit). */
 export function architectureRule() {
-  try {
-    const section = sectionOf({
-      markdown: readFileSync(path.join(PROJECT_ROOT, SKILL), 'utf8'),
-      heading: HEADING,
-    });
+  const file = path.join(PROJECT_ROOT, SKILL);
+  let markdown;
 
-    return section && `Architecture rule for this project (from ${SKILL}):\n\n${section}`;
-  } catch {
-    return null;
+  try {
+    markdown = readFileSync(file, 'utf8');
+  } catch (caughtError) {
+    if (isMissingPath(caughtError)) return null; // no skill in this checkout: no rule to show
+
+    // Advisory: shown in place of the rule, so the agent learns why it's missing.
+    return new ProjectReadError({ file: SKILL, cause: caughtError }).message;
   }
+
+  const section = sectionOf({ markdown, heading: HEADING });
+
+  return section && `Architecture rule for this project (from ${SKILL}):\n\n${section}`;
 }

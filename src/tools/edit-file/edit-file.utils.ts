@@ -1,4 +1,5 @@
 import { countOccurrences } from '../files/files.utils.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * Applies an edit to `before`, or throws a message telling the model how to fix the call:
@@ -14,21 +15,26 @@ export function applyEdit(params: {
   const { before, oldText, newText, replaceAll, requested } = params;
 
   if (oldText === newText) {
-    throw new Error('oldText and newText are the same: nothing to change.');
+    throw new ToolCallError({
+      reason: 'invalid_input',
+      message: 'oldText and newText are the same: nothing to change.',
+    });
   }
 
   const count = countOccurrences({ text: before, search: oldText });
 
   if (count === 0) {
-    throw new Error(
-      `oldText was not found in ${requested}. Read the file and copy the text exactly.`,
-    );
+    throw new ToolCallError({
+      reason: 'not_found',
+      message: `oldText was not found in ${requested}. Read the file and copy the text exactly.`,
+    });
   }
 
   if (count > 1 && !replaceAll) {
-    throw new Error(
-      `oldText occurs ${count} times in ${requested}. Add surrounding lines to make it unique, or set replaceAll.`,
-    );
+    throw new ToolCallError({
+      reason: 'invalid_input',
+      message: `oldText occurs ${count} times in ${requested}. Add surrounding lines to make it unique, or set replaceAll.`,
+    });
   }
 
   // A function replacer, so `$&` and friends in newText are inserted literally.

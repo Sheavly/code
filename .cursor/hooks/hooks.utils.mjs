@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
+import { GuardCrashError, HookStateError, isMissingPath } from './hooks.errors.mjs';
 
 /** Project hooks run from the project root. */
 export const PROJECT_ROOT = process.cwd();
@@ -74,14 +75,17 @@ function chatStateFile(conversationId) {
   return path.join(STATE_DIR, `${String(conversationId).replace(/[^\w-]/g, '_')}.json`);
 }
 
-/** What earlier hooks recorded for this chat, or null. */
+/** What earlier hooks recorded for this chat, or null when nothing was recorded yet. */
 export function getChatState(conversationId) {
   if (!conversationId) return null;
 
+  const file = chatStateFile(conversationId);
+
   try {
-    return JSON.parse(readFileSync(chatStateFile(conversationId), 'utf8'));
-  } catch {
-    return null;
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } catch (caughtError) {
+    if (isMissingPath(caughtError)) return null; // a new chat: nothing recorded yet
+    throw new HookStateError({ file, cause: caughtError });
   }
 }
 
@@ -103,8 +107,27 @@ function runFile(file, args) {
     encoding: 'utf8',
     maxBuffer: 20 * 1024 * 1024,
   });
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
 
-  return { ok: result.status === 0, output: `${result.stdout ?? ''}${result.stderr ?? ''}`.trim() };
+  // It never started (missing binary, no permission): say so, rather than an empty failure.
+  if (result.error) return { ok: false, output: `Could not run ${file}: ${result.error.message}` };
+
+  return { ok: result.status === 0, output };
+}
+
+/**
+ * Runs a guard hook's `check` and responds with its decision. If the guard itself fails, it
+ * denies with a `GuardCrashError` saying why, so a broken guard never lets an action through
+ * silently (`failClosed` in hooks.json covers a crash before this runs).
+ */
+export async function runGuard(params) {
+  const { guard, check, deny } = params;
+
+  try {
+    respond(await check());
+  } catch (caughtError) {
+    respond(deny(new GuardCrashError({ guard, cause: caughtError }).message));
+  }
 }
 
 /** ESLint's JSON report as readable lines: `src/a.ts:12:3  message  (rule)`. */

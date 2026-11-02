@@ -5,6 +5,7 @@ import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.service.js';
 import { describeChange } from '../files/files.utils.js';
 import { applyEdit } from './edit-file.utils.js';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
  * Replaces an exact piece of text in an existing file. The text must occur exactly once (or
@@ -34,7 +35,10 @@ export function createEditFileTool({ workspace }: { workspace: Workspace }) {
           const before = await readIfExists({ file: real, signal });
 
           if (before === null) {
-            throw new Error(`File not found: ${requested}. Use write_file to create it.`);
+            throw new ToolCallError({
+              reason: 'not_found',
+              message: `File not found: ${requested}. Use write_file to create it.`,
+            });
           }
 
           const { after, count } = applyEdit({ before, oldText, newText, replaceAll, requested });

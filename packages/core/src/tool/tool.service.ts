@@ -3,6 +3,7 @@ import type { ToolCall, ToolMessage } from '../message/message.types.js';
 import type { ToolDefinition } from '../provider/provider.types.js';
 import type { Tool, ToolRunResult } from './tool.types.js';
 import type { SessionRef } from '../session/session.types.js';
+import { DefinitionError } from '../errors/definition.errors.js';
 
 // --- Call description: added by the harness to every tool, filled in by the model ---
 
@@ -36,7 +37,11 @@ export function describeCall(call: ToolCall): string {
 /** Identity helper: lets TypeScript infer `input` from the schema. */
 export function defineTool<TSchema extends z.ZodObject>(tool: Tool<TSchema>): Tool<TSchema> {
   if ('description' in tool.inputSchema.shape) {
-    throw new Error(`Tool ${tool.name}: "description" is reserved for the call description`);
+    throw new DefinitionError({
+      definition: 'tool',
+      defined: tool.name,
+      problem: '"description" is reserved for the call description',
+    });
   }
 
   return tool;

@@ -242,6 +242,37 @@ describe('hooks in the loop', () => {
     expect(errors).toEqual(['reply rejected']);
   });
 
+  it("reports an onError hook's own failure as hook_failed, and still throws the run's error", async () => {
+    const types: string[] = [];
+    const failing: Provider = {
+      async *stream() {
+        yield* [];
+        throw new Error('provider down');
+      },
+    };
+    const run = runAgent({
+      provider: failing,
+      tools: [],
+      messages: [{ role: 'user', content: 'hi' }],
+      hooks: [
+        defineHook({
+          name: 'reporter',
+          onError: async () => {
+            throw new Error('disk full');
+          },
+        }),
+      ],
+      onEvent: (event) => {
+        if (event.type === 'hook_failed') {
+          types.push(`${event.hook}.${event.handler}: ${event.error}`);
+        }
+      },
+    });
+
+    await expect(run).rejects.toThrow('provider down');
+    expect(types).toEqual(['reporter.onError: Hook reporter failed in onError: disk full']);
+  });
+
   it('a nested run gets only the hooks its parent passes, with its own sessionStart', async () => {
     const log: string[] = [];
     const parentOnly = tracer('parent-only', log);

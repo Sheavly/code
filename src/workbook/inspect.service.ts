@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { AgentEvent } from '../loop/events/events.types.js';
 import type { WorkbookStore } from './store.service.js';
 import { describeEvent, diffResults, mergeTextDeltas } from './workbook.utils.js';
+import { WorkbookNotFoundError } from '../runtime/errors/workbook.errors.js';
 
 type Write = (text: string) => void;
 
@@ -146,7 +147,12 @@ export async function diffRuns(params: {
   const load = async (id: string) => {
     const [result, events] = await Promise.all([store.result(id), store.events(id)]);
 
-    if (!result) throw new Error(`Run ${id} didn't finish, so there's nothing to compare`);
+    if (!result) {
+      throw new WorkbookNotFoundError({
+        wanted: id,
+        message: `Run ${id} didn't finish, so there's nothing to compare`,
+      });
+    }
 
     return { id, result, tools: toolsUsed(events), answer: finalAnswer(events) };
   };

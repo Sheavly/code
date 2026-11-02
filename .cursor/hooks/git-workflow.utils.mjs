@@ -5,6 +5,7 @@
 // stacked on another issue branch (.cursor/skills/git/stacks.md).
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
+import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 
 export const NO_ISSUE = 'NO-ISSUE';
 export const BASE_BRANCH = 'main';
@@ -68,8 +69,9 @@ function listDirs(dir) {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-  } catch {
-    return [];
+  } catch (caughtError) {
+    if (isMissingPath(caughtError)) return []; // e.g. no packages/ folder: no scopes from it
+    throw new ProjectReadError({ file: dir, cause: caughtError });
   }
 }
 

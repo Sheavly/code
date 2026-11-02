@@ -1,7 +1,9 @@
 import type { ApprovalRegistry } from '../../runtime/approvals/approvals.service.js';
 import type { ApprovalConcern } from '../../runtime/approvals/approvals.types.js';
-import { WorkspaceError } from '../../runtime/workspace/workspace.errors.js';
+import { CommandRefusedError } from '../../runtime/errors/approvals.errors.js';
+import { PathCheckError, WorkspaceError } from '../../runtime/errors/workspace.errors.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
+import { isMissingPath } from '../../runtime/errors/errors.utils.js';
 import { isEnvFile } from '../files/files.utils.js';
 import { namesEnvFile, pathArguments, stripPathspecMagic } from './arguments.utils.js';
 import { gitOutputConcerns } from './git-output.utils.js';
@@ -58,7 +60,11 @@ export async function confirmArguments(params: {
   const listed = concerns.map(({ argument, reason }) => `- ${argument}: ${reason}`).join('\n');
 
   if (!approvals?.listening) {
-    throw new Error(`Command refused, it needs the user's approval: ${command}\n${listed}`);
+    throw new CommandRefusedError({
+      reason: 'needs_approval',
+      command,
+      message: `Command refused, it needs the user's approval: ${command}\n${listed}`,
+    });
   }
 
   const response = await approvals.request({
@@ -76,7 +82,11 @@ export async function confirmArguments(params: {
       ? `\n\nInstead, the user says: ${response.message}`
       : '\n\nDo not retry it without asking the user.';
 
-  throw new Error(`The user skipped this command: ${command}\n${listed}${steer}`);
+  throw new CommandRefusedError({
+    reason: 'skipped',
+    command,
+    message: `The user skipped this command: ${command}\n${listed}${steer}`,
+  });
 }
 
 async function sandboxConcern(params: {
@@ -91,7 +101,14 @@ async function sandboxConcern(params: {
     return isEnvFile(real) ? 'is a symlink to a .env file, which holds secrets' : undefined;
   } catch (caughtError) {
     if (caughtError instanceof WorkspaceError) return 'reaches outside the workspace';
+    // Not an existing path: a revision, a test name, a file yet to be made.
+    if (isMissingPath(caughtError)) return undefined;
 
-    return undefined; // not an existing path (a revision, a test name, a file yet to be made)
+    // Unreadable, a symlink loop, ...: the sandbox couldn't check it, so the user decides.
+    if (caughtError instanceof PathCheckError) {
+      return `could not be checked (${caughtError.code ?? caughtError.message})`;
+    }
+
+    throw caughtError;
   }
 }

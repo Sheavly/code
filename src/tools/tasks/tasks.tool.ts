@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { formatTask } from '../../runtime/tasks/tasks.utils.js';
 import { defineTool } from '@sheavly/core/tool/tool.service';
+import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 export function createTaskStatusTool(tasks: TaskRegistry) {
@@ -17,7 +18,12 @@ export function createTaskStatusTool(tasks: TaskRegistry) {
       if (id) {
         const task = tasks.get(id);
 
-        if (!task) throw new Error(`No task with id ${id}`);
+        if (!task) {
+          throw new ToolCallError({
+            reason: 'not_found',
+            message: `No task with id ${id}`,
+          });
+        }
 
         return formatTask({ task });
       }
@@ -40,7 +46,12 @@ export function createCancelTaskTool(tasks: TaskRegistry) {
     execute: async ({ input: { id } }) => {
       const before = tasks.get(id);
 
-      if (!before) throw new Error(`No task with id ${id}`);
+      if (!before) {
+        throw new ToolCallError({
+          reason: 'not_found',
+          message: `No task with id ${id}`,
+        });
+      }
 
       if (before.status !== 'running') {
         return `Task ${id} already ${before.status}.\n${formatTask({ task: before })}`;

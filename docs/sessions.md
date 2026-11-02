@@ -22,6 +22,9 @@ how the run ended: `completed`, `interrupted`, `max_turns`, `failed`) and timest
 
 - `startMain` starts the main session; `startChild({ parentId, title })` starts a sub-agent. It
   throws if the parent is unknown, has ended, or is at the depth cap.
+- Every refusal is a `SessionError` (`src/runtime/errors/`) with a `reason` (`unknown_session`,
+  `parent_ended`, `too_deep`, `session_ended`, `not_an_ancestor`) and the `sessionId` it was
+  about, so a caller tells the cases apart without reading the message.
 - `lineage(id)` walks a session up to the main session; `children(id)` lists the ones it started.
 - A run takes `session: { registry, ref }`. Without one it starts its own main session. Either
   way the loop ends the session with the run's outcome, and the `done` event carries its ref.
@@ -43,6 +46,8 @@ sub-agent on one task, `{ title, task }`.
   `options.instructions` are added after the built-in sub-agent rules.
 - **Its own context.** A sub-agent sees only its task, not the parent's conversation.
 - The loop's `runSession` is passed in as `options.runAgent`: tools can't import the loop.
+- `start_agent`, `report_status` and `message_agent` only work inside a session: called without
+  one (`context.session` unset), they fail with a `ToolCallError` (`reason: 'unavailable'`).
 
 ## Status reporting
 
