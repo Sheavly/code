@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import type { FileChange } from '../files/files.types.js';
 import type { FileLocks } from '../../runtime/file-locks/file-locks.service.js';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
@@ -58,11 +59,9 @@ export function createEditFileTool({
           const relative = workspace.relative(real);
           const replaced = count > 1 ? `, ${count} replacements` : '';
           const described = describeChange({ verb: 'Edited', path: relative, before, after });
+          const change: FileChange = { kind: 'file_change', path: relative, before, after };
 
-          return {
-            content: `${described}${replaced}`,
-            change: { path: relative, before, after },
-          };
+          return { content: `${described}${replaced}`, artifacts: [change] };
         },
       });
     },

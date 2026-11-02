@@ -12,9 +12,8 @@ export type { Sequenced } from './loop/queue/queue.types.js';
 export { defineTool } from '@sheavly/core/tool/tool.utils';
 export { describeCall } from '@sheavly/core/tool/tool.validator';
 export type {
-  FileChange,
-  FileRead,
   Tool,
+  ToolArtifact,
   ToolContext,
   ToolExecution,
   ToolOutput,
@@ -23,9 +22,13 @@ export type {
 export { defineHook } from '@sheavly/core/hook/hook.utils';
 export type * from '@sheavly/core/hook/hook.types';
 export { createReadFileTool } from './tools/read-file/read-file.tool.js';
+export type { FileRead } from './tools/read-file/read-file.types.js';
+export { isFileRead } from './tools/read-file/read-file.utils.js';
 export { createWriteFileTool } from './tools/write-file/write-file.tool.js';
 export { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
 export { FileLocks } from './runtime/file-locks/file-locks.service.js';
+export type { FileChange } from './tools/files/files.types.js';
+export { isFileChange } from './tools/files/files.utils.js';
 export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
 export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
 export { ProcessRunner } from './runtime/process/process.service.js';

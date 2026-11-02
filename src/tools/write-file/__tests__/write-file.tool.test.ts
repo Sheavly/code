@@ -6,6 +6,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useFileLocks } from '../../../testing/file-locks.fake.js';
 import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
+import { isFileChange } from '../../files/files.utils.js';
 import { createWriteFileTool } from '../write-file.tool.js';
 
 const signal = new AbortController().signal;
@@ -34,11 +35,9 @@ describe('write_file', () => {
     const result = await write('src/new/a.ts', 'export const a = 1;\n');
 
     expect(result).toMatchObject({ isError: false, content: 'Created src/new/a.ts (0 → 2 lines)' });
-    expect(result.change).toEqual({
-      path: 'src/new/a.ts',
-      before: null,
-      after: 'export const a = 1;\n',
-    });
+    expect(result.artifacts).toEqual([
+      { kind: 'file_change', path: 'src/new/a.ts', before: null, after: 'export const a = 1;\n' },
+    ]);
     expect(await readFile(path.join(temp.root, 'src/new/a.ts'), 'utf8')).toBe(
       'export const a = 1;\n',
     );
@@ -48,7 +47,9 @@ describe('write_file', () => {
     const result = await write('existing.ts', 'new\n');
 
     expect(result.content).toBe('Overwrote existing.ts (2 → 2 lines)');
-    expect(result.change).toEqual({ path: 'existing.ts', before: 'old\n', after: 'new\n' });
+    expect(result.artifacts).toEqual([
+      { kind: 'file_change', path: 'existing.ts', before: 'old\n', after: 'new\n' },
+    ]);
     expect(await readFile(path.join(temp.root, 'existing.ts'), 'utf8')).toBe('new\n');
   });
 
@@ -57,7 +58,7 @@ describe('write_file', () => {
 
     expect(result).toMatchObject({ isError: true });
     expect(result.content).toContain('Path is outside the workspace');
-    expect(result.change).toBeUndefined();
+    expect(result.artifacts).toBeUndefined();
     expect(await readFile(path.join(temp.base, 'outside.txt'), 'utf8')).toBe('outside\n');
   });
 
@@ -131,7 +132,7 @@ describe('write_file', () => {
       ...lines.map((line) => call('edit_file', { path: 'mixed.ts', oldText: line, newText: 'z;' })),
       call('write_file', { path: 'mixed.ts', content: `${base}g = 0;\n` }),
     ]);
-    const pending = results.map((result) => result.change);
+    const pending = results.map((result) => result.artifacts?.find(isFileChange));
     let content = base;
 
     // The calls may take the file in any order, but they must form one chain: every change

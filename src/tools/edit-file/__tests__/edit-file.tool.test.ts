@@ -33,7 +33,7 @@ describe('edit_file', () => {
     const after = 'const a = 1;\nconst b = 3;\nconst a2 = 1;\n';
 
     expect(result).toMatchObject({ isError: false, content: 'Edited app.ts (4 → 4 lines)' });
-    expect(result.change).toEqual({ path: 'app.ts', before: APP, after });
+    expect(result.artifacts).toEqual([{ kind: 'file_change', path: 'app.ts', before: APP, after }]);
     expect(await onDisk()).toBe(after);
   });
 
@@ -56,7 +56,7 @@ describe('edit_file', () => {
 
     expect(notFound.content).toContain('oldText was not found in app.ts');
     expect(noFile.content).toContain('File not found: nope.ts. Use write_file to create it.');
-    expect(notFound.change).toBeUndefined();
+    expect(notFound.artifacts).toBeUndefined();
     expect(await onDisk()).toBe(APP);
   });
 
