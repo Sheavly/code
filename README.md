@@ -184,7 +184,7 @@ Adapters have no default model: the caller picks it (the hosts' default is `DEFA
 ## Project layout
 
 Every layer holds one folder per module, and every file is `<name>.<kind>.ts`. Imports only point
-"down" the layers (`LAYERS` in `eslint.config.js`). Code shared beyond the app lives in workspace
+"down" the layers (`harness/imports`, from the layout in `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
 packages (npm workspaces):
 
 ```

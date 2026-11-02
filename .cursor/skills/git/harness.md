@@ -38,17 +38,17 @@ a new skill's metadata (`skills.utils.test.mjs`), a new scope's area label
 
 ## What to add
 
-| The trigger is about…                      | Add                                                                                                                                              |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| a new workspace                            | its `eslint.config.js`, `tsconfig*.json` and scripts (the skill's "A new package"), a `knip.json` entry, its layer in `LAYERS` or its own config |
-| an `exports` pattern                       | the matching resolution in `harness/single-definition`'s workspace reader (`workspace-types.js`) and a test with the new shape                   |
-| a new `src/` folder                        | a `LAYERS` entry (`eslint.config.js`), `FRONT_END_FILES` if it is a UI, a `DOC_SOURCES` entry (`docs.utils.mjs`), the skill's layer table        |
-| a file kind                                | its policy in `file-kinds.js` and RuleTester cases                                                                                               |
-| a skill                                    | its `harness.json` (`governs` globs, or `manual` with a reason)                                                                                  |
-| a contract to import, not copy             | its schema or type in the owning package's `*.types.ts`, so `harness/single-definition` covers it; a `harness/*` rule if the shape needs more    |
-| a "use X, never Y" convention              | a `harness/*` rule in `packages/eslint-config/src/rules/`, derived from the code, whose message says what to do instead; RuleTester tests        |
-| a hook-level behaviour (shell, git, edits) | a hook in `.cursor/hooks/` with tests in `__tests__/`, listed in `.cursor/hooks.json` and the README's hooks table                               |
-| something with nothing to enforce          | `none: <reason>` in the PR body                                                                                                                  |
+| The trigger is about…                      | Add                                                                                                                                                            |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a new workspace                            | its `eslint.config.js`, `tsconfig*.json` and scripts (the skill's "A new package"), a `knip.json` entry, its `layout.js` entry (`kind`, `domain`, `dependsOn`) |
+| an `exports` pattern                       | the matching resolution in `harness/single-definition`'s workspace reader (`workspace-types.js`) and a test with the new shape                                 |
+| a new `src/` folder                        | a layer in `layout.js`, `FRONT_END_FILES` if it is a UI, a `DOC_SOURCES` entry (`docs.utils.mjs`), the skill's layer table                                     |
+| a file kind                                | its policy in `file-kinds.js` and RuleTester cases                                                                                                             |
+| a skill                                    | its `harness.json` (`governs` globs, or `manual` with a reason)                                                                                                |
+| a contract to import, not copy             | its schema or type in the owning package's `*.types.ts`, so `harness/single-definition` covers it; a `harness/*` rule if the shape needs more                  |
+| a "use X, never Y" convention              | a `harness/*` rule in `packages/eslint-config/src/rules/`, derived from the code, whose message says what to do instead; RuleTester tests                      |
+| a hook-level behaviour (shell, git, edits) | a hook in `.cursor/hooks/` with tests in `__tests__/`, listed in `.cursor/hooks.json` and the README's hooks table                                             |
+| something with nothing to enforce          | `none: <reason>` in the PR body                                                                                                                                |
 
 The check lives in the PR that introduces the thing, as a commit of the scope it lives in
 (`feat(eslint-config): …`, or `chore: …` for hooks and root config), ordered after the code it

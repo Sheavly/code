@@ -19,7 +19,9 @@ this rule from the project skill the first time a chat edits harness source.
 
 ## Layers
 
-Imports only point down. ESLint enforces it (`LAYERS` in `eslint.config.js`).
+Imports only point down. ESLint enforces it (`harness/imports`): the workspace graph and this
+app's `src/` layers are data in `packages/eslint-config/src/layout.js`, and a workspace or layer
+missing from it fails lint.
 
 ```
 @sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends

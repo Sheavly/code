@@ -1,11 +1,11 @@
 // ESLint for the harness app. The shared rules live in @sheavly/eslint-config
-// (packages/eslint-config); this file adds what is specific to the app: its layer boundaries,
-// entry points and hosts.
+// (packages/eslint-config); this file adds what is specific to the app: its entry points and
+// hosts. Its layer boundaries are in the shared layout.
 //
 //   npm run lint            check everything (each package is linted with its own config)
 //   npm run lint:fix        apply auto-fixes, then Prettier
 //   npm run format          Prettier owns formatting; ESLint never reports on it
-import { baseConfig, TEST_FILES } from '@sheavly/eslint-config';
+import { baseConfig } from '@sheavly/eslint-config';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 /**
@@ -28,63 +28,8 @@ const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */
 const ENTRY_FILE = 'src/index.ts';
 
-// --- Layers: imports only point "down": @sheavly/core ← @sheavly/providers, runtime ← tools ← loop ← hosts ---
-// Providers are their own package (packages/providers): its `rootDir` makes an import of the app a
-// type error, so it needs no entry here. Only the hosts and the entry may import it (below).
-
-const LAYERS = [
-  {
-    files: ['src/runtime/**/*.ts'],
-    forbidden: [
-      '**/loop/**',
-      '**/tools/**',
-      '**/providers/**',
-      '**/host/**',
-      '**/terminal-ui/**',
-      '**/workbook/**',
-      '**/demo.js',
-    ],
-    message:
-      'Runtime services (workspace, processes, tasks) must not depend on the loop, tools or providers.',
-  },
-  {
-    files: ['src/tools/**/*.ts'],
-    forbidden: [
-      '**/loop/**',
-      '**/providers/**',
-      '**/host/**',
-      '**/terminal-ui/**',
-      '**/workbook/**',
-      '**/demo.js',
-    ],
-    message: 'Tools must not depend on the loop or on providers; take what they need as options.',
-  },
-  {
-    files: ['src/loop/**/*.ts'],
-    forbidden: [
-      '**/providers/**',
-      '**/tools/**',
-      '**/host/**',
-      '**/terminal-ui/**',
-      '**/workbook/**',
-      '**/demo.js',
-    ],
-    message:
-      'The loop knows the Provider and Tool contracts (@sheavly/core) only, never concrete providers or tools.',
-  },
-  {
-    files: ['src/host/**/*.ts'],
-    forbidden: ['**/terminal-ui/**', '**/workbook/**', '**/demo.js'],
-    message:
-      'The host wires a run and has no UI: it must not depend on a front end (terminal-ui, workbook, demo).',
-  },
-];
-
-const layerBlocks = LAYERS.map(({ files, forbidden, message }) => ({
-  files,
-  ignores: TEST_FILES, // tests wire concrete pieces together on purpose
-  rules: { 'no-restricted-imports': ['error', { patterns: [{ group: forbidden, message }] }] },
-}));
+// Layers and the workspace graph live in the shared layout (packages/eslint-config/src/layout.js):
+// `harness/imports` holds every workspace, and this app's src/ folders until #29 splits it.
 
 export default defineConfig([
   // The workbook's projects are what the agent reads and writes, not harness source.
@@ -94,7 +39,6 @@ export default defineConfig([
     entryFiles: [ENTRY_FILE, ...HOST_ENTRIES],
     frontEndFiles: FRONT_END_FILES,
   }),
-  ...layerBlocks,
   { files: [ENTRY_FILE], rules: { 'harness/no-barrel': 'off' } },
   { files: HOST_FILES, rules: { 'harness/no-process-env': 'off' } },
   { files: FRONT_END_FILES, rules: { 'no-console': 'off' } },
