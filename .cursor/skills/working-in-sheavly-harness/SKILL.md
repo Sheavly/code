@@ -51,12 +51,16 @@ src/tools/run-command/
   run-command.types.ts       exported types only
   run-command.constants.ts   exported literal constants only
   run-command.utils.ts       pure helpers (no I/O, no services)
+  arguments.helper.ts        stateless functions that do I/O (workspace checks)
   __tests__/run-command.tool.test.ts
 ```
 
-Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `fake` (a `testing/` folder), `test`. Policies (exports, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there.
+Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, `adapter`, `errors`, `fake` (a `testing/` folder), `test`. Policies (exports, classes, schemas, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there. Which of the code kinds a file is, lint decides:
 
-- A code file never exports a type or a literal constant: move it to the module's `*.types.ts` / `*.constants.ts` (`harness/kind-contents`). Unexported local ones may stay.
+- `utils`: pure, no I/O, no services. `validator`: pure too, and only validation: zod schemas for external input (files, env, API events, hook exports) and the `parse*` functions that turn `unknown` into typed data. Validate with `parseOrThrow` / `validate` from `@sheavly/core/validation/validation.validator`, passing your area's typed error.
+- `helper`: stateless functions that may do I/O or call services; it exports no class. `service`: owns state, so it exports a class. State with order or a lifecycle (queues, live processes) lives in a service the host creates and injects, never at module level, so tests don't share it.
+
+- A code file never exports a type or a literal constant: move it to the module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` without a class, a `*.helper.ts` with one, and an exported zod schema outside a `*.validator.ts` fail too (`harness/kind-contents`). Unexported local ones may stay.
 - `*.types.ts` imports only with `import type`; derive schema types there with `z.infer<typeof xSchema>`.
 - Module-level functions with more than one input (outside tests) take one destructured `params` object: `function f(params: { a: A; b: B }) { const { a, b } = params; }`.
 - `type`, never `interface`. Named exports only. No re-exports (barrels) except `src/index.ts`, the package entry. Name caught errors `caughtError`.
