@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collect } from '@sheavly/core/testing/fake-fetch.fake';
+import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { readServerSentEvents } from '../sse.utils.js';
 
 const LINE_ENDINGS = { crlf: '\r\n', lf: '\n', cr: '\r' };
