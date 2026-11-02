@@ -75,7 +75,7 @@ Kinds: `types`, `constants`, `utils`, `service`, `tool`, `adapter`, `errors`, `f
 
 **A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
 
-**A provider**: `src/providers/adapters/<name>.adapter.ts` with `defineAdapter({ kind, description, configSchema, create: ({ config, deps }) => ... })` (from `@sheavly/core/adapter/adapter.service`), then register it in `adapters.service.ts`. Core code doesn't change.
+**A provider**: one folder, `src/providers/<name>/<name>.adapter.ts`. A Responses API backend uses `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `src/providers/responses/responses.service.ts`): a pure map from config to endpoint. Any other uses `defineAdapter({ kind, description, configSchema, create: ({ config, deps }) => ... })` (from `@sheavly/core/adapter/adapter.service`). Register it in `registry/default-registry.service.ts`. Adapters have no default model; the caller (the host) picks it. Core code doesn't change.
 
 **A loop event**: add it to the `AgentEventBody` union in `loop/events/events.types.ts` and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
 

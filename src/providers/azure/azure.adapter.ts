@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { apiKeySchema, reasoningSchema } from '../responses/adapter-config.utils.js';
 import { defineResponsesAdapter } from '../responses/responses.service.js';
-import { apiKeySchema, reasoningSchema } from './adapters.utils.js';
 
 /**
  * `baseUrl` accepts any of these, including the portal's "Target URI" pasted as-is:

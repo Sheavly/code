@@ -1,15 +1,15 @@
 import { z } from 'zod';
+import { apiKeySchema, baseUrlSchema, reasoningSchema } from '../responses/adapter-config.utils.js';
 import { defineResponsesAdapter } from '../responses/responses.service.js';
-import { DEFAULT_MODEL, OPENAI_BASE_URL } from './adapters.constants.js';
-import { apiKeySchema, baseUrlSchema, reasoningSchema } from './adapters.utils.js';
+import { OPENAI_BASE_URL } from './openai.constants.js';
 
-/** OpenAI directly. This is the default backend (GPT-6.1 Sol). */
+/** OpenAI directly. `model` is required: which model to run is the caller's choice. */
 export const openaiAdapter = defineResponsesAdapter({
   kind: 'openai',
-  description: 'OpenAI Responses API (GPT-6.1 family)',
+  description: 'OpenAI Responses API',
   configSchema: z.object({
     apiKey: apiKeySchema,
-    model: z.string().default(DEFAULT_MODEL),
+    model: z.string().min(1),
     baseUrl: baseUrlSchema.default(OPENAI_BASE_URL),
     reasoning: reasoningSchema.default(true),
   }),

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runSession } from '../loop/stream-agent/stream-agent.service.js';
-import { createDefaultRegistry } from '../providers/adapters/adapters.service.js';
+import { createDefaultRegistry } from '../providers/registry/default-registry.service.js';
 import { createAgentsMdHook } from '../runtime/agents-md/agents-md.service.js';
 import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.service.js';
 import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';

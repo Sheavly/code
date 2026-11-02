@@ -4,7 +4,7 @@ import { runAgent } from '../../../loop/stream-agent/stream-agent.service.js';
 import { collect, fakeFetch, fakeFetchSequence } from '../../../testing/fake-fetch.fake.js';
 import { defineTool } from '@sheavly/core/tool/tool.service';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { createDefaultRegistry } from '../../adapters/adapters.service.js';
+import { createDefaultRegistry } from '../../registry/default-registry.service.js';
 import { createResponsesProvider } from '../responses.service.js';
 
 const signal = new AbortController().signal;
@@ -157,7 +157,7 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
   });
 
   it.each([
-    ['openai', { apiKey: 'k' }],
+    ['openai', { apiKey: 'k', model: 'gpt-6.1-sol' }],
     [
       'azure',
       { apiKey: 'k', baseUrl: 'https://res.openai.azure.com/openai/v1', deployment: 'gpt-6.1-sol' },
@@ -181,6 +181,7 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
     await runAgent({
       provider: createDefaultRegistry({ fetch }).create('openai', {
         apiKey: 'k',
+        model: 'gpt-6.1-sol',
         reasoning: false,
       }),
       tools: [lookup],

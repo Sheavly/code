@@ -160,7 +160,8 @@ only).
 ## Where the next work goes
 
 - A contract other packages or a UI depend on: `packages/core/src/<module>/`.
-- A model backend: `src/providers/adapters/<name>.adapter.ts`.
+- A model backend: `src/providers/<name>/<name>.adapter.ts`, with `defineResponsesAdapter` for a
+  Responses API backend.
 - A tool: `src/tools/<name>/` (see [tools.md](tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
 - Something a UI must show: a new event in `src/loop/events/events.types.ts`.

@@ -104,7 +104,10 @@ import { createDefaultRegistry, ProviderSwitch } from './src/index.js';
 const registry = createDefaultRegistry();
 
 const providers = new ProviderSwitch()
-  .add('sol', registry.create('openai', { apiKey: process.env.OPENAI_API_KEY }))
+  .add(
+    'sol',
+    registry.create('openai', { apiKey: process.env.OPENAI_API_KEY, model: 'gpt-6.1-sol' }),
+  )
   .add(
     'azure',
     registry.create('azure', {
@@ -162,9 +165,14 @@ export default {
 
 ## Adding a new provider
 
-Write an adapter in `src/providers/adapters/<name>.adapter.ts` with
-`defineAdapter({ kind, description, configSchema, create })` (from `@sheavly/core/adapter/adapter.service`)
-and call `registry.register(myAdapter)`.
+A backend that speaks the OpenAI Responses API is one folder, `src/providers/<name>/`, with a
+`<name>.adapter.ts` that maps its config to an endpoint (base URL, model, headers):
+`defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from
+`src/providers/responses/responses.service.ts`). The protocol, streaming and reasoning are shared.
+Any other backend uses `defineAdapter({ kind, description, configSchema, create })` (from
+`@sheavly/core/adapter/adapter.service`). Register it with `registry.register(myAdapter)`, or add
+it to `createDefaultRegistry` (`registry/default-registry.service.ts`). Adapters have no default
+model: the caller picks it (the hosts' default is `DEFAULT_MODEL` in `src/host/host.constants.ts`).
 Nothing in the core needs to change.
 
 ## Project layout
@@ -206,9 +214,9 @@ The app's layers:
 ```
 src/
   providers/                    model backends; only depend on @sheavly/core
-    registry/                   AdapterRegistry
-    adapters/                   openai (default), azure: one *.adapter.ts each
-    responses/                  shared Responses API client, SSE reader
+    registry/                   AdapterRegistry, createDefaultRegistry
+    openai/  azure/             one folder per backend: config → Responses endpoint
+    responses/                  the Responses protocol layer: client, defineResponsesAdapter, SSE reader
     switch/                     ProviderSwitch (runtime swapping)
   runtime/                      stateful services; no loop, tools or providers
     workspace/                  path confinement: root and path checks (not an OS sandbox)
