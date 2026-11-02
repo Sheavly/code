@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { FileChange } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 

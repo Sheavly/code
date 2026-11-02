@@ -6,7 +6,7 @@ import { confirmArguments } from './arguments.helper.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 export function createRunCommandTool({
   workspace,

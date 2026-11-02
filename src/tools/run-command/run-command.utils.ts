@@ -6,7 +6,7 @@ import {
   NO_DIFF_PROGRAM_FLAGS,
   SAFE_GIT_CONFIG,
 } from './run-command.constants.js';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /**
  * The env that keeps a repo's config from making git run programs: `SAFE_GIT_CONFIG` as

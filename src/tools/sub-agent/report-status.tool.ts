@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /**
  * Given to every sub-agent: it reports its own live status ("editing core package"). This is

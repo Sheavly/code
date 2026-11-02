@@ -6,7 +6,7 @@ import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 import { readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
 import { applyEdit } from './edit-file.utils.js';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /**
  * Replaces an exact piece of text in an existing file. The text must occur exactly once (or
