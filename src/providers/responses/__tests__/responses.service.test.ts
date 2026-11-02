@@ -12,9 +12,7 @@ const request = (overrides: Partial<ProviderRequest> = {}): ProviderRequest => (
 
 const provider = (fetch: typeof globalThis.fetch) =>
   createResponsesProvider({
-    baseUrl: 'https://example.test/v1',
-    model: 'm',
-    headers: { 'x-key': 'k' },
+    endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: { 'x-key': 'k' } },
     fetch,
   });
 

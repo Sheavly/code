@@ -7,5 +7,5 @@ export const baseUrlSchema = z.url().transform((url) => url.replace(/\/+$/, ''))
 
 export const apiKeySchema = z.string().min(1);
 
-/** Keep encrypted reasoning across tool calls. See `ResponsesConfig.reasoning`. */
+/** Keep encrypted reasoning across tool calls. See `ResponsesProviderConfig.reasoning`. */
 export const reasoningSchema = z.boolean();

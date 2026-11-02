@@ -8,7 +8,7 @@ import { createDefaultRegistry } from '../../adapters/adapters.service.js';
 import { createResponsesProvider } from '../responses.service.js';
 
 const signal = new AbortController().signal;
-const config = { baseUrl: 'https://example.test/v1', model: 'm', headers: {} };
+const config = { endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} } };
 const SOURCE = 'responses:https://example.test/v1#m';
 
 /** What a Responses API reasoning output item looks like with store=false + include. */
