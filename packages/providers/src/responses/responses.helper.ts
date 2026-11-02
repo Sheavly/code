@@ -8,7 +8,8 @@ import type {
   ResponsesEndpoint,
   ResponsesProviderConfig,
 } from './responses.types.js';
-import { handleEvent, responsesEventSchema } from './events.utils.js';
+import { handleEvent } from './events.utils.js';
+import { responsesEventSchema } from './responses.validator.js';
 import { toInputItems } from './input.utils.js';
 import { ResponsesApiError } from '../errors/providers.errors.js';
 import { readServerSentEvents } from './sse.utils.js';

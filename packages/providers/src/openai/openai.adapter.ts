@@ -1,6 +1,10 @@
 import { z } from 'zod';
-import { apiKeySchema, baseUrlSchema, reasoningSchema } from '../responses/adapter-config.utils.js';
-import { defineResponsesAdapter } from '../responses/responses.service.js';
+import {
+  apiKeySchema,
+  baseUrlSchema,
+  reasoningSchema,
+} from '../responses/adapter-config.validator.js';
+import { defineResponsesAdapter } from '../responses/responses.helper.js';
 import { OPENAI_BASE_URL } from './openai.constants.js';
 
 /** OpenAI directly. `model` is required: which model to run is the caller's choice. */

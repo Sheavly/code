@@ -1,6 +1,6 @@
-import { z } from 'zod';
 import type { Adapter, AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { AdapterError } from '../errors/providers.errors.js';
 
 export class AdapterRegistry {
@@ -38,17 +38,18 @@ export class AdapterRegistry {
       });
     }
 
-    const parsed = adapter.configSchema.safeParse(config);
+    const parsed = parseOrThrow({
+      schema: adapter.configSchema,
+      input: config,
+      onInvalid: ({ details, error }) =>
+        new AdapterError({
+          reason: 'invalid_config',
+          kind,
+          message: `Invalid config for ${kind}:\n${details}`,
+          cause: error,
+        }),
+    });
 
-    if (!parsed.success) {
-      throw new AdapterError({
-        reason: 'invalid_config',
-        kind,
-        message: `Invalid config for ${kind}:\n${z.prettifyError(parsed.error)}`,
-        cause: parsed.error,
-      });
-    }
-
-    return adapter.create({ config: parsed.data, deps: this.deps });
+    return adapter.create({ config: parsed, deps: this.deps });
   }
 }
