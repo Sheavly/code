@@ -7,6 +7,7 @@
       "entry": [".cursor/hooks/*.mjs", "!.cursor/hooks/*.utils.mjs"],
       "ignore": ["workbook/workspaces/**"]
     },
+    "packages/protocol": {},
     "packages/core": {},
     "packages/providers": {},
     "packages/eslint-config": {}
