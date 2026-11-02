@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { defineAdapter } from '@sheavly/core/adapter/adapter.service';
+import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';

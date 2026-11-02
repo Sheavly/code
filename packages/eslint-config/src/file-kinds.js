@@ -18,7 +18,14 @@ export const FILE_KIND_POLICIES = {
   constants: { exports: 'constants', maxLines: LINES.DEFAULT },
   /** Pure helpers: no I/O, no state. */
   utils: { exports: 'code', maxLines: LINES.UNLIMITED },
-  /** Stateful or I/O-doing code: classes, services, the loop. */
+  /**
+   * Validation at the edge: zod schemas for external input (files, env, API events, hook exports,
+   * tool calls) and the `parse*` functions that turn `unknown` into typed data. Pure, like utils.
+   */
+  validator: { exports: 'code', maxLines: LINES.DEFAULT },
+  /** Stateless functions that may do I/O or call services. Functions only, no classes. */
+  helper: { exports: 'code', maxLines: LINES.DEFAULT },
+  /** Code that owns state: it exports a class. */
   service: { exports: 'code', maxLines: LINES.DEFAULT },
   /** Error classes. */
   errors: { exports: 'code', maxLines: LINES.THIN },

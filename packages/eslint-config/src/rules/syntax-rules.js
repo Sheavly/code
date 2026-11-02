@@ -38,7 +38,7 @@ export const SYNTAX_RULES = {
     {
       selector: 'ExportAllDeclaration, ExportNamedDeclaration[source]',
       message:
-        "No re-exports (barrels). Import from the defining `<name>.<kind>.ts` file, or a package's exported subpath (`@sheavly/core/tool/tool.service`).",
+        "No re-exports (barrels). Import from the defining `<name>.<kind>.ts` file, or a package's exported subpath (`@sheavly/core/tool/tool.utils`).",
     },
   ],
   // The harness is a backend: it emits typed events and registries, and renders nothing. A

@@ -1,7 +1,7 @@
 # Hooks
 
 Hooks let a host or a project change how the loop works and when context goes in. A hook is a
-named object of optional handlers, written with `defineHook` (`@sheavly/core/hook/hook.service`)
+named object of optional handlers, written with `defineHook` (`@sheavly/core/hook/hook.utils`)
 and passed in the loop's `hooks` option.
 
 ## Hook points

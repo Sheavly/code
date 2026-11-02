@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { runAgent } from '../../loop/stream-agent/stream-agent.service.js';
 import { fakeFetchSequence } from '@sheavly/core/testing/fake-fetch.fake';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.service';
 import { createResponsesProvider } from '@sheavly/providers/responses/responses.service';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';

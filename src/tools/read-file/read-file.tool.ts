@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
 import { assertNotEnvFile } from '../files/files.utils.js';

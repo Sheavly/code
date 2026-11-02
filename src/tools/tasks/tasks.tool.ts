@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { formatTask } from '../../runtime/tasks/tasks.utils.js';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */

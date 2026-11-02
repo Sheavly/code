@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { SessionRef } from '@sheavly/core/session/session.types';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '../../runtime/sessions/sessions.constants.js';
 import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';

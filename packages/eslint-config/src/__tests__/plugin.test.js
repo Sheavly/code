@@ -12,13 +12,15 @@ const ruleTester = new RuleTester({ languageOptions: { parser: tseslint.parser }
 const {
   'file-kind': fileKind,
   'kind-contents': kindContents,
-  'utils-imports': utilsImports,
+  'pure-imports': pureImports,
 } = harnessPlugin.rules;
 
 describe('kindOfFile', () => {
   it('reads the kind off `<name>.<kind>.ts`', ({ expect }) => {
     expect(kindOfFile('src/runtime/tasks/tasks.service.ts')).toBe('service');
     expect(kindOfFile('src/x/__tests__/allow-list.utils.test.ts')).toBe('test');
+    expect(kindOfFile('src/files/files.helper.ts')).toBe('helper');
+    expect(kindOfFile('src/workbook/workbook.validator.ts')).toBe('validator');
   });
 
   it('returns null for unknown kinds, camelCase and kind-less names', ({ expect }) => {
@@ -87,11 +89,13 @@ ruleTester.run('kind-contents', kindContents, {
   ],
 });
 
-ruleTester.run('utils-imports', utilsImports, {
+ruleTester.run('pure-imports', pureImports, {
   valid: [
     "import path from 'node:path'; import { z } from 'zod';",
     "import type { Stats } from 'node:fs'; import { type Tool } from './x.tool.js';",
     "import { slug } from './x.utils.js'; import { LIMIT } from './x.constants.js';",
+    "import { promptSchema } from './x.validator.js';", // a validator is pure too
+    "import type { Run } from './x.helper.js';", // types vanish at runtime
   ],
   invalid: [
     { code: "import { readFile } from 'node:fs/promises';", errors: [{ messageId: 'impure' }] },
@@ -99,6 +103,13 @@ ruleTester.run('utils-imports', utilsImports, {
     { code: "import { run } from './x.service.js';", errors: [{ messageId: 'impure' }] },
     { code: "import { type A, b } from './x.adapter.js';", errors: [{ messageId: 'impure' }] },
     { code: "await import('node:os');", errors: [{ messageId: 'impure' }] },
+    // A helper does I/O, so neither a utils file nor a validator may import one.
+    { code: "import { writeText } from './x.helper.js';", errors: [{ messageId: 'impure' }] },
+    {
+      code: "import { readFileSync } from 'node:fs';",
+      filename: 'src/workbook/workbook.validator.ts',
+      errors: [{ messageId: 'impure' }],
+    },
   ],
 });
 

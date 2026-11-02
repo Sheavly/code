@@ -212,7 +212,7 @@ Packages are built: each has a `dist/` for plain Node, and `npm run build` compi
 dependency order before the app. Dev, tests and typecheck read their source instead, through the
 `@sheavly/source` export condition, so nothing is built first (see
 [docs/overview.md](docs/overview.md#packages)). They're imported by subpath:
-`import { defineTool } from '@sheavly/core/tool/tool.service'`. A package can
+`import { defineTool } from '@sheavly/core/tool/tool.utils'`. A package can
 only import what its own `package.json` depends on; `core` can't reach into the app (its `rootDir`
 makes that a type error).
 
@@ -343,7 +343,7 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   tests only in `__tests__/`, and only tests there.
 - `harness/kind-contents`: code files export no types and no literal constants; those go in the
   module's `*.types.ts` / `*.constants.ts`. Unexported local types and values are fine.
-- `harness/utils-imports`: `*.utils.ts` imports no I/O modules and no services/tools/adapters.
+- `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
 - **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
@@ -388,7 +388,7 @@ Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) a
 output channel if a hook doesn't fire. To try one by hand:
 
 ```bash
-echo '{"tool_input":{"file_path":"packages/core/src/tool/tool.service.ts"}}' | node .cursor/hooks/lint-edited-file.mjs
+echo '{"tool_input":{"file_path":"packages/core/src/tool/tool.utils.ts"}}' | node .cursor/hooks/lint-edited-file.mjs
 echo '{"status":"completed"}' | node .cursor/hooks/check-on-stop.mjs
 ```
 

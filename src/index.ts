@@ -9,7 +9,8 @@ export type {
 } from './loop/events/events.types.js';
 export { OrderedQueue } from './loop/queue/queue.service.js';
 export type { Sequenced } from './loop/queue/queue.types.js';
-export { defineTool, describeCall } from '@sheavly/core/tool/tool.service';
+export { defineTool } from '@sheavly/core/tool/tool.utils';
+export { describeCall } from '@sheavly/core/tool/tool.validator';
 export type {
   FileChange,
   FileRead,
@@ -19,7 +20,7 @@ export type {
   ToolOutput,
   ToolRunResult,
 } from '@sheavly/core/tool/tool.types';
-export { defineHook } from '@sheavly/core/hook/hook.service';
+export { defineHook } from '@sheavly/core/hook/hook.utils';
 export type * from '@sheavly/core/hook/hook.types';
 export { createReadFileTool } from './tools/read-file/read-file.tool.js';
 export { createWriteFileTool } from './tools/write-file/write-file.tool.js';
@@ -53,7 +54,7 @@ export type { HooksManifest } from './runtime/project-hooks/project-hooks.types.
 export type * from '@sheavly/core/message/message.types';
 export type * from '@sheavly/core/provider/provider.types';
 export { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
-export { defineAdapter } from '@sheavly/core/adapter/adapter.service';
+export { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 export type { Adapter, AdapterDeps } from '@sheavly/core/adapter/adapter.types';
 export { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.service';
 export { DEFAULT_ADAPTER, DEFAULT_MODEL } from './host/host.constants.js';

@@ -1,0 +1,55 @@
+import type { ToolCall, ToolMessage } from '../message/message.types.js';
+import type { SessionRef } from '../session/session.types.js';
+import type { Tool, ToolRunResult } from './tool.types.js';
+import { validate } from '../validation/validation.validator.js';
+import { withDescription } from './tool.validator.js';
+
+/**
+ * Validates input, runs the tool, and always returns a tool message (never throws), with the
+ * tool's file change if it made one.
+ */
+export async function runTool(params: {
+  tools: Tool[];
+  call: ToolCall;
+  signal: AbortSignal;
+  session?: SessionRef | undefined;
+}): Promise<ToolRunResult> {
+  const { tools, call, signal, session } = params;
+  const result = (content: string, isError = false): ToolMessage => ({
+    role: 'tool',
+    toolCallId: call.id,
+    content,
+    isError,
+  });
+
+  const tool = tools.find((t) => t.name === call.name);
+
+  if (!tool) return result(`Unknown tool: ${call.name}`, true);
+
+  const parsed = validate({ schema: withDescription(tool.inputSchema), input: call.input });
+
+  if (!parsed.success) return result(`Invalid input for ${call.name}:\n${parsed.details}`, true);
+
+  const { description, ...input } = parsed.data as { description: string } & Record<
+    string,
+    unknown
+  >;
+
+  try {
+    const output = await tool.execute({
+      input,
+      signal,
+      context: { callId: call.id, description, session },
+    });
+
+    if (typeof output === 'string') return result(output);
+
+    const { content, change, read } = output;
+
+    return { ...result(content), ...(change && { change }), ...(read && { read }) };
+  } catch (caughtError) {
+    const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
+
+    return result(`Tool ${call.name} failed: ${reason}`, true);
+  }
+}

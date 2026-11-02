@@ -104,7 +104,7 @@ export function baseConfig(params) {
       rules: { 'harness/no-terminal-io': 'error' },
     },
 
-    // --- Structure: `<name>.<kind>.ts`, each kind exports one shape, utils stay pure ---
+    // --- Structure: `<name>.<kind>.ts`, each kind exports one shape, utils and validators stay pure ---
     {
       files: SOURCE_FILES,
       ignores: entryFiles,
@@ -112,7 +112,10 @@ export function baseConfig(params) {
     },
     { files: TYPED_FILES, rules: { 'max-lines': maxLines(DEFAULT_MAX_LINES) } },
     ...maxLinesPerKind,
-    { files: ['src/**/*.utils.ts'], rules: { 'harness/utils-imports': 'error' } },
+    {
+      files: ['src/**/*.utils.ts', 'src/**/*.validator.ts'],
+      rules: { 'harness/pure-imports': 'error' },
+    },
 
     // --- Tests: may set env, assert known shapes, and repeat setup by design ---
     {

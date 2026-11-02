@@ -3,7 +3,7 @@
 ## Writing a tool
 
 A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
-`defineTool({ name, description, inputSchema, execute })` (from `@sheavly/core/tool/tool.service`).
+`defineTool({ name, description, inputSchema, execute })` (from `@sheavly/core/tool/tool.utils`).
 
 - `inputSchema` is a `z.object`. Don't add a `description` field: the harness adds one for the
   model's plain-language note ("reading index.ts") and strips it before `execute`.

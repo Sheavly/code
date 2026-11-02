@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { defineHook } from '@sheavly/core/hook/hook.service';
-import { defineTool } from '@sheavly/core/tool/tool.service';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { Message, StreamEvent, ToolCall } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '../../../runtime/workspace/workspace.service.js';
-import { runTool } from '@sheavly/core/tool/tool.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createReadFileTool } from '../read-file.tool.js';
 import { isEnvFile } from '../../files/files.utils.js';
 
