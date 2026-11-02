@@ -6,13 +6,13 @@ and passed in the loop's `hooks` option.
 
 ## Hook points
 
-| Handler          | When                                                    | Can                                                                            |
-| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `sessionStart`   | Once per run, before the first turn                     | Add opening context                                                            |
-| `beforeTurn`     | Before each model call                                  | Add context, add system instructions                                           |
-| `aroundToolCall` | Around each tool call                                   | Block it, change its input or result (including its `change` / `read` details) |
-| `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                                                  |
-| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own failure is a `hook_failed` event)                         |
+| Handler          | When                                                    | Can                                                              |
+| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| `sessionStart`   | Once per run, before the first turn                     | Add opening context                                              |
+| `beforeTurn`     | Before each model call                                  | Add context, add system instructions                             |
+| `aroundToolCall` | Around each tool call                                   | Block it, change its input or result (including its `artifacts`) |
+| `afterTurn`      | After each turn, with its reply and tool results        | Observe, record, fail the run                                    |
+| `onError`        | When the run fails, before the error reaches the caller | Log, report (its own failure is a `hook_failed` event)           |
 
 Two ways to tell the model something:
 
@@ -40,6 +40,9 @@ reads AGENTS.md files and adds them as system instructions.
 - Hooks run in the order given. Every handler runs one after another, except `aroundToolCall`,
   which nests: the first hook is outermost. It calls `next()` to continue, `next(input)` to
   change the input (validated as usual), or returns a result without calling it to block.
+  The result is `{ content, isError, artifacts? }`: `content` goes into history, `artifacts`
+  (what the tool returned for a UI, see "Artifacts" in [tools.md](tools.md)) go only onto the
+  `tool_result` event, so a hook can drop, replace or add some without the model seeing them.
 - A handler that throws fails the run, except `aroundToolCall` (the call gets an error result)
   and `onError`: its failure doesn't stop the other `onError` handlers or replace the run's
   error, but it is reported as a `hook_failed` event (`{ hook, handler, error }`, from a

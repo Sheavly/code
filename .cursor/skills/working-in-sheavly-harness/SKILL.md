@@ -74,7 +74,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 
 - `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
-- `execute({ input, signal, context })` returns a string, or `{ content, change }` when it changed a file (`change` is a `FileChange` with path, before and after: emitted on `tool_result` for the UI's diff, never put in history). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
+- `execute({ input, signal, context })` returns a string, or `{ content, artifacts }` to give a UI data the model never sees (tagged with a `kind` the tool owns, e.g. the file tools' `FileChange`: emitted on `tool_result`, never put in history; see `docs/tools.md`, "Artifacts"). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
 - All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `tools/files/files.helper.ts`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`runtime/process/process.service.ts`) and the allow list.
 - Wire the tool into `src/demo.ts`, and export it from `src/index.ts`.
 

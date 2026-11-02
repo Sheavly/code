@@ -100,8 +100,8 @@ API's `instructions` field.
    stream out as they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
    Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
-   A `tool_result` can carry `change` (a file write: before and after) or `read` (which lines a
-   read covered); the model sees only the text, a UI renders these.
+   A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
+   after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
    (or waits for a background task, with `waitForTasks`).
 5. `done` is always last and carries the full history, valid to continue from, and the run's
