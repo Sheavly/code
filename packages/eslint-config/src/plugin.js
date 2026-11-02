@@ -3,7 +3,7 @@ import { kindContents } from './rules/kind-contents.js';
 import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
 import { SYNTAX_RULES, syntaxRule } from './rules/syntax-rules.js';
-import { utilsImports } from './rules/utils-imports.js';
+import { pureImports } from './rules/pure-imports.js';
 
 /** The `harness/*` rules. */
 export const harnessPlugin = {
@@ -13,7 +13,7 @@ export const harnessPlugin = {
     'kind-contents': kindContents,
     'no-raw-error': noRawError,
     'no-silent-catch': noSilentCatch,
-    'utils-imports': utilsImports,
+    'pure-imports': pureImports,
     ...Object.fromEntries(
       Object.entries(SYNTAX_RULES).map(([name, entries]) => [name, syntaxRule(entries)]),
     ),
