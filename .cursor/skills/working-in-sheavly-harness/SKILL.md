@@ -153,7 +153,7 @@ npm run format     # Prettier only
 
 Every workspace has its own `typecheck`, `lint` and `test` scripts that check only its files; a new package needs all three. Results are cached in `.turbo/cache` by their inputs, so a change reruns only its workspace and the ones that import it.
 
-knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied code; `.jscpd.json`) fail only on findings not in `knip-baseline.json` / `.jscpd-baseline.json`. Remove dead code; reuse or extract duplicated code. Never hand-edit the baselines or add `jscpd:ignore` comments; after fixing baselined debt run `npm run knip:baseline` / `npm run jscpd:baseline` (prune-only: they never add entries). After deleting dead code, re-run `npm run knip`: removing one export often leaves what it used unused. `npx knip --fix --fix-type exports,types` is allowed; never the `dependencies`/`files` fix types. Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
+knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied code; `.jscpd.json`) fail on any finding: there is no baseline. Remove dead code; reuse or extract duplicated code. Never add `jscpd:ignore` comments. After deleting dead code, re-run `npm run knip`: removing one export often leaves what it used unused. `npx knip --fix --fix-type exports,types` is allowed; never the `dependencies`/`files` fix types. Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
 
 Cursor hooks (`.cursor/hooks.json`) run this automatically:
 

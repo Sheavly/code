@@ -319,11 +319,8 @@ settings. The imports themselves are `harness/imports`.
 - **jscpd** (`.jscpd.json`) finds copied code (50+ tokens over 5+ lines) in `.ts` and `.js`/`.mjs`.
   `npm run jscpd` goes through `scripts/jscpd-runner.mjs`, which fails when `.jscpd.json` is
   missing or unreadable instead of letting jscpd silently scan with its defaults.
-- **Baselines.** Existing findings are recorded in `knip-baseline.json` (a preprocessor,
-  `scripts/knip-baseline.mjs`, drops them from the report) and `.jscpd-baseline.json`, so only
-  new dead code or duplication fails. They may only shrink: after fixing baselined debt run
-  `npm run knip:baseline` / `npm run jscpd:baseline`, which drop fixed entries and never add new
-  ones (a new finding fails, to be fixed in code). Never hand-edit them or add `jscpd:ignore`.
+- **No baseline.** The repo has no dead code or copied code, so any finding fails, to be fixed
+  in code. Never add `jscpd:ignore` comments.
 - Remove dead code by hand, or with `npx knip --fix --fix-type exports,types`; never knip's
   `dependencies`/`files` fix types, which edit `package.json` and delete files. Change
   dependencies with `npm install|uninstall`.
@@ -400,9 +397,8 @@ lines between steps (auto-fixed with `npm run lint:fix`).
   ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.
 - **No inline escape hatches.** `eslint-disable` comments are rejected
   (`noInlineConfig`). An exception goes in a `files:` override in the config, with a reason.
-- **No baseline.** The codebase is lint-clean. If a new rule is ever introduced on existing code,
-  `npx eslint . --suppress-all` records the current violations in `eslint-suppressions.json`
-  (pay them down when touching a file, then `npm run lint:prune`). Never suppress new code.
+- **No baseline.** The codebase is lint-clean, and a new rule lands with its violations fixed.
+  Never suppress new code.
 
 ### Cursor hooks
 
@@ -413,7 +409,7 @@ lines between steps (auto-fixed with `npm run lint:fix`).
 | `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                                                                                                                                                                                                              |
 | `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.                                                                                                                                                                                      |
 | `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. The first edit of harness source in a chat also injects the skill's "Where code goes". The first edit of a file a skill governs (its `harness.json` `governs` globs) names that skill, once per chat. TypeScript written outside every workspace's `src/` is reported on the edit (`layout.utils.mjs`). Advisory: never blocks the edit. |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + the layout check + jscpd (new jscpd clones only) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                                                                                                                 |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + the layout check + jscpd (any clone fails: there is no baseline) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                                                                                                 |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**

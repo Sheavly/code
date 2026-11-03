@@ -2,8 +2,6 @@
 // workspaces through turbo, then Prettier + knip + the layout check + jscpd on the whole repo). If
 // any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit`
 // in hooks.json.
-// Problems baselined in eslint-suppressions.json, knip-baseline.json and .jscpd-baseline.json
-// don't count; new ones do.
 // Once the gate passes, nudge (once per set of files) when source files changed but the doc in
 // docs/ that describes them didn't (see docs.utils.mjs).
 // Only a chat that changed project source in this checkout (a Write or Delete, recorded by
@@ -14,7 +12,6 @@ import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
 import {
-  formatNewClones,
   formatTurboReport,
   getChatState,
   readHookInput,
@@ -75,7 +72,7 @@ function runGate() {
     );
   }
 
-  // Dead code and duplication, minus what knip-baseline.json / .jscpd-baseline.json record.
+  // Dead code and duplication: any finding fails, there is no baseline.
   const knip = runNpmScript('knip');
 
   if (!knip.ok) {
@@ -98,7 +95,7 @@ function runGate() {
 
   if (!jscpd.ok) {
     failures.push(
-      `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${formatNewClones(jscpd.output)}`,
+      `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${jscpd.output}`,
     );
   }
 

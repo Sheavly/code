@@ -22,7 +22,8 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 - a new root config or tooling script (`scripts/`, `.cursor/hooks/`);
 - a new runtime dependency;
 - a new env var read by a host;
-- a baseline (knip, jscpd) changed by anything but pruning.
+- an `ignore` added to `knip.json` or `.jscpd.json`: there are no baselines, so a finding is
+  fixed, not ignored, unless the ignore says why.
 
 **Judgement**, asked once per issue at triage:
 
