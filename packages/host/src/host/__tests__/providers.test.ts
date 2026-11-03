@@ -9,6 +9,7 @@ import { createResponsesProvider } from '@sheavly/providers/responses/responses.
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { lookupCall, reasoningItem } from '@sheavly/providers/testing/responses-items.fake';
 import { TEST_REQUEST } from '@sheavly/providers/testing/request.constants';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 // Integration: the providers package driven by the real loop, as a host wires them.
 
@@ -106,7 +107,14 @@ describe('ProviderSwitch in a running agent', () => {
   const named = (name: string, callsTool: boolean): Provider => ({
     async *stream() {
       yield { type: 'text_delta', text: name };
-      if (callsTool) yield { type: 'tool_call', call: { id: '1', name: 'missing', input: {} } };
+
+      if (callsTool) {
+        yield {
+          type: 'tool_call',
+          call: { id: callIdSchema.parse('1'), name: 'missing', input: {} },
+        };
+      }
+
       yield { type: 'done', stopReason: callsTool ? 'tool_use' : 'end_turn' };
     },
   });

@@ -1,5 +1,5 @@
 import type { SessionRegistry } from './sessions.service.js';
-import type { SessionRef } from '@sheavly/protocol/session/session.types';
+import type { SessionId, SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** The session a run belongs to: which registry it is tracked in, and which session it is. */
 export type RunSession = {
@@ -13,7 +13,7 @@ export type RunSession = {
  * every matching entry so far, so a UI that opens a sub-agent's panel late sees it from its start.
  */
 export type EntryFilter = {
-  sessionId?: string;
+  sessionId?: SessionId;
   subtree?: boolean;
   replay?: boolean;
 };

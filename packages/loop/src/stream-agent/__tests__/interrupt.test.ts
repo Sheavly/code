@@ -4,6 +4,7 @@ import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fa
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
@@ -41,7 +42,7 @@ function blockingTool(log: string[]) {
 }
 
 const call = (id: string, name = 'block', extra: Record<string, unknown> = {}): ToolCall => ({
-  id,
+  id: callIdSchema.parse(id),
   name,
   input: { description: `task ${id}`, id, ...extra },
 });
@@ -153,7 +154,11 @@ describe('interrupts', () => {
         [
           {
             type: 'tool_call',
-            call: { id: 's', name: 'stubborn', input: { description: 'stubborn' } },
+            call: {
+              id: callIdSchema.parse('s'),
+              name: 'stubborn',
+              input: { description: 'stubborn' },
+            },
           },
           { type: 'done', stopReason: 'tool_use' },
         ],

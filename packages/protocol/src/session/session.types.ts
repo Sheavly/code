@@ -1,11 +1,14 @@
 import type { z } from 'zod';
 import type {
   inboxMessageSchema,
+  sessionIdSchema,
   sessionInfoSchema,
   sessionRefSchema,
   sessionStateSchema,
   sessionUpdateSchema,
 } from './session.validator.js';
+
+export type SessionId = z.infer<typeof sessionIdSchema>;
 
 export type SessionRef = z.infer<typeof sessionRefSchema>;
 

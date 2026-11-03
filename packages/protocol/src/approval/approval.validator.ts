@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { callIdSchema } from '../message/message.validator.js';
+import { sessionIdSchema } from '../session/session.validator.js';
+
+/**
+ * An approval request's id, the one a UI answers with. Branded, so it can't be passed where a
+ * session's, tool call's or task's id goes; it is still a plain string on the wire.
+ */
+export const approvalIdSchema = z.string().brand<'ApprovalId'>();
 
 /** One argument that makes a command need approval, and why. */
 export const approvalConcernSchema = z.object({ argument: z.string(), reason: z.string() });
@@ -23,11 +31,11 @@ export const approvalOptionSchema = z.enum(['approve', 'skip', 'skip_with_messag
  */
 export const approvalRequestSchema = z.object({
   /** Answer with this id. */
-  id: z.string(),
+  id: approvalIdSchema,
   /** The tool call that is waiting (matches `tool_call_started`). */
-  callId: z.string(),
+  callId: callIdSchema,
   /** The session making the call, when a loop runs it. */
-  sessionId: z.string().exactOptional(),
+  sessionId: sessionIdSchema.exactOptional(),
   tool: z.string(),
   command: z.string(),
   concerns: z.array(approvalConcernSchema),
@@ -39,9 +47,9 @@ export const approvalUpdateSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('approval_requested'), request: approvalRequestSchema }),
   z.object({
     type: z.literal('approval_resolved'),
-    id: z.string(),
+    id: approvalIdSchema,
     response: approvalResponseSchema,
   }),
   /** The waiting call was interrupted before anyone answered. */
-  z.object({ type: z.literal('approval_cancelled'), id: z.string() }),
+  z.object({ type: z.literal('approval_cancelled'), id: approvalIdSchema }),
 ]);

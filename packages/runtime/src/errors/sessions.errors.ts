@@ -1,3 +1,5 @@
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+
 /** Why a session operation was refused. */
 type SessionFailure =
   'unknown_session' | 'parent_ended' | 'too_deep' | 'session_ended' | 'not_an_ancestor';
@@ -10,9 +12,9 @@ export class SessionError extends Error {
   override name = 'SessionError';
   readonly reason: SessionFailure;
   /** The session the operation was about. */
-  readonly sessionId: string;
+  readonly sessionId: SessionId;
 
-  constructor(params: { reason: SessionFailure; sessionId: string; message: string }) {
+  constructor(params: { reason: SessionFailure; sessionId: SessionId; message: string }) {
     const { reason, sessionId, message } = params;
 
     super(message);

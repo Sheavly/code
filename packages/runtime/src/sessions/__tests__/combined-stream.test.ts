@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '../sessions.service.js';
 import { startDeepestSession } from '../../testing/sessions.fake.js';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
 /** One line per entry: `seq session kind:type`. */
@@ -53,7 +55,10 @@ describe("SessionRegistry's combined stream", () => {
       },
     ]);
     expect(() =>
-      sessions.publish({ sessionId: 'nope', event: { seq: 0, type: 'text_delta', text: 'a' } }),
+      sessions.publish({
+        sessionId: sessionIdSchema.parse('nope'),
+        event: { seq: 0, type: 'text_delta', text: 'a' },
+      }),
     ).toThrow('Unknown session nope');
   });
 
@@ -76,7 +81,7 @@ describe("SessionRegistry's combined stream", () => {
 
     if (!main || !child) throw new Error('startDeepestSession starts three sessions');
     const names = { [main.id]: 'main', [child.id]: 'child', [grandchild.id]: 'grandchild' };
-    const say = (id: string, seq: number) =>
+    const say = (id: SessionId, seq: number) =>
       sessions.publish({ sessionId: id, event: { seq, type: 'text_delta', text: 'x' } });
 
     say(child.id, 0); // before anyone listens

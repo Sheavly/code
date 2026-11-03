@@ -5,7 +5,9 @@
  */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import type { StartTask, TaskResult } from './tasks.types.js';
-import type { TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { TaskId, TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 
 type Entry = {
   info: TaskInfo;
@@ -16,14 +18,14 @@ type Entry = {
 };
 
 export class TaskRegistry {
-  #tasks = new Map<string, Entry>();
+  #tasks = new Map<TaskId, Entry>();
   #nextId = 1;
   /** Finished tasks the model hasn't been told about yet, in the order they finished. */
-  #unreported: string[] = [];
+  #unreported: TaskId[] = [];
   #waiters: (() => void)[] = [];
 
   start({ command, description, callId, run }: StartTask): TaskInfo {
-    const id = `t${this.#nextId++}`;
+    const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
     const info: TaskInfo = {
       id,
@@ -60,7 +62,7 @@ export class TaskRegistry {
     return { ...info };
   }
 
-  get(id: string): TaskInfo | undefined {
+  get(id: TaskId): TaskInfo | undefined {
     const entry = this.#tasks.get(id);
 
     return entry && { ...entry.info };
@@ -70,7 +72,7 @@ export class TaskRegistry {
     return [...this.#tasks.values()].map((e) => ({ ...e.info }));
   }
 
-  byCallId(callId: string): TaskInfo | undefined {
+  byCallId(callId: CallId): TaskInfo | undefined {
     return this.list().find((t) => t.callId === callId);
   }
 
@@ -79,7 +81,7 @@ export class TaskRegistry {
   }
 
   /** Stops a task and waits for it to exit. Returns undefined for unknown ids. */
-  async cancel(id: string): Promise<TaskInfo | undefined> {
+  async cancel(id: TaskId): Promise<TaskInfo | undefined> {
     const entry = this.#tasks.get(id);
 
     if (!entry) return undefined;

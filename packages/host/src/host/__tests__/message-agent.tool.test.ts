@@ -14,6 +14,10 @@ import type { Script } from '@sheavly/testing/provider/provider.types';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+const callId = callIdSchema.parse('c');
 
 /** A promise you resolve later: holds a scripted step until the test lets it go. */
 function gate() {
@@ -128,7 +132,7 @@ describe('message_agent: steering a running sub-agent', () => {
 
     await run;
 
-    const child = sessions.get(childId);
+    const child = sessions.get(sessionIdSchema.parse(childId));
     // The sub-agent's second model call had the parent's steer in its history.
     const childSecondCall = seen.get('Research dogs')?.[1];
 
@@ -235,14 +239,14 @@ describe('message_agent: steering a running sub-agent', () => {
       tool.execute({
         input: { session: b.id, message: 'hi' },
         signal,
-        context: { callId: 'c', description: 'd', session: a },
+        context: { callId, description: 'd', session: a },
       }),
     ).rejects.toThrow('did not start');
     await expect(
       tool.execute({
         input: { session: a.id, message: 'hi' },
         signal,
-        context: { callId: 'c', description: 'd' },
+        context: { callId, description: 'd' },
       }),
     ).rejects.toThrow('only works inside an agent session');
     expect(sessions.hasMessages(b.id)).toBe(false);

@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
+/**
+ * A tool call's id, as the model's backend gave it. Branded, so it can't be passed where a
+ * session's, task's or approval's id goes; it is still a plain string on the wire.
+ */
+export const callIdSchema = z.string().brand<'CallId'>();
+
 /** A tool call the model asked for. */
 export const toolCallSchema = z.object({
-  id: z.string(),
+  id: callIdSchema,
   name: z.string(),
   /** Raw input from the model. Validated with zod before the tool runs. */
   input: z.unknown(),
@@ -31,7 +37,7 @@ export const messageSchema = z.discriminatedUnion('role', [
   }),
   z.object({
     role: z.literal('tool'),
-    toolCallId: z.string(),
+    toolCallId: callIdSchema,
     content: z.string(),
     isError: z.boolean(),
   }),

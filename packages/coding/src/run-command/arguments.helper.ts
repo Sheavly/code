@@ -7,6 +7,8 @@ import { isEnvFile } from '../files/files.utils.js';
 import { namesEnvFile, pathArguments, stripPathspecMagic } from './arguments.utils.js';
 import { gitOutputConcerns } from './git-output.utils.js';
 import type { ApprovalConcern } from '@sheavly/protocol/approval/approval.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 /**
  * What in an allow-listed command needs the user's approval: a git command that can print or
@@ -49,7 +51,7 @@ export async function confirmArguments(params: {
   file: string;
   args: readonly string[];
   approvals: ApprovalRegistry | undefined;
-  call: { callId: string; sessionId?: string | undefined };
+  call: { callId: CallId; sessionId?: SessionId | undefined };
   signal: AbortSignal;
 }): Promise<void> {
   const { workspace, command, file, args, approvals, call, signal } = params;

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { agentEventSchema } from '../event/event.validator.js';
-import { sessionUpdateSchema } from '../session/session.validator.js';
+import { sessionIdSchema, sessionUpdateSchema } from '../session/session.validator.js';
 
 /**
  * One entry of a session tree's combined stream: every session's loop events (sub-agents
@@ -9,7 +9,7 @@ import { sessionUpdateSchema } from '../session/session.validator.js';
  * session's `seq` too, so a UI can also follow one session alone.
  */
 export const streamEntrySchema = z.intersection(
-  z.object({ seq: z.number().int().nonnegative(), sessionId: z.string() }),
+  z.object({ seq: z.number().int().nonnegative(), sessionId: sessionIdSchema }),
   z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('event'), event: agentEventSchema }),
     z.object({ kind: z.literal('update'), update: sessionUpdateSchema }),

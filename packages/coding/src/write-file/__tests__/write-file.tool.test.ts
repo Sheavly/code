@@ -8,6 +8,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { isFileChange } from '../../files/files.utils.js';
 import { createWriteFileTool } from '../write-file.tool.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const signal = new AbortController().signal;
 const temp = useTempWorkspace({
@@ -23,7 +24,7 @@ const write = (filePath: string, content: string) =>
   runTool({
     tools: [createWriteFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current })],
     call: {
-      id: '1',
+      id: callIdSchema.parse('1'),
       name: 'write_file',
       input: { description: `writing ${filePath}`, path: filePath, content },
     },
@@ -123,7 +124,11 @@ describe('write_file', () => {
       createEditFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current }),
     ];
     const call = (name: string, input: Record<string, unknown>) =>
-      runTool({ tools, call: { id: name, name, input: { description: name, ...input } }, signal });
+      runTool({
+        tools,
+        call: { id: callIdSchema.parse(name), name, input: { description: name, ...input } },
+        signal,
+      });
 
     await write('mixed.ts', base);
 

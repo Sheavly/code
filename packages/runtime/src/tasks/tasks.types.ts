@@ -1,8 +1,10 @@
+import type { CallId } from '@sheavly/protocol/message/message.types';
+
 /** What to run in the background. */
 export type StartTask = {
   command: string;
   description: string;
-  callId?: string;
+  callId?: CallId;
   /** Does the work. Must stop when `signal` aborts; reports output as it arrives. */
   run: (params: {
     signal: AbortSignal;

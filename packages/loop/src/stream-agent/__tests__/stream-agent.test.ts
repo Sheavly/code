@@ -9,6 +9,10 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.helper.js';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+const callId = callIdSchema.parse('1');
 
 const getWeather = defineTool({
   name: 'get_weather',
@@ -28,7 +32,8 @@ describe('runAgent', () => {
         return scripted.stream(request);
       },
     };
-    const ref = { id: 'stray', rootId: 'stray', depth: 1 };
+    const stray = sessionIdSchema.parse('stray');
+    const ref = { id: stray, rootId: stray, depth: 1 };
 
     await expect(
       runAgent({
@@ -63,7 +68,7 @@ describe('runAgent', () => {
 
   it('runs a tool and feeds the result back to the model', async () => {
     const call = {
-      id: '1',
+      id: callId,
       name: 'get_weather',
       input: { description: 'checking Stockholm weather', city: 'Stockholm' },
     };
@@ -112,7 +117,7 @@ describe('runAgent', () => {
       [
         {
           type: 'tool_call',
-          call: { id: '1', name: 'get_weather', input: { description: '?', city: 42 } },
+          call: { id: callId, name: 'get_weather', input: { description: '?', city: 42 } },
         },
         { type: 'done', stopReason: 'tool_use' },
       ],
@@ -132,7 +137,7 @@ describe('runAgent', () => {
     const loopForever: StreamEvent[] = [
       {
         type: 'tool_call',
-        call: { id: '1', name: 'get_weather', input: { description: 'again', city: 'X' } },
+        call: { id: callId, name: 'get_weather', input: { description: 'again', city: 'X' } },
       },
       { type: 'done', stopReason: 'tool_use' },
     ];
@@ -157,7 +162,7 @@ describe('runAgent', () => {
       inputSchema: z.object({}),
       execute: async () => ({ content: 'Parsed 1 row', artifacts }),
     });
-    const call = { id: '1', name: 'parser', input: { description: 'parsing a.csv' } };
+    const call = { id: callId, name: 'parser', input: { description: 'parsing a.csv' } };
     const events: AgentEvent[] = [];
     const messages = await runAgent({
       provider: callOnceProvider(call),

@@ -1,10 +1,13 @@
 import type { z } from 'zod';
 import type {
+  callIdSchema,
   messageSchema,
   reasoningItemSchema,
   toolCallSchema,
   turnStopReasonSchema,
 } from './message.validator.js';
+
+export type CallId = z.infer<typeof callIdSchema>;
 
 export type ToolCall = z.infer<typeof toolCallSchema>;
 

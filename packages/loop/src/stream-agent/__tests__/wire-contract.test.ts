@@ -7,6 +7,7 @@ import { agentEventSchema } from '@sheavly/protocol/event/event.validator';
 import { sessionUpdateSchema } from '@sheavly/protocol/session/session.validator';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
@@ -48,7 +49,7 @@ const context = defineHook({
 
 const call = (id: string, name: string, input: object = {}): StreamEvent => ({
   type: 'tool_call',
-  call: { id, name, input: { description: `calling ${name}`, ...input } },
+  call: { id: callIdSchema.parse(id), name, input: { description: `calling ${name}`, ...input } },
 });
 
 /** Turn 1: reasoning, text and three calls (artifacts, an error, a background task). Turn 2: an answer. */

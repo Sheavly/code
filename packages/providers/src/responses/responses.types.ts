@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { requestPolicySchema } from './adapter-config.validator.js';
 import type { responsesEventSchema } from './responses.validator.js';
 
@@ -51,5 +52,5 @@ export type ResponsesEvent = z.infer<typeof responsesEventSchema>;
  */
 export type EventStep = { event?: StreamEvent; stopReason?: StopReason; ended?: true };
 
-/** The function call fields we read from a `function_call` output item. */
-export type FunctionCallItem = { call_id: string; name: string; arguments: string };
+/** The function call fields we read from a `function_call` output item; the id is branded once parsed. */
+export type FunctionCallItem = { call_id: CallId; name: string; arguments: string };

@@ -18,6 +18,9 @@ import {
 import { startDeepestSession } from '@sheavly/runtime/testing/sessions.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+
+const callId = callIdSchema.parse('c');
 
 const call = (id: string, name: string, input: Record<string, unknown>) =>
   toolCall({ id, name, input });
@@ -136,11 +139,8 @@ describe('start_agent', () => {
     expect(seenTools.L3).toEqual(['report_status']); // depth 3: cannot start sub-agents
     const [level3] = sessions.list().filter((s) => s.depth === 3);
 
-    expect(sessions.lineage(level3?.id ?? '').map((s) => s.title)).toEqual([
-      'Level 3',
-      'Level 2',
-      'Main',
-    ]);
+    if (!level3) throw new Error('No session reached depth 3');
+    expect(sessions.lineage(level3.id).map((s) => s.title)).toEqual(['Level 3', 'Level 2', 'Main']);
   });
 
   it('refuses start_agent called by a session at the depth cap', async () => {
@@ -159,7 +159,7 @@ describe('start_agent', () => {
       tool.execute({
         input: { title: 'Level 4', task: 'too deep' },
         signal: new AbortController().signal,
-        context: { callId: 'c', description: 'd', session: three },
+        context: { callId, description: 'd', session: three },
       }),
     ).rejects.toThrow('Sub-agents nest at most 3 levels');
     expect(sessions.list()).toHaveLength(3);
@@ -271,13 +271,14 @@ describe('start_agent', () => {
     await tool.execute({
       input: { title: 'Slow', task: 'wait forever' },
       signal: new AbortController().signal,
-      context: { callId: 'c', description: 'd', session: main },
+      context: { callId, description: 'd', session: main },
     });
     const [task] = tasks.list();
 
-    await tasks.cancel(task?.id ?? '');
+    if (!task) throw new Error('start_agent started no task');
+    await tasks.cancel(task.id);
 
-    expect(tasks.get(task?.id ?? '')?.status).toBe('cancelled');
+    expect(tasks.get(task.id)?.status).toBe('cancelled');
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
   });
 });
@@ -292,7 +293,7 @@ describe('report_status', () => {
       tool.execute({
         input: { status: 'x' },
         signal: new AbortController().signal,
-        context: { callId: 'c', description: 'd' },
+        context: { callId, description: 'd' },
       }),
     ).rejects.toThrow('only works inside an agent session');
   });

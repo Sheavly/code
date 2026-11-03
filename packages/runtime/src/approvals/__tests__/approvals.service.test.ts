@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { ApprovalListenerError } from '../../errors/approvals.errors.js';
 import { ApprovalRegistry } from '../approvals.service.js';
 import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
+import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+const a1 = approvalIdSchema.parse('a1');
+const c1 = callIdSchema.parse('c1');
+const s1 = sessionIdSchema.parse('s1');
 
 const ask = (approvals: ApprovalRegistry, signal = new AbortController().signal) =>
   approvals.request({
-    callId: 'c1',
-    sessionId: 's1',
+    callId: c1,
+    sessionId: s1,
     tool: 'run_command',
     command: 'ls ..',
     concerns: [{ argument: '..', reason: 'reaches outside the workspace' }],
@@ -43,7 +50,7 @@ describe('ApprovalRegistry', () => {
     ]);
     expect(approvals.pending().map((request) => request.id)).toEqual(['a1']);
 
-    approvals.respond({ id: 'a1', response: { decision: 'skip_with_message', message: ' hi ' } });
+    approvals.respond({ id: a1, response: { decision: 'skip_with_message', message: ' hi ' } });
 
     await expect(answer).resolves.toEqual({ decision: 'skip_with_message', message: 'hi' });
     expect(updates.at(-1)).toEqual({
@@ -68,7 +75,7 @@ describe('ApprovalRegistry', () => {
 
     await expect(answer).rejects.toThrow();
     expect(updates.at(-1)).toEqual({ type: 'approval_cancelled', id: 'a1' });
-    expect(() => approvals.respond({ id: 'a1', response: { decision: 'approve' } })).toThrow(
+    expect(() => approvals.respond({ id: a1, response: { decision: 'approve' } })).toThrow(
       'No approval is waiting with id a1',
     );
   });
@@ -83,7 +90,7 @@ describe('ApprovalRegistry', () => {
     listen(approvals);
     void ask(approvals);
 
-    expect(() => approvals.respond({ id: 'a1', response })).toThrow();
+    expect(() => approvals.respond({ id: a1, response })).toThrow();
     expect(approvals.pending()).toHaveLength(1);
   });
 
@@ -93,9 +100,9 @@ describe('ApprovalRegistry', () => {
     listen(approvals);
     const answer = ask(approvals);
 
-    approvals.respond({ id: 'a1', response: { decision: 'approve' } });
+    approvals.respond({ id: a1, response: { decision: 'approve' } });
     await expect(answer).resolves.toEqual({ decision: 'approve' });
-    expect(() => approvals.respond({ id: 'a1', response: { decision: 'skip' } })).toThrow();
+    expect(() => approvals.respond({ id: a1, response: { decision: 'skip' } })).toThrow();
   });
 
   it('a listener that throws fails the request loudly, after every other listener heard it', async () => {
@@ -123,7 +130,7 @@ describe('ApprovalRegistry', () => {
       throw new Error('UI bug');
     });
 
-    expect(() => approvals.respond({ id: 'a1', response: { decision: 'approve' } })).toThrow(
+    expect(() => approvals.respond({ id: a1, response: { decision: 'approve' } })).toThrow(
       ApprovalListenerError,
     );
     await expect(answered).resolves.toEqual({ decision: 'approve' });

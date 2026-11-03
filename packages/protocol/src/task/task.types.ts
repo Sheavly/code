@@ -1,5 +1,7 @@
 import type { z } from 'zod';
-import type { taskInfoSchema, taskStatusSchema } from './task.validator.js';
+import type { taskIdSchema, taskInfoSchema, taskStatusSchema } from './task.validator.js';
+
+export type TaskId = z.infer<typeof taskIdSchema>;
 
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 

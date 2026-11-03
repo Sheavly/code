@@ -7,6 +7,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const ping = defineTool({
   name: 'ping',
@@ -14,7 +15,7 @@ const ping = defineTool({
   inputSchema: z.object({}),
   execute: async () => 'pong',
 });
-const call = { id: '1', name: 'ping', input: { description: 'pinging' } };
+const call = { id: callIdSchema.parse('1'), name: 'ping', input: { description: 'pinging' } };
 /** Turn 1 calls ping, turn 2 answers. */
 const twoTurns = () =>
   scriptedProvider([
@@ -297,7 +298,11 @@ describe('hooks in the loop', () => {
         return nested.at(-1)?.content ?? '';
       },
     });
-    const subCall = { id: 's', name: 'sub_agent', input: { description: 'delegating' } };
+    const subCall = {
+      id: callIdSchema.parse('s'),
+      name: 'sub_agent',
+      input: { description: 'delegating' },
+    };
 
     const events: AgentEvent[] = [];
 

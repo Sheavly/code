@@ -166,7 +166,7 @@
           "type": "object",
           "properties": {
             "role": { "type": "string", "const": "tool" },
-            "toolCallId": { "type": "string" },
+            "toolCallId": { "$ref": "#/$defs/CallId" },
             "content": { "type": "string" },
             "isError": { "type": "boolean" }
           },
@@ -176,7 +176,11 @@
     },
     "ToolCall": {
       "type": "object",
-      "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "input": {} },
+      "properties": {
+        "id": { "$ref": "#/$defs/CallId" },
+        "name": { "type": "string" },
+        "input": {}
+      },
       "required": ["id", "name", "input"]
     },
     "ReasoningItem": {
@@ -191,9 +195,9 @@
     "SessionRef": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "parentId": { "type": "string" },
-        "rootId": { "type": "string" },
+        "id": { "$ref": "#/$defs/SessionId" },
+        "parentId": { "$ref": "#/$defs/SessionId" },
+        "rootId": { "$ref": "#/$defs/SessionId" },
         "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["id", "rootId", "depth"]
@@ -205,9 +209,9 @@
     "SessionInfo": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "parentId": { "type": "string" },
-        "rootId": { "type": "string" },
+        "id": { "$ref": "#/$defs/SessionId" },
+        "parentId": { "$ref": "#/$defs/SessionId" },
+        "rootId": { "$ref": "#/$defs/SessionId" },
         "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
         "title": { "type": "string" },
         "status": { "type": "string" },
@@ -220,7 +224,9 @@
     "InboxMessage": {
       "type": "object",
       "properties": {
-        "from": { "type": "string" },
+        "from": {
+          "anyOf": [{ "type": "string", "const": "user" }, { "$ref": "#/$defs/SessionId" }]
+        },
         "content": { "type": "string" },
         "sentAt": { "type": "number" }
       },
@@ -269,7 +275,7 @@
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "sessionId": { "type": "string" },
+            "sessionId": { "$ref": "#/$defs/SessionId" },
             "kind": { "type": "string", "const": "event" },
             "event": { "$ref": "#/$defs/AgentEvent" }
           },
@@ -279,7 +285,7 @@
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "sessionId": { "type": "string" },
+            "sessionId": { "$ref": "#/$defs/SessionId" },
             "kind": { "type": "string", "const": "update" },
             "update": { "$ref": "#/$defs/SessionUpdate" }
           },
@@ -291,8 +297,8 @@
     "TaskInfo": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "callId": { "type": "string" },
+        "id": { "$ref": "#/$defs/TaskId" },
+        "callId": { "$ref": "#/$defs/CallId" },
         "command": { "type": "string" },
         "description": { "type": "string" },
         "status": { "$ref": "#/$defs/TaskStatus" },
@@ -318,9 +324,9 @@
     "ApprovalRequest": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "callId": { "type": "string" },
-        "sessionId": { "type": "string" },
+        "id": { "$ref": "#/$defs/ApprovalId" },
+        "callId": { "$ref": "#/$defs/CallId" },
+        "sessionId": { "$ref": "#/$defs/SessionId" },
         "tool": { "type": "string" },
         "command": { "type": "string" },
         "concerns": { "type": "array", "items": { "$ref": "#/$defs/ApprovalConcern" } },
@@ -368,7 +374,7 @@
           "type": "object",
           "properties": {
             "type": { "type": "string", "const": "approval_resolved" },
-            "id": { "type": "string" },
+            "id": { "$ref": "#/$defs/ApprovalId" },
             "response": { "$ref": "#/$defs/ApprovalResponse" }
           },
           "required": ["type", "id", "response"]
@@ -377,11 +383,15 @@
           "type": "object",
           "properties": {
             "type": { "type": "string", "const": "approval_cancelled" },
-            "id": { "type": "string" }
+            "id": { "$ref": "#/$defs/ApprovalId" }
           },
           "required": ["type", "id"]
         }
       ]
-    }
+    },
+    "SessionId": { "type": "string" },
+    "CallId": { "type": "string" },
+    "TaskId": { "type": "string" },
+    "ApprovalId": { "type": "string" }
   }
 }

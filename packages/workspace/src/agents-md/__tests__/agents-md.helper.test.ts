@@ -4,10 +4,8 @@ import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import {
-  callOnceProvider,
-  scriptedProvider,
-} from '@sheavly/testing/provider/scripted-provider.fake';
+import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { createAgentsMdHook, findAgentsFiles } from '../agents-md.helper.js';
 import { agentsDirs, formatAgentsInstructions } from '../agents-md.utils.js';
 
@@ -152,8 +150,13 @@ describe('createAgentsMdHook in the loop', () => {
   it('re-reads AGENTS.md each turn, so an edit applies on the next model call', async () => {
     const project = await mkdtemp(path.join(tmpdir(), 'agents-md-live-'));
     const requests: (string | undefined)[] = [];
-    const call = { id: '1', name: 'edit_rules', input: { description: 'editing rules' } };
-    const scripted = callOnceProvider(call);
+    const scripted = scriptedProvider([
+      [
+        toolCall({ id: '1', name: 'edit_rules', input: {} }),
+        { type: 'done', stopReason: 'tool_use' },
+      ],
+      [{ type: 'done', stopReason: 'end_turn' }],
+    ]);
 
     await writeFile(path.join(project, 'AGENTS.md'), 'Rule v1');
     await runAgent({

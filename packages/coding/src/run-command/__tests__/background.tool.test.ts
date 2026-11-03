@@ -9,9 +9,13 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const signal = new AbortController().signal;
+const t1 = taskIdSchema.parse('t1');
+const callId = callIdSchema.parse('x');
 
 const temp = useTempWorkspace({ prefix: 'run-command-background-test-' });
 let tasks: TaskRegistry;
@@ -48,7 +52,7 @@ describe('background run_command', () => {
     expect(performance.now() - started).toBeLessThan(500);
     expect(result).toMatchObject({ role: 'tool', isError: false });
     expect(result.role === 'tool' && result.content).toContain('Started background task t1');
-    expect(tasks.get('t1')).toMatchObject({
+    expect(tasks.get(t1)).toMatchObject({
       id: 't1',
       callId: 'c1',
       command: 'sleep 2 && echo late',
@@ -64,9 +68,13 @@ describe('background run_command', () => {
     await run('bad', 'run_command', { command: 'echo oops >&2; exit 3', background: true });
 
     await until(() => tasks.runningCount === 0);
-    expect(tasks.get('t1')).toMatchObject({ status: 'completed', exitCode: 0, output: 'hello\n' });
-    expect(tasks.get('t2')).toMatchObject({ status: 'failed', exitCode: 3, output: 'oops\n' });
-    expect(tasks.get('t1')?.endedAt).toBeGreaterThanOrEqual(tasks.get('t1')!.startedAt);
+    expect(tasks.get(t1)).toMatchObject({ status: 'completed', exitCode: 0, output: 'hello\n' });
+    expect(tasks.get(taskIdSchema.parse('t2'))).toMatchObject({
+      status: 'failed',
+      exitCode: 3,
+      output: 'oops\n',
+    });
+    expect(tasks.get(t1)?.endedAt).toBeGreaterThanOrEqual(tasks.get(t1)!.startedAt);
   });
 
   it('runs several tasks concurrently', async () => {
@@ -95,7 +103,7 @@ describe('background run_command', () => {
     const result = await runTool({
       tools: [tool],
       call: {
-        id: 'x',
+        id: callId,
         name: 'run_command',
         input: { description: 'bg', command: 'true', background: true },
       },
@@ -116,7 +124,7 @@ describe('background run_command', () => {
     const result = await runTool({
       tools: [tool],
       call: {
-        id: 'x',
+        id: callId,
         name: 'run_command',
         input: { description: 'bg', command: 'sleep 5', background: true },
       },
@@ -136,7 +144,7 @@ describe('background run_command', () => {
     const result = await run('c2', 'cancel_task', { id: 't1' });
 
     expect(result.role === 'tool' && result.content).toContain('Cancelled task t1');
-    expect(tasks.get('t1')).toMatchObject({ status: 'cancelled' });
+    expect(tasks.get(t1)).toMatchObject({ status: 'cancelled' });
 
     await sleep(1_300);
     expect(existsSync(marker)).toBe(false);

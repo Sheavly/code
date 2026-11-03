@@ -1,4 +1,4 @@
-import type { SessionInfo } from '@sheavly/protocol/session/session.types';
+import type { SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { EntryFilter } from './sessions.types.js';
 import { deepFreeze, notifyAll } from './listeners.helper.js';
@@ -14,10 +14,10 @@ type EntryListener = (entry: StreamEntry) => void;
 export class EntryLog {
   #entries: StreamEntry[] = [];
   #listeners = new Map<EntryListener, (entry: StreamEntry) => boolean>();
-  readonly #lineage: (id: string) => SessionInfo[];
+  readonly #lineage: (id: SessionId) => SessionInfo[];
 
   /** `lineage` walks a session up to the main session, for a filter on a whole subtree. */
-  constructor(params: { lineage: (id: string) => SessionInfo[] }) {
+  constructor(params: { lineage: (id: SessionId) => SessionInfo[] }) {
     this.#lineage = params.lineage;
   }
 

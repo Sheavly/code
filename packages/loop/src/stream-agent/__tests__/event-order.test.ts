@@ -5,6 +5,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { streamAgent } from '../stream-agent.helper.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -22,7 +23,7 @@ const wait = defineTool({
 
 const waitCall = (id: string, ms: number): StreamEvent => ({
   type: 'tool_call',
-  call: { id, name: 'wait', input: { description: `task ${id}`, id, ms } },
+  call: { id: callIdSchema.parse(id), name: 'wait', input: { description: `task ${id}`, id, ms } },
 });
 
 /** Turn 1: reasoning, text, three parallel calls (slowest first). Turn 2: final text. */

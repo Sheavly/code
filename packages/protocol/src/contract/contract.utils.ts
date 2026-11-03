@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   approvalConcernSchema,
+  approvalIdSchema,
   approvalOptionSchema,
   approvalRequestSchema,
   approvalResponseSchema,
@@ -14,6 +15,7 @@ import {
   toolArtifactSchema,
 } from '../event/event.validator.js';
 import {
+  callIdSchema,
   messageSchema,
   reasoningItemSchema,
   toolCallSchema,
@@ -21,13 +23,14 @@ import {
 } from '../message/message.validator.js';
 import {
   inboxMessageSchema,
+  sessionIdSchema,
   sessionInfoSchema,
   sessionRefSchema,
   sessionStateSchema,
   sessionUpdateSchema,
 } from '../session/session.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
-import { taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
+import { taskIdSchema, taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
 
 const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
@@ -57,6 +60,10 @@ function contractSchemas(): Record<string, z.ZodType> {
     ApprovalRequest: approvalRequestSchema,
     ApprovalResponse: approvalResponseSchema,
     ApprovalUpdate: approvalUpdateSchema,
+    SessionId: sessionIdSchema,
+    CallId: callIdSchema,
+    TaskId: taskIdSchema,
+    ApprovalId: approvalIdSchema,
   };
 }
 
