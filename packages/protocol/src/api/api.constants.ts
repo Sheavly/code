@@ -4,6 +4,7 @@ import {
   conversationsResponseSchema,
   messagesResponseSchema,
   sendPromptRequestSchema,
+  skillsQuerySchema,
   skillsResponseSchema,
   startConversationRequestSchema,
   startConversationResponseSchema,
@@ -26,16 +27,19 @@ export const LAST_EVENT_ID_HEADER = 'Last-Event-ID';
  * The harness's HTTP API, by operation: every route a server implements and a client calls, with
  * the contract's schemas that validate its body and answer. The one definition of the API: the
  * server builds its routes from it, the OpenAPI document is written from it, and the client is
- * generated from that.
+ * generated from that. Each route says whether it reads or changes, and `ApiRoute` holds its
+ * method to that; a new one follows "A route" in the project skill.
  */
 export const API_ROUTES = {
   listConversations: {
+    effect: 'read',
     method: 'get',
     path: '/conversations',
     summary: 'Every live conversation, oldest first',
     response: { status: 200, schema: conversationsResponseSchema },
   },
   startConversation: {
+    effect: 'change',
     method: 'post',
     path: '/conversations',
     summary: 'Start a conversation, empty or continuing saved messages',
@@ -43,18 +47,21 @@ export const API_ROUTES = {
     response: { status: 201, schema: startConversationResponseSchema },
   },
   getConversation: {
+    effect: 'read',
     method: 'get',
     path: '/conversations/{id}',
     summary: 'What the run is: workspace, models, trust, the allow list',
     response: { status: 200, schema: conversationDetailsSchema },
   },
   closeConversation: {
+    effect: 'change',
     method: 'delete',
     path: '/conversations/{id}',
     summary: 'Close it: its prompts, tasks and processes stop',
     response: { status: 204 },
   },
   switchModel: {
+    effect: 'change',
     method: 'put',
     path: '/conversations/{id}/model',
     summary: 'Switch to one of its models, from the next model call',
@@ -62,18 +69,22 @@ export const API_ROUTES = {
     response: { status: 204 },
   },
   getMessages: {
+    effect: 'read',
     method: 'get',
     path: '/conversations/{id}/messages',
     summary: 'The history so far, valid to continue from',
     response: { status: 200, schema: messagesResponseSchema },
   },
-  getSkills: {
-    method: 'get',
+  querySkills: {
+    effect: 'read',
+    method: 'query',
     path: '/conversations/{id}/skills',
-    summary: 'The skills a prompt can run, for a / menu',
+    summary: 'The skills a prompt can run, all or those a search matches, for a / menu',
+    body: skillsQuerySchema,
     response: { status: 200, schema: skillsResponseSchema },
   },
   sendPrompt: {
+    effect: 'change',
     method: 'post',
     path: '/conversations/{id}/prompts',
     summary: "Send the next prompt; its entries stream back, to the main session's done",
@@ -81,12 +92,14 @@ export const API_ROUTES = {
     response: { status: 200, stream: streamEntrySchema },
   },
   stopPrompt: {
+    effect: 'change',
     method: 'post',
     path: '/conversations/{id}/stop',
     summary: 'Stop the running prompt; history stays valid',
     response: { status: 204 },
   },
   answerApproval: {
+    effect: 'change',
     method: 'post',
     path: '/conversations/{id}/approvals/{approval}',
     summary: 'Answer a waiting approval',
@@ -94,6 +107,7 @@ export const API_ROUTES = {
     response: { status: 204 },
   },
   streamConversation: {
+    effect: 'read',
     method: 'query',
     path: '/conversations/{id}/stream',
     summary: 'Follow the whole conversation: every entry, filtered, while the client stays',

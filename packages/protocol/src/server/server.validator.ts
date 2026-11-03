@@ -89,7 +89,13 @@ export const answerApprovalRequestSchema = z.object({ response: approvalResponse
 /** `GET /conversations/:id/messages`: the history so far, valid to continue from. */
 export const messagesResponseSchema = z.object({ messages: z.array(messageSchema) });
 
-/** `GET /conversations/:id/skills`: the skills a prompt can run, for a UI's `/` menu. */
+/**
+ * `QUERY /conversations/:id/skills`: which skills to list. Nothing: every one. `search`: those
+ * whose name or description has it, ignoring case, as a UI's `/` menu narrows while the user types.
+ */
+export const skillsQuerySchema = z.object({ search: z.string().min(1).exactOptional() });
+
+/** `QUERY /conversations/:id/skills`: the skills a prompt can run, for a UI's `/` menu. */
 export const skillsResponseSchema = z.object({ skills: z.array(skillInfoSchema) });
 
 /**

@@ -143,12 +143,24 @@
       }
     },
     "/conversations/{id}/skills": {
-      "get": {
-        "operationId": "getSkills",
-        "summary": "The skills a prompt can run, for a / menu",
+      "query": {
+        "operationId": "querySkills",
+        "summary": "The skills a prompt can run, all or those a search matches, for a / menu",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SkillsQuery" } }
+          }
+        },
         "responses": {
           "200": {
             "description": "Success",
@@ -1035,6 +1047,10 @@
           "skills": { "type": "array", "items": { "$ref": "#/components/schemas/SkillInfo" } }
         },
         "required": ["skills"]
+      },
+      "SkillsQuery": {
+        "type": "object",
+        "properties": { "search": { "type": "string", "minLength": 1 } }
       },
       "ServerErrorCode": {
         "type": "string",

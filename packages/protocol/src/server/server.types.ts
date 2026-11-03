@@ -10,6 +10,7 @@ import type {
   serverErrorCodeSchema,
   serverErrorSchema,
   skillsResponseSchema,
+  skillsQuerySchema,
   startConversationResponseSchema,
   switchModelRequestSchema,
 } from './server.validator.js';
@@ -38,6 +39,9 @@ export type ConversationsResponse = z.infer<typeof conversationsResponseSchema>;
 export type MessagesResponse = z.infer<typeof messagesResponseSchema>;
 
 export type SkillsResponse = z.infer<typeof skillsResponseSchema>;
+
+/** Which skills to list: all, or those a search matches. */
+export type SkillsQuery = z.infer<typeof skillsQuerySchema>;
 
 /** Why a request failed: one code per case a client handles differently. */
 export type ServerErrorCode = z.infer<typeof serverErrorCodeSchema>;

@@ -46,7 +46,7 @@ server validates with the same schemas a client imports:
 | `POST /conversations/:id/stop`                | none                                   | nothing (`204`)                    |
 | `DELETE /conversations/:id`                   | none                                   | nothing (`204`)                    |
 | `GET /conversations/:id/messages`             | none                                   | `MessagesResponse`                 |
-| `GET /conversations/:id/skills`               | none                                   | `SkillsResponse`                   |
+| `QUERY /conversations/:id/skills`             | `SkillsQuery`                          | `SkillsResponse`                   |
 
 - A prompt is `text`, as a script types it (`/<name>` mentions in it run those skills), or
   `parts`, as a UI builds it (exactly the skills picked run). Not both.

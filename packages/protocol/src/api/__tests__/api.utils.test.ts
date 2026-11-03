@@ -22,6 +22,26 @@ describe('openApiDocument', () => {
     }
   });
 
+  it('names each route after what it does: get/query/list for a read, a verb for a change', () => {
+    for (const [operationId, route] of Object.entries(API_ROUTES)) {
+      const reads = /^(get|query|list|stream)[A-Z]/.test(operationId);
+
+      expect({ operationId, reads }).toEqual({ operationId, reads: route.effect === 'read' });
+    }
+  });
+
+  it('gives each path at most one route per method, and every path param a name', () => {
+    const seen = new Set<string>();
+
+    for (const route of Object.values(API_ROUTES)) {
+      const key = `${route.method} ${route.path}`;
+
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+      expect(route.path).toMatch(/^\/conversations(\/(\{[a-z]+\}|[a-z-]+))*$/);
+    }
+  });
+
   it('describes the streams as server-sent events of stream entries, and QUERY as its own method', () => {
     const { paths } = openApiDocument();
     const stream = {

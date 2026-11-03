@@ -1,8 +1,5 @@
 import type { z } from 'zod';
 
-/** An HTTP method a route uses; `query` is RFC 10008's QUERY (a read with a body). */
-export type ApiMethod = 'get' | 'post' | 'put' | 'delete' | 'query';
-
 /**
  * What a route answers on success: JSON in `schema`, nothing (`204`), or a server-sent event
  * stream whose every `entry` frame's data is one `stream` value.
@@ -11,15 +8,24 @@ export type ApiResponse =
   { status: 200 | 201; schema: z.ZodType } | { status: 204 } | { status: 200; stream: z.ZodType };
 
 /**
+ * How a route's method follows from what it does, so no client or proxy guesses wrong: a read is
+ * safe to retry, a change isn't. A read without input is `get`; a read with input is `query`,
+ * its input a typed body (RFC 10008), never a query string or a `post`; a change is `post`,
+ * `put` (setting a value: twice is once) or `delete`.
+ */
+type ApiEffect =
+  | { effect: 'read'; method: 'get'; body?: never }
+  | { effect: 'read'; method: 'query'; body: z.ZodType }
+  | { effect: 'change'; method: 'post' | 'put' | 'delete'; body?: z.ZodType };
+
+/**
  * One route of the harness's HTTP API: what a server implements and a client calls. `path` uses
  * OpenAPI's `{param}` form; its params are strings. Every route needs the bearer token and fails
  * with a `ServerError` body.
  */
-export type ApiRoute = {
-  method: ApiMethod;
+export type ApiRoute = ApiEffect & {
   path: string;
   summary: string;
-  body?: z.ZodType;
   response: ApiResponse;
 };
 
