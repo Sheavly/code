@@ -8,9 +8,10 @@ import { isAfter } from './server.utils.js';
 
 /**
  * A conversation's combined stream as server-sent events: each entry `filter` picks, after
- * `lastEventId` when a client resumes, as one `entry` frame whose `id` is its `seq`. While it is
- * open, the client counts as someone who can answer approvals (a request still fails closed when
- * no stream is open). It ends when the client leaves, or once `isLast` says an entry was the
+ * `lastEventId` when a client resumes, as one `entry` frame whose `id` is its `seq`. With
+ * `answersApprovals`, the client counts as someone who can answer them while it is open, so a
+ * request waits for its answer; a client that didn't say so never makes one wait. It ends when the
+ * client leaves, or once `isLast` says an entry was the
  * stream's last (a prompt's response ends with its `done`). A heartbeat comment keeps a quiet
  * stream open through proxies. Disconnecting only ends this subscription: the prompt runs on.
  */
@@ -19,11 +20,13 @@ export function streamEntries(params: {
   live: LiveConversation;
   filter: EntryFilter;
   lastEventId?: number | undefined;
+  answersApprovals?: boolean;
   isLast?: (entry: StreamEntry) => boolean;
   /** Called once the subscription is set up, before any entry is sent (a prompt starts here). */
   onOpen?: () => void;
 }) {
-  const { c, live, filter, lastEventId, isLast = () => false, onOpen } = params;
+  const { c, live, filter, lastEventId, answersApprovals = false } = params;
+  const { isLast = () => false, onOpen } = params;
 
   c.header('X-Accel-Buffering', 'no'); // a buffering proxy (nginx) would hold events back
 
@@ -41,7 +44,9 @@ export function streamEntries(params: {
       wake?.();
     }, filter);
     // Listening makes an approval wait for an answer; the answer comes as its own request.
-    const stopListening = live.harness.approvals.subscribe(() => undefined);
+    const stopListening = answersApprovals
+      ? live.harness.approvals.subscribe(() => undefined)
+      : () => undefined;
     const heartbeat = setInterval(() => void stream.write(': heartbeat\n\n'), HEARTBEAT_MS);
 
     stream.onAbort(end);

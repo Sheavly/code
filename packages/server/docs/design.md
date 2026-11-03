@@ -67,9 +67,11 @@ first answer counts, and a later one gets `unknown_approval`.
 ## Approvals
 
 An approval a tool asks for is an entry in the stream (`kind: 'approval'`), in order with the
-events of the call that asked. A client answers with `POST /approvals/:approval`. While at least
-one SSE answer of that conversation is open, a request waits for an answer; with none open, it is
-refused at once, as in a headless run.
+events of the call that asked. A client answers with `POST /approvals/:approval`. A client that
+will answer says so when it opens the stream (`QUERY /stream` with `approvals: true`); while at
+least one such stream is open, a request waits for an answer. With none open, it is refused at
+once, as in a headless run: a script that only sends prompts, or a UI that never answers, never
+leaves a run waiting on an approval no one will give.
 
 ## Errors
 

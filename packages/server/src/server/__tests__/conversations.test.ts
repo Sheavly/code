@@ -141,16 +141,18 @@ describe('a conversation over HTTP', () => {
     expect(messages.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'tool']);
   });
 
-  it('sends an approval to the client in the stream and honours its answer', async () => {
+  it('sends an approval to a client that answers them, and honours its answer', async () => {
     const { request, start } = testServer({ go: [calls('ask'), reply('done')] });
     const id = await start();
-    const prompted = await request(`/conversations/${id}/prompts`, {
-      method: 'POST',
-      body: { text: 'go' },
+    const stream = await request(`/conversations/${id}/stream`, {
+      method: 'QUERY',
+      body: { approvals: true },
     });
+
+    await request(`/conversations/${id}/prompts`, { method: 'POST', body: { text: 'go' } });
     let result: unknown;
 
-    for await (const { entry } of readEntries(prompted.body)) {
+    for await (const { entry } of readEntries(stream.body)) {
       if (entry.kind === 'approval' && entry.update.type === 'approval_requested') {
         const answered = await request(
           `/conversations/${id}/approvals/${entry.update.request.id}`,
@@ -163,9 +165,29 @@ describe('a conversation over HTTP', () => {
       if (entry.kind === 'event' && entry.event.type === 'tool_result') {
         result = entry.event.message;
       }
+
+      if (entry.kind === 'event' && entry.event.type === 'done') break;
     }
 
     expect(result).toMatchObject({ role: 'tool', content: 'skip' });
+  });
+
+  it('refuses an approval at once when only a prompt’s own response listens', async () => {
+    const { request, start } = testServer({ go: [calls('ask'), reply('done')] });
+    const id = await start();
+    const prompted = await request(`/conversations/${id}/prompts`, {
+      method: 'POST',
+      body: { text: 'go' },
+    });
+    const results: string[] = [];
+
+    for await (const { entry } of readEntries(prompted.body)) {
+      if (entry.kind === 'event' && entry.event.type === 'tool_result') {
+        results.push(entry.event.message.content);
+      }
+    }
+
+    expect(results[0]).toMatch(/listening/);
   });
 
   it('refuses an approval when no client is listening, as a headless run does', async () => {
