@@ -88,8 +88,11 @@ updates, indented by depth.
 through that session's `OrderedQueue`, with that session's `seq`. The registry also orders the
 whole tree: `sessions.subscribeEntries(listener)` gets a `StreamEntry`
 (`@sheavly/protocol/stream/`) for every session update, for every event any session's loop
-releases (the loop calls `sessions.publish`), sub-agents included, and for every approval
-update (`kind: 'approval'`), in the order they happened. Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
+releases (the loop calls `sessions.publish`), sub-agents included, for every approval
+update (`kind: 'approval'`) and for every background task starting and ending (`kind: 'task'`,
+`sessions.publishTask`, under the session whose tool started it), in the order they happened.
+`createHarness` wires the approval and task registries in; a sub-agent's own tasks join the same
+stream. Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
 about, and the event or update. An event keeps its own session's `seq` too, so a UI can still
 follow one session alone.
 

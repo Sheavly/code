@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '../sessions.service.js';
+import { TaskRegistry } from '../../tasks/tasks.service.js';
 import { startDeepestSession } from '../../testing/sessions.fake.js';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -127,6 +128,33 @@ describe("SessionRegistry's combined stream", () => {
 
     sessions.subscribeEntries((entry) => all.push(entry), { replay: true });
     expect(all.at(-1)).toMatchObject({ kind: 'approval', sessionId: main.id });
+  });
+
+  it('files each task under the session that started it, or main when none did', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+    const tasks = new TaskRegistry();
+    const entries: StreamEntry[] = [];
+
+    tasks.observe((task) => sessions.publishTask(task));
+    sessions.subscribeEntries((entry) => entries.push(entry));
+    tasks.start({
+      command: 'npm run dev',
+      description: 'Dev server',
+      sessionId: child.id,
+      run: () => new Promise(() => undefined),
+    });
+    tasks.start({
+      command: 'npm test',
+      description: 'Tests',
+      run: () => new Promise(() => undefined),
+    });
+
+    expect(entries.map(({ kind, sessionId }) => ({ kind, sessionId }))).toEqual([
+      { kind: 'task', sessionId: child.id },
+      { kind: 'task', sessionId: main.id },
+    ]);
   });
 
   it('stops telling a listener once it unsubscribes', () => {

@@ -4,9 +4,10 @@
  * model and UI at turn boundaries, through its one ordered event queue.
  */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
-import type { StartTask, TaskResult } from './tasks.types.js';
+import type { StartTask, TaskObserver, TaskResult } from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
-import type { TaskId, TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 
 type Entry = {
@@ -15,6 +16,7 @@ type Entry = {
   settled: Promise<void>;
   /** Cancelled on request: whoever cancelled it already knows, so no notification. */
   silent: boolean;
+  sessionId?: SessionId | undefined;
 };
 
 export class TaskRegistry {
@@ -23,8 +25,9 @@ export class TaskRegistry {
   /** Finished tasks the model hasn't been told about yet, in the order they finished. */
   #unreported: TaskId[] = [];
   #waiters: (() => void)[] = [];
+  #observers = new Set<TaskObserver>();
 
-  start({ command, description, callId, run }: StartTask): TaskInfo {
+  start({ command, description, callId, sessionId, run }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
     const info: TaskInfo = {
@@ -36,7 +39,7 @@ export class TaskRegistry {
       startedAt: Date.now(),
       output: '',
     };
-    const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false };
+    const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false, sessionId };
 
     const onOutput = (chunk: string) => {
       info.output = (info.output + chunk).slice(-MAX_TASK_OUTPUT_CHARS);
@@ -58,8 +61,21 @@ export class TaskRegistry {
     );
 
     this.#tasks.set(id, entry);
+    this.#notify({ entry, type: 'task_started' });
 
     return { ...info };
+  }
+
+  /**
+   * Calls `observer` with every task's start and end from now on (a cancelled one's too, which the
+   * model isn't told about). Returns a function that stops it.
+   */
+  observe(observer: TaskObserver): () => void {
+    this.#observers.add(observer);
+
+    return () => {
+      this.#observers.delete(observer);
+    };
   }
 
   get(id: TaskId): TaskInfo | undefined {
@@ -126,6 +142,18 @@ export class TaskRegistry {
     if (result.error) info.error = result.error;
 
     if (!entry.silent) this.#unreported.push(info.id);
+    this.#notify({ entry, type: 'task_ended' });
     this.#waiters.splice(0).forEach((wake) => wake());
+  }
+
+  #notify(params: { entry: Entry; type: TaskUpdate['type'] }) {
+    const { entry, type } = params;
+
+    for (const observer of this.#observers) {
+      observer({
+        update: { type, task: { ...entry.info } },
+        ...(entry.sessionId && { sessionId: entry.sessionId }),
+      });
+    }
   }
 }
