@@ -111,11 +111,14 @@ describe('createTerminalHarness: what a terminal run includes', () => {
       ],
       help: [say('helped')],
     });
+    // The sub-agent is a background task: wait for it, or the prompt can end (and `close` cancel
+    // it) before it made its first call, which a busy machine makes likely.
     const conversation = createConversation({
       harness,
       run: streamAgent,
       tools: harness.tools,
       hooks: harness.hooks,
+      waitForTasks: true,
     });
 
     for await (const _event of conversation.send('go'));
