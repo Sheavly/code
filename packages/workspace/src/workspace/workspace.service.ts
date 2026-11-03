@@ -2,6 +2,7 @@ import type { Stats } from 'node:fs';
 import { lstat, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PathCheckError, WorkspaceError } from '../errors/workspace.errors.js';
+import { isInside } from './workspace.utils.js';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 
 /**
@@ -70,10 +71,7 @@ export class Workspace {
   }
 
   private assertInside(absolute: string, requested: string): string {
-    const rel = path.relative(this.root, absolute);
-    const outside = rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);
-
-    if (outside) {
+    if (!isInside({ folder: this.root, target: absolute })) {
       throw new WorkspaceError(
         `Path is outside the workspace: ${requested} (workspace: ${this.root})`,
       );

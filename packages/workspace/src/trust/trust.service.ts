@@ -8,6 +8,7 @@ import { TRUST_STORE_VERSION } from './trust.constants.js';
 import type { FingerprintEntry, TrustState, TrustStoreData } from './trust.types.js';
 import { fingerprintOf } from './trust.utils.js';
 import { trustStoreSchema } from './trust.validator.js';
+import { isInside } from '../workspace/workspace.utils.js';
 
 /**
  * Which workspaces the user trusts to run their `.sheavly/` hooks. Kept in one JSON file
@@ -74,10 +75,8 @@ export class TrustStore {
    */
   async #assertOutside(root: string): Promise<void> {
     const folder = await realFolder(path.dirname(path.resolve(this.#file)));
-    const relative = path.relative(root, folder);
-    const inside = relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 
-    if (inside) {
+    if (isInside({ folder: root, target: folder })) {
       throw new TrustStoreError({
         file: this.#file,
         cause: undefined,

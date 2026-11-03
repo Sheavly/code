@@ -2,6 +2,7 @@ import path from 'node:path';
 import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile } from './agents-md.types.js';
 import { AgentsMdError } from '../errors/agents-md.errors.js';
+import { isInside } from '../workspace/workspace.utils.js';
 
 /**
  * The folders to look in, from `root` down to `cwd` (both included), like git walks up from the
@@ -11,11 +12,10 @@ import { AgentsMdError } from '../errors/agents-md.errors.js';
 export function agentsDirs(params: { root: string; cwd: string }): string[] {
   const root = path.resolve(params.root);
   const cwd = path.resolve(params.cwd);
-  const relative = path.relative(root, cwd);
 
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new AgentsMdError({ root, cwd });
-  }
+  if (!isInside({ folder: root, target: cwd })) throw new AgentsMdError({ root, cwd });
+
+  const relative = path.relative(root, cwd);
 
   const dirs = [root];
 
