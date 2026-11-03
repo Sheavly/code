@@ -13,20 +13,24 @@ import {
   WORKSPACES_DIR,
 } from './workbook.constants.js';
 import type {
+  RunId,
   RunMeta,
   RunPaths,
   RunResult,
   StoredPrompt,
   WorkbookState,
 } from './workbook.types.js';
-import { runPaths } from './workbook.utils.js';
+import { isPlainName, runPaths } from './workbook.utils.js';
 import {
   parsePromptFile,
   runMetaSchema,
   runResultSchema,
+  runIdSchema,
+  savedMessagesSchema,
   stateSchema,
 } from './workbook.validator.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { agentEventSchema } from '@sheavly/protocol/event/event.validator';
 import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
@@ -54,7 +58,7 @@ export class WorkbookStore {
   }
 
   async prompt(name: string): Promise<StoredPrompt> {
-    const file = path.join(this.promptsDir, `${name}.md`);
+    const file = path.join(this.promptsDir, `${plainName(name)}.md`);
     const source = await readIfThere(file);
 
     if (source === undefined) {
@@ -90,9 +94,9 @@ export class WorkbookStore {
   async beginRun(params: {
     prompt: string;
     id: (number: number) => string;
-  }): Promise<RunPaths & { id: string }> {
+  }): Promise<RunPaths & { id: RunId }> {
     const state = await this.state();
-    const id = params.id(state.runCount + 1);
+    const id = runIdSchema.parse(params.id(state.runCount + 1));
     const paths = runPaths({ runsDir: this.runsDir, id });
 
     await mkdir(paths.dir, { recursive: true });
@@ -139,11 +143,11 @@ export class WorkbookStore {
 
   /** Where runs of the prompt `key` work: kept between runs with `--keep`, else made fresh. */
   runWorkspaceDir(key: string): string {
-    return path.join(this.workspacesDir, 'runs', key);
+    return path.join(this.workspacesDir, 'runs', plainName(key));
   }
 
   /** A run by id, or `last` / undefined for the latest. */
-  async resolveRun(id: string | undefined): Promise<string> {
+  async resolveRun(id: string | undefined): Promise<RunId> {
     if (id && id !== 'last') {
       const runs = await this.runIds();
       // `7` means run `0007-…`; otherwise a full id or any unique start of one.
@@ -170,11 +174,20 @@ export class WorkbookStore {
       });
     }
 
+    // state.json is only a pointer: the run it names has to be one of the saved runs.
+    if (!(await this.runIds()).includes(lastRun)) {
+      throw new WorkbookNotFoundError({
+        wanted: lastRun,
+        message: `The last run "${lastRun}" in state.json isn't in runs/ (delete state.json to start over)`,
+      });
+    }
+
     return lastRun;
   }
 
-  async runIds(): Promise<string[]> {
-    return (await listIfThere(this.runsDir)).sort();
+  /** The saved runs, oldest first: the folders in `runs/`. */
+  async runIds(): Promise<RunId[]> {
+    return (await listIfThere(this.runsDir)).sort().map((id) => runIdSchema.parse(id));
   }
 
   async meta(id: string): Promise<RunMeta> {
@@ -198,7 +211,7 @@ export class WorkbookStore {
     return raw
       .split('\n')
       .filter(Boolean)
-      .map((line) => parseJson({ file, raw: line }) as AgentEvent);
+      .map((line) => parseStored({ file, raw: line, schema: agentEventSchema }));
   }
 
   /** The run's final conversation, to continue from. */
@@ -213,7 +226,7 @@ export class WorkbookStore {
       });
     }
 
-    return parseJson({ file, raw }) as Message[];
+    return parseStored({ file, raw, schema: savedMessagesSchema });
   }
 
   paths(id: string): RunPaths {
@@ -228,6 +241,16 @@ export class WorkbookStore {
     await mkdir(this.root, { recursive: true });
     await writeFile(this.#stateFile, `${JSON.stringify(state, null, 2)}\n`);
   }
+}
+
+/** `name`, if it is one file name (no `/`, `..` or leading dot), so a path built on it stays put. */
+function plainName(name: string): string {
+  if (isPlainName(name)) return name;
+
+  throw new WorkbookNotFoundError({
+    wanted: name,
+    message: `"${name}" isn't a prompt name: use a file name from workbook/prompts/, without .md`,
+  });
 }
 
 /** A workbook file's text, or undefined if it isn't there. Any other failure names the file. */

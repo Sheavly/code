@@ -4,6 +4,9 @@ import { STATE_VERSION } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
 import { WorkbookPromptError } from '../errors/workbook.errors.js';
 import { checkSchema } from './check.validator.js';
+import { isPlainName } from './workbook.utils.js';
+import { messageSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
 
@@ -13,26 +16,35 @@ import { checkSchema } from './check.validator.js';
  */
 export const promptFileSchema = z.object({
   text: z.string().min(1),
-  workspace: z.string().min(1).optional(),
+  workspace: z
+    .string()
+    .refine(isPlainName, 'a folder name in workbook/workspaces/, not a path')
+    .optional(),
   maxTurns: z.number().int().positive().optional(),
   description: z.string().optional(),
   /** A real-model check of this prompt (see `check.validator.ts`): run by `workbook check`. */
   check: checkSchema.optional(),
 });
 
+/** A saved run's id, its folder in `runs/` (`0007-write-and-edit`). */
+export const runIdSchema = z.string().brand<'RunId'>();
+
 export const runMetaSchema = z.object({
-  id: z.string(),
+  id: runIdSchema,
   prompt: z.string(),
   text: z.string(),
   /** The run this one continues (its history is the starting point). */
-  continues: z.string().optional(),
+  continues: runIdSchema.optional(),
   startedAt: z.string(),
   adapter: z.string(),
   model: z.string(),
   workspace: z.string(),
-  mainSession: z.string(),
+  mainSession: sessionIdSchema,
   gitCommit: z.string().optional(),
 });
+
+/** A run's saved conversation (`messages.json`), the history a continued run starts from. */
+export const savedMessagesSchema = z.array(messageSchema);
 
 export const runResultSchema = z.object({
   outcome: z.enum(['completed', 'interrupted', 'max_turns', 'failed']),
@@ -53,9 +65,9 @@ export const stateSchema = z.object({
   version: z.literal(STATE_VERSION),
   /** Runs started so far; the next run is number `runCount + 1`. */
   runCount: z.number().int().nonnegative(),
-  lastRun: z.string().optional(),
+  lastRun: runIdSchema.optional(),
   /** The latest run of each prompt, by prompt name. */
-  lastRunByPrompt: z.record(z.string(), z.string()),
+  lastRunByPrompt: z.record(z.string(), runIdSchema),
 });
 
 // --- Prompt files: front matter, then text ---

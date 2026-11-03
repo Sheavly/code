@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { RUN_FILES } from './workbook.constants.js';
 import type {
   promptFileSchema,
+  runIdSchema,
   runMetaSchema,
   runResultSchema,
   stateSchema,
@@ -9,6 +10,8 @@ import type {
 
 /** A stored prompt: its name (the file name) and what it says, plus optional settings. */
 export type StoredPrompt = z.infer<typeof promptFileSchema> & { name: string };
+
+export type RunId = z.infer<typeof runIdSchema>;
 
 /** `run.json`: what a run was asked to do, written before it starts. */
 export type RunMeta = z.infer<typeof runMetaSchema>;
@@ -54,7 +57,7 @@ export type RunRequest = {
   text: string;
   stored?: StoredPrompt | undefined;
   /** Start from this run's conversation and workspace. */
-  continues?: string | undefined;
+  continues?: RunId | undefined;
   /** Reuse the prompt's last workspace instead of a fresh copy. */
   keep: boolean;
   showModelCalls: boolean;
