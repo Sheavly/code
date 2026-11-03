@@ -9,7 +9,7 @@ import path from 'node:path';
 import { ProjectReadError } from './hooks.errors.mjs';
 import { getChatState, PROJECT_ROOT, updateChatState } from './hooks.utils.mjs';
 
-export const SKILLS_DIR = '.cursor/skills';
+export const SKILLS_DIR = '.agents/skills';
 export const SKILL_METADATA_FILE = 'harness.json';
 
 const isGlobList = (value) =>
@@ -75,7 +75,7 @@ function readSkill(params) {
   return { name, skillFile: path.posix.join(dir, 'SKILL.md'), ...metadata };
 }
 
-/** Every skill in `.cursor/skills/`, with its metadata. Throws on one it can't read. */
+/** Every skill in `.agents/skills/`, with its metadata. Throws on one it can't read. */
 export function listSkills(root = PROJECT_ROOT) {
   const skillsDir = path.join(root, SKILLS_DIR);
 

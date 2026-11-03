@@ -3,7 +3,7 @@ import {
   apiKeySchema,
   reasoningSchema,
   requestPolicySchema,
-} from '../responses/adapter-config.validator.js';
+} from '../http/adapter-config.validator.js';
 import { defineResponsesAdapter } from '../responses/responses.helper.js';
 
 /**
@@ -32,7 +32,7 @@ const azureApiVersion = z
 /** Azure OpenAI. `deployment` is your deployment name (sent as the model). */
 export const azureAdapter = defineResponsesAdapter({
   kind: 'azure',
-  description: 'Azure OpenAI Responses API',
+  description: 'Azure Responses API (Azure OpenAI and AI Foundry: GPT, DeepSeek, ...)',
   configSchema: z.object({
     apiKey: apiKeySchema,
     baseUrl: azureEndpoint,

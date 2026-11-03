@@ -23,6 +23,7 @@ import {
 } from '../message/message.validator.js';
 import {
   inboxMessageSchema,
+  runOutcomeSchema,
   sessionIdSchema,
   sessionInfoSchema,
   sessionRefSchema,
@@ -49,6 +50,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     TurnStopReason: turnStopReasonSchema,
     SessionRef: sessionRefSchema,
     SessionState: sessionStateSchema,
+    RunOutcome: runOutcomeSchema,
     SessionInfo: sessionInfoSchema,
     InboxMessage: inboxMessageSchema,
     SessionUpdate: sessionUpdateSchema,

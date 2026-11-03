@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { ResponsesApiError } from '../../errors/providers.errors.js';
-import type { RequestPolicy } from '../responses.types.js';
+import { ModelApiError } from '../../errors/providers.errors.js';
+import type { RequestPolicy } from '../../http/http.types.js';
 import { createResponsesProvider } from '../responses.helper.js';
 
 const COMPLETED = [
@@ -79,7 +79,7 @@ describe('sending a Responses call', () => {
     const failure = await run({ fetch }).catch((caughtError: unknown) => caughtError);
 
     expect(calls.count).toBe(3);
-    expect(failure).toBeInstanceOf(ResponsesApiError);
+    expect(failure).toBeInstanceOf(ModelApiError);
     expect(failure).toMatchObject({ reason: 'network' });
     expect((failure as Error).message).toContain('UND_ERR_SOCKET: other side closed');
     expect((failure as Error).message).toContain('after 3 attempts');
@@ -129,7 +129,7 @@ describe('sending a Responses call', () => {
 
     controller.abort();
 
-    expect(await running).not.toBeInstanceOf(ResponsesApiError);
+    expect(await running).not.toBeInstanceOf(ModelApiError);
     expect(calls.count).toBe(1);
   });
 });

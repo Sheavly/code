@@ -15,15 +15,18 @@ const provider = createDefaultRegistry().create('openai', {
 });
 ```
 
-| Module       | What it holds                                                                      |
-| ------------ | ---------------------------------------------------------------------------------- |
-| `registry/`  | `AdapterRegistry` (kind + config → `Provider`) and `createDefaultRegistry`         |
-| `switch/`    | `ProviderSwitch`: swap the active provider between turns                           |
-| `responses/` | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter` |
-| `openai/`    | Backend: config → Responses endpoint (Bearer key)                                  |
-| `azure/`     | Backend: config → Responses endpoint (api-key, api-version, deployment)            |
-| `errors/`    | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                         |
-| `testing/`   | Fakes for tests: Responses API items                                               |
+| Module                | What it holds                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `registry/`           | `AdapterRegistry` (kind + config → `Provider`) and `createDefaultRegistry`                    |
+| `switch/`             | `ProviderSwitch`: swap the active provider between turns                                      |
+| `http/`               | What every protocol shares: `sendRequest` (timeouts, retries), the SSE reader, config schemas |
+| `responses/`          | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter`            |
+| `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`            |
+| `openai/`             | Backend: config → Responses endpoint (Bearer key)                                             |
+| `azure/`              | Backend: config → Responses endpoint (api-key, api-version, deployment): GPT, DeepSeek, ...   |
+| `azure-anthropic/`    | Backend: config → Messages endpoint on Azure AI Foundry (x-api-key, deployment): Claude       |
+| `errors/`             | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                        |
+| `testing/`            | Fakes for tests: Responses API items, a model call                                            |
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
 

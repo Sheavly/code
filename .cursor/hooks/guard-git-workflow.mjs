@@ -34,7 +34,7 @@ import { normalize, readCommitMessage, stripMessages, toSegments } from './shell
 
 const QUOTED_PROSE = '__quoted__';
 const COMMIT_FORMAT_FIX =
-  'Fix the message (format and examples in .cursor/skills/git/conventions.md); a reviewer reads the PR commit by commit, so each one needs it.';
+  'Fix the message (format and examples in .agents/skills/git/conventions.md); a reviewer reads the PR commit by commit, so each one needs it.';
 
 // Quoted values with spaces (`-m "add export"`) are prose, not words: keeping them whole stops
 // a message from being read as branch names. Single-word quotes (`"12-api"`) stay.
@@ -139,7 +139,7 @@ await runGuard({
     return {
       permission: 'deny',
       user_message: DENIED,
-      agent_message: `${violation} The workflow is in the /git skill (.cursor/skills/git/).`,
+      agent_message: `${violation} The workflow is in the /git skill (.agents/skills/git/).`,
     };
   },
   deny: (reason) => ({ permission: 'deny', user_message: reason, agent_message: reason }),

@@ -204,8 +204,9 @@
     },
     "SessionState": {
       "type": "string",
-      "enum": ["running", "completed", "interrupted", "max_turns", "failed"]
+      "enum": ["running", "idle", "completed", "interrupted", "max_turns", "failed"]
     },
+    "RunOutcome": { "type": "string", "enum": ["completed", "interrupted", "max_turns", "failed"] },
     "SessionInfo": {
       "type": "object",
       "properties": {
@@ -216,6 +217,7 @@
         "title": { "type": "string" },
         "status": { "type": "string" },
         "state": { "$ref": "#/$defs/SessionState" },
+        "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
         "startedAt": { "type": "number" },
         "endedAt": { "type": "number" }
       },
@@ -258,6 +260,22 @@
             "message": { "$ref": "#/$defs/InboxMessage" }
           },
           "required": ["type", "session", "message"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "session_idle" },
+            "session": { "$ref": "#/$defs/SessionInfo" }
+          },
+          "required": ["type", "session"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "session_resumed" },
+            "session": { "$ref": "#/$defs/SessionInfo" }
+          },
+          "required": ["type", "session"]
         },
         {
           "type": "object",

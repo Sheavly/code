@@ -1,5 +1,5 @@
 // Every open issue says where its work lives with at least one `area/*` label (one per commit
-// scope its PR will have; .cursor/skills/git/issues.md, "Classify"). Runs on issue events
+// scope its PR will have; .agents/skills/git/issues.md, "Classify"). Runs on issue events
 // (.github/workflows/issue-labels.yml) and fails while an open issue has none. It reads the
 // issue's labels and comments as they are now, not from the event, so the last of a burst of
 // label events decides, and it comments once: a later run finds its marker and stays quiet.
@@ -17,7 +17,7 @@ function writeComment(repoRoot) {
     .map((label) => `\`${label}\``)
     .join(', ');
 
-  return `${MARKER}\nThis issue has no area label. Add one \`area/*\` label per commit scope its PR will have (\`area/tooling\` for work without a scope): ${labels}. They come from the packages and \`src/\` folders; see \`.cursor/skills/git/issues.md\` ("Classify").`;
+  return `${MARKER}\nThis issue has no area label. Add one \`area/*\` label per commit scope its PR will have (\`area/tooling\` for work without a scope): ${labels}. They come from the packages and \`src/\` folders; see \`.agents/skills/git/issues.md\` ("Classify").`;
 }
 
 /**

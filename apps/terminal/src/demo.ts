@@ -19,45 +19,27 @@
  */
 import { createWriteStream, existsSync } from 'node:fs';
 import { Writable } from 'node:stream';
-import { z } from 'zod';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { MAX_TURNS } from './harness/harness.constants.js';
-import { createTerminalHarness } from './harness/harness.helper.js';
-import { providerFromEnv, trustStoreFromEnv } from './harness/settings.helper.js';
+import { createCliHarness } from './harness/harness.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { Renderer } from './render/render.service.js';
 import { projectTrustNotice, shortId } from './render/render.utils.js';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
-const { adapter, model, provider } = providerFromEnv(process.env);
-const args = process.argv.slice(2);
-/** `--trust`: trust this workspace's `.sheavly/` hooks (remembered until `.sheavly/` changes). */
-const trustWorkspace = args.includes('--trust');
-const prompt =
-  args.filter((arg) => arg !== '--trust').join(' ') ||
-  'Read package.json and tell me the project name.';
-const write = (text: string) => void process.stdout.write(text);
-const workspaceRoot = z
-  .string()
-  .min(1)
-  .optional()
-  .parse(process.env.WORKSPACE_ROOT === '' ? undefined : process.env.WORKSPACE_ROOT);
-/** Only the exact string "true" turns these on. */
-const skipAllowList = process.env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true';
-const showModelCalls = process.env.SHOW_MODEL_CALLS === 'true';
-
+/** What the demo asks with no prompt given. */
+const DEFAULT_PROMPT = 'Read package.json and tell me the project name.';
 const view: { renderer?: Renderer } = {};
-const harness = await createTerminalHarness({
-  provider,
-  workspaceRoot,
-  skipAllowList,
-  title: prompt,
-  trustStore: trustStoreFromEnv(process.env),
+const { harness, adapter, model, settings } = await createCliHarness({
   env: process.env,
-  trustWorkspace,
-  ...(showModelCalls && { onModelCall: (request) => view.renderer?.modelCall(request) }),
+  args: process.argv.slice(2),
+  title: (given) => given || DEFAULT_PROMPT,
+  onModelCall: (request) => view.renderer?.modelCall(request),
 });
+const prompt = settings.prompt || DEFAULT_PROMPT;
+const { skipAllowList } = settings;
+const write = (text: string) => void process.stdout.write(text);
 const { workspace, sessions, mainSession, tasks } = harness;
 
 const renderer = new Renderer(write, tasks);

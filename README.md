@@ -81,7 +81,7 @@ This sends one prompt to OpenAI / `gpt-6.1-sol` through the adapter registry and
 A short prompt costs a fraction of a cent. See `apps/terminal/src/demo.ts`.
 
 If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
-A `Responses API error 401` means the key is wrong.
+A `Responses API error 401` (or `Anthropic Messages API error 401`) means the key is wrong.
 
 For stored prompts, saved runs and stepping through what happened, use the workbook
 (`npm run workbook -- list`, see [the workbook doc](apps/terminal/docs/workbook.md)).
@@ -99,7 +99,9 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
 
 ## Using other backends
 
-`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. Creating providers
+`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
+several models on Azure at once (GPT, Claude, DeepSeek), each with its own keys, and the chat's
+`/model` switches between them ([several models](apps/terminal/docs/demo.md#several-models-on-azure)). Creating providers
 in code, switching between them and adding a backend are in
 [@sheavly/providers](packages/providers/README.md).
 
@@ -213,13 +215,13 @@ Both print `{}` when everything passes.
 ## Git workflow
 
 GitHub is the only tracker: work is a GitHub issue in this repo, and nothing uses Jira or any other
-tool. All git and GitHub work goes through the `/git` skill (`.cursor/skills/git/`), for people as
+tool. All git and GitHub work goes through the `/git` skill (`.agents/skills/git/`), for people as
 well as agents; its `conventions.md` has the formats with good and bad examples.
 
 - **One issue, one branch, one PR**, based on `main`. Work too big for one PR is split into
   sub-issues with their own PRs, or, when the parts depend on each other, into a **stack of PRs**:
   each layer is a normal issue branch and PR based on the layer below, the bottom one on `main`
-  (`.cursor/skills/git/stacks.md`; `gh stack` optional). Lower layers end with `Part of #123`
+  (`.agents/skills/git/stacks.md`; `gh stack` optional). Lower layers end with `Part of #123`
   instead of `Closes #123`, so the issue closes when the top layer merges.
 - **Branches:** `<issue>-<kebab-name>` (`123-provider-switch`), GitHub's own form:
   `gh issue develop 123 --name 123-provider-switch --base main --checkout` links it to the issue.
@@ -238,7 +240,7 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   (`area/core`, `area/loop`, …, `area/tooling` for work without a scope), plus `security` where it
   applies. The area labels come from the same folders as the commit scopes and are created by the
   `Sync labels` workflow (`scripts/sync-area-labels.mjs`) on every push to `main`. Labels only for
-  what types can't say, never for status or priority (`.cursor/skills/git/issues.md`).
+  what types can't say, never for status or priority (`.agents/skills/git/issues.md`).
 - **Status** is read from GitHub: open, blocked, a branch or draft PR (in progress), a ready PR (in
   review), closed by the merge (done). A GitHub Project board, if used, mirrors that.
 - **Rewriting:** while the PR is a draft, fixes are folded into the commit they belong to and
@@ -251,6 +253,6 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   and an area label on its issue for every commit scope. The `Issue labels` workflow
   (`scripts/check-issue-areas.mjs`) fails, and comments once, on an open issue without an area
   label. Dependabot's PRs are the one kind without an issue.
-- **Repo settings** (once, by a person; `.cursor/skills/git/setup.md`): squash merging only,
+- **Repo settings** (once, by a person; `.agents/skills/git/setup.md`): squash merging only,
   defaulting to the PR title; branch protection on `main` requiring the `Git format` and `Check`
   checks.

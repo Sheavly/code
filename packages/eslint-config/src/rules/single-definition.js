@@ -19,7 +19,7 @@ import {
 const HOW =
   "Import it (`import type { {{name}} } from '{{source}}'`) instead; to change it, {{change}}. A type that only looks alike is a different thing: give it a name of its own.";
 /** Where the judgement behind the rule lives, so the agent reads it before working around it. */
-const SKILL = 'See "Enforce what you add" in .cursor/skills/working-in-sheavly-harness/SKILL.md.';
+const SKILL = 'See "Enforce what you add" in .agents/skills/working-in-sheavly-harness/SKILL.md.';
 
 export const singleDefinition = {
   meta: {

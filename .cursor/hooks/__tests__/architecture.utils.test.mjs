@@ -12,7 +12,7 @@ import {
 import { runEditHook } from './run-hook.utils.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
-const SKILL = '.cursor/skills/working-in-sheavly-harness/SKILL.md';
+const SKILL = '.agents/skills/working-in-sheavly-harness/SKILL.md';
 let stateDir = '';
 let project = '';
 

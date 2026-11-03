@@ -1,4 +1,4 @@
-import { ResponsesApiError } from '../errors/providers.errors.js';
+import { ModelApiError } from '../errors/providers.errors.js';
 
 const LINE_BREAK = /\r\n|\r|\n/;
 
@@ -40,7 +40,7 @@ function* parseData(params: { data: string[]; atEnd?: boolean }): Generator {
   } catch (caughtError) {
     if (atEnd && caughtError instanceof SyntaxError) return;
 
-    throw new ResponsesApiError({
+    throw new ModelApiError({
       reason: 'bad_payload',
       message: `SSE stream sent a data payload that isn't JSON: ${payload.slice(0, 200)}`,
       cause: caughtError,

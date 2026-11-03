@@ -15,3 +15,20 @@ One prompt, a real model, every tool, printed as it happens: `npm run demo -- "y
 - `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
   `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
   `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
+
+## Several models on Azure
+
+`MODELS` names the models to set up, comma-separated; the run starts on the first, and the chat's
+`/model <name>` switches between them (from the next model call; the conversation keeps its
+history). Each name's keys are named after it, upper-cased with `-` as `_` (`deepseek-flash` reads
+`DEEPSEEK_FLASH_*`), so each model has its own key, endpoint and deployment:
+
+- `<NAME>_ADAPTER`: `azure` (the Responses API: GPT, DeepSeek and other Foundry models) or
+  `azure-anthropic` (Claude).
+- `<NAME>_API_KEY`, `<NAME>_BASE_URL`, `<NAME>_DEPLOYMENT`: required.
+- `azure` only: `<NAME>_API_VERSION` (for a dated URL) and `<NAME>_REASONING` (`false` for a model
+  that sends no encrypted reasoning back; default `true`).
+- `azure-anthropic` only: `<NAME>_MAX_TOKENS` (default 16000) and `<NAME>_THINKING_BUDGET`
+  (extended thinking, at least 1024; unset = off).
+
+With `MODELS` set, `ADAPTER` and its keys are not read. The example `.env` has one of each.

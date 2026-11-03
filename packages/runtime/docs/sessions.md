@@ -14,18 +14,36 @@ is a `SessionRef` (`packages/protocol/src/session/`):
 | `rootId`   | The main session at the top of the tree                       |
 | `depth`    | 1 for the main session, 2 for its sub-agents, 3 for theirs    |
 
-The registry also keeps each session's `title`, last reported `status`, `state` (`running`, or
-how the run ended: `completed`, `interrupted`, `max_turns`, `failed`) and timestamps.
+The registry also keeps each session's `title`, last reported `status`, `state` (`running`;
+`idle` between the prompts of a conversation; or how it ended: `completed`, `interrupted`,
+`max_turns`, `failed`), `lastOutcome` (how its last run ended) and timestamps.
+
+A session in a conversation goes `idle` when a prompt's run finishes (`sessions.idle({ id,
+outcome })`, a `session_idle` update) and runs again for the next prompt (`sessions.resume(id)`,
+`session_resumed`); `resume` refuses a session that is running (`session_running`) or ended.
+While idle it accepts messages, kept for its next prompt, but no status reports or sub-agents.
+`end` ends it from either state.
 
 - `startMain` starts the main session; `startChild({ parentId, title })` starts a sub-agent. It
   throws if the parent is unknown, has ended, or is at the depth cap.
 - Every refusal is a `SessionError` (`@sheavly/runtime/errors/`) with a `reason` (`unknown_session`,
-  `parent_ended`, `too_deep`, `session_ended`, `not_an_ancestor`) and the `sessionId` it was
+  `parent_ended`, `too_deep`, `session_ended`, `session_running`, `not_an_ancestor`) and the `sessionId` it was
   about, so a caller tells the cases apart without reading the message.
 - `lineage(id)` walks a session up to the main session; `children(id)` lists the ones it started.
 - A run takes `session: { registry, ref }`. Without one it starts its own main session. Either
   way the loop ends the session with the run's outcome, and the `done` event carries its ref.
 - Tools get the calling session as `context.session`.
+
+## Conversations: one session across prompts
+
+A UI the user keeps talking to runs every prompt in the same main session. `createConversation`
+(`@sheavly/host`, see [a conversation across prompts](../../host/docs/harness.md#a-conversation-across-prompts))
+does it on this registry: each prompt's run uses `keepSession`, so the loop leaves the session
+`idle` when it finishes (however it ended) instead of ending it, and the next prompt `resume`s
+it. In between, messages sent to it wait for the next prompt, and its background tasks keep
+running and are reported then. The session ends only when the conversation closes, with how its
+last prompt ended. One prompt runs at a time: `resume` refuses a running session
+(`session_running`).
 
 ## Messages and steering
 
@@ -62,7 +80,7 @@ new Response(sessions.stream({ signal }), { headers: { 'content-type': 'text/eve
 
 It starts with every known session (a UI that connects late catches up), then sends updates
 until `signal` aborts. Each event is named `session_started`, `session_status`,
-`session_message` or `session_ended`, and has the session id as its event id. Its JSON data is
+`session_message`, `session_idle`, `session_resumed` or `session_ended`, and has the session id as its event id. Its JSON data is
 `{ session }` (the `SessionInfo`), plus `message` for `session_message`. The demo prints the same
 updates, indented by depth.
 

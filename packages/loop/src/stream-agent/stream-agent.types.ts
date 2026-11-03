@@ -38,6 +38,17 @@ export type AgentOptions = {
    * main session with a fresh id. Either way the session is ended with the run's outcome.
    */
   session?: RunSession;
+  /**
+   * Keep the session open when the run finishes, however it ends: it goes idle (with how the run
+   * ended as its `lastOutcome`) instead of ending, for a conversation's next prompt. The host
+   * ends it when the conversation closes.
+   */
+  keepSession?: boolean;
+  /**
+   * This run continues a session an earlier run already started (a conversation's next prompt):
+   * `sessionStart` hooks ran then and are not run again, so their context isn't added twice.
+   */
+  resumed?: boolean;
 };
 
 export type RunAgentOptions = AgentOptions & { onEvent?: (event: AgentEvent) => void };

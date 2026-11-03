@@ -37,6 +37,19 @@ describe('stale references', () => {
     ).toEqual([]);
   });
 
+  it('fails a skill outside .agents/skills/, and a path naming the old folder', () => {
+    expect(
+      problems({
+        '.cursor/skills/old/SKILL.md': '# Old\n',
+        'docs/notes.md': 'See .cursor/skills/git/.\n',
+        '.agents/skills/new/SKILL.md': '# New\n',
+      }),
+    ).toEqual([
+      expect.stringContaining('.cursor/skills/old/SKILL.md: skills live in .agents/skills/'),
+      expect.stringContaining('docs/notes.md: names .cursor/skills/'),
+    ]);
+  });
+
   it('fails an issue named in source, and a promise about one anywhere', () => {
     expect(
       problems({

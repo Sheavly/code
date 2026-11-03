@@ -4,7 +4,7 @@ import {
   baseUrlSchema,
   reasoningSchema,
   requestPolicySchema,
-} from '../responses/adapter-config.validator.js';
+} from '../http/adapter-config.validator.js';
 import { defineResponsesAdapter } from '../responses/responses.helper.js';
 import { OPENAI_BASE_URL } from './openai.constants.js';
 

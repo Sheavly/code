@@ -7,7 +7,7 @@ import path from 'node:path';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
-const SKILL = '.cursor/skills/working-in-sheavly-harness/SKILL.md';
+const SKILL = '.agents/skills/working-in-sheavly-harness/SKILL.md';
 const BACKEND_ONLY = '## Backend only: typed events, no UI';
 
 export const WHERE_CODE_GOES = '## Where code goes';

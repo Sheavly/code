@@ -2,7 +2,12 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 /** Why a session operation was refused. */
 type SessionFailure =
-  'unknown_session' | 'parent_ended' | 'too_deep' | 'session_ended' | 'not_an_ancestor';
+  | 'unknown_session'
+  | 'parent_ended'
+  | 'too_deep'
+  | 'session_ended'
+  | 'session_running'
+  | 'not_an_ancestor';
 
 /**
  * A session operation was refused: an unknown session, a parent or target that has ended, a

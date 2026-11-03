@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineResponsesAdapter } from '../responses.helper.js';
-import { requestPolicySchema } from '../adapter-config.validator.js';
+import { requestPolicySchema } from '../../http/adapter-config.validator.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const request: ProviderRequest = {

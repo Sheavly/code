@@ -74,7 +74,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                                                                                                       |
 | `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                        |
-| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                                                                                                            |
+| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`, `azure-anthropic/`), adapter registry, `ProviderSwitch`                                                                |
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                       |
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                |
@@ -87,7 +87,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions
 are `validator`, stateless code that does I/O is `helper`, and only code that owns state, a
-class, is `service`. See the project skill in `.cursor/skills/working-in-sheavly-harness/` for
+class, is `service`. See the project skill in `.agents/skills/working-in-sheavly-harness/` for
 the full conventions.
 
 ## The UI decides what a run includes
@@ -283,7 +283,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | -------------------------------- | --------------------------------------------------------------------------------------- |
 | `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong; `ToolCallError`: a tool refused a call |
 | `packages/loop/src/errors/`      | `HookError`, `StreamEndedError`                                                         |
-| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                              |
+| `packages/providers/src/errors/` | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                  |
 | `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
 | `packages/workspace/src/errors/` | The project on disk: workspace, processes, trust, project hooks, AGENTS.md (below)      |
 | `packages/coding/src/errors/`    | `CommandRefusedError`                                                                   |

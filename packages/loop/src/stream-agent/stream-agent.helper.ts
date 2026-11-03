@@ -10,6 +10,7 @@ import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.t
 import { runTurn } from './turn.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 
 /**
  * Runs the agent and yields one typed, sequenced event per step.
@@ -35,7 +36,7 @@ export async function* streamAgent(options: AgentOptions): AsyncGenerator<AgentE
     (caughtError: unknown) => {
       // A session its registry doesn't know (the run's first check) has nothing to end.
       if (session.registry.get(session.ref.id)) {
-        session.registry.end({ id: session.ref.id, state: 'failed' });
+        finishSession({ session, outcome: 'failed', keep: options.keepSession });
       }
 
       events.fail(caughtError);
@@ -91,12 +92,15 @@ async function drive(context: RunContext) {
   }
 
   try {
-    await runSessionStart({
-      hooks,
-      messages,
-      signal,
-      onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
-    });
+    // Once per session: a resumed one (a conversation's next prompt) already ran these.
+    if (!options.resumed) {
+      await runSessionStart({
+        hooks,
+        messages,
+        signal,
+        onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+      });
+    }
 
     for (let turn = 1; turn <= maxTurns; turn++) {
       const ended = await runTurn({ ...context, turn, messages });
@@ -121,6 +125,18 @@ async function drive(context: RunContext) {
     throw caughtError;
   }
 
-  session.registry.end({ id: session.ref.id, state: reason });
+  finishSession({ session, outcome: reason, keep: options.keepSession });
   events.enqueue({ type: 'done', reason, messages, session: session.ref });
+}
+
+/** The run is over: its session ends, or, kept for a conversation's next prompt, goes idle. */
+function finishSession(params: {
+  session: RunSession;
+  outcome: RunOutcome;
+  keep: boolean | undefined;
+}): void {
+  const { session, outcome, keep } = params;
+
+  if (keep) session.registry.idle({ id: session.ref.id, outcome });
+  else session.registry.end({ id: session.ref.id, state: outcome });
 }

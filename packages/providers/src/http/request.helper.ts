@@ -1,5 +1,5 @@
-import { ResponsesApiError } from '../errors/providers.errors.js';
-import type { RequestPolicy } from './responses.types.js';
+import { ModelApiError } from '../errors/providers.errors.js';
+import type { RequestPolicy } from './http.types.js';
 
 /** HTTP statuses worth another attempt: rate limited, or the server failed. */
 const RETRYABLE_STATUS = (status: number) => status === 429 || status >= 500;
@@ -55,16 +55,17 @@ function networkMessage(caughtError: unknown): string {
 
 /** One attempt's outcome: the response, or a failure and whether another attempt may help. */
 type Attempt =
-  { response: Response } | { failure: ResponsesApiError; retryable: boolean; waitMs: number };
+  { response: Response } | { failure: ModelApiError; retryable: boolean; waitMs: number };
 
 async function attempt(params: {
+  api: string;
   fetch: typeof fetch;
   url: URL;
   init: RequestInit;
   policy: RequestPolicy;
   signal: AbortSignal;
 }): Promise<Attempt> {
-  const { fetch, url, init, policy, signal } = params;
+  const { api, fetch, url, init, policy, signal } = params;
   const timeout = new AbortController();
   const timer = setTimeout(() => {
     timeout.abort();
@@ -83,10 +84,10 @@ async function attempt(params: {
     const waitMs = retryAfterMs(response);
 
     return {
-      failure: new ResponsesApiError({
+      failure: new ModelApiError({
         reason: 'http',
         status: response.status,
-        message: `Responses API error ${response.status}: ${await response.text()}`,
+        message: `${api} error ${response.status}: ${await response.text()}`,
       }),
       retryable: RETRYABLE_STATUS(response.status) && waitMs <= MAX_RETRY_AFTER_MS,
       waitMs,
@@ -98,11 +99,11 @@ async function attempt(params: {
     const timedOut = timeout.signal.aborted;
 
     return {
-      failure: new ResponsesApiError({
+      failure: new ModelApiError({
         reason: timedOut ? 'timeout' : 'network',
         message: timedOut
-          ? `The Responses API did not start a response within ${String(policy.responseTimeoutMs)}ms`
-          : `The Responses API request failed: ${networkMessage(caughtError)}`,
+          ? `The ${api} did not start a response within ${String(policy.responseTimeoutMs)}ms`
+          : `The ${api} request failed: ${networkMessage(caughtError)}`,
         cause: caughtError,
       }),
       retryable: true,
@@ -114,13 +115,15 @@ async function attempt(params: {
 }
 
 /**
- * Sends one Responses call under `policy` and returns the response once it started: on a network
+ * Sends one model API call under `policy` and returns the response once it started: on a network
  * error, a response that doesn't start in time, HTTP 429 or 5xx, it is sent again, up to
  * `policy.retries` more times, waiting `retryDelayMs` (doubled each time, or the server's
  * `retry-after` if longer). Nothing has streamed yet, so a retry repeats nothing. Any other HTTP
- * error fails at once; an interrupt (`signal`) stops the wait and every attempt.
+ * error fails at once; an interrupt (`signal`) stops the wait and every attempt. `api` names the
+ * API in its errors (`Responses API`, `Anthropic Messages API`).
  */
 export async function sendRequest(params: {
+  api: string;
   fetch: typeof fetch;
   url: URL;
   init: RequestInit;
@@ -137,7 +140,7 @@ export async function sendRequest(params: {
     if (!outcome.retryable || tried >= policy.retries) {
       if (tried === 0) throw outcome.failure;
 
-      throw new ResponsesApiError({
+      throw new ModelApiError({
         reason: outcome.failure.reason,
         message: `${outcome.failure.message} (after ${String(tried + 1)} attempts)`,
         ...(outcome.failure.status === undefined ? {} : { status: outcome.failure.status }),

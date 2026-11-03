@@ -6,7 +6,9 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "dev": "tsx --conditions=@sheavly/source src/chat.ts",
+    "start": "npm run build && node dist/chat.js"
   },
   "type": "module",
   "license": "UNLICENSED",
@@ -17,6 +19,7 @@
   "dependencies": {
     "@sheavly/coding": "^0.0.0",
     "@sheavly/core": "^0.0.0",
+    "@sheavly/host": "^0.0.0",
     "@sheavly/loop": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
     "@sheavly/providers": "^0.0.0",

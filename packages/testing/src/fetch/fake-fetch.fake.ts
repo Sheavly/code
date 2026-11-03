@@ -60,13 +60,18 @@ export async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   return items;
 }
 
-/** The request `adapter` sends for one user message, given a `config` it validates first. */
+/**
+ * The request `adapter` sends for one user message, given a `config` it validates first. `reply`:
+ * the events the fake answers with (default: an empty Responses reply); a backend on another
+ * protocol passes that protocol's ending, so its stream finishes.
+ */
 export async function requestSentBy<TSchema extends z.ZodType>(params: {
   adapter: Adapter<TSchema>;
   config: unknown;
+  reply?: object[];
 }): Promise<RecordedRequest | undefined> {
-  const { adapter, config } = params;
-  const { fetch, requests } = fakeFetch([]);
+  const { adapter, config, reply = [] } = params;
+  const { fetch, requests } = fakeFetch(reply);
   const provider = adapter.create({ config: adapter.configSchema.parse(config), deps: { fetch } });
 
   await collect(

@@ -27,9 +27,11 @@ const provider = routedProvider({
 `fakeFetch(events, status?)` is a `fetch` that answers every request with the same Responses SSE
 stream (or an HTTP error), and records what it was sent. `fakeFetchSequence({ responses })`
 answers request N with `responses[N]`, for multi-turn runs; each reply ends with
-`response.completed` unless `complete: false`, a stream cut off mid-reply. `requestSentBy` gives
-the request an adapter sends for one message, which is how a backend's mapping is tested
-(`@sheavly/providers`). Use these to test a real backend; a provider fake for anything above it.
+`response.completed` unless `complete: false`, a stream cut off mid-reply (or for another
+protocol's events, sent as they are). `requestSentBy` gives the request an adapter sends for one
+message, which is how a backend's mapping is tested (`@sheavly/providers`); `reply` answers with
+another protocol's events (`[{ type: 'message_stop' }]` for Anthropic Messages). Use these to test
+a real backend; a provider fake for anything above it.
 
 ## Running tools and waiting
 

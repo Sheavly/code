@@ -15,5 +15,11 @@ export const REQUEST = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 10
 export const DEFAULT_ADAPTER = 'openai';
 export const DEFAULT_MODEL = 'gpt-6.1-sol';
 
+/**
+ * The most tokens one Claude reply may use (thinking included) when its `<NAME>_MAX_TOKENS` is
+ * unset: the Messages API requires a limit, and this leaves room for a long file edit.
+ */
+export const CLAUDE_MAX_TOKENS = 16_000;
+
 /** The trust store's file under the user's config folder (`$XDG_CONFIG_HOME` or `~/.config`). */
 export const TRUST_STORE_PATH = ['sheavly', 'trusted-workspaces.json'];

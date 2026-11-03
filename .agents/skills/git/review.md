@@ -18,7 +18,7 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    Full Repository Path: <absolute path of this checkout>
    Diff: branch changes
    Base Branch: origin/main
-   Custom Instructions: Besides bugs, review against .cursor/skills/working-in-sheavly-harness/SKILL.md:
+   Custom Instructions: Besides bugs, review against .agents/skills/working-in-sheavly-harness/SKILL.md:
    the layers (imports only point down), file kinds and where code goes, interrupts leaving history
    valid, and a new `ignore` in knip.json or .jscpd.json (there are no baselines). For each changed file,
    ask whether it still has one reason to change; lint can't judge that.
