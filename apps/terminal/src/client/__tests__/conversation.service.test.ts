@@ -110,7 +110,7 @@ describe('RemoteConversation', () => {
 
     await conversation.close();
     await expect(conversation.details()).rejects.toMatchObject({
-      name: 'BackendError',
+      name: 'ServerRefusedError',
       code: 'not_found',
     });
   });

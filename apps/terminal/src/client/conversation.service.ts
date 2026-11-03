@@ -1,20 +1,18 @@
 import { createServerClient } from '@sheavly/server/client/client.helper';
-import { readEntries } from '@sheavly/server/client/entries.helper';
+import { ServerRefusedError } from '@sheavly/server/errors/client.errors';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
-import { messagesResponseSchema } from '@sheavly/protocol/server/server.validator';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { BackendError } from '../errors/backend.errors.js';
 import type { Backend } from './client.types.js';
-import { parseServerError } from './client.validator.js';
 
 type Client = ReturnType<typeof createServerClient>;
 
 /**
  * One conversation on a backend, as the terminal drives it: started (or continued from saved
- * `messages`) on `open`, then prompts sent and their entries read, over HTTP only. It counts the
- * background tasks still running from the task entries it reads, for the renderer to show.
+ * `messages`) on `open`, then prompts sent and their entries read, over HTTP only, through the
+ * client built from the API's routes. It counts the background tasks still running from the task
+ * entries it reads, for the renderer to show. A refused request throws `ServerRefusedError`.
  */
 export class RemoteConversation {
   readonly #client: Client;
@@ -38,9 +36,9 @@ export class RemoteConversation {
       token: backend.token,
       ...(backend.fetch && { fetch: backend.fetch }),
     });
-    const started = await ok(client.conversations.$post({ json: messages ? { messages } : {} }));
+    const { id } = await client.call('startConversation', { body: messages ? { messages } : {} });
 
-    return new RemoteConversation(client, (await started.json()).id);
+    return new RemoteConversation(client, id);
   }
 
   /** How many background tasks the entries read so far say still run. */
@@ -48,38 +46,32 @@ export class RemoteConversation {
     return this.#running.size;
   }
 
-  async details(): Promise<ConversationDetails> {
-    return (await ok(this.#client.conversations[':id'].$get({ param: { id: this.id } }))).json();
+  details(): Promise<ConversationDetails> {
+    return this.#client.call('getConversation', { id: this.id });
   }
 
   /** The skills a prompt can run, all or those `search` matches (name or description). */
   async skills(search?: string): Promise<SkillInfo[]> {
-    const response = await this.#client.conversations[':id'].skills.$query({
-      param: { id: this.id },
-      json: search ? { search } : {},
-    });
+    const body = search ? { search } : {};
 
-    return (await (await ok(response)).json()).skills;
+    return (await this.#client.call('querySkills', { id: this.id, body })).skills;
   }
 
-  /** The history so far, checked against the protocol: it is saved, and continued from. */
+  /** The history so far: it is saved, and continued from. */
   async messages(): Promise<Message[]> {
-    const response = await this.#client.conversations[':id'].messages.$get({
-      param: { id: this.id },
-    });
-
-    return messagesResponseSchema.parse(await (await ok(response)).json()).messages;
+    return (await this.#client.call('getMessages', { id: this.id })).messages;
   }
 
   /** Switches to model `name`, from the next model call; false when the conversation hasn't it. */
   async useModel(name: string): Promise<boolean> {
     try {
-      await ok(
-        this.#client.conversations[':id'].model.$put({ param: { id: this.id }, json: { name } }),
-      );
+      await this.#client.send('switchModel', { id: this.id, body: { name } });
     } catch (caughtError) {
       // Only "no such model" is the user's to fix with another name; anything else is a failure.
-      if (caughtError instanceof BackendError && caughtError.code === 'unknown_model') return false;
+      if (caughtError instanceof ServerRefusedError && caughtError.code === 'unknown_model') {
+        return false;
+      }
+
       throw caughtError;
     }
 
@@ -92,16 +84,15 @@ export class RemoteConversation {
    */
   async *send(params: { text: string; signal?: AbortSignal }): AsyncGenerator<StreamEntry> {
     const { text, signal } = params;
-    const response = await ok(
-      this.#client.conversations[':id'].prompts.$post({ param: { id: this.id }, json: { text } }),
-    );
-    const stop = () =>
-      void this.#client.conversations[':id'].stop.$post({ param: { id: this.id } });
+    const stop = () => void this.#client.send('stopPrompt', { id: this.id });
 
     signal?.addEventListener('abort', stop, { once: true });
 
     try {
-      for await (const { entry } of readEntries(response.body)) {
+      for await (const entry of this.#client.stream('sendPrompt', {
+        id: this.id,
+        body: { text },
+      })) {
         this.#countTask(entry);
         yield entry;
       }
@@ -114,22 +105,13 @@ export class RemoteConversation {
    * The conversation's whole stream, from its start, as raw SSE: what a UI reads, for a run to
    * save. It ends when `signal` aborts.
    */
-  async rawStream(signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
-    const response = await ok(
-      this.#client.conversations[':id'].stream.$query(
-        { param: { id: this.id }, json: { replay: true } },
-        { init: { signal } },
-      ),
-    );
-
-    if (!response.body) throw new BackendError({ message: 'The stream came back without a body' });
-
-    return response.body;
+  rawStream(signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    return this.#client.open('streamConversation', { id: this.id, body: { replay: true }, signal });
   }
 
   /** Closes it on the backend: its prompts, background tasks and processes stop. */
-  async close(): Promise<void> {
-    await ok(this.#client.conversations[':id'].$delete({ param: { id: this.id } }));
+  close(): Promise<void> {
+    return this.#client.send('closeConversation', { id: this.id });
   }
 
   #countTask(entry: StreamEntry): void {
@@ -137,23 +119,4 @@ export class RemoteConversation {
     if (entry.update.type === 'task_started') this.#running.add(entry.update.task.id);
     else this.#running.delete(entry.update.task.id);
   }
-}
-
-/**
- * `response` once it succeeded; a refused one throws a `BackendError` with the server's code and
- * message (the status alone when its body isn't a server error).
- */
-async function ok<T extends { ok: boolean; status: number; text: () => Promise<string> }>(
-  response: T | Promise<T>,
-): Promise<T> {
-  const settled = await response;
-
-  if (settled.ok) return settled;
-
-  const refused = parseServerError(await settled.text());
-
-  throw new BackendError({
-    message: refused?.error.message ?? `The backend answered ${String(settled.status)}`,
-    ...(refused && { code: refused.error.code }),
-  });
 }
