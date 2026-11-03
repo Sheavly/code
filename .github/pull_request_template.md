@@ -25,7 +25,7 @@ Review bottom up, one commit at a time.
 ## Harness impact
 
 <!-- What enforces each new package or pattern this adds (rule, test or hook, and its commit), or
-`none: <reason>`. Triggers and what to add: .cursor/skills/git/harness.md. CI fails it missing or
+`none: <reason>`. Triggers and what to add: .agents/skills/git/harness.md. CI fails it missing or
 empty. -->
 
 -

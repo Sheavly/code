@@ -1,8 +1,8 @@
 // The git workflow's rules, shared by the issue gate (require-issue.mjs), the git guard
 // (guard-git-workflow.mjs) and the CI format check (scripts/check-git-format.mjs). The /git skill
-// documents the same rules with examples (.cursor/skills/git/conventions.md). GitHub is the only
+// documents the same rules with examples (.agents/skills/git/conventions.md). GitHub is the only
 // tracker: work is a GitHub issue (`#123`), linked from branches, commits and PRs. A PR may be
-// stacked on another issue branch (.cursor/skills/git/stacks.md).
+// stacked on another issue branch (.agents/skills/git/stacks.md).
 // Node built-ins and local files only: the CI format check runs this with no `npm ci`.
 import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';

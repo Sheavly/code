@@ -1,13 +1,13 @@
-// CI gate for the git workflow's PR format (.cursor/skills/git/conventions.md). PRs land with a
+// CI gate for the git workflow's PR format (.agents/skills/git/conventions.md). PRs land with a
 // squash merge, so the title is the commit that reaches main, and the body's `Closes #123` is
 // what links the PR to its issue and closes it on merge. Its `## Harness impact` section says what
-// enforces each new package or pattern, or `none: <reason>` (.cursor/skills/git/harness.md).
+// enforces each new package or pattern, or `none: <reason>` (.agents/skills/git/harness.md).
 //
 // The commits inside a PR are for review and their format isn't checked here (the git guard,
 // .cursor/hooks/guard-git-workflow.mjs, checks agents'), but their scopes are: each needs its
 // `area/*` label on the PR's issue, so the labels say what the work really touched.
 //
-// Stacked PRs (.cursor/skills/git/stacks.md) pass too: a PR may be based on another issue branch
+// Stacked PRs (.agents/skills/git/stacks.md) pass too: a PR may be based on another issue branch
 // rather than main, and a layer that doesn't finish its issue says `Part of #123` instead of
 // closing it.
 //
@@ -68,7 +68,7 @@ const HARNESS_IMPACT = '## Harness impact';
 const NONE_LINE = /^none: \S/;
 
 /**
- * The body's `## Harness impact` section (.cursor/skills/git/harness.md): what enforces each new
+ * The body's `## Harness impact` section (.agents/skills/git/harness.md): what enforces each new
  * package or pattern the PR adds, or `none: <reason>`. Missing, empty or a bare `none` fails.
  */
 export function checkHarnessImpact(body) {
@@ -77,7 +77,7 @@ export function checkHarnessImpact(body) {
 
   if (start === -1) {
     return [
-      `The PR body needs a \`${HARNESS_IMPACT}\` section: what enforces each new package or pattern it adds, or \`none: <reason>\` (.cursor/skills/git/harness.md).`,
+      `The PR body needs a \`${HARNESS_IMPACT}\` section: what enforces each new package or pattern it adds, or \`none: <reason>\` (.agents/skills/git/harness.md).`,
     ];
   }
 
@@ -192,7 +192,7 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
 
   if (problems.length > 0) {
     console.error(
-      `${problems.join('\n')}\n\nFormat and examples: .cursor/skills/git/conventions.md (stacks: stacks.md). Fix it with \`gh pr edit --title … --body-file … --base …\`.`,
+      `${problems.join('\n')}\n\nFormat and examples: .agents/skills/git/conventions.md (stacks: stacks.md). Fix it with \`gh pr edit --title … --body-file … --base …\`.`,
     );
     process.exit(1);
   }

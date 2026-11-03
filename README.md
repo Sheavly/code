@@ -213,13 +213,13 @@ Both print `{}` when everything passes.
 ## Git workflow
 
 GitHub is the only tracker: work is a GitHub issue in this repo, and nothing uses Jira or any other
-tool. All git and GitHub work goes through the `/git` skill (`.cursor/skills/git/`), for people as
+tool. All git and GitHub work goes through the `/git` skill (`.agents/skills/git/`), for people as
 well as agents; its `conventions.md` has the formats with good and bad examples.
 
 - **One issue, one branch, one PR**, based on `main`. Work too big for one PR is split into
   sub-issues with their own PRs, or, when the parts depend on each other, into a **stack of PRs**:
   each layer is a normal issue branch and PR based on the layer below, the bottom one on `main`
-  (`.cursor/skills/git/stacks.md`; `gh stack` optional). Lower layers end with `Part of #123`
+  (`.agents/skills/git/stacks.md`; `gh stack` optional). Lower layers end with `Part of #123`
   instead of `Closes #123`, so the issue closes when the top layer merges.
 - **Branches:** `<issue>-<kebab-name>` (`123-provider-switch`), GitHub's own form:
   `gh issue develop 123 --name 123-provider-switch --base main --checkout` links it to the issue.
@@ -238,7 +238,7 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   (`area/core`, `area/loop`, …, `area/tooling` for work without a scope), plus `security` where it
   applies. The area labels come from the same folders as the commit scopes and are created by the
   `Sync labels` workflow (`scripts/sync-area-labels.mjs`) on every push to `main`. Labels only for
-  what types can't say, never for status or priority (`.cursor/skills/git/issues.md`).
+  what types can't say, never for status or priority (`.agents/skills/git/issues.md`).
 - **Status** is read from GitHub: open, blocked, a branch or draft PR (in progress), a ready PR (in
   review), closed by the merge (done). A GitHub Project board, if used, mirrors that.
 - **Rewriting:** while the PR is a draft, fixes are folded into the commit they belong to and
@@ -251,6 +251,6 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   and an area label on its issue for every commit scope. The `Issue labels` workflow
   (`scripts/check-issue-areas.mjs`) fails, and comments once, on an open issue without an area
   label. Dependabot's PRs are the one kind without an issue.
-- **Repo settings** (once, by a person; `.cursor/skills/git/setup.md`): squash merging only,
+- **Repo settings** (once, by a person; `.agents/skills/git/setup.md`): squash merging only,
   defaulting to the PR title; branch protection on `main` requiring the `Git format` and `Check`
   checks.

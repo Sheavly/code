@@ -7,7 +7,10 @@
 // - an issue named in a workspace's source: code says what it does, and its history and plans
 //   live in the issue and the commits. Elsewhere (the docs cite open issues on purpose) only a
 //   promise about one ("until" or "once" an issue number, or code that "moves into" a package
-//   with one) fails: say what is true now, and keep what is still to do in the issue.
+//   with one) fails: say what is true now, and keep what is still to do in the issue;
+// - skills outside `.agents/skills/`: Cursor would load one in `.cursor/skills/` too, but the
+//   skill checks (`.cursor/hooks/skills.utils.mjs`) read only `.agents/skills/`, so a skill there,
+//   or a path naming that folder, fails.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { listWorkspaces, workspaceOfFile } from '../packages/eslint-config/src/layout.utils.js';
@@ -21,6 +24,8 @@ const WORKSPACE_SOURCE = /^(packages|apps)\/[^/]+\/src\//;
 const ISSUE = /(?<![\w&])#\d+\b/;
 const OLD_PATH = /(?<![\w./@-])src\/([a-z][\w-]*)(\/[\w./-]*|\.ts)?/g;
 const PROMISE = /\b(until|once|after|when|as) #\d+\b|\bmoves? (with|into) [^.\n]*\(#\d+\)/i;
+const OLD_SKILLS = '.cursor/skills';
+const SKILLS_MOVED = `skills live in .agents/skills/ (the skill checks read only that folder)`;
 
 /**
  * The workspace folder names (`loop`, `terminal`): what the root `src/` held before. A name
@@ -68,22 +73,34 @@ export function staleReferenceProblems(params) {
   const workspaces = listWorkspaces(root);
   const folders = workspaceFolders({ root, workspaces });
 
-  return files
-    .filter((file) => TEXT.test(file) && !SKIPPED.test(file) && existsSync(path.join(root, file)))
-    .flatMap((file) => {
-      const text = readFileSync(path.join(root, file), 'utf8');
-      const inSource = WORKSPACE_SOURCE.test(file) && !TEST_CODE.test(file);
-      const promise = text.split('\n').findIndex((line) => (inSource ? ISSUE : PROMISE).test(line));
+  const misplaced = files
+    .filter((file) => file.startsWith(`${OLD_SKILLS}/`))
+    .map((file) => `${file}: ${SKILLS_MOVED}. Move it there.`);
 
-      return [
-        ...new Set(
-          TEST_CODE.test(file) ? [] : stalePaths({ root, file, text, folders, workspaces }),
-        ),
-        ...(promise === -1
-          ? []
-          : [
-              `${file}:${promise + 1}: ${inSource ? 'names an issue in code' : 'promises what an issue will do'} ("${text.split('\n')[promise].trim().slice(0, 80)}"). Say what is true now; history and plans live in the issue.`,
-            ]),
-      ];
-    });
+  return [
+    ...misplaced,
+    ...files
+      .filter((file) => TEXT.test(file) && !SKIPPED.test(file) && existsSync(path.join(root, file)))
+      .flatMap((file) => {
+        const text = readFileSync(path.join(root, file), 'utf8');
+        const inSource = WORKSPACE_SOURCE.test(file) && !TEST_CODE.test(file);
+        const promise = text
+          .split('\n')
+          .findIndex((line) => (inSource ? ISSUE : PROMISE).test(line));
+
+        return [
+          ...new Set(
+            TEST_CODE.test(file) ? [] : stalePaths({ root, file, text, folders, workspaces }),
+          ),
+          ...(text.includes(OLD_SKILLS)
+            ? [`${file}: names ${OLD_SKILLS}/, but ${SKILLS_MOVED}.`]
+            : []),
+          ...(promise === -1
+            ? []
+            : [
+                `${file}:${promise + 1}: ${inSource ? 'names an issue in code' : 'promises what an issue will do'} ("${text.split('\n')[promise].trim().slice(0, 80)}"). Say what is true now; history and plans live in the issue.`,
+              ]),
+        ];
+      }),
+  ];
 }

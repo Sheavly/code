@@ -87,7 +87,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions
 are `validator`, stateless code that does I/O is `helper`, and only code that owns state, a
-class, is `service`. See the project skill in `.cursor/skills/working-in-sheavly-harness/` for
+class, is `service`. See the project skill in `.agents/skills/working-in-sheavly-harness/` for
 the full conventions.
 
 ## The UI decides what a run includes

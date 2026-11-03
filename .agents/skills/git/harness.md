@@ -1,6 +1,6 @@
 # Harness impact
 
-The harness (the skills in `.cursor/skills/`, the `harness/*` lint rules, the workspace graph, the
+The harness (the skills in `.agents/skills/`, the `harness/*` lint rules, the workspace graph, the
 hooks, `knip.json`, the docs nudge) only checks what someone wired in. When a change introduces
 something the next agent must follow, the same PR adds its enforcement: never a gap, never a
 doc-only note ("Enforce what you add" in the project skill). Run this at [triage.md](triage.md)
@@ -14,7 +14,7 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 - a new workspace (`packages/<name>/`, `apps/<name>/`);
 - a new `exports` entry in a package's `package.json` (a file kind made public: is every file of it meant to be?);
 - a new file kind, or a file named `<name>.<kind>.ts` with a kind `file-kinds.js` doesn't know;
-- a new skill in `.cursor/skills/`, or a skill's files moved;
+- a new skill in `.agents/skills/`, or a skill's files moved;
 - a new contract other code must import rather than copy (a wire type, an artifact kind, a hook
   point);
 - a new root config or tooling script (`scripts/`, `.cursor/hooks/`);
