@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import type { CreateConversation, LiveConversation, SentPrompt } from './conversations.types.js';
+import { matchesSearch } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
@@ -158,11 +159,23 @@ export class Conversations {
     return this.get(id).conversation.messages;
   }
 
-  /** The skills a prompt in conversation `id` can run: none when it has no skills. */
-  async skills(params: { id: ConversationId; signal?: AbortSignal }): Promise<SkillInfo[]> {
-    const { skills } = this.get(params.id);
+  /**
+   * The skills a prompt in conversation `id` can run, all or those `search` matches (name or
+   * description, ignoring case): none when it has no skills.
+   */
+  async skills(params: {
+    id: ConversationId;
+    search?: string | undefined;
+    signal?: AbortSignal;
+  }): Promise<SkillInfo[]> {
+    const { id, search, signal } = params;
+    const { skills } = this.get(id);
 
-    return skills ? skills.list({ ...(params.signal && { signal: params.signal }) }) : [];
+    if (!skills) return [];
+
+    const listed = await skills.list({ ...(signal && { signal }) });
+
+    return search ? listed.filter((skill) => matchesSearch({ skill, search })) : listed;
   }
 
   /** Closes conversation `id`: stops its prompt, tasks and processes. It is gone after. */

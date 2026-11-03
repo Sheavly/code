@@ -126,6 +126,10 @@ describe('Conversations', () => {
       parts: [{ type: 'skill', name: 'review' }],
     });
     expect(await conversations.skills({ id })).toHaveLength(1);
+    // A search narrows by name or description, ignoring case; one that matches nothing lists none.
+    expect(await conversations.skills({ id, search: 'REV' })).toHaveLength(1);
+    expect(await conversations.skills({ id, search: 'reviews' })).toHaveLength(1);
+    expect(await conversations.skills({ id, search: 'deploy' })).toEqual([]);
   });
 
   it('refuses a picked skill no one has before the prompt starts', async () => {
