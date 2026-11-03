@@ -8,7 +8,7 @@ import { createMessageAgentTool } from './message-agent.tool.js';
 import { SUB_AGENT_INSTRUCTIONS } from './sub-agent.constants.js';
 import type { SubAgentOptions } from './sub-agent.types.js';
 import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /**

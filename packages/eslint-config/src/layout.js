@@ -16,6 +16,7 @@ const PROTOCOL = '@sheavly/protocol';
 const CORE = '@sheavly/core';
 const PROVIDERS = '@sheavly/providers';
 const RUNTIME = '@sheavly/runtime';
+const TOOLS = '@sheavly/tools';
 
 /**
  * The app being split (#29): its `src/` folders and root files, each with what it may import
@@ -29,15 +30,16 @@ export const SPLIT_APP = {
   layers: {
     // What is left in src/runtime: the workspace-bound services (#29 moves them to workspace).
     runtime: [PROTOCOL, CORE, RUNTIME],
+    // What is left in src/tools: the coding tools (#29 moves them to coding).
     tools: [PROTOCOL, CORE, RUNTIME, 'runtime'],
     // `runtime` only for hooks.errors.ts, which moves with the loop into its package.
     loop: [PROTOCOL, CORE, RUNTIME, 'runtime'],
-    host: [PROTOCOL, CORE, PROVIDERS, RUNTIME, 'runtime', 'tools', 'loop'],
+    host: [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, 'runtime', 'tools', 'loop'],
     'terminal-ui': [PROTOCOL, CORE, RUNTIME, 'runtime', 'tools'],
     workbook: [PROTOCOL, CORE, RUNTIME, 'runtime', 'tools', 'loop', 'host', 'terminal-ui'],
     testing: { testOnly: true, dependsOn: [PROTOCOL, CORE, RUNTIME, 'runtime'] },
     'demo.ts': ['host', 'loop', 'terminal-ui'],
-    'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, 'runtime', 'tools', 'loop', 'host'],
+    'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, 'runtime', 'tools', 'loop', 'host'],
   },
 };
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 export function createTaskStatusTool(tasks: TaskRegistry) {

@@ -1,5 +1,5 @@
 import { countOccurrences } from '../files/files.utils.js';
-import { ToolCallError } from '../../runtime/errors/tools.errors.js';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /**
  * Applies an edit to `before`, or throws a message telling the model how to fix the call:

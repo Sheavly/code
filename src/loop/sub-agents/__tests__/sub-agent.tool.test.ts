@@ -5,10 +5,10 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { runSession } from '../../../loop/stream-agent/stream-agent.helper.js';
+import { runSession } from '../../stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { createSubAgentTool } from '../sub-agent.tool.js';
+import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import {
   calls,
   routedProvider,
@@ -285,7 +285,7 @@ describe('start_agent', () => {
 describe('report_status', () => {
   it('refuses to run outside a session', async () => {
     const sessions = new SessionRegistry();
-    const { createReportStatusTool } = await import('../report-status.tool.js');
+    const { createReportStatusTool } = await import('@sheavly/tools/sub-agent/report-status.tool');
     const tool = createReportStatusTool({ sessions });
 
     await expect(
@@ -300,7 +300,7 @@ describe('report_status', () => {
 
 describe('main sessions', () => {
   it('a run without a session gets its own main session id on done', async () => {
-    const { streamAgent } = await import('../../../loop/stream-agent/stream-agent.helper.js');
+    const { streamAgent } = await import('../../stream-agent/stream-agent.helper.js');
     const ids: string[] = [];
 
     for (let i = 0; i < 2; i++) {
