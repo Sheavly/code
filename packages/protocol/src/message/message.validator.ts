@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { skillNameSchema } from '../skill/skill.validator.js';
 
 /**
  * A tool call's id, as the model's backend gave it. Branded, so it can't be passed where a
@@ -26,9 +27,24 @@ export const reasoningItemSchema = z.object({
   data: z.unknown(),
 });
 
+/**
+ * One part of what the user typed: text, or a skill they picked (a chip in a UI). A UI sends
+ * parts so the harness runs exactly the skills picked, without reading `/<name>` out of text.
+ */
+export const promptPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({ type: z.literal('skill'), name: skillNameSchema }),
+]);
+
 /** One entry of the conversation history. */
 export const messageSchema = z.discriminatedUnion('role', [
-  z.object({ role: z.literal('user'), content: z.string() }),
+  z.object({
+    role: z.literal('user'),
+    /** What the model saw: the text, with the instructions of any skills it ran. */
+    content: z.string(),
+    /** What the user typed, when it ran skills: for a UI to show, never sent to the model. */
+    parts: z.array(promptPartSchema).exactOptional(),
+  }),
   z.object({
     role: z.literal('assistant'),
     content: z.string(),

@@ -28,3 +28,27 @@ other workspace packages out.
 - Only the wire contract lives there. What a provider streams (`StreamEvent`, `StopReason`) and
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.
+
+## What a server accepts and answers
+
+`server/` holds the requests and responses of the harness server (`@sheavly/server`), so the
+server validates with the same schemas a client imports:
+
+| Request                                       | Body                                   | Answer                             |
+| --------------------------------------------- | -------------------------------------- | ---------------------------------- |
+| `GET /conversations`                          | none                                   | `ConversationsResponse`            |
+| `POST /conversations`                         | `StartConversationRequest`             | `StartConversationResponse`        |
+| `POST /conversations/:id/prompts`             | `SendPromptRequest`: `text` or `parts` | that prompt's `StreamEntry`s (SSE) |
+| `QUERY /conversations/:id/stream`             | `StreamQuery`, and `Last-Event-ID`     | `StreamEntry`s (SSE)               |
+| `POST /conversations/:id/approvals/:approval` | `AnswerApprovalRequest`                | nothing (`204`)                    |
+| `POST /conversations/:id/stop`                | none                                   | nothing (`204`)                    |
+| `DELETE /conversations/:id`                   | none                                   | nothing (`204`)                    |
+| `GET /conversations/:id/messages`             | none                                   | `MessagesResponse`                 |
+| `GET /conversations/:id/skills`               | none                                   | `SkillsResponse`                   |
+
+- A prompt is `text`, as a script types it (`/<name>` mentions in it run those skills), or
+  `parts`, as a UI builds it (exactly the skills picked run). Not both.
+- A user message keeps `content`, what the model saw (with a skill's instructions), and `parts`,
+  what the user typed, for a UI to show the skills as chips. Providers send only `content`.
+- Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
+  `ServerErrorCode`.

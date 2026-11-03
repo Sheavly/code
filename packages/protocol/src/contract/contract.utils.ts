@@ -12,11 +12,13 @@ import {
   agentEventSchema,
   describedCallSchema,
   doneReasonSchema,
+  entryEventSchema,
   toolArtifactSchema,
 } from '../event/event.validator.js';
 import {
   callIdSchema,
   messageSchema,
+  promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
   turnStopReasonSchema,
@@ -30,6 +32,21 @@ import {
   sessionStateSchema,
   sessionUpdateSchema,
 } from '../session/session.validator.js';
+import {
+  answerApprovalRequestSchema,
+  conversationIdSchema,
+  conversationSummarySchema,
+  conversationsResponseSchema,
+  messagesResponseSchema,
+  sendPromptRequestSchema,
+  serverErrorCodeSchema,
+  serverErrorSchema,
+  skillsResponseSchema,
+  startConversationRequestSchema,
+  startConversationResponseSchema,
+  streamQuerySchema,
+} from '../server/server.validator.js';
+import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
 import { taskIdSchema, taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
@@ -41,10 +58,12 @@ function contractSchemas(): Record<string, z.ZodType> {
   return {
     AgentEvent: agentEventSchema,
     AgentEventBody: agentEventBodySchema,
+    EntryEvent: entryEventSchema,
     DescribedCall: describedCallSchema,
     DoneReason: doneReasonSchema,
     ToolArtifact: toolArtifactSchema,
     Message: messageSchema,
+    PromptPart: promptPartSchema,
     ToolCall: toolCallSchema,
     ReasoningItem: reasoningItemSchema,
     TurnStopReason: turnStopReasonSchema,
@@ -62,10 +81,25 @@ function contractSchemas(): Record<string, z.ZodType> {
     ApprovalRequest: approvalRequestSchema,
     ApprovalResponse: approvalResponseSchema,
     ApprovalUpdate: approvalUpdateSchema,
+    SkillName: skillNameSchema,
+    SkillScope: skillScopeSchema,
+    SkillInfo: skillInfoSchema,
+    StartConversationRequest: startConversationRequestSchema,
+    StartConversationResponse: startConversationResponseSchema,
+    ConversationSummary: conversationSummarySchema,
+    ConversationsResponse: conversationsResponseSchema,
+    SendPromptRequest: sendPromptRequestSchema,
+    StreamQuery: streamQuerySchema,
+    AnswerApprovalRequest: answerApprovalRequestSchema,
+    MessagesResponse: messagesResponseSchema,
+    SkillsResponse: skillsResponseSchema,
+    ServerErrorCode: serverErrorCodeSchema,
+    ServerError: serverErrorSchema,
     SessionId: sessionIdSchema,
     CallId: callIdSchema,
     TaskId: taskIdSchema,
     ApprovalId: approvalIdSchema,
+    ConversationId: conversationIdSchema,
   };
 }
 
