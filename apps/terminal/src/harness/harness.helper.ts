@@ -77,7 +77,7 @@ export async function createCliHarness(params: {
 }): Promise<CliHarness> {
   const { env, args, title, onModelCall } = params;
   const settings = parseCliSettings({ env, args });
-  const { adapter, model, provider } = providerFromEnv(env);
+  const { adapter, model, provider, models } = providerFromEnv(env);
   const harness = await createTerminalHarness({
     provider,
     workspaceRoot: settings.workspaceRoot,
@@ -89,5 +89,5 @@ export async function createCliHarness(params: {
     ...(settings.showModelCalls && { onModelCall }),
   });
 
-  return { harness, adapter, model, settings };
+  return { harness, adapter, model, settings, models };
 }

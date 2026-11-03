@@ -15,6 +15,8 @@ has its own.
 - Ctrl+C stops the running message; history stays valid, and the next message continues from it.
   Pressed again while the message stops, it force-quits (after stopping what the conversation
   started); at the input line it quits. Either way, lines typed but not yet sent are dropped.
+- `/model` lists the models `MODELS` sets up and `/model <name>` switches to one, from the next
+  model call on, keeping the history ([several models](demo.md#several-models-on-azure)).
 - `/exit`, `/quit` or Ctrl+D ends the conversation: it stops what it started (background
   commands, sub-agents) and ends the session. `/help` lists this.
 - Lines are read in order, so lines typed (or piped in) while a message runs are sent after it.

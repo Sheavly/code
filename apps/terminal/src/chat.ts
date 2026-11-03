@@ -17,7 +17,7 @@ import { createInterface } from 'node:readline/promises';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { CHAT_HELP } from './chat/chat.constants.js';
-import { parseChatInput } from './chat/chat.utils.js';
+import { listModels, parseChatInput } from './chat/chat.utils.js';
 import { MAX_TURNS } from './harness/harness.constants.js';
 import { createCliHarness } from './harness/harness.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
@@ -31,7 +31,7 @@ if (existsSync('.env')) process.loadEnvFile('.env');
 
 const write = (text: string) => void process.stdout.write(text);
 const view: { renderer?: Renderer } = {};
-const { harness, adapter, model, settings } = await createCliHarness({
+const { harness, adapter, model, settings, models } = await createCliHarness({
   env: process.env,
   args: process.argv.slice(2),
   title: () => 'Terminal chat',
@@ -66,6 +66,7 @@ for (const [signal, code] of [
 }
 
 console.log(`→ ${adapter} / ${model} in ${harness.workspace.root}`);
+if (models) console.log(`→ models: ${models.switch.names().join(', ')} (/model <name> to switch)`);
 if (skipAllowList) console.log('⚠ run_command allow list is OFF: any shell command can run');
 
 const trustNotice = projectTrustNotice(harness.projectTrust);
@@ -136,6 +137,22 @@ async function send(text: string): Promise<void> {
 
 if (firstPrompt) await send(firstPrompt);
 
+/** `/model` lists the models; `/model <name>` switches to one, from the next model call on. */
+function modelCommand(name: string | undefined): string {
+  if (!models) return `Only ${adapter} / ${model} is set up: list several in MODELS to switch.`;
+
+  const { choices } = models;
+
+  if (name === undefined) return listModels({ choices, active: models.switch.active });
+
+  const choice = choices.find((candidate) => candidate.name === name);
+
+  if (!choice) return `Unknown model ${name}; /model lists them.`;
+  models.switch.use(name);
+
+  return `→ ${choice.name}: ${choice.adapter} / ${choice.model}`;
+}
+
 /** Handles one line; false once the user asked to leave. */
 async function handle(line: string): Promise<boolean> {
   const parsed = parseChatInput(line);
@@ -145,6 +162,9 @@ async function handle(line: string): Promise<boolean> {
       return false;
     case 'help':
       console.log(CHAT_HELP);
+      break;
+    case 'model':
+      console.log(modelCommand(parsed.name));
       break;
     case 'unknown':
       console.log(`Unknown command ${parsed.command}; /help lists them.`);

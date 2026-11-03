@@ -81,7 +81,7 @@ This sends one prompt to OpenAI / `gpt-6.1-sol` through the adapter registry and
 A short prompt costs a fraction of a cent. See `apps/terminal/src/demo.ts`.
 
 If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
-A `Responses API error 401` means the key is wrong.
+A `Responses API error 401` (or `Anthropic Messages API error 401`) means the key is wrong.
 
 For stored prompts, saved runs and stepping through what happened, use the workbook
 (`npm run workbook -- list`, see [the workbook doc](apps/terminal/docs/workbook.md)).
@@ -99,7 +99,9 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
 
 ## Using other backends
 
-`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. Creating providers
+`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
+several models on Azure at once (GPT, Claude, DeepSeek), each with its own keys, and the chat's
+`/model` switches between them ([several models](apps/terminal/docs/demo.md#several-models-on-azure)). Creating providers
 in code, switching between them and adding a backend are in
 [@sheavly/providers](packages/providers/README.md).
 
