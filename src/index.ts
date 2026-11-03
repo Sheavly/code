@@ -15,18 +15,18 @@ export type {
 } from '@sheavly/core/tool/tool.types';
 export { defineHook } from '@sheavly/core/hook/hook.utils';
 export type * from '@sheavly/core/hook/hook.types';
-export { createReadFileTool } from './tools/read-file/read-file.tool.js';
-export type { FileRead } from './tools/read-file/read-file.types.js';
-export { isFileRead } from './tools/read-file/read-file.utils.js';
-export { createWriteFileTool } from './tools/write-file/write-file.tool.js';
-export { createEditFileTool } from './tools/edit-file/edit-file.tool.js';
+export { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
+export type { FileRead } from '@sheavly/coding/read-file/read-file.types';
+export { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
+export { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool';
+export { createEditFileTool } from '@sheavly/coding/edit-file/edit-file.tool';
 export { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
-export type { FileChange } from './tools/files/files.types.js';
-export { isFileChange } from './tools/files/files.utils.js';
-export { createRunCommandTool } from './tools/run-command/run-command.tool.js';
-export type { RunCommandOptions } from './tools/run-command/run-command.types.js';
+export type { FileChange } from '@sheavly/coding/files/files.types';
+export { isFileChange } from '@sheavly/coding/files/files.utils';
+export { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
+export type { RunCommandOptions } from '@sheavly/coding/run-command/run-command.types';
 export { ProcessRunner } from '@sheavly/workspace/process/process.service';
-export { DEFAULT_ALLOW_LIST } from './tools/run-command/allow-list.constants.js';
+export { DEFAULT_ALLOW_LIST } from '@sheavly/coding/run-command/allow-list.constants';
 export { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 export type * from '@sheavly/protocol/approval/approval.types';
 export {

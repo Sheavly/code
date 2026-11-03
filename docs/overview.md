@@ -45,8 +45,8 @@ flowchart BT
     host["@sheavly/host"]
   end
   subgraph coding
-    workspace["@sheavly/workspace (#29)"]
-    codingPkg["@sheavly/coding (#29)"]
+    workspace["@sheavly/workspace"]
+    codingPkg["@sheavly/coding"]
   end
   subgraph apps
     app["apps/* (#29; today the root app)"]
@@ -73,10 +73,9 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                       |
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                |
-| `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                                                                                                      |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                |
 | `packages/host/src/`      | `@sheavly/host`: wiring a run (`createHarness`) and the model from env (`providerFromEnv`). No UI, and no imports from a front end                                                                                                                                          |
-| `src/host/`               | The coding preset, `createCodingHarness`, until #29 moves it to `@sheavly/coding`                                                                                                                                                                                           |
+| `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and the preset (`preset/`: `createCodingHarness`, `trustStoreFromEnv`); `CommandRefusedError` (`errors/`)                                                |
 | `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                                                                                                              |
 | `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                                                                                                      |
 | `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                                                                                                            |
@@ -91,10 +90,10 @@ the full conventions.
 
 A run is wired in one of two ways:
 
-| Entry point                                | For                                                                  | What it wires                                                                                                                                                             |
-| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createHarness` (`@sheavly/host`)          | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
-| `createCodingHarness` (`coding.helper.ts`) | A coding agent in a repo (the demo, the workbook)                    | Opens the `Workspace`, checks trust and loads the `.sheavly/` hooks, adds the AGENTS.md hook, the file tools and `run_command`, then calls `createHarness` with them      |
+| Entry point                               | For                                                                  | What it wires                                                                                                                                                             |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
+| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo (the demo, the workbook)                    | Opens the `Workspace`, checks trust and loads the `.sheavly/` hooks, adds the AGENTS.md hook, the file tools and `run_command`, then calls `createHarness` with them      |
 
 ```ts
 const harness = createHarness({ provider, title: prompt, tools: [extractTool] });
@@ -265,7 +264,8 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                              |
 | `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
 | `packages/workspace/src/errors/` | The project on disk: workspace, processes, trust, project hooks, AGENTS.md (below)      |
-| `src/runtime/errors/`            | `CommandRefusedError` and the workbook's, until they move with their code (below)       |
+| `packages/coding/src/errors/`    | `CommandRefusedError`                                                                   |
+| `src/runtime/errors/`            | The workbook's, until it moves with the workbook app (below)                            |
 | `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                                 |
 
 | Class                                  | Package              | Thrown when                                                                 |
@@ -280,7 +280,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `ApprovalRequestError` (`reason`)      | `@sheavly/runtime`   | No one listens for approvals, or an answer names no waiting request         |
 | `ApprovalListenerError` (`update`)     | `@sheavly/runtime`   | An approval subscriber threw                                                |
 | `SessionError` (`reason`, `sessionId`) | `@sheavly/runtime`   | A session operation was refused (unknown, ended, too deep, not an ancestor) |
-| `CommandRefusedError` (`reason`)       | app (`src/runtime/`) | A command needed approval nobody could give, or the user skipped it         |
+| `CommandRefusedError` (`reason`)       | `@sheavly/coding`    | A command needed approval nobody could give, or the user skipped it         |
 | `WorkbookStoreError` (`file`)          | app (`src/runtime/`) | A workbook file exists but can't be read or parsed                          |
 | `WorkbookNotFoundError` (`wanted`)     | app (`src/runtime/`) | A stored prompt, run or saved conversation isn't there                      |
 | `WorkbookPromptError` (`prompt`)       | app (`src/runtime/`) | A stored prompt file has bad front matter                                   |
@@ -298,7 +298,7 @@ app; the table lists them where they are today.
 - A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
   for a Responses API backend; another protocol gets its own folder next to `responses/` (see
   [the package README](../packages/providers/README.md)).
-- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `src/tools/<name>/` until #29 moves those (see [tools.md](tools.md)).
+- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `packages/coding/src/<name>/` (see [tools.md](tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
 - Something a UI must show: a new event in `agentEventBodySchema`
   (`packages/protocol/src/event/event.validator.ts`).

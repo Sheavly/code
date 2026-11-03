@@ -7,7 +7,7 @@ check:
       [
         'packages/runtime/src/tasks',
         'packages/tools/src/tasks',
-        'src/tools/run-command',
+        'packages/coding/src/run-command',
         'packages/workspace/src/process',
       ],
     'expect':

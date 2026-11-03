@@ -7,7 +7,7 @@ import type { ProviderSettings } from '@sheavly/host/host/host.types';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { resolveWritable } from '../tools/files/files.helper.js';
+import { resolveWritable } from '@sheavly/coding/files/files.helper';
 import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
 import { formatReport, isRunSource, judgeRun, touchesAreas } from './check.utils.js';
 import { runSourcesSchema } from './check.validator.js';

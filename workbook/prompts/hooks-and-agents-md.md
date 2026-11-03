@@ -8,8 +8,8 @@ check:
         'packages/workspace/src/project-hooks',
         'packages/workspace/src/agents-md',
         'packages/workspace/src/trust',
-        'src/host',
         'packages/host/src',
+        'packages/coding/src/preset',
         'src/workbook',
       ],
     'expect':

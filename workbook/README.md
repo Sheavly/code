@@ -26,7 +26,8 @@ workbook/
 ```
 
 The code is in `src/workbook/`. It's a host like `src/demo.ts`, and shares its wiring and
-terminal output with it (`@sheavly/host`, and the coding preset in `src/host/`).
+terminal output with it (`createCodingHarness` from `@sheavly/coding`, the renderer in
+`src/terminal-ui/`).
 
 ## Stored prompts
 
@@ -67,7 +68,7 @@ does is done. The `/git` review step asks for it, and the stop hook nudges once 
 workspace: basic
 check:
   {
-    'areas': ['packages/workspace/src/trust', 'src/host'],
+    'areas': ['packages/workspace/src/trust', 'packages/coding/src/preset'],
     'expect': { 'reply': ['[AGENTS.md OK]', '/Sheavly\W*$/'], 'tools': ['read_file'] },
     'forbid': { 'transcript': ['hooks not loaded'] },
   }

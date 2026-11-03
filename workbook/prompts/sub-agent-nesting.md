@@ -7,8 +7,8 @@ check:
       [
         'packages/tools/src/sub-agent',
         'packages/runtime/src/sessions',
-        'src/host',
         'packages/host/src',
+        'packages/coding/src/preset',
       ],
     'expect': { 'tools': ['start_agent'], 'reply': ['start_agent'], 'outcome': 'completed' },
   }
