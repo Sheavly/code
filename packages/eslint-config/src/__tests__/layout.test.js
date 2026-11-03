@@ -19,7 +19,11 @@ function repo(packages) {
     ...Object.fromEntries(
       Object.entries(packages).map(([dir, fields]) => [
         `${dir}/package.json`,
-        { name: `@sheavly/${path.basename(dir)}`, ...fields },
+        {
+          name: `@sheavly/${path.basename(dir)}`,
+          ...(dir.startsWith('packages/') && { exports: {} }),
+          ...fields,
+        },
       ]),
     ),
   });
@@ -47,7 +51,7 @@ describe('readLayout', () => {
       testOnly: false,
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
-      exports: [],
+      exports: {},
     });
     expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
     // The root holds no source, so it is the monorepo around the workspaces, not one of them.
@@ -107,6 +111,7 @@ describe('layoutProblems', () => {
     testOnly: false,
     dependsOn: [],
     devDependsOn: [],
+    ...(fields.kind !== 'app' && { exports: {} }),
     ...fields,
   });
 
@@ -119,7 +124,7 @@ describe('layoutProblems', () => {
     ]);
     // A root that holds source is a workspace too; npm takes no -w for it.
     expect(
-      layoutProblems({ '@sheavly/app': { ...pkg({}), dir: '.', kind: 'app', domain: undefined } }),
+      layoutProblems({ '@sheavly/app': { ...pkg({ kind: 'app' }), dir: '.', domain: undefined } }),
     ).toEqual([
       '@sheavly/app has no domain: run `npm pkg set sheavly.domain=<generic|coding|tooling>`',
     ]);
@@ -127,7 +132,7 @@ describe('layoutProblems', () => {
 
   it('fails an app, a coding workspace from a generic one, or a tooling or test one at runtime', () => {
     const layout = {
-      '@sheavly/app': { ...pkg({ name: 'app' }), dir: 'apps/app', kind: 'app' },
+      '@sheavly/app': { ...pkg({ name: 'app', kind: 'app' }), dir: 'apps/app' },
       '@sheavly/coding': pkg({ name: 'coding', domain: 'coding' }),
       '@sheavly/lint': pkg({ name: 'lint', domain: 'tooling' }),
       '@sheavly/fakes': pkg({ name: 'fakes', testOnly: true }),
@@ -150,7 +155,7 @@ describe('layoutProblems', () => {
       '@sheavly/lint': pkg({ name: 'lint', domain: 'tooling' }),
       '@sheavly/base': pkg({ name: 'base' }),
       '@sheavly/coding': pkg({ name: 'coding', domain: 'coding' }),
-      '@sheavly/cli': { ...pkg({ name: 'cli' }), dir: 'apps/cli', kind: 'app' },
+      '@sheavly/cli': { ...pkg({ name: 'cli', kind: 'app' }), dir: 'apps/cli' },
       '@sheavly/a': pkg({
         name: 'a',
         devDependsOn: ['@sheavly/lint', '@sheavly/base', '@sheavly/coding', '@sheavly/cli'],

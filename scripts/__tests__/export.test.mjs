@@ -8,33 +8,30 @@ const repo = () =>
   createTempRepo({
     'package.json': JSON.stringify({ name: 'monorepo', workspaces: ['packages/*', 'apps/*'] }),
     'packages/kit/package.json': JSON.stringify({ name: '@sheavly/kit' }),
-    'packages/kit/src/tool/tool.utils.ts': 'export const x = 1;\n',
     'apps/cli/package.json': JSON.stringify({ name: '@sheavly/cli' }),
   });
 
 describe('npm run export', () => {
-  it('sets one exports entry through npm, with the source, types and build targets', () => {
-    expect(exportCommand({ root: repo(), specifier: '@sheavly/kit/tool/tool.utils' })).toEqual({
+  it('exports a whole file kind through npm, from source and from the build', () => {
+    expect(exportCommand({ root: repo(), dir: 'packages/kit', kind: 'utils' })).toEqual({
       args: [
         'pkg',
         'set',
-        'exports[./tool/tool.utils][@sheavly/source]=./src/tool/tool.utils.ts',
-        'exports[./tool/tool.utils].types=./dist/tool/tool.utils.d.ts',
-        'exports[./tool/tool.utils].default=./dist/tool/tool.utils.js',
+        'exports[./*.utils][@sheavly/source]=./src/*.utils.ts',
+        'exports[./*.utils][default]=./dist/*.utils.js',
         '-w',
         'packages/kit',
       ],
     });
   });
 
-  it('refuses a file that does not exist, and an app', () => {
+  it('refuses an app, an unknown kind, and tests or fakes', () => {
     const root = repo();
+    const problem = (dir, kind) => exportCommand({ root, dir, kind }).problem;
 
-    expect(exportCommand({ root, specifier: '@sheavly/kit/tool/gone.utils' }).problem).toContain(
-      "doesn't exist",
-    );
-    expect(exportCommand({ root, specifier: '@sheavly/cli/main' }).problem).toContain(
-      'names no package',
-    );
+    expect(problem('apps/cli', 'utils')).toContain('is no package');
+    expect(problem('packages/kit', 'stuff')).toContain('is no kind a package exports');
+    expect(problem('packages/kit', 'test')).toContain('is no kind a package exports');
+    expect(problem('packages/kit', 'fake')).toContain('fakes are exported as ./testing/*');
   });
 });

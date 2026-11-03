@@ -13,13 +13,6 @@
   "sheavly": {
     "domain": "generic"
   },
-  "exports": {
-    "./stream-agent/stream-agent.helper": {
-      "@sheavly/source": "./src/stream-agent/stream-agent.helper.ts",
-      "types": "./dist/stream-agent/stream-agent.helper.d.ts",
-      "default": "./dist/stream-agent/stream-agent.helper.js"
-    }
-  },
   "private": true,
   "dependencies": {
     "@sheavly/core": "^0.0.0",
@@ -30,5 +23,11 @@
     "@sheavly/testing": "^0.0.0",
     "@sheavly/tools": "^0.0.0",
     "zod": "^4.6.7"
+  },
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    }
   }
 }

@@ -10,26 +10,6 @@
   },
   "type": "module",
   "license": "UNLICENSED",
-  "exports": {
-    "./registry/default-registry.helper": {
-      "@sheavly/source": "./src/registry/default-registry.helper.ts",
-      "types": "./dist/registry/default-registry.helper.d.ts",
-      "default": "./dist/registry/default-registry.helper.js"
-    },
-    "./responses/responses.helper": {
-      "@sheavly/source": "./src/responses/responses.helper.ts",
-      "types": "./dist/responses/responses.helper.d.ts",
-      "default": "./dist/responses/responses.helper.js"
-    },
-    "./switch/switch.service": {
-      "@sheavly/source": "./src/switch/switch.service.ts",
-      "types": "./dist/switch/switch.service.d.ts",
-      "default": "./dist/switch/switch.service.js"
-    },
-    "./testing/*": {
-      "@sheavly/source": "./src/testing/*.ts"
-    }
-  },
   "dependencies": {
     "@sheavly/core": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
@@ -41,5 +21,18 @@
   },
   "devDependencies": {
     "@sheavly/testing": "^0.0.0"
+  },
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
+    }
   }
 }

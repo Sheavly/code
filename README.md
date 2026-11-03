@@ -117,7 +117,7 @@ lists them all, and [the graph](docs/overview.md#layers) shows what each may imp
 
 Every workspace holds one folder per module, and every file is `<name>.<kind>.ts`. Packages are
 imported by subpath (`import { defineTool } from '@sheavly/core/tool/tool.utils'`), and only the
-subpaths a package's `exports` lists, its public API.
+file kinds a package's `exports` makes public (`"./*.types"`), its public API.
 
 ## Code quality
 

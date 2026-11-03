@@ -34,7 +34,7 @@ export const importsRule = {
       notInGraph: `{{from}} may not import {{target}}: {{from}}'s package.json doesn't depend on it. {{why}}`,
       testOnly: `{{target}} is for tests and fakes only; source never imports it.`,
       crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), and depend on it in package.json.`,
-      notExported: `{{specifier}} isn't part of {{target}}'s public API: its package.json \`exports\` doesn't list \`./{{subpath}}\`. Import what it exports, or, if this should be public, add it in review: \`npm run export -- {{specifier}}\`.`,
+      notExported: `{{specifier}} isn't part of {{target}}'s public API: its package.json \`exports\` doesn't export that file's kind. Import what it exports, or, if every file of that kind should be public, add the kind in review (\`npm run export -- <dir> <kind>\`).`,
       fakeInSource: `{{specifier}} is a fake ({{target}}'s \`testing/\`): only tests and other fakes import it.`,
       composesRun: `{{from}} may not include {{target}}'s tool in a run: which tools a run gets is the UI's choice. Export what the tool needs (its services, its options) and let the app add it.`,
     },
@@ -108,7 +108,7 @@ export const importsRule = {
 
       if (!subpath || layout[target].kind !== 'package') return;
 
-      if (!isExported({ exports: layout[target].exports ?? [], subpath })) {
+      if (!isExported({ exports: layout[target].exports, subpath })) {
         context.report({ node, messageId: 'notExported', data: { specifier, target, subpath } });
       } else if (subpath.startsWith('testing/') && !isTestCode) {
         context.report({ node, messageId: 'fakeInSource', data: { specifier, target } });

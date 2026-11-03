@@ -13,28 +13,6 @@
   "sheavly": {
     "domain": "generic"
   },
-  "exports": {
-    "./sub-agent/message-agent.tool": {
-      "@sheavly/source": "./src/sub-agent/message-agent.tool.ts",
-      "types": "./dist/sub-agent/message-agent.tool.d.ts",
-      "default": "./dist/sub-agent/message-agent.tool.js"
-    },
-    "./sub-agent/sub-agent.tool": {
-      "@sheavly/source": "./src/sub-agent/sub-agent.tool.ts",
-      "types": "./dist/sub-agent/sub-agent.tool.d.ts",
-      "default": "./dist/sub-agent/sub-agent.tool.js"
-    },
-    "./tasks/tasks.tool": {
-      "@sheavly/source": "./src/tasks/tasks.tool.ts",
-      "types": "./dist/tasks/tasks.tool.d.ts",
-      "default": "./dist/tasks/tasks.tool.js"
-    },
-    "./sub-agent/report-status.tool": {
-      "@sheavly/source": "./src/sub-agent/report-status.tool.ts",
-      "types": "./dist/sub-agent/report-status.tool.d.ts",
-      "default": "./dist/sub-agent/report-status.tool.js"
-    }
-  },
   "private": true,
   "dependencies": {
     "@sheavly/core": "^0.0.0",
@@ -44,5 +22,11 @@
   },
   "devDependencies": {
     "@sheavly/testing": "^0.0.0"
+  },
+  "exports": {
+    "./*.tool": {
+      "@sheavly/source": "./src/*.tool.ts",
+      "default": "./dist/*.tool.js"
+    }
   }
 }

@@ -37,11 +37,12 @@ settings. The imports themselves are `harness/imports`.
 
 ## Public API
 
-A package's `exports` is its public API: one entry per module other workspaces may import, each
-with its source, types and build targets, never a wildcard over `src/` (its fakes, `./testing/*`,
-from source only, for tests). `harness/imports` fails an import of anything not listed, and the
-layout check fails a wildcard, a misshapen entry, one naming no file, and `exports` on an app.
-`npm run export -- @sheavly/<pkg>/<module>/<file>` adds an entry, in review.
+A package's `exports` is its public API, by file kind: `"./*.types": { "@sheavly/source":
+"./src/*.types.ts", "default": "./dist/*.types.js" }` makes every `*.types.ts` public, so a new
+module needs no entry. Its fakes are `./testing/*`, from source only. `harness/imports` fails an
+import of a kind not exported, and `harness/layout` (in lint and the layout check) fails an entry
+for one file, a kind that doesn't exist, other targets, fakes exported as a kind, and `exports` on
+an app. `npm run export -- packages/<pkg> <kind>` makes a kind public, in review.
 
 ## What a run includes is the UI's choice
 

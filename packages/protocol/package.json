@@ -12,52 +12,20 @@
   "type": "module",
   "private": true,
   "license": "UNLICENSED",
-  "exports": {
-    "./approval/approval.types": {
-      "@sheavly/source": "./src/approval/approval.types.ts",
-      "types": "./dist/approval/approval.types.d.ts",
-      "default": "./dist/approval/approval.types.js"
-    },
-    "./approval/approval.validator": {
-      "@sheavly/source": "./src/approval/approval.validator.ts",
-      "types": "./dist/approval/approval.validator.d.ts",
-      "default": "./dist/approval/approval.validator.js"
-    },
-    "./event/event.types": {
-      "@sheavly/source": "./src/event/event.types.ts",
-      "types": "./dist/event/event.types.d.ts",
-      "default": "./dist/event/event.types.js"
-    },
-    "./event/event.validator": {
-      "@sheavly/source": "./src/event/event.validator.ts",
-      "types": "./dist/event/event.validator.d.ts",
-      "default": "./dist/event/event.validator.js"
-    },
-    "./message/message.types": {
-      "@sheavly/source": "./src/message/message.types.ts",
-      "types": "./dist/message/message.types.d.ts",
-      "default": "./dist/message/message.types.js"
-    },
-    "./session/session.types": {
-      "@sheavly/source": "./src/session/session.types.ts",
-      "types": "./dist/session/session.types.d.ts",
-      "default": "./dist/session/session.types.js"
-    },
-    "./session/session.validator": {
-      "@sheavly/source": "./src/session/session.validator.ts",
-      "types": "./dist/session/session.validator.d.ts",
-      "default": "./dist/session/session.validator.js"
-    },
-    "./task/task.types": {
-      "@sheavly/source": "./src/task/task.types.ts",
-      "types": "./dist/task/task.types.d.ts",
-      "default": "./dist/task/task.types.js"
-    }
-  },
   "dependencies": {
     "zod": "^4.6.7"
   },
   "sheavly": {
     "domain": "generic"
+  },
+  "exports": {
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.validator": {
+      "@sheavly/source": "./src/*.validator.ts",
+      "default": "./dist/*.validator.js"
+    }
   }
 }

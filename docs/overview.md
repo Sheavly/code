@@ -137,21 +137,21 @@ Workspaces (`packages/*`, `apps/*`) are **built**: each compiles its own `dist/`
 source maps) with `tsc -b`, and `npm run build` runs each workspace's build through turbo after
 the ones it imports (`@sheavly/protocol`, then `@sheavly/core`, … then the apps).
 
-A package's `exports` is its public API: one entry per module other workspaces may import, each
-with its source, types and build targets, and never a wildcard over `src/` (its fakes,
-`./testing/*`, from source only, for tests):
+A package's `exports` is its public API, declared by file kind: one entry per kind it makes
+public, so every `<module>.<kind>.ts` of that kind is importable and a new module needs no entry.
+Its fakes are `./testing/*`, from source only, for tests. TypeScript finds each `.d.ts` beside its
+`.js`, so no `types` target is needed:
 
 ```json
-"./tool/tool.utils": {
-  "@sheavly/source": "./src/tool/tool.utils.ts",
-  "types": "./dist/tool/tool.utils.d.ts",
-  "default": "./dist/tool/tool.utils.js"
+"exports": {
+  "./*.types": { "@sheavly/source": "./src/*.types.ts", "default": "./dist/*.types.js" },
+  "./*.validator": { "@sheavly/source": "./src/*.validator.ts", "default": "./dist/*.validator.js" }
 }
 ```
 
-Anything not listed is internal: `harness/imports` fails an import of it, and the layout check fails
-a wildcard, a misshapen entry or one naming no file. `npm run export -- @sheavly/<pkg>/<module>/<file>`
-adds an entry, in review; an app exports nothing.
+Any other kind is internal: `harness/imports` fails an import of it, and `harness/layout` fails
+an entry for one file, a kind that doesn't exist or other targets. `npm run export -- packages/<pkg> <kind>`
+makes a kind public, in review; an app exports nothing.
 
 | Where it runs            | Reads                                      | How                                                                                   |
 | ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------- |

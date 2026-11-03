@@ -11,13 +11,9 @@ const ESLINT =
   "import { baseConfig } from '@sheavly/eslint-config';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n";
 const json = (value) => JSON.stringify(value);
 
-/** The `exports` entry for one module, as the layout check expects it. */
-const exported = (file) => ({
-  [`./${file}`]: {
-    '@sheavly/source': `./src/${file}.ts`,
-    types: `./dist/${file}.d.ts`,
-    default: `./dist/${file}.js`,
-  },
+/** The `exports` entry that makes every file of `kind` public, as the layout expects it. */
+const exported = (kind) => ({
+  [`./*.${kind}`]: { '@sheavly/source': `./src/*.${kind}.ts`, default: `./dist/*.${kind}.js` },
 });
 
 /** A workspace that passes every check: `@sheavly/<folder>` with a domain and its config files. */
@@ -26,7 +22,7 @@ function wellFormed(folder, manifest = {}) {
     [`packages/${folder}/package.json`]: json({
       name: `@sheavly/${folder}`,
       sheavly: { domain: 'generic' },
-      exports: exported(`${folder}/${folder}.utils`),
+      exports: exported('utils'),
       ...manifest,
     }),
     [`packages/${folder}/eslint.config.js`]: ESLINT,
@@ -71,7 +67,7 @@ describe('the layout check', () => {
         ...wellFormed('stray'),
         'packages/stray/package.json': json({
           name: '@sheavly/stray',
-          exports: exported('stray/stray.utils'),
+          exports: exported('utils'),
         }),
       }),
     ).toEqual([
@@ -98,7 +94,7 @@ describe('the layout check', () => {
         'packages/base/package.json': json({
           name: '@sheavly/other',
           sheavly: { domain: 'generic' },
-          exports: exported('base/base.utils'),
+          exports: exported('utils'),
         }),
       }),
     ).toEqual([expect.stringContaining('@sheavly/other must be named @sheavly/base')]);
@@ -131,7 +127,7 @@ describe('the layout check', () => {
       'packages/top/package.json': json({
         name: '@sheavly/top',
         sheavly: { domain: 'generic' },
-        exports: exported('top/top.utils'),
+        exports: exported('utils'),
         ...manifest,
       }),
     });
@@ -159,38 +155,34 @@ describe('the layout check', () => {
     ).toEqual([expect.stringContaining('@sheavly/cli as a dev dependency, an app')]);
   });
 
-  it('fails a package whose exports is a wildcard, missing, misshapen or names no file', () => {
-    const base = (exports) => wellFormed('base', exports === undefined ? {} : { exports });
-    const with_ = (exports) => {
-      const files = base(exports);
-
-      if (exports === undefined) {
-        files['packages/base/package.json'] = json({
+  it('fails a package that exports file by file, by an unknown kind, or with other targets', () => {
+    const exportsOf = (exports) =>
+      problems({
+        'packages/base/package.json': json({
           name: '@sheavly/base',
           sheavly: { domain: 'generic' },
-        });
-      }
+          ...(exports !== undefined && { exports }),
+        }),
+      });
 
-      return problems(files);
-    };
-
-    expect(
-      with_({
-        './*': { '@sheavly/source': './src/*.ts', types: './dist/*.d.ts', default: './dist/*.js' },
-      }),
-    ).toEqual([expect.stringContaining('./*, a wildcard: every file would be public')]);
-    expect(with_(undefined)).toEqual([
+    expect(exportsOf({ './base/base.utils': { default: './dist/base/base.utils.js' } })).toEqual([
+      expect.stringContaining('exports ./base/base.utils: a package exports by file kind'),
+    ]);
+    expect(exportsOf({ './*': { '@sheavly/source': './src/*.ts' } })).toEqual([
+      expect.stringContaining('a package exports by file kind'),
+    ]);
+    expect(exportsOf(undefined)).toEqual([
       expect.stringContaining('has no exports, so every file is public'),
     ]);
-    expect(with_({ './base/base.utils': { default: './dist/base/base.utils.js' } })).toEqual([
-      expect.stringContaining('./base/base.utils must be'),
+    expect(exportsOf({ './*.utils': { default: './dist/*.utils.js' } })).toEqual([
+      expect.stringContaining('exports ./*.utils with other targets'),
     ]);
-    expect(with_(exported('base/gone.utils'))).toEqual([
-      expect.stringContaining("./src/base/gone.utils.ts doesn't exist"),
+    expect(exportsOf({ ...exported('utils'), './testing/*': { default: './dist/x.js' } })).toEqual([
+      expect.stringContaining('but not from source only'),
     ]);
-    expect(
-      with_({ ...exported('base/base.utils'), './testing/*': { default: './dist/x.js' } }),
-    ).toEqual([expect.stringContaining('./testing/* must point at its source only')]);
+    expect(exportsOf({ ...exported('utils'), ...exported('fake') })).toEqual([
+      expect.stringContaining('exports its fakes as a kind'),
+    ]);
   });
 
   it('fails a build config that references other workspaces than the ones depended on', () => {
