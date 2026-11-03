@@ -8,7 +8,7 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 ## Layers (imports only point down)
 
 ```
-@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
+@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  workspace  ←  coding  ←  terminal-ui  ←  apps
 ```
 
 | Layer                  | Holds                                                                                                      | May import                                 |
@@ -25,28 +25,28 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 | `packages/terminal-ui` | `@sheavly/terminal-ui` (coding): the `Renderer` the terminal front ends print a run with                   | protocol, core, runtime, workspace, coding |
 | `apps/*`               | The front ends: `apps/terminal` (the demo), `apps/workbook`; `apps/vscode` is a README until it is built   | any package, never an app                  |
 
-ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only this app's `src/` layers (until #29 splits it) and `NOT_SOURCE` are written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain, or a `src/` folder that isn't a layer, fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
+ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only `NOT_SOURCE` is written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
 ## Where code goes
 
-Decide where something lives before writing it. The first question: **would a non-coding LLM project (a text extractor, a chat wrapper) need this?** Yes: it is generic, and goes where it knows nothing about files, workspaces or code. No: it is coding, and only the coding preset reaches it. Then pick the row. Until #29 finishes splitting the app, some homes are still `src/` folders; the last column is the package each one becomes.
+Decide where something lives before writing it. The first question: **would a non-coding LLM project (a text extractor, a chat wrapper) need this?** Yes: it is generic, and goes where it knows nothing about files, workspaces or code. No: it is coding, and only the coding preset reaches it. Then pick the row.
 
-| You are adding…                                                                 | It goes in                                                                                                   | Once #29 lands      |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------- |
-| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`                                                     | (already a package) |
-| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then `@sheavly/loop`                                           | (already packages)  |
-| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                                                              | (already a package) |
-| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                                                            | (already a package) |
-| A stateful service the host creates (tasks, sessions, approvals)                | `@sheavly/runtime`                                                                                           | (already a package) |
-| A generic tool (no files, no commands)                                          | `@sheavly/tools`                                                                                             | (already a package) |
-| A change to how a run goes: turns, tool calls, hooks, the event stream          | `@sheavly/loop`                                                                                              | (already a package) |
-| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `@sheavly/workspace`, reached only from the coding preset                                                    | (already a package) |
-| A coding tool (files, commands) or a change to the coding preset                | `@sheavly/coding`                                                                                            | (already a package) |
-| Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                                                              | (already a package) |
-| A fake for tests                                                                | `@sheavly/testing`, or the `src/testing/` of the package it fakes                                            | (already a package) |
-| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                                                                     | (already a package) |
-| How a run looks in a terminal (the `Renderer`)                                  | `@sheavly/terminal-ui`                                                                                       | (already a package) |
-| A UI: something that reads the terminal, prints, or reads env                   | an app: `@sheavly/terminal` (the demo), `@sheavly/workbook`, or a new `apps/<name>` (`npm run new -- app …`) | `apps/<name>`       |
+| You are adding…                                                                 | It goes in                                                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`                                                     |
+| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then `@sheavly/loop`                                           |
+| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                                                              |
+| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                                                            |
+| A stateful service the host creates (tasks, sessions, approvals)                | `@sheavly/runtime`                                                                                           |
+| A generic tool (no files, no commands)                                          | `@sheavly/tools`                                                                                             |
+| A change to how a run goes: turns, tool calls, hooks, the event stream          | `@sheavly/loop`                                                                                              |
+| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `@sheavly/workspace`, reached only from the coding preset                                                    |
+| A coding tool (files, commands) or a change to the coding preset                | `@sheavly/coding`                                                                                            |
+| Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                                                              |
+| A fake for tests                                                                | `@sheavly/testing`, or the `src/testing/` of the package it fakes                                            |
+| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                                                                     |
+| How a run looks in a terminal (the `Renderer`)                                  | `@sheavly/terminal-ui`                                                                                       |
+| A UI: something that reads the terminal, prints, or reads env                   | an app: `@sheavly/terminal` (the demo), `@sheavly/workbook`, or a new `apps/<name>` (`npm run new -- app …`) |
 
 **A new package, instead of a folder in an existing one**, when all of these hold: it has its own reason to change (not just more of what a package already does); something that shouldn't get the rest of an existing package needs it (a generic consumer, or a UI that needs only the wire contract); and its dependencies point down the graph. Otherwise it is a module folder in the package that owns the concern. Create a package or app with `npm run new` (see Packages), never by hand.
 
@@ -67,18 +67,18 @@ Decide where something lives before writing it. The first question: **would a no
 
 Design docs live in `docs/` (overview, tools, hooks, sessions). When a feature lands, update its doc in the same change. The stop hook nudges you once when source files changed but the doc describing them didn't (`DOC_SOURCES` in `.cursor/hooks/docs.utils.mjs`); update the doc if what it says changed, otherwise just finish.
 
-npm workspaces in `packages/`, imported by subpath (`import { defineTool } from '@sheavly/core/tool/tool.utils'`). Each is built to its own `dist/` for plain Node (`npm run build`, `tsc -b` in dependency order); dev, tests and typecheck read its source through the `@sheavly/source` export condition, so nothing is built before `vitest` (`docs/overview.md`, "Packages").
+npm workspaces in `packages/` (libraries) and `apps/` (front ends nothing imports), imported by subpath (`import { defineTool } from '@sheavly/core/tool/tool.utils'`). Each is built to its own `dist/` for plain Node (`npm run build`: each workspace's `tsc -b`, in dependency order through turbo); dev, tests and typecheck read its source through the `@sheavly/source` export condition, so nothing is built before `vitest` (`docs/overview.md`, "Packages").
 
 - `packages/protocol`: the wire contract, everything sent to or accepted from a UI (`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them). Each is a zod schema in a `<module>.validator.ts`, its type `z.infer` of it in `<module>.types.ts`; never write a wire type by hand. It imports zod only (its `eslint.config.js` and `rootDir`). After changing a schema, run `npm run schema -w @sheavly/protocol`: a test fails while `contract.schema.json` is out of date. What a provider streams and the code contracts (`Tool`, `Hook`, `Adapter`) stay in core.
-- `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new code contract shared by tools and providers goes here; one a UI sees goes in protocol.
-- `packages/providers`: the model backends (`@sheavly/providers`), imported only by `@sheavly/host` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
+- `packages/core`: what tools and providers are written against. A new code contract shared by tools and providers goes here; one a UI sees goes in protocol.
+- `packages/providers`: the model backends (`@sheavly/providers`), imported only by `@sheavly/host`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in host (`packages/host/src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
-- **Enforce what you add.** When you introduce a package, a convention or a pattern the harness doesn't check yet, add the check in the same change (a `harness/*` rule here, a layer in `layout.js`, a `file-kinds.js` policy, a test), never a gap or a doc-only note; derive it from the code (workspaces, file names, exports) rather than a hand-kept list, so it grows by itself, and make its message say what to do instead. `harness/single-definition` is the model: every `*.types.ts` in the app and the packages owns the types it exports, read from disk, so a copy anywhere else (another folder, package or file, exported, local or re-exported) fails with where the original lives; exemptions go by file role (tests, fakes), never by name.
-- A new package or app: `npm run new -- package|app <name> --domain <generic|coding|tooling> --description "…" [--depends-on core,protocol]`. It refuses a dependency the graph doesn't allow, creates the workspace through npm (never a hand-written `package.json`) with its configs, README and a first test, and prints the `npm install` to run with each dependency's first import. It passes `npm run check` as it is. Reference a package you build for plain Node from the root `tsconfig.build.json` (or from a package that depends on it).
+- **Enforce what you add.** When you introduce a package, a convention or a pattern the harness doesn't check yet, add the check in the same change (a `harness/*` rule here, a `file-kinds.js` policy, a layout check, a test), never a gap or a doc-only note; derive it from the code (workspaces, file names, exports) rather than a hand-kept list, so it grows by itself, and make its message say what to do instead. `harness/single-definition` is the model: every `*.types.ts` in the workspaces owns the types it exports, read from disk, so a copy anywhere else (another folder, package or file, exported, local or re-exported) fails with where the original lives; exemptions go by file role (tests, fakes), never by name.
+- A new package or app: `npm run new -- package|app <name> --domain <generic|coding|tooling> --description "…" [--depends-on core,protocol]`. It refuses a dependency the graph doesn't allow, creates the workspace through npm (never a hand-written `package.json`) with its configs, README and a first test, and prints the `npm install` to run with each dependency's first import. It passes `npm run check` as it is. `npm run build` builds every workspace through turbo, each after the ones it imports.
 
 ## File structure
 
-Each layer holds one folder per module; everything about a module lives in it. Every file is `<name>.<kind>.ts` in kebab-case (`harness/file-kind`):
+Each workspace holds one folder per module; everything about a module lives in it. Every file is `<name>.<kind>.ts` in kebab-case (`harness/file-kind`):
 
 ```
 packages/coding/src/run-command/
@@ -98,9 +98,9 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - A code file never exports a type or a literal constant: move it to the module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` without a class, a `*.helper.ts` with one, and an exported zod schema outside a `*.validator.ts` fail too (`harness/kind-contents`). Unexported local ones may stay.
 - `*.types.ts` imports only with `import type`; derive schema types there with `z.infer<typeof xSchema>`.
 - Module-level functions with more than one input (outside tests) take one destructured `params` object: `function f(params: { a: A; b: B }) { const { a, b } = params; }`.
-- `type`, never `interface`. Named exports only. No re-exports (barrels) except `src/index.ts`, the package entry. Name caught errors `caughtError`.
+- `type`, never `interface`. Named exports only. No re-exports (barrels): import from the defining file. Name caught errors `caughtError`.
 - No deprecated APIs (`@typescript-eslint/no-deprecated`, in `.ts` and `.js`/`.mjs` alike): use the replacement the error names, never a workaround that hides the `@deprecated` tag.
-- Import from the defining file (`../files/files.utils.js`) or a package subpath (`@sheavly/runtime/tasks/tasks.service`), never from `src/index.ts`.
+- Import from the defining file (`../files/files.utils.js`) or a package subpath (`@sheavly/runtime/tasks/tasks.service`).
 - When a file hits its kind's line limit, split it by responsibility into another `<name>.<kind>.ts` in the same folder (as `stream-agent/` does with `turn.helper.ts` and `sample.helper.ts`).
 
 ## Adding things
@@ -111,7 +111,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
 - `execute({ input, signal, context })` returns a string, or `{ content, artifacts }` to give a UI data the model never sees (tagged with a `kind` the tool owns, e.g. the file tools' `FileChange`: emitted on `tool_result`, never put in history; see `docs/tools.md`, "Artifacts"). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
 - All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `@sheavly/coding/files/files.helper`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`@sheavly/workspace/process/process.service`) and the allow list.
-- Wire it into the coding preset (`@sheavly/coding/preset/coding.helper`) if every coding run gets it, or pass it in from the app that needs it, and export it from `src/index.ts`.
+- Wire it into the coding preset (`@sheavly/coding/preset/coding.helper`) if every coding run gets it, or pass it in from the app that needs it.
 
 **A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`@sheavly/tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`@sheavly/runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
 
@@ -128,7 +128,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - All external input is validated with zod (tool inputs, adapter config, env).
 - Interrupts must leave history valid: every tool call gets a result message, even a placeholder.
 - Keep files within their kind's line limit (`file-kinds.js`; `utils` has none, since pure helpers grow with their subject) and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
-- No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in `eslint.config.js`, with a reason.
+- No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in the workspace's `eslint.config.js`, with a reason.
 - Fakes live in `@sheavly/testing`, by what they fake: `provider/` (`scriptedProvider`, `callOnceProvider`, `routedProvider`), `fetch/` (`fakeFetch`, `collect`, `requestSentBy`), `tool/` (`toolRunner`) and `wait/` (`until`). It is test-only (`sheavly.testOnly`): a dev dependency, imported only from tests and fakes (`harness/imports`), and lint treats all its source as test code. A package's own fakes stay in its `src/testing/`: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`), `@sheavly/workspace/testing/` (`useTempWorkspace`, `useFileLocks`), `packages/providers/src/testing/`; core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. No mock data in dev or prod code.
 - Never edit `package.json` by hand: use `npm install -D <pkg>` / `npm pkg set`.
 - Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
@@ -151,7 +151,7 @@ npm run lint:fix   # ESLint auto-fixes, then Prettier (in that order)
 npm run format     # Prettier only
 ```
 
-Every workspace has its own `typecheck`, `lint` and `test` scripts that check only its files; a new package needs all three. Results are cached in `.turbo/cache` by their inputs; while the app is the root package, a change in core or providers reruns everything (#29).
+Every workspace has its own `typecheck`, `lint` and `test` scripts that check only its files; a new package needs all three. Results are cached in `.turbo/cache` by their inputs, so a change reruns only its workspace and the ones that import it.
 
 knip (unused files, exports, types, dependencies; `knip.json`) and jscpd (copied code; `.jscpd.json`) fail only on findings not in `knip-baseline.json` / `.jscpd-baseline.json`. Remove dead code; reuse or extract duplicated code. Never hand-edit the baselines or add `jscpd:ignore` comments; after fixing baselined debt run `npm run knip:baseline` / `npm run jscpd:baseline` (prune-only: they never add entries). After deleting dead code, re-run `npm run knip`: removing one export often leaves what it used unused. `npx knip --fix --fix-type exports,types` is allowed; never the `dependencies`/`files` fix types. Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
 

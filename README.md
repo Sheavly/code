@@ -102,7 +102,8 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
 Every adapter is created from the registry with a config object that is checked by zod:
 
 ```ts
-import { createDefaultRegistry, ProviderSwitch } from './src/index.js';
+import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
+import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 
 const registry = createDefaultRegistry();
 
@@ -183,21 +184,36 @@ Adapters have no default model: the caller picks it (the hosts' default is `DEFA
 
 ## Project layout
 
-Every layer holds one folder per module, and every file is `<name>.<kind>.ts`. Imports only point
-"down" the layers (`harness/imports`: the workspace graph from each `package.json`, and this app's `src/` layers from `packages/eslint-config/src/layout.js`). Code shared beyond the app lives in workspace
-packages (npm workspaces):
+The harness is npm workspaces: libraries in `packages/`, front ends in `apps/`. Imports only point
+down (`harness/imports`, read from each workspace's `package.json`):
+
+```
+@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  workspace  ←  coding  ←  terminal-ui  ←  apps
+```
 
 ```
 packages/
-  core/            @sheavly/core: contracts (Message, ToolCall, Provider, ...), the tool
-                   definition (defineTool, runTool) and the adapter definition (defineAdapter).
-                   What tools and providers are written against.
+  protocol/        @sheavly/protocol: the wire contract a UI talks to (events, updates, answers), as zod schemas
+  core/            @sheavly/core: contracts (Message, Provider, Tool, Hook), defineTool, runTool, defineAdapter
   providers/       @sheavly/providers: model backends. responses/ (the Responses protocol),
                    openai/ and azure/ (backends on it), registry/, switch/
+  runtime/         @sheavly/runtime: sessions, background tasks, approvals
+  tools/           @sheavly/tools: the generic tools (sub-agents, task status)
+  loop/            @sheavly/loop: streamAgent / runAgent, events, queue, abort, hooks
+  host/            @sheavly/host: createHarness (generic) and the model from env; no UI
+  workspace/       @sheavly/workspace (coding): path confinement, processes, trust, file locks,
+                   .sheavly/ hooks, AGENTS.md
+  coding/          @sheavly/coding (coding): the file tools, run_command, createCodingHarness
+  terminal-ui/     @sheavly/terminal-ui (coding): the Renderer the terminal front ends print with
+  testing/         @sheavly/testing: test-only fakes (scripted providers, fake fetch)
   eslint-config/   @sheavly/eslint-config: the shared ESLint config and harness/* rules
+apps/
+  terminal/        @sheavly/terminal: the demo (npm run demo)
+  workbook/        @sheavly/workbook: stored prompts and saved runs (npm run workbook)
+  vscode/          the VS Code extension, a README until it is built
 ```
 
-`core` follows the app's layout, one folder per module:
+Every workspace holds one folder per module, and every file is `<name>.<kind>.ts`:
 
 ```
 packages/core/src/
@@ -208,39 +224,12 @@ packages/core/src/
   hook/            Hook types (sessionStart, beforeTurn, aroundToolCall, afterTurn, onError), defineHook
 ```
 
-Packages are built: each has a `dist/` for plain Node, and `npm run build` compiles them in
-dependency order before the app. Dev, tests and typecheck read their source instead, through the
+Workspaces are built: each has a `dist/` for plain Node, and `npm run build` compiles them in
+dependency order through turbo. Dev, tests and typecheck read their source instead, through the
 `@sheavly/source` export condition, so nothing is built first (see
 [docs/overview.md](docs/overview.md#packages)). They're imported by subpath:
-`import { defineTool } from '@sheavly/core/tool/tool.utils'`. A package can
-only import what its own `package.json` depends on; `core` can't reach into the app (its `rootDir`
-makes that a type error).
-
-The app's layers:
-
-```
-@sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  demo.ts (host)
-```
-
-```
-src/
-  runtime/                      services and helpers; no loop, tools or providers
-    workspace/                  path confinement: root and path checks (not an OS sandbox)
-    process/                    ProcessRunner: spawning, process-group kill, secret scrubbing
-    tasks/                      background task registry
-    project-hooks/              loads .sheavly/hooks.json and its hook files
-  tools/                        one folder per tool; no loop or providers
-    read-file/  write-file/  edit-file/  files/ (shared)  run-command/  tasks/
-  loop/                         the agent loop; knows the core contracts only
-    stream-agent/               streamAgent / runAgent, one turn, one model call
-    events/  queue/  abort/  hooks/
-  testing/                      test-only fakes (*.fake.ts)
-  host/                         createHarness (generic) and createCodingHarness (the coding preset); no UI
-  terminal-ui/                  front end: the terminal Renderer (demo, workbook)
-  workbook/                     front end: stored prompts and saved runs
-  demo.ts                       front end: reads env, wires a run, prints events
-  index.ts                      the package entry: the one file that re-exports
-```
+`import { defineTool } from '@sheavly/core/tool/tool.utils'`. A workspace can only import what its
+own `package.json` depends on, and nothing imports an app.
 
 A tool folder, for example, holds everything about that tool:
 
@@ -266,8 +255,7 @@ layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`)
 
 - **Per workspace:** every package has its own `typecheck`, `lint` and `test` scripts, which check
   only its files. Each runs after the same task in the packages it imports (`^typecheck`, …).
-- **The root** (`//#` tasks): `typecheck:root`, `lint:root` and `test:root` check the app (`src/`),
-  `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip` and `jscpd` check the
+- **The root** (`//#` tasks): `lint:root` and `test:root` check `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip` and `jscpd` check the
   whole repo.
 - **Cache:** each result is cached in `.turbo/cache` (per checkout, so worktrees never share one)
   by its inputs, so a second `npm run check` with no changes runs nothing. A change in
@@ -277,10 +265,6 @@ layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`)
   since `main` (committed or not) and those that depend on them, then the repo-wide checks in full.
   CI runs it on PRs and restores `.turbo/cache` from `main`'s last run; the stop hook runs the
   affected typecheck and lint.
-- **Known limit:** the app is the root package and depends on `@sheavly/core` and
-  `@sheavly/providers`, and turbo hashes a root's dependencies into every task. So a change in
-  either package reruns every task, and one in a root file marks every workspace affected, until
-  #29 moves the app into its own workspace.
 
 ```bash
 npx turbo run test --filter=@sheavly/providers   # one workspace's task (and what it imports)
@@ -313,14 +297,13 @@ installed earlier, nothing would import it and knip would fail. The new workspac
 `npm run check` as it is.
 
 The layout is read from the workspaces, never listed by hand: which workspaces exist from the
-root `package.json` `workspaces`, package or app from the folder (`packages/*`, `apps/*`, the root
-app being split), the graph from each workspace's own `dependencies` (`devDependencies` for its
+root `package.json` `workspaces`, package or app from the folder (`packages/*`, `apps/*`), the graph from each workspace's own `dependencies` (`devDependencies` for its
 tests), and its domain from its `sheavly` field (`npm pkg set sheavly.domain=<generic|coding|tooling>`).
-Only two parts are written in `packages/eslint-config/src/layout.js`, on purpose: the root app's
-`src/` layers (a policy, until #29) and `NOT_SOURCE` (reviewed exceptions).
+Only `NOT_SOURCE` (reviewed exceptions) is written in `packages/eslint-config/src/layout.js`, on
+purpose.
 
 `scripts/check-layout.mjs` holds the workspaces to it: each has a domain, is named
-`@sheavly/<folder>` (the root app keeps its name until #29), depends on no app, a generic one on
+`@sheavly/<folder>`, depends on no app, a generic one on
 no coding one (its tests neither), and on tooling or test-only ones only as dev dependencies
 (tests may use any workspace below, to drive the real code with); each has an
 `eslint.config.js` calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
@@ -332,8 +315,7 @@ settings. The imports themselves are `harness/imports`.
 
 - **knip** (`knip.json`) finds unused files, exports, types and dependencies across every
   workspace. Packages are checked at their boundary too (`includeEntryExports`), so a
-  `@sheavly/core` export nothing uses fails; the app's `src/index.ts` is the public API and is
-  exempt. `npm run knip`.
+  `@sheavly/core` export nothing uses fails. `npm run knip`.
 - **jscpd** (`.jscpd.json`) finds copied code (50+ tokens over 5+ lines) in `.ts` and `.js`/`.mjs`.
   `npm run jscpd` goes through `scripts/jscpd-runner.mjs`, which fails when `.jscpd.json` is
   missing or unreadable instead of letting jscpd silently scan with its defaults.
@@ -360,7 +342,7 @@ the rules in `rules/` (registered in `plugin.js`, tested in `__tests__/`), and t
 workspace uses in `base.js`. Each workspace's `eslint.config.js` is
 `baseConfig({ tsconfigRootDir: import.meta.dirname })` plus its own boundaries; `npm run lint` at the
 root lints every workspace with its own config. Each convention is its own rule ID, so an override
-switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
+switches off exactly one, on the files it is for, with a reason.
 
 | Kind        | Holds                                                    | May export                   | Max lines |
 | ----------- | -------------------------------------------------------- | ---------------------------- | --------- |
@@ -387,8 +369,8 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   from the workspaces (a domain, named after its folder, no app or coding-from-generic edge), and
   imports follow the graph: another workspace only if `package.json` depends on it (dev
   dependencies for tests), test-only workspaces only from tests and fakes, no relative import
-  across workspace roots, and this app's `src/` layers until #29.
-- `harness/single-definition`: each `*.types.ts` (in the app's `src/` and every package's `src/`,
+  across workspace roots.
+- `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or
   re-exported from a file that isn't its owner (`export type { X } from`, `export type * from`),
@@ -399,14 +381,13 @@ switches off exactly one (e.g. `harness/no-barrel` is off for `src/index.ts`).
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
 - **`type`, not `interface`**; **named exports only** (`harness/no-default-export`); **no barrels** (`harness/no-barrel`,
-  re-exports only in `src/index.ts`); env only in hosts (`harness/no-process-env`); caught errors are named `caughtError`.
+  import from the defining file); env only in apps and the hosts' `*FromEnv` helpers (`harness/no-process-env`); caught errors are named `caughtError`.
 - **Fail loudly** (`harness/no-silent-catch`, every workspace plus `.cursor/hooks/` and `scripts/`):
   a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
   handle only what it expects, or pass it on as `cause`. Turning every error into a default
   (`[]`, `undefined`, a fresh error without the cause) fails.
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
-  a class from its area's errors (each package's `src/errors/`, the app's `src/runtime/errors/`,
-  `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
+  a class from its area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [docs/overview.md](docs/overview.md#errors).
 
 ### ESLint

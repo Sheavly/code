@@ -87,7 +87,6 @@ Grouped by the complaint each item answers. Open work is in
 - UI-ready events and one ordered stream of every session (#21, #22, #23), served over SSE (#24)
 - The host protocol written down as a versioned spec (#56)
 - An Agent Client Protocol host, so existing editors can drive the harness (#57)
-- Separate apps for the backend and the front ends (#29)
 
 **Pricing**
 
