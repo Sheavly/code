@@ -4,7 +4,8 @@
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
 // events, no UI unless the issue asks; the first edit also injects "Where code goes" (both from
 // the project skill, architecture.utils.mjs). The first edit of a file a skill governs names that
-// skill (skills.utils.mjs), and source outside every workspace's src/ is reported
+// skill (skills.utils.mjs), the first edit inside a workspace shows its README
+// (workspace-readme.utils.mjs), and source outside every workspace's src/ is reported
 // (layout.utils.mjs). Every edit or deletion of project source is recorded in the chat's state, so
 // the stop hook checks only chats that changed this checkout. Advisory: it never blocks the edit.
 // The stop hook (check-on-stop.mjs) enforces.
@@ -25,6 +26,7 @@ import {
 } from './hooks.utils.mjs';
 import { hintGoverningSkills } from './skills.utils.mjs';
 import { strayEditNote } from './layout.utils.mjs';
+import { hintWorkspaceReadme } from './workspace-readme.utils.mjs';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -109,6 +111,10 @@ advise(() => {
 
 // The skill that governs this file (its `harness.json` `governs` globs), named once per chat.
 advise(() => hintGoverningSkills({ conversationId, relative }));
+
+// The workspace's README, on the chat's first edit inside it: what it is for and its public API,
+// before more code lands there.
+advise(() => hintWorkspaceReadme({ conversationId, relative }));
 
 respond(notes.length > 0 ? { additional_context: notes.join('\n\n') } : {});
 

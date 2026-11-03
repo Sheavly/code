@@ -11,23 +11,26 @@ import { findRoot } from '../../packages/eslint-config/src/rules/workspace-types
 import { ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
+/**
+ * The workspaces at `root`, for a hook's note. A malformed or half-written package.json, or a
+ * missing workspaces folder, is a `ProjectReadError` naming them, so the note never takes the
+ * hook's other notes down with it.
+ */
+export function readWorkspaces(root) {
+  try {
+    return listWorkspaces(root);
+  } catch (caughtError) {
+    if (!(caughtError instanceof SyntaxError) && !caughtError?.code) throw caughtError;
+    throw new ProjectReadError({ file: 'the workspace package.json files', cause: caughtError });
+  }
+}
+
 /** A note for an edit of `relative` (`/`-separated, from the root) when it is stray source. */
 export function strayEditNote(relative, root = PROJECT_ROOT) {
   // Outside a workspace repo (a throwaway test project) there is no layout to hold it to.
   if (findRoot(root) !== root) return null;
 
-  let workspaces;
-
-  try {
-    workspaces = listWorkspaces(root);
-  } catch (caughtError) {
-    // A malformed or half-written package.json, or a missing workspaces folder: say which, so
-    // the note never takes the hook's other notes down with it.
-    if (!(caughtError instanceof SyntaxError) && !caughtError?.code) throw caughtError;
-    throw new ProjectReadError({ file: 'the workspace package.json files', cause: caughtError });
-  }
-
-  return isStraySource({ workspaces, file: relative })
+  return isStraySource({ workspaces: readWorkspaces(root), file: relative })
     ? `Layout: ${relative} is outside every workspace: ${STRAY_SOURCE}`
     : null;
 }
