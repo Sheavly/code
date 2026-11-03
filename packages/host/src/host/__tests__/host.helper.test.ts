@@ -8,6 +8,7 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import {
   calls,
   routedProvider,
@@ -33,7 +34,7 @@ const provider = () =>
   });
 
 // A run with no workspace must not look at the directory it runs in: this one has an AGENTS.md
-// and `.sheavly/` hooks a coding harness would load.
+// and `.sheavly/` hooks a coding UI could load.
 let project: string;
 let cwd: string;
 
@@ -51,47 +52,21 @@ afterEach(async () => {
   await rm(project, { recursive: true, force: true });
 });
 
-describe('createHarness without a workspace', () => {
-  it('runs a scripted provider with a custom tool, and reads no AGENTS.md or .sheavly/', async () => {
-    const requests: ProviderRequest[] = [];
-    const harness = createHarness({
-      provider: provider(),
-      title: 'parse it',
-      tools: [extract],
-      onModelCall: (request) => requests.push(request),
-    });
+describe('createHarness', () => {
+  it('includes no tools or hooks: the UI composes them on its services', () => {
+    const harness = createHarness({ provider: provider(), title: 'parse it' });
 
-    const messages = await runAgent({
-      provider: harness.provider,
-      tools: harness.tools,
-      hooks: harness.hooks,
-      messages: [{ role: 'user', content: 'parse it' }],
-      tasks: harness.tasks,
-      session: { registry: harness.sessions, ref: harness.mainSession },
-    });
-
-    expect(messages[2]).toMatchObject({ role: 'tool', toolCallId: 'c1', content: '42.50' });
-    expect(messages.at(-1)).toMatchObject({ role: 'assistant', content: '42.50' });
-    expect(harness).not.toHaveProperty('workspace');
-    expect(harness.hooks).toEqual([]);
-    expect(requests).toHaveLength(2);
-    expect(requests.every((request) => request.instructions === undefined)).toBe(true);
-    expect(JSON.stringify(requests)).not.toContain('AGENTS NOTE');
-  });
-
-  it('adds the task and sub-agent tools after the caller’s own, and no file or command tools', () => {
-    const harness = createHarness({ provider: provider(), title: 'parse it', tools: [extract] });
-
-    expect(harness.tools.map((tool) => tool.name)).toEqual([
-      'extract',
-      'task_status',
-      'cancel_task',
-      'start_agent',
-      'message_agent',
+    expect(Object.keys(harness).sort()).toEqual([
+      'approvals',
+      'mainSession',
+      'provider',
+      'sessions',
+      'tasks',
     ]);
   });
 
-  it('runs the caller’s hooks, and uses the registries passed in', async () => {
+  it('runs the tools and hooks a UI picked, and reads no AGENTS.md or .sheavly/', async () => {
+    const requests: ProviderRequest[] = [];
     const seen: string[] = [];
     const note = defineHook({
       name: 'note',
@@ -99,22 +74,32 @@ describe('createHarness without a workspace', () => {
         seen.push('start');
       },
     });
-    const tasks = new TaskRegistry();
     const harness = createHarness({
       provider: provider(),
       title: 'parse it',
-      hooks: [note],
-      tasks,
+      onModelCall: (request) => requests.push(request),
     });
 
-    await runAgent({
+    const messages = await runAgent({
       provider: harness.provider,
-      tools: harness.tools,
-      hooks: harness.hooks,
+      tools: [extract, ...createTaskTools(harness.tasks)],
+      hooks: [note],
       messages: [{ role: 'user', content: 'parse it' }],
+      tasks: harness.tasks,
+      session: { registry: harness.sessions, ref: harness.mainSession },
     });
 
-    expect(harness.tasks).toBe(tasks);
+    expect(messages[2]).toMatchObject({ role: 'tool', toolCallId: 'c1', content: '42.50' });
+    expect(messages.at(-1)).toMatchObject({ role: 'assistant', content: '42.50' });
     expect(seen).toEqual(['start']);
+    expect(requests).toHaveLength(2);
+    expect(requests.every((request) => request.instructions === undefined)).toBe(true);
+    expect(JSON.stringify(requests)).not.toContain('AGENTS NOTE');
+  });
+
+  it('uses the registries passed in', () => {
+    const tasks = new TaskRegistry();
+
+    expect(createHarness({ provider: provider(), title: 'parse it', tasks }).tasks).toBe(tasks);
   });
 });

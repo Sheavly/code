@@ -2,7 +2,8 @@
 // together as the layout reads them (packages/eslint-config/src/layout.utils.js): each has a
 // domain, is named `@sheavly/<folder>`, and depends on no app, and a generic one on no coding one.
 // Every workspace also has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json`
-// extending `tsconfig.base.json` with `rootDir: "src"`, and source of its own. And TypeScript
+// extending `tsconfig.base.json` with `rootDir: "src"`, a `tsconfig.build.json` referencing
+// exactly the workspaces it depends on, and source of its own. And TypeScript
 // lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. The workspace
 // graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
 // draws its own; nothing names the root `src/` from before the split, and code names no issue
@@ -73,6 +74,49 @@ function configProblems(params) {
   return problems;
 }
 
+/** Whether the workspace at `dir` (relative to the root) has source files of its own. */
+function hasSource(params) {
+  const { files, dir } = params;
+  const src = `${dir.split(path.sep).join('/')}/src/`;
+
+  return files.some((file) => file.startsWith(src) && /\.[cm]?[jt]s$/.test(file));
+}
+
+/**
+ * `tsc -b` builds a workspace after the ones its `tsconfig.build.json` references, so those are
+ * exactly its runtime dependencies on other workspaces (`dependsOn`), as the scaffold writes them.
+ * A missing one builds against a stale `dist/`; an extra one is a dependency nobody declared. A
+ * workspace with no source yet is skipped: the scaffold references its planned dependencies, and
+ * installs each with its first import.
+ */
+function referenceProblems(params) {
+  const { root, layout, files } = params;
+
+  return Object.entries(layout).flatMap(([name, entry]) => {
+    const config = readTsconfig(path.join(root, entry.dir, 'tsconfig.build.json'));
+
+    if (!config || config.unreadable || !hasSource({ files, dir: entry.dir })) return [];
+
+    const referenced = (config.references ?? []).map(({ path: ref }) =>
+      path.posix.normalize(path.posix.join(entry.dir, path.posix.dirname(ref))),
+    );
+    const wanted = entry.dependsOn.map((dep) => layout[dep].dir);
+    const missing = wanted.filter((dir) => !referenced.includes(dir));
+    const extra = referenced.filter((dir) => !wanted.includes(dir));
+
+    return [
+      ...missing.map(
+        (dir) =>
+          `${entry.dir}/tsconfig.build.json: add a reference to ${dir}, which ${name} depends on, so tsc -b builds it first.`,
+      ),
+      ...extra.map(
+        (dir) =>
+          `${entry.dir}/tsconfig.build.json: drop the reference to ${dir}: ${name} doesn't depend on it at runtime (add it to dependencies if its source imports it).`,
+      ),
+    ];
+  });
+}
+
 /** TypeScript files outside every workspace's `src/`, apart from what `NOT_SOURCE` lists. */
 function strayProblems(params) {
   const { workspaces, files, notSource } = params;
@@ -138,16 +182,43 @@ function exportsProblems(params) {
   });
 }
 
+/**
+ * Which backend a run uses is the UI's choice: a package takes a `Provider` and never depends at
+ * runtime on one that holds model backends (`*.adapter.ts` files, read from the files). Tests may
+ * use them as dev dependencies, to drive the real code.
+ */
+function providerProblems(params) {
+  const { root, workspaces, layout, files } = params;
+  const relativeOf = (workspace) => path.relative(root, workspace.dir).split(path.sep).join('/');
+  const backends = new Set(
+    workspaces
+      .filter((workspace) =>
+        files.some(
+          (file) =>
+            file.startsWith(`${relativeOf(workspace)}/src/`) && file.endsWith('.adapter.ts'),
+        ),
+      )
+      .map(({ name }) => name),
+  );
+
+  return Object.entries(layout)
+    .filter(([, entry]) => entry.kind === 'package')
+    .flatMap(([name, entry]) =>
+      entry.dependsOn
+        .filter((dependency) => backends.has(dependency))
+        .map(
+          (dependency) =>
+            `${name} depends on ${dependency}, which holds the model backends: which backend a run uses is the UI's choice. Take a Provider as an option, and let the app build it (make it a dev dependency if only tests need it).`,
+        ),
+    );
+}
+
 /** A workspace with no source of its own: nothing to typecheck, test or import yet. */
 function emptyProblems(params) {
   const { root, workspaces, files } = params;
 
   return workspaces
-    .filter((workspace) => {
-      const src = `${path.relative(root, workspace.dir).split(path.sep).join('/')}/src/`;
-
-      return !files.some((file) => file.startsWith(src) && /\.[cm]?[jt]s$/.test(file));
-    })
+    .filter((workspace) => !hasSource({ files, dir: path.relative(root, workspace.dir) }))
     .map(
       (workspace) =>
         `${workspace.relative}: has no source yet. Add its first module, ${workspace.relative}/src/<module>/<module>.<kind>.ts, with its tests in <module>/__tests__/; a workspace with nothing in it is dead weight.`,
@@ -166,7 +237,9 @@ export function findLayoutProblems(params) {
     ...workspaces.flatMap((workspace) =>
       exportsProblems({ workspace, kind: layout[workspace.name]?.kind }),
     ),
+    ...referenceProblems({ root, layout, files }),
     ...emptyProblems({ root, workspaces, files }),
+    ...providerProblems({ root, workspaces, layout, files }),
     ...strayProblems({ workspaces, files, notSource }),
   ];
 }

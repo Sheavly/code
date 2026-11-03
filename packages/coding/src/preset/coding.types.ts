@@ -1,33 +1,26 @@
-import type { Hook } from '@sheavly/core/hook/hook.types';
-import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
-import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
 
-export type CodingHarnessOptions = Pick<HarnessOptions, 'provider' | 'title' | 'onModelCall'> & {
+export type CodingHarnessOptions = HarnessOptions & {
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;
-  skipAllowList?: boolean;
-  /**
-   * Which workspaces the user trusts to run `.sheavly/` hooks (an app passes
-   * `trustStoreFromEnv(process.env)`). An untrusted workspace loads none.
-   */
-  trustStore: TrustStore;
   /** The environment commands start from, secrets scrubbed (an app passes `process.env`). */
   env: Environment;
-  /** Trust this workspace now (a host's `--trust`), so its `.sheavly/` hooks load. */
-  trustWorkspace?: boolean;
 };
 
-/** A harness for coding in a workspace: its file tools, run_command, AGENTS.md and project hooks. */
+/**
+ * The services a coding run shares, on top of the generic ones: the workspace every file tool is
+ * confined to, one set of file locks and one process runner. It holds no tools and no hooks: the
+ * UI builds the file tools, `run_command`, the AGENTS.md hook and (if it trusts the workspace) the
+ * `.sheavly/` hooks on these, and picks which ones a run gets.
+ */
 export type CodingHarness = Harness & {
   workspace: Workspace;
-  /** The project's `.sheavly` hooks; `hooks` has the AGENTS.md hook first, then these. */
-  projectHooks: Hook[];
-  /**
-   * Whether the `.sheavly/` hooks ran: `untrusted` or `changed` means they were skipped, and a
-   * UI should say why and how to trust the workspace.
-   */
-  projectTrust: ProjectTrust;
+  /** Shared by every file tool, the main agent's and each sub-agent's, so edits never overlap. */
+  fileLocks: FileLocks;
+  /** Runs every command; each one it started is stopped when the process exits. */
+  processes: ProcessRunner;
 };

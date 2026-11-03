@@ -16,7 +16,7 @@ src/
 ```
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
-The harness's hosts keep theirs in `@sheavly/host` (`packages/host/src/host/host.constants.ts`).
+A UI keeps its own: the terminal app's are in `apps/terminal/src/harness/harness.constants.ts`.
 
 ## Adding a backend
 

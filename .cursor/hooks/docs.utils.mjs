@@ -34,7 +34,7 @@ const DOC_SOURCES = [
     ],
   },
   { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
-  { doc: 'workbook/README.md', sources: [/^apps\/workbook\/src\//] },
+  { doc: 'workbook/README.md', sources: [/^apps\/terminal\/src\/workbook\//] },
   { doc: 'docs/overview.md', sources: [/^(packages|apps)\/[^/]+\/src\//] },
 ];
 

@@ -22,7 +22,7 @@ VSCode won by architecture, not features: a small core, built-in features that u
 extensions, a protocol (LSP) that decoupled language smarts from the editor, and configuration that
 lives in the repo. The harness takes the same shape, for agents of any kind: **a small core,
 everything else an extension, and any UI a client.** Coding is the first preset built on it
-(`createCodingHarness`), not the point of the core: a text extractor or a chat wrapper uses the
+(the coding packages, which a coding UI composes), not the point of the core: a text extractor or a chat wrapper uses the
 same loop, tools and hooks without a repo in sight.
 
 | VSCode                          | Sheavly                                                                         |
@@ -54,7 +54,7 @@ change, and every run is a file you can replay.**
    deliberately, versioned, and keep experimental APIs apart from stable ones.
 7. **Generic packages never know about files, workspaces or code.** The protocol, the core, the
    providers, the loop and the generic runtime and tools work for any LLM project. Everything that
-   needs a project on disk or a coding tool lives in coding packages that only the coding preset
+   needs a project on disk or a coding tool lives in coding packages that only a coding UI
    reaches. Each workspace declares which it is (`sheavly.domain` in its `package.json`) and lint
    holds the graph to it: a generic workspace that depends on a coding one fails.
 

@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/coding",
   "version": "0.0.0",
-  "description": "The coding preset: the file tools, run_command and createCodingHarness, on top of the generic harness and the workspace.",
+  "description": "The coding tools (file tools, run_command) and createCodingHarness: the workspace, file locks and process runner a coding run shares.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
@@ -38,6 +38,31 @@
       "@sheavly/source": "./src/read-file/read-file.utils.ts",
       "types": "./dist/read-file/read-file.utils.d.ts",
       "default": "./dist/read-file/read-file.utils.js"
+    },
+    "./preset/coding.types": {
+      "@sheavly/source": "./src/preset/coding.types.ts",
+      "types": "./dist/preset/coding.types.d.ts",
+      "default": "./dist/preset/coding.types.js"
+    },
+    "./edit-file/edit-file.tool": {
+      "@sheavly/source": "./src/edit-file/edit-file.tool.ts",
+      "types": "./dist/edit-file/edit-file.tool.d.ts",
+      "default": "./dist/edit-file/edit-file.tool.js"
+    },
+    "./read-file/read-file.tool": {
+      "@sheavly/source": "./src/read-file/read-file.tool.ts",
+      "types": "./dist/read-file/read-file.tool.d.ts",
+      "default": "./dist/read-file/read-file.tool.js"
+    },
+    "./run-command/run-command.tool": {
+      "@sheavly/source": "./src/run-command/run-command.tool.ts",
+      "types": "./dist/run-command/run-command.tool.d.ts",
+      "default": "./dist/run-command/run-command.tool.js"
+    },
+    "./write-file/write-file.tool": {
+      "@sheavly/source": "./src/write-file/write-file.tool.ts",
+      "types": "./dist/write-file/write-file.tool.d.ts",
+      "default": "./dist/write-file/write-file.tool.js"
     }
   },
   "private": true,

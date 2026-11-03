@@ -8,11 +8,11 @@ describe('runSourceFiles', () => {
         'packages/workspace/src/trust/trust.service.ts',
         'apps/terminal/src/demo.ts',
         'packages/core/src/hook/hook.service.ts',
-        'apps/workbook/src/workbook/run.helper.ts',
+        'apps/terminal/src/workbook/run.helper.ts',
       ]),
     ).toEqual([
       'apps/terminal/src/demo.ts',
-      'apps/workbook/src/workbook/run.helper.ts',
+      'apps/terminal/src/workbook/run.helper.ts',
       'packages/core/src/hook/hook.service.ts',
       'packages/workspace/src/trust/trust.service.ts',
     ]);

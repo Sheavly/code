@@ -88,7 +88,7 @@ describe('headers', () => {
 
   it('reads scopes from the packages and apps folders', () => {
     expect(listScopes(REPO_ROOT)).toEqual(
-      expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools', 'workbook']),
+      expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools', 'terminal']),
     );
   });
 

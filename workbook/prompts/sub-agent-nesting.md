@@ -9,6 +9,7 @@ check:
         'packages/runtime/src/sessions',
         'packages/host/src',
         'packages/coding/src/preset',
+        'apps/terminal/src/harness',
       ],
     'expect': { 'tools': ['start_agent'], 'reply': ['start_agent'], 'outcome': 'completed' },
   }

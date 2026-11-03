@@ -6,7 +6,9 @@
 // - no relative import that leaves the importing workspace (`../../packages/core/...`): import
 //   another workspace by its package name;
 // - a package only through its public API, the subpaths its package.json `exports` lists (plus
-//   `./testing/*`, its fakes, from tests only).
+//   `./testing/*`, its fakes, from tests only);
+// - in a package's source, no other workspace's `*.tool` module, unless it is a tool itself:
+//   which tools a run includes is the UI's choice, so only apps (and tests) put tools together.
 import path from 'node:path';
 import {
   isExported,
@@ -34,6 +36,7 @@ export const importsRule = {
       crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), and depend on it in package.json.`,
       notExported: `{{specifier}} isn't part of {{target}}'s public API: its package.json \`exports\` doesn't list \`./{{subpath}}\`. Import what it exports, or, if this should be public, add it in review: \`npm run export -- {{specifier}}\`.`,
       fakeInSource: `{{specifier}} is a fake ({{target}}'s \`testing/\`): only tests and other fakes import it.`,
+      composesRun: `{{from}} may not include {{target}}'s tool in a run: which tools a run gets is the UI's choice. Export what the tool needs (its services, its options) and let the app add it.`,
     },
   },
   create(context) {
@@ -94,6 +97,10 @@ export const importsRule = {
       checkSurface({ node, specifier, target });
     };
 
+    // A tool module imported from a package's own source, other than by another tool, means the
+    // package is choosing which tools a run gets.
+    const composesRun = () => !isTestCode && entry.kind === 'package' && !file.endsWith('.tool.ts');
+
     // A package is imported only through what its `exports` list, and its fakes only from tests.
     const checkSurface = (params) => {
       const { node, specifier, target } = params;
@@ -105,6 +112,8 @@ export const importsRule = {
         context.report({ node, messageId: 'notExported', data: { specifier, target, subpath } });
       } else if (subpath.startsWith('testing/') && !isTestCode) {
         context.report({ node, messageId: 'fakeInSource', data: { specifier, target } });
+      } else if (subpath.endsWith('.tool') && composesRun()) {
+        context.report({ node, messageId: 'composesRun', data: { from: from.name, target } });
       }
     };
 
@@ -117,6 +126,12 @@ export const importsRule = {
           node,
           messageId: 'crossesWorkspace',
           data: { from: from.name, target: to?.name ?? toPosix(path.relative(root, resolved)) },
+        });
+      } else if (/\.tool(\.js)?$/.test(specifier) && composesRun()) {
+        context.report({
+          node,
+          messageId: 'composesRun',
+          data: { from: from.name, target: from.name },
         });
       }
     };

@@ -63,7 +63,7 @@ describe('the architecture rule', () => {
 
   it.each([
     ['packages/host/src/host/host.service.ts', true],
-    ['apps/workbook/src/workbook/run.helper.ts', true],
+    ['apps/terminal/src/workbook/run.helper.ts', true],
     ['packages/core/src/tool/tool.types.ts', true],
     ['packages/coding/src/run-command/__tests__/arguments.service.test.ts', false],
     ['src/loop/turn.helper.ts', false],

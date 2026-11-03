@@ -1,3 +1,3 @@
 # @sheavly/coding
 
-The coding preset: the file tools, run_command and createCodingHarness, on top of the generic harness and the workspace.
+The coding tools (the file tools, run_command) and `createCodingHarness`, the workspace, file locks and process runner a coding run shares. A coding UI picks which tools a run includes and builds them on those services.

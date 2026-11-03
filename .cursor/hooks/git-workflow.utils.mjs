@@ -80,7 +80,7 @@ function listWorkspaceFolders(dir) {
 
 /**
  * Valid commit scopes, read from disk so a new one needs no edit here: the folder of each
- * workspace in `packages/` and `apps/` (`core`, `eslint-config`, `workbook`). A folder with no
+ * workspace in `packages/` and `apps/` (`core`, `eslint-config`, `terminal`). A folder with no
  * `package.json` yet (`apps/vscode`) isn't a workspace, so it isn't a scope.
  */
 export function listScopes(repoRoot) {

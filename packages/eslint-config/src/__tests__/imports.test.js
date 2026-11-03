@@ -15,6 +15,7 @@ const root = tempWorkspace({
   'packages/core/package.json': { name: '@x/core' },
   'packages/coding/package.json': { name: '@x/coding' },
   'packages/testing/package.json': { name: '@x/testing' },
+  'packages/coding2/package.json': { name: '@x/coding2' },
   'apps/cli/package.json': { name: '@x/cli' },
   'apps/web/package.json': { name: '@x/web' },
 });
@@ -39,7 +40,7 @@ const layout = {
     domain: 'coding',
     dependsOn: ['@x/core'],
     devDependsOn: ['@x/testing', '@x/protocol'],
-    exports: ['./files/files.utils'],
+    exports: ['./files/files.utils', './read/read.tool'],
   },
   '@x/testing': {
     dir: 'packages/testing',
@@ -48,6 +49,13 @@ const layout = {
     testOnly: true,
     dependsOn: [],
     exports: ['./fake/fake.fake'],
+  },
+  '@x/coding2': {
+    dir: 'packages/coding2',
+    kind: 'package',
+    domain: 'coding',
+    dependsOn: ['@x/coding'],
+    exports: [],
   },
   '@x/cli': { dir: 'apps/cli', kind: 'app', domain: 'coding', dependsOn: ['@x/core', '@x/coding'] },
   '@x/web': { dir: 'apps/web', kind: 'app', domain: 'coding', dependsOn: ['@x/core'] },
@@ -88,6 +96,20 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
       },
       // A relative import within the app.
       { code: "import { x } from '../../main/main.helper.js';", filename: CLI_TEST },
+      // A tool built on another tool of its package.
+      {
+        code: "import { createReadTool } from '../read/read.tool.js';",
+        filename: at('packages/coding/src/write/write.tool.ts'),
+      },
+      // An app, or a test, including a package's tool in a run.
+      {
+        code: "import { createReadTool } from '@x/coding/read/read.tool';",
+        filename: at('apps/cli/src/main.ts'),
+      },
+      {
+        code: "import { createReadTool } from '@x/coding/read/read.tool';",
+        filename: at('apps/cli/src/main/__tests__/main.test.ts'),
+      },
       // A package's fakes, from a test.
       {
         code: "import { echo } from '@x/core/testing/echo-tool.fake';",
@@ -105,6 +127,18 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         code: "import { x } from '@x/core/tool/tool.helper';",
         filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
         errors: error('notExported'),
+      },
+      // A package putting another workspace's tool into a run: that's the UI's choice.
+      {
+        code: "import { createReadTool } from '@x/coding/read/read.tool';",
+        filename: at('packages/coding2/src/preset/preset.helper.ts'),
+        errors: error('composesRun'),
+      },
+      // The same from its own package: a helper putting the package's tools together.
+      {
+        code: "import { createReadTool } from '../read/read.tool.js';",
+        filename: at('packages/coding/src/preset/preset.helper.ts'),
+        errors: error('composesRun'),
       },
       // A package's fakes from source.
       {

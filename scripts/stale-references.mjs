@@ -23,7 +23,7 @@ const OLD_PATH = /(?<![\w./@-])src\/([a-z][\w-]*)(\/[\w./-]*|\.ts)?/g;
 const PROMISE = /\b(until|once|after|when|as) #\d+\b|\bmoves? (with|into) [^.\n]*\(#\d+\)/i;
 
 /**
- * The workspace folder names (`loop`, `terminal-ui`): what the root `src/` held before. A name
+ * The workspace folder names (`loop`, `terminal`): what the root `src/` held before. A name
  * that is also a folder in two or more workspaces' `src/` (`testing`) is a convention instead.
  */
 function workspaceFolders(params) {

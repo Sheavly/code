@@ -189,6 +189,46 @@ describe('the layout check', () => {
     ).toEqual([expect.stringContaining('./testing/* must point at its source only')]);
   });
 
+  it('fails a build config that references other workspaces than the ones depended on', () => {
+    const build = (refs) =>
+      json({ extends: './tsconfig.json', references: refs.map((ref) => ({ path: ref })) });
+
+    expect(
+      problems({ 'packages/top/tsconfig.build.json': build(['../base/tsconfig.build.json']) }),
+    ).toEqual([]);
+    expect(
+      problems({ 'packages/top/tsconfig.build.json': build(['../lint/tsconfig.build.json']) }),
+    ).toEqual([
+      expect.stringContaining('add a reference to packages/base, which @sheavly/top depends on'),
+      expect.stringContaining('drop the reference to packages/lint'),
+    ]);
+    // A workspace with no source yet is skipped: its first import installs what it references.
+    expect(
+      problems({
+        'packages/top/tsconfig.build.json': build(['../lint/tsconfig.build.json']),
+        'packages/top/src/top/top.utils.ts': null,
+      }),
+    ).not.toContainEqual(expect.stringContaining('tsconfig.build.json'));
+  });
+
+  it('fails a package that depends on a provider package at runtime; a dev dependency is fine', () => {
+    const files = {
+      ...wellFormed('models'),
+      'packages/models/src/openai/openai.adapter.ts': 'export const x = 1;\n',
+    };
+
+    expect(
+      problems({ ...files, ...wellFormed('top', { dependencies: { '@sheavly/models': '0' } }) }),
+    ).toEqual([
+      expect.stringContaining(
+        '@sheavly/top depends on @sheavly/models, which holds the model backends',
+      ),
+    ]);
+    expect(
+      problems({ ...files, ...wellFormed('top', { devDependencies: { '@sheavly/models': '0' } }) }),
+    ).toEqual([]);
+  });
+
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {
     const stray = { 'tools/gen.ts': 'export {};\n', 'fixtures/app/.hidden/x.cts': 'export {};\n' };
 
