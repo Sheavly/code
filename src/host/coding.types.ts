@@ -2,7 +2,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
 import type { TrustStore } from '../runtime/trust/trust.service.js';
 import type { Workspace } from '../runtime/workspace/workspace.service.js';
-import type { Harness, HarnessOptions } from './host.types.js';
+import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
 
 export type CodingHarnessOptions = Pick<HarnessOptions, 'provider' | 'title' | 'onModelCall'> & {
   /** The workspace root the agent is confined to (default: the current directory). */

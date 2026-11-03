@@ -39,10 +39,10 @@ flowchart BT
     protocol["@sheavly/protocol"]
     core["@sheavly/core"]
     providers["@sheavly/providers"]
-    runtime["@sheavly/runtime (#29)"]
-    tools["@sheavly/tools (#29)"]
-    loop["@sheavly/loop (#29)"]
-    host["@sheavly/host (#29)"]
+    runtime["@sheavly/runtime"]
+    tools["@sheavly/tools"]
+    loop["@sheavly/loop"]
+    host["@sheavly/host"]
   end
   subgraph coding
     workspace["@sheavly/workspace (#29)"]
@@ -75,7 +75,8 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                          |
 | `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                          |
-| `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                   |
+| `packages/host/src/`      | `@sheavly/host`: wiring a run (`createHarness`) and the model from env (`providerFromEnv`). No UI, and no imports from a front end                                                    |
+| `src/host/`               | The coding preset, `createCodingHarness`, until #29 moves it to `@sheavly/coding`                                                                                                     |
 | `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                        |
 | `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                |
 | `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                      |
@@ -88,11 +89,11 @@ the full conventions.
 
 ## Entry points: a generic harness, and coding on top
 
-A run is wired in one of two ways (`src/host/`):
+A run is wired in one of two ways:
 
 | Entry point                                | For                                                                  | What it wires                                                                                                                                                             |
 | ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createHarness` (`host.helper.ts`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
+| `createHarness` (`@sheavly/host`)          | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
 | `createCodingHarness` (`coding.helper.ts`) | A coding agent in a repo (the demo, the workbook)                    | Opens the `Workspace`, checks trust and loads the `.sheavly/` hooks, adds the AGENTS.md hook, the file tools and `run_command`, then calls `createHarness` with them      |
 
 ```ts

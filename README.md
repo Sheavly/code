@@ -179,7 +179,7 @@ Providers are their own package, `@sheavly/providers` (`packages/providers/`); i
 - Register it with `registry.register(myAdapter)`, or add it to `createDefaultRegistry`.
 
 Adapters have no default model: the caller picks it (the hosts' default is `DEFAULT_MODEL` in
-`src/host/host.constants.ts`). Nothing in the core needs to change.
+`packages/host/src/host/host.constants.ts`). Nothing in the core needs to change.
 
 ## Project layout
 

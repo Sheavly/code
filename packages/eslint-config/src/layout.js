@@ -18,6 +18,7 @@ const PROVIDERS = '@sheavly/providers';
 const RUNTIME = '@sheavly/runtime';
 const TOOLS = '@sheavly/tools';
 const LOOP = '@sheavly/loop';
+const HOST = '@sheavly/host';
 
 /**
  * The app being split (#29): its `src/` folders and root files, each with what it may import
@@ -33,12 +34,13 @@ export const SPLIT_APP = {
     runtime: [PROTOCOL, CORE, RUNTIME],
     // What is left in src/tools: the coding tools (#29 moves them to coding).
     tools: [PROTOCOL, CORE, RUNTIME, 'runtime'],
-    host: [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, 'runtime', 'tools', LOOP],
+    // What is left in src/host: the coding preset, createCodingHarness (#29 moves it to coding).
+    host: [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, HOST, 'runtime', 'tools', LOOP],
     'terminal-ui': [PROTOCOL, CORE, RUNTIME, 'runtime', 'tools'],
-    workbook: [PROTOCOL, CORE, RUNTIME, 'runtime', 'tools', LOOP, 'host', 'terminal-ui'],
+    workbook: [PROTOCOL, CORE, RUNTIME, HOST, 'runtime', 'tools', LOOP, 'host', 'terminal-ui'],
     testing: { testOnly: true, dependsOn: [PROTOCOL, CORE, RUNTIME, 'runtime'] },
-    'demo.ts': ['host', LOOP, 'terminal-ui'],
-    'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, 'runtime', 'tools', LOOP, 'host'],
+    'demo.ts': [HOST, 'host', LOOP, 'terminal-ui'],
+    'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, HOST, 'runtime', 'tools', LOOP, 'host'],
   },
 };
 

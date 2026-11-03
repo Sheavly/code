@@ -4,7 +4,12 @@ workspace: basic
 check:
   {
     'areas':
-      ['src/runtime/tasks', 'src/tools/tasks', 'src/tools/run-command', 'src/runtime/process'],
+      [
+        'packages/runtime/src/tasks',
+        'packages/tools/src/tasks',
+        'src/tools/run-command',
+        'src/runtime/process',
+      ],
     'expect':
       {
         'tools': ['run_command', 'task_status'],

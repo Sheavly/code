@@ -11,18 +11,19 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 @sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer                | Holds                                                                                                           | May import              |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                                | zod only                |
-| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                        | protocol, zod           |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                               | protocol, core, zod     |
-| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                            | protocol, core          |
-| `src/runtime/`       | The workspace-bound services, until #29 moves them: workspace confinement, processes, trust, file locks         | protocol, core, runtime |
-| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                       | protocol, core, runtime |
-| `src/tools/`         | The coding tools, until #29 moves them                                                                          | protocol, core, runtime |
-| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                        | protocol, core, runtime |
-| `src/host/`          | `createHarness` (generic) and `createCodingHarness` (the coding preset): wires a run, the model from env. No UI | all above               |
-| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                             | anything                |
+| Layer                | Holds                                                                                                   | May import              |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                        | zod only                |
+| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                | protocol, zod           |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                       | protocol, core, zod     |
+| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                    | protocol, core          |
+| `src/runtime/`       | The workspace-bound services, until #29 moves them: workspace confinement, processes, trust, file locks | protocol, core, runtime |
+| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                               | protocol, core, runtime |
+| `src/tools/`         | The coding tools, until #29 moves them                                                                  | protocol, core, runtime |
+| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                | protocol, core, runtime |
+| `packages/host`      | `@sheavly/host`: `createHarness`, wires a run, the model from env. No UI                                | all above               |
+| `src/host/`          | `createCodingHarness`, the coding preset, until #29 moves it                                            | all above               |
+| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                     | anything                |
 
 ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only this app's `src/` layers (until #29 splits it) and `NOT_SOURCE` are written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain, or a `src/` folder that isn't a layer, fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -41,7 +42,7 @@ Decide where something lives before writing it. The first question: **would a no
 | A change to how a run goes: turns, tool calls, hooks, the event stream          | `@sheavly/loop`                                                       | (already a package)  |
 | Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset          | `@sheavly/workspace` |
 | A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`                      | `@sheavly/coding`    |
-| Wiring a run, a transport, the model from env                                   | `src/host/`                                                           | `@sheavly/host`      |
+| Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                       | (already a package)  |
 | A fake for tests                                                                | `@sheavly/testing` (one that needs the app's runtime: `src/testing/`) | (already a package)  |
 | A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                              | (already a package)  |
 | A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`                    | `apps/<name>`        |
@@ -53,12 +54,12 @@ Decide where something lives before writing it. The first question: **would a no
 - The harness is a backend for UIs built on top of it. It emits typed events (loop `AgentEvent`s, `SessionUpdate`, `ApprovalUpdate`) and exposes registries a UI answers through (`approvals.respond`, `sessions.send`). It renders nothing, prompts no one and reads no terminal input.
 - Something a user must see or decide is a typed event or a registry request, never a print or a prompt inside the harness. The UI subscribes and handles it its own way.
 - Write UI code only when the chat's issue asks for a UI. Front ends live only in the files named in `FRONT_END_FILES` (`eslint.config.js`): `src/demo.ts`, `src/terminal-ui/`, `src/workbook/`. `harness/no-terminal-io` fails terminal I/O anywhere else (`node:readline`, `node:tty`, `process.stdin/stdout/stderr`), in every workspace; adding a file to that list is a reviewed change.
-- `src/host/` wires a run and holds no UI; it may not import a front end.
+- `@sheavly/host` wires a run and holds no UI; nothing below the apps imports a front end.
 
 ## Two entry points: generic, and coding on top
 
-- `createHarness` (`host/host.helper.ts`) is for any LLM project, with or without a repo: the caller's `tools` and `hooks`, plus the task and sub-agent tools and the registries. It opens no workspace, reads no AGENTS.md or `.sheavly/` and needs no trust store.
-- `createCodingHarness` (`host/coding.helper.ts`) is the coding preset the demo and the workbook use: it opens the `Workspace`, checks trust, loads the AGENTS.md and `.sheavly/` hooks, adds the file tools and `run_command` (sharing one `FileLocks` and one `ProcessRunner`), then calls `createHarness`.
+- `createHarness` (`@sheavly/host/host/host.helper`) is for any LLM project, with or without a repo: the caller's `tools` and `hooks`, plus the task and sub-agent tools and the registries. It opens no workspace, reads no AGENTS.md or `.sheavly/` and needs no trust store.
+- `createCodingHarness` (`src/host/coding.helper.ts`, until #29 moves it) is the coding preset the demo and the workbook use: it opens the `Workspace`, checks trust, loads the AGENTS.md and `.sheavly/` hooks, adds the file tools and `run_command` (sharing one `FileLocks` and one `ProcessRunner`), then calls `createHarness`.
 - Generic code never needs a project on disk or a coding tool. The loop, `@sheavly/runtime` (sessions, tasks, approvals), `@sheavly/tools` (sub-agent, tasks) and `createHarness` (and their tests) import no workspace-bound service (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) and no coding tool (`read-file`, `write-file`, `edit-file`, `files`, `run-command`). A generic test that needs a background task uses `startTaskTool` (`@sheavly/runtime/testing/start-task.fake`). New coding wiring goes in the preset, never in `createHarness`. See `docs/overview.md`, "Entry points".
 
 ## Packages
@@ -69,7 +70,7 @@ npm workspaces in `packages/`, imported by subpath (`import { defineTool } from 
 
 - `packages/protocol`: the wire contract, everything sent to or accepted from a UI (`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them). Each is a zod schema in a `<module>.validator.ts`, its type `z.infer` of it in `<module>.types.ts`; never write a wire type by hand. It imports zod only (its `eslint.config.js` and `rootDir`). After changing a schema, run `npm run schema -w @sheavly/protocol`: a test fails while `contract.schema.json` is out of date. What a provider streams and the code contracts (`Tool`, `Hook`, `Adapter`) stay in core.
 - `packages/core`: what tools and providers are written against. It may not import the app (`rootDir` makes that a type error). A new code contract shared by tools and providers goes here; one a UI sees goes in protocol.
-- `packages/providers`: the model backends (`@sheavly/providers`), imported only by `src/host/` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
+- `packages/providers`: the model backends (`@sheavly/providers`), imported only by `@sheavly/host` and `src/index.ts`. One folder per protocol (`responses/`) and per backend (`openai/`, `azure/`); see its README for adding either. Tests that need the real loop live in the app (`src/host/__tests__/providers.test.ts`).
 - `packages/eslint-config`: `base.js` (the shared config), `file-kinds.js`, `rules/` (the `harness/*` rules, tested with RuleTester in `__tests__/`). A new convention is a rule here, used by every workspace.
 - **Enforce what you add.** When you introduce a package, a convention or a pattern the harness doesn't check yet, add the check in the same change (a `harness/*` rule here, a layer in `layout.js`, a `file-kinds.js` policy, a test), never a gap or a doc-only note; derive it from the code (workspaces, file names, exports) rather than a hand-kept list, so it grows by itself, and make its message say what to do instead. `harness/single-definition` is the model: every `*.types.ts` in the app and the packages owns the types it exports, read from disk, so a copy anywhere else (another folder, package or file, exported, local or re-exported) fails with where the original lives; exemptions go by file role (tests, fakes), never by name.
 - A new package or app: `npm run new -- package|app <name> --domain <generic|coding|tooling> --description "…" [--depends-on core,protocol]`. It refuses a dependency the graph doesn't allow, creates the workspace through npm (never a hand-written `package.json`) with its configs, README and a first test, and prints the `npm install` to run with each dependency's first import. It passes `npm run check` as it is. Reference a package you build for plain Node from the root `tsconfig.build.json` (or from a package that depends on it).
