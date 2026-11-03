@@ -1,0 +1,150 @@
+import { ResponsesApiError } from '../errors/providers.errors.js';
+import type { RequestPolicy } from './responses.types.js';
+
+/** HTTP statuses worth another attempt: rate limited, or the server failed. */
+const RETRYABLE_STATUS = (status: number) => status === 429 || status >= 500;
+const MS_PER_SECOND = 1000;
+/**
+ * The longest `retry-after` worth waiting for. A server asking for more (a day, say) gets its
+ * error reported instead, rather than a run that hangs with nothing to show for it.
+ */
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/** Waits `ms`, or rejects as soon as `signal` aborts. */
+function wait(params: { ms: number; signal: AbortSignal }): Promise<void> {
+  const { ms, signal } = params;
+
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason as Error);
+
+      return;
+    }
+
+    const done = () => {
+      signal.removeEventListener('abort', aborted);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    const aborted = () => {
+      clearTimeout(timer);
+      reject(signal.reason as Error);
+    };
+
+    signal.addEventListener('abort', aborted, { once: true });
+  });
+}
+
+/** The server's `retry-after`, in ms, when it sent one in seconds. */
+function retryAfterMs(response: Response): number {
+  const seconds = Number(response.headers.get('retry-after'));
+
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * MS_PER_SECOND : 0;
+}
+
+/** What the failed request's error says, with Node's real reason (on `cause`) named. */
+function networkMessage(caughtError: unknown): string {
+  const cause = caughtError instanceof Error ? caughtError.cause : undefined;
+  const code = (cause as { code?: unknown } | undefined)?.code;
+  const detail = cause instanceof Error ? cause.message : undefined;
+  const reason = [typeof code === 'string' ? code : undefined, detail].filter(Boolean).join(': ');
+  const message = caughtError instanceof Error ? caughtError.message : String(caughtError);
+
+  return reason ? `${message} (${reason})` : message;
+}
+
+/** One attempt's outcome: the response, or a failure and whether another attempt may help. */
+type Attempt =
+  { response: Response } | { failure: ResponsesApiError; retryable: boolean; waitMs: number };
+
+async function attempt(params: {
+  fetch: typeof fetch;
+  url: URL;
+  init: RequestInit;
+  policy: RequestPolicy;
+  signal: AbortSignal;
+}): Promise<Attempt> {
+  const { fetch, url, init, policy, signal } = params;
+  const timeout = new AbortController();
+  const timer = setTimeout(() => {
+    timeout.abort();
+  }, policy.responseTimeoutMs);
+
+  try {
+    // The timeout covers the wait for the response headers only: it is cleared once they arrive,
+    // so a long reply streams for as long as it takes.
+    const response = await fetch(url, {
+      ...init,
+      signal: AbortSignal.any([signal, timeout.signal]),
+    });
+
+    if (response.ok && response.body) return { response };
+
+    const waitMs = retryAfterMs(response);
+
+    return {
+      failure: new ResponsesApiError({
+        reason: 'http',
+        status: response.status,
+        message: `Responses API error ${response.status}: ${await response.text()}`,
+      }),
+      retryable: RETRYABLE_STATUS(response.status) && waitMs <= MAX_RETRY_AFTER_MS,
+      waitMs,
+    };
+  } catch (caughtError) {
+    // The caller's interrupt is no failure to retry or rename: it goes up as it came.
+    if (signal.aborted) throw caughtError;
+
+    const timedOut = timeout.signal.aborted;
+
+    return {
+      failure: new ResponsesApiError({
+        reason: timedOut ? 'timeout' : 'network',
+        message: timedOut
+          ? `The Responses API did not start a response within ${String(policy.responseTimeoutMs)}ms`
+          : `The Responses API request failed: ${networkMessage(caughtError)}`,
+        cause: caughtError,
+      }),
+      retryable: true,
+      waitMs: 0,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Sends one Responses call under `policy` and returns the response once it started: on a network
+ * error, a response that doesn't start in time, HTTP 429 or 5xx, it is sent again, up to
+ * `policy.retries` more times, waiting `retryDelayMs` (doubled each time, or the server's
+ * `retry-after` if longer). Nothing has streamed yet, so a retry repeats nothing. Any other HTTP
+ * error fails at once; an interrupt (`signal`) stops the wait and every attempt.
+ */
+export async function sendRequest(params: {
+  fetch: typeof fetch;
+  url: URL;
+  init: RequestInit;
+  policy: RequestPolicy;
+  signal: AbortSignal;
+}): Promise<Response> {
+  const { policy, signal } = params;
+
+  for (let tried = 0; ; tried++) {
+    const outcome = await attempt(params);
+
+    if ('response' in outcome) return outcome.response;
+
+    if (!outcome.retryable || tried >= policy.retries) {
+      if (tried === 0) throw outcome.failure;
+
+      throw new ResponsesApiError({
+        reason: outcome.failure.reason,
+        message: `${outcome.failure.message} (after ${String(tried + 1)} attempts)`,
+        ...(outcome.failure.status === undefined ? {} : { status: outcome.failure.status }),
+        cause: outcome.failure,
+      });
+    }
+
+    await wait({ ms: Math.max(outcome.waitMs, policy.retryDelayMs * 2 ** tried), signal });
+  }
+}

@@ -3,6 +3,7 @@ import {
   apiKeySchema,
   baseUrlSchema,
   reasoningSchema,
+  requestPolicySchema,
 } from '../responses/adapter-config.validator.js';
 import { defineResponsesAdapter } from '../responses/responses.helper.js';
 import { OPENAI_BASE_URL } from './openai.constants.js';
@@ -16,6 +17,7 @@ export const openaiAdapter = defineResponsesAdapter({
     model: z.string().min(1),
     baseUrl: baseUrlSchema.default(OPENAI_BASE_URL),
     reasoning: reasoningSchema.default(true),
+    request: requestPolicySchema,
   }),
   toEndpoint: (config) => ({
     baseUrl: config.baseUrl,

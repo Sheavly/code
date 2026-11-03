@@ -1,6 +1,17 @@
 import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
+import type { requestPolicySchema } from './adapter-config.validator.js';
 import type { responsesEventSchema } from './responses.validator.js';
+
+/**
+ * How a call is sent. `responseTimeoutMs`: how long to wait for the response headers (not the
+ * whole reply: a long answer streams for as long as it takes). `retries`: how many more times a
+ * call is sent when it fails before anything streamed (a network error, that timeout, HTTP 429
+ * or 5xx); never after, since the turn may have started tools. `retryDelayMs`: the first wait
+ * between attempts, doubled each time (or the server's `retry-after`, if longer; one over a
+ * minute isn't waited for, and the error is reported instead).
+ */
+export type RequestPolicy = z.infer<typeof requestPolicySchema>;
 
 /**
  * Where and how to reach one backend that speaks the OpenAI Responses API. Backends differ only
@@ -24,11 +35,12 @@ export type ResponsesProviderConfig = {
    * across tool calls.
    */
   reasoning?: boolean;
+  request: RequestPolicy;
   fetch: typeof fetch;
 };
 
 /** The config every Responses adapter's schema must produce, besides its own fields. */
-export type ResponsesAdapterConfig = { reasoning: boolean };
+export type ResponsesAdapterConfig = { reasoning: boolean; request: RequestPolicy };
 
 /** A streamed Responses API event we use (everything else is skipped). */
 export type ResponsesEvent = z.infer<typeof responsesEventSchema>;

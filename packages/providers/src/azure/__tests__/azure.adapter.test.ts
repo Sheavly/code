@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { requestSentBy } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { azureAdapter } from '../azure.adapter.js';
+import { TEST_REQUEST } from '../../testing/request.constants.js';
 
-const sent = (config: unknown) => requestSentBy({ adapter: azureAdapter, config });
+const sent = (config: unknown) =>
+  requestSentBy({
+    adapter: azureAdapter,
+    config: { request: TEST_REQUEST, ...(config as object) },
+  });
 
 describe('azureAdapter', () => {
   it('rejects a base URL that is not a URL, and an api-version that is not one', () => {

@@ -8,6 +8,7 @@ import { createDefaultRegistry } from '@sheavly/providers/registry/default-regis
 import { createResponsesProvider } from '@sheavly/providers/responses/responses.helper';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { lookupCall, reasoningItem } from '@sheavly/providers/testing/responses-items.fake';
+import { TEST_REQUEST } from '@sheavly/providers/testing/request.constants';
 
 // Integration: the providers package driven by the real loop, as a host wires them.
 
@@ -41,6 +42,7 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
     const messages = await ask(
       createResponsesProvider({
         endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} },
+        request: TEST_REQUEST,
         fetch,
       }),
     );
@@ -74,7 +76,9 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
   ] as const)('works through the %s adapter', async (kind, adapterConfig) => {
     const { fetch, requests } = fakeFetchSequence({ responses: turns });
 
-    await ask(createDefaultRegistry({ fetch }).create(kind, adapterConfig));
+    await ask(
+      createDefaultRegistry({ fetch }).create(kind, { ...adapterConfig, request: TEST_REQUEST }),
+    );
 
     expect(requests[0]?.body.include).toEqual(['reasoning.encrypted_content']);
     expect(requests[1]?.body.input).toContainEqual(reasoningItem(1));
@@ -88,6 +92,7 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
         apiKey: 'k',
         model: 'gpt-6.1-sol',
         reasoning: false,
+        request: TEST_REQUEST,
       }),
     );
 

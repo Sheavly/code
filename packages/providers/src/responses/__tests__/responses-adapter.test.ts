@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineResponsesAdapter } from '../responses.helper.js';
+import { requestPolicySchema } from '../adapter-config.validator.js';
+import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const request: ProviderRequest = {
   messages: [{ role: 'user', content: 'hi' }],
@@ -13,7 +15,11 @@ const request: ProviderRequest = {
 const exampleAdapter = defineResponsesAdapter({
   kind: 'example',
   description: 'An example Responses backend',
-  configSchema: z.object({ token: z.string(), reasoning: z.boolean().default(true) }),
+  configSchema: z.object({
+    token: z.string(),
+    reasoning: z.boolean().default(true),
+    request: requestPolicySchema,
+  }),
   toEndpoint: (config) => ({
     baseUrl: 'https://example.test/v1',
     model: 'm',
@@ -25,7 +31,7 @@ const exampleAdapter = defineResponsesAdapter({
 describe('defineResponsesAdapter', () => {
   it('builds a Responses provider from the endpoint its config maps to', async () => {
     const { fetch, requests } = fakeFetch([]);
-    const config = exampleAdapter.configSchema.parse({ token: 'secret' });
+    const config = exampleAdapter.configSchema.parse({ token: 'secret', request: TEST_REQUEST });
 
     await collect(exampleAdapter.create({ config, deps: { fetch } }).stream(request));
 
@@ -37,7 +43,11 @@ describe('defineResponsesAdapter', () => {
 
   it("passes the config's reasoning setting to the provider", async () => {
     const { fetch, requests } = fakeFetch([]);
-    const config = exampleAdapter.configSchema.parse({ token: 'secret', reasoning: false });
+    const config = exampleAdapter.configSchema.parse({
+      token: 'secret',
+      reasoning: false,
+      request: TEST_REQUEST,
+    });
 
     await collect(exampleAdapter.create({ config, deps: { fetch } }).stream(request));
 

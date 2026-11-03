@@ -5,7 +5,7 @@ import { createDefaultRegistry } from '@sheavly/providers/registry/default-regis
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { TRUST_STORE_PATH } from './harness.constants.js';
 import type { ProviderSettings } from './harness.types.js';
-import { parseProviderEnv } from './settings.validator.js';
+import { parseProviderEnv, parseRequestEnv } from './settings.validator.js';
 
 /**
  * The model backend the terminal app runs against, from its environment (`process.env`, after
@@ -14,6 +14,7 @@ import { parseProviderEnv } from './settings.validator.js';
  */
 export function providerFromEnv(environment: Environment): ProviderSettings {
   const env = parseProviderEnv(environment);
+  const request = parseRequestEnv(environment);
   const registry = createDefaultRegistry();
 
   if (env.ADAPTER === 'azure') {
@@ -25,6 +26,7 @@ export function providerFromEnv(environment: Environment): ProviderSettings {
         baseUrl: env.AZURE_OPENAI_BASE_URL,
         deployment: env.AZURE_OPENAI_DEPLOYMENT,
         apiVersion: env.AZURE_OPENAI_API_VERSION,
+        request,
       }),
     };
   }
@@ -32,7 +34,7 @@ export function providerFromEnv(environment: Environment): ProviderSettings {
   return {
     adapter: 'openai',
     model: env.MODEL,
-    provider: registry.create('openai', { apiKey: env.OPENAI_API_KEY, model: env.MODEL }),
+    provider: registry.create('openai', { apiKey: env.OPENAI_API_KEY, model: env.MODEL, request }),
   };
 }
 

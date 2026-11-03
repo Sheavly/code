@@ -31,7 +31,9 @@ task, and commands are where the trust model has the most to lose.
   key fails with the name of what to set.
 - `trustStoreFromEnv`: `SHEAVLY_TRUST_FILE`, else `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json`
   (default `~/.config/sheavly/`).
-- `harness.constants.ts`: the default backend and model, and `MAX_TURNS` (model calls per session,
+- `parseRequestEnv`: how each model call is sent, `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
+  `MODEL_RETRY_DELAY_MS`, defaulting to `REQUEST` (60s, 2 retries, 1s).
+- `harness.constants.ts`: the default backend and model, the request policy, and `MAX_TURNS` (model calls per session,
   20: room for multi-step sub-agent work).
 
 No package has any of these: another UI reads its own settings and composes its own run.

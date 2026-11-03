@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { requestSentBy } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { openaiAdapter } from '../openai.adapter.js';
+import { TEST_REQUEST } from '../../testing/request.constants.js';
 
-const sent = (config: unknown) => requestSentBy({ adapter: openaiAdapter, config });
+const sent = (config: unknown) =>
+  requestSentBy({
+    adapter: openaiAdapter,
+    config: { request: TEST_REQUEST, ...(config as object) },
+  });
 
 describe('openaiAdapter', () => {
   it('requires a model: the caller picks it', () => {
