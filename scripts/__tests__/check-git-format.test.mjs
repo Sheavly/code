@@ -1,8 +1,45 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { findAreaProblems, findFormatProblems } from '../check-git-format.mjs';
 import { REPO_ROOT } from './temp-repo.utils.mjs';
 
 const IMPACT = '## Harness impact\n\nnone: a fix inside one file.';
+
+/**
+ * Every import of a package (not `node:`, not relative) in `file` and the local files it loads,
+ * as `<file> imports <package>`.
+ */
+function packageImports(file, seen = new Set()) {
+  if (seen.has(file)) return [];
+
+  seen.add(file);
+
+  // `import … from`, `export … from`, `import 'x'` and `import('x')`.
+  const specifiers = [
+    ...readFileSync(file, 'utf8').matchAll(
+      /^(?:import|export)\s[^;]*?from\s+'([^']+)'|^import\s+'([^']+)'|\bimport\(\s*'([^']+)'/gms,
+    ),
+  ].map(([, from, bare, dynamic]) => from ?? bare ?? dynamic);
+  const local = specifiers.filter((specifier) => specifier.startsWith('.'));
+  const own = specifiers
+    .filter((specifier) => !specifier.startsWith('.') && !specifier.startsWith('node:'))
+    .map((specifier) => `${path.relative(REPO_ROOT, file)} imports ${specifier}`);
+
+  return [
+    ...own,
+    ...local.flatMap((specifier) =>
+      packageImports(path.resolve(path.dirname(file), specifier), seen),
+    ),
+  ];
+}
+
+describe('the CI job', () => {
+  // .github/workflows/git-format.yml runs the check with no `npm ci`, so it may load no package.
+  it('runs on Node built-ins alone', () => {
+    expect(packageImports(path.join(REPO_ROOT, 'scripts/check-git-format.mjs'))).toEqual([]);
+  });
+});
 
 const pr = (fields = {}) =>
   findFormatProblems({

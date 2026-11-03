@@ -16,11 +16,6 @@ const BASE_CONFIG = pathToFileURL(path.join(import.meta.dirname, '..', 'base.js'
 /** A module file of a kind every rule applies to, in a folder no workspace special-cases. */
 const PROBE = 'src/zz-probe/zz-probe.utils.ts';
 const REQUIRED_SCRIPTS = ['typecheck', 'lint', 'test'];
-/** Scripts a workspace may lack, with why. Keep it short. */
-const MISSING_SCRIPT_EXCEPTIONS = {
-  // The app is the root package: turbo runs its `typecheck:root`, `lint:root` and `test:root`.
-  '.': ['typecheck', 'lint', 'test'],
-};
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
@@ -75,9 +70,9 @@ function baselineFor(dir) {
   return isApp(dir) ? APP_BASELINE : BASELINE;
 }
 
-it('reads the app and at least one package from the root workspaces', () => {
-  expect(WORKSPACES).toContain(REPO_ROOT);
-  expect(WORKSPACES.length).toBeGreaterThan(1);
+it('reads the packages and the apps from the root workspaces', () => {
+  expect(WORKSPACES.some((dir) => isApp(dir))).toBe(true);
+  expect(WORKSPACES.some((dir) => !isApp(dir))).toBe(true);
 });
 
 it('lets an app, and only an app, read env, print and use the terminal', () => {
@@ -123,10 +118,9 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
 
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};
-      const allowed = MISSING_SCRIPT_EXCEPTIONS[name] ?? [];
 
       expect(
-        REQUIRED_SCRIPTS.filter((script) => !scripts[script] && !allowed.includes(script)),
+        REQUIRED_SCRIPTS.filter((script) => !scripts[script]),
         'Add them like the other packages (`tsc --noEmit`, `eslint .`, `vitest run --config ../../vitest.config.ts`).',
       ).toEqual([]);
     });

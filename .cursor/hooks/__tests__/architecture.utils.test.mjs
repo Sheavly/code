@@ -32,7 +32,7 @@ beforeEach(() => {
   mkdirSync(path.join(project, path.dirname(SKILL)), { recursive: true });
   copyFileSync(path.join(ROOT, SKILL), path.join(project, SKILL));
 
-  for (const file of ['src/host/x.service.ts', 'docs/x.md']) {
+  for (const file of ['packages/host/src/host/x.service.ts', 'docs/x.md']) {
     mkdirSync(path.join(project, path.dirname(file)), { recursive: true });
     writeFileSync(path.join(project, file), '');
   }
@@ -62,10 +62,11 @@ describe('the architecture rule', () => {
   });
 
   it.each([
-    ['src/host/host.service.ts', true],
-    ['src/terminal-ui/render.service.ts', true],
+    ['packages/host/src/host/host.service.ts', true],
+    ['apps/workbook/src/workbook/run.helper.ts', true],
     ['packages/core/src/tool/tool.types.ts', true],
-    ['src/tools/run-command/__tests__/arguments.service.test.ts', false],
+    ['packages/coding/src/run-command/__tests__/arguments.service.test.ts', false],
+    ['src/loop/turn.helper.ts', false],
     ['docs/tools.md', false],
     ['.cursor/hooks/hooks.utils.mjs', false],
   ])('covers %s: %s', (file, covered) => {
@@ -73,9 +74,9 @@ describe('the architecture rule', () => {
   });
 
   it('is injected on a chat’s first edit of harness source, then not again', () => {
-    const first = edited({ file: 'src/host/x.service.ts' });
-    const second = edited({ file: 'src/host/x.service.ts' });
-    const otherChat = edited({ file: 'src/host/x.service.ts', chat: 'c2' });
+    const first = edited({ file: 'packages/host/src/host/x.service.ts' });
+    const second = edited({ file: 'packages/host/src/host/x.service.ts' });
+    const otherChat = edited({ file: 'packages/host/src/host/x.service.ts', chat: 'c2' });
 
     expect(first.additional_context).toContain('Architecture rule for this project');
     expect(second.additional_context ?? '').not.toContain('Architecture rule');
@@ -102,15 +103,15 @@ describe('"Where code goes"', () => {
   it('names every workspace the layout reads, so a new one needs a row', () => {
     const guide = whereCodeGoes() ?? '';
     const missing = Object.keys(readLayout({ root: ROOT })).filter(
-      (name) => name !== '@sheavly/harness' && !guide.includes(`\`${name}\``),
+      (name) => !guide.includes(`\`${name}\``),
     );
 
     expect(missing).toEqual([]);
   });
 
   it('is injected once per chat, on its first edit of harness source', () => {
-    const first = edited({ file: 'src/host/x.service.ts' });
-    const second = edited({ file: 'src/host/x.service.ts' });
+    const first = edited({ file: 'packages/host/src/host/x.service.ts' });
+    const second = edited({ file: 'packages/host/src/host/x.service.ts' });
 
     expect(first.additional_context).toContain('Where code goes in this project');
     expect(second.additional_context ?? '').not.toContain('Where code goes');

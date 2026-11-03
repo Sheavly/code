@@ -1,7 +1,7 @@
 name: Sync labels
 
 # One `area/<scope>` issue label per commit scope, plus `area/tooling` and `security`
-# (scripts/sync-area-labels.mjs), so a new package or src/ folder gets its label when it lands on
+# (scripts/sync-area-labels.mjs), so a new package or app gets its label when it lands on
 # main. A label whose folder is gone is deleted once no open issue has it, and reported until then.
 on:
   push:

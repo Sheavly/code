@@ -3,14 +3,12 @@
   // The quality gate (`npm run check`), cached by inputs. Every workspace runs its own
   // `typecheck`, `lint` and `test`; each depends on the same task in the workspaces it imports
   // (`^`), so a change in a dependency reruns its dependents. The `//#` tasks are the root's:
-  // the app, `scripts/`, `.cursor/hooks/` and root configs, plus the repo-wide checks.
-  // No `build` task: the gate reads source (the `@sheavly/source` condition).
+  // `scripts/`, `.cursor/hooks/` and root configs, plus the repo-wide checks. The gate reads
+  // source (the `@sheavly/source` condition); `build` (`npm run build`) is outside it.
   // The cache stays in this checkout (turbo would otherwise share the main worktree's), so a
   // worktree never writes into another one.
   "cacheDir": ".turbo/cache",
-  // A change in a shared config or the lockfile invalidates every cached result. So does a change
-  // in a package the root depends on (turbo always hashes those globally): while the app is the
-  // root package, a change in core or providers reruns everything (#29 moves the app out).
+  // A change in a shared config or the lockfile invalidates every cached result.
   "globalDependencies": [
     "tsconfig.base.json",
     ".prettierrc.json",
@@ -25,23 +23,12 @@
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
     "lint": { "dependsOn": ["^lint"], "outputs": [] },
     "test": { "dependsOn": ["^test"], "outputs": [] },
+    // Each workspace builds to its `dist/` after the workspaces it imports.
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
 
-    // The root's own files. The app imports the packages from source, so their source counts.
-    "//#typecheck:root": {
-      "dependsOn": ["^typecheck"],
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
-      "outputs": []
-    },
-    "//#lint:root": {
-      "dependsOn": ["^lint"],
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
-      "outputs": []
-    },
-    "//#test:root": {
-      "dependsOn": ["^test"],
-      "inputs": ["$TURBO_DEFAULT$", "packages/*/src/**"],
-      "outputs": []
-    },
+    // The root's own files: `scripts/`, `.cursor/hooks/` and the root configs.
+    "//#lint:root": { "outputs": [] },
+    "//#test:root": { "outputs": [] },
 
     // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the workspaces out, and
     // an explicit glob ignores .gitignore, so a workspace's tracked files are named: its top-level

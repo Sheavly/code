@@ -5,7 +5,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
-export function createTaskStatusTool(tasks: TaskRegistry) {
+function createTaskStatusTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'task_status',
     description:
@@ -38,7 +38,7 @@ export function createTaskStatusTool(tasks: TaskRegistry) {
 }
 
 /** Lets the agent stop a background task; waits until its process has exited. */
-export function createCancelTaskTool(tasks: TaskRegistry) {
+function createCancelTaskTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'cancel_task',
     description: 'Stop a running background task (kills its process and everything it started).',

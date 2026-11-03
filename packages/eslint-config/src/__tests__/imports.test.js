@@ -10,7 +10,7 @@ RuleTester.describe = describe;
 RuleTester.it = it;
 
 const root = tempWorkspace({
-  'package.json': { name: '@x/app', workspaces: ['packages/*', 'apps/*'] },
+  'package.json': { name: 'monorepo', workspaces: ['packages/*', 'apps/*'] },
   'packages/protocol/package.json': { name: '@x/protocol' },
   'packages/core/package.json': { name: '@x/core' },
   'packages/coding/package.json': { name: '@x/coding' },
@@ -42,24 +42,12 @@ const layout = {
   },
   '@x/cli': { dir: 'apps/cli', kind: 'app', domain: 'coding', dependsOn: ['@x/core', '@x/coding'] },
   '@x/web': { dir: 'apps/web', kind: 'app', domain: 'coding', dependsOn: ['@x/core'] },
-  '@x/app': {
-    dir: '.',
-    kind: 'app',
-    domain: 'coding',
-    dependsOn: ['@x/core'],
-    layers: {
-      runtime: ['@x/core'],
-      loop: ['@x/core', 'runtime'],
-      host: ['@x/core', 'runtime', 'loop'],
-      testing: { testOnly: true, dependsOn: ['runtime'] },
-    },
-  },
 };
 const at = (file) => path.join(root, file);
 const options = [{ root, layout }];
 const CORE_FILE = at('packages/core/src/tool/tool.utils.ts');
 const CODING_FILE = at('packages/coding/src/files/files.utils.ts');
-const LOOP_FILE = at('src/loop/turn.helper.ts');
+const CLI_TEST = at('apps/cli/src/main/__tests__/main.test.ts');
 
 const error = (messageId) => [{ messageId }];
 
@@ -89,18 +77,8 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         code: "import { x } from '@x/protocol/a/a.utils';",
         filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
       },
-      // The app being split: a layer importing a layer it lists, or its own.
-      { code: "import { x } from '../runtime/tasks/tasks.service.js';", filename: LOOP_FILE },
-      { code: "import { x } from './sample.helper.js';", filename: LOOP_FILE },
-      // Tests and fakes wire concrete pieces: layer rules don't apply to them.
-      {
-        code: "import { x } from '../../host/host.helper.js';",
-        filename: at('src/loop/__tests__/turn.helper.test.ts'),
-      },
-      {
-        code: "import { f } from '../../testing/until.fake.js';",
-        filename: at('src/loop/__tests__/a.test.ts'),
-      },
+      // A relative import within the app.
+      { code: "import { x } from '../../main/main.helper.js';", filename: CLI_TEST },
     ].map((test) => ({ ...test, options })),
     invalid: [
       // Upward: core importing a package above it.
@@ -146,25 +124,9 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         errors: error('crossesWorkspace'),
       },
       {
-        code: "import { x } from '../../packages/core/src/tool/tool.utils.js';",
-        filename: LOOP_FILE,
+        code: "import { x } from '../../../../../packages/core/src/tool/tool.utils.js';",
+        filename: CLI_TEST,
         errors: error('crossesWorkspace'),
-      },
-      // The app being split: a layer importing one it doesn't list, or the test-only layer.
-      {
-        code: "import { x } from '../host/host.helper.js';",
-        filename: LOOP_FILE,
-        errors: error('crossesLayer'),
-      },
-      {
-        code: "import('../host/host.helper.js');",
-        filename: LOOP_FILE,
-        errors: error('crossesLayer'),
-      },
-      {
-        code: "import { f } from '../testing/until.fake.js';",
-        filename: LOOP_FILE,
-        errors: error('testOnly'),
       },
     ].map((test) => ({ ...test, options })),
   },

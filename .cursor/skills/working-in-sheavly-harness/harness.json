@@ -1,10 +1,13 @@
 {
   "governs": [
-    "src/**",
     "packages/*/src/**",
     "packages/*/package.json",
     "packages/*/eslint.config.js",
     "packages/*/tsconfig*.json",
+    "apps/*/src/**",
+    "apps/*/package.json",
+    "apps/*/eslint.config.js",
+    "apps/*/tsconfig*.json",
     "eslint.config.js",
     "knip.json",
     "turbo.json",

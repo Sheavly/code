@@ -119,7 +119,7 @@ export function baseConfig(params) {
         'harness/single-definition': 'error',
         // Every workspace holds together as the layout reads it from the workspaces.
         'harness/layout': 'error',
-        // Imports follow the layout's graph and the split app's layers; tests are checked too.
+        // Imports follow the layout's graph; tests are checked too.
         'harness/imports': 'error',
       },
     },

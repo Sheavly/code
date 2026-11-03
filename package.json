@@ -1,18 +1,15 @@
 {
   "name": "@sheavly/harness",
   "version": "1.0.0",
-  "main": "dist/index.js",
   "scripts": {
     "test": "turbo run test test:root",
-    "dev": "tsx watch --conditions=@sheavly/source src/index.ts",
-    "start": "node dist/index.js",
-    "build": "tsc -b tsconfig.build.json",
-    "typecheck": "turbo run typecheck typecheck:root",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
     "test:watch": "vitest --mode all",
     "lint": "turbo run lint lint:root",
     "lint:fix": "eslint . --fix && prettier --write . --log-level warn",
     "lint:prune": "eslint . --prune-suppressions",
-    "check": "turbo run typecheck typecheck:root lint lint:root test test:root format:check knip jscpd layout",
+    "check": "turbo run typecheck lint lint:root test test:root format:check knip jscpd layout",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip --preprocessor ./scripts/knip-baseline.mjs",
@@ -21,25 +18,13 @@
     "jscpd:baseline": "node scripts/jscpd-baseline.mjs",
     "workbook": "tsx --conditions=@sheavly/source apps/workbook/src/workbook/workbook.ts",
     "demo": "tsx --conditions=@sheavly/source apps/terminal/src/demo.ts",
-    "typecheck:root": "tsc --noEmit",
     "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
     "test:root": "vitest run",
-    "check:affected": "turbo run typecheck typecheck:root lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
+    "check:affected": "turbo run typecheck lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
     "layout": "node scripts/check-layout.mjs",
     "new": "node scripts/new-workspace.mjs"
   },
   "type": "module",
-  "dependencies": {
-    "@sheavly/coding": "^0.0.0",
-    "@sheavly/core": "^0.0.0",
-    "@sheavly/host": "^0.0.0",
-    "@sheavly/loop": "^0.0.0",
-    "@sheavly/protocol": "^0.0.0",
-    "@sheavly/providers": "^0.0.0",
-    "@sheavly/runtime": "^0.0.0",
-    "@sheavly/tools": "^0.0.0",
-    "@sheavly/workspace": "^0.0.0"
-  },
   "devDependencies": {
     "@sheavly/eslint-config": "^0.0.0",
     "@types/node": "^26.6.6",
@@ -61,8 +46,5 @@
     "packages/*",
     "apps/*"
   ],
-  "packageManager": "npm@12.2.1",
-  "sheavly": {
-    "domain": "coding"
-  }
+  "packageManager": "npm@12.2.1"
 }
