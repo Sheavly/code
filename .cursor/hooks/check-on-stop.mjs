@@ -1,19 +1,37 @@
-// stop: before the agent finishes, run the quality gate (typecheck + ESLint for the affected
-// workspaces through turbo, then Prettier + knip + the layout check + jscpd on the whole repo). If
-// any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit`
-// in hooks.json.
+// stop: before the agent finishes, run the quality gate (typecheck + ESLint through turbo, then
+// Prettier + knip + the layout check + jscpd), held to what this chat edited. If any fails, send a
+// follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in hooks.json.
 // Once the gate passes, nudge (once per set of files) when a workspace's source changed but its
 // README and docs/ didn't (see docs.utils.mjs).
 // Only a chat that changed project source in this checkout (a Write or Delete, recorded by
-// lint-edited-file.mjs) is checked, so a chat that only answered questions, worked in another
-// worktree or edited only through the shell never gets another chat's half-finished work back as
-// failures.
+// lint-edited-file.mjs, or a shell command's changes, recorded by record-shell-writes.mjs) is
+// checked, so a chat that only answered questions or worked in another worktree never gets
+// another chat's half-finished work back as failures. A subagent's edits are its parent's to
+// check: the parent's stop hook waits while one still works, then checks what the chat and every
+// subagent below it edited (chat-links.utils.mjs, subagents.utils.mjs). Several chats can share
+// the checkout, so the gate reports only problems in those files and the workspaces they affect
+// (gate-scope.utils.mjs); a chat recorded before its files were kept gets the whole gate. A shell
+// workaround the chat used must also be learned by the shell guard (shell-guard-stop.utils.mjs).
+import { existsSync } from 'node:fs';
+import { filesOtherChatsEdited } from './chat-files.utils.mjs';
+import { familyWork } from './chat-links.utils.mjs';
 import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
-import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
-import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
 import {
+  gateScope,
+  scopedFiles,
+  scopedReport,
+  scopedTurboReport,
+  turboFilters,
+} from './gate-scope.utils.mjs';
+import { HookStateError, isMissingPath, ProjectReadError } from './hooks.errors.mjs';
+import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
+import { shellGuardFailure } from './shell-guard-stop.utils.mjs';
+import { snapshotProject } from './shell-writes.utils.mjs';
+import { dropTimedOutSubagents, findOpenSubagents } from './subagents.utils.mjs';
+import {
+  FORMATTABLE,
   formatTurboReport,
-  getChatState,
+  PROJECT_ROOT,
   readHookInput,
   respond,
   runBin,
@@ -25,46 +43,100 @@ const MAX_REPORT_LINES = 60;
 /** The hook's response: `{}`, a gate failure report, or the docs nudge. */
 async function decide() {
   const input = await readHookInput();
+  const conversationId = input.conversation_id;
 
-  // Only a finished turn is checked: an aborted or errored one was stopped on purpose. Only a
-  // chat that edited this checkout is checked: the rest would be reporting other chats' work.
-  const editedCheckout = getChatState(input.conversation_id)?.editedProjectSource === true;
+  // Only a finished turn is checked: an aborted or errored one was stopped on purpose.
+  if (input.status !== 'completed') return {};
 
-  if (input.status !== 'completed' || !editedCheckout) return {};
+  // While a subagent below this chat still works, its edits are half done: the checks wait for
+  // the first turn end after the last one stopped. One silent past the timeout no longer holds
+  // them back, and is named once (subagents.utils.mjs).
+  const { running, timedOut } = findOpenSubagents({ conversationId });
 
-  const failures = runGate();
+  if (running.length > 0) return {};
+  const silent = dropTimedOutSubagents(timedOut);
 
-  if (failures.length === 0) return docsNudge();
+  // Only a chat that (itself or through its subagents) edited this checkout is checked: the rest
+  // would be reporting other chats' work.
+  const work = familyWork(conversationId);
+
+  if (!work.edited) return silent ? { followup_message: silent } : {};
+
+  const shellGuard = await shellGuardFailure({
+    projectRoot: PROJECT_ROOT,
+    conversationId,
+    unguardedCommands: work.unguardedCommands,
+  });
+  const scope = chatScope(work);
+  const failures = [...(shellGuard ? [shellGuard] : []), ...runGate(scope)];
+
+  if (failures.length === 0) return docsNudge({ scope, silent });
+  if (silent) failures.push(silent);
 
   const report = failures.join('\n\n').split('\n').slice(0, MAX_REPORT_LINES).join('\n');
+  const scopeNote = scope
+    ? "Only problems in the files this chat and its subagents edited, and the workspaces they affect, are listed: other chats' work in this checkout is theirs to check.\n\n"
+    : '';
 
   return {
     followup_message:
       'The quality gate fails. Fix the code (no eslint-disable comments, no new suppressions), ' +
-      `then finish again.\n\n${report}`,
+      `then finish again.\n\n${scopeNote}${report}`,
   };
 }
 
-/** Every gate step; returns a report section for each one that fails. */
-function runGate() {
-  const failures = [];
+/**
+ * What this chat and its subagents answer for (gate-scope.utils.mjs), or null when one of them
+ * edited before files were recorded.
+ */
+function chatScope(work) {
+  if (!work.files) return null;
+  const dirty = new Set(Object.keys(snapshotProject(PROJECT_ROOT)?.files ?? {}));
+  const othersEdited = filesOtherChatsEdited({ exclude: work.ids, since: 0 });
 
-  // Typecheck and ESLint per workspace, through turbo: only the workspaces this branch and its
-  // uncommitted changes affect, and nothing whose inputs a cached run already passed.
-  const workspaces = runBin('turbo', [
-    'run',
-    ...['typecheck', 'lint', 'lint:root'],
-    '--affected',
-    '--continue',
-    '--output-logs=errors-only',
-  ]);
-
-  if (!workspaces.ok) {
-    failures.push(`## Typecheck and ESLint (turbo)\n${formatTurboReport(workspaces.output)}`);
+  try {
+    return gateScope({ root: PROJECT_ROOT, files: work.files, dirty, othersEdited });
+  } catch (caughtError) {
+    // Without the workspaces the gate can't tell this chat's work from another's: said, not guessed.
+    if (!isMissingPath(caughtError) && !(caughtError instanceof SyntaxError)) throw caughtError;
+    throw new ProjectReadError({ file: 'the workspaces (package.json)', cause: caughtError });
   }
+}
 
-  // Repo-wide: always the whole repo.
-  const format = runBin('prettier', ['--check', '--log-level', 'warn', '.']);
+const isFormattableFile = (file) => FORMATTABLE.test(file) && existsSync(file);
+
+/** Every gate step; returns a report section for each one that fails within `scope`. */
+function runGate(scope) {
+  const failures = [];
+  // A report cut to the scope, or the whole one for a chat recorded before files were kept.
+  const scoped = (output) => (scope ? scopedReport({ output, scope, root: PROJECT_ROOT }) : output);
+
+  // Typecheck and ESLint per workspace, through turbo: the workspaces this chat's edits affect
+  // (or, unscoped, everything this branch and its uncommitted changes affect), and nothing whose
+  // inputs a cached run already passed.
+  const filters = scope ? turboFilters(scope) : ['--affected'];
+  const workspaces =
+    filters.length > 0
+      ? runBin('turbo', [
+          'run',
+          ...['typecheck', 'lint', 'lint:root'],
+          ...filters,
+          '--continue',
+          '--output-logs=errors-only',
+        ])
+      : { ok: true };
+  const turboReport = workspaces.ok ? null : formatTurboReport(workspaces.output);
+  const turboFailure =
+    turboReport && scope ? scopedTurboReport({ report: turboReport, scope }) : turboReport;
+
+  if (turboFailure) failures.push(`## Typecheck and ESLint (turbo)\n${turboFailure}`);
+
+  // Formatting: the files this chat edited (or, unscoped, the whole repo).
+  const formattable = scope ? [...scope.files].filter(isFormattableFile) : ['.'];
+  const format =
+    formattable.length > 0
+      ? runBin('prettier', ['--check', '--log-level', 'warn', '--ignore-unknown', ...formattable])
+      : { ok: true };
 
   if (!format.ok) {
     failures.push(
@@ -74,28 +146,31 @@ function runGate() {
 
   // Dead code and duplication: any finding fails, there is no baseline.
   const knip = runNpmScript('knip');
+  const knipFailure = knip.ok ? null : scoped(knip.output);
 
-  if (!knip.ok) {
+  if (knipFailure) {
     failures.push(
       '## knip (remove the unused code, exports or dependencies; change dependencies with ' +
-        `\`npm install|uninstall\`, never by editing package.json)\n${knip.output}`,
+        `\`npm install|uninstall\`, never by editing package.json)\n${knipFailure}`,
     );
   }
 
   // The workspace layout: every workspace set up like the others, source only in a workspace.
   const layout = runNpmScript('layout');
+  const layoutFailure = layout.ok ? null : scoped(layout.output);
 
-  if (!layout.ok) {
+  if (layoutFailure) {
     failures.push(
-      `## Layout (\`npm run layout\`; see the README's "Workspace layout")\n${layout.output}`,
+      `## Layout (\`npm run layout\`; see the README's "Workspace layout")\n${layoutFailure}`,
     );
   }
 
   const jscpd = runNpmScript('jscpd');
+  const jscpdFailure = jscpd.ok ? null : scoped(jscpd.output);
 
-  if (!jscpd.ok) {
+  if (jscpdFailure) {
     failures.push(
-      `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${jscpd.output}`,
+      `## jscpd (reuse or extract the existing code; no jscpd:ignore comments)\n${jscpdFailure}`,
     );
   }
 
@@ -118,14 +193,16 @@ try {
 
 /**
  * The follow-ups once the gate passes: docs to update, and a real-model check to run, each asked
- * once per set of files. `{}` when nothing is left to ask.
+ * once per set of files, for the uncommitted files this chat edited (all of them, unscoped).
+ * `{}` when nothing is left to ask.
  */
-function docsNudge() {
-  const changed = uncommittedFiles();
+function docsNudge(params) {
+  const { scope, silent } = params;
+  const changed = scopedFiles({ files: uncommittedFiles(), scope });
+  const messages = silent ? [silent] : [];
 
-  if (!changed) return {};
+  if (!changed?.length) return messages.length > 0 ? { followup_message: silent } : {};
 
-  const messages = [];
   const stale = onlyNew(staleDocs(changed));
 
   if (stale.length > 0) {

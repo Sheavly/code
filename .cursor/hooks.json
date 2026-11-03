@@ -10,6 +10,11 @@
     ],
     "beforeShellExecution": [
       {
+        "command": "node .cursor/hooks/guard-shell-commands.mjs",
+        "timeout": 10,
+        "failClosed": true
+      },
+      {
         "command": "node .cursor/hooks/guard-git-workflow.mjs",
         "timeout": 10,
         "failClosed": true
@@ -25,6 +30,31 @@
         "command": "node .cursor/hooks/lint-edited-file.mjs",
         "matcher": "Delete",
         "timeout": 30
+      },
+      {
+        "command": "node .cursor/hooks/record-shell-writes.mjs",
+        "matcher": "Shell",
+        "timeout": 30
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "node .cursor/hooks/record-shell-writes.mjs",
+        "matcher": "Shell",
+        "timeout": 30
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "node .cursor/hooks/record-subagent.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "node .cursor/hooks/record-subagent-stop.mjs",
+        "timeout": 10
       }
     ],
     "stop": [

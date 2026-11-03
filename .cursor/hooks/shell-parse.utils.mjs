@@ -1,5 +1,46 @@
-// Shell command reading for the git guard. Best-effort by design:
+// Shell command reading shared by the beforeShellExecution guards. Best-effort by design:
 // no regex reading of shell is complete (variables, eval, scripts written then run).
+import path from 'node:path';
+
+export function programName(token) {
+  return path.basename(token).replace(/\.exe$/i, '');
+}
+
+/** Whether `file`, read from `cwd`, is outside `projectRoot` (so a write to it edits nothing there). */
+export function isOutsideProject(params) {
+  const { file, cwd, projectRoot } = params;
+  const relative = path.relative(projectRoot, path.resolve(cwd, file));
+
+  return relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative);
+}
+
+// Programs that only print or search their arguments, so a program named among them is a word,
+// not a command (`echo sed -i`, `rg 'sed -i'`). Anything else before it is taken to run it.
+const NON_EXECUTING_PROGRAMS = new Set([
+  'echo',
+  'printf',
+  'cat',
+  'rg',
+  'grep',
+  'ls',
+  'git',
+  'which',
+  'type',
+  'man',
+  'jq',
+  'head',
+  'tail',
+  'wc',
+  // Status reads: what a file or process is, never writing it.
+  'stat',
+  'ps',
+  'sleep',
+]);
+
+/** Whether a segment's first word only prints or searches the rest, so none of it runs. */
+export function startsWithNonExecuting(tokens) {
+  return NON_EXECUTING_PROGRAMS.has(programName(tokens[0]));
+}
 
 // Commit/PR messages are prose that may *mention* forbidden flags or git commands, so their
 // values are blanked before matching. Only quoted values and `"$(cat <<'EOF' …)"` heredocs are
@@ -99,15 +140,119 @@ export function positionals(params) {
 }
 
 // Quotes and escapes only change how the shell splits words, so dropping them turns
-// `"git" push` and `bash -c "git push -f"` back into plain words to inspect.
+// `"git" push` and `bash -c "git push -f"` back into plain words to inspect. A `\` line
+// continuation joins its lines first: they are one command.
 export function normalize(command) {
-  return command.replace(/["'\\]/g, '').replace(/\$\(|`|\(|\)/g, ' ; ');
+  return command
+    .replace(/\\\n/g, ' ')
+    .replace(/["'\\]/g, '')
+    .replace(/\$\(|`|\(|\)/g, ' ; ');
 }
 
-// `2>&1`-style fd duplications are one token so their `&` isn't read as a separator.
-const TOKEN = /\d*>&\d+|\d*>>?|\|\||&&|[|;&]|[^\s|;&<>]+/g;
-const SEPARATORS = new Set(['|', '||', '&&', ';', '&']);
+/**
+ * `command` with the shell operators inside each quoted argument masked, so splitting it reads
+ * only the shell's own: a `|` in an `rg 'cp|mv'` pattern, a `;` in a `node -e "x; y"` program or a
+ * `(` in a regex stays in its word. For checks that read what runs as a program; one that must see
+ * into `bash -c "…"` splits the raw command instead.
+ */
+export function maskQuotedOperators(command) {
+  return command.replace(/"[^"]*"|'[^']*'/g, (quoted) => quoted.replace(/[|;&<>()`$\s]/g, '_'));
+}
+
+// `2>&1`-style fd duplications are one token so their `&` isn't read as a separator. A newline
+// ends a command like `;` does.
+const TOKEN = /\d*>&\d+|\d*>>?|\|\||&&|[|;&\n]|[^\s|;&<>]+/g;
+const SEPARATORS = new Set(['|', '||', '&&', ';', '&', '\n']);
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
+
+/** The index of the line ending the heredoc `lines[index]` opens (past the end when unclosed). */
+function heredocEnd(lines, index) {
+  const opener = /<<-?\s*(['"]?)(\w+)\1/.exec(lines[index] ?? '');
+
+  if (!opener) return undefined;
+
+  const end = lines.findIndex((next, at) => at > index && next.trim() === opener[2]);
+
+  return end === -1 ? lines.length : end;
+}
+
+/** `command` without its heredocs' bodies: a body is its command's input, never commands. */
+export function withoutHeredocBodies(command) {
+  const lines = command.split('\n');
+  const kept = [];
+
+  for (let index = 0; index < lines.length; index++) {
+    kept.push(lines[index]);
+    index = heredocEnd(lines, index) ?? index;
+  }
+
+  return kept.join('\n');
+}
+
+/** `line` split at `;`, `&&`, `||` and `|` outside quotes: a quoted program keeps its `;`s. */
+function splitOutsideQuotes(line) {
+  const parts = [];
+  let current = '';
+  let quote = null;
+
+  for (let index = 0; index < line.length; index++) {
+    const char = line[index];
+
+    if (quote) {
+      if (char === quote) quote = null;
+      current += char;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      current += char;
+    } else if (char === ';' || char === '|' || (char === '&' && line[index + 1] === '&')) {
+      parts.push(current);
+      current = '';
+      if (line[index + 1] === char) index++;
+    } else {
+      current += char;
+    }
+  }
+
+  return [...parts, current];
+}
+
+/** A command line's words, each with its quotes taken off (`'a b'` stays one word, `a b`). */
+function wordsOf(raw) {
+  return [...raw.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map(
+    (match) => match[1] ?? match[2] ?? match[3] ?? '',
+  );
+}
+
+/**
+ * The simple commands of `command`, line by line, each with the heredoc it reads (the body of a
+ * heredoc is that command's input, never commands of its own): `raw` keeps the quotes (a program's
+ * string literals tell its paths), `words` has them off, leading env assignments dropped.
+ */
+export function splitCommands(command) {
+  const commands = [];
+  const lines = command.split('\n');
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? '';
+    const last = heredocEnd(lines, index);
+    let heredoc;
+
+    if (last !== undefined) {
+      heredoc = lines.slice(index + 1, last).join('\n');
+      index = last;
+    }
+
+    for (const part of splitOutsideQuotes(line)) {
+      const raw = part.replace(/<<-?\s*(['"]?)\w+\1.*$/, '').trim();
+      const words = wordsOf(raw);
+      const first = words.findIndex((word) => !ENV_ASSIGNMENT.test(word));
+
+      if (first !== -1) commands.push({ raw, words: words.slice(first), heredoc });
+    }
+  }
+
+  return commands;
+}
 
 /** The simple commands in a (normalized) command line, each as words without leading env assignments. */
 export function toSegments(command) {

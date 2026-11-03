@@ -6,6 +6,7 @@
 // (stacked PRs themselves are allowed). People aren't checked: only agent shell commands pass
 // through hooks.
 import path from 'node:path';
+import { chatWorkflow, linkFromToolCall } from './chat-links.utils.mjs';
 import {
   checkBranch,
   checkCherryPick,
@@ -23,14 +24,14 @@ import {
   listAreaLabels,
   listScopes,
 } from './git-workflow.utils.mjs';
+import { currentBranch, PROJECT_ROOT, readHookInput, runGuard } from './hooks.utils.mjs';
 import {
-  currentBranch,
-  getChatState,
-  PROJECT_ROOT,
-  readHookInput,
-  runGuard,
-} from './hooks.utils.mjs';
-import { normalize, readCommitMessage, stripMessages, toSegments } from './shell-parse.utils.mjs';
+  normalize,
+  readCommitMessage,
+  stripMessages,
+  toSegments,
+  withoutHeredocBodies,
+} from './shell-parse.utils.mjs';
 
 const QUOTED_PROSE = '__quoted__';
 const COMMIT_FORMAT_FIX =
@@ -39,11 +40,14 @@ const COMMIT_FORMAT_FIX =
 // Quoted values with spaces (`-m "add export"`) are prose, not words: keeping them whole stops
 // a message from being read as branch names. Single-word quotes (`"12-api"`) stay.
 function readSegments(command) {
-  const prose = stripMessages(command).replace(/"([^"]*)"|'([^']*)'/g, (match, double, single) => {
-    const value = double ?? single;
+  const prose = withoutHeredocBodies(stripMessages(command)).replace(
+    /"([^"]*)"|'([^']*)'/g,
+    (match, double, single) => {
+      const value = double ?? single;
 
-    return value === '' || /\s/.test(value) ? QUOTED_PROSE : match;
-  });
+      return value === '' || /\s/.test(value) ? QUOTED_PROSE : match;
+    },
+  );
 
   return toSegments(normalize(prose));
 }
@@ -105,7 +109,10 @@ function checkCommitCommand(params) {
 
 function findViolation(input) {
   const command = input.command ?? '';
-  const state = getChatState(input.conversation_id);
+
+  // A subagent answers to the issues and approvals of the chat that started it.
+  linkFromToolCall(input);
+  const state = chatWorkflow(input.conversation_id);
   const newBranches = [];
 
   for (const tokens of readSegments(command)) {
@@ -120,9 +127,7 @@ function findViolation(input) {
 
   return (
     newBranches
-      .map((name) =>
-        checkBranch({ name, chatIssues: state?.issues ?? [], noIssue: Boolean(state?.noIssue) }),
-      )
+      .map((name) => checkBranch({ name, chatIssues: state.issues, noIssue: state.noIssue }))
       .find(Boolean) ?? null
   );
 }

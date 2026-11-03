@@ -1,5 +1,27 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { formatTurboReport } from '../hooks.utils.mjs';
+import { formatEslintReport, formatTurboReport, PROJECT_ROOT } from '../hooks.utils.mjs';
+
+describe('formatEslintReport', () => {
+  const report = (ruleId) =>
+    JSON.stringify([
+      {
+        filePath: path.join(PROJECT_ROOT, 'src/a.ts'),
+        messages: [{ line: 3, column: 5, message: 'Too deep.', ruleId }],
+      },
+    ]);
+
+  it("adds the rule's hint under a problem from a rule that has one", () => {
+    const [problem] = formatEslintReport(report('max-depth'));
+
+    expect(problem).toMatch(/^src\/a\.ts:3:5 {2}Too deep\. {2}\(max-depth\)\n {2}→ Flatten/);
+  });
+
+  it('reports a rule without a hint, and a parse error, on one line', () => {
+    expect(formatEslintReport(report('eqeqeq'))).toEqual(['src/a.ts:3:5  Too deep.  (eqeqeq)']);
+    expect(formatEslintReport(report(null))).toEqual(['src/a.ts:3:5  Too deep.  (parse error)']);
+  });
+});
 
 // Shaped like `turbo run … --continue --output-logs=errors-only` with a failing typecheck.
 const FAILED_RUN = [
