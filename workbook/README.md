@@ -27,8 +27,8 @@ workbook/
 
 The code is in the terminal app (`apps/terminal/src/workbook/`); this folder is its data, read from the
 directory you run it in (the repo root, through `npm run workbook`). It's a host like the demo
-(`apps/terminal/src/demo.ts`), and shares its wiring and terminal output with it (`createCodingHarness`
-from `@sheavly/coding`, the app's renderer in `src/render/`).
+(`apps/terminal/src/demo.ts`), and shares its wiring and terminal output with it (`createTerminalHarness` in `src/harness/`, which
+says what a terminal run includes, and the renderer in `src/render/`).
 
 ## Stored prompts
 

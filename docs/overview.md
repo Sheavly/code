@@ -53,13 +53,14 @@ flowchart BT
   coding --> host
   coding --> workspace
   core --> protocol
-  host --> loop
-  host --> providers
-  host --> tools
+  host --> runtime
   loop --> runtime
   providers --> core
   runtime --> core
   terminal --> coding
+  terminal --> loop
+  terminal --> providers
+  terminal --> tools
   tools --> runtime
   workspace --> runtime
 ```
@@ -78,8 +79,8 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                |
-| `packages/host/src/`      | `@sheavly/host`: wiring a run (`createHarness`) and the model from an environment the app passes in (`providerFromEnv(process.env)`). No UI, and no imports from a front end                                                                                                |
-| `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and the preset (`preset/`: `createCodingHarness`, `trustStoreFromEnv`); `CommandRefusedError` (`errors/`)                                                |
+| `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                          |
+| `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)               |
 | `apps/terminal/`          | `@sheavly/terminal`, the terminal front end: the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and the `Renderer` both print with           |
 | `apps/vscode/`            | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                     |
 
@@ -89,22 +90,30 @@ are `validator`, stateless code that does I/O is `helper`, and only code that ow
 class, is `service`. See the project skill in `.cursor/skills/working-in-sheavly-harness/` for
 the full conventions.
 
-## Entry points: a generic harness, and coding on top
+## The UI decides what a run includes
 
-A run is wired in one of two ways:
+The packages provide the pieces and the services a run shares; a UI decides which provider a run
+uses and which tools and hooks it includes, and composes them. No package picks a backend, a model,
+a tool or a hook for it.
 
-| Entry point                               | For                                                                  | What it wires                                                                                                                                                             |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The caller's `tools` and `hooks`, plus the task tools, `start_agent` and `message_agent`; the session, task and approval registries. Opens no workspace and reads no file |
-| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo (the demo, the workbook)                    | Opens the `Workspace`, checks trust and loads the `.sheavly/` hooks, adds the AGENTS.md hook, the file tools and `run_command`, then calls `createHarness` with them      |
+| Services                                  | For                                                                  | What it makes                                                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file      |
+| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `FileLocks` and one `ProcessRunner` built from the env the UI passes in |
+
+The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
+and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
+`createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
+and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The terminal app does
+it in one place, `createTerminalHarness` (`apps/terminal/src/harness/`), with its settings from env.
 
 ```ts
-const harness = createHarness({ provider, title: prompt, tools: [extractTool] });
+const harness = createHarness({ provider, title: prompt });
 
 for await (const event of streamAgent({
   provider: harness.provider,
-  tools: harness.tools,
-  hooks: harness.hooks,
+  tools: [extractTool, ...createTaskTools(harness.tasks)],
+  hooks: [],
   messages: [{ role: 'user', content: prompt }],
   tasks: harness.tasks,
   session: { registry: harness.sessions, ref: harness.mainSession },
@@ -112,17 +121,15 @@ for await (const event of streamAgent({
   render(event);
 ```
 
-Sub-agents get only what `subAgents` lists (`tools`, `hooks`, `instructions`); the coding preset
-gives them the file tools and the AGENTS.md hook. Pass `tasks` or `approvals` in when a tool needs
-the registry before the harness exists (as `run_command` does).
+Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists.
 
 The rule (from [#74](https://github.com/Sheavly/code/issues/74)): generic code never needs a project on disk or a coding tool.
 The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the generic tools
 (`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
 (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
 (`read-file`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
-the coding preset reaches them, which is why each lives in a package of its own and the generic
-ones never depend on the coding ones.
+a coding UI reaches them, which is why each lives in a package of its own and the generic ones
+never depend on the coding ones.
 
 ## Packages
 

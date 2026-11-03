@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL } from '../host.constants.js';
-import { parseProviderEnv } from '../host.validator.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL } from '../harness.constants.js';
+import { parseProviderEnv } from '../settings.validator.js';
 
 describe('parseProviderEnv', () => {
   it("defaults to the hosts' adapter and model", () => {

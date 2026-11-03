@@ -21,9 +21,9 @@ import { createWriteStream, existsSync } from 'node:fs';
 import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { HOST_MAX_TURNS } from '@sheavly/host/host/host.constants';
-import { createCodingHarness, trustStoreFromEnv } from '@sheavly/coding/preset/coding.helper';
-import { providerFromEnv } from '@sheavly/host/host/host.helper';
+import { MAX_TURNS } from './harness/harness.constants.js';
+import { createTerminalHarness } from './harness/harness.helper.js';
+import { providerFromEnv, trustStoreFromEnv } from './harness/settings.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { Renderer } from './render/render.service.js';
 import { projectTrustNotice, shortId } from './render/render.utils.js';
@@ -48,7 +48,7 @@ const skipAllowList = process.env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true';
 const showModelCalls = process.env.SHOW_MODEL_CALLS === 'true';
 
 const view: { renderer?: Renderer } = {};
-const harness = await createCodingHarness({
+const harness = await createTerminalHarness({
   provider,
   workspaceRoot,
   skipAllowList,
@@ -110,7 +110,7 @@ const events = streamAgent({
   tools: harness.tools,
   hooks: harness.hooks,
   messages: [{ role: 'user', content: prompt }],
-  maxTurns: HOST_MAX_TURNS,
+  maxTurns: MAX_TURNS,
   signal: interrupt.signal,
   tasks,
   session: { registry: sessions, ref: mainSession },

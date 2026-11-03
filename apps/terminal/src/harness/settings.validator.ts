@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL } from './host.constants.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL } from './harness.constants.js';
 
 /** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
 const optionalSetting = z

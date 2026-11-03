@@ -16,8 +16,8 @@ A tool is a folder with a `<name>.tool.ts` that returns
 - `context` has the `callId`, the model's `description`, and the calling `session` (its id,
   parent, main session and depth; see [sessions.md](sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
-- Wire it into the coding preset (`createCodingHarness`) if every coding run gets it, or pass it
-  in (`tools`) from the app that needs it.
+- Include it from the UI that wants it: the terminal app adds its tools in `createTerminalHarness`
+  (`apps/terminal/src/harness/harness.helper.ts`). No package adds a tool to a run.
 
 ## Built-in tools
 

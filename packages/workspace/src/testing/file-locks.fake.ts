@@ -3,7 +3,7 @@ import { FileLocks } from '../file-locks/file-locks.service.js';
 
 /**
  * Test-only: a fresh `FileLocks` for each test, shared by every tool call in it, as
- * `createHarness` shares one. Read `.current` inside a test, never at module load.
+ * `createCodingHarness` shares one. Read `.current` inside a test, never at module load.
  */
 export function useFileLocks(): { readonly current: FileLocks } {
   let locks = new FileLocks();

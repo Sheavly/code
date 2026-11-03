@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { HOST_MAX_TURNS } from '@sheavly/host/host/host.constants';
-import { createCodingHarness, trustStoreFromEnv } from '@sheavly/coding/preset/coding.helper';
-import type { ProviderSettings } from '@sheavly/host/host/host.types';
+import { MAX_TURNS } from '../harness/harness.constants.js';
+import { createTerminalHarness } from '../harness/harness.helper.js';
+import { trustStoreFromEnv } from '../harness/settings.helper.js';
+import type { ProviderSettings } from '../harness/harness.types.js';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
@@ -43,7 +44,7 @@ export async function runWorkbook(params: {
     recorder.transcript(text);
   };
   const view: { renderer?: Renderer } = {};
-  const harness = await createCodingHarness({
+  const harness = await createTerminalHarness({
     provider: settings.provider,
     workspaceRoot,
     title: request.text,
@@ -99,7 +100,7 @@ export async function runWorkbook(params: {
       tools: harness.tools,
       hooks: harness.hooks,
       messages,
-      maxTurns: request.stored?.maxTurns ?? HOST_MAX_TURNS,
+      maxTurns: request.stored?.maxTurns ?? MAX_TURNS,
       signal: interrupt.signal,
       tasks,
       session: { registry: sessions, ref: mainSession },

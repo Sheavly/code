@@ -138,6 +138,37 @@ function exportsProblems(params) {
   });
 }
 
+/**
+ * Which backend a run uses is the UI's choice: a package takes a `Provider` and never depends at
+ * runtime on one that holds model backends (`*.adapter.ts` files, read from the files). Tests may
+ * use them as dev dependencies, to drive the real code.
+ */
+function providerProblems(params) {
+  const { root, workspaces, layout, files } = params;
+  const relativeOf = (workspace) => path.relative(root, workspace.dir).split(path.sep).join('/');
+  const backends = new Set(
+    workspaces
+      .filter((workspace) =>
+        files.some(
+          (file) =>
+            file.startsWith(`${relativeOf(workspace)}/src/`) && file.endsWith('.adapter.ts'),
+        ),
+      )
+      .map(({ name }) => name),
+  );
+
+  return Object.entries(layout)
+    .filter(([, entry]) => entry.kind === 'package')
+    .flatMap(([name, entry]) =>
+      entry.dependsOn
+        .filter((dependency) => backends.has(dependency))
+        .map(
+          (dependency) =>
+            `${name} depends on ${dependency}, which holds the model backends: which backend a run uses is the UI's choice. Take a Provider as an option, and let the app build it (make it a dev dependency if only tests need it).`,
+        ),
+    );
+}
+
 /** A workspace with no source of its own: nothing to typecheck, test or import yet. */
 function emptyProblems(params) {
   const { root, workspaces, files } = params;
@@ -167,6 +198,7 @@ export function findLayoutProblems(params) {
       exportsProblems({ workspace, kind: layout[workspace.name]?.kind }),
     ),
     ...emptyProblems({ root, workspaces, files }),
+    ...providerProblems({ root, workspaces, layout, files }),
     ...strayProblems({ workspaces, files, notSource }),
   ];
 }

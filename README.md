@@ -179,8 +179,8 @@ Providers are their own package, `@sheavly/providers` (`packages/providers/`); i
   folder next to `responses/`, with backends on it. Only the `Provider` contract is shared.
 - Register it with `registry.register(myAdapter)`, or add it to `createDefaultRegistry`.
 
-Adapters have no default model: the caller picks it (the hosts' default is `DEFAULT_MODEL` in
-`packages/host/src/host/host.constants.ts`). Nothing in the core needs to change.
+Adapters have no default model: the UI picks it (the terminal app's default is `DEFAULT_MODEL` in
+`apps/terminal/src/harness/harness.constants.ts`). Nothing in the core needs to change.
 
 ## Project layout
 
@@ -197,10 +197,10 @@ packages/
   runtime/         @sheavly/runtime: sessions, background tasks, approvals
   tools/           @sheavly/tools: the generic tools (sub-agents, task status)
   loop/            @sheavly/loop: streamAgent / runAgent, events, queue, abort, hooks
-  host/            @sheavly/host: createHarness (generic) and the model from env; no UI
+  host/            @sheavly/host: createHarness, the registries a run shares; no tools, settings or UI
   workspace/       @sheavly/workspace (coding): path confinement, processes, trust, file locks,
                    .sheavly/ hooks, AGENTS.md
-  coding/          @sheavly/coding (coding): the file tools, run_command, createCodingHarness
+  coding/          @sheavly/coding (coding): the file tools, run_command, and the workspace services
   testing/         @sheavly/testing: test-only fakes (scripted providers, fake fetch)
   eslint-config/   @sheavly/eslint-config: the shared ESLint config and harness/* rules
 apps/

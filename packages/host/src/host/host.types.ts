@@ -1,37 +1,28 @@
-import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
-/** Which model backend a host runs against, read from the environment. */
-export type ProviderSettings = {
-  adapter: string;
-  model: string;
-  provider: Provider;
-};
-
-/** What any run needs: nothing here assumes a workspace, files or a trusted project. */
+/**
+ * What any run needs, from the UI: the provider it picked and a title. Nothing here says which
+ * tools or hooks a run gets; the UI composes those itself.
+ */
 export type HarnessOptions = {
   provider: Provider;
   /** Title of the main session (e.g. the prompt). */
   title: string;
   /** Sees every model call (main session and sub-agents) before it is made. */
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
-  /** The main session's own tools; the task and sub-agent tools are added after them. */
-  tools?: Tool[];
-  /** The main session's hooks, in the order they run. */
-  hooks?: Hook[];
-  /** What sub-agents get. They inherit none of the main session's tools or hooks. */
-  subAgents?: { tools?: Tool[]; hooks?: Hook[]; instructions?: string };
   /** Pass registries in when a tool needs them before the harness exists (default: new ones). */
   tasks?: TaskRegistry;
   approvals?: ApprovalRegistry;
 };
 
-/** Everything a host wires up for one run: the tools, hooks and registries `streamAgent` takes. */
+/**
+ * The services one run shares, for the UI to build its tools and hooks on and to pass to
+ * `streamAgent`. It holds no tools and no hooks: what a run includes is the UI's choice.
+ */
 export type Harness = {
   provider: Provider;
   sessions: SessionRegistry;
@@ -43,6 +34,4 @@ export type Harness = {
    * subscriber they're refused.
    */
   approvals: ApprovalRegistry;
-  tools: Tool[];
-  hooks: Hook[];
 };

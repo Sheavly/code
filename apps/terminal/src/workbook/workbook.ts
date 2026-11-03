@@ -13,7 +13,7 @@
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { providerFromEnv } from '@sheavly/host/host/host.helper';
+import { providerFromEnv } from '../harness/settings.helper.js';
 import { checkWorkbook } from './check.helper.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';

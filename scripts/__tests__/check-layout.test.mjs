@@ -189,6 +189,24 @@ describe('the layout check', () => {
     ).toEqual([expect.stringContaining('./testing/* must point at its source only')]);
   });
 
+  it('fails a package that depends on a provider package at runtime; a dev dependency is fine', () => {
+    const files = {
+      ...wellFormed('models'),
+      'packages/models/src/openai/openai.adapter.ts': 'export const x = 1;\n',
+    };
+
+    expect(
+      problems({ ...files, ...wellFormed('top', { dependencies: { '@sheavly/models': '0' } }) }),
+    ).toEqual([
+      expect.stringContaining(
+        '@sheavly/top depends on @sheavly/models, which holds the model backends',
+      ),
+    ]);
+    expect(
+      problems({ ...files, ...wellFormed('top', { devDependencies: { '@sheavly/models': '0' } }) }),
+    ).toEqual([]);
+  });
+
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {
     const stray = { 'tools/gen.ts': 'export {};\n', 'fixtures/app/.hidden/x.cts': 'export {};\n' };
 
