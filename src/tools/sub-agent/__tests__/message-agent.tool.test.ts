@@ -4,8 +4,13 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runSession, streamAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
 import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
 import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
-import { calls, createStepPicker, say, toolCall } from '../../../testing/routed-provider.fake.js';
-import type { Script } from '../../../testing/testing.types.js';
+import {
+  calls,
+  createStepPicker,
+  say,
+  toolCall,
+} from '@sheavly/testing/provider/routed-provider.fake';
+import type { Script } from '@sheavly/testing/provider/provider.types';
 import { createMessageAgentTool } from '../message-agent.tool.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';

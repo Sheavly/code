@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';

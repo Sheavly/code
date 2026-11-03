@@ -28,20 +28,20 @@ ESLint enforces this (`harness/imports`). The layout is read from the workspaces
 
 Decide where something lives before writing it. The first question: **would a non-coding LLM project (a text extractor, a chat wrapper) need this?** Yes: it is generic, and goes where it knows nothing about files, workspaces or code. No: it is coding, and only the coding preset reaches it. Then pick the row. Until #29 finishes splitting the app, some homes are still `src/` folders; the last column is the package each one becomes.
 
-| You are adding…                                                                 | It goes in                                                   | Once #29 lands       |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------- |
-| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`     | (already a package)  |
-| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then the loop  | protocol, then loop  |
-| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                              | (already a package)  |
-| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                            | (already a package)  |
-| A stateful service the host creates (tasks, sessions, approvals, locks)         | `src/runtime/<module>/`                                      | `@sheavly/runtime`   |
-| A generic tool (no files, no commands)                                          | `src/tools/<name>/`                                          | `@sheavly/tools`     |
-| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset | `@sheavly/workspace` |
-| A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`             | `@sheavly/coding`    |
-| Wiring a run, a transport, the model from env                                   | `src/host/`                                                  | `@sheavly/host`      |
-| A fake for tests                                                                | `src/testing/` (a package's own: its `src/testing/`)         | `@sheavly/testing`   |
-| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                     | (already a package)  |
-| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`           | `apps/<name>`        |
+| You are adding…                                                                 | It goes in                                                            | Once #29 lands       |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------- |
+| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`              | (already a package)  |
+| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then the loop           | protocol, then loop  |
+| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                       | (already a package)  |
+| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                     | (already a package)  |
+| A stateful service the host creates (tasks, sessions, approvals, locks)         | `src/runtime/<module>/`                                               | `@sheavly/runtime`   |
+| A generic tool (no files, no commands)                                          | `src/tools/<name>/`                                                   | `@sheavly/tools`     |
+| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset          | `@sheavly/workspace` |
+| A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`                      | `@sheavly/coding`    |
+| Wiring a run, a transport, the model from env                                   | `src/host/`                                                           | `@sheavly/host`      |
+| A fake for tests                                                                | `@sheavly/testing` (one that needs the app's runtime: `src/testing/`) | (already a package)  |
+| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                              | (already a package)  |
+| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`                    | `apps/<name>`        |
 
 **A new package, instead of a folder in an existing one**, when all of these hold: it has its own reason to change (not just more of what a package already does); something that shouldn't get the rest of an existing package needs it (a generic consumer, or a UI that needs only the wire contract); and its dependencies point down the graph. Otherwise it is a module folder in the package that owns the concern. Create a package or app with `npm run new` (see Packages), never by hand.
 
@@ -124,7 +124,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - Interrupts must leave history valid: every tool call gets a result message, even a placeholder.
 - Keep files within their kind's line limit (`file-kinds.js`; `utils` has none, since pure helpers grow with their subject) and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
 - No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in `eslint.config.js`, with a reason.
-- Fakes live in a `testing/` folder: the app's in `src/testing/` (`scripted-provider.fake.ts`, `temp-workspace.fake.ts`), shared ones in `packages/core/src/testing/` (`fake-fetch.fake.ts`), and a package's own in its `src/testing/` (`packages/providers/src/testing/`), since a package can't import the app. No mock data in dev or prod code.
+- Fakes live in `@sheavly/testing`, by what they fake: `provider/` (`scriptedProvider`, `callOnceProvider`, `routedProvider`), `fetch/` (`fakeFetch`, `collect`, `requestSentBy`), `tool/` (`toolRunner`) and `wait/` (`until`). It is test-only (`sheavly.testOnly`): a dev dependency, imported only from tests and fakes (`harness/imports`), and lint treats all its source as test code. Fakes that need the app's runtime stay in `src/testing/` until their package exists; a package's own fakes stay in its `src/testing/` (`packages/providers/src/testing/`); core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. No mock data in dev or prod code.
 - Never edit `package.json` by hand: use `npm install -D <pkg>` / `npm pkg set`.
 - Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (`src/runtime/errors/`, `packages/providers/src/errors/`, `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
 - Real-model checks: when a change alters what a run does, run `npm run workbook -- check` once it's done (the `/git` review step asks for it, and the stop hook nudges once). It runs only the checks whose `areas` the change touched. A new behaviour gets a `check` on a stored prompt (`workbook/README.md`). It's manual and on demand: never put it in CI or `npm run check`, and don't run `src/demo.ts` or the workbook otherwise, since both call a paid model API.
@@ -132,7 +132,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 ## Tests
 
 - Tests go in `<module>/__tests__/<name>.<kind>.test.ts`. Anywhere else, ESLint fails it and Vitest never runs it.
-- Use `scriptedProvider` / `fakeFetch` and temporary directories. Tests never touch the network.
+- Use `scriptedProvider` / `fakeFetch` (`@sheavly/testing`) and temporary directories. Tests never touch the network.
 - Cover the guard paths too (rejections, aborts, ordering), not just the happy path.
 
 ## Quality gate

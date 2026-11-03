@@ -37,11 +37,20 @@ async function enabledRules(dir) {
 }
 
 /** A workspace that only calls `baseConfig`: what every workspace gets at the least. */
-async function baselineRules() {
+/**
+ * A workspace that only calls `baseConfig`: what every workspace gets at the least. A test-only
+ * one (`sheavly.testOnly`, like `@sheavly/testing`) has the test rules on all its source.
+ */
+async function baselineRules(params = {}) {
+  const { testOnly = false } = params;
   const dir = mkdtempSync(path.join(tmpdir(), 'zz-synthetic-workspace-'));
 
   mkdirSync(path.join(dir, 'src'));
   writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
+  writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({ name: 'zz', sheavly: { testOnly } }),
+  );
   writeFileSync(
     path.join(dir, 'eslint.config.js'),
     `import { baseConfig } from '${BASE_CONFIG}';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n`,
@@ -50,8 +59,10 @@ async function baselineRules() {
   return enabledRules(dir);
 }
 
+const isTestOnly = (dir) => readJson(path.join(dir, 'package.json')).sheavly?.testOnly === true;
 const WORKSPACES = workspaceDirs(REPO_ROOT);
 const BASELINE = await baselineRules();
+const TEST_ONLY_BASELINE = await baselineRules({ testOnly: true });
 
 it('reads the app and at least one package from the root workspaces', () => {
   expect(WORKSPACES).toContain(REPO_ROOT);
@@ -87,7 +98,7 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
       const enabled = new Set(await enabledRules(dir));
 
       expect(
-        BASELINE.filter((rule) => !enabled.has(rule)),
+        (isTestOnly(dir) ? TEST_ONLY_BASELINE : BASELINE).filter((rule) => !enabled.has(rule)),
         `${name} turns off shared rules. Keep them on; a justified exception is a files: override with a reason, on the files it is for.`,
       ).toEqual([]);
     });

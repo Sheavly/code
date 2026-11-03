@@ -8,7 +8,12 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '../../loop/stream-agent/stream-agent.helper.js';
 import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
-import { calls, routedProvider, say, toolCall } from '../../testing/routed-provider.fake.js';
+import {
+  calls,
+  routedProvider,
+  say,
+  toolCall,
+} from '@sheavly/testing/provider/routed-provider.fake';
 import { createHarness } from '../host.helper.js';
 
 const extract = defineTool({

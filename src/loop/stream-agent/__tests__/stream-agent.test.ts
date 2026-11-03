@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { callOnceProvider, scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import {
+  callOnceProvider,
+  scriptedProvider,
+} from '@sheavly/testing/provider/scripted-provider.fake';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.helper.js';

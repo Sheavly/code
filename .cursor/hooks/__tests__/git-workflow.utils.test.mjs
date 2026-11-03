@@ -87,10 +87,17 @@ describe('headers', () => {
   });
 
   it('reads scopes from the packages, apps and src/ folders, without the test-only layers', () => {
-    const scopes = listScopes(REPO_ROOT);
+    const root = createTempRepo({
+      'packages/testing/package.json': '{}',
+      'src/loop/loop.ts': '',
+      'src/testing/fixtures.ts': '',
+    });
 
-    expect(scopes).toEqual(expect.arrayContaining(['core', 'eslint-config', 'loop', 'tools']));
-    expect(scopes).not.toContain('testing');
+    // packages/testing is a workspace, so a scope; the split app's test-only src/testing isn't.
+    expect(listScopes(root)).toEqual(['loop', 'testing']);
+    expect(listScopes(REPO_ROOT)).toEqual(
+      expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools']),
+    );
   });
 
   it('reads an apps/ workspace as a scope', () => {

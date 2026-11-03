@@ -24,7 +24,7 @@ The harness's hosts keep theirs in `src/host/host.constants.ts`.
   folder `src/<name>/` with `<name>.adapter.ts` calling `defineResponsesAdapter({ kind,
 description, configSchema, toEndpoint })`. `toEndpoint` is a pure map from validated config to
   base URL, model, headers and query; streaming, tool calls and reasoning are shared. Test the
-  mapping in `src/<name>/__tests__/` with `requestSentBy` from `@sheavly/core/testing/fake-fetch.fake`.
+  mapping in `src/<name>/__tests__/` with `requestSentBy` from `@sheavly/testing/fetch/fake-fetch.fake`.
 - **It speaks another protocol** (Anthropic Messages, Google Gemini, Chat Completions): a protocol
   folder next to `responses/` (`src/anthropic-messages/`, ...) with its own `create<Name>Provider`
   that turns a `ProviderRequest` into that API's request and its stream into `StreamEvent`s, and

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { echoTool as echo } from '@sheavly/core/testing/echo-tool.fake';
 import { HookError } from '../../../runtime/errors/hooks.errors.js';
 import {
   runAfterTurn,
@@ -13,6 +13,13 @@ import {
 import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
 
 const signal = new AbortController().signal;
+
+const echo = defineTool({
+  name: 'echo',
+  description: 'Echoes text back',
+  inputSchema: z.object({ text: z.string() }),
+  execute: async ({ input }) => JSON.stringify(input),
+});
 
 const call: ToolCall = { id: 'c1', name: 'echo', input: { description: 'echoing', text: 'hi' } };
 

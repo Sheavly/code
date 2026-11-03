@@ -4,7 +4,7 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { scriptedProvider } from '../../../testing/scripted-provider.fake.js';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 

@@ -1,6 +1,6 @@
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
-import type { Script } from './testing.types.js';
+import type { Script } from './provider.types.js';
 
 /**
  * Picks the step for a request: each session's first user message names its script, and the

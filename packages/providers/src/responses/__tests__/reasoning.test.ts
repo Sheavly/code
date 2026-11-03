@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collect, fakeFetch } from '@sheavly/core/testing/fake-fetch.fake';
+import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { lookupCall, reasoningItem } from '../../testing/responses-items.fake.js';
 import { createResponsesProvider } from '../responses.helper.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collect } from '@sheavly/core/testing/fake-fetch.fake';
+import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { ProviderSwitch } from '../switch.service.js';
