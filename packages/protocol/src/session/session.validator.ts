@@ -20,14 +20,21 @@ export const sessionRefSchema = z.object({
   depth: z.number().int().positive(),
 });
 
-/** Where a session is: still running, or how its run ended. */
+/**
+ * Where a session is: running a prompt, `idle` between prompts of a conversation (open, waiting
+ * for the next), or ended, with how its last run ended.
+ */
 export const sessionStateSchema = z.enum([
   'running',
+  'idle',
   'completed',
   'interrupted',
   'max_turns',
   'failed',
 ]);
+
+/** How one run of a session ended: the states it can leave behind. */
+export const runOutcomeSchema = sessionStateSchema.exclude(['running', 'idle']);
 
 /** A snapshot of a session, for a UI (e.g. a sub-agent card). */
 export const sessionInfoSchema = sessionRefSchema.extend({
@@ -36,6 +43,8 @@ export const sessionInfoSchema = sessionRefSchema.extend({
   /** The last status the agent reported itself (`report_status`), e.g. "editing core package". */
   status: z.string().exactOptional(),
   state: sessionStateSchema,
+  /** How its last run ended: set once a run finishes, whether the session went idle or ended. */
+  lastOutcome: runOutcomeSchema.exactOptional(),
   startedAt: z.number(),
   endedAt: z.number().exactOptional(),
 });
@@ -58,5 +67,9 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
     session: sessionInfoSchema,
     message: inboxMessageSchema,
   }),
+  /** A conversation's prompt finished; the session stays open for the next (`lastOutcome`). */
+  z.object({ type: z.literal('session_idle'), session: sessionInfoSchema }),
+  /** The next prompt of a conversation started running in the same session. */
+  z.object({ type: z.literal('session_resumed'), session: sessionInfoSchema }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
 ]);
