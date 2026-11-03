@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { describeCall, withDescription } from '../tool.validator.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+
+const callId = callIdSchema.parse('1');
 
 describe('withDescription', () => {
   const schema = withDescription(z.object({ text: z.string() }));
@@ -26,10 +29,10 @@ describe('withDescription', () => {
 describe('describeCall', () => {
   it('reads the description off a call, falling back to the tool name', () => {
     expect(
-      describeCall({ id: '1', name: 'echo', input: { description: 'echoing hi', text: 'hi' } }),
+      describeCall({ id: callId, name: 'echo', input: { description: 'echoing hi', text: 'hi' } }),
     ).toBe('echoing hi');
-    expect(describeCall({ id: '1', name: 'echo', input: { text: 'hi' } })).toBe('echo');
-    expect(describeCall({ id: '1', name: 'echo', input: { description: '' } })).toBe('echo');
-    expect(describeCall({ id: '1', name: 'echo', input: 'not json' })).toBe('echo');
+    expect(describeCall({ id: callId, name: 'echo', input: { text: 'hi' } })).toBe('echo');
+    expect(describeCall({ id: callId, name: 'echo', input: { description: '' } })).toBe('echo');
+    expect(describeCall({ id: callId, name: 'echo', input: 'not json' })).toBe('echo');
   });
 });

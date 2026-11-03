@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** What `execute` returns: text for the model, plus any artifacts for the UI. */
@@ -11,7 +12,7 @@ export type ToolRunResult = ToolMessage & { artifacts?: readonly ToolArtifact[] 
 
 /** About the call being executed; most tools don't need it. */
 export type ToolContext = {
-  callId: string;
+  callId: CallId;
   /** The model's plain-language description of this call. */
   description: string;
   /** The session making the call (when the loop runs it): sub-agent tools start children of it. */

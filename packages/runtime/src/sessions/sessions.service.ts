@@ -1,14 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
+import { EntryLog } from './entry-log.service.js';
+import { notifyAll } from './listeners.helper.js';
 import { toServerSentEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
+  SessionId,
   SessionInfo,
   SessionRef,
   SessionState,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { EntryFilter } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -17,24 +24,29 @@ type Listener = (update: SessionUpdate) => void;
  * sub-agent can only start under a running session that is in this registry, so none floats free,
  * and never deeper than `MAX_SESSION_DEPTH`. Status reports and endings are pushed to listeners,
  * and streamed as server-sent events for a UI (`stream()`).
+ *
+ * It also orders the whole tree's activity: every session update and every event a session's
+ * loop publishes (`publish`) becomes one `StreamEntry`, numbered 0, 1, 2, ... across all sessions
+ * in the order it happened, for a UI following every session at once (`subscribeEntries`).
  */
 export class SessionRegistry {
-  #sessions = new Map<string, SessionInfo>();
+  #sessions = new Map<SessionId, SessionInfo>();
   #listeners = new Set<Listener>();
+  #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
   /** Messages queued per session, delivered at its next model call. */
-  #inboxes = new Map<string, InboxMessage[]>();
+  #inboxes = new Map<SessionId, InboxMessage[]>();
   /** Loops waiting idle (for tasks) that a new message should wake. */
-  #waiters = new Map<string, (() => void)[]>();
+  #waiters = new Map<SessionId, (() => void)[]>();
 
   /** Starts the main session (depth 1). */
-  startMain(params: { title: string; id?: string }): SessionRef {
-    const id = params.id ?? randomUUID();
+  startMain(params: { title: string; id?: SessionId }): SessionRef {
+    const id = params.id ?? sessionIdSchema.parse(randomUUID());
 
     return this.#add({ id, rootId: id, depth: 1, title: params.title });
   }
 
   /** Starts a sub-agent session under `parentId`. Throws if the parent is unknown or ended, or at the depth cap. */
-  startChild(params: { parentId: string; title: string }): SessionRef {
+  startChild(params: { parentId: SessionId; title: string }): SessionRef {
     const { parentId, title } = params;
     const parent = this.#sessions.get(parentId);
 
@@ -63,7 +75,7 @@ export class SessionRegistry {
     }
 
     return this.#add({
-      id: randomUUID(),
+      id: sessionIdSchema.parse(randomUUID()),
       parentId,
       rootId: parent.rootId,
       depth: parent.depth + 1,
@@ -72,7 +84,7 @@ export class SessionRegistry {
   }
 
   /** A sub-agent's own status report ("editing core package"). Ignored once the session ended. */
-  report(params: { id: string; status: string }): void {
+  report(params: { id: SessionId; status: string }): void {
     const session = this.#require(params.id);
 
     if (session.state !== 'running') return;
@@ -81,7 +93,7 @@ export class SessionRegistry {
   }
 
   /** Marks a session ended with how its run finished. Ending twice keeps the first ending. */
-  end(params: { id: string; state: Exclude<SessionState, 'running'> }): void {
+  end(params: { id: SessionId; state: Exclude<SessionState, 'running'> }): void {
     const session = this.#require(params.id);
 
     if (session.state !== 'running') return;
@@ -96,7 +108,7 @@ export class SessionRegistry {
    * stopping anything. `from` is `'user'`, or a session id, which must be an ancestor of the
    * target: a session steers only its own sub-agents (and theirs). Throws otherwise.
    */
-  send(params: { id: string; content: string; from: string }): void {
+  send(params: { id: SessionId; content: string; from: InboxMessage['from'] }): void {
     const { id, content, from } = params;
     const session = this.#require(id);
 
@@ -124,7 +136,7 @@ export class SessionRegistry {
   }
 
   /** Removes and returns the session's queued messages, oldest first. */
-  takeMessages(id: string): InboxMessage[] {
+  takeMessages(id: SessionId): InboxMessage[] {
     const messages = this.#inboxes.get(id) ?? [];
 
     this.#inboxes.delete(id);
@@ -132,18 +144,18 @@ export class SessionRegistry {
     return messages;
   }
 
-  hasMessages(id: string): boolean {
+  hasMessages(id: SessionId): boolean {
     return (this.#inboxes.get(id)?.length ?? 0) > 0;
   }
 
   /** Resolves when a message arrives for the session (or it ends). For a loop waiting idle. */
-  nextMessage(id: string): Promise<void> {
+  nextMessage(id: SessionId): Promise<void> {
     return new Promise((resolve) => {
       this.#waiters.set(id, [...(this.#waiters.get(id) ?? []), resolve]);
     });
   }
 
-  get(id: string): SessionInfo | undefined {
+  get(id: SessionId): SessionInfo | undefined {
     const session = this.#sessions.get(id);
 
     return session && { ...session };
@@ -154,12 +166,12 @@ export class SessionRegistry {
   }
 
   /** The sessions `id` started directly. */
-  children(id: string): SessionInfo[] {
+  children(id: SessionId): SessionInfo[] {
     return this.list().filter((session) => session.parentId === id);
   }
 
   /** `id` and every ancestor, up to the main session (last). */
-  lineage(id: string): SessionInfo[] {
+  lineage(id: SessionId): SessionInfo[] {
     const chain: SessionInfo[] = [];
     let current = this.get(id);
 
@@ -178,6 +190,26 @@ export class SessionRegistry {
     return () => {
       this.#listeners.delete(listener);
     };
+  }
+
+  /**
+   * Adds an event of session `sessionId`'s loop to the combined stream, in the order published.
+   * The loop publishes each event as it releases it, so a session's events keep their own order.
+   */
+  publish(params: { sessionId: SessionId; event: AgentEvent }): void {
+    const { sessionId, event } = params;
+
+    this.#require(sessionId);
+    this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));
+  }
+
+  /**
+   * Calls `listener` for the entries of the combined stream `filter` picks (every session's, one
+   * session's, or a session's and its sub-agents'), sub-agents included, in one `seq` order;
+   * with `replay`, from the run's start. Each entry is frozen. Returns a function that stops it.
+   */
+  subscribeEntries(listener: (entry: StreamEntry) => void, filter?: EntryFilter): () => void {
+    return this.#entries.subscribe({ listener, ...(filter && { filter }) });
   }
 
   /**
@@ -222,7 +254,7 @@ export class SessionRegistry {
     return { id, ...(parentId !== undefined && { parentId }), rootId, depth };
   }
 
-  #require(id: string): SessionInfo {
+  #require(id: SessionId): SessionInfo {
     const session = this.#sessions.get(id);
 
     if (!session) {
@@ -239,10 +271,11 @@ export class SessionRegistry {
   #emit(update: SessionUpdate): void {
     const snapshot = { ...update, session: { ...update.session } };
 
-    for (const listener of this.#listeners) listener(snapshot);
+    notifyAll({ listeners: this.#listeners, value: snapshot });
+    this.#entries.add((seq) => ({ seq, sessionId: snapshot.session.id, kind: 'update', update }));
   }
 
-  #wake(id: string): void {
+  #wake(id: SessionId): void {
     const waiters = this.#waiters.get(id) ?? [];
 
     this.#waiters.delete(id);

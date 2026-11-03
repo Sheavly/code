@@ -8,6 +8,10 @@ import { streamAgent } from '../stream-agent.helper.js';
 import type { AgentOptions } from '../stream-agent.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+
+const t1 = taskIdSchema.parse('t1');
 
 let tasks: TaskRegistry;
 
@@ -17,7 +21,11 @@ afterEach(async () => {
 
 const background = (id: string, ms: number, output = ''): StreamEvent => ({
   type: 'tool_call',
-  call: { id, name: 'start_task', input: { description: `bg ${id}`, ms, output } },
+  call: {
+    id: callIdSchema.parse(id),
+    name: 'start_task',
+    input: { description: `bg ${id}`, ms, output },
+  },
 });
 const say = (text: string): StreamEvent[] => [
   { type: 'text_delta', text },
@@ -91,7 +99,7 @@ describe('background tasks in the loop', () => {
       status: 'running',
     });
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
-    expect(tasks.get('t1')?.status).toBe('running'); // outlives the run
+    expect(tasks.get(t1)?.status).toBe('running'); // outlives the run
   });
 
   it('the completion arrives later through the same ordered queue, and the model is told', async () => {
@@ -194,7 +202,11 @@ describe('background tasks in the loop', () => {
       [
         {
           type: 'tool_call',
-          call: { id: 'c2', name: 'cancel_task', input: { description: 'stop it', id: 't1' } },
+          call: {
+            id: callIdSchema.parse('c2'),
+            name: 'cancel_task',
+            input: { description: 'stop it', id: 't1' },
+          },
         },
         { type: 'done', stopReason: 'tool_use' },
       ],
@@ -205,7 +217,7 @@ describe('background tasks in the loop', () => {
     const events = await collect(streamAgent(options(provider, { waitForTasks: true })));
 
     expect(performance.now() - started).toBeLessThan(2_000);
-    expect(tasks.get('t1')?.status).toBe('cancelled');
+    expect(tasks.get(t1)?.status).toBe('cancelled');
     expect(types(events)).not.toContain('task_completed');
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
@@ -224,6 +236,6 @@ describe('background tasks in the loop', () => {
     );
 
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
-    expect(tasks.get('t1')?.status).toBe('running'); // the caller decides (the demo cancels on exit)
+    expect(tasks.get(t1)?.status).toBe('running'); // the caller decides (the demo cancels on exit)
   });
 });

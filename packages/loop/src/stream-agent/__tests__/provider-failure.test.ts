@@ -9,9 +9,10 @@ import { STOPPED_BY_FAILURE } from '../stream-agent.constants.js';
 import { streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const call = (id: string, name: string): ToolCall => ({
-  id,
+  id: callIdSchema.parse(id),
   name,
   input: { description: `call ${id}`, id },
 });

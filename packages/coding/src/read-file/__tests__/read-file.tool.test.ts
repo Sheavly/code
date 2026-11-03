@@ -7,6 +7,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createReadFileTool } from '../read-file.tool.js';
 import { isFileRead } from '../read-file.utils.js';
 import { isEnvFile } from '../../files/files.utils.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 let base: string;
 let root: string;
@@ -34,7 +35,7 @@ const read = (filePath: string, range: { startLine?: number; endLine?: number } 
   runTool({
     tools: [createReadFileTool({ workspace })],
     call: {
-      id: '1',
+      id: callIdSchema.parse('1'),
       name: 'read_file',
       input: { description: `reading ${filePath}`, path: filePath, ...range },
     },

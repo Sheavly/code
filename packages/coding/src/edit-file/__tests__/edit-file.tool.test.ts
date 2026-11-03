@@ -6,8 +6,10 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { createEditFileTool } from '../edit-file.tool.js';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { applyEdit } from '../edit-file.utils.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const signal = new AbortController().signal;
+const callId = callIdSchema.parse('1');
 const APP = 'const a = 1;\nconst b = 2;\nconst a2 = 1;\n';
 const temp = useTempWorkspace({
   prefix: 'edit-file-test-',
@@ -21,7 +23,11 @@ const fileLocks = useFileLocks();
 const edit = (input: { path: string; oldText: string; newText: string; replaceAll?: boolean }) =>
   runTool({
     tools: [createEditFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current })],
-    call: { id: '1', name: 'edit_file', input: { description: `editing ${input.path}`, ...input } },
+    call: {
+      id: callId,
+      name: 'edit_file',
+      input: { description: `editing ${input.path}`, ...input },
+    },
     signal,
   });
 

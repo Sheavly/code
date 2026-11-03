@@ -4,6 +4,9 @@ import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createTaskTools } from '../tasks.tool.js';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+
+const t1 = taskIdSchema.parse('t1');
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -26,7 +29,7 @@ describe('cancel_task and task_status', () => {
 
     await run('c1', 'start_task', { ms: 5_000 });
     expect(await run('c2', 'cancel_task', { id: 't1' })).toMatchObject({ isError: false });
-    expect(tasks.get('t1')).toMatchObject({ status: 'cancelled', exitCode: null });
+    expect(tasks.get(t1)).toMatchObject({ status: 'cancelled', exitCode: null });
     expect(tasks.takeUnreported()).toEqual([]); // the canceller already knows
   });
 
@@ -35,7 +38,7 @@ describe('cancel_task and task_status', () => {
 
     await run('c1', 'start_task', { ms: 0, output: 'hi\n' });
     await run('c2', 'start_task', { ms: 5_000 });
-    await until(() => tasks.get('t1')?.status === 'completed');
+    await until(() => tasks.get(t1)?.status === 'completed');
 
     const list = await run('s1', 'task_status', {});
 
@@ -89,7 +92,7 @@ describe('TaskRegistry', () => {
       run: async () => Promise.reject(new Error('spawn ENOENT')),
     });
     await until(() => tasks.runningCount === 0);
-    expect(tasks.get('t1')).toMatchObject({ status: 'failed', error: 'spawn ENOENT' });
+    expect(tasks.get(t1)).toMatchObject({ status: 'failed', error: 'spawn ENOENT' });
   });
 
   it('returns snapshots, not live objects', () => {
@@ -102,6 +105,6 @@ describe('TaskRegistry', () => {
     });
 
     info.status = 'completed';
-    expect(tasks.get('t1')?.status).toBe('running');
+    expect(tasks.get(t1)?.status).toBe('running');
   });
 });

@@ -4,7 +4,9 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { lookupCall, reasoningItem } from '../../testing/responses-items.fake.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
+const c1 = callIdSchema.parse('c1');
 const signal = new AbortController().signal;
 const config = {
   endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} },
@@ -49,10 +51,10 @@ describe('reasoning items: request side', () => {
       {
         role: 'assistant',
         content: '',
-        toolCalls: [{ id: 'c1', name: 'lookup', input: { key: 'x' } }],
+        toolCalls: [{ id: c1, name: 'lookup', input: { key: 'x' } }],
         reasoning: [{ source, data: reasoningItem(1) }],
       },
-      { role: 'tool', toolCallId: 'c1', content: 'value', isError: false },
+      { role: 'tool', toolCallId: c1, content: 'value', isError: false },
     ],
     tools: [],
     signal,

@@ -1,0 +1,149 @@
+import { describe, expect, it } from 'vitest';
+import { SessionRegistry } from '../sessions.service.js';
+import { startDeepestSession } from '../../testing/sessions.fake.js';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+
+/** One line per entry: `seq session kind:type`. */
+const describeEntry = (entry: StreamEntry, names: Record<string, string>) =>
+  `${String(entry.seq)} ${names[entry.sessionId] ?? '?'} ${
+    entry.kind === 'event' ? `event:${entry.event.type}` : `update:${entry.update.type}`
+  }`;
+
+describe("SessionRegistry's combined stream", () => {
+  it('orders every session’s updates and published events in one seq with no gaps', () => {
+    const sessions = new SessionRegistry();
+    const entries: StreamEntry[] = [];
+
+    sessions.subscribeEntries((entry) => entries.push(entry));
+
+    const main = sessions.startMain({ title: 'Main' });
+    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+
+    sessions.publish({ sessionId: main.id, event: { seq: 0, type: 'text_delta', text: 'a' } });
+    sessions.publish({ sessionId: child.id, event: { seq: 0, type: 'text_delta', text: 'b' } });
+    sessions.report({ id: child.id, status: 'working' });
+    sessions.end({ id: child.id, state: 'completed' });
+
+    const names = { [main.id]: 'main', [child.id]: 'child' };
+
+    expect(entries.map((entry) => describeEntry(entry, names))).toEqual([
+      '0 main update:session_started',
+      '1 child update:session_started',
+      '2 main event:text_delta',
+      '3 child event:text_delta',
+      '4 child update:session_status',
+      '5 child update:session_ended',
+    ]);
+  });
+
+  it('keeps each event as the loop numbered it, and refuses one for an unknown session', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const entries: StreamEntry[] = [];
+
+    sessions.subscribeEntries((entry) => entries.push(entry));
+    sessions.publish({ sessionId: main.id, event: { seq: 7, type: 'text_delta', text: 'a' } });
+
+    expect(entries).toEqual([
+      {
+        seq: 1, // the main session's start was entry 0
+        sessionId: main.id,
+        kind: 'event',
+        event: { seq: 7, type: 'text_delta', text: 'a' },
+      },
+    ]);
+    expect(() =>
+      sessions.publish({
+        sessionId: sessionIdSchema.parse('nope'),
+        event: { seq: 0, type: 'text_delta', text: 'a' },
+      }),
+    ).toThrow('Unknown session nope');
+  });
+
+  it('stops telling a listener once it unsubscribes', () => {
+    const sessions = new SessionRegistry();
+    const entries: StreamEntry[] = [];
+    const stop = sessions.subscribeEntries((entry) => entries.push(entry));
+
+    sessions.startMain({ title: 'Main' });
+    stop();
+    sessions.startMain({ title: 'Second' });
+
+    expect(entries).toHaveLength(1);
+  });
+
+  it('follows one session alone, or with its sub-agents, and replays what it missed', () => {
+    const sessions = new SessionRegistry();
+    const grandchild = startDeepestSession(sessions);
+    const [main, child] = sessions.list();
+
+    if (!main || !child) throw new Error('startDeepestSession starts three sessions');
+    const names = { [main.id]: 'main', [child.id]: 'child', [grandchild.id]: 'grandchild' };
+    const say = (id: SessionId, seq: number) =>
+      sessions.publish({ sessionId: id, event: { seq, type: 'text_delta', text: 'x' } });
+
+    say(child.id, 0); // before anyone listens
+    const only: string[] = [];
+    const tree: string[] = [];
+
+    sessions.subscribeEntries((e) => only.push(describeEntry(e, names)), {
+      sessionId: child.id,
+      replay: true,
+    });
+    sessions.subscribeEntries((e) => tree.push(describeEntry(e, names)), {
+      sessionId: child.id,
+      subtree: true,
+    });
+    say(main.id, 0);
+    say(grandchild.id, 0);
+    say(child.id, 1);
+
+    expect(only).toEqual([
+      '1 child update:session_started',
+      '3 child event:text_delta',
+      '6 child event:text_delta',
+    ]);
+    expect(tree).toEqual(['5 grandchild event:text_delta', '6 child event:text_delta']);
+  });
+
+  it('gives listeners frozen copies, so none can change what the run holds', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const event = { seq: 0, type: 'text_delta' as const, text: 'mine' };
+    let received: StreamEntry | undefined;
+
+    sessions.subscribeEntries((entry) => (received = entry));
+    sessions.publish({ sessionId: main.id, event });
+
+    expect(received?.kind === 'event' && received.event).not.toBe(event);
+    expect(Object.isFrozen(received)).toBe(true);
+    expect(() => {
+      if (received?.kind === 'event') Object.assign(received.event, { text: 'changed' });
+    }).toThrow();
+    expect(event.text).toBe('mine');
+  });
+
+  it('keeps a throwing listener from the run and the other listeners, and still reports it', async () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const seen: number[] = [];
+    const uncaught: unknown[] = [];
+    const onUncaught = (error: unknown) => uncaught.push(error);
+
+    process.on('uncaughtException', onUncaught);
+    sessions.subscribeEntries(() => {
+      throw new Error('broken view');
+    });
+    sessions.subscribeEntries((entry) => seen.push(entry.seq));
+
+    expect(() =>
+      sessions.publish({ sessionId: main.id, event: { seq: 0, type: 'text_delta', text: 'a' } }),
+    ).not.toThrow();
+    expect(seen).toEqual([1]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    process.off('uncaughtException', onUncaught);
+    expect(uncaught).toEqual([new Error('broken view')]);
+  });
+});

@@ -1,5 +1,6 @@
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { Script } from './provider.types.js';
 
 /**
@@ -37,7 +38,7 @@ export function routedProvider(scripts: Record<string, Script[]>): Provider {
   };
 }
 
-/** A tool call event, with the call description the harness requires. */
+/** A tool call event, with the call description the harness requires. `id` is branded here. */
 export function toolCall(params: {
   id: string;
   name: string;
@@ -47,7 +48,7 @@ export function toolCall(params: {
 
   return {
     type: 'tool_call',
-    call: { id, name, input: { description: `${name} ${id}`, ...input } },
+    call: { id: callIdSchema.parse(id), name, input: { description: `${name} ${id}`, ...input } },
   };
 }
 

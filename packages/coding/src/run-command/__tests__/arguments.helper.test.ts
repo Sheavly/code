@@ -9,6 +9,7 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const temp = useTempWorkspace({
   prefix: 'run-command-args-',
@@ -16,6 +17,7 @@ const temp = useTempWorkspace({
   outside: { 'secret.txt': 'outside' },
 });
 const signal = new AbortController().signal;
+const callId = callIdSchema.parse('1');
 
 const concernsOf = (command: string) => {
   const [file = '', ...args] = command.split(' ');
@@ -33,7 +35,7 @@ const run = (command: string, options: Omit<RunCommandOptions, 'workspace' | 'pr
         ...options,
       }),
     ],
-    call: { id: '1', name: 'run_command', input: { description: 'listing', command } },
+    call: { id: callId, name: 'run_command', input: { description: 'listing', command } },
     signal,
   });
 

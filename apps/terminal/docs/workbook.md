@@ -36,12 +36,15 @@ A prompt is a markdown file. Optional front matter sets how it runs:
 ```markdown
 ---
 description: write_file + edit_file, then read both back
-workspace: basic # a fixture in workspaces/ to copy for each run (default: an empty folder)
+workspace: basic # a fixture folder name in workspaces/ to copy for each run (default: an empty folder)
 maxTurns: 20 # model calls per session (default 20)
 ---
 
 Create src/math.ts exporting a function add(a: number, b: number) …
 ```
+
+A prompt's name and its `workspace` are single file names (letters, digits, `-`, `_`, `.`),
+never paths, so a run can only read, copy and clear folders inside the workbook.
 
 The included prompts cover the harness's features: `hooks-and-agents-md`, `write-and-edit`,
 `guards`, `read-ranges`, `background-tasks`, `sub-agent-nesting`, `steer-sub-agent`, and the

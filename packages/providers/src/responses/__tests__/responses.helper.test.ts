@@ -3,7 +3,9 @@ import { collect, fakeFetch, fakeFetchSequence } from '@sheavly/testing/fetch/fa
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
+const c1 = callIdSchema.parse('c1');
 const request = (overrides: Partial<ProviderRequest> = {}): ProviderRequest => ({
   messages: [{ role: 'user', content: 'hi' }],
   tools: [],
@@ -83,9 +85,9 @@ describe('createResponsesProvider', () => {
             {
               role: 'assistant',
               content: '',
-              toolCalls: [{ id: 'c1', name: 'get_weather', input: { city: 'Oslo' } }],
+              toolCalls: [{ id: c1, name: 'get_weather', input: { city: 'Oslo' } }],
             },
-            { role: 'tool', toolCallId: 'c1', content: 'Sunny', isError: false },
+            { role: 'tool', toolCallId: c1, content: 'Sunny', isError: false },
           ],
           tools: [{ name: 'get_weather', description: 'd', inputSchema: { type: 'object' } }],
         }),

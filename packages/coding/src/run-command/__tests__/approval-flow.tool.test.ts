@@ -12,6 +12,9 @@ import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approva
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+
+const c1 = callIdSchema.parse('c1');
 
 /**
  * The approval flow end to end: a UI subscribes to the registry, the tool waits for its answer,
@@ -38,7 +41,7 @@ function oneCommandModel(command: string): { provider: Provider; sent: Message[]
     [
       {
         type: 'tool_call',
-        call: { id: 'c1', name: 'run_command', input: { description: 'running it', command } },
+        call: { id: c1, name: 'run_command', input: { description: 'running it', command } },
       },
       { type: 'done', stopReason: 'tool_use' },
     ],
@@ -192,7 +195,7 @@ describe('approval flow without a UI', () => {
     const result = await runTool({
       tools: [tool(new ApprovalRegistry(), ['touch *'])],
       call: {
-        id: '1',
+        id: callIdSchema.parse('1'),
         name: 'run_command',
         input: { description: 'touching', command: `touch ${marker}` },
       },

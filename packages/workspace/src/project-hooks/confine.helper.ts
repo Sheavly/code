@@ -1,8 +1,8 @@
 import { realpathSync } from 'node:fs';
 import { builtinModules, registerHooks } from 'node:module';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ProjectHooksError } from '../errors/project-hooks.errors.js';
+import { isInside } from '../workspace/workspace.utils.js';
 
 /**
  * Module-level on purpose. Node's module hooks (`registerHooks`) apply to every import in the
@@ -14,20 +14,13 @@ import { ProjectHooksError } from '../errors/project-hooks.errors.js';
 const confined = new Set<string>();
 let registered = false;
 
-/** True if `file` is `folder` or inside it. */
-function isInside(params: { folder: string; file: string }): boolean {
-  const relative = path.relative(params.folder, params.file);
-
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
-}
-
 /** The confined folder `parentURL` belongs to, if any: only hook files are restricted. */
 function confinedFolderOf(parentURL: string | undefined): string | undefined {
   if (!parentURL?.startsWith('file:')) return undefined;
 
   const parent = fileURLToPath(parentURL);
 
-  return [...confined].find((folder) => isInside({ folder, file: parent }));
+  return [...confined].find((folder) => isInside({ folder, target: parent }));
 }
 
 /** `node:fs`, `fs`, `fs/promises`: always allowed, they're not code from the repo. */
@@ -48,7 +41,7 @@ function checkImport(params: { specifier: string; folder: string; resolvedURL: s
 
   const target = resolvedURL.startsWith('file:') ? realpathSync(fileURLToPath(resolvedURL)) : '';
 
-  if (target && isInside({ folder, file: target })) return;
+  if (target && isInside({ folder, target })) return;
 
   throw new ProjectHooksError(
     `A .sheavly hook may only import Node built-ins and files inside .sheavly/ (it imported "${specifier}"). Code outside .sheavly/ isn't covered by workspace trust, so a later change to it would run without asking. Move the code into .sheavly/, or use \`import type\` for types.`,

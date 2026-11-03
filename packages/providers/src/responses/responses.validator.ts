@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 // The streamed Responses API events we read; any other event type fails to parse and is skipped.
 
 const functionCallItemSchema = z.object({
   type: z.literal('function_call'),
-  call_id: z.string(),
+  call_id: callIdSchema,
   name: z.string(),
   arguments: z.string(),
 });

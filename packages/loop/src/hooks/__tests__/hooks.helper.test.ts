@@ -11,6 +11,7 @@ import {
   runToolCall,
 } from '../hooks.helper.js';
 import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const signal = new AbortController().signal;
 
@@ -21,7 +22,11 @@ const echo = defineTool({
   execute: async ({ input }) => JSON.stringify(input),
 });
 
-const call: ToolCall = { id: 'c1', name: 'echo', input: { description: 'echoing', text: 'hi' } };
+const call: ToolCall = {
+  id: callIdSchema.parse('c1'),
+  name: 'echo',
+  input: { description: 'echoing', text: 'hi' },
+};
 
 describe('runBeforeTurn', () => {
   it('runs hooks in order; each sees the context added before it', async () => {

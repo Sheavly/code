@@ -119,6 +119,12 @@ describe('TrustStore', () => {
     await expect(inside.check({ root })).rejects.toBeInstanceOf(TrustStoreError);
   });
 
+  it('refuses a store in a folder of the workspace whose name starts with dots', async () => {
+    const dotted = new TrustStore({ file: path.join(root, '..config', 'trusted.json') });
+
+    await expect(dotted.trust({ root })).rejects.toThrow('inside the workspace');
+  });
+
   it.skipIf(process.getuid?.() === 0)('reports a store it cannot write', async () => {
     await mkdir(path.dirname(storeFile), { recursive: true });
     await chmod(path.dirname(storeFile), 0o500);

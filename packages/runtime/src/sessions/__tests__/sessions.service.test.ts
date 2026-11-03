@@ -3,6 +3,11 @@ import { SessionRegistry } from '../sessions.service.js';
 import { toServerSentEvent } from '../sessions.utils.js';
 import { startDeepestSession } from '../../testing/sessions.fake.js';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+const s1 = sessionIdSchema.parse('s1');
+const s2 = sessionIdSchema.parse('s2');
+const nope = sessionIdSchema.parse('nope');
 
 describe('SessionRegistry', () => {
   it('gives every session a unique id, linked to its parent and the main session', () => {
@@ -42,7 +47,7 @@ describe('SessionRegistry', () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
 
-    expect(() => sessions.startChild({ parentId: 'nope', title: 'Orphan' })).toThrow(
+    expect(() => sessions.startChild({ parentId: nope, title: 'Orphan' })).toThrow(
       'Unknown parent session nope',
     );
     sessions.end({ id: main.id, state: 'completed' });
@@ -109,8 +114,8 @@ describe('toServerSentEvent', () => {
     const update: SessionUpdate = {
       type: 'session_status',
       session: {
-        id: 's1',
-        rootId: 's1',
+        id: s1,
+        rootId: s1,
         depth: 1,
         title: 'T',
         status: 'x',
@@ -128,15 +133,15 @@ describe('toServerSentEvent', () => {
     const update: SessionUpdate = {
       type: 'session_message',
       session: {
-        id: 's2',
-        parentId: 's1',
-        rootId: 's1',
+        id: s2,
+        parentId: s1,
+        rootId: s1,
         depth: 2,
         title: 'T',
         state: 'running',
         startedAt: 0,
       },
-      message: { from: 's1', content: 'focus on puppies', sentAt: 5 },
+      message: { from: s1, content: 'focus on puppies', sentAt: 5 },
     };
     const data = JSON.parse(toServerSentEvent(update).split('data: ')[1] ?? '{}') as unknown;
 
@@ -175,7 +180,7 @@ describe('SessionRegistry inbox', () => {
     expect(() => sessions.send({ id: aa.id, content: 'x', from: b.id })).toThrow('did not start');
     expect(() => sessions.send({ id: main.id, content: 'x', from: a.id })).toThrow('did not start');
     expect(() => sessions.send({ id: a.id, content: 'x', from: a.id })).toThrow('did not start');
-    expect(() => sessions.send({ id: 'nope', content: 'x', from: 'user' })).toThrow(
+    expect(() => sessions.send({ id: nope, content: 'x', from: 'user' })).toThrow(
       'Unknown session',
     );
   });

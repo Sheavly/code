@@ -1,15 +1,21 @@
 import { z } from 'zod';
 
 /**
+ * A session's id: the main session's and each sub-agent's. Branded, so it can't be passed where a
+ * tool call's, task's or approval's id goes; it is still a plain string on the wire.
+ */
+export const sessionIdSchema = z.string().brand<'SessionId'>();
+
+/**
  * Who a run is: every run (the main session and each sub-agent) has an id, and every sub-agent
  * is linked to the session that started it, so none can float free. `rootId` is the main session.
  */
 export const sessionRefSchema = z.object({
-  id: z.string(),
+  id: sessionIdSchema,
   /** The session that started this one; absent only for the main session. */
-  parentId: z.string().exactOptional(),
+  parentId: sessionIdSchema.exactOptional(),
   /** The main session at the top of the tree (its own id for the main session). */
-  rootId: z.string(),
+  rootId: sessionIdSchema,
   /** 1 for the main session, 2 for its sub-agents, 3 for theirs (the maximum). */
   depth: z.number().int().positive(),
 });
@@ -37,7 +43,7 @@ export const sessionInfoSchema = sessionRefSchema.extend({
 /** A message waiting in a session's inbox, delivered at its next model call. */
 export const inboxMessageSchema = z.object({
   /** Who sent it: `'user'`, or the id of the session that sent it (an ancestor). */
-  from: z.string(),
+  from: z.union([z.literal('user'), sessionIdSchema]),
   content: z.string(),
   sentAt: z.number(),
 });

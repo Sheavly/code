@@ -4,14 +4,16 @@ import { echoTool as echo } from '../../testing/echo-tool.fake.js';
 import { runTool } from '../tool.helper.js';
 import { defineTool } from '../tool.utils.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const signal = new AbortController().signal;
+const callId = callIdSchema.parse('1');
 
 describe('runTool', () => {
   it('strips the call description before the tool runs', async () => {
     const result = await runTool({
       tools: [echo],
-      call: { id: '1', name: 'echo', input: { description: 'echoing hi', text: 'hi' } },
+      call: { id: callId, name: 'echo', input: { description: 'echoing hi', text: 'hi' } },
       signal,
     });
 
@@ -21,7 +23,7 @@ describe('runTool', () => {
   it('requires the call description; a missing one goes back to the model as an error', async () => {
     const result = await runTool({
       tools: [echo],
-      call: { id: '1', name: 'echo', input: { text: 'hi' } },
+      call: { id: callId, name: 'echo', input: { text: 'hi' } },
       signal,
     });
 
@@ -33,7 +35,7 @@ describe('runTool', () => {
   it('answers an unknown tool with an error result, without throwing', async () => {
     const result = await runTool({
       tools: [echo],
-      call: { id: '1', name: 'nope', input: {} },
+      call: { id: callId, name: 'nope', input: {} },
       signal,
     });
 
@@ -42,7 +44,7 @@ describe('runTool', () => {
 });
 
 describe('runTool: artifacts', () => {
-  const call = { id: '1', name: 'parse', input: { description: 'parsing' } };
+  const call = { id: callId, name: 'parse', input: { description: 'parsing' } };
   const tool = (artifacts?: ToolArtifact[]) =>
     defineTool({
       name: 'parse',

@@ -7,7 +7,8 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { callOnceProvider } from '@sheavly/testing/provider/scripted-provider.fake';
+import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
+import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '../../trust/trust.service.js';
 import { loadProjectHooks } from '../project-hooks.helper.js';
 import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
@@ -301,12 +302,14 @@ describe('project hooks in the loop', () => {
       inputSchema: z.object({}),
       execute: async () => (order.push('tool'), 'pong'),
     });
-    const call = { id: '1', name: 'ping', input: { description: 'pinging' } };
 
     Object.assign(globalThis, { sheavlyOrder: order });
 
     const messages = await runAgent({
-      provider: callOnceProvider(call),
+      provider: scriptedProvider([
+        [toolCall({ id: '1', name: 'ping', input: {} }), { type: 'done', stopReason: 'tool_use' }],
+        [{ type: 'done', stopReason: 'end_turn' }],
+      ]),
       tools: [ping],
       messages: [{ role: 'user', content: 'ping' }],
       hooks: [host, ...(await loadTrusted(root))],

@@ -3,6 +3,7 @@ import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 function createTaskStatusTool(tasks: TaskRegistry) {
@@ -12,7 +13,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
       "Show background tasks. With an id: that task's status and recent output. Without: all tasks. " +
       "You don't need it to wait for a task: finished tasks are reported to you automatically.",
     inputSchema: z.object({
-      id: z.string().optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
+      id: taskIdSchema.optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
     }),
     execute: async ({ input: { id } }) => {
       if (id) {
@@ -42,7 +43,7 @@ function createCancelTaskTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'cancel_task',
     description: 'Stop a running background task (kills its process and everything it started).',
-    inputSchema: z.object({ id: z.string().describe('Task id, e.g. t1') }),
+    inputSchema: z.object({ id: taskIdSchema.describe('Task id, e.g. t1') }),
     execute: async ({ input: { id } }) => {
       const before = tasks.get(id);
 

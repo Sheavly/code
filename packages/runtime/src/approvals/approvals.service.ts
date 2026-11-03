@@ -7,12 +7,18 @@
 import { ApprovalListenerError, ApprovalRequestError } from '../errors/approvals.errors.js';
 import type {
   ApprovalConcern,
+  ApprovalId,
   ApprovalOption,
   ApprovalRequest,
   ApprovalResponse,
   ApprovalUpdate,
 } from '@sheavly/protocol/approval/approval.types';
-import { approvalResponseSchema } from '@sheavly/protocol/approval/approval.validator';
+import {
+  approvalIdSchema,
+  approvalResponseSchema,
+} from '@sheavly/protocol/approval/approval.validator';
+import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };
@@ -20,7 +26,7 @@ type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse)
 const OPTIONS: readonly ApprovalOption[] = ['approve', 'skip', 'skip_with_message'];
 
 export class ApprovalRegistry {
-  #pending = new Map<string, Pending>();
+  #pending = new Map<ApprovalId, Pending>();
   #listeners = new Set<Listener>();
   /** Updates waiting to be heard, while an earlier one is still being delivered. */
   #queue: ApprovalUpdate[] = [];
@@ -37,8 +43,8 @@ export class ApprovalRegistry {
    * subscribers it was cancelled), or right away if no one is listening.
    */
   request(params: {
-    callId: string;
-    sessionId?: string | undefined;
+    callId: CallId;
+    sessionId?: SessionId | undefined;
     tool: string;
     command: string;
     concerns: ApprovalConcern[];
@@ -58,7 +64,7 @@ export class ApprovalRegistry {
     if (signal.aborted) return Promise.reject(signal.reason as Error);
 
     const request: ApprovalRequest = {
-      id: `a${this.#nextId++}`,
+      id: approvalIdSchema.parse(`a${this.#nextId++}`),
       ...rest,
       ...(sessionId !== undefined && { sessionId }),
       options: OPTIONS,
@@ -102,7 +108,7 @@ export class ApprovalRegistry {
   }
 
   /** Answers a waiting request. Throws for an unknown (or already answered) id or a bad answer. */
-  respond(params: { id: string; response: unknown }): void {
+  respond(params: { id: ApprovalId; response: unknown }): void {
     const { id } = params;
     const pending = this.#pending.get(id);
 

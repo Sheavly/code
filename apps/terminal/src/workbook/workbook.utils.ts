@@ -4,6 +4,11 @@ import { RUN_FILES } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
+/** A prompt or fixture name is one file name in its folder (`write-and-edit`), never a path. */
+export function isPlainName(name: string): boolean {
+  return /^\w[\w.-]*$/.test(name);
+}
+
 /** `0007-write-and-edit`: the run number, then the prompt name, so runs sort in order. */
 export function runId(params: { number: number; prompt: string }): string {
   const slug = params.prompt

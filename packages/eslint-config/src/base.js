@@ -90,6 +90,8 @@ export function baseConfig(params) {
         'harness/no-silent-catch': 'error',
         // Typed errors only: no `new Error(...)`, so callers catch by class, not by message.
         'harness/no-raw-error': 'error',
+        // "Is inside" checks that a folder named `..x/` can't fool.
+        'harness/no-dotdot-prefix': 'error',
       },
     },
 
@@ -103,7 +105,11 @@ export function baseConfig(params) {
           tsconfigRootDir,
         },
       },
-      rules: TYPESCRIPT_RULES,
+      rules: {
+        ...TYPESCRIPT_RULES,
+        // A branded id (`SessionId`) is parsed into being, never asserted; tests included.
+        'harness/no-brand-cast': 'error',
+      },
     },
 
     // --- Conventions ---
@@ -146,6 +152,11 @@ export function baseConfig(params) {
     {
       files: ['src/**/*.utils.ts', 'src/**/*.validator.ts'],
       rules: { 'harness/pure-imports': 'error' },
+    },
+    // Ids in schemas (validators, and a tool's input schema) are branded zod schemas.
+    {
+      files: ['src/**/*.validator.ts', 'src/**/*.tool.ts'],
+      rules: { 'harness/branded-ids': 'error' },
     },
 
     // --- Tests: may set env, assert known shapes, and repeat setup by design ---

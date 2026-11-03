@@ -5,7 +5,7 @@ What is in the contract, what stays out, and how it is kept honest.
 ## What is in it
 
 `@sheavly/protocol` is the bottom layer: everything the harness sends a UI or accepts from one
-(`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them),
+(`AgentEvent`, `SessionUpdate`, `StreamEntry`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them),
 defined once as zod schemas. Every type is `z.infer` of its schema, so the TypeScript types and
 what goes over the wire can't drift. It depends on zod only; its `eslint.config.js` keeps the
 other workspace packages out.
@@ -17,6 +17,11 @@ other workspace packages out.
   from the schemas, and a test fails when the committed file is out of date.
 - A loop test (`wire-contract.test.ts`) parses every event and session update of a scripted run
   against its schema.
+- Ids are branded: `SessionId`, `CallId`, `TaskId` and `ApprovalId` (each `<x>IdSchema`, a
+  `z.string().brand<…>()`), so one kind can't be passed where another goes. The brand is
+  type-only, so on the wire and in `contract.schema.json` each is a plain string, named under
+  `$defs`. A value gets its brand by being parsed (a TypeScript UI parses what it receives, or
+  `sessionIdSchema.parse(id)`), never by `as` (`harness/branded-ids`, `harness/no-brand-cast`).
 - Only the wire contract lives there. What a provider streams (`StreamEvent`, `StopReason`) and
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.

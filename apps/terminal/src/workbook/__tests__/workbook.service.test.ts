@@ -8,6 +8,9 @@ import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
 import { diffResults, mergeTextDeltas, parseCommand, runId } from '../workbook.utils.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+
+const callId = callIdSchema.parse('c');
 
 /** A workbook folder per test: one stored prompt, and a fixture workspace for it. */
 const temp = useTempWorkspace({
@@ -200,6 +203,36 @@ describe('WorkbookStore', () => {
       'fixture\n',
     );
   });
+
+  it('refuses names that are paths, so nothing outside its folder is read or removed', async () => {
+    const store = await tempWorkbook();
+    const outside = path.join(temp.root, 'keep-me');
+
+    await writeFile(outside, 'not the workbook’s\n');
+
+    await expect(store.prompt('../keep-me')).rejects.toThrow("isn't a prompt name");
+    await expect(store.workspace({ prompt: undefined, key: '../..', keep: false })).rejects.toThrow(
+      "isn't a prompt name",
+    );
+    expect(await readFile(outside, 'utf8')).toBe('not the workbook’s\n');
+
+    await writeFile(path.join(store.promptsDir, 'escape.md'), '---\nworkspace: ../..\n---\nHi\n');
+    await expect(store.prompt('escape')).rejects.toThrow('not a path');
+  });
+
+  it('checks what it reads back: the last run must exist, and saved events must be events', async () => {
+    const store = await tempWorkbook();
+    const paths = await store.beginRun({ prompt: 'demo', id: () => 'r1' });
+
+    await writeFile(paths.events, '{"seq":0,"type":"not_an_event"}\n');
+    await expect(store.events('r1')).rejects.toThrow('Could not read');
+
+    await writeFile(
+      path.join(store.root, 'state.json'),
+      JSON.stringify({ version: 1, runCount: 1, lastRun: 'gone', lastRunByPrompt: {} }),
+    );
+    await expect(store.resolveRun('last')).rejects.toThrow("isn't in runs/");
+  });
 });
 
 describe('RunRecorder', () => {
@@ -233,10 +266,10 @@ describe('RunRecorder', () => {
     recorder.event({
       seq: 1,
       type: 'tool_result',
-      call: { id: 'c', name: 'read_file', input: {} },
+      call: { id: callId, name: 'read_file', input: {} },
       description: 'reading',
       durationMs: 1,
-      message: { role: 'tool', toolCallId: 'c', content: 'nope', isError: true },
+      message: { role: 'tool', toolCallId: callId, content: 'nope', isError: true },
     });
     recorder.transcript('Hi\n');
     sessions.report({ id: main.id, status: 'working' });

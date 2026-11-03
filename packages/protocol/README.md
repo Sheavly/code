@@ -1,7 +1,7 @@
 # @sheavly/protocol
 
 The wire contract: everything the harness sends a UI or accepts from one (`AgentEvent`,
-`SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them), as zod schemas.
+`SessionUpdate`, `StreamEntry`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them), as zod schemas.
 Every type is `z.infer` of its schema, so the types and what goes over the wire can't drift. It
 depends on zod only.
 
@@ -14,14 +14,15 @@ A client in another language reads `contract.schema.json`, the whole contract as
 After changing a schema, run `npm run schema -w @sheavly/protocol`; a test fails while the file is
 out of date.
 
-| Module      | What it holds                                              |
-| ----------- | ---------------------------------------------------------- |
-| `event/`    | The loop's `AgentEvent`s and the `ToolArtifact` they carry |
-| `session/`  | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream    |
-| `approval/` | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`    |
-| `task/`     | Background task states                                     |
-| `message/`  | The conversation history a `done` event carries            |
-| `contract/` | `contract.schema.json`, generated from the schemas         |
+| Module      | What it holds                                                   |
+| ----------- | --------------------------------------------------------------- |
+| `event/`    | The loop's `AgentEvent`s and the `ToolArtifact` they carry      |
+| `session/`  | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream         |
+| `stream/`   | `StreamEntry`: every session's events and updates, in one order |
+| `approval/` | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`         |
+| `task/`     | Background task states                                          |
+| `message/`  | The conversation history a `done` event carries                 |
+| `contract/` | `contract.schema.json`, generated from the schemas              |
 
 ## Docs
 

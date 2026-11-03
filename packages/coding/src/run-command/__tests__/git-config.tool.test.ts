@@ -10,6 +10,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 /**
  * A repo whose `.git/config` was poisoned to run a program from git status, diff and log: the
@@ -17,6 +18,7 @@ import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
  */
 const temp = useTempWorkspace({ prefix: 'run-command-git-', files: { 'a.txt': 'a\n' } });
 const signal = new AbortController().signal;
+const callId = callIdSchema.parse('1');
 const PROGRAMS = ['fsmonitor', 'external', 'textconv', 'filter'];
 const marker = (name: string) => path.join(temp.base, `ran-${name}`);
 const git = (...args: string[]) =>
@@ -58,7 +60,11 @@ const run = (command: string) =>
         approvals: approveAll(),
       }),
     ],
-    call: { id: '1', name: 'run_command', input: { description: `running ${command}`, command } },
+    call: {
+      id: callId,
+      name: 'run_command',
+      input: { description: `running ${command}`, command },
+    },
     signal,
   });
 
@@ -99,7 +105,7 @@ describe('run_command in a repo without commits', () => {
     for (const command of ['git status -sb', 'git diff --stat --cached']) {
       const result = await runTool({
         tools: [tool],
-        call: { id: '1', name: 'run_command', input: { description: command, command } },
+        call: { id: callId, name: 'run_command', input: { description: command, command } },
         signal,
       });
 

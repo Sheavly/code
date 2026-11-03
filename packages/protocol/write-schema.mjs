@@ -3,8 +3,8 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { format, resolveConfig } from 'prettier';
-import { CONTRACT_SCHEMA_FILE } from '@sheavly/protocol/contract/contract.constants';
-import { contractJsonSchema } from '@sheavly/protocol/contract/contract.utils';
+import { CONTRACT_SCHEMA_FILE } from './src/contract/contract.constants.ts';
+import { contractJsonSchema } from './src/contract/contract.utils.ts';
 
 const file = join(import.meta.dirname, CONTRACT_SCHEMA_FILE);
 const options = await resolveConfig(file);

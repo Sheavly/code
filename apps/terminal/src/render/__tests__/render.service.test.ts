@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { Renderer } from '../render.service.js';
 import type { AgentEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+
+const callId = callIdSchema.parse('1');
 
 /** What the renderer prints for one successful `tool_result` with `artifacts`. */
 function rendered(params: { content: string; artifacts?: ToolArtifact[] }): string {
@@ -10,9 +13,9 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
   const event: AgentEvent = {
     seq: 0,
     type: 'tool_result',
-    call: { id: '1', name: 'tool', input: {} },
+    call: { id: callId, name: 'tool', input: {} },
     description: 'doing it',
-    message: { role: 'tool', toolCallId: '1', content, isError: false },
+    message: { role: 'tool', toolCallId: callId, content, isError: false },
     durationMs: 1200,
     ...(artifacts && { artifacts }),
   };

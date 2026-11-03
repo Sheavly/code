@@ -4,6 +4,7 @@ import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fa
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '../stream-agent.helper.js';
@@ -27,7 +28,7 @@ function timedTool(finished: string[]) {
 }
 
 const call = (id: string, input: Record<string, unknown>, name = 'wait'): ToolCall => ({
-  id,
+  id: callIdSchema.parse(id),
   name,
   input: { description: `task ${id}`, id, ...input },
 });
@@ -62,7 +63,7 @@ describe('parallel tool calls', () => {
     });
 
     const calls = ['a', 'b', 'c'].map((id) => ({
-      id,
+      id: callIdSchema.parse(id),
       name: 'tracked',
       input: { description: id },
     }));
@@ -157,7 +158,7 @@ describe('parallel tool calls', () => {
 
         yield {
           type: 'tool_call',
-          call: { id: 'q', name: 'quick', input: { description: 'quick one' } },
+          call: { id: callIdSchema.parse('q'), name: 'quick', input: { description: 'quick one' } },
         };
         await finishedSignal; // the tool has completed; the model is still mid-turn
         yield { type: 'text_delta', text: 'still thinking' };

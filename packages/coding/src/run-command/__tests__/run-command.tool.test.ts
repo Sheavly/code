@@ -11,10 +11,12 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 let root: string;
 let workspace: Workspace;
 const signal = new AbortController().signal;
+const callId = callIdSchema.parse('1');
 
 beforeAll(async () => {
   root = await mkdtemp(path.join(tmpdir(), 'run-command-test-'));
@@ -32,7 +34,7 @@ const run = (
 ) =>
   runTool({
     tools: [createRunCommandTool({ processes: testProcesses(), workspace, ...options })],
-    call: { id: '1', name: 'run_command', input: { description, command } },
+    call: { id: callId, name: 'run_command', input: { description, command } },
     signal,
   });
 
@@ -112,7 +114,7 @@ describe('run_command with skipAllowList', () => {
         {
           type: 'tool_call',
           call: {
-            id: 'c1',
+            id: callIdSchema.parse('c1'),
             name: 'run_command',
             input: { description: 'slow', command: `sleep 5 && touch ${marker}` },
           },
@@ -143,7 +145,7 @@ describe('run_command description', () => {
   it('is required: a call without one is rejected and nothing runs', async () => {
     const result = await runTool({
       tools: [createRunCommandTool({ processes: testProcesses(), workspace, skipAllowList: true })],
-      call: { id: '1', name: 'run_command', input: { command: 'touch marker.txt' } },
+      call: { id: callId, name: 'run_command', input: { command: 'touch marker.txt' } },
       signal,
     });
 
@@ -158,7 +160,7 @@ describe('run_command description', () => {
         {
           type: 'tool_call',
           call: {
-            id: '1',
+            id: callId,
             name: 'run_command',
             input: { description: 'checking where we are', command: 'pwd' },
           },
