@@ -102,6 +102,12 @@ A UI picks what it follows with the second argument:
   live, so a panel opened late still starts at the beginning. The registry keeps the run's
   entries for this, for as long as it lives.
 
+A `done` in the combined stream has no `messages`, for live listeners and replay alike
+(`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
+so far, and a kept log would grow with the square of a long conversation. The history comes from
+whoever ran the loop: the run's own `done`, or `conversation.messages`. The log still keeps every
+other entry, `text_delta`s included, for as long as the registry lives (#135).
+
 Following only the main session needs none of this: the main run's own `streamAgent` stream
 has only its events, and its sub-agents work in the background (shown by their session updates).
 Each entry a listener gets is a frozen copy, so a listener can't change what the run holds. A

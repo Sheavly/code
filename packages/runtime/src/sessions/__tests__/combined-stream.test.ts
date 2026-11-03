@@ -62,6 +62,32 @@ describe("SessionRegistry's combined stream", () => {
     ).toThrow('Unknown session nope');
   });
 
+  it('keeps a done without its history, for live listeners and replay alike', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const live: StreamEntry[] = [];
+    const history = [{ role: 'user' as const, content: 'a long conversation' }];
+
+    sessions.subscribeEntries((entry) => live.push(entry));
+    sessions.publish({
+      sessionId: main.id,
+      event: { seq: 0, type: 'done', reason: 'completed', messages: history, session: main },
+    });
+
+    const replayed: StreamEntry[] = [];
+
+    sessions.subscribeEntries((entry) => replayed.push(entry), { replay: true });
+
+    for (const entries of [live, replayed]) {
+      expect(entries.at(-1)).toEqual({
+        seq: 1,
+        sessionId: main.id,
+        kind: 'event',
+        event: { seq: 0, type: 'done', reason: 'completed', session: main },
+      });
+    }
+  });
+
   it('stops telling a listener once it unsubscribes', () => {
     const sessions = new SessionRegistry();
     const entries: StreamEntry[] = [];

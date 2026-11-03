@@ -4,7 +4,7 @@ import { EntryLog } from './entry-log.service.js';
 import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
-import { isOpen } from './sessions.utils.js';
+import { isOpen, toEntryEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
@@ -223,9 +223,11 @@ export class SessionRegistry {
   /**
    * Adds an event of session `sessionId`'s loop to the combined stream, in the order published.
    * The loop publishes each event as it releases it, so a session's events keep their own order.
+   * `done` goes in without its `messages` (`toEntryEvent`): the stream is kept for replay.
    */
   publish(params: { sessionId: SessionId; event: AgentEvent }): void {
-    const { sessionId, event } = params;
+    const { sessionId } = params;
+    const event = toEntryEvent(params.event);
 
     this.#require(sessionId);
     this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));

@@ -1,3 +1,4 @@
+import type { AgentEvent, EntryEvent } from '@sheavly/protocol/event/event.types';
 import type {
   InboxMessage,
   SessionState,
@@ -26,4 +27,16 @@ export function inboxText(message: InboxMessage): string {
 /** Whether a session in `state` is still open: running a prompt, or idle waiting for the next. */
 export function isOpen(state: SessionState): boolean {
   return state === 'running' || state === 'idle';
+}
+
+/**
+ * An event as the combined stream keeps it: `done` without its `messages`, which hold the whole
+ * history so far and would make the stream grow with the square of a long conversation.
+ */
+export function toEntryEvent(event: AgentEvent): EntryEvent {
+  if (event.type !== 'done') return event;
+
+  const { messages: _history, ...done } = event;
+
+  return done;
 }
