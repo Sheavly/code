@@ -5,6 +5,7 @@ import type {
   ConversationDetails,
   ConversationsResponse,
   MessagesResponse,
+  SkillsQuery,
   SkillsResponse,
   StartConversationResponse,
   SwitchModelRequest,
@@ -12,6 +13,7 @@ import type {
 import {
   answerApprovalRequestSchema,
   conversationIdSchema,
+  skillsQuerySchema,
   startConversationRequestSchema,
   switchModelRequestSchema,
 } from '@sheavly/protocol/server/server.validator';
@@ -51,9 +53,10 @@ export function conversationRoutes(conversations: Conversations) {
 
       return c.json({ messages: [...conversations.messages(id)] } satisfies MessagesResponse);
     })
-    .get('/:id/skills', async (c) => {
+    .query('/:id/skills', validJson(skillsQuerySchema), async (c) => {
       const id = conversationIdSchema.parse(c.req.param('id'));
-      const skills = await conversations.skills({ id, signal: c.req.raw.signal });
+      const { search }: SkillsQuery = c.req.valid('json');
+      const skills = await conversations.skills({ id, search, signal: c.req.raw.signal });
 
       return c.json({ skills } satisfies SkillsResponse);
     })

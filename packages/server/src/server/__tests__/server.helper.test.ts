@@ -63,9 +63,22 @@ describe('the server’s guards', () => {
 
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ error: { code: 'unknown_skill' } });
-    expect(await (await request(`/conversations/${id}/skills`)).json()).toEqual({
+
+    const skills = (search?: string) =>
+      request(`/conversations/${id}/skills`, { method: 'QUERY', body: search ? { search } : {} });
+
+    expect(await (await skills()).json()).toEqual({
       skills: [{ name: 'review', description: 'Reviews.', manualOnly: false, scope: 'project' }],
     });
+    expect(await (await skills('REV')).json()).toMatchObject({ skills: [{ name: 'review' }] });
+    expect(await (await skills('deploy')).json()).toEqual({ skills: [] });
+
+    const empty = await request(`/conversations/${id}/skills`, {
+      method: 'QUERY',
+      body: { search: '' },
+    });
+
+    expect(empty.status).toBe(400);
   });
 
   it('answers an approval no one is waiting for with unknown_approval', async () => {

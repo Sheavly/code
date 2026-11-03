@@ -8,28 +8,31 @@ by calling `Conversations` itself; they turn requests into calls and results int
 
 Every route is under `/conversations`, and every request carries `Authorization: Bearer <token>`.
 
-| Request                                       | Answer                                                  |
-| --------------------------------------------- | ------------------------------------------------------- |
-| `GET /conversations`                          | `{ conversations }`: each live one, oldest first        |
-| `POST /conversations`, `{ messages? }`        | `201 { id }`: a new conversation, continuing `messages` |
-| `GET /conversations/:id`                      | its run: workspace, models, trust, the allow list       |
-| `PUT /conversations/:id/model`, `{ name }`    | `204`: one of its models, from the next model call      |
-| `POST /conversations/:id/prompts`             | the prompt's entries as SSE, ending with its `done`     |
-| `QUERY /conversations/:id/stream`             | every entry, as SSE, while the client stays             |
-| `POST /conversations/:id/stop`                | `204`: the running prompt stops; history stays valid    |
-| `POST /conversations/:id/approvals/:approval` | `204`: the waiting approval is answered                 |
-| `GET /conversations/:id/messages`             | `{ messages }`: the history, valid to continue from     |
-| `GET /conversations/:id/skills`               | `{ skills }`: what a prompt can run, for a `/` menu     |
-| `DELETE /conversations/:id`                   | `204`: its prompts, tasks and processes stop; it's gone |
+| Request                                          | Answer                                                  |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| `GET /conversations`                             | `{ conversations }`: each live one, oldest first        |
+| `POST /conversations`, `{ messages? }`           | `201 { id }`: a new conversation, continuing `messages` |
+| `GET /conversations/:id`                         | its run: workspace, models, trust, the allow list       |
+| `PUT /conversations/:id/model`, `{ name }`       | `204`: one of its models, from the next model call      |
+| `POST /conversations/:id/prompts`                | the prompt's entries as SSE, ending with its `done`     |
+| `QUERY /conversations/:id/stream`                | every entry, as SSE, while the client stays             |
+| `POST /conversations/:id/stop`                   | `204`: the running prompt stops; history stays valid    |
+| `POST /conversations/:id/approvals/:approval`    | `204`: the waiting approval is answered                 |
+| `GET /conversations/:id/messages`                | `{ messages }`: the history, valid to continue from     |
+| `QUERY /conversations/:id/skills`, `{ search? }` | `{ skills }`: what a prompt can run, for a `/` menu     |
+| `DELETE /conversations/:id`                      | `204`: its prompts, tasks and processes stop; it's gone |
 
 Bodies are the protocol's schemas (`@sheavly/protocol/server/`), validated with the same objects a
 client imports. A prompt is `{ text }` (`/<name>` mentions run skills) or `{ parts }` (exactly the
 skills picked), never both.
 
 Methods follow what each request is. A read with no input is `GET`; a read with input is `QUERY`
-(RFC 10008: safe, idempotent, with a body); setting a value is `PUT` (the model: sending it twice
-is the same as once); anything else that changes state is `POST` or `DELETE`, so no client or
-proxy retries it on its own.
+(RFC 10008: safe, idempotent, with a body), never a query string: a filter, a search or a resume
+point is a typed body (the stream's filter, the skills' search). Setting a value is `PUT` (the
+model: sending it twice is the same as once); anything else that changes state is `POST` or
+`DELETE`, so no client or proxy retries it on its own. Every route is one entry of `API_ROUTES`
+(`@sheavly/protocol/api/`), which declares whether it reads or changes, and its type allows only
+the methods that fit; adding one is "A route" in the project skill.
 
 `GET /conversations/:id` is what the app reports about the run it built (the host knows nothing of
 workspaces or models): a conversation whose app reports nothing answers `not_found`.
