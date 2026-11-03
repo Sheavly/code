@@ -15,14 +15,9 @@ import { defineConfig, globalIgnores } from 'eslint/config';
  */
 const FRONT_END_FILES = ['src/demo.ts', 'src/terminal-ui/**/*.ts', 'src/workbook/**/*.ts'];
 /**
- * Hosts read env; the front ends also talk to the terminal; the process runner passes a scrubbed
- * env on. `src/host/` wires a run (no UI); `src/workbook/` is a host with its own CLI.
+ * Hosts read env; the front ends also talk to the terminal. `src/host/` wires a run (no UI); `src/workbook/` is a host with its own CLI.
  */
-const HOST_FILES = [
-  'src/host/**/*.ts',
-  'src/runtime/process/process.service.ts',
-  ...FRONT_END_FILES,
-];
+const HOST_FILES = ['src/host/**/*.ts', ...FRONT_END_FILES];
 /** Hosts' command-line entry points: files without a kind. */
 const HOST_ENTRIES = ['src/demo.ts', 'src/workbook/workbook.ts'];
 /** The package entry (`main`): the one file that re-exports. */

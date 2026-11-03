@@ -11,19 +11,19 @@ description: Conventions and workflow for changing the @sheavly/harness agent lo
 @sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  front ends
 ```
 
-| Layer                | Holds                                                                                                   | May import              |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                        | zod only                |
-| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                | protocol, zod           |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                       | protocol, core, zod     |
-| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                    | protocol, core          |
-| `src/runtime/`       | The workspace-bound services, until #29 moves them: workspace confinement, processes, trust, file locks | protocol, core, runtime |
-| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                               | protocol, core, runtime |
-| `src/tools/`         | The coding tools, until #29 moves them                                                                  | protocol, core, runtime |
-| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                | protocol, core, runtime |
-| `packages/host`      | `@sheavly/host`: `createHarness`, wires a run, the model from env. No UI                                | all above               |
-| `src/host/`          | `createCodingHarness`, the coding preset, until #29 moves it                                            | all above               |
-| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                     | anything                |
+| Layer                | Holds                                                                                                      | May import              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                           | zod only                |
+| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                   | protocol, zod           |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                          | protocol, core, zod     |
+| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                       | protocol, core          |
+| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md | protocol, core, runtime |
+| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                  | protocol, core, runtime |
+| `src/tools/`         | The coding tools, until #29 moves them                                                                     | protocol, core, runtime |
+| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                   | protocol, core, runtime |
+| `packages/host`      | `@sheavly/host`: `createHarness`, wires a run, the model from env. No UI                                   | all above               |
+| `src/host/`          | `createCodingHarness`, the coding preset, until #29 moves it                                               | all above               |
+| Front ends           | `src/terminal-ui/` (the `Renderer`), `src/workbook/`, `src/demo.ts`                                        | anything                |
 
 ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only this app's `src/` layers (until #29 splits it) and `NOT_SOURCE` are written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain, or a `src/` folder that isn't a layer, fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
@@ -31,21 +31,21 @@ ESLint enforces this (`harness/imports`). The layout is read from the workspaces
 
 Decide where something lives before writing it. The first question: **would a non-coding LLM project (a text extractor, a chat wrapper) need this?** Yes: it is generic, and goes where it knows nothing about files, workspaces or code. No: it is coding, and only the coding preset reaches it. Then pick the row. Until #29 finishes splitting the app, some homes are still `src/` folders; the last column is the package each one becomes.
 
-| You are adding…                                                                 | It goes in                                                            | Once #29 lands       |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------- |
-| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`              | (already a package)  |
-| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then `@sheavly/loop`    | (already packages)   |
-| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                       | (already a package)  |
-| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                     | (already a package)  |
-| A stateful service the host creates (tasks, sessions, approvals)                | `@sheavly/runtime`                                                    | (already a package)  |
-| A generic tool (no files, no commands)                                          | `@sheavly/tools`                                                      | (already a package)  |
-| A change to how a run goes: turns, tool calls, hooks, the event stream          | `@sheavly/loop`                                                       | (already a package)  |
-| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `src/runtime/<module>/`, reached only from the coding preset          | `@sheavly/workspace` |
-| A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`                      | `@sheavly/coding`    |
-| Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                       | (already a package)  |
-| A fake for tests                                                                | `@sheavly/testing` (one that needs the app's runtime: `src/testing/`) | (already a package)  |
-| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                              | (already a package)  |
-| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`                    | `apps/<name>`        |
+| You are adding…                                                                 | It goes in                                                         | Once #29 lands      |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------- |
+| Something sent to or accepted from a UI (an event, an update, an answer)        | `@sheavly/protocol`: a schema in `<module>.validator.ts`           | (already a package) |
+| A loop event                                                                    | `@sheavly/protocol` (`agentEventBodySchema`), then `@sheavly/loop` | (already packages)  |
+| A code contract tools or providers are written against (`Tool`, `Hook`, …)      | `@sheavly/core`                                                    | (already a package) |
+| A model backend, or a new provider protocol                                     | `@sheavly/providers` (its README)                                  | (already a package) |
+| A stateful service the host creates (tasks, sessions, approvals)                | `@sheavly/runtime`                                                 | (already a package) |
+| A generic tool (no files, no commands)                                          | `@sheavly/tools`                                                   | (already a package) |
+| A change to how a run goes: turns, tool calls, hooks, the event stream          | `@sheavly/loop`                                                    | (already a package) |
+| Anything that needs a project on disk (the workspace, trust, `.sheavly/` hooks) | `@sheavly/workspace`, reached only from the coding preset          | (already a package) |
+| A coding tool (files, commands) or a change to the coding preset                | `src/tools/<name>/`, `src/host/coding.helper.ts`                   | `@sheavly/coding`   |
+| Wiring a run, a transport, the model from env                                   | `@sheavly/host`                                                    | (already a package) |
+| A fake for tests                                                                | `@sheavly/testing`, or the `src/testing/` of the package it fakes  | (already a package) |
+| A lint rule, a file kind, a layout policy                                       | `@sheavly/eslint-config`                                           | (already a package) |
+| A UI: something that renders or reads the terminal                              | `src/terminal-ui/`, `src/workbook/`, `src/demo.ts`                 | `apps/<name>`       |
 
 **A new package, instead of a folder in an existing one**, when all of these hold: it has its own reason to change (not just more of what a package already does); something that shouldn't get the rest of an existing package needs it (a generic consumer, or a UI that needs only the wire contract); and its dependencies point down the graph. Otherwise it is a module folder in the package that owns the concern. Create a package or app with `npm run new` (see Packages), never by hand.
 
@@ -109,7 +109,7 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
 - `execute({ input, signal, context })` returns a string, or `{ content, artifacts }` to give a UI data the model never sees (tagged with a `kind` the tool owns, e.g. the file tools' `FileChange`: emitted on `tool_result`, never put in history; see `docs/tools.md`, "Artifacts"). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
-- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `tools/files/files.helper.ts`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`runtime/process/process.service.ts`) and the allow list.
+- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `tools/files/files.helper.ts`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`@sheavly/workspace/process/process.service`) and the allow list.
 - Wire the tool into `src/demo.ts`, and export it from `src/index.ts`.
 
 **A sub-agent**: `createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`@sheavly/tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`@sheavly/runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`.
@@ -118,9 +118,9 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 
 **A loop event**: add its schema to `agentEventBodySchema` in `packages/protocol/src/event/event.validator.ts` (then `npm run schema -w @sheavly/protocol`) and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Render it in `demo.ts`.
 
-**A hook**: `defineHook({ name, sessionStart?, beforeTurn?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters). `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history; the built-in `createAgentsMdHook` in `runtime/agents-md/` uses it); `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event). A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.utils.ts` and run from `@sheavly/loop/hooks/hooks.helper`.
+**A hook**: `defineHook({ name, sessionStart?, beforeTurn?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters). `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history; the built-in `createAgentsMdHook` in `@sheavly/workspace` (`agents-md/`) uses it); `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event). A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.utils.ts` and run from `@sheavly/loop/hooks/hooks.helper`.
 
-**A project hook** (`.sheavly/`): listed in `.sheavly/hooks.json`, loaded by `runtime/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.validator.ts` (a `satisfies` check fails the typecheck if it is missing). Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply.
+**A project hook** (`.sheavly/`): listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.validator.ts` (a `satisfies` check fails the typecheck if it is missing). Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply.
 
 ## Rules
 
@@ -128,9 +128,9 @@ Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, 
 - Interrupts must leave history valid: every tool call gets a result message, even a placeholder.
 - Keep files within their kind's line limit (`file-kinds.js`; `utils` has none, since pure helpers grow with their subject) and functions under the cognitive-complexity limit. Split into small helpers rather than fighting the rule.
 - No `eslint-disable` comments (`noInlineConfig`). A justified exception is a `files:` override in `eslint.config.js`, with a reason.
-- Fakes live in `@sheavly/testing`, by what they fake: `provider/` (`scriptedProvider`, `callOnceProvider`, `routedProvider`), `fetch/` (`fakeFetch`, `collect`, `requestSentBy`), `tool/` (`toolRunner`) and `wait/` (`until`). It is test-only (`sheavly.testOnly`): a dev dependency, imported only from tests and fakes (`harness/imports`), and lint treats all its source as test code. Fakes that need the app's runtime stay in `src/testing/` until their package exists; a package's own fakes stay in its `src/testing/` (`packages/providers/src/testing/`); core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. No mock data in dev or prod code.
+- Fakes live in `@sheavly/testing`, by what they fake: `provider/` (`scriptedProvider`, `callOnceProvider`, `routedProvider`), `fetch/` (`fakeFetch`, `collect`, `requestSentBy`), `tool/` (`toolRunner`) and `wait/` (`until`). It is test-only (`sheavly.testOnly`): a dev dependency, imported only from tests and fakes (`harness/imports`), and lint treats all its source as test code. A package's own fakes stay in its `src/testing/`: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`), `@sheavly/workspace/testing/` (`useTempWorkspace`, `useFileLocks`), `packages/providers/src/testing/`; core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. No mock data in dev or prod code.
 - Never edit `package.json` by hand: use `npm install -D <pkg>` / `npm pkg set`.
-- Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (`src/runtime/errors/`, `packages/providers/src/errors/`, `packages/core/src/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
+- Fail loudly. A `catch` rethrows, or checks the error (`code`, `instanceof`) and handles only what it expects, with a comment saying why; a rethrow with a better message keeps `cause` (`harness/no-silent-catch`). Guards fail closed and say why. Source never creates a plain `Error`: throw a typed class from the area's errors (each package's `src/errors/`, the app's `src/runtime/errors/`, `.cursor/hooks/hooks.errors.mjs`), adding one if none fits (`harness/no-raw-error`; tests, fakes and `scripts/` are exempt).
 - Real-model checks: when a change alters what a run does, run `npm run workbook -- check` once it's done (the `/git` review step asks for it, and the stop hook nudges once). It runs only the checks whose `areas` the change touched. A new behaviour gets a `check` on a stored prompt (`workbook/README.md`). It's manual and on demand: never put it in CI or `npm run check`, and don't run `src/demo.ts` or the workbook otherwise, since both call a paid model API.
 
 ## Tests

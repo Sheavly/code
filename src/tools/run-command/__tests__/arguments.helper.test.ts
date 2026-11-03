@@ -3,7 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
-import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
+import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { findConcerns } from '../arguments.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';

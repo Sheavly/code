@@ -1,7 +1,7 @@
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { CommandRefusedError } from '../../runtime/errors/run-command.errors.js';
-import { PathCheckError, WorkspaceError } from '../../runtime/errors/workspace.errors.js';
-import type { Workspace } from '../../runtime/workspace/workspace.service.js';
+import { PathCheckError, WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { isEnvFile } from '../files/files.utils.js';
 import { namesEnvFile, pathArguments, stripPathspecMagic } from './arguments.utils.js';

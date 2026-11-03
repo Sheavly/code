@@ -1,6 +1,6 @@
 import type { FileRead } from '../tools/read-file/read-file.types.js';
 import { z } from 'zod';
-import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
+import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
 /** Text squeezed onto one line, cut at `max` characters with an ellipsis. */

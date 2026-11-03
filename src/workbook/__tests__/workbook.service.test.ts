@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
+import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';

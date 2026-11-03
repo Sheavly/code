@@ -86,14 +86,9 @@ describe('headers', () => {
     expect(checkHeader({ header: `fix: ${'a'.repeat(70)}`, scopes: SCOPES })[0]).toContain('72');
   });
 
-  it('reads scopes from the packages, apps and src/ folders, without the test-only layers', () => {
-    const root = createTempRepo({
-      'packages/testing/package.json': '{}',
-      'src/loop/loop.ts': '',
-      'src/testing/fixtures.ts': '',
-    });
+  it('reads scopes from the packages, apps and src/ folders', () => {
+    const root = createTempRepo({ 'packages/testing/package.json': '{}', 'src/loop/loop.ts': '' });
 
-    // packages/testing is a workspace, so a scope; the split app's test-only src/testing isn't.
     expect(listScopes(root)).toEqual(['loop', 'testing']);
     expect(listScopes(REPO_ROOT)).toEqual(
       expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools']),

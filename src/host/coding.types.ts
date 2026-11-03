@@ -1,7 +1,7 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import type { ProjectTrust } from '../runtime/project-hooks/project-hooks.types.js';
-import type { TrustStore } from '../runtime/trust/trust.service.js';
-import type { Workspace } from '../runtime/workspace/workspace.service.js';
+import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
+import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
 
 export type CodingHarnessOptions = Pick<HarnessOptions, 'provider' | 'title' | 'onModelCall'> & {

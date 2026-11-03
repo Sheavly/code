@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { useTempWorkspace } from '../../../testing/temp-workspace.fake.js';
+import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';

@@ -8,8 +8,8 @@ check:
         'src/tools/write-file',
         'src/tools/edit-file',
         'src/tools/files',
-        'src/runtime/file-locks',
-        'src/runtime/workspace',
+        'packages/workspace/src/file-locks',
+        'packages/workspace/src/workspace',
       ],
     'expect':
       {

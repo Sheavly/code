@@ -65,21 +65,21 @@ flowchart BT
 A new workspace comes from `npm run new` (README, "Workspace layout"); the project skill's
 "Where code goes" says which one something belongs in.
 
-| Where                     | What lives there                                                                                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                 |
-| `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                  |
-| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                      |
-| `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/` |
-| `src/runtime/`            | The workspace-bound services, until #29 moves them: workspace path confinement, processes, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`)   |
-| `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                          |
-| `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                |
-| `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                          |
-| `packages/host/src/`      | `@sheavly/host`: wiring a run (`createHarness`) and the model from env (`providerFromEnv`). No UI, and no imports from a front end                                                    |
-| `src/host/`               | The coding preset, `createCodingHarness`, until #29 moves it to `@sheavly/coding`                                                                                                     |
-| `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                        |
-| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                |
-| `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                      |
+| Where                     | What lives there                                                                                                                                                                                                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                                                                                                       |
+| `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                        |
+| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                                                                                                            |
+| `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                       |
+| `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |
+| `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                |
+| `src/tools/`              | The coding tools, until #29 moves them: `read-file`, `write-file`, `edit-file`, `run-command`, `files`                                                                                                                                                                      |
+| `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                |
+| `packages/host/src/`      | `@sheavly/host`: wiring a run (`createHarness`) and the model from env (`providerFromEnv`). No UI, and no imports from a front end                                                                                                                                          |
+| `src/host/`               | The coding preset, `createCodingHarness`, until #29 moves it to `@sheavly/coding`                                                                                                                                                                                           |
+| `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                                                                                                              |
+| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                                                                                                      |
+| `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                                                                                                            |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions
@@ -217,7 +217,7 @@ The harness is for **trusted local repositories**. It checks what the agent asks
 not an OS sandbox: nothing isolates the processes it runs from the rest of the machine. For a repo
 you don't trust, run the harness in a container or VM.
 
-What `Workspace` (`src/runtime/workspace/`) and the tools enforce is **path confinement**:
+What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **path confinement**:
 
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
@@ -264,25 +264,26 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `packages/loop/src/errors/`      | `HookError`, `StreamEndedError`                                                         |
 | `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                              |
 | `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
-| `src/runtime/errors/`            | Tools, loop, hosts and the workspace-bound runtime (below)                              |
+| `packages/workspace/src/errors/` | The project on disk: workspace, processes, trust, project hooks, AGENTS.md (below)      |
+| `src/runtime/errors/`            | `CommandRefusedError` and the workbook's, until they move with their code (below)       |
 | `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                                 |
 
-| `src/runtime/errors/` class            | Thrown when                                                                 |
-| -------------------------------------- | --------------------------------------------------------------------------- |
-| `WorkspaceError`                       | A path is outside the workspace, or a broken symlink                        |
-| `PathCheckError` (`path`, `code`)      | A path couldn't be checked at all (`EACCES`, `ELOOP`); never "missing"      |
-| `ProjectHooksError`                    | `.sheavly/` hooks can't be read, validated or loaded                        |
-| `ProcessKillError` (`pid`, `code`)     | A command's process group couldn't be stopped; it may still be running      |
-| `ProcessInterruptedError`              | The run was interrupted before a command started                            |
-| `ApprovalRequestError` (`reason`)      | No one listens for approvals, or an answer names no waiting request         |
-| `ApprovalListenerError` (`update`)     | An approval subscriber threw                                                |
-| `CommandRefusedError` (`reason`)       | A command needed approval nobody could give, or the user skipped it         |
-| `SessionError` (`reason`, `sessionId`) | A session operation was refused (unknown, ended, too deep, not an ancestor) |
-| `AgentsMdError` (`root`, `cwd`)        | The working directory is outside the project root                           |
-| `TrustStoreError` (`file`)             | The workspace trust store exists but can't be read, parsed or written       |
-| `WorkbookStoreError` (`file`)          | A workbook file exists but can't be read or parsed                          |
-| `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                      |
-| `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                   |
+| Class                                  | Package              | Thrown when                                                                 |
+| -------------------------------------- | -------------------- | --------------------------------------------------------------------------- |
+| `WorkspaceError`                       | `@sheavly/workspace` | A path is outside the workspace, or a broken symlink                        |
+| `PathCheckError` (`path`, `code`)      | `@sheavly/workspace` | A path couldn't be checked at all (`EACCES`, `ELOOP`); never "missing"      |
+| `ProjectHooksError`                    | `@sheavly/workspace` | `.sheavly/` hooks can't be read, validated or loaded                        |
+| `ProcessKillError` (`pid`, `code`)     | `@sheavly/workspace` | A command's process group couldn't be stopped; it may still be running      |
+| `ProcessInterruptedError`              | `@sheavly/workspace` | The run was interrupted before a command started                            |
+| `AgentsMdError` (`root`, `cwd`)        | `@sheavly/workspace` | The working directory is outside the project root                           |
+| `TrustStoreError` (`file`)             | `@sheavly/workspace` | The workspace trust store exists but can't be read, parsed or written       |
+| `ApprovalRequestError` (`reason`)      | `@sheavly/runtime`   | No one listens for approvals, or an answer names no waiting request         |
+| `ApprovalListenerError` (`update`)     | `@sheavly/runtime`   | An approval subscriber threw                                                |
+| `SessionError` (`reason`, `sessionId`) | `@sheavly/runtime`   | A session operation was refused (unknown, ended, too deep, not an ancestor) |
+| `CommandRefusedError` (`reason`)       | app (`src/runtime/`) | A command needed approval nobody could give, or the user skipped it         |
+| `WorkbookStoreError` (`file`)          | app (`src/runtime/`) | A workbook file exists but can't be read or parsed                          |
+| `WorkbookNotFoundError` (`wanted`)     | app (`src/runtime/`) | A stored prompt, run or saved conversation isn't there                      |
+| `WorkbookPromptError` (`prompt`)       | app (`src/runtime/`) | A stored prompt file has bad front matter                                   |
 
 `@sheavly/runtime/errors/errors.utils` has `errorMessage`, `errorCode` and `isMissingPath`
 (`ENOENT` / `ENOTDIR` only). Each error class moves to the package that throws it as #29 splits the

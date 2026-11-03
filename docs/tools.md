@@ -27,7 +27,7 @@ A tool is a folder in `src/tools/<name>/` with a `<name>.tool.ts` that returns
 
 ## File tools
 
-All three go through `Workspace` path confinement (`src/runtime/workspace/`), which is not an OS
+All three go through `Workspace` path confinement (`@sheavly/workspace/workspace/`), which is not an OS
 sandbox ([trust model](overview.md#trust-model)): paths are relative to
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
 symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes
@@ -47,7 +47,7 @@ tell the model how to fix the call (read the file first, add surrounding lines, 
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
 
 Tool calls in a turn run in parallel, so `write_file` and `edit_file` share a per-file lock
-(a `FileLocks` from `runtime/file-locks/`, one per harness), keyed by the file's real path (a symlink and its
+(a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
 apply one after the other, each starting from what the previous one wrote; changes to different
 files still run at the same time. A call aborted while it waits gives up its place.
