@@ -89,6 +89,11 @@ ruleTester.run('kind-contents', kindContents, {
       code: "import { z } from 'zod'; const aSchema = z.object({ a: z.string() }); export const parsed = parse(aSchema); export const config = aSchema.parse(raw); export const result = aSchema.safeParse(raw); export const keys = aSchema.shape; export const json = z.toJSONSchema(aSchema); export const info = aSchema.meta(); export function check(x: unknown) { return aSchema.parse(x); }",
       filename: 'src/m/m.utils.ts',
     },
+    // A routes file exports the function that builds its group of routes.
+    {
+      code: "import { Hono } from 'hono'; export function promptRoutes(deps: { send: () => string }) { return new Hono().post('/', (c) => c.text(deps.send())); }",
+      filename: 'src/server/prompts.routes.ts',
+    },
     // Re-exports from another module are that module's business.
     { code: "export { aSchema } from './m.validator.js';", filename: 'src/m/m.utils.ts' },
     // `zod` as a type only, or another library's `z`, isn't a schema.
@@ -114,6 +119,15 @@ ruleTester.run('kind-contents', kindContents, {
       errors: [
         { messageId: 'typeInCode' },
         { messageId: 'literalInCode' },
+        { messageId: 'typeInCode' },
+      ],
+    },
+    // Routes hold no state and export no types: those go in services and `*.types.ts`.
+    {
+      code: 'export class Router {} export type Routes = string;',
+      filename: 'src/server/prompts.routes.ts',
+      errors: [
+        { messageId: 'classInHelper', data: { name: 'Router', kind: 'routes' } },
         { messageId: 'typeInCode' },
       ],
     },

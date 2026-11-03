@@ -53,6 +53,7 @@ describe('readLayout', () => {
       kind: 'package',
       domain: 'coding',
       testOnly: false,
+      transport: false,
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
       exports: {},
@@ -117,6 +118,7 @@ describe('layoutProblems', () => {
     kind: 'package',
     domain: 'generic',
     testOnly: false,
+    transport: false,
     dependsOn: [],
     devDependsOn: [],
     ...(fields.kind !== 'app' && {
@@ -159,6 +161,25 @@ describe('layoutProblems', () => {
       '@sheavly/a is generic but depends on @sheavly/coding, a coding workspace',
       '@sheavly/a depends on @sheavly/lint, which source never imports: make it a dev dependency',
       '@sheavly/a depends on @sheavly/fakes, which source never imports: make it a dev dependency',
+    ]);
+  });
+
+  it('lets only an app depend on a transport, so the library runs without the server', () => {
+    const layout = {
+      '@sheavly/server': pkg({ name: 'server', transport: true }),
+      '@sheavly/host': pkg({ name: 'host' }),
+      '@sheavly/ui': {
+        ...pkg({ name: 'ui', kind: 'app' }),
+        dir: 'apps/ui',
+        dependsOn: ['@sheavly/server'],
+      },
+      '@sheavly/lib': pkg({ name: 'lib', dependsOn: ['@sheavly/server', '@sheavly/host'] }),
+      '@sheavly/libtest': pkg({ name: 'libtest', devDependsOn: ['@sheavly/server'] }),
+    };
+
+    expect(layoutProblems(layout)).toEqual([
+      '@sheavly/lib depends on @sheavly/server, a transport: only an app starts one, so the library runs without it. Depend on what it serves (`@sheavly/host`) instead',
+      '@sheavly/libtest has @sheavly/server as a dev dependency, a transport: test what it serves in-process instead',
     ]);
   });
 
