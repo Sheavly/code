@@ -1,6 +1,6 @@
 /**
- * What the user typed at the chat prompt: a line to send, a command (`/exit`, `/help`,
- * `/model [name]`), or nothing. Commands start with `/`; everything else is sent as it is, trimmed.
+ * What the user typed at the chat prompt: one of the chat's commands (`/exit`, `/help`,
+ * `/model [name]`), a message to send (trimmed, and running any skills it mentions), or nothing.
  */
 export type ChatInput =
   | { kind: 'prompt'; text: string }
@@ -8,5 +8,4 @@ export type ChatInput =
   | { kind: 'help' }
   /** `/model` lists the models; `/model <name>` switches to one. */
   | { kind: 'model'; name: string | undefined }
-  | { kind: 'empty' }
-  | { kind: 'unknown'; command: string };
+  | { kind: 'empty' };

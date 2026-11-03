@@ -5,6 +5,7 @@ import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
+import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings } from './settings.validator.js';
 
@@ -43,6 +44,8 @@ export type TerminalHarnessOptions = {
   trustWorkspace?: boolean;
   /** Let run_command run any shell command (`RUN_COMMAND_SKIP_ALLOW_LIST=true`). */
   skipAllowList?: boolean;
+  /** The user's home, for their `~/.sheavly/skills/` and `~/.agents/skills/`; omit for none. */
+  home?: string | undefined;
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
 };
 
@@ -50,7 +53,9 @@ export type TerminalHarnessOptions = {
 export type TerminalHarness = CodingHarness & {
   tools: Tool[];
   hooks: Hook[];
-  /** The project's `.sheavly` hooks; `hooks` has the AGENTS.md hook first, then these. */
+  /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */
+  skills: SkillRoots;
+  /** The project's `.sheavly` hooks; `hooks` has the AGENTS.md and skills hooks first, then these. */
   projectHooks: Hook[];
   /** Whether the `.sheavly/` hooks ran: `untrusted` or `changed` says why they didn't. */
   projectTrust: ProjectTrust;

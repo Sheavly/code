@@ -10,19 +10,21 @@
  *
  * Settings are the demo's (apps/terminal/docs/demo.md): ADAPTER and its keys, MODEL,
  * WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, SHOW_MODEL_CALLS, --trust. Ctrl+C stops the running
- * prompt, /exit or Ctrl+D ends the conversation. Calls the real API, so it costs money.
+ * prompt, /<skill> anywhere in a message runs that skill, /exit or Ctrl+D ends the conversation. Calls the real API, so it costs money.
  */
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
+import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { CHAT_HELP } from './chat/chat.constants.js';
-import { listModels, parseChatInput } from './chat/chat.utils.js';
+import { completeChatLine, listModels, parseChatInput, unknownCommand } from './chat/chat.utils.js';
 import { MAX_TURNS } from './harness/harness.constants.js';
 import { createCliHarness } from './harness/harness.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { Renderer } from './render/render.service.js';
-import { projectTrustNotice } from './render/render.utils.js';
+import { projectTrustNotice, skillsNotice } from './render/render.utils.js';
 
 // npm runs a workspace's script inside apps/terminal; work from the folder it was started in
 // (npm's INIT_CWD), so `.env` and the default workspace are the user's, as with the demo.
@@ -72,9 +74,19 @@ if (skipAllowList) console.log('⚠ run_command allow list is OFF: any shell com
 const trustNotice = projectTrustNotice(harness.projectTrust);
 
 if (trustNotice) console.log(trustNotice);
+
+const skillsReport = skillsNotice(await findSkills(harness.skills));
+
+if (skillsReport) console.log(skillsReport);
 console.log('→ /help for help, /exit or Ctrl+D to quit\n');
 
-const input = createInterface({ input: process.stdin, output: process.stdout });
+// Tab after `/` completes skill names (read fresh, so a new skill is offered at once) and commands.
+const input = createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  completer: async (before: string) =>
+    completeChatLine({ before, skills: (await findSkills(harness.skills)).skills }),
+});
 // Read lines from the start, so lines typed (or piped in) while the first prompt runs are kept;
 // readline only listens once its iterator exists. They are sent in order, after the prompt.
 const lines = input[Symbol.asyncIterator]();
@@ -118,12 +130,26 @@ input.on('SIGINT', () => {
   input.close();
 });
 
-/** Runs one prompt to its end, printing its events; a failure is shown, and the chat goes on. */
+/**
+ * Runs one message to its end, printing its events; a failure is shown, and the chat goes on.
+ * Skills it mentions (`/<name>` anywhere in it) run with it; one it starts with that no skill
+ * has is an unknown command, reported instead of sent.
+ */
 async function send(text: string): Promise<void> {
   current = new AbortController();
 
   try {
-    for await (const event of conversation.send(text, { signal: current.signal })) {
+    const request = await skillRequest({ ...harness.skills, text, signal: current.signal });
+    const unknown =
+      request.skills.length === 0 ? unknownCommand({ text, unknown: request.unknown }) : undefined;
+
+    if (unknown) {
+      console.log(`Unknown command /${unknown}; /help lists them.`);
+
+      return;
+    }
+
+    for await (const event of conversation.send(request.text, { signal: current.signal })) {
       renderer.event(event);
     }
   } catch (caughtError) {
@@ -165,9 +191,6 @@ async function handle(line: string): Promise<boolean> {
       break;
     case 'model':
       console.log(modelCommand(parsed.name));
-      break;
-    case 'unknown':
-      console.log(`Unknown command ${parsed.command}; /help lists them.`);
       break;
     case 'prompt':
       await send(parsed.text);

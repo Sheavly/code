@@ -6,6 +6,7 @@ import { trustStoreFromEnv } from '../harness/settings.helper.js';
 import type { ProviderSettings } from '../harness/harness.types.js';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
@@ -95,6 +96,15 @@ export async function runWorkbook(params: {
   let error: string | undefined;
 
   try {
+    // Skills the prompt mentions (`/<name>` anywhere in it) run with it, as in the chat.
+    const sent = await skillRequest({
+      ...harness.skills,
+      text: request.text,
+      signal: interrupt.signal,
+    });
+
+    messages = [...history, { role: 'user', content: sent.text }];
+
     for await (const event of streamAgent({
       provider: harness.provider,
       tools: harness.tools,

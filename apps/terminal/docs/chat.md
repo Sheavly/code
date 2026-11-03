@@ -17,6 +17,12 @@ has its own.
   started); at the input line it quits. Either way, lines typed but not yet sent are dropped.
 - `/model` lists the models `MODELS` sets up and `/model <name>` switches to one, from the next
   model call on, keeping the history ([several models](demo.md#several-models-on-azure)).
+- `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
+  with the message, at the start (`/git submit`), in the middle or at the end
+  (`review this, then /git`), including `disable-model-invocation` skills. A message that starts
+  with a `/name` no skill has is reported as an unknown command and not sent. Skills that didn't
+  load are listed, with why, when the chat starts. Tab after a `/` completes skill names (and,
+  at the start of the line, the chat's commands); press it twice to list them.
 - `/exit`, `/quit` or Ctrl+D ends the conversation: it stops what it started (background
   commands, sub-agents) and ends the session. `/help` lists this.
 - Lines are read in order, so lines typed (or piped in) while a message runs are sent after it.

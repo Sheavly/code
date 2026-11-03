@@ -9,14 +9,16 @@ workbook both use it, so they run the same agent.
 `createTerminalHarness` opens the coding services (`createCodingHarness`: the workspace, file
 locks and process runner), then composes:
 
-| What                                   | From                 | Why                                                                            |
-| -------------------------------------- | -------------------- | ------------------------------------------------------------------------------ |
-| `read_file`, `write_file`, `edit_file` | `@sheavly/coding`    | A coding agent works on files; all three share the run's `FileLocks`           |
-| `run_command`                          | `@sheavly/coding`    | Tests and builds; `skipAllowList` only with `RUN_COMMAND_SKIP_ALLOW_LIST=true` |
-| `task_status`, `cancel_task`           | `@sheavly/tools`     | Background commands and sub-agents                                             |
-| `start_agent`, `message_agent`         | `@sheavly/tools`     | Sub-agents get the file tools and the AGENTS.md hook, not `run_command`        |
-| The AGENTS.md hook                     | `@sheavly/workspace` | First, so the project's rules apply from the first call                        |
-| The `.sheavly/` hooks                  | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not           |
+| What                                   | From                 | Why                                                                                  |
+| -------------------------------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| `read_file`, `write_file`, `edit_file` | `@sheavly/coding`    | A coding agent works on files; all three share the run's `FileLocks`                 |
+| `read_skill`                           | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                 |
+| `run_command`                          | `@sheavly/coding`    | Tests and builds; `skipAllowList` only with `RUN_COMMAND_SKIP_ALLOW_LIST=true`       |
+| `task_status`, `cancel_task`           | `@sheavly/tools`     | Background commands and sub-agents                                                   |
+| `start_agent`, `message_agent`         | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command` |
+| The AGENTS.md hook                     | `@sheavly/workspace` | First, so the project's rules apply from the first call                              |
+| The skills hook                        | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`) |
+| The `.sheavly/` hooks                  | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                 |
 
 Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
 task, and commands are where the trust model has the most to lose.
