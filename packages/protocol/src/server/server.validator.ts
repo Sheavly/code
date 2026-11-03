@@ -72,12 +72,15 @@ export const sendPromptRequestSchema = z.xor([
 /**
  * `QUERY /conversations/:id/stream`: which entries of the combined stream to send. Nothing: every
  * session's. `session`: one session's, with `subtree` its sub-agents' too. `replay`: from the
- * conversation's start first. `Last-Event-ID` resumes after an entry instead.
+ * conversation's start first. `approvals`: this client answers approvals, so while it is
+ * connected one waits for an answer; with no such client, an approval is refused at once.
+ * `Last-Event-ID` resumes after an entry instead.
  */
 export const streamQuerySchema = z.object({
   session: sessionIdSchema.exactOptional(),
   subtree: z.boolean().exactOptional(),
   replay: z.boolean().exactOptional(),
+  approvals: z.boolean().exactOptional(),
 });
 
 /** `POST /conversations/:id/approvals/:approvalId`: the user's answer to a waiting approval. */

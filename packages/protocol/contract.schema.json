@@ -702,7 +702,8 @@
       "properties": {
         "session": { "$ref": "#/$defs/SessionId" },
         "subtree": { "type": "boolean" },
-        "replay": { "type": "boolean" }
+        "replay": { "type": "boolean" },
+        "approvals": { "type": "boolean" }
       }
     },
     "AnswerApprovalRequest": {
