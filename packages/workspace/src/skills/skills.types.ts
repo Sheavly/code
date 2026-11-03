@@ -1,3 +1,6 @@
+import type { PromptPart } from '@sheavly/protocol/message/message.types';
+import type { SkillScope } from '@sheavly/protocol/skill/skill.types';
+
 /** A skill that was found: what it is called, what it is for, and where its files are. */
 export type Skill = {
   name: string;
@@ -7,7 +10,7 @@ export type Skill = {
   /** Its folder (absolute): `SKILL.md` and the files it links to. */
   dir: string;
   /** The project's skill, one from the user's home, or one the harness ships. */
-  scope: 'project' | 'user' | 'built-in';
+  scope: SkillScope;
 };
 
 /** A skill that didn't load: where it is and why. The other skills still load. */
@@ -45,13 +48,15 @@ export type SkillsHookOptions = SkillRoots & {
   maxChars?: number;
 };
 
-/** What a user's message sends, with the skills it mentions run (`skillRequest`). */
+/** What a user's message sends, with its skills run (`skillRequest`). */
 export type SkillRequest = {
   /** The message to send: the skills' instructions, then the text; or the text unchanged. */
   text: string;
+  /** What the user typed, when skills ran: kept on the message for a UI (`Message.parts`). */
+  parts?: PromptPart[];
   /** The skills it ran, in the order the text mentions them. */
   skills: string[];
-  /** Mentions (`/<name>`) that no skill has. */
+  /** Mentions (`/<name>`) in `text` that no skill has; `parts` with one throws instead. */
   unknown: string[];
 };
 

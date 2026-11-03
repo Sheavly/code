@@ -4,6 +4,9 @@ import {
   completeSkillMention,
   findSkillMentions,
   formatSkillRequest,
+  partsOf,
+  skillNamesOf,
+  textOf,
   formatSkillsInstructions,
   parseFrontmatter,
   skillBody,
@@ -203,5 +206,31 @@ describe('completeSkillMention', () => {
     expect(complete('look in /usr/b')).toBeUndefined();
     expect(complete('a/gi')).toBeUndefined();
     expect(complete('/git submit', 2)).toMatchObject({ query: 'g' });
+  });
+});
+
+describe('parts', () => {
+  it('turns typed text into parts, known skills as chips and everything else as text', () => {
+    expect(
+      partsOf({ text: '/git it, then /nope /review.', known: new Set(['git', 'review']) }),
+    ).toEqual([
+      { type: 'skill', name: 'git' },
+      { type: 'text', text: ' it, then /nope ' },
+      { type: 'skill', name: 'review' },
+      { type: 'text', text: '.' },
+    ]);
+    expect(partsOf({ text: 'plain', known: new Set() })).toEqual([{ type: 'text', text: 'plain' }]);
+  });
+
+  it('reads parts back as text, and lists their skills once each', () => {
+    const parts = [
+      { type: 'text', text: 'run ' },
+      { type: 'skill', name: 'git' },
+      { type: 'text', text: ' twice ' },
+      { type: 'skill', name: 'git' },
+    ] as const;
+
+    expect(textOf(parts)).toBe('run /git twice /git');
+    expect(skillNamesOf(parts)).toEqual(['git']);
   });
 });

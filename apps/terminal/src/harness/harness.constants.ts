@@ -23,3 +23,9 @@ export const CLAUDE_MAX_TOKENS = 16_000;
 
 /** The trust store's file under the user's config folder (`$XDG_CONFIG_HOME` or `~/.config`). */
 export const TRUST_STORE_PATH = ['sheavly', 'trusted-workspaces.json'];
+
+/**
+ * Where `npm run serve` listens when the environment says nothing: this machine only (the server
+ * runs commands for whoever reaches it), on a port unlikely to be taken.
+ */
+export const SERVER = { host: '127.0.0.1', port: 4310 } as const;

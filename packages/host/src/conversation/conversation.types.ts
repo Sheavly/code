@@ -4,7 +4,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Harness } from '../host/host.types.js';
 
 /**
@@ -53,9 +53,13 @@ export type Conversation = {
   /**
    * Runs `prompt` as the next turn of the conversation and yields its events; iterate it to the
    * end (or abort `signal`, or stop iterating, to stop the prompt). Throws a `SessionError`
-   * (`session_running`) while another prompt runs, and (`session_ended`) once closed.
+   * (`session_running`) while another prompt runs, and (`session_ended`) once closed. `parts`
+   * is what the user typed, when skills ran: it goes on the history's user message for a UI.
    */
-  send: (prompt: string, options?: { signal?: AbortSignal }) => AsyncIterable<AgentEvent>;
+  send: (
+    prompt: string,
+    options?: { signal?: AbortSignal; parts?: PromptPart[] | undefined },
+  ) => AsyncIterable<AgentEvent>;
   /** The history so far: every finished prompt's, valid to continue from. */
   readonly messages: readonly Message[];
   /** Whether a prompt is running now. */

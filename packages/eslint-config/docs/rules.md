@@ -21,6 +21,7 @@ switches off exactly one, on the files it is for, with a reason.
 | `service`   | code that owns state                                     | code, at least one class     | 300       |
 | `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
 | `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
+| `routes`    | one group of HTTP routes (a function building a `Hono`)  | code, no classes             | 150       |
 | `errors`    | error classes                                            | code                         | 150       |
 | `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
 | `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
@@ -33,7 +34,8 @@ switches off exactly one, on the files it is for, with a reason.
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
 - `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
-  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge), and
+  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge, and
+  a transport such as `@sheavly/server`, `sheavly.transport`, only from an app), and
   imports follow the graph: another workspace only if `package.json` depends on it (dev
   dependencies for tests), test-only workspaces only from tests and fakes, no relative import
   across workspace roots.

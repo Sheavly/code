@@ -65,6 +65,21 @@ describe('ApprovalRegistry', () => {
     await expect(ask(new ApprovalRegistry())).rejects.toThrow('No one is listening');
   });
 
+  it('tells observers every update first, but an observer alone can’t answer', async () => {
+    const approvals = new ApprovalRegistry();
+    const order: string[] = [];
+
+    approvals.observe((update) => order.push(`observer:${update.type}`));
+    await expect(ask(approvals)).rejects.toThrow('No one is listening');
+    expect(approvals.listening).toBe(false);
+
+    approvals.subscribe((update) => order.push(`listener:${update.type}`));
+    // Left waiting on purpose: only the order its request was heard in matters here.
+    void ask(approvals);
+
+    expect(order).toEqual(['observer:approval_requested', 'listener:approval_requested']);
+  });
+
   it('cancels a waiting request when its call is interrupted', async () => {
     const approvals = new ApprovalRegistry();
     const updates = listen(approvals);

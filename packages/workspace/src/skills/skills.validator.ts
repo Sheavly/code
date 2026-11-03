@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { skillNameSchema } from '@sheavly/protocol/skill/skill.validator';
 
 /**
  * A skill's frontmatter: the same fields Cursor, Claude and Codex read, so existing skills work.
@@ -6,9 +7,7 @@ import { z } from 'zod';
  * for skills only the user runs (`/<name>`).
  */
 export const skillFrontmatterSchema = z.looseObject({
-  name: z
-    .string()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'name must be lowercase words joined by dashes'),
+  name: skillNameSchema,
   description: z.string().min(1, 'description is empty'),
   'disable-model-invocation': z.boolean().optional(),
 });

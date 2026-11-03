@@ -1,0 +1,98 @@
+import { describe, expect, it } from 'vitest';
+import {
+  answerApprovalRequestSchema,
+  conversationsResponseSchema,
+  sendPromptRequestSchema,
+  serverErrorSchema,
+  skillsResponseSchema,
+  startConversationRequestSchema,
+  streamQuerySchema,
+} from '../server.validator.js';
+
+describe('sendPromptRequestSchema', () => {
+  it('takes text from a script, or parts from a UI', () => {
+    expect(sendPromptRequestSchema.parse({ text: 'fix it /git' })).toEqual({ text: 'fix it /git' });
+
+    const parts = [
+      { type: 'text', text: 'please ' },
+      { type: 'skill', name: 'review' },
+    ];
+
+    expect(sendPromptRequestSchema.parse({ parts })).toEqual({ parts });
+  });
+
+  it('refuses both at once, neither, an empty prompt, or a name no skill can have', () => {
+    for (const body of [
+      { text: 'a', parts: [{ type: 'text', text: 'a' }] },
+      {},
+      { text: '' },
+      { parts: [] },
+      { parts: [{ type: 'skill', name: 'Not A Name' }] },
+      { parts: [{ type: 'chip', name: 'review' }] },
+    ]) {
+      expect(sendPromptRequestSchema.safeParse(body).success).toBe(false);
+    }
+  });
+});
+
+describe('the other requests', () => {
+  it('starts a conversation empty or from saved messages, with parts kept', () => {
+    const messages = [
+      { role: 'user', content: 'Run review… then', parts: [{ type: 'skill', name: 'review' }] },
+    ];
+
+    expect(startConversationRequestSchema.parse({})).toEqual({});
+    expect(startConversationRequestSchema.parse({ messages })).toEqual({ messages });
+  });
+
+  it('filters the stream by session, subtree and replay, each optional', () => {
+    expect(streamQuerySchema.parse({})).toEqual({});
+    expect(streamQuerySchema.parse({ session: 's1', subtree: true, replay: true })).toEqual({
+      session: 's1',
+      subtree: true,
+      replay: true,
+    });
+    expect(streamQuerySchema.safeParse({ replay: 'yes' }).success).toBe(false);
+  });
+
+  it('answers an approval with a decision the approval registry takes', () => {
+    expect(answerApprovalRequestSchema.parse({ response: { decision: 'approve' } })).toEqual({
+      response: { decision: 'approve' },
+    });
+    expect(answerApprovalRequestSchema.safeParse({ response: { decision: 'maybe' } }).success).toBe(
+      false,
+    );
+  });
+});
+
+describe('the responses', () => {
+  it('lists live conversations with what another UI needs to join one', () => {
+    const summary = { id: 'c1', title: 'Chat', session: 's1', running: true, startedAt: 1 };
+
+    expect(conversationsResponseSchema.parse({ conversations: [summary] })).toEqual({
+      conversations: [summary],
+    });
+    expect(
+      conversationsResponseSchema.safeParse({ conversations: [{ ...summary, running: 'yes' }] })
+        .success,
+    ).toBe(false);
+  });
+
+  it('lists skills without their bodies', () => {
+    const skill = { name: 'review', description: 'Reviews.', manualOnly: false, scope: 'project' };
+
+    expect(skillsResponseSchema.parse({ skills: [skill] })).toEqual({ skills: [skill] });
+    expect(
+      skillsResponseSchema.safeParse({ skills: [{ ...skill, scope: 'elsewhere' }] }).success,
+    ).toBe(false);
+  });
+
+  it('gives every failure a known code and a message', () => {
+    const failure = { error: { code: 'session_running', message: 'A prompt is running.' } };
+
+    expect(serverErrorSchema.parse(failure)).toEqual(failure);
+    expect(serverErrorSchema.safeParse({ error: { code: 'oops', message: 'x' } }).success).toBe(
+      false,
+    );
+  });
+});

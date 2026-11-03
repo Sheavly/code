@@ -19,6 +19,7 @@ export default baseConfig({ tsconfigRootDir: import.meta.dirname });
 | `file-kinds.js`   | Each `<name>.<kind>.ts` kind and its policy (exports, classes, max lines)    |
 | `layout.js`       | `NOT_SOURCE`, the one hand-written part of the layout                        |
 | `layout.utils.js` | `readLayout`: the workspaces, their graph and domains, read from disk        |
+| `rule-hints.js`   | `RULE_HINTS`: what to do, added to lint messages that only say what's wrong  |
 
 A new convention is a rule here, derived from the code rather than a hand-kept list, with a
 message that says what to do instead, and RuleTester tests in `src/__tests__/`.

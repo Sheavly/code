@@ -4,7 +4,7 @@ import { EntryLog } from './entry-log.service.js';
 import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
-import { isOpen } from './sessions.utils.js';
+import { isOpen, toEntryEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
@@ -16,6 +16,7 @@ import type {
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { EntryFilter } from './sessions.types.js';
 
@@ -35,6 +36,8 @@ export class SessionRegistry {
   #sessions = new Map<SessionId, SessionInfo>();
   #listeners = new Set<Listener>();
   #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
+  /** The session each waiting approval belongs to, so its answer lands in the same place. */
+  #approvalSessions = new Map<ApprovalId, SessionId>();
   #inboxes = new Inboxes();
 
   /** Starts the main session (depth 1). */
@@ -223,12 +226,35 @@ export class SessionRegistry {
   /**
    * Adds an event of session `sessionId`'s loop to the combined stream, in the order published.
    * The loop publishes each event as it releases it, so a session's events keep their own order.
+   * `done` goes in without its `messages` (`toEntryEvent`): the stream is kept for replay.
    */
   publish(params: { sessionId: SessionId; event: AgentEvent }): void {
-    const { sessionId, event } = params;
+    const { sessionId } = params;
+    const event = toEntryEvent(params.event);
 
     this.#require(sessionId);
     this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));
+  }
+
+  /**
+   * Adds an approval update to the combined stream, under the session whose tool asked: its
+   * `sessionId`, or the first main session for a call outside the loop. The answer (or the cancel)
+   * goes under the same session as its request, so a session's filter sees both.
+   */
+  publishApproval(update: ApprovalUpdate): void {
+    const sessionId =
+      update.type === 'approval_requested'
+        ? (update.request.sessionId ?? this.#mainId())
+        : (this.#approvalSessions.get(update.id) ?? this.#mainId());
+
+    if (update.type === 'approval_requested') {
+      this.#approvalSessions.set(update.request.id, sessionId);
+    } else {
+      this.#approvalSessions.delete(update.id);
+    }
+
+    this.#require(sessionId);
+    this.#entries.add((seq) => ({ seq, sessionId, kind: 'approval', update }));
   }
 
   /**
@@ -247,6 +273,21 @@ export class SessionRegistry {
    */
   stream(params: { signal?: AbortSignal } = {}): ReadableStream<Uint8Array> {
     return updateStream({ sessions: this, ...params });
+  }
+
+  /** The first main session started: where an approval asked outside the loop goes. */
+  #mainId(): SessionId {
+    const main = [...this.#sessions.values()].find((session) => session.depth === 1);
+
+    if (!main) {
+      throw new SessionError({
+        reason: 'unknown_session',
+        sessionId: sessionIdSchema.parse('main'),
+        message: 'An approval outside a session needs a main session to go under',
+      });
+    }
+
+    return main.id;
   }
 
   #add(params: SessionRef & { title: string }): SessionRef {

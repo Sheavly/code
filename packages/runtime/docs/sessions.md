@@ -87,9 +87,9 @@ updates, indented by depth.
 **Ordering.** Each session's own events (text, tool calls, results, `message_received`) go
 through that session's `OrderedQueue`, with that session's `seq`. The registry also orders the
 whole tree: `sessions.subscribeEntries(listener)` gets a `StreamEntry`
-(`@sheavly/protocol/stream/`) for every session update and for every event any session's loop
-releases (the loop calls `sessions.publish`), sub-agents included, in the order they happened.
-Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
+(`@sheavly/protocol/stream/`) for every session update, for every event any session's loop
+releases (the loop calls `sessions.publish`), sub-agents included, and for every approval
+update (`kind: 'approval'`), in the order they happened. Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
 about, and the event or update. An event keeps its own session's `seq` too, so a UI can still
 follow one session alone.
 
@@ -101,6 +101,12 @@ A UI picks what it follows with the second argument:
 - `replay: true` (with any of these): first every matching entry since the run started, then
   live, so a panel opened late still starts at the beginning. The registry keeps the run's
   entries for this, for as long as it lives.
+
+A `done` in the combined stream has no `messages`, for live listeners and replay alike
+(`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
+so far, and a kept log would grow with the square of a long conversation. The history comes from
+whoever ran the loop: the run's own `done`, or `conversation.messages`. The log still keeps every
+other entry, `text_delta`s included, for as long as the registry lives (#135).
 
 Following only the main session needs none of this: the main run's own `streamAgent` stream
 has only its events, and its sub-agents work in the background (shown by their session updates).

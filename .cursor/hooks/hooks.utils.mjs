@@ -1,10 +1,11 @@
 // Shared helpers for the Cursor hooks in this folder. Hooks talk JSON over stdin/stdout:
 // Cursor writes the event payload to stdin and reads our response from stdout.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
+import { RULE_HINTS } from '../../packages/eslint-config/src/rule-hints.js';
 import { GuardCrashError, HookStateError, isMissingPath } from './hooks.errors.mjs';
 
 /** Project hooks run from the project root. */
@@ -103,6 +104,38 @@ export function updateChatState(params) {
   );
 }
 
+/**
+ * Every chat's recorded state as `{ id, state }`, `id` its state file's name. A state that can't
+ * be read is left out, never thrown: it is that chat's to report, and leaving it out only means
+ * its edits and links are not seen (as if it had recorded none).
+ */
+export function listChatStates() {
+  let names;
+
+  try {
+    names = readdirSync(STATE_DIR).filter((name) => name.endsWith('.json'));
+  } catch (caughtError) {
+    if (isMissingPath(caughtError)) return []; // no chat has recorded anything yet
+    throw caughtError;
+  }
+
+  return names.flatMap((name) => {
+    try {
+      const state = JSON.parse(readFileSync(path.join(STATE_DIR, name), 'utf8'));
+
+      return [{ id: name.slice(0, -'.json'.length), state }];
+    } catch (caughtError) {
+      if (isMissingPath(caughtError) || caughtError instanceof SyntaxError) return [];
+      throw caughtError;
+    }
+  });
+}
+
+/** The id `conversationId`'s state is stored under, as `listChatStates` names it. */
+export function chatStateId(conversationId) {
+  return path.basename(chatStateFile(conversationId), '.json');
+}
+
 function runFile(file, args) {
   const result = spawnSync(file, args, {
     cwd: PROJECT_ROOT,
@@ -140,7 +173,10 @@ export function formatEslintReport(json) {
     const relative = path.relative(PROJECT_ROOT, file.filePath);
 
     for (const { line, column, message, ruleId } of file.messages) {
-      lines.push(`${relative}:${line}:${column}  ${message}  (${ruleId ?? 'parse error'})`);
+      const problem = `${relative}:${line}:${column}  ${message}  (${ruleId ?? 'parse error'})`;
+      const hint = ruleId && RULE_HINTS[ruleId];
+
+      lines.push(hint ? `${problem}\n  → ${hint}` : problem);
     }
   }
 

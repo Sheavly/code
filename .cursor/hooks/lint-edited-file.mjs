@@ -10,6 +10,8 @@
 // the stop hook checks only chats that changed this checkout. Advisory: it never blocks the edit.
 // The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
+import { editedFilesFields } from './chat-files.utils.mjs';
+import { linkFromToolCall } from './chat-links.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
@@ -40,9 +42,13 @@ if (!filePath || !isProjectSource(filePath)) {
 
 const notes = [];
 const conversationId = input.conversation_id;
+const projectFile = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('/');
+
+// A subagent's edits are checked by the chat that started it (chat-links.utils.mjs).
+linkFromToolCall(input);
 
 // Recorded first, so an edit Prettier or ESLint then fails on still counts.
-remember({ editedProjectSource: true });
+remember(editedFilesFields({ state: readState(), files: [projectFile] }));
 
 // A deleted file has nothing left to format or lint; the stop hook checks what it broke.
 if (!existsSync(filePath)) {
@@ -52,7 +58,7 @@ if (!existsSync(filePath)) {
 
 // The architecture rule (backend only, no UI unless an issue asks) is injected the first time a
 // chat edits harness source, and again whenever an edit breaks it.
-const relative = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('/');
+const relative = projectFile;
 const ruleShown = readState()?.architectureRuleShown === true;
 let ruleBroken = false;
 

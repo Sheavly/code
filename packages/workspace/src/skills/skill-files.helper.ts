@@ -2,8 +2,17 @@ import { readFile } from 'node:fs/promises';
 import { SKILL_FILE } from './skills.constants.js';
 import { findSkills } from './skills.helper.js';
 import type { Skill, SkillFile, SkillRequest, SkillRoots } from './skills.types.js';
-import { findSkillMentions, formatSkillRequest, skillBody } from './skills.utils.js';
+import {
+  findSkillMentions,
+  formatSkillRequest,
+  partsOf,
+  skillBody,
+  skillNamesOf,
+  textOf,
+} from './skills.utils.js';
+import { UnknownSkillError } from '../errors/skills.errors.js';
 import { Workspace } from '../workspace/workspace.service.js';
+import type { SendPromptRequest } from '@sheavly/protocol/server/server.types';
 
 /** A file in `skill`'s folder, which must be inside it (symlinks followed); missing is ENOENT. */
 async function readFromSkill(params: {
@@ -35,34 +44,46 @@ export async function readSkillFile(
 }
 
 /**
- * What a user's message sends, for a UI that runs skills: when it mentions skills (`/<name>` anywhere in it),
- * their instructions, then the text as typed; otherwise the text unchanged. `skills` names the
- * skills it ran, `unknown` the mentions no skill has. It runs `disable-model-invocation` skills
- * too: the user asked for them.
+ * What a user's prompt sends, for a UI that runs skills. From `text`, the skills its `/<name>`
+ * mentions name (unknown ones stay text, listed in `unknown`); from `parts`, exactly the skills
+ * picked (an unknown one throws `UnknownSkillError`: the UI's list is stale). With skills, the
+ * message is their instructions, then what the user typed, and `parts` keeps what they typed for
+ * a UI; without, the text unchanged. It runs `disable-model-invocation` skills too: the user
+ * asked for them.
  */
 export async function skillRequest(
-  params: SkillRoots & { text: string; signal?: AbortSignal },
+  params: SkillRoots & { prompt: SendPromptRequest; signal?: AbortSignal },
 ): Promise<SkillRequest> {
-  const { text, signal, ...roots } = params;
-  const mentions = [...new Set(findSkillMentions(text).map(({ name }) => name))];
+  const { prompt, signal, ...roots } = params;
+  const wanted =
+    'parts' in prompt
+      ? skillNamesOf(prompt.parts)
+      : [...new Set(findSkillMentions(prompt.text).map(({ name }) => name))];
+  const typed = 'parts' in prompt ? textOf(prompt.parts) : prompt.text;
 
-  if (mentions.length === 0) return { text, skills: [], unknown: [] };
+  if (wanted.length === 0) return { text: typed, skills: [], unknown: [] };
 
   const { skills } = await findSkills({ ...roots, ...(signal && { signal }) });
-  const used = mentions.flatMap((name) => skills.filter((skill) => skill.name === name));
-  const unknown = mentions.filter((name) => !used.some((skill) => skill.name === name));
+  const used = wanted.flatMap((name) => skills.filter((skill) => skill.name === name));
+  const unknown = wanted.filter((name) => !used.some((skill) => skill.name === name));
 
-  if (used.length === 0) return { text, skills: [], unknown };
+  if ('parts' in prompt && unknown.length > 0) throw new UnknownSkillError({ skills: unknown });
+  if (used.length === 0) return { text: typed, skills: [], unknown };
 
   const files = await Promise.all(
     used.map((skill) => readFromSkill({ skill, file: SKILL_FILE, signal })),
   );
+  const parts =
+    'parts' in prompt
+      ? prompt.parts
+      : partsOf({ text: prompt.text, known: new Set(used.map(({ name }) => name)) });
 
   return {
     text: formatSkillRequest({
       skills: files.map((found) => ({ skill: found.skill, body: skillBody(found.text) })),
-      text,
+      text: typed,
     }),
+    parts,
     skills: used.map((skill) => skill.name),
     unknown,
   };

@@ -52,8 +52,8 @@ function workspaceDeps(params) {
 
 /**
  * The layout, by workspace name, derived from the workspaces at `root`: `kind` from the folder,
- * `dependsOn` and `devDependsOn` from the manifest's dependencies on other workspaces, `domain`
- * and `testOnly` from its `sheavly` field.
+ * `dependsOn` and `devDependsOn` from the manifest's dependencies on other workspaces, `domain`,
+ * `testOnly` and `transport` from its `sheavly` field.
  */
 export function readLayout(params) {
   const { root } = params;
@@ -68,6 +68,9 @@ export function readLayout(params) {
         kind: kindOf(relative),
         domain: manifest.sheavly?.domain,
         testOnly: manifest.sheavly?.testOnly === true,
+        // A way into the harness from outside its process (the HTTP server): only an app starts
+        // one, so the library always runs in-process without it.
+        transport: manifest.sheavly?.transport === true,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
         // The public surface: its package.json `exports`, by file kind (`./*.types`), its
@@ -145,6 +148,10 @@ export function edgeProblem(params) {
     return `${name} depends on ${dependency}, an app: nothing imports an app`;
   }
 
+  if (target.transport && entry.kind !== 'app') {
+    return `${name} depends on ${dependency}, a transport: only an app starts one, so the library runs without it. Depend on what it serves (\`@sheavly/host\`) instead`;
+  }
+
   if (entry.domain === 'generic' && target.domain === 'coding') {
     return `${name} is generic but depends on ${dependency}, a coding workspace`;
   }
@@ -184,6 +191,12 @@ export function entryProblems(params) {
 
     if (target?.kind === 'app') {
       return [`${name} has ${dependency} as a dev dependency, an app: nothing imports an app`];
+    }
+
+    if (target?.transport && entry.kind !== 'app') {
+      return [
+        `${name} has ${dependency} as a dev dependency, a transport: test what it serves in-process instead`,
+      ];
     }
 
     if (entry.domain === 'generic' && target?.domain === 'coding') {

@@ -4,6 +4,7 @@ import type {
   agentEventSchema,
   describedCallSchema,
   doneReasonSchema,
+  entryEventSchema,
   toolArtifactSchema,
 } from './event.validator.js';
 
@@ -16,3 +17,6 @@ export type DoneReason = z.infer<typeof doneReasonSchema>;
 export type AgentEventBody = z.infer<typeof agentEventBodySchema>;
 
 export type AgentEvent = z.infer<typeof agentEventSchema>;
+
+/** An event as the combined stream carries it: `done` without its `messages`. */
+export type EntryEvent = z.infer<typeof entryEventSchema>;

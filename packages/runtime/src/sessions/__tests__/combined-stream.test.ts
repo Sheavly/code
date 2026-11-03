@@ -3,6 +3,8 @@ import { SessionRegistry } from '../sessions.service.js';
 import { startDeepestSession } from '../../testing/sessions.fake.js';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
 /** One line per entry: `seq session kind:type`. */
@@ -60,6 +62,71 @@ describe("SessionRegistry's combined stream", () => {
         event: { seq: 0, type: 'text_delta', text: 'a' },
       }),
     ).toThrow('Unknown session nope');
+  });
+
+  it('keeps a done without its history, for live listeners and replay alike', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const live: StreamEntry[] = [];
+    const history = [{ role: 'user' as const, content: 'a long conversation' }];
+
+    sessions.subscribeEntries((entry) => live.push(entry));
+    sessions.publish({
+      sessionId: main.id,
+      event: { seq: 0, type: 'done', reason: 'completed', messages: history, session: main },
+    });
+
+    const replayed: StreamEntry[] = [];
+
+    sessions.subscribeEntries((entry) => replayed.push(entry), { replay: true });
+
+    for (const entries of [live, replayed]) {
+      expect(entries.at(-1)).toEqual({
+        seq: 1,
+        sessionId: main.id,
+        kind: 'event',
+        event: { seq: 0, type: 'done', reason: 'completed', session: main },
+      });
+    }
+  });
+
+  it('files each approval and its answer under the session whose tool asked', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+    const entries: StreamEntry[] = [];
+    const request = (id: string, sessionId?: SessionId) => ({
+      type: 'approval_requested' as const,
+      request: {
+        id: approvalIdSchema.parse(id),
+        callId: callIdSchema.parse('c'),
+        ...(sessionId && { sessionId }),
+        tool: 'run_command',
+        command: 'rm -rf build',
+        concerns: [],
+        options: ['approve', 'skip', 'skip_with_message'] as const,
+      },
+    });
+
+    sessions.subscribeEntries((entry) => entries.push(entry), { sessionId: child.id });
+    sessions.publishApproval(request('a1', child.id));
+    sessions.publishApproval({
+      type: 'approval_resolved',
+      id: approvalIdSchema.parse('a1'),
+      response: { decision: 'approve' },
+    });
+    // A call outside the loop names no session: it goes under the main one, not the child.
+    sessions.publishApproval(request('a2'));
+
+    // The child's filter sees its own approval and the answer, filed under the same session.
+    expect(
+      entries.map((entry) => `${entry.kind}:${entry.kind === 'approval' ? entry.update.type : ''}`),
+    ).toEqual(['approval:approval_requested', 'approval:approval_resolved']);
+
+    const all: StreamEntry[] = [];
+
+    sessions.subscribeEntries((entry) => all.push(entry), { replay: true });
+    expect(all.at(-1)).toMatchObject({ kind: 'approval', sessionId: main.id });
   });
 
   it('stops telling a listener once it unsubscribes', () => {

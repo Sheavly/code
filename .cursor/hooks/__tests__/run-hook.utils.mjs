@@ -28,3 +28,15 @@ export function runEditHook(params) {
     stateDir,
   });
 }
+
+/** Runs the stop hook in `cwd` for chat `chat` ending its turn with `status`; returns its response. */
+export function runStopHook(params) {
+  const { cwd, chat, status = 'completed', stateDir } = params;
+
+  return runHook({
+    script: 'check-on-stop.mjs',
+    cwd,
+    input: { conversation_id: chat, status },
+    stateDir,
+  });
+}

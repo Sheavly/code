@@ -37,6 +37,12 @@ export const FILE_KIND_POLICIES = {
   tool: { exports: 'code', maxLines: LINES.THIN },
   /** One model backend: `defineAdapter(...)`. */
   adapter: { exports: 'code', maxLines: LINES.THIN },
+  /**
+   * One group of HTTP routes: a function building a `Hono` app from what it serves, its handlers
+   * inline after each path (so path params and validated bodies stay typed). Thin: a route turns
+   * a request into a call and the result into a response, and logic lives in the services.
+   */
+  routes: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden' },
   /** Test-only fakes, in a `testing/` folder. */
   fake: { exports: 'code', maxLines: LINES.DEFAULT },
   /** Vitest files, in a `__tests__` folder beside the module they test. */

@@ -1,6 +1,6 @@
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**
@@ -34,6 +34,7 @@ export function createConversation(options: ConversationOptions): Conversation {
    */
   async function* prompt(params: {
     text: string;
+    parts?: PromptPart[] | undefined;
     resumed: boolean;
     signal?: AbortSignal;
   }): AsyncGenerator<AgentEvent> {
@@ -43,11 +44,16 @@ export function createConversation(options: ConversationOptions): Conversation {
       closing.signal,
       ...(params.signal ? [params.signal] : []),
     ]);
+    const user: Message = {
+      role: 'user',
+      content: params.text,
+      ...(params.parts && { parts: params.parts }),
+    };
     const events = run({
       provider,
       tools,
       hooks,
-      messages: [...messages, { role: 'user', content: params.text }],
+      messages: [...messages, user],
       signal,
       tasks,
       session: { registry: sessions, ref: mainSession },
@@ -103,7 +109,12 @@ export function createConversation(options: ConversationOptions): Conversation {
       started = true;
       running = true;
 
-      return prompt({ text, resumed, ...(sendOptions.signal && { signal: sendOptions.signal }) });
+      return prompt({
+        text,
+        resumed,
+        parts: sendOptions.parts,
+        ...(sendOptions.signal && { signal: sendOptions.signal }),
+      });
     },
     get messages() {
       return messages;

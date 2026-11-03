@@ -87,6 +87,8 @@ describe("the combined stream of a run's sessions", () => {
 
       expect(own.map((event) => event.seq)).toEqual(own.map((_, index) => index));
       expect(own.at(-1)?.type).toBe('done');
+      // The history isn't in the stream: each done would otherwise hold the whole conversation.
+      expect(own.at(-1)).not.toHaveProperty('messages');
     }
   });
 

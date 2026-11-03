@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "test": "vitest run --config ../../vitest.config.ts",
     "dev": "tsx --conditions=@sheavly/source src/chat.ts",
-    "start": "npm run build && node dist/chat.js"
+    "start": "npm run build && node dist/chat.js",
+    "serve": "tsx --conditions=@sheavly/source src/serve.ts"
   },
   "type": "module",
   "license": "UNLICENSED",
@@ -17,6 +18,7 @@
   },
   "private": true,
   "dependencies": {
+    "@hono/node-server": "^2.1.6",
     "@sheavly/coding": "^0.0.0",
     "@sheavly/core": "^0.0.0",
     "@sheavly/host": "^0.0.0",
@@ -24,6 +26,7 @@
     "@sheavly/protocol": "^0.0.0",
     "@sheavly/providers": "^0.0.0",
     "@sheavly/runtime": "^0.0.0",
+    "@sheavly/server": "^0.0.0",
     "@sheavly/tools": "^0.0.0",
     "@sheavly/workspace": "^0.0.0",
     "zod": "^4.6.7"

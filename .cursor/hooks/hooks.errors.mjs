@@ -36,6 +36,11 @@ export class ProjectReadError extends Error {
   }
 }
 
+/** The links between chats and their subagents (chat-links.utils.mjs) don't hold together. */
+export class ChatLinkError extends Error {
+  name = 'ChatLinkError';
+}
+
 /**
  * A guard hook crashed instead of deciding. The guard denies with this message, so the reason
  * reaches the user and the agent; `failClosed` in hooks.json covers a crash before that.

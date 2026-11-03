@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type {
   callIdSchema,
   messageSchema,
+  promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
   turnStopReasonSchema,
@@ -12,6 +13,9 @@ export type CallId = z.infer<typeof callIdSchema>;
 export type ToolCall = z.infer<typeof toolCallSchema>;
 
 export type ReasoningItem = z.infer<typeof reasoningItemSchema>;
+
+/** One part of what the user typed: text, or a skill they picked. */
+export type PromptPart = z.infer<typeof promptPartSchema>;
 
 export type Message = z.infer<typeof messageSchema>;
 

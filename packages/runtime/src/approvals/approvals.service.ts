@@ -28,6 +28,8 @@ const OPTIONS: readonly ApprovalOption[] = ['approve', 'skip', 'skip_with_messag
 export class ApprovalRegistry {
   #pending = new Map<ApprovalId, Pending>();
   #listeners = new Set<Listener>();
+  /** Record updates (the combined stream) but can't answer, so they never make `listening` true. */
+  #observers = new Set<Listener>();
   /** Updates waiting to be heard, while an earlier one is still being delivered. */
   #queue: ApprovalUpdate[] = [];
   #emitting = false;
@@ -131,6 +133,19 @@ export class ApprovalRegistry {
     return [...this.#pending.values()].map(({ request }) => request);
   }
 
+  /**
+   * Calls `observer` for every update from now on, before the listeners, without counting as
+   * someone who can answer: with only observers, a request still fails closed (`no_listener`).
+   * For a record of approvals, such as the combined stream. Returns a function that stops it.
+   */
+  observe(observer: Listener): () => void {
+    this.#observers.add(observer);
+
+    return () => {
+      this.#observers.delete(observer);
+    };
+  }
+
   /** Calls `listener` for every update from now on. Returns a function that stops it. */
   subscribe(listener: Listener): () => void {
     this.#listeners.add(listener);
@@ -169,7 +184,7 @@ export class ApprovalRegistry {
   #deliver(update: ApprovalUpdate): ApprovalListenerError[] {
     const failures: ApprovalListenerError[] = [];
 
-    for (const listener of this.#listeners) {
+    for (const listener of [...this.#observers, ...this.#listeners]) {
       try {
         listener(update);
       } catch (caughtError) {

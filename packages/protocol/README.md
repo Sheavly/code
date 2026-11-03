@@ -21,7 +21,9 @@ out of date.
 | `stream/`   | `StreamEntry`: every session's events and updates, in one order |
 | `approval/` | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`         |
 | `task/`     | Background task states                                          |
-| `message/`  | The conversation history a `done` event carries                 |
+| `message/`  | The conversation history, and the `PromptPart`s a user typed    |
+| `skill/`    | `SkillInfo`: a skill as a UI lists it                           |
+| `server/`   | The server's requests, responses and `ServerError` codes        |
 | `contract/` | `contract.schema.json`, generated from the schemas              |
 
 ## Docs

@@ -8,6 +8,7 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { approveEverything } from '@sheavly/runtime/testing/approvals.fake';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import {
   calls,
@@ -101,5 +102,53 @@ describe('createHarness', () => {
     const tasks = new TaskRegistry();
 
     expect(createHarness({ provider: provider(), title: 'parse it', tasks }).tasks).toBe(tasks);
+  });
+
+  it('puts every approval in the combined stream, between the events of the call that asked', async () => {
+    const ask = defineTool({
+      name: 'ask',
+      description: 'Asks the user before it runs',
+      inputSchema: z.object({}),
+      execute: async ({ context, signal }) => {
+        const response = await harness.approvals.request({
+          callId: context.callId,
+          sessionId: context.session?.id,
+          tool: 'ask',
+          command: 'rm -rf build',
+          concerns: [],
+          signal,
+        });
+
+        return response.decision;
+      },
+    });
+    const harness = createHarness({
+      provider: routedProvider({
+        'do it': [calls(toolCall({ id: 'c1', name: 'ask', input: {} })), say('done')],
+      }),
+      title: 'do it',
+    });
+    const kinds: string[] = [];
+
+    harness.sessions.subscribeEntries((entry) =>
+      kinds.push(entry.kind === 'event' ? entry.event.type : `${entry.kind}:${entry.update.type}`),
+    );
+    approveEverything(harness.approvals);
+    await runAgent({
+      provider: harness.provider,
+      tools: [ask],
+      messages: [{ role: 'user', content: 'do it' }],
+      tasks: harness.tasks,
+      session: { registry: harness.sessions, ref: harness.mainSession },
+    });
+
+    const started = kinds.indexOf('tool_call_started');
+    const requested = kinds.indexOf('approval:approval_requested');
+    const resolved = kinds.indexOf('approval:approval_resolved');
+
+    expect(started).toBeGreaterThan(-1);
+    expect(requested).toBeGreaterThan(started);
+    expect(resolved).toBeGreaterThan(requested);
+    expect(kinds.indexOf('tool_result')).toBeGreaterThan(resolved);
   });
 });

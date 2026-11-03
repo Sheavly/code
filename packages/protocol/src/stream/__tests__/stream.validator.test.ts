@@ -42,4 +42,52 @@ describe('streamEntrySchema', () => {
       streamEntrySchema.safeParse({ seq: 0, sessionId: 'main', kind: 'log', event }).success,
     ).toBe(false);
   });
+
+  it('takes a done without messages, so the stream never carries the history', () => {
+    const session = { id: 'main', rootId: 'main', depth: 1 };
+    const done = { seq: 3, type: 'done', reason: 'completed', session };
+
+    expect(
+      streamEntrySchema.parse({ seq: 9, sessionId: 'main', kind: 'event', event: done }),
+    ).toEqual({ seq: 9, sessionId: 'main', kind: 'event', event: done });
+    // A run's own done (with messages) parses too, but the stream drops what the schema doesn't know.
+    const parsed = streamEntrySchema.parse({
+      seq: 9,
+      sessionId: 'main',
+      kind: 'event',
+      event: { ...done, messages: [{ role: 'user', content: 'hi' }] },
+    });
+
+    expect(parsed.kind === 'event' && 'messages' in parsed.event).toBe(false);
+  });
+
+  it("takes an approval a session's tool asked for, and its answer", () => {
+    const requested = {
+      seq: 4,
+      sessionId: 'main',
+      kind: 'approval',
+      update: {
+        type: 'approval_requested',
+        request: {
+          id: 'a1',
+          callId: 'c1',
+          sessionId: 'main',
+          tool: 'run_command',
+          command: 'rm -rf build',
+          concerns: [],
+          options: ['approve', 'skip', 'skip_with_message'],
+        },
+      },
+    };
+    const resolved = {
+      seq: 5,
+      sessionId: 'main',
+      kind: 'approval',
+      update: { type: 'approval_resolved', id: 'a1', response: { decision: 'skip' } },
+    };
+
+    for (const entry of [requested, resolved]) {
+      expect(streamEntrySchema.parse(entry)).toEqual(entry);
+    }
+  });
 });

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { runHook } from './run-hook.utils.mjs';
+import { runEditHook, runStopHook } from './run-hook.utils.mjs';
 
 let stateDir = '';
 let project = '';
@@ -10,27 +10,15 @@ let project = '';
 // Both hooks run in a throwaway project sharing one chat-state dir. With no node_modules there,
 // every gate step fails fast, so a gate that runs always reports failures. `edit` stands for a
 // Write or a Delete: the same hook handles both, and a deleted file is one that isn't there.
-const stop = (chat, status = 'completed') =>
-  runHook({
-    script: 'check-on-stop.mjs',
-    cwd: project,
-    input: { conversation_id: chat, status },
-    stateDir,
-  });
-
-const edit = (chat, file) =>
-  runHook({
-    script: 'lint-edited-file.mjs',
-    cwd: project,
-    input: { conversation_id: chat, tool_input: { path: file } },
-    stateDir,
-  });
+const stop = (chat, status) => runStopHook({ cwd: project, chat, status, stateDir });
+const edit = (chat, file) => runEditHook({ cwd: project, file, chat, stateDir });
 
 beforeEach(() => {
   stateDir = mkdtempSync(path.join(os.tmpdir(), 'hook-state-'));
   project = mkdtempSync(path.join(os.tmpdir(), 'hook-project-'));
   mkdirSync(path.join(project, 'docs'));
   writeFileSync(path.join(project, 'docs/x.md'), '');
+  writeFileSync(path.join(project, 'package.json'), JSON.stringify({ workspaces: [] }));
 });
 
 afterEach(() => {
@@ -79,6 +67,14 @@ describe('the stop hook', () => {
     edit('editor', 'docs/x.md');
 
     expect(stop('asker')).toEqual({});
+  });
+
+  it("tells a chat its report is scoped to its own edits, not other chats' work", () => {
+    edit('editor', 'docs/x.md');
+
+    expect(stop('editor').followup_message).toContain(
+      'Only problems in the files this chat and its subagents edited',
+    );
   });
 
   it('skips a turn that did not complete, even for a chat that edited', () => {

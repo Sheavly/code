@@ -14,13 +14,12 @@
  */
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { createConversation } from '@sheavly/host/conversation/conversation.helper';
-import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
+import { Conversations } from '@sheavly/host/conversations/conversations.service';
+import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { CHAT_HELP } from './chat/chat.constants.js';
 import { completeChatLine, listModels, parseChatInput, unknownCommand } from './chat/chat.utils.js';
-import { MAX_TURNS } from './harness/harness.constants.js';
+import { terminalConversation } from './harness/conversation.helper.js';
 import { createCliHarness } from './harness/harness.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { Renderer } from './render/render.service.js';
@@ -48,13 +47,13 @@ harness.sessions.subscribe((update) => {
   if (update.type !== 'session_idle' && update.type !== 'session_resumed') renderer.session(update);
 });
 
-const conversation = createConversation({
-  harness,
-  run: streamAgent,
-  tools: harness.tools,
-  hooks: harness.hooks,
-  maxTurns: MAX_TURNS,
+// The chat is one conversation, kept in a `Conversations` as the server keeps its own: the same
+// in-process path, so the library behaves the same with or without the server.
+const conversations = new Conversations({
+  create: async ({ messages }) => terminalConversation({ harness, messages }),
 });
+const conversationId = await conversations.start();
+const conversation = { close: () => conversations.closeAll() };
 
 // Closing the terminal (SIGHUP) or being killed (SIGTERM) skips Node's exit hooks, and background
 // commands run in their own process groups: close the conversation first so none outlive the chat.
@@ -139,9 +138,13 @@ async function send(text: string): Promise<void> {
   current = new AbortController();
 
   try {
-    const request = await skillRequest({ ...harness.skills, text, signal: current.signal });
-    const unknown =
-      request.skills.length === 0 ? unknownCommand({ text, unknown: request.unknown }) : undefined;
+    const known = new Set((await findSkills(harness.skills)).skills.map(({ name }) => name));
+    const unknown = unknownCommand({
+      text,
+      unknown: findSkillMentions(text)
+        .map(({ name }) => name)
+        .filter((name) => !known.has(name)),
+    });
 
     if (unknown) {
       console.log(`Unknown command /${unknown}; /help lists them.`);
@@ -149,9 +152,13 @@ async function send(text: string): Promise<void> {
       return;
     }
 
-    for await (const event of conversation.send(request.text, { signal: current.signal })) {
-      renderer.event(event);
-    }
+    const { events } = await conversations.send({
+      id: conversationId,
+      prompt: { text },
+      signal: current.signal,
+    });
+
+    for await (const event of events) renderer.event(event);
   } catch (caughtError) {
     write(`\n✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}\n`);
   } finally {

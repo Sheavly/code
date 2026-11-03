@@ -4,5 +4,5 @@ import { baseConfig } from '@sheavly/eslint-config';
 export default baseConfig({
   tsconfigRootDir: import.meta.dirname,
   // The CLI entry points: files without a kind.
-  entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
+  entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/serve.ts', 'src/workbook/workbook.ts'],
 });

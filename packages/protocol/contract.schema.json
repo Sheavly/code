@@ -123,10 +123,140 @@
           "properties": {
             "type": { "type": "string", "const": "done" },
             "reason": { "$ref": "#/$defs/DoneReason" },
-            "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } },
+            "session": { "$ref": "#/$defs/SessionRef" },
+            "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } }
+          },
+          "required": ["type", "reason", "session", "messages"]
+        }
+      ]
+    },
+    "EntryEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "text_delta" },
+            "text": { "type": "string" }
+          },
+          "required": ["seq", "type", "text"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "reasoning" },
+            "item": { "$ref": "#/$defs/ReasoningItem" }
+          },
+          "required": ["seq", "type", "item"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "call": { "$ref": "#/$defs/ToolCall" },
+            "description": { "type": "string" },
+            "type": { "type": "string", "const": "tool_call_started" }
+          },
+          "required": ["seq", "call", "description", "type"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "turn_end" },
+            "turn": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "stopReason": { "$ref": "#/$defs/TurnStopReason" }
+          },
+          "required": ["seq", "type", "turn", "stopReason"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "tool_batch" },
+            "calls": { "type": "array", "items": { "$ref": "#/$defs/DescribedCall" } }
+          },
+          "required": ["seq", "type", "calls"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "call": { "$ref": "#/$defs/ToolCall" },
+            "description": { "type": "string" },
+            "type": { "type": "string", "const": "tool_result" },
+            "message": { "$ref": "#/$defs/Message" },
+            "durationMs": { "type": "number" },
+            "artifacts": {
+              "readOnly": true,
+              "type": "array",
+              "items": { "$ref": "#/$defs/ToolArtifact" }
+            }
+          },
+          "required": ["seq", "call", "description", "type", "message", "durationMs"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "call": { "$ref": "#/$defs/ToolCall" },
+            "description": { "type": "string" },
+            "type": { "type": "string", "const": "task_running" },
+            "task": { "$ref": "#/$defs/TaskInfo" },
+            "message": { "$ref": "#/$defs/Message" },
+            "durationMs": { "type": "number" }
+          },
+          "required": ["seq", "call", "description", "type", "task", "message", "durationMs"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "task_completed" },
+            "task": { "$ref": "#/$defs/TaskInfo" }
+          },
+          "required": ["seq", "type", "task"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "message_received" },
+            "message": { "$ref": "#/$defs/InboxMessage" }
+          },
+          "required": ["seq", "type", "message"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "context_added" },
+            "hook": { "type": "string" },
+            "content": { "type": "string" }
+          },
+          "required": ["seq", "type", "hook", "content"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "hook_failed" },
+            "hook": { "type": "string" },
+            "handler": { "type": "string" },
+            "error": { "type": "string" }
+          },
+          "required": ["seq", "type", "hook", "handler", "error"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "done" },
+            "reason": { "$ref": "#/$defs/DoneReason" },
             "session": { "$ref": "#/$defs/SessionRef" }
           },
-          "required": ["type", "reason", "messages", "session"]
+          "required": ["seq", "type", "reason", "session"]
         }
       ]
     },
@@ -148,7 +278,8 @@
           "type": "object",
           "properties": {
             "role": { "type": "string", "const": "user" },
-            "content": { "type": "string" }
+            "content": { "type": "string" },
+            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } }
           },
           "required": ["role", "content"]
         },
@@ -171,6 +302,26 @@
             "isError": { "type": "boolean" }
           },
           "required": ["role", "toolCallId", "content", "isError"]
+        }
+      ]
+    },
+    "PromptPart": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "text" },
+            "text": { "type": "string" }
+          },
+          "required": ["type", "text"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "skill" },
+            "name": { "$ref": "#/$defs/SkillName" }
+          },
+          "required": ["type", "name"]
         }
       ]
     },
@@ -295,7 +446,7 @@
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
             "kind": { "type": "string", "const": "event" },
-            "event": { "$ref": "#/$defs/AgentEvent" }
+            "event": { "$ref": "#/$defs/EntryEvent" }
           },
           "required": ["seq", "sessionId", "kind", "event"]
         },
@@ -306,6 +457,16 @@
             "sessionId": { "$ref": "#/$defs/SessionId" },
             "kind": { "type": "string", "const": "update" },
             "update": { "$ref": "#/$defs/SessionUpdate" }
+          },
+          "required": ["seq", "sessionId", "kind", "update"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "sessionId": { "$ref": "#/$defs/SessionId" },
+            "kind": { "type": "string", "const": "approval" },
+            "update": { "$ref": "#/$defs/ApprovalUpdate" }
           },
           "required": ["seq", "sessionId", "kind", "update"]
         }
@@ -407,9 +568,114 @@
         }
       ]
     },
+    "SkillName": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "SkillScope": { "type": "string", "enum": ["project", "user", "built-in"] },
+    "SkillInfo": {
+      "type": "object",
+      "properties": {
+        "name": { "$ref": "#/$defs/SkillName" },
+        "description": { "type": "string" },
+        "manualOnly": { "type": "boolean" },
+        "scope": { "$ref": "#/$defs/SkillScope" }
+      },
+      "required": ["name", "description", "manualOnly", "scope"]
+    },
+    "StartConversationRequest": {
+      "type": "object",
+      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } }
+    },
+    "StartConversationResponse": {
+      "type": "object",
+      "properties": { "id": { "$ref": "#/$defs/ConversationId" } },
+      "required": ["id"]
+    },
+    "ConversationSummary": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ConversationId" },
+        "title": { "type": "string" },
+        "session": { "$ref": "#/$defs/SessionId" },
+        "running": { "type": "boolean" },
+        "startedAt": { "type": "number" }
+      },
+      "required": ["id", "title", "session", "running", "startedAt"]
+    },
+    "ConversationsResponse": {
+      "type": "object",
+      "properties": {
+        "conversations": { "type": "array", "items": { "$ref": "#/$defs/ConversationSummary" } }
+      },
+      "required": ["conversations"]
+    },
+    "SendPromptRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "text": { "type": "string", "minLength": 1 } },
+          "required": ["text"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "parts": { "minItems": 1, "type": "array", "items": { "$ref": "#/$defs/PromptPart" } }
+          },
+          "required": ["parts"]
+        }
+      ]
+    },
+    "StreamQuery": {
+      "type": "object",
+      "properties": {
+        "session": { "$ref": "#/$defs/SessionId" },
+        "subtree": { "type": "boolean" },
+        "replay": { "type": "boolean" }
+      }
+    },
+    "AnswerApprovalRequest": {
+      "type": "object",
+      "properties": { "response": { "$ref": "#/$defs/ApprovalResponse" } },
+      "required": ["response"]
+    },
+    "MessagesResponse": {
+      "type": "object",
+      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } },
+      "required": ["messages"]
+    },
+    "SkillsResponse": {
+      "type": "object",
+      "properties": { "skills": { "type": "array", "items": { "$ref": "#/$defs/SkillInfo" } } },
+      "required": ["skills"]
+    },
+    "ServerErrorCode": {
+      "type": "string",
+      "enum": [
+        "bad_request",
+        "unauthorized",
+        "not_found",
+        "session_running",
+        "unknown_skill",
+        "unknown_approval",
+        "internal"
+      ]
+    },
+    "ServerError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": { "$ref": "#/$defs/ServerErrorCode" },
+            "message": { "type": "string" }
+          },
+          "required": ["code", "message"]
+        }
+      },
+      "required": ["error"]
+    },
     "SessionId": { "type": "string" },
     "CallId": { "type": "string" },
     "TaskId": { "type": "string" },
-    "ApprovalId": { "type": "string" }
+    "ApprovalId": { "type": "string" },
+    "ConversationId": { "type": "string" }
   }
 }

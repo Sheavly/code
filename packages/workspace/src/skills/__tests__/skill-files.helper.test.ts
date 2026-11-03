@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import path from 'node:path';
 import { readSkillFile, skillRequest } from '../skill-files.helper.js';
+import { UnknownSkillError } from '../../errors/skills.errors.js';
 import { useSkillFolders } from '../../testing/skills.fake.js';
 
 const folders = useSkillFolders();
@@ -44,7 +45,7 @@ describe('readSkillFile', () => {
 describe('skillRequest', () => {
   it('runs a skill mentioned at the start, in the middle or at the end, with its body', async () => {
     for (const text of ['/git submit the PR', 'please /git submit the PR', 'submit the PR /git']) {
-      const request = await skillRequest({ root, home, text });
+      const request = await skillRequest({ root, home, prompt: { text } });
 
       expect(request.skills).toEqual(['git']);
       expect(request.text).toContain('Do git things.');
@@ -54,10 +55,20 @@ describe('skillRequest', () => {
   });
 
   it('runs every skill a message mentions, and names the mentions no skill has', async () => {
-    const request = await skillRequest({ root, home, text: '/review it, then /nope and /git' });
+    const request = await skillRequest({
+      root,
+      home,
+      prompt: { text: '/review it, then /nope and /git' },
+    });
 
     expect(request.skills).toEqual(['review', 'git']);
     expect(request.unknown).toEqual(['nope']);
+    // What the user typed, kept for a UI: known skills as chips, an unknown /nope as text.
+    expect(request.parts).toEqual([
+      { type: 'skill', name: 'review' },
+      { type: 'text', text: ' it, then /nope and ' },
+      { type: 'skill', name: 'git' },
+    ]);
     expect(request.text.indexOf('Project sheavly review')).toBe(-1); // bodies, not descriptions
     expect(request.text).toContain('## Skill: review');
     expect(request.text).toContain('## Skill: git');
@@ -78,7 +89,10 @@ describe('skillRequest', () => {
   });
 
   it('runs the built-in /create-skill', async () => {
-    const request = await skillRequest({ root, text: 'make a skill for PR reviews /create-skill' });
+    const request = await skillRequest({
+      root,
+      prompt: { text: 'make a skill for PR reviews /create-skill' },
+    });
 
     expect(request.skills).toEqual(['create-skill']);
     expect(request.text).toContain('# Creating a skill');
@@ -86,12 +100,51 @@ describe('skillRequest', () => {
 
   it('sends a message without a known skill unchanged', async () => {
     for (const text of ['/nope', 'git submit', 'look in /usr/bin', '/Git']) {
-      const request = await skillRequest({ root, home, text });
+      const request = await skillRequest({ root, home, prompt: { text } });
 
       expect(request.text).toBe(text);
       expect(request.skills).toEqual([]);
+      expect(request.parts).toBeUndefined();
     }
 
-    expect((await skillRequest({ root, home, text: 'try /nope' })).unknown).toEqual(['nope']);
+    expect((await skillRequest({ root, home, prompt: { text: 'try /nope' } })).unknown).toEqual([
+      'nope',
+    ]);
+  });
+
+  it('runs exactly the skills picked as parts, and none a /name in their text mentions', async () => {
+    const request = await skillRequest({
+      root,
+      home,
+      prompt: {
+        parts: [
+          { type: 'text', text: 'please ' },
+          { type: 'skill', name: 'git' },
+          { type: 'text', text: ' and look at /review' },
+        ],
+      },
+    });
+
+    expect(request.skills).toEqual(['git']);
+    expect(request.text).toContain('## Skill: git');
+    expect(request.text).not.toContain('## Skill: review');
+    expect(request.text.endsWith('\n\nplease /git and look at /review')).toBe(true);
+    expect(request.parts).toHaveLength(3);
+  });
+
+  it('refuses parts that pick a skill no one has: the UI’s list is stale', async () => {
+    await expect(
+      skillRequest({ root, home, prompt: { parts: [{ type: 'skill', name: 'nope' }] } }),
+    ).rejects.toThrow(UnknownSkillError);
+  });
+
+  it('sends parts without a skill as their text', async () => {
+    const request = await skillRequest({
+      root,
+      home,
+      prompt: { parts: [{ type: 'text', text: 'just /review text' }] },
+    });
+
+    expect(request).toEqual({ text: 'just /review text', skills: [], unknown: [] });
   });
 });
