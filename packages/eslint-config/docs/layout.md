@@ -44,6 +44,17 @@ import of a kind not exported, and `harness/layout` (in lint and the layout chec
 for one file, a kind that doesn't exist, other targets, fakes exported as a kind, and `exports` on
 an app. `npm run export -- packages/<pkg> <kind>` makes a kind public, in review.
 
+Every package is treated as published, so `exports` is its semver contract:
+
+- A module folder that holds files of an exported kind but isn't API is closed:
+  `"./hooks/*": null`. Node picks the longest matching key, so it wins over `./*.helper`.
+- The public modules are exactly the ones the README's API table has a row for
+  (``| `hooks/` | … |``). A module that `exports` opens without a row, or a row for a module
+  it keeps closed, fails: what is public is what is documented.
+- A published package (not tooling, not test-only) ships its build and docs only
+  (`"files": ["dist", "docs"]`, never `src`) and builds before it packs
+  (`"prepack": "npm run build"`). The scaffold sets both.
+
 ## What a run includes is the UI's choice
 
 - `harness/imports` fails a package's source that imports a `*.tool` module other than from a

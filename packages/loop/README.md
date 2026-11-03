@@ -25,9 +25,10 @@ for await (const event of streamAgent({
 | Module          | What it holds                                                                 |
 | --------------- | ----------------------------------------------------------------------------- |
 | `stream-agent/` | `streamAgent`, `runAgent`, `runSession`: the turn, one model call, tool calls |
+| `errors/`       | `StreamEndedError` (the stream ended without `done`), `HookError`             |
 
-Internal: `events/` (the event bodies), `queue/` (the `OrderedQueue` every event goes through),
-`hooks/` (running each hook point), `abort/` and `errors/` (`HookError`, `StreamEndedError`).
+Internal (closed in `exports`): `events/` (the event bodies), `queue/` (the `OrderedQueue` every
+event goes through), `hooks/` (running each hook point) and `abort/`.
 
 ## Docs
 

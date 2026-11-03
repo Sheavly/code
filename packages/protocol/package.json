@@ -7,7 +7,8 @@
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
     "test": "vitest run --config ../../vitest.config.ts",
-    "schema": "tsx --conditions=@sheavly/source write-schema.mjs"
+    "schema": "tsx --conditions=@sheavly/source write-schema.mjs",
+    "prepack": "npm run build"
   },
   "type": "module",
   "private": true,
@@ -27,5 +28,10 @@
       "@sheavly/source": "./src/*.validator.ts",
       "default": "./dist/*.validator.js"
     }
-  }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "contract.schema.json"
+  ]
 }

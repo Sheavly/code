@@ -2,9 +2,9 @@
 // where): which workspace a file belongs to, and what is wrong with the layout. The rules
 // (`rules/layout.js`, `rules/imports.js`), the layout check (`scripts/check-layout.mjs`) and the
 // scaffold (`scripts/new-workspace.mjs`) all use it, so they can't disagree.
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { FILE_KINDS } from './file-kinds.js';
+import { exportsProblems } from './exports.utils.js';
 import { NOT_SOURCE } from './layout.js';
 import { workspaceDirs } from './rules/workspace-types.js';
 
@@ -70,104 +70,49 @@ export function readLayout(params) {
         testOnly: manifest.sheavly?.testOnly === true,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
-        // The public surface: its package.json `exports`, by file kind (`./*.types`).
+        // The public surface: its package.json `exports`, by file kind (`./*.types`), its
+        // module folders and their files, and the modules its README documents as API.
         exports: manifest.exports,
+        modules: modulesOf(path.join(root, relative)),
+        // What a publish ships, and what builds it first.
+        files: manifest.files,
+        prepack: manifest.scripts?.prepack,
+        documented: documentedModules(path.join(root, relative)),
       },
     ]),
   );
 }
 
-/** The pattern a package exports its fakes by: from source only, for other workspaces' tests. */
-const TESTING_EXPORT = './testing/*';
+const MODULE_FILE = /^([a-z0-9-]+\.[a-z]+)\.ts$/;
 
-/** The `exports` key that makes every file of `kind` public: `./*.types`. */
-export const kindExportKey = (kind) => `./*.${kind}`;
+/** A workspace's module folders in `src/` and their source files' subpaths (`tool.utils`). */
+function modulesOf(dir) {
+  const src = path.join(dir, 'src');
 
-/** What a kind's `exports` entry points at: the source for dev and tests, the build for Node. */
-export function kindExportTarget(kind) {
-  return { '@sheavly/source': `./src/*.${kind}.ts`, default: `./dist/*.${kind}.js` };
-}
+  if (!existsSync(src)) return [];
 
-const TESTING_TARGET = { '@sheavly/source': './src/testing/*.ts' };
-
-/** Whether `key` (`./*.types`, `./event/event.types`) matches `subpath` (`event/event.types`). */
-function keyMatches(params) {
-  const { key, subpath } = params;
-  const [prefix = '', suffix] = key.split('*');
-
-  return suffix === undefined
-    ? key === `./${subpath}`
-    : `./${subpath}`.startsWith(prefix) && `./${subpath}`.endsWith(suffix);
-}
-
-/** Whether `subpath` (`tool/tool.utils`) is public: some key of the package's `exports` matches. */
-export function isExported(params) {
-  const { exports, subpath } = params;
-
-  if (!exports || typeof exports !== 'object') return false;
-
-  return Object.keys(exports).some((key) => keyMatches({ key, subpath }));
-}
-
-/** The command that exports every file of `kind` from the package at `dir`. */
-function exportCommand(params) {
-  const { dir, kind } = params;
-
-  return `npm run export -- ${dir} ${kind}`;
-}
-
-/** What is wrong with one `exports` entry of a package; null when it is a kind or its fakes. */
-function exportEntryProblem(params) {
-  const { name, entry, key, target } = params;
-
-  if (key === TESTING_EXPORT) {
-    return JSON.stringify(target) === JSON.stringify(TESTING_TARGET)
-      ? null
-      : `${name} exports ${key}, its fakes, but not from source only: make it ${JSON.stringify(TESTING_TARGET)}`;
-  }
-
-  const kind = /^\.\/\*\.([a-z]+)$/.exec(key)?.[1];
-  const known = kind && FILE_KINDS.includes(kind) && kind !== 'test';
-
-  if (!known) {
-    const fileKind = /\.([a-z]+)$/.exec(key)?.[1] ?? '<kind>';
-
-    return `${name} exports ${key}: a package exports by file kind, never file by file, so a new module needs no entry. Export the kind instead: \`${exportCommand({ dir: entry.dir, kind: fileKind })}\` (\`${kindExportKey(fileKind)}\`)`;
-  }
-
-  if (kind === 'fake' && !entry.testOnly) {
-    return `${name} exports its fakes as a kind: put them in src/testing/ and export ${TESTING_EXPORT}`;
-  }
-
-  return JSON.stringify(target) === JSON.stringify(kindExportTarget(kind))
-    ? null
-    : `${name} exports ${key} with other targets: make it ${JSON.stringify(kindExportTarget(kind))}`;
+  return readdirSync(src, { withFileTypes: true })
+    .filter((folder) => folder.isDirectory() && folder.name !== '__tests__')
+    .map((folder) => ({
+      name: folder.name,
+      files: readdirSync(path.join(src, folder.name))
+        .map((file) => MODULE_FILE.exec(file)?.[1])
+        .filter(Boolean),
+    }));
 }
 
 /**
- * What is wrong with a workspace's public API. A package declares it by file kind: every
- * `<module>.<kind>.ts` of a kind it exports is public (`./*.types`), so a new module needs no
- * entry, and the API widens only when a kind is added, in review. An app exports nothing.
+ * The module folders a workspace's README documents as API: a table row starting with one
+ * (`| \`queue/\` |`). Null when it has no README, which the layout check reports by itself.
  */
-function exportsProblems(params) {
-  const { name, entry } = params;
-  const { exports } = entry;
+function documentedModules(dir) {
+  const readme = path.join(dir, 'README.md');
 
-  if (entry.kind === 'app') {
-    return exports ? [`${name} has exports, but nothing imports an app: remove them`] : [];
-  }
+  if (!existsSync(readme)) return null;
 
-  if (entry.domain === 'tooling') return [];
-
-  if (!exports || typeof exports !== 'object') {
-    return [
-      `${name} has no exports, so every file is public. Export the kinds other workspaces import: \`${exportCommand({ dir: entry.dir, kind: 'types' })}\` (or \`npm pkg set exports={} --json\` while it has none)`,
-    ];
-  }
-
-  return Object.entries(exports)
-    .map(([key, target]) => exportEntryProblem({ name, entry, key, target }))
-    .filter(Boolean);
+  return [...readFileSync(readme, 'utf8').matchAll(/^\| `([a-z0-9-]+)\/` +\|/gm)].map(
+    (match) => match[1],
+  );
 }
 
 /** The workspace `file` belongs to: the deepest workspace dir that holds it. */

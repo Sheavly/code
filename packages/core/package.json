@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "sheavly": {
     "domain": "generic"
@@ -39,5 +40,9 @@
       "@sheavly/source": "./src/*.validator.ts",
       "default": "./dist/*.validator.js"
     }
-  }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }

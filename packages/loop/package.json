@@ -6,7 +6,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "type": "module",
   "license": "UNLICENSED",
@@ -28,6 +29,15 @@
     "./*.helper": {
       "@sheavly/source": "./src/*.helper.ts",
       "default": "./dist/*.helper.js"
+    },
+    "./hooks/*": null,
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
     }
-  }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }

@@ -184,6 +184,13 @@ function steps(params) {
     ...(entry.kind === 'package'
       ? [{ npm: ['pkg', 'set', 'exports={}', '--json', '-w', dir] }]
       : []),
+    // A package is published: it ships its build and docs, never its source, built first.
+    ...(entry.kind === 'package' && entry.domain !== 'tooling'
+      ? [
+          { npm: ['pkg', 'set', 'files=["dist","docs"]', '--json', '-w', dir] },
+          { npm: ['pkg', 'set', 'scripts.prepack=npm run build', '-w', dir] },
+        ]
+      : []),
     // `npm init -w` registered it under its folder name; `npm pkg` renamed it without touching the
     // lockfile or the node_modules link. Reify once, so both know it as `@sheavly/<name>`.
     { npm: ['install', '--no-audit', '--no-fund'] },

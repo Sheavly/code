@@ -10,6 +10,8 @@ const TSCONFIG =
 const ESLINT =
   "import { baseConfig } from '@sheavly/eslint-config';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n";
 const json = (value) => JSON.stringify(value);
+/** What a published package ships, and what builds it first: every package fixture has it. */
+const PUBLISHED = { files: ['dist', 'docs'], scripts: { prepack: 'npm run build' } };
 
 /** The `exports` entry that makes every file of `kind` public, as the layout expects it. */
 const exported = (kind) => ({
@@ -23,12 +25,13 @@ function wellFormed(folder, manifest = {}) {
       name: `@sheavly/${folder}`,
       sheavly: { domain: 'generic' },
       exports: exported('utils'),
+      ...PUBLISHED,
       ...manifest,
     }),
     [`packages/${folder}/eslint.config.js`]: ESLINT,
     [`packages/${folder}/tsconfig.json`]: TSCONFIG,
     [`packages/${folder}/src/${folder}/${folder}.utils.ts`]: 'export const x = 1;\n',
-    [`packages/${folder}/README.md`]: `# ${folder}\n\n## Docs\n\n- [Design](docs/design.md)\n`,
+    [`packages/${folder}/README.md`]: `# ${folder}\n\n| Module | What |\n| --- | --- |\n| \`${folder}/\` | it |\n\n## Docs\n\n- [Design](docs/design.md)\n`,
     [`packages/${folder}/docs/design.md`]: '# Design\n',
   };
 }
@@ -68,6 +71,7 @@ describe('the layout check', () => {
         'packages/stray/package.json': json({
           name: '@sheavly/stray',
           exports: exported('utils'),
+          ...PUBLISHED,
         }),
       }),
     ).toEqual([
@@ -85,7 +89,11 @@ describe('the layout check', () => {
           exports: {},
         }),
       }),
-    ).toEqual([expect.stringContaining('packages/base: has no source yet. Add its first module')]);
+    ).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('packages/base: has no source yet. Add its first module'),
+      ]),
+    );
   });
 
   it('fails a workspace not named after its folder', () => {
@@ -95,6 +103,7 @@ describe('the layout check', () => {
           name: '@sheavly/other',
           sheavly: { domain: 'generic' },
           exports: exported('utils'),
+          ...PUBLISHED,
         }),
       }),
     ).toEqual([expect.stringContaining('@sheavly/other must be named @sheavly/base')]);
@@ -128,6 +137,7 @@ describe('the layout check', () => {
         name: '@sheavly/top',
         sheavly: { domain: 'generic' },
         exports: exported('utils'),
+        ...PUBLISHED,
         ...manifest,
       }),
     });
@@ -162,6 +172,7 @@ describe('the layout check', () => {
           name: '@sheavly/base',
           sheavly: { domain: 'generic' },
           ...(exports !== undefined && { exports }),
+          ...PUBLISHED,
         }),
       });
 

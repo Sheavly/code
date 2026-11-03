@@ -6,7 +6,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "type": "module",
   "license": "UNLICENSED",
@@ -35,5 +36,9 @@
       "@sheavly/source": "./src/*.types.ts",
       "default": "./dist/*.types.js"
     }
-  }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }

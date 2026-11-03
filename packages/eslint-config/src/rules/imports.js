@@ -10,8 +10,8 @@
 // - in a package's source, no other workspace's `*.tool` module, unless it is a tool itself:
 //   which tools a run includes is the UI's choice, so only apps (and tests) put tools together.
 import path from 'node:path';
+import { isExported } from '../exports.utils.js';
 import {
-  isExported,
   LAYOUT_RULE_OPTIONS,
   listWorkspaces,
   readLayout,

@@ -151,7 +151,9 @@ Its fakes are `./testing/*`, from source only, for tests. TypeScript finds each 
 
 Any other kind is internal: `harness/imports` fails an import of it, and `harness/layout` fails
 an entry for one file, a kind that doesn't exist or other targets. `npm run export -- packages/<pkg> <kind>`
-makes a kind public, in review; an app exports nothing.
+makes a kind public, in review; an app exports nothing. A module that holds a public kind but
+isn't API is closed (`"./hooks/*": null`), and the README's API table lists exactly the open
+modules. Every package ships only `dist/` and `docs/`, built by `prepack`, since each is published.
 
 | Where it runs            | Reads                                      | How                                                                                   |
 | ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------- |

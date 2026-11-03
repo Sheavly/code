@@ -21,7 +21,11 @@ function repo(packages) {
         `${dir}/package.json`,
         {
           name: `@sheavly/${path.basename(dir)}`,
-          ...(dir.startsWith('packages/') && { exports: {} }),
+          ...(dir.startsWith('packages/') && {
+            exports: {},
+            files: ['dist', 'docs'],
+            scripts: { prepack: 'npm run build' },
+          }),
           ...fields,
         },
       ]),
@@ -52,6 +56,10 @@ describe('readLayout', () => {
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
       exports: {},
+      modules: [],
+      documented: null,
+      files: ['dist', 'docs'],
+      prepack: 'npm run build',
     });
     expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
     // The root holds no source, so it is the monorepo around the workspaces, not one of them.
@@ -111,7 +119,11 @@ describe('layoutProblems', () => {
     testOnly: false,
     dependsOn: [],
     devDependsOn: [],
-    ...(fields.kind !== 'app' && { exports: {} }),
+    ...(fields.kind !== 'app' && {
+      exports: {},
+      files: ['dist', 'docs'],
+      prepack: 'npm run build',
+    }),
     ...fields,
   });
 

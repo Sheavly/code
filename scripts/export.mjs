@@ -7,11 +7,8 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FILE_KINDS } from '../packages/eslint-config/src/file-kinds.js';
-import {
-  kindExportKey,
-  kindExportTarget,
-  listWorkspaces,
-} from '../packages/eslint-config/src/layout.utils.js';
+import { kindExportKey, kindExportTarget } from '../packages/eslint-config/src/exports.utils.js';
+import { listWorkspaces } from '../packages/eslint-config/src/layout.utils.js';
 
 /** The `npm pkg set` arguments that export `kind` from the package at `dir`, or the problem. */
 export function exportCommand(params) {
