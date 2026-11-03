@@ -1,4 +1,5 @@
-import { ResponsesApiError } from '../errors/providers.errors.js';
+import { ModelApiError } from '../errors/providers.errors.js';
+import { parseToolArguments } from '../http/json.utils.js';
 import type { EventStep, FunctionCallItem, ResponsesEvent } from './responses.types.js';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
 
@@ -33,12 +34,12 @@ export function handleEvent(params: {
         ? { stopReason: 'max_tokens', ended: true }
         : { ended: true };
     case 'response.failed':
-      throw new ResponsesApiError({
+      throw new ModelApiError({
         reason: 'failed',
         message: `Responses API failed: ${event.response.error?.message ?? 'unknown error'}`,
       });
     case 'error':
-      throw new ResponsesApiError({
+      throw new ModelApiError({
         reason: 'stream_error',
         message: `Responses API stream error: ${event.error?.message ?? event.message ?? 'unknown error'}`,
       });
@@ -46,14 +47,5 @@ export function handleEvent(params: {
 }
 
 function toToolCall(item: FunctionCallItem): ToolCall {
-  let input: unknown;
-
-  try {
-    input = JSON.parse(item.arguments);
-  } catch (caughtError) {
-    if (!(caughtError instanceof SyntaxError)) throw caughtError;
-    input = item.arguments; // invalid JSON: the tool's zod schema will reject it and tell the model
-  }
-
-  return { id: item.call_id, name: item.name, input };
+  return { id: item.call_id, name: item.name, input: parseToolArguments(item.arguments) };
 }

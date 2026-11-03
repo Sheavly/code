@@ -24,23 +24,24 @@ export class AdapterError extends Error {
   }
 }
 
-/** Why a Responses call failed. */
-type ResponsesFailure =
+/** Why a model API call failed. */
+type ModelApiFailure =
   'http' | 'network' | 'timeout' | 'failed' | 'stream_error' | 'cut_off' | 'bad_payload';
 
 /**
- * A Responses API call failed: an HTTP error (`status`), the request not reaching the server
- * (`network`) or no response in time (`timeout`), a `response.failed` or `error` event, a stream
- * that ended before `response.completed`, or a payload that isn't JSON.
+ * A model API call failed (any protocol: Responses, Anthropic Messages): an HTTP error (`status`),
+ * the request not reaching the server (`network`) or no response in time (`timeout`), a failure
+ * or error event in the stream, a stream that ended before its final event (`cut_off`), or a
+ * payload that isn't JSON. The message names the API.
  */
-export class ResponsesApiError extends Error {
-  override name = 'ResponsesApiError';
-  readonly reason: ResponsesFailure;
+export class ModelApiError extends Error {
+  override name = 'ModelApiError';
+  readonly reason: ModelApiFailure;
   /** The HTTP status, for `http`. */
   readonly status: number | undefined;
 
   constructor(params: {
-    reason: ResponsesFailure;
+    reason: ModelApiFailure;
     message: string;
     status?: number;
     cause?: unknown;

@@ -11,9 +11,9 @@ import type {
 import { handleEvent } from './events.utils.js';
 import { responsesEventSchema } from './responses.validator.js';
 import { toInputItems } from './input.utils.js';
-import { ResponsesApiError } from '../errors/providers.errors.js';
-import { sendRequest } from './request.helper.js';
-import { readServerSentEvents } from './sse.utils.js';
+import { ModelApiError } from '../errors/providers.errors.js';
+import { sendRequest } from '../http/request.helper.js';
+import { readServerSentEvents } from '../http/sse.utils.js';
 
 /** A Provider for any backend that speaks the OpenAI Responses API. */
 export function createResponsesProvider(config: ResponsesProviderConfig): Provider {
@@ -32,6 +32,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
       }
 
       const response = await sendRequest({
+        api: 'Responses API',
         fetch: config.fetch,
         url,
         policy: config.request,
@@ -77,7 +78,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
       // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
       if (!ended) {
         signal.throwIfAborted();
-        throw new ResponsesApiError({
+        throw new ModelApiError({
           reason: 'cut_off',
           message: 'Responses stream ended before response.completed',
         });

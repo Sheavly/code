@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { collect, fakeFetch, fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
-import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
+import { providerRequest } from '../../testing/provider-request.fake.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const c1 = callIdSchema.parse('c1');
-const request = (overrides: Partial<ProviderRequest> = {}): ProviderRequest => ({
-  messages: [{ role: 'user', content: 'hi' }],
-  tools: [],
-  signal: new AbortController().signal,
-  ...overrides,
-});
+const request = providerRequest;
 
 const provider = (fetch: typeof globalThis.fetch) =>
   createResponsesProvider({
