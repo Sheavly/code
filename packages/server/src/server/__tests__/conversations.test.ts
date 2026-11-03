@@ -180,6 +180,53 @@ describe('a conversation over HTTP', () => {
     expect(results[0]).toMatch(/listening/);
   });
 
+  it('describes a conversation, and switches its model only to one it has', async () => {
+    const { request, start } = testServer({});
+    const id = await start();
+    const switchTo = (name: string) =>
+      request(`/conversations/${id}/model`, { method: 'PUT', body: { name } });
+
+    expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
+      id,
+      workspace: '/work',
+      model: { name: 'fast' },
+    });
+    expect((await switchTo('deep')).status).toBe(204);
+    expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
+      model: { name: 'deep', adapter: 'azure' },
+    });
+    expect(await (await switchTo('huge')).json()).toMatchObject({
+      error: { code: 'unknown_model' },
+    });
+    expect((await switchTo('')).status).toBe(400);
+  });
+
+  it('streams a background task starting and ending, under the session that started it', async () => {
+    const { request, start, conversations } = testServer({});
+    const id = conversationIdSchema.parse(await start());
+    const { harness } = conversations.get(id);
+    const stream = await request(`/conversations/${id}/stream`, { method: 'QUERY', body: {} });
+
+    harness.tasks.start({
+      command: 'npm test',
+      description: 'Tests',
+      sessionId: harness.mainSession.id,
+      run: async () => ({ exitCode: 0 }),
+    });
+
+    const seen: string[] = [];
+
+    for await (const { entry } of readEntries(stream.body)) {
+      if (entry.kind === 'task') seen.push(`${entry.sessionId}:${entry.update.type}`);
+      if (seen.length === 2) break;
+    }
+
+    expect(seen).toEqual([
+      `${harness.mainSession.id}:task_started`,
+      `${harness.mainSession.id}:task_ended`,
+    ]);
+  });
+
   it('closes a conversation: it is gone after', async () => {
     const { request, start } = testServer({});
     const id = await start();

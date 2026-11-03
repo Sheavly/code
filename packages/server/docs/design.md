@@ -12,6 +12,8 @@ Every route is under `/conversations`, and every request carries `Authorization:
 | --------------------------------------------- | ------------------------------------------------------- |
 | `GET /conversations`                          | `{ conversations }`: each live one, oldest first        |
 | `POST /conversations`, `{ messages? }`        | `201 { id }`: a new conversation, continuing `messages` |
+| `GET /conversations/:id`                      | its run: workspace, models, trust, the allow list       |
+| `PUT /conversations/:id/model`, `{ name }`    | `204`: one of its models, from the next model call      |
 | `POST /conversations/:id/prompts`             | the prompt's entries as SSE, ending with its `done`     |
 | `QUERY /conversations/:id/stream`             | every entry, as SSE, while the client stays             |
 | `POST /conversations/:id/stop`                | `204`: the running prompt stops; history stays valid    |
@@ -25,8 +27,12 @@ client imports. A prompt is `{ text }` (`/<name>` mentions run skills) or `{ par
 skills picked), never both.
 
 Methods follow what each request is. A read with no input is `GET`; a read with input is `QUERY`
-(RFC 10008: safe, idempotent, with a body); anything that changes state is `POST` or `DELETE`, so
-no client or proxy retries it on its own.
+(RFC 10008: safe, idempotent, with a body); setting a value is `PUT` (the model: sending it twice
+is the same as once); anything else that changes state is `POST` or `DELETE`, so no client or
+proxy retries it on its own.
+
+`GET /conversations/:id` is what the app reports about the run it built (the host knows nothing of
+workspaces or models): a conversation whose app reports nothing answers `not_found`.
 
 ## Streams
 
@@ -36,7 +42,9 @@ missed one.
 
 - A prompt's response is that prompt: its first entry is the session resuming (or starting), its
   last the main session's `done`. A script sends a prompt and reads its answer in one request.
-- `QUERY /stream` follows the whole conversation: every prompt, sub-agents and approvals. Its body
+- `QUERY /stream` follows the whole conversation: every prompt, sub-agents, approvals and
+  background tasks starting and ending (`kind: 'task'`, under the session whose tool started one).
+  Its body
   filters it (`session`, with `subtree` the session's sub-agents too) and `replay` sends it from the
   start first. `Last-Event-ID: <seq>` resumes right after the last entry a client got.
 - A `done` in the stream carries no history; `GET /messages` has it.
@@ -75,6 +83,7 @@ Every failure is `{ error: { code, message } }` (`ServerError`):
 | 404    | `unknown_approval` | no approval waiting with that id                       |
 | 409    | `session_running`  | a prompt is still running in that conversation         |
 | 422    | `unknown_skill`    | `parts` picked a skill no one has                      |
+| 422    | `unknown_model`    | `PUT /model` named a model the conversation hasn't     |
 | 500    | `internal`         | the server failed; the message never holds its details |
 
 A prompt that can't start is answered with an error before its stream opens.

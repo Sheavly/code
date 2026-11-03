@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import type {
+  ConversationDetails,
   ConversationsResponse,
   MessagesResponse,
   SkillsResponse,
@@ -11,12 +12,13 @@ import {
   answerApprovalRequestSchema,
   conversationIdSchema,
   startConversationRequestSchema,
+  switchModelRequestSchema,
 } from '@sheavly/protocol/server/server.validator';
 import { validJson } from './server.validator.js';
 
 /**
- * Listing, starting, reading, steering and closing conversations: every route but the two that
- * stream. Each turns a request into one call on `conversations` and its result into JSON.
+ * Listing, starting, describing, reading, steering and closing conversations: every route but the
+ * two that stream. Each turns a request into one call on `conversations` and its result into JSON.
  */
 export function conversationRoutes(conversations: Conversations) {
   return new Hono()
@@ -28,6 +30,21 @@ export function conversationRoutes(conversations: Conversations) {
       const id = await conversations.start({ messages });
 
       return c.json({ id } satisfies StartConversationResponse, 201);
+    })
+    .get('/:id', (c) =>
+      c.json(
+        conversations.details(
+          conversationIdSchema.parse(c.req.param('id')),
+        ) satisfies ConversationDetails,
+      ),
+    )
+    .put('/:id/model', validJson(switchModelRequestSchema), (c) => {
+      conversations.useModel({
+        id: conversationIdSchema.parse(c.req.param('id')),
+        name: c.req.valid('json').name,
+      });
+
+      return c.body(null, 204);
     })
     .get('/:id/messages', (c) => {
       const id = conversationIdSchema.parse(c.req.param('id'));

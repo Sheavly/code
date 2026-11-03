@@ -5,6 +5,16 @@ import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ServerFailure } from './server.types.js';
 
+/** Each way a call on the live conversations fails, as the server answers it. */
+const CONVERSATION_FAILURES: Record<
+  ConversationsError['reason'],
+  (message: string) => ServerFailure
+> = {
+  not_found: (message) => ({ status: 404, code: 'not_found', message }),
+  unknown_skill: (message) => ({ status: 422, code: 'unknown_skill', message }),
+  unknown_model: (message) => ({ status: 422, code: 'unknown_model', message }),
+};
+
 /**
  * How the server answers `error`: the caller's mistakes by their protocol code, and anything else
  * as `internal`, without its message (it can hold paths or a provider's reply, never for a client).
@@ -17,9 +27,7 @@ export function toServerFailure(error: unknown): ServerFailure {
   }
 
   if (error instanceof ConversationsError) {
-    return error.reason === 'not_found'
-      ? { status: 404, code: 'not_found', message: error.message }
-      : { status: 422, code: 'unknown_skill', message: error.message };
+    return CONVERSATION_FAILURES[error.reason](error.message);
   }
 
   if (error instanceof SessionError && error.reason === 'session_running') {
