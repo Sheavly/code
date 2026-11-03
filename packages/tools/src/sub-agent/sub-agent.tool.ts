@@ -49,6 +49,7 @@ export function createSubAgentTool(options: SubAgentOptions) {
         command: `sub-agent: ${title}`,
         description: context.description,
         callId: context.callId,
+        sessionId: context.session.id,
         run: ({ signal, onOutput }) => runChild({ options, child, task, signal, onOutput }),
       });
 
@@ -72,8 +73,10 @@ async function runChild(params: {
 }): Promise<{ exitCode: number }> {
   const { options, child, task, signal, onOutput } = params;
   const { sessions, provider, runAgent, tools, hooks = [], instructions, maxTurns } = options;
-  // The sub-agent's own background tasks (its sub-agents); stopped when it ends.
+  // The sub-agent's own background tasks (its sub-agents); stopped when it ends. They join the
+  // combined stream like the main run's, so a UI sees a nested task start and end too.
   const childTasks = new TaskRegistry();
+  const stopPublishing = childTasks.observe((update) => sessions.publishTask(update));
   const canNest = child.depth < MAX_SESSION_DEPTH;
   const stopListening = sessions.subscribe((update) => {
     if (update.session.id !== child.id) return;
@@ -112,6 +115,8 @@ async function runChild(params: {
     return { exitCode: reason === 'completed' ? 0 : 1 };
   } finally {
     stopListening();
+    // Cancelled first, then unobserved: the stream still sees each cancelled task end.
     await childTasks.cancelAll();
+    stopPublishing();
   }
 }
