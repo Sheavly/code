@@ -43,15 +43,18 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
 }
 
 /**
- * One conversation on a terminal harness, as the chat and the server both run it: its tools and
- * hooks, the workspace's skills, and closing stops its background commands. `messages` is
+ * One conversation on a terminal harness, as the backend runs it: its tools and hooks, the
+ * workspace's skills, at most `maxTurns` turns a prompt, each prompt's `done` waiting for its
+ * background tasks with `waitForTasks`. Closing it stops its background commands. `messages` is
  * history to continue from.
  */
 export function terminalConversation(params: {
   harness: TerminalHarness;
   messages?: Message[] | undefined;
+  maxTurns?: number;
+  waitForTasks?: boolean;
 }): LiveConversation {
-  const { harness, messages } = params;
+  const { harness, messages, maxTurns = MAX_TURNS, waitForTasks = false } = params;
 
   return {
     harness,
@@ -60,7 +63,8 @@ export function terminalConversation(params: {
       run: streamAgent,
       tools: harness.tools,
       hooks: harness.hooks,
-      maxTurns: MAX_TURNS,
+      maxTurns,
+      waitForTasks,
       ...(messages && { messages }),
     }),
     skills: workspaceSkills(harness.skills),

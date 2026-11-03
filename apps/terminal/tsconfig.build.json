@@ -12,12 +12,6 @@
   },
   "references": [
     {
-      "path": "../../packages/host/tsconfig.build.json"
-    },
-    {
-      "path": "../../packages/loop/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/coding/tsconfig.build.json"
     },
     {
@@ -27,16 +21,10 @@
       "path": "../../packages/protocol/tsconfig.build.json"
     },
     {
-      "path": "../../packages/providers/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/runtime/tsconfig.build.json"
     },
     {
       "path": "../../packages/server/tsconfig.build.json"
-    },
-    {
-      "path": "../../packages/tools/tsconfig.build.json"
     },
     {
       "path": "../../packages/workspace/tsconfig.build.json"

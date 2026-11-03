@@ -1,8 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
@@ -25,6 +25,17 @@ const temp = useTempWorkspace({
 
 async function tempWorkbook(): Promise<WorkbookStore> {
   return new WorkbookStore(temp.root);
+}
+
+/** A temp workbook with one run of the `demo` prompt claimed: its store and the run's files. */
+async function demoRun() {
+  const store = await tempWorkbook();
+  const paths = await store.beginRun({
+    prompt: 'demo',
+    id: (n) => runId({ number: n, prompt: 'demo' }),
+  });
+
+  return { store, paths };
 }
 
 describe('runId', () => {
@@ -237,16 +248,20 @@ describe('WorkbookStore', () => {
 
 describe('RunRecorder', () => {
   it('writes every artifact, and a result with counts, even for a failed run', async () => {
-    const store = await tempWorkbook();
-    const paths = await store.beginRun({
-      prompt: 'demo',
-      id: (n) => runId({ number: n, prompt: 'demo' }),
-    });
+    const { store, paths } = await demoRun();
     const recorder = new RunRecorder(paths);
-    const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
+    const main = sessionIdSchema.parse('main');
+    const frame = 'event: entry\nid: 0\ndata: {"seq":0}\n\n';
+    const stop = new AbortController();
+    // The backend's stream as a UI reads it: a frame, then open until the recorder stops it.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(frame));
+        stop.signal.addEventListener('abort', () => controller.error(stop.signal.reason));
+      },
+    });
 
-    recorder.recordSessions(sessions);
+    recorder.recordSessions(stream, stop);
     await recorder.start({
       id: paths.id,
       prompt: 'demo',
@@ -255,13 +270,10 @@ describe('RunRecorder', () => {
       adapter: 'test',
       model: 'test',
       workspace: '/tmp/x',
-      mainSession: main.id,
+      mainSession: main,
     });
-    recorder.modelCall({
-      messages: [{ role: 'user', content: 'hi' }],
-      tools: [],
-      signal: new AbortController().signal,
-    });
+    // The backend appends each model call to the run's file itself.
+    await writeFile(paths.modelCalls, '{"messages":[{"role":"user","content":"hi"}]}\n');
     recorder.event({ seq: 0, type: 'text_delta', text: 'Hi' });
     recorder.event({
       seq: 1,
@@ -272,7 +284,6 @@ describe('RunRecorder', () => {
       message: { role: 'tool', toolCallId: callId, content: 'nope', isError: true },
     });
     recorder.transcript('Hi\n');
-    sessions.report({ id: main.id, status: 'working' });
 
     const result = await recorder.finish({
       outcome: 'failed',
@@ -292,24 +303,36 @@ describe('RunRecorder', () => {
     });
     expect(await store.events(paths.id)).toHaveLength(2);
     expect(await store.result(paths.id)).toEqual(result);
-    expect(await store.meta(paths.id)).toMatchObject({ prompt: 'demo', mainSession: main.id });
+    expect(await store.meta(paths.id)).toMatchObject({ prompt: 'demo', mainSession: main });
     expect(await store.messages(paths.id)).toEqual([{ role: 'user', content: 'hi' }]);
     expect(await readFile(paths.transcript, 'utf8')).toBe('Hi\n');
-    expect(await readFile(paths.sessions, 'utf8')).toContain('event: session_status');
-    expect(JSON.parse((await readFile(paths.modelCalls, 'utf8')).trim())).toMatchObject({
-      messages: [{ role: 'user', content: 'hi' }],
-      tools: [],
-    });
+    expect(await readFile(paths.sessions, 'utf8')).toBe(frame);
   });
 
   it('a run without a result reads as unfinished, and refuses to be continued', async () => {
-    const store = await tempWorkbook();
-    const paths = await store.beginRun({
-      prompt: 'demo',
-      id: (n) => runId({ number: n, prompt: 'demo' }),
-    });
+    const { store, paths } = await demoRun();
 
     expect(await store.result(paths.id)).toBeUndefined();
     await expect(store.messages(paths.id)).rejects.toThrow("didn't finish");
+    expect(await store.answer(paths.id)).toBe('');
+  });
+
+  it('reads a done saved with its messages, as runs before the stream saved it, and without', async () => {
+    const { store, paths } = await demoRun();
+    const session = { id: 'main', depth: 1, rootId: 'main' };
+    const done = { seq: 1, type: 'done', reason: 'completed', session };
+    const messages = [
+      { role: 'user', content: 'hi' },
+      { role: 'assistant', content: 'The answer.', toolCalls: [] },
+    ];
+
+    await writeFile(
+      paths.events,
+      `${JSON.stringify({ ...done, messages })}\n${JSON.stringify({ ...done, seq: 2 })}\n`,
+    );
+    await writeFile(paths.messages, JSON.stringify(messages));
+
+    expect((await store.events(paths.id)).map((event) => event.type)).toEqual(['done', 'done']);
+    expect(await store.answer(paths.id)).toBe('The answer.');
   });
 });

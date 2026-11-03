@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST, SERVER } from './harness.constants.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL, MAX_TURNS, REQUEST, SERVER } from './harness.constants.js';
 
 /** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
 const optionalSetting = z
@@ -72,10 +72,11 @@ export function parseProviderEnv(env: Record<string, string | undefined>) {
  * What `npm run serve` reads from the environment: where to listen and the token every request
  * must carry. It listens on 127.0.0.1 unless `SERVER_HOST` says otherwise (the server runs
  * commands for whoever reaches it), and generates a token when `SERVER_TOKEN` is unset.
+ * `SERVER_PORT=0` picks a free port, as a UI that starts its own backend asks for.
  */
 const serverEnvSchema = z.object({
   SERVER_HOST: optionalSetting.pipe(z.string().min(1).default(SERVER.host)),
-  SERVER_PORT: count(SERVER.port).pipe(z.number().min(1).max(65_535)),
+  SERVER_PORT: count(SERVER.port).pipe(z.number().max(65_535)),
   SERVER_TOKEN: optionalSetting.pipe(
     z.string().min(32, 'Set SERVER_TOKEN to at least 32 characters, or leave it unset').optional(),
   ),
@@ -86,6 +87,31 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
   const parsed = serverEnvSchema.parse(env);
 
   return { host: parsed.SERVER_HOST, port: parsed.SERVER_PORT, token: parsed.SERVER_TOKEN };
+}
+
+/**
+ * How the backend runs each conversation, from its environment: `MAX_TURNS`, `WAIT_FOR_TASKS`
+ * (a prompt's `done` waits for its background tasks, as a one-shot run wants), `MODEL_CALLS_FILE`
+ * (each model call's full request appended there, one JSON line each) and `SERVER_EXIT_WITH_PARENT`
+ * (stop when stdin closes: the UI that started it is gone).
+ */
+const runEnvSchema = z.object({
+  MAX_TURNS: count(MAX_TURNS).pipe(z.number().min(1)),
+  WAIT_FOR_TASKS: optionalSetting,
+  MODEL_CALLS_FILE: optionalSetting,
+  SERVER_EXIT_WITH_PARENT: optionalSetting,
+});
+
+/** The run settings from `env`. Only the exact string "true" turns a switch on. */
+export function parseRunEnv(env: Record<string, string | undefined>) {
+  const parsed = runEnvSchema.parse(env);
+
+  return {
+    maxTurns: parsed.MAX_TURNS,
+    waitForTasks: parsed.WAIT_FOR_TASKS === 'true',
+    modelCallsFile: parsed.MODEL_CALLS_FILE,
+    exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
+  };
 }
 
 /**

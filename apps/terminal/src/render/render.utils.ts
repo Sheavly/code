@@ -1,8 +1,7 @@
 import type { FileRead } from '@sheavly/coding/read-file/read-file.types';
 import { z } from 'zod';
-import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
-import type { FoundSkills } from '@sheavly/workspace/skills/skills.types';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
+import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 
 /** Text squeezed onto one line, cut at `max` characters with an ellipsis. */
 export function oneLine(params: { text: string; max: number }): string {
@@ -48,10 +47,10 @@ export function describeRead(read: FileRead): string {
 }
 
 /**
- * Why a workspace's `.sheavly/` hooks were skipped, for a front end to print, or undefined when
- * nothing was skipped. Shared by every host with a `--trust` flag.
+ * Why a workspace's `.sheavly/` hooks were skipped, from a conversation's details, for a front end
+ * to print, or undefined when nothing was skipped.
  */
-export function projectTrustNotice(trust: ProjectTrust): string | undefined {
+export function projectTrustNotice(trust: ConversationDetails['projectTrust']): string | undefined {
   if (trust === 'untrusted') {
     return '⚠ .sheavly/ hooks not loaded: this workspace is not trusted. They run code from the repo; review .sheavly/, then rerun with --trust.';
   }
@@ -61,20 +60,4 @@ export function projectTrustNotice(trust: ProjectTrust): string | undefined {
   }
 
   return undefined;
-}
-
-/**
- * What a front end prints about skills when it starts: each one that didn't load (its path and
- * why), and each one hidden by another with its name (which folder wins). Undefined when neither.
- */
-export function skillsNotice(found: Pick<FoundSkills, 'problems' | 'hidden'>): string | undefined {
-  const lines = [
-    ...found.problems.map(({ path, reason }) => `⚠ skill not loaded: ${path}: ${reason}`),
-    ...found.hidden.map(
-      ({ skill, by }) =>
-        `→ skill ${skill.name} in ${skill.dir} is hidden by the ${by.scope} one in ${by.dir}`,
-    ),
-  ];
-
-  return lines.length === 0 ? undefined : lines.join('\n');
 }

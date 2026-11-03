@@ -1,61 +1,51 @@
 /**
- * The harness server: conversations served to UIs in other processes, over HTTP on this machine.
+ * The harness backend: conversations served to UIs in other processes, over HTTP on this machine.
  *
- *   npm run serve -w @sheavly/terminal                 from source
+ *   npm run serve -w @sheavly/backend                  from source
  *
- * Each conversation is built like the chat's (the same tools, hooks and skills, on the same
- * settings: ADAPTER and its keys, MODEL, WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, --trust).
- * It listens on SERVER_HOST:SERVER_PORT (127.0.0.1:4310 by default) and needs SERVER_TOKEN on
- * every request, as `Authorization: Bearer <token>`; without one it makes one and prints it once.
- * Ctrl+C, SIGTERM or closing the terminal stops it, and every conversation's prompts, tasks and
- * processes with it. Calls the real API, so it costs money. The routes: packages/server/docs.
+ * Each conversation is built from this process's settings: ADAPTER and its keys (or MODELS),
+ * MODEL, WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, --trust, MAX_TURNS, WAIT_FOR_TASKS,
+ * MODEL_CALLS_FILE, SHOW_MODEL_CALLS. It listens on SERVER_HOST:SERVER_PORT (127.0.0.1:4310 by
+ * default; port 0 picks a free one) and needs SERVER_TOKEN on every request, as
+ * `Authorization: Bearer <token>`; without one it makes one and prints it once. Once it listens it
+ * prints `→ listening on <url>`, the line a UI that started it waits for. Ctrl+C, SIGTERM, closing
+ * the terminal or, with SERVER_EXIT_WITH_PARENT=true, its stdin closing (the UI that started it
+ * is gone) stops it, and every conversation's prompts, tasks and processes with it. Calls the real
+ * API, so it costs money. The routes: packages/server/docs.
  */
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import { createServerApp } from '@sheavly/server/server/server.helper';
-import { terminalConversation } from './harness/conversation.helper.js';
-import { createTerminalHarness } from './harness/harness.helper.js';
-import { providerFromEnv, trustStoreFromEnv } from './harness/settings.helper.js';
-import { parseCliSettings, parseServerEnv } from './harness/settings.validator.js';
-import { projectTrustNotice } from './render/render.utils.js';
+import { servedConversation } from './harness/served.helper.js';
+import { providerFromEnv } from './harness/settings.helper.js';
+import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
 
-// npm runs a workspace's script inside apps/terminal; work from the folder it was started in
-// (npm's INIT_CWD), so `.env` and the default workspace are the user's, as with the chat.
+// npm runs a workspace's script inside its folder; work from the folder it was started in
+// (npm's INIT_CWD), so `.env` and the default workspace are the user's.
 if (process.env.INIT_CWD) process.chdir(process.env.INIT_CWD);
 if (existsSync('.env')) process.loadEnvFile('.env');
 
-const settings = parseCliSettings({ env: process.env, args: process.argv.slice(2) });
+const settings = {
+  ...parseCliSettings({ env: process.env, args: process.argv.slice(2) }),
+  ...parseRunEnv(process.env),
+};
 const server = parseServerEnv(process.env);
-const { adapter, model, provider } = providerFromEnv(process.env);
+// Read once up front, so a bad provider setting fails here rather than on the first conversation.
+const { adapter, model } = providerFromEnv(process.env);
 const token = server.token ?? randomBytes(32).toString('base64url');
+const log = (text: string) => void process.stderr.write(text);
 
 const conversations = new Conversations({
-  create: async ({ messages }) => {
-    const harness = await createTerminalHarness({
-      provider,
-      workspaceRoot: settings.workspaceRoot,
-      skipAllowList: settings.skipAllowList,
-      title: 'Served conversation',
-      trustStore: trustStoreFromEnv(process.env),
-      env: process.env,
-      trustWorkspace: settings.trustWorkspace,
-      home: homedir(),
-    });
-    const trustNotice = projectTrustNotice(harness.projectTrust);
-
-    if (trustNotice) console.log(trustNotice);
-
-    return terminalConversation({ harness, messages });
-  },
+  create: ({ messages }) => servedConversation({ env: process.env, settings, messages, log }),
 });
 const app = createServerApp({ conversations, token });
 
 /** What the user needs once the server listens: where, the model, and the token when made here. */
-function printStarted(): void {
-  console.log(`→ ${adapter} / ${model}, serving on http://${server.host}:${String(server.port)}`);
+function printStarted(address: AddressInfo): void {
+  console.log(`→ ${adapter} / ${model}`);
 
   if (settings.skipAllowList) {
     console.log('⚠ run_command allow list is OFF: any shell command can run');
@@ -65,6 +55,8 @@ function printStarted(): void {
   if (!server.token) console.log(`→ token (SERVER_TOKEN unset, so made for this run): ${token}`);
 
   console.log('→ Ctrl+C to stop');
+  // Last, as the line a UI that started this process waits for: everything is ready by then.
+  console.log(`→ listening on http://${server.host}:${String(address.port)}`);
 }
 
 const listening = serve(
@@ -90,4 +82,11 @@ for (const [signal, code] of [
   ['SIGHUP', 129],
 ] as const) {
   process.on(signal, () => void stop(code));
+}
+
+// A UI that started the backend holds its stdin open; when the UI exits, even killed, the pipe
+// closes, so nothing it started outlives it.
+if (settings.exitWithParent) {
+  process.stdin.resume();
+  process.stdin.once('end', () => void stop(0));
 }

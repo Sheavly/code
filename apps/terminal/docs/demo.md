@@ -1,34 +1,26 @@
 # The demo
 
-One prompt, a real model, every tool, printed as it happens: `npm run demo -- "your prompt"`. It calls the real API and costs money (a fraction of a cent for a short prompt).
+One prompt, a real model, every tool, printed as it happens: `npm run demo -- "your prompt"`. It calls the real API and costs money (a fraction of a cent for a short prompt). Its prompt waits
+for the background tasks it started before it ends (Ctrl+C stops waiting).
 
 ## Settings
 
-- `WORKSPACE_ROOT=<dir>`: where the file tools, AGENTS.md and `.sheavly/` hooks are read from.
-- `SHOW_MODEL_CALLS=true`: prints every model call (main session and sub-agents) with its tools,
-  system prompt and latest user message.
-- `SESSIONS_SSE_LOG=<file>`: writes the session server-sent event stream (what a UI would read)
-  to a file.
-- `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES`, `MODEL_RETRY_DELAY_MS`: how a model call is sent
-  (default 60000, 2 and 1000: wait a minute for a response to start, and retry twice before
-  anything streamed). See [sending a call](../../../packages/providers/docs/backends.md#sending-a-call-timeouts-and-retries).
-- `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
-  `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
-  `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
+What a run includes and how it's set up are [the backend's settings](../../backend/docs/serve.md#settings),
+passed in the environment to the backend the demo starts: `WORKSPACE_ROOT`, `SHOW_MODEL_CALLS`,
+`RUN_COMMAND_SKIP_ALLOW_LIST`, the model's (`ADAPTER` and its keys, or
+[`MODELS`](../../backend/docs/harness.md#several-models-on-azure)), `SHEAVLY_TRUST_FILE`. The
+`--trust` flag trusts the workspace's `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
+The demo's own:
 
-## Several models on Azure
+- `SESSIONS_SSE_LOG=<file>`: writes the conversation's stream, as a UI reads it, to a file.
 
-`MODELS` names the models to set up, comma-separated; the run starts on the first, and the chat's
-`/model <name>` switches between them (from the next model call; the conversation keeps its
-history). Each name's keys are named after it, upper-cased with `-` as `_` (`deepseek-flash` reads
-`DEEPSEEK_FLASH_*`), so each model has its own key, endpoint and deployment:
+## The backend
 
-- `<NAME>_ADAPTER`: `azure` (the Responses API: GPT, DeepSeek and other Foundry models) or
-  `azure-anthropic` (Claude).
-- `<NAME>_API_KEY`, `<NAME>_BASE_URL`, `<NAME>_DEPLOYMENT`: required.
-- `azure` only: `<NAME>_API_VERSION` (for a dated URL) and `<NAME>_REASONING` (`false` for a model
-  that sends no encrypted reasoning back; default `true`).
-- `azure-anthropic` only: `<NAME>_MAX_TOKENS` (default 16000) and `<NAME>_THINKING_BUDGET`
-  (extended thinking, at least 1024; unset = off).
+The chat, the demo and the workbook each start a backend of their own (`npm run serve` of
+`@sheavly/backend`, on a free port with a token made for it) and stop it on the way out, even
+when killed: its stdin is a pipe from the terminal, and it stops when that closes. Its output
+(skills that didn't load, model calls with `SHOW_MODEL_CALLS`) shows in the terminal.
 
-With `MODELS` set, `ADAPTER` and its keys are not read. The example `.env` has one of each.
+To use a backend that's already running instead (another UI's, or one on another machine), set
+`BACKEND_URL` and `BACKEND_TOKEN`: the terminal then starts nothing and leaves it running, and that
+backend's own settings decide the run.

@@ -8,10 +8,13 @@ import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import type { parseCliSettings } from './settings.validator.js';
+import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 
 /** What a terminal CLI read from its command line and environment. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
+
+/** How the backend runs each conversation: the CLI's settings and the run settings it reads. */
+export type ServedSettings = CliSettings & ReturnType<typeof parseRunEnv>;
 
 /**
  * The models `MODELS` lists: `switch` serves whichever is active (the first, at start) and is the
@@ -57,14 +60,4 @@ export type TerminalHarness = CodingHarness & {
   projectHooks: Hook[];
   /** Whether the `.sheavly/` hooks ran: `untrusted` or `changed` says why they didn't. */
   projectTrust: ProjectTrust;
-};
-
-/** A terminal CLI's run: its harness, the backend and model it uses, and its CLI settings. */
-export type CliHarness = {
-  harness: TerminalHarness;
-  adapter: string;
-  model: string;
-  settings: CliSettings;
-  /** The models the chat can switch between (`/model`), when `MODELS` lists them. */
-  models?: ModelSwitch | undefined;
 };

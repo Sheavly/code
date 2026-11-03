@@ -1,7 +1,7 @@
 import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
-import type { Skill } from '@sheavly/workspace/skills/skills.types';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
+import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { ChatInput } from './chat.types.js';
 
 /**
@@ -48,7 +48,10 @@ export function listModels(params: { choices: ModelChoice[]; active: string | un
  * before the cursor completes to the skills that fit, and, at the start of the line, to the chat's
  * own commands too. `before` is the line up to the cursor. Nothing to offer is `[[], before]`.
  */
-export function completeChatLine(params: { before: string; skills: Skill[] }): [string[], string] {
+export function completeChatLine(params: {
+  before: string;
+  skills: SkillInfo[];
+}): [string[], string] {
   const { before, skills } = params;
   const completion = completeSkillMention({ text: before, cursor: before.length, skills });
 

@@ -2,13 +2,14 @@
   "description": "Source that changes what a run does, so a change to it needs a real-model check (npm run workbook -- check). Read by the check command and by the stop hook's nudge, so both agree. include: path prefixes; exclude: substrings that mark tests and fakes.",
   "include": [
     "apps/terminal/src/",
-    "apps/terminal/src/",
+    "apps/backend/src/",
     "packages/core/src/",
     "packages/providers/src/",
     "packages/runtime/src/",
     "packages/tools/src/",
     "packages/loop/src/",
     "packages/host/src/",
+    "packages/server/src/",
     "packages/workspace/src/",
     "packages/coding/src/"
   ],

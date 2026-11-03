@@ -15,6 +15,7 @@ Workspaces:
 
 | Workspace                                                       | What it is                                                                                                                                                   |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@sheavly/backend`](../apps/backend/README.md)                 | The harness backend: builds each run from its settings (provider, model, tools, hooks, trust) and serves its conversations to every UI over HTTP.            |
 | [`@sheavly/terminal`](../apps/terminal/README.md)               | The terminal front end: the demo (one prompt, printed as it happens) and the workbook (stored prompts, saved runs, step, diff and real-model checks).        |
 | [`@sheavly/coding`](../packages/coding/README.md)               | The coding tools (file tools, run_command) and createCodingHarness: the workspace, file locks and process runner a coding run shares.                        |
 | [`@sheavly/core`](../packages/core/README.md)                   | The code contracts tools, hooks and providers are written against: defineTool, defineHook, defineAdapter, Provider and the Environment an app passes in.     |

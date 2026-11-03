@@ -1,6 +1,54 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST } from '../harness.constants.js';
-import { parseProviderEnv, parseRequestEnv } from '../settings.validator.js';
+import {
+  DEFAULT_ADAPTER,
+  DEFAULT_MODEL,
+  MAX_TURNS,
+  REQUEST,
+  SERVER,
+} from '../harness.constants.js';
+import {
+  parseProviderEnv,
+  parseRequestEnv,
+  parseRunEnv,
+  parseServerEnv,
+} from '../settings.validator.js';
+
+describe('parseServerEnv', () => {
+  it('listens on localhost by default, and on a free port with SERVER_PORT=0', () => {
+    expect(parseServerEnv({})).toEqual({ host: SERVER.host, port: SERVER.port, token: undefined });
+    expect(parseServerEnv({ SERVER_PORT: '0' }).port).toBe(0);
+  });
+
+  it('refuses a short token and a port past the range', () => {
+    expect(() => parseServerEnv({ SERVER_TOKEN: 'short' })).toThrow('at least 32');
+    expect(() => parseServerEnv({ SERVER_PORT: '70000' })).toThrow();
+  });
+});
+
+describe('parseRunEnv', () => {
+  it('reads the run limits and files, with every switch off unless exactly "true"', () => {
+    expect(parseRunEnv({})).toEqual({
+      maxTurns: MAX_TURNS,
+      waitForTasks: false,
+      modelCallsFile: undefined,
+      exitWithParent: false,
+    });
+    expect(
+      parseRunEnv({
+        MAX_TURNS: '5',
+        WAIT_FOR_TASKS: 'true',
+        MODEL_CALLS_FILE: '/tmp/calls.jsonl',
+        SERVER_EXIT_WITH_PARENT: 'yes',
+      }),
+    ).toEqual({
+      maxTurns: 5,
+      waitForTasks: true,
+      modelCallsFile: '/tmp/calls.jsonl',
+      exitWithParent: false,
+    });
+    expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
+  });
+});
 
 describe('parseProviderEnv', () => {
   it("defaults to the hosts' adapter and model", () => {

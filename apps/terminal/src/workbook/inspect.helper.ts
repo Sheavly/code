@@ -1,13 +1,7 @@
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
 import type { WorkbookStore } from './store.service.js';
-import {
-  describeEvent,
-  diffResults,
-  finalAnswer,
-  mergeTextDeltas,
-  toolsUsed,
-} from './workbook.utils.js';
+import { describeEvent, diffResults, mergeTextDeltas, toolsUsed } from './workbook.utils.js';
 import { WorkbookNotFoundError } from '../errors/workbook.errors.js';
 import type { Write } from '../render/render.types.js';
 
@@ -49,10 +43,11 @@ export async function showRun(params: {
   write: Write;
 }): Promise<void> {
   const { store, id, write } = params;
-  const [meta, result, events] = await Promise.all([
+  const [meta, result, events, answer] = await Promise.all([
     store.meta(id),
     store.result(id),
     store.events(id),
+    store.answer(id),
   ]);
   const paths = store.paths(id);
   const tools = toolsUsed(events);
@@ -79,7 +74,7 @@ export async function showRun(params: {
   }
 
   write(`  tools      ${tools.join(', ') || 'none'}\n`);
-  write(`\n  answer     ${finalAnswer(events) || '(none)'}\n`);
+  write(`\n  answer     ${answer || '(none)'}\n`);
   write(`\nFiles (${path.relative(process.cwd(), paths.dir)}/):\n`);
 
   for (const [key, file] of Object.entries(paths)) {
@@ -149,7 +144,11 @@ export async function diffRuns(params: {
 }): Promise<void> {
   const { store, write } = params;
   const load = async (id: string) => {
-    const [result, events] = await Promise.all([store.result(id), store.events(id)]);
+    const [result, events, answer] = await Promise.all([
+      store.result(id),
+      store.events(id),
+      store.answer(id),
+    ]);
 
     if (!result) {
       throw new WorkbookNotFoundError({
@@ -158,7 +157,7 @@ export async function diffRuns(params: {
       });
     }
 
-    return { id, result, tools: toolsUsed(events), answer: finalAnswer(events) };
+    return { id, result, tools: toolsUsed(events), answer };
   };
   const [a, b] = await Promise.all([load(params.a), load(params.b)]);
 
