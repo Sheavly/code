@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL } from '../harness.constants.js';
-import { parseProviderEnv } from '../settings.validator.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST } from '../harness.constants.js';
+import { parseProviderEnv, parseRequestEnv } from '../settings.validator.js';
 
 describe('parseProviderEnv', () => {
   it("defaults to the hosts' adapter and model", () => {
@@ -38,5 +38,27 @@ describe('parseProviderEnv', () => {
 
   it('rejects an adapter it does not know', () => {
     expect(() => parseProviderEnv({ ADAPTER: 'astra', OPENAI_API_KEY: 'sk-1' })).toThrow();
+  });
+});
+
+describe('parseRequestEnv', () => {
+  it("defaults to the terminal's policy, and reads each setting from env", () => {
+    expect(parseRequestEnv({})).toEqual(REQUEST);
+    expect(
+      parseRequestEnv({
+        MODEL_RESPONSE_TIMEOUT_MS: '5000',
+        MODEL_RETRIES: '0',
+        MODEL_RETRY_DELAY_MS: '',
+      }),
+    ).toEqual({ responseTimeoutMs: 5000, retries: 0, retryDelayMs: REQUEST.retryDelayMs });
+  });
+
+  it('rejects a value that is not a whole number, and a timeout of zero', () => {
+    expect(() => parseRequestEnv({ MODEL_RETRIES: 'two' })).toThrow();
+    expect(() => parseRequestEnv({ MODEL_RETRIES: '1.5' })).toThrow();
+    expect(() => parseRequestEnv({ MODEL_RETRIES: '11' })).toThrow(
+      'Set MODEL_RETRIES to at most 10',
+    );
+    expect(() => parseRequestEnv({ MODEL_RESPONSE_TIMEOUT_MS: '0' })).toThrow();
   });
 });

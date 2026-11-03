@@ -7,7 +7,12 @@ here and passes it in; no other package depends on this one at runtime.
 ```ts
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 
-const provider = createDefaultRegistry().create('openai', { apiKey, model: 'gpt-6.1-sol' });
+const provider = createDefaultRegistry().create('openai', {
+  apiKey,
+  model: 'gpt-6.1-sol',
+  // How a call is sent: required, like the model, since it is the caller's choice.
+  request: { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 1000 },
+});
 ```
 
 | Module       | What it holds                                                                      |

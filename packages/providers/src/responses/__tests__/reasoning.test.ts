@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { lookupCall, reasoningItem } from '../../testing/responses-items.fake.js';
+import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
 
 const signal = new AbortController().signal;
-const config = { endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} } };
+const config = {
+  endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} },
+  request: TEST_REQUEST,
+};
 const SOURCE = 'responses:https://example.test/v1#m';
 const functionCall = lookupCall();
 

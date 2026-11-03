@@ -12,6 +12,7 @@ import { handleEvent } from './events.utils.js';
 import { responsesEventSchema } from './responses.validator.js';
 import { toInputItems } from './input.utils.js';
 import { ResponsesApiError } from '../errors/providers.errors.js';
+import { sendRequest } from './request.helper.js';
 import { readServerSentEvents } from './sse.utils.js';
 
 /** A Provider for any backend that speaks the OpenAI Responses API. */
@@ -30,39 +31,37 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
         url.searchParams.set(key, value);
       }
 
-      const response = await config.fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...endpoint.headers },
-        body: JSON.stringify({
-          model: endpoint.model,
-          // The Responses API's system prompt; with `store: false` it is sent every call.
-          ...(instructions ? { instructions } : {}),
-          input: messages.flatMap((message) => toInputItems({ message, reasoningSource })),
-          tools: tools.map((tool) => ({
-            type: 'function',
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema,
-          })),
-          stream: true,
-          store: false,
-          ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
-        }),
+      const response = await sendRequest({
+        fetch: config.fetch,
+        url,
+        policy: config.request,
         signal,
+        init: {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...endpoint.headers },
+          body: JSON.stringify({
+            model: endpoint.model,
+            // The Responses API's system prompt; with `store: false` it is sent every call.
+            ...(instructions ? { instructions } : {}),
+            input: messages.flatMap((message) => toInputItems({ message, reasoningSource })),
+            tools: tools.map((tool) => ({
+              type: 'function',
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.inputSchema,
+            })),
+            stream: true,
+            store: false,
+            ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
+          }),
+        },
       });
-
-      if (!response.ok || !response.body) {
-        throw new ResponsesApiError({
-          reason: 'http',
-          status: response.status,
-          message: `Responses API error ${response.status}: ${await response.text()}`,
-        });
-      }
 
       let stopReason: StopReason = 'end_turn';
       let ended = false;
 
-      for await (const raw of readServerSentEvents(response.body)) {
+      // `sendRequest` returns only a response that started, so it has a body.
+      for await (const raw of readServerSentEvents(response.body as ReadableStream<Uint8Array>)) {
         const parsed = responsesEventSchema.safeParse(raw);
 
         if (!parsed.success) continue; // an event type we don't use
@@ -107,6 +106,7 @@ export function defineResponsesAdapter<TSchema extends z.ZodType<ResponsesAdapte
       createResponsesProvider({
         endpoint: toEndpoint(config),
         reasoning: config.reasoning,
+        request: config.request,
         fetch: deps.fetch,
       }),
   });

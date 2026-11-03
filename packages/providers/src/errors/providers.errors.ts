@@ -25,11 +25,13 @@ export class AdapterError extends Error {
 }
 
 /** Why a Responses call failed. */
-type ResponsesFailure = 'http' | 'failed' | 'stream_error' | 'cut_off' | 'bad_payload';
+type ResponsesFailure =
+  'http' | 'network' | 'timeout' | 'failed' | 'stream_error' | 'cut_off' | 'bad_payload';
 
 /**
- * A Responses API call failed: an HTTP error (`status`), a `response.failed` or `error` event,
- * a stream that ended before `response.completed`, or a payload that isn't JSON.
+ * A Responses API call failed: an HTTP error (`status`), the request not reaching the server
+ * (`network`) or no response in time (`timeout`), a `response.failed` or `error` event, a stream
+ * that ended before `response.completed`, or a payload that isn't JSON.
  */
 export class ResponsesApiError extends Error {
   override name = 'ResponsesApiError';

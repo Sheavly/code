@@ -10,6 +10,15 @@ check:
         'packages/coding/src/files',
         'packages/workspace/src/file-locks',
         'packages/workspace/src/workspace',
+        'packages/loop/src/stream-agent',
+        'packages/loop/src/queue',
+        'packages/loop/src/hooks',
+        'packages/loop/src/abort',
+        'packages/loop/src/events',
+        'packages/providers/src/responses',
+        'packages/providers/src/openai',
+        'packages/providers/src/azure',
+        'apps/terminal/src/render',
       ],
     'expect':
       {

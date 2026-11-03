@@ -1,11 +1,48 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL } from './harness.constants.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST } from './harness.constants.js';
 
 /** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
 const optionalSetting = z
   .string()
   .optional()
   .transform((value) => (value === '' ? undefined : value));
+
+/**
+ * The most retries a policy allows (`requestPolicySchema`), so a bad `MODEL_RETRIES` is named
+ * here rather than failing later as an invalid adapter config.
+ */
+const MAX_RETRIES = 10;
+
+/** A whole number of milliseconds or retries from env, or the default when it is unset. */
+const count = (fallback: number) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? fallback : Number(value)))
+    .pipe(z.number().int().min(0));
+
+/**
+ * How the terminal sends a model call: `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
+ * `MODEL_RETRY_DELAY_MS`, each defaulting to `REQUEST`.
+ */
+const requestEnvSchema = z.object({
+  MODEL_RESPONSE_TIMEOUT_MS: count(REQUEST.responseTimeoutMs).pipe(z.number().positive()),
+  MODEL_RETRIES: count(REQUEST.retries).pipe(
+    z.number().max(MAX_RETRIES, `Set MODEL_RETRIES to at most ${String(MAX_RETRIES)}`),
+  ),
+  MODEL_RETRY_DELAY_MS: count(REQUEST.retryDelayMs),
+});
+
+/** The request policy from `env`. */
+export function parseRequestEnv(env: Record<string, string | undefined>) {
+  const parsed = requestEnvSchema.parse(env);
+
+  return {
+    responseTimeoutMs: parsed.MODEL_RESPONSE_TIMEOUT_MS,
+    retries: parsed.MODEL_RETRIES,
+    retryDelayMs: parsed.MODEL_RETRY_DELAY_MS,
+  };
+}
 
 /**
  * The model backend settings a host reads from the environment: `ADAPTER` picks "openai" (the

@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { apiKeySchema, reasoningSchema } from '../responses/adapter-config.validator.js';
+import {
+  apiKeySchema,
+  reasoningSchema,
+  requestPolicySchema,
+} from '../responses/adapter-config.validator.js';
 import { defineResponsesAdapter } from '../responses/responses.helper.js';
 
 /**
@@ -35,6 +39,7 @@ export const azureAdapter = defineResponsesAdapter({
     deployment: z.string().min(1),
     apiVersion: azureApiVersion.optional(),
     reasoning: reasoningSchema.default(true),
+    request: requestPolicySchema,
   }),
   toEndpoint: (config) => {
     const apiVersion = config.apiVersion ?? config.baseUrl.apiVersion;
