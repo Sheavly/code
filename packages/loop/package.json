@@ -14,10 +14,10 @@
     "domain": "generic"
   },
   "exports": {
-    "./*": {
-      "@sheavly/source": "./src/*.ts",
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./stream-agent/stream-agent.helper": {
+      "@sheavly/source": "./src/stream-agent/stream-agent.helper.ts",
+      "types": "./dist/stream-agent/stream-agent.helper.d.ts",
+      "default": "./dist/stream-agent/stream-agent.helper.js"
     }
   },
   "private": true,

@@ -25,6 +25,9 @@ export default defineConfig(({ mode }) => ({
         : []),
     ],
     environment: 'node',
+    // A workspace's tests are its own: an app that is only an entry script, or the fakes package
+    // (tested by every test that uses it), has none, and that passes.
+    passWithNoTests: true,
     // The hooks' and scripts' tests spawn real processes (ESLint, npm, git). Under `npm run check`
     // they run beside every workspace's tests, where the 5s default is too tight.
     testTimeout: 30_000,

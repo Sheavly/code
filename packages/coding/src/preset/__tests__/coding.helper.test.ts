@@ -42,6 +42,7 @@ const open = (trustWorkspace: boolean, onModelCall?: (request: ProviderRequest) 
     title: 'hi',
     workspaceRoot: root,
     trustStore,
+    env: process.env,
     trustWorkspace,
     onModelCall,
   });

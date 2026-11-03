@@ -8,5 +8,6 @@
   "ignore": ["**/node_modules/**", "**/dist/**", "**/coverage/**"],
   "reporters": ["console"],
   "failOnEmpty": true,
+  "threshold": 0,
   "noTips": true
 }

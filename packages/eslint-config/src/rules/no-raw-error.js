@@ -1,7 +1,6 @@
 // No raw `Error` in source: every error it creates is a typed class that callers can catch by
-// class instead of by matching its message. Each area keeps its own: `src/runtime/errors/` for
-// runtime, tools, loop and hosts; an errors file of its own for each package (`@sheavly/providers`
-// keeps `providers.errors.ts`); `hooks.errors.mjs` for the Cursor hooks. Covers
+// class instead of by matching its message. Each workspace keeps its own in `src/errors/`
+// (`@sheavly/providers` keeps `providers.errors.ts`); `hooks.errors.mjs` for the Cursor hooks. Covers
 // `throw new Error(...)` and every other construction (`reject(new Error(...))`,
 // `Promise.reject(Error(...))`), so none slips through a variable.
 //
@@ -11,7 +10,7 @@
 const EXEMPT = /(^|\/)(__tests__|testing|scripts)\/|\.fake\.ts$/;
 
 const MESSAGE =
-  "No raw `Error` in source: throw a typed error class from this area's errors (`src/runtime/errors/`, or the errors file of this package or the hooks), with the fields to act on and the original as `cause`. Add a class if none fits. Only scripts, tests and fakes may use `Error`.";
+  "No raw `Error` in source: throw a typed error class from this workspace's `src/errors/` (or the hooks' `hooks.errors.mjs`), with the fields to act on and the original as `cause`. Add a class if none fits. Only scripts, tests and fakes may use `Error`.";
 
 /** True if `Error` at `node` is the global one, not a local or imported binding. */
 function isGlobalError(params) {

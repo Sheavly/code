@@ -19,9 +19,9 @@ export const SYNTAX_RULES = {
   ],
   'no-process-env': [
     {
-      selector: "MemberExpression[object.name='process'][property.name='env']",
+      selector: "MemberExpression[object.name='process'][property.name=/^(env|loadEnvFile)$/]",
       message:
-        'Read env only in an app (apps/*, e.g. apps/terminal/src/demo.ts) and pass values in as options; library code must not read process.env.',
+        'Read env only in an app (apps/*): it loads `.env` and passes `process.env` in (`providerFromEnv(process.env)`, `createCodingHarness({ env })`). A package takes the values, or an `Environment` (`@sheavly/core/environment/environment.types`), as options; it never reads env itself.',
     },
   ],
   // Only module-level functions: inline callbacks (`.map((x, i) => ...)`) and class methods

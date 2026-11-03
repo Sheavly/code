@@ -77,7 +77,7 @@ once loaded ([trust model](overview.md#trust-model)). So
 even imported.
 
 - `TrustStore` (`@sheavly/workspace/trust/`) keeps the trusted workspaces in one file outside every
-  repo, so a repo can't trust itself: `trustStoreFromEnv()` picks `SHEAVLY_TRUST_FILE`, else
+  repo, so a repo can't trust itself: `trustStoreFromEnv(process.env)` (called by the app) picks `SHEAVLY_TRUST_FILE`, else
   `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json` (default `~/.config/sheavly/`).
 - Each entry is the workspace's real path and a fingerprint (SHA-256) of every file in its
   `.sheavly/` folder when it was trusted. Any later added, removed or edited file there makes it

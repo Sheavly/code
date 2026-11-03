@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProcessKillError } from '../../errors/process.errors.js';
 import { ProcessRunner } from '../process.service.js';
 
@@ -9,11 +9,7 @@ const printEnv = (env: Record<string, string> = {}) =>
   runner.run({ file: 'env', args: [], cwd: process.cwd(), shell: false, signal, env });
 
 beforeEach(() => {
-  runner = new ProcessRunner();
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
+  runner = new ProcessRunner({ env: process.env });
 });
 
 describe('ProcessRunner kill', () => {
@@ -44,9 +40,10 @@ describe('ProcessRunner kill', () => {
 });
 
 describe('ProcessRunner env', () => {
-  it('drops env vars that look like secrets', async () => {
-    vi.stubEnv('HARNESS_TEST_API_KEY', 'hunter2');
-    vi.stubEnv('HARNESS_TEST_PLAIN', 'kept');
+  it('starts from the environment it was given, without what looks like a secret', async () => {
+    runner = new ProcessRunner({
+      env: { PATH: process.env.PATH, HARNESS_TEST_API_KEY: 'hunter2', HARNESS_TEST_PLAIN: 'kept' },
+    });
 
     const { output } = await printEnv();
 
@@ -55,7 +52,9 @@ describe('ProcessRunner env', () => {
   });
 
   it('adds `env` on top, overriding an inherited value', async () => {
-    vi.stubEnv('HARNESS_TEST_PLAIN', 'inherited');
+    runner = new ProcessRunner({
+      env: { PATH: process.env.PATH, HARNESS_TEST_PLAIN: 'inherited' },
+    });
 
     const { output } = await printEnv({ HARNESS_TEST_PLAIN: 'override', HARNESS_TEST_NEW: '1' });
 
@@ -86,7 +85,7 @@ describe('ProcessRunner groups', () => {
   });
 
   it('keeps each runner separate: another one tracks none of these groups', async () => {
-    const other = new ProcessRunner();
+    const other = new ProcessRunner({ env: process.env });
     const running = runner.run({
       file: 'true',
       args: [],

@@ -1,5 +1,5 @@
 /**
- * Errors from the model backends. Providers may not import `src/runtime/`, so they keep their own;
+ * Errors from the model backends. Providers don't depend on `@sheavly/runtime`, so they keep their own;
  * each has a `reason` a caller can switch on, and keeps the original as `cause`.
  */
 

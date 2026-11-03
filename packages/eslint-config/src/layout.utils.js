@@ -69,8 +69,23 @@ export function readLayout(params) {
         testOnly: manifest.sheavly?.testOnly === true,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
+        // The public surface: the subpaths its package.json `exports` (`./tool/tool.utils`).
+        exports: Object.keys(manifest.exports ?? {}),
       },
     ]),
+  );
+}
+
+/** The one pattern a package may export: its fakes, from source only, for other tests. */
+export const TESTING_EXPORT = './testing/*';
+
+/** Whether `subpath` (`tool/tool.utils`) is one of `exports`, the public surface of a workspace. */
+export function isExported(params) {
+  const { exports, subpath } = params;
+
+  return (
+    exports.includes(`./${subpath}`) ||
+    (exports.includes(TESTING_EXPORT) && subpath.startsWith('testing/'))
   );
 }
 

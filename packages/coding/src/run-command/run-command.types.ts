@@ -20,7 +20,7 @@ export type RunCommandOptions = {
   approvals?: ApprovalRegistry | undefined;
   /**
    * Runs the commands and stops any still running when the process exits: pass the harness's
-   * one runner. Without one, the tool gets its own.
+   * one runner, built from the environment the app passed in.
    */
-  processes?: ProcessRunner;
+  processes: ProcessRunner;
 };

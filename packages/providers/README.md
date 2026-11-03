@@ -1,8 +1,8 @@
 # @sheavly/providers
 
 Model backends for the harness. Everything here is written against `@sheavly/core` (the
-`Provider` and `Adapter` contracts) and `zod`; nothing imports the app (`rootDir` makes that a
-type error), so the adapters can be used without the harness.
+`Provider` and `Adapter` contracts) and `zod`, and on no other workspace, so the adapters can be
+used without the harness.
 
 ```
 src/

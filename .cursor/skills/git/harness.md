@@ -12,8 +12,7 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 **Mechanical**, visible in the diff:
 
 - a new workspace (`packages/<name>/`, `apps/<name>/`);
-- a new `exports` pattern shape in a `package.json` (anything but `./*` with `@sheavly/source`,
-  `types` and `default`);
+- a new `exports` entry in a package's `package.json` (a module made public: is it meant to be?);
 - a new module folder a doc describes (a `DOC_SOURCES` entry in `docs.utils.mjs`);
 - a new file kind, or a file named `<name>.<kind>.ts` with a kind `file-kinds.js` doesn't know;
 - a new skill in `.cursor/skills/`, or a skill's files moved;
@@ -22,7 +21,8 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 - a new root config or tooling script (`scripts/`, `.cursor/hooks/`);
 - a new runtime dependency;
 - a new env var read by a host;
-- a baseline (knip, jscpd) changed by anything but pruning.
+- an `ignore` added to `knip.json` or `.jscpd.json`: there are no baselines, so a finding is
+  fixed, not ignored, unless the ignore says why.
 
 **Judgement**, asked once per issue at triage:
 
@@ -43,7 +43,7 @@ dependencies (`harness/layout`, `npm run layout`), imports across workspaces
 | The trigger is about…                      | Add                                                                                                                                           |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | a new workspace                            | create it with the scaffold (the skill's "A new package"): it sets its `sheavly.domain`, configs and dependencies; nothing central to edit    |
-| an `exports` pattern                       | the matching resolution in `harness/single-definition`'s workspace reader (`workspace-types.js`) and a test with the new shape                |
+| an `exports` entry                         | added with `npm run export` (the layout check holds its shape); the PR body says why the module is public, not just used                      |
 | a file kind                                | its policy in `file-kinds.js` and RuleTester cases                                                                                            |
 | a skill                                    | its `harness.json` (`governs` globs, or `manual` with a reason)                                                                               |
 | a contract to import, not copy             | its schema or type in the owning package's `*.types.ts`, so `harness/single-definition` covers it; a `harness/*` rule if the shape needs more |

@@ -52,7 +52,7 @@ export function runBin(name, args) {
   return runFile(path.join(PROJECT_ROOT, 'node_modules', '.bin', name), args);
 }
 
-/** Runs an npm script quietly (so its own config and baseline wrappers apply); never throws. */
+/** Runs an npm script quietly (so its own config and wrappers apply); never throws. */
 export function runNpmScript(name) {
   return runFile('npm', ['run', '--silent', name]);
 }
@@ -143,26 +143,6 @@ export function formatEslintReport(json) {
   }
 
   return lines;
-}
-
-/**
- * jscpd's console report cut to the clones marked `[NEW]` (the baselined ones are listed too, and
- * would crowd them out), plus its closing error line. Falls back to the whole output when it has
- * no new clone in it (a config or startup failure).
- */
-export function formatNewClones(output) {
-  const lines = stripVTControlCharacters(output).split('\n');
-  const kept = [];
-  let inNewClone = false;
-
-  for (const line of lines) {
-    if (line.includes('Clone found')) inNewClone = line.includes('[NEW]');
-    else if (!/^\s+(- )?\S/.test(line)) inNewClone = false;
-
-    if (inNewClone || line.startsWith('ERROR:')) kept.push(line);
-  }
-
-  return kept.some((line) => line.includes('[NEW]')) ? kept.join('\n') : output;
 }
 
 /** A task's own line: `@sheavly/core:lint: …` (the root package is `//`), not turbo's `pkg#task:`. */

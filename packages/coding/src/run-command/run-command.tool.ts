@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
 import { confirmArguments } from './arguments.helper.js';
@@ -15,7 +14,7 @@ export function createRunCommandTool({
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
   approvals,
-  processes = new ProcessRunner(),
+  processes,
 }: RunCommandOptions) {
   return defineTool({
     name: 'run_command',

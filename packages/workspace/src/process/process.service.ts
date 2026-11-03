@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { ProcessInterruptedError, ProcessKillError } from '../errors/process.errors.js';
 import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import { MAX_OUTPUT_CHARS, SECRET_ENV } from './process.constants.js';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { ProcessParams, ProcessResult } from './process.types.js';
 
 /** Kills a process group. Returns why it couldn't, unless the group had already exited. */
@@ -19,12 +20,23 @@ function killGroup(pid: number): ProcessKillError | undefined {
 }
 
 /**
- * Runs commands, each in its own process group with secrets scrubbed from its env, and keeps
- * track of the groups still running. If the harness exits while some are (e.g. a forced second
+ * Runs commands, each in its own process group, starting from the environment the host passed in
+ * with secrets scrubbed, and keeps track of the groups still running. If the harness exits while some are (e.g. a forced second
  * Ctrl+C), they're killed rather than left orphaned. `createHarness` makes one per harness; a
  * test makes its own, so its groups and exit hook never reach another test.
  */
 export class ProcessRunner {
+  /** What every command starts from, secrets removed. */
+  readonly #baseEnv: Record<string, string>;
+
+  constructor(params: { env: Environment }) {
+    this.#baseEnv = Object.fromEntries(
+      Object.entries(params.env).filter(
+        (entry): entry is [string, string] => entry[1] !== undefined && !SECRET_ENV.test(entry[0]),
+      ),
+    );
+  }
+
   /** Process groups this runner started that are still running. */
   readonly #live = new Set<number>();
   readonly #onExit = () => {
@@ -67,12 +79,7 @@ export class ProcessRunner {
       const child = spawn(file, args, {
         cwd: options.cwd,
         shell: options.shell,
-        env: {
-          ...Object.fromEntries(
-            Object.entries(process.env).filter(([name]) => !SECRET_ENV.test(name)),
-          ),
-          ...options.env,
-        },
+        env: { ...this.#baseEnv, ...options.env },
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: true, // own process group, so we can kill everything it started
       });

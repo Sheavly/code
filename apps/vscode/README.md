@@ -1,7 +1,7 @@
 # apps/vscode
 
 The VS Code extension goes here: a front end on the harness, like `apps/terminal` and
-`apps/workbook`. It isn't built yet (#29 only makes room for it).
+`apps/workbook`. It isn't built yet.
 
 When it is, it is a workspace created with the scaffold:
 

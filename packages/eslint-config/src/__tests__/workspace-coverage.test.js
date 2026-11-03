@@ -3,7 +3,14 @@
 // in this repo) must be enabled in every real one, on a module file at a path no workspace
 // special-cases. Each workspace also needs the scripts turbo runs, since turbo silently skips a
 // workspace without one. The workspaces are read from the root `package.json`, never listed here.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -58,6 +65,23 @@ async function baselineRules(params = {}) {
 
 const isTestOnly = (dir) => readJson(path.join(dir, 'package.json')).sheavly?.testOnly === true;
 const isApp = (dir) => path.basename(path.dirname(dir)) === 'apps';
+const isTooling = (dir) => readJson(path.join(dir, 'package.json')).sheavly?.domain === 'tooling';
+/** What only an app may do: read env, use the terminal, print. */
+const APP_ONLY_RULES = ['harness/no-process-env', 'harness/no-terminal-io', 'no-console'];
+const isOn = (entry) => {
+  const severity = Array.isArray(entry) ? entry[0] : entry;
+
+  return severity === 2 || severity === 'error' || severity === 1 || severity === 'warn';
+};
+
+/** A workspace's TypeScript source outside tests and fakes. */
+function sourceFiles(dir) {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.[cm]?ts$/.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name))
+    .filter((file) => !/[/\\](__tests__|testing)[/\\]/.test(file));
+}
+
 const WORKSPACES = workspaceDirs(REPO_ROOT);
 const BASELINE = await baselineRules();
 const TEST_ONLY_BASELINE = await baselineRules({ testOnly: true });
@@ -76,10 +100,8 @@ it('reads the packages and the apps from the root workspaces', () => {
 });
 
 it('lets an app, and only an app, read env, print and use the terminal', () => {
-  const offInApps = ['harness/no-process-env', 'harness/no-terminal-io', 'no-console'];
-
-  expect(BASELINE).toEqual(expect.arrayContaining(offInApps));
-  expect(APP_BASELINE.filter((rule) => offInApps.includes(rule))).toEqual([]);
+  expect(BASELINE).toEqual(expect.arrayContaining(APP_ONLY_RULES));
+  expect(APP_BASELINE.filter((rule) => APP_ONLY_RULES.includes(rule))).toEqual([]);
 });
 
 it('gets the harness rules from the shared config alone', () => {
@@ -115,6 +137,31 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
         `${name} turns off shared rules. Keep them on; a justified exception is a files: override with a reason, on the files it is for.`,
       ).toEqual([]);
     });
+
+    // A package is a library: env comes in as options, and only an app prints or uses the
+    // terminal. Checked on every source file, so a `files:` override can't carve one out.
+    // Tooling (the ESLint config) and test-only packages never run inside the harness.
+    it.skipIf(isApp(dir) || isTestOnly(dir) || isTooling(dir))(
+      'keeps env, the terminal and printing out of every source file',
+      async () => {
+        const eslint = new ESLint({ cwd: dir });
+        const files = sourceFiles(path.join(dir, 'src'));
+        const off = [];
+
+        for (const file of files) {
+          const { rules } = await eslint.calculateConfigForFile(file);
+
+          for (const rule of APP_ONLY_RULES) {
+            if (!isOn(rules[rule])) off.push(`${path.relative(dir, file)}: ${rule}`);
+          }
+        }
+
+        expect(
+          off,
+          `${name} turns these off for some files. Only an app reads env or does terminal I/O: take the value as an option, and let the app pass it in.`,
+        ).toEqual([]);
+      },
+    );
 
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};

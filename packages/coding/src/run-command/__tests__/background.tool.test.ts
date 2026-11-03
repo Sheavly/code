@@ -8,6 +8,7 @@ import { until } from '@sheavly/testing/wait/until.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const signal = new AbortController().signal;
@@ -24,7 +25,12 @@ function setup() {
 
   return {
     run: toolRunner([
-      createRunCommandTool({ workspace: temp.workspace, skipAllowList: true, tasks }),
+      createRunCommandTool({
+        processes: testProcesses(),
+        workspace: temp.workspace,
+        skipAllowList: true,
+        tasks,
+      }),
       ...createTaskTools(tasks),
     ]),
   };
@@ -79,7 +85,11 @@ describe('background run_command', () => {
   });
 
   it('is refused when the harness has no task registry', async () => {
-    const tool = createRunCommandTool({ workspace: temp.workspace, skipAllowList: true });
+    const tool = createRunCommandTool({
+      processes: testProcesses(),
+      workspace: temp.workspace,
+      skipAllowList: true,
+    });
 
     tasks = new TaskRegistry();
     const result = await runTool({
@@ -98,7 +108,11 @@ describe('background run_command', () => {
 
   it('still applies the allow list', async () => {
     tasks = new TaskRegistry();
-    const tool = createRunCommandTool({ workspace: temp.workspace, tasks });
+    const tool = createRunCommandTool({
+      processes: testProcesses(),
+      workspace: temp.workspace,
+      tasks,
+    });
     const result = await runTool({
       tools: [tool],
       call: {

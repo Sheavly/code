@@ -4,6 +4,7 @@ import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helpe
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
@@ -17,17 +18,17 @@ import { TRUST_STORE_PATH } from './coding.constants.js';
 import { createHarness } from '@sheavly/host/host/host.helper';
 
 /**
- * The user's workspace trust store: `SHEAVLY_TRUST_FILE`, or `trusted-workspaces.json` under
- * `$XDG_CONFIG_HOME/sheavly` (default `~/.config/sheavly`). Outside every repo, so a repo can't
- * trust itself. Shared by every coding host.
+ * The user's workspace trust store, from an environment the app passes in (`process.env`):
+ * `SHEAVLY_TRUST_FILE`, or `trusted-workspaces.json` under `$XDG_CONFIG_HOME/sheavly` (default
+ * `~/.config/sheavly`). Outside every repo, so a repo can't trust itself. Shared by every app.
  */
-export function trustStoreFromEnv(): TrustStore {
+export function trustStoreFromEnv(env: Environment): TrustStore {
   // An empty variable (a blank line in .env) counts as not set.
   const set = (value: string | undefined) => (value === '' ? undefined : value);
-  const configHome = set(process.env.XDG_CONFIG_HOME) ?? path.join(os.homedir(), '.config');
+  const configHome = set(env.XDG_CONFIG_HOME) ?? path.join(os.homedir(), '.config');
 
   return new TrustStore({
-    file: set(process.env.SHEAVLY_TRUST_FILE) ?? path.join(configHome, ...TRUST_STORE_PATH),
+    file: set(env.SHEAVLY_TRUST_FILE) ?? path.join(configHome, ...TRUST_STORE_PATH),
   });
 }
 
@@ -37,13 +38,13 @@ export function trustStoreFromEnv(): TrustStore {
  * file tools and the AGENTS.md hook, not run_command or the `.sheavly` hooks.
  */
 export async function createCodingHarness(options: CodingHarnessOptions): Promise<CodingHarness> {
-  const { workspaceRoot, skipAllowList = false, provider, title, onModelCall } = options;
+  const { workspaceRoot, skipAllowList = false, provider, title, onModelCall, env } = options;
   const workspace = await Workspace.open(workspaceRoot);
   // A broken `.sheavly` hook stops the host here, with the file and the reason. An untrusted
   // workspace loads none: `projectTrust` says why, for the UI to show.
   const projectHooks = await loadProjectHooks({
     root: workspace.root,
-    trust: options.trustStore ?? trustStoreFromEnv(),
+    trust: options.trustStore,
     grant: options.trustWorkspace ?? false,
   });
   // run_command needs these before the harness exists; the harness then uses the same ones.
@@ -54,7 +55,7 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
   // and every sub-agent's copies share them, so edits to one file never overlap and every
   // command the harness started is stopped when it exits.
   const fileLocks = new FileLocks();
-  const processes = new ProcessRunner();
+  const processes = new ProcessRunner({ env });
   const fileTools = [
     createReadFileTool({ workspace }),
     createWriteFileTool({ workspace, fileLocks }),

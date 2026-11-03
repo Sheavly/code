@@ -14,10 +14,20 @@
     "domain": "generic"
   },
   "exports": {
-    "./*": {
-      "@sheavly/source": "./src/*.ts",
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./host/host.constants": {
+      "@sheavly/source": "./src/host/host.constants.ts",
+      "types": "./dist/host/host.constants.d.ts",
+      "default": "./dist/host/host.constants.js"
+    },
+    "./host/host.helper": {
+      "@sheavly/source": "./src/host/host.helper.ts",
+      "types": "./dist/host/host.helper.d.ts",
+      "default": "./dist/host/host.helper.js"
+    },
+    "./host/host.types": {
+      "@sheavly/source": "./src/host/host.types.ts",
+      "types": "./dist/host/host.types.d.ts",
+      "default": "./dist/host/host.types.js"
     }
   },
   "private": true,
