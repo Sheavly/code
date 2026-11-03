@@ -34,6 +34,17 @@ While idle it accepts messages, kept for its next prompt, but no status reports 
   way the loop ends the session with the run's outcome, and the `done` event carries its ref.
 - Tools get the calling session as `context.session`.
 
+## Conversations: one session across prompts
+
+A UI the user keeps talking to runs every prompt in the same main session. `createConversation`
+(`@sheavly/host`, see [a conversation across prompts](../../host/docs/harness.md#a-conversation-across-prompts))
+does it on this registry: each prompt's run uses `keepSession`, so the loop leaves the session
+`idle` when it finishes (however it ended) instead of ending it, and the next prompt `resume`s
+it. In between, messages sent to it wait for the next prompt, and its background tasks keep
+running and are reported then. The session ends only when the conversation closes, with how its
+last prompt ended. One prompt runs at a time: `resume` refuses a running session
+(`session_running`).
+
 ## Messages and steering
 
 Every session has an **inbox** in the registry, addressed by session id. A message waits there
