@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { streamAgent } from '../loop/stream-agent/stream-agent.helper.js';
+import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { HOST_MAX_TURNS } from '../host/host.constants.js';
 import { createCodingHarness, trustStoreFromEnv } from '../host/coding.helper.js';
 import type { ProviderSettings } from '../host/host.types.js';

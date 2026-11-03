@@ -320,7 +320,8 @@ Only two parts are written in `packages/eslint-config/src/layout.js`, on purpose
 
 `scripts/check-layout.mjs` holds the workspaces to it: each has a domain, is named
 `@sheavly/<folder>` (the root app keeps its name until #29), depends on no app, a generic one on
-no coding one, and on tooling or test-only ones only as dev dependencies; each has an
+no coding one (its tests neither), and on tooling or test-only ones only as dev dependencies
+(tests may use any workspace below, to drive the real code with); each has an
 `eslint.config.js` calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
 `rootDir: "src"`. TypeScript outside a workspace's `src/` fails, apart from what `NOT_SOURCE`
 lists with a reason. knip finds the workspaces itself, so `knip.json` lists only the root's

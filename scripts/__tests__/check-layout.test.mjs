@@ -122,9 +122,14 @@ describe('the layout check', () => {
         ),
       ],
     );
-    expect(problems(top({ devDependencies: { '@sheavly/base': '0' } }))).toEqual([
-      expect.stringContaining('only tooling and test-only workspaces may be'),
-    ]);
+    expect(
+      problems(
+        top({
+          dependencies: { '@sheavly/base': '0' },
+          devDependencies: { '@sheavly/harness': '0' },
+        }),
+      ),
+    ).toEqual([expect.stringContaining('@sheavly/harness as a dev dependency, an app')]);
   });
 
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {

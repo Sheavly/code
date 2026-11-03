@@ -20,7 +20,7 @@
 import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { z } from 'zod';
-import { streamAgent } from './loop/stream-agent/stream-agent.helper.js';
+import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { HOST_MAX_TURNS } from './host/host.constants.js';
 import { createCodingHarness, trustStoreFromEnv } from './host/coding.helper.js';
 import { providerFromEnv } from './host/host.helper.js';

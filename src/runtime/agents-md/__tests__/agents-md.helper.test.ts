@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { runAgent } from '../../../loop/stream-agent/stream-agent.helper.js';
+import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import {
   callOnceProvider,
   scriptedProvider,

@@ -2,7 +2,7 @@ import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook
 import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
-import { HookError } from '../../runtime/errors/hooks.errors.js';
+import { HookError } from '../errors/loop.errors.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { Message, ToolCall, ToolMessage } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';

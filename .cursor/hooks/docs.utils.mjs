@@ -20,7 +20,7 @@ const DOC_SOURCES = [
     doc: 'docs/hooks.md',
     sources: [
       /^packages\/core\/src\/hook\//,
-      /^src\/loop\/hooks\//,
+      /^packages\/loop\/src\/hooks\//,
       /^src\/runtime\/project-hooks\//,
       /^src\/runtime\/agents-md\//,
     ],
@@ -29,7 +29,7 @@ const DOC_SOURCES = [
   { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
   {
     doc: 'docs/overview.md',
-    sources: [/^packages\/(core|protocol)\/src\//, /^src\//, /^eslint\.config\.js$/],
+    sources: [/^packages\/[^/]+\/src\//, /^src\//, /^eslint\.config\.js$/],
   },
 ];
 

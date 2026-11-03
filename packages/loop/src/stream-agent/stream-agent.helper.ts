@@ -2,7 +2,7 @@ import { whenAborted } from '../abort/abort.utils.js';
 import { OrderedQueue } from '../queue/queue.service.js';
 import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
-import { StreamEndedError } from '../../runtime/errors/hooks.errors.js';
+import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';

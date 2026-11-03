@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { HookError } from '../../../runtime/errors/hooks.errors.js';
+import { HookError } from '../../errors/loop.errors.js';
 import {
   runAfterTurn,
   runBeforeTurn,

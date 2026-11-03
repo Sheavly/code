@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { runAgent } from '../../loop/stream-agent/stream-agent.helper.js';
+import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import {
   calls,

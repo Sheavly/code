@@ -1,9 +1,9 @@
 // The package's one public entry point (`main`). Inside src/, import from the defining file.
-export { runAgent, runSession, streamAgent } from './loop/stream-agent/stream-agent.helper.js';
-export type { AgentOptions, RunAgentOptions } from './loop/stream-agent/stream-agent.types.js';
+export { runAgent, runSession, streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
+export type { AgentOptions, RunAgentOptions } from '@sheavly/loop/stream-agent/stream-agent.types';
 export type * from '@sheavly/protocol/event/event.types';
-export { OrderedQueue } from './loop/queue/queue.service.js';
-export type { Sequenced } from './loop/queue/queue.types.js';
+export { OrderedQueue } from '@sheavly/loop/queue/queue.service';
+export type { Sequenced } from '@sheavly/loop/queue/queue.types';
 export { defineTool } from '@sheavly/core/tool/tool.utils';
 export { describeCall } from '@sheavly/core/tool/tool.validator';
 export type {

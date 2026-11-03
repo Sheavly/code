@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { runAgent } from '../../loop/stream-agent/stream-agent.helper.js';
+import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
