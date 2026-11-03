@@ -75,6 +75,7 @@ export function createRunCommandTool({
           command,
           description: context.description,
           callId: context.callId,
+          sessionId: context.session?.id,
           run: ({ signal: taskSignal, onOutput }) =>
             processes.run({ ...options, signal: taskSignal, onOutput }),
         });
