@@ -12,9 +12,22 @@ const harness = createHarness({ provider, title: prompt });
 // harness: { provider, sessions, mainSession, tasks, approvals }
 ```
 
-| Module  | What it holds                                                 |
-| ------- | ------------------------------------------------------------- |
-| `host/` | `createHarness`, and its `HarnessOptions` and `Harness` types |
+| Module          | What it holds                                                         |
+| --------------- | --------------------------------------------------------------------- |
+| `host/`         | `createHarness`, and its `HarnessOptions` and `Harness` types         |
+| `conversation/` | `createConversation`: one conversation across prompts, in one session |
+
+A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
+the history so far, in the same session, idle between prompts until `close`.
+
+```ts
+import { createConversation } from '@sheavly/host/conversation/conversation.helper';
+
+const conversation = createConversation({ harness, run: streamAgent, tools, hooks });
+
+for await (const event of conversation.send(prompt, { signal })) render(event);
+await conversation.close();
+```
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
 

@@ -35,6 +35,25 @@ for await (const event of streamAgent({
 
 Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists.
 
+## A conversation across prompts
+
+A UI the user keeps talking to wraps its harness in `createConversation({ harness, run: streamAgent,
+tools, hooks })` (`@sheavly/host/conversation/`). Every `send(prompt, { signal })` runs the next
+prompt on the history so far, in the harness's main session, and yields its events:
+
+- Between prompts the session is `idle` (a `session_idle` update, with how the prompt ended as
+  `lastOutcome`), and the next prompt resumes it (`session_resumed`); it never ends on its own.
+- A prompt sent while one runs is refused with a `SessionError` (`session_running`); steering a
+  running prompt is `sessions.send`.
+- Aborting `signal` stops that prompt with valid history, and the next continues from it. A prompt
+  whose run fails leaves the history as it was before it.
+- Background tasks outlive a prompt; those that finish meanwhile are reported at the next one.
+- `close()` ends the live conversation: it stops the running prompt, cancels background tasks (and
+  their processes) and ends the session. It deletes nothing: `messages` stays readable, and
+  `createConversation({ …, messages })` continues it in a new one.
+
+Keeping a conversation across process restarts (saving `messages`) is the UI's to do.
+
 ## Generic, and coding on top
 
 Generic code never needs a project on disk or a coding tool.
