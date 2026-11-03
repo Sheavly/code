@@ -1,7 +1,7 @@
 import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
 import type { Skill } from '@sheavly/workspace/skills/skills.types';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
-import type { ModelChoice } from '../harness/harness.types.js';
+import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ChatInput } from './chat.types.js';
 
 /**

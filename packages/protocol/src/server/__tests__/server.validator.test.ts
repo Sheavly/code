@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   answerApprovalRequestSchema,
+  conversationDetailsSchema,
   conversationsResponseSchema,
   sendPromptRequestSchema,
   serverErrorSchema,
   skillsResponseSchema,
   startConversationRequestSchema,
   streamQuerySchema,
+  switchModelRequestSchema,
 } from '../server.validator.js';
 
 describe('sendPromptRequestSchema', () => {
@@ -66,6 +68,28 @@ describe('the other requests', () => {
 });
 
 describe('the responses', () => {
+  it('describes a conversation’s run, with the models it can switch to', () => {
+    const model = { name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
+    const details = {
+      id: 'c1',
+      title: 'Chat',
+      session: 's1',
+      running: false,
+      startedAt: 1,
+      workspace: '/work',
+      model,
+      models: [model],
+      projectTrust: 'untrusted',
+      skipAllowList: false,
+    };
+
+    expect(conversationDetailsSchema.parse(details)).toEqual(details);
+    expect(conversationDetailsSchema.safeParse({ ...details, projectTrust: 'maybe' }).success).toBe(
+      false,
+    );
+    expect(switchModelRequestSchema.safeParse({ name: '' }).success).toBe(false);
+  });
+
   it('lists live conversations with what another UI needs to join one', () => {
     const summary = { id: 'c1', title: 'Chat', session: 's1', running: true, startedAt: 1 };
 

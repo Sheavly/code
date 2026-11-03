@@ -6,7 +6,8 @@ import type { AdapterRegistry } from '@sheavly/providers/registry/registry.servi
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { TRUST_STORE_PATH } from './harness.constants.js';
-import type { ModelChoice, ModelSwitch, ProviderSettings } from './harness.types.js';
+import type { ModelChoice } from '@sheavly/protocol/server/server.types';
+import type { ModelSwitch, ProviderSettings } from './harness.types.js';
 import { parseModelsEnv } from './models.validator.js';
 import { parseProviderEnv, parseRequestEnv } from './settings.validator.js';
 

@@ -36,6 +36,30 @@ export const conversationsResponseSchema = z.object({
   conversations: z.array(conversationSummarySchema),
 });
 
+/** A model a conversation can use: the name a UI switches with, its backend and deployment. */
+export const modelChoiceSchema = z.object({
+  name: z.string(),
+  adapter: z.string(),
+  model: z.string(),
+});
+
+/**
+ * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
+ * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
+ * whether the workspace's `.sheavly/` hooks run, and why not; `skipAllowList`, whether any shell
+ * command can run.
+ */
+export const conversationDetailsSchema = conversationSummarySchema.extend({
+  workspace: z.string(),
+  model: modelChoiceSchema,
+  models: z.array(modelChoiceSchema),
+  projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
+  skipAllowList: z.boolean(),
+});
+
+/** `PUT /conversations/:id/model`: switch to one of `models`, from the next model call on. */
+export const switchModelRequestSchema = z.object({ name: z.string().min(1) });
+
 /**
  * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in
  * it run those skills) or as `parts` (a UI; exactly the skills picked run). One or the other.
@@ -76,6 +100,7 @@ export const serverErrorCodeSchema = z.enum([
   'session_running',
   'unknown_skill',
   'unknown_approval',
+  'unknown_model',
   'internal',
 ]);
 

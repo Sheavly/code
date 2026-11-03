@@ -34,10 +34,12 @@ import {
 } from '../session/session.validator.js';
 import {
   answerApprovalRequestSchema,
+  conversationDetailsSchema,
   conversationIdSchema,
   conversationSummarySchema,
   conversationsResponseSchema,
   messagesResponseSchema,
+  modelChoiceSchema,
   sendPromptRequestSchema,
   serverErrorCodeSchema,
   serverErrorSchema,
@@ -45,10 +47,16 @@ import {
   startConversationRequestSchema,
   startConversationResponseSchema,
   streamQuerySchema,
+  switchModelRequestSchema,
 } from '../server/server.validator.js';
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
-import { taskIdSchema, taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
+import {
+  taskIdSchema,
+  taskInfoSchema,
+  taskStatusSchema,
+  taskUpdateSchema,
+} from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
 
 const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
@@ -76,6 +84,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     StreamEntry: streamEntrySchema,
     TaskStatus: taskStatusSchema,
     TaskInfo: taskInfoSchema,
+    TaskUpdate: taskUpdateSchema,
     ApprovalConcern: approvalConcernSchema,
     ApprovalOption: approvalOptionSchema,
     ApprovalRequest: approvalRequestSchema,
@@ -88,6 +97,9 @@ function contractSchemas(): Record<string, z.ZodType> {
     StartConversationResponse: startConversationResponseSchema,
     ConversationSummary: conversationSummarySchema,
     ConversationsResponse: conversationsResponseSchema,
+    ModelChoice: modelChoiceSchema,
+    ConversationDetails: conversationDetailsSchema,
+    SwitchModelRequest: switchModelRequestSchema,
     SendPromptRequest: sendPromptRequestSchema,
     StreamQuery: streamQuerySchema,
     AnswerApprovalRequest: answerApprovalRequestSchema,

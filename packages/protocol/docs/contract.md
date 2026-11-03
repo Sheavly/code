@@ -38,6 +38,8 @@ server validates with the same schemas a client imports:
 | --------------------------------------------- | -------------------------------------- | ---------------------------------- |
 | `GET /conversations`                          | none                                   | `ConversationsResponse`            |
 | `POST /conversations`                         | `StartConversationRequest`             | `StartConversationResponse`        |
+| `GET /conversations/:id`                      | none                                   | `ConversationDetails`              |
+| `PUT /conversations/:id/model`                | `SwitchModelRequest`                   | nothing (`204`)                    |
 | `POST /conversations/:id/prompts`             | `SendPromptRequest`: `text` or `parts` | that prompt's `StreamEntry`s (SSE) |
 | `QUERY /conversations/:id/stream`             | `StreamQuery`, and `Last-Event-ID`     | `StreamEntry`s (SSE)               |
 | `POST /conversations/:id/approvals/:approval` | `AnswerApprovalRequest`                | nothing (`204`)                    |
