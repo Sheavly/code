@@ -1,0 +1,1075 @@
+{
+  "openapi": "3.2.0",
+  "info": { "title": "Sheavly harness", "version": "0.0.0" },
+  "paths": {
+    "/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "summary": "Every live conversation, oldest first",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConversationsResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startConversation",
+        "summary": "Start a conversation, empty or continuing saved messages",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StartConversationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StartConversationResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "What the run is: workspace, models, trust, the allow list",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConversationDetails" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "closeConversation",
+        "summary": "Close it: its prompts, tasks and processes stop",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/model": {
+      "put": {
+        "operationId": "switchModel",
+        "summary": "Switch to one of its models, from the next model call",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SwitchModelRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/messages": {
+      "get": {
+        "operationId": "getMessages",
+        "summary": "The history so far, valid to continue from",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/MessagesResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/skills": {
+      "get": {
+        "operationId": "getSkills",
+        "summary": "The skills a prompt can run, for a / menu",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SkillsResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/prompts": {
+      "post": {
+        "operationId": "sendPrompt",
+        "summary": "Send the next prompt; its entries stream back, to the main session's done",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SendPromptRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-sent events, one `entry` per stream entry",
+            "content": {
+              "text/event-stream": { "itemSchema": { "$ref": "#/components/schemas/StreamEntry" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/stop": {
+      "post": {
+        "operationId": "stopPrompt",
+        "summary": "Stop the running prompt; history stays valid",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/approvals/{approval}": {
+      "post": {
+        "operationId": "answerApproval",
+        "summary": "Answer a waiting approval",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "approval", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AnswerApprovalRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{id}/stream": {
+      "query": {
+        "operationId": "streamConversation",
+        "summary": "Follow the whole conversation: every entry, filtered, while the client stays",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/StreamQuery" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Server-sent events, one `entry` per stream entry",
+            "content": {
+              "text/event-stream": { "itemSchema": { "$ref": "#/components/schemas/StreamEntry" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentEvent": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["seq"]
+          },
+          { "$ref": "#/components/schemas/AgentEventBody" }
+        ]
+      },
+      "AgentEventBody": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "text_delta" },
+              "text": { "type": "string" }
+            },
+            "required": ["type", "text"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "reasoning" },
+              "item": { "$ref": "#/components/schemas/ReasoningItem" }
+            },
+            "required": ["type", "item"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "tool_call_started" }
+            },
+            "required": ["call", "description", "type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "turn_end" },
+              "turn": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "stopReason": { "$ref": "#/components/schemas/TurnStopReason" }
+            },
+            "required": ["type", "turn", "stopReason"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "tool_batch" },
+              "calls": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/DescribedCall" }
+              }
+            },
+            "required": ["type", "calls"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "tool_result" },
+              "message": { "$ref": "#/components/schemas/Message" },
+              "durationMs": { "type": "number" },
+              "artifacts": {
+                "readOnly": true,
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ToolArtifact" }
+              }
+            },
+            "required": ["call", "description", "type", "message", "durationMs"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "task_running" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" },
+              "message": { "$ref": "#/components/schemas/Message" },
+              "durationMs": { "type": "number" }
+            },
+            "required": ["call", "description", "type", "task", "message", "durationMs"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "task_completed" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" }
+            },
+            "required": ["type", "task"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "message_received" },
+              "message": { "$ref": "#/components/schemas/InboxMessage" }
+            },
+            "required": ["type", "message"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "context_added" },
+              "hook": { "type": "string" },
+              "content": { "type": "string" }
+            },
+            "required": ["type", "hook", "content"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "hook_failed" },
+              "hook": { "type": "string" },
+              "handler": { "type": "string" },
+              "error": { "type": "string" }
+            },
+            "required": ["type", "hook", "handler", "error"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "done" },
+              "reason": { "$ref": "#/components/schemas/DoneReason" },
+              "session": { "$ref": "#/components/schemas/SessionRef" },
+              "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+            },
+            "required": ["type", "reason", "session", "messages"]
+          }
+        ]
+      },
+      "EntryEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "text_delta" },
+              "text": { "type": "string" }
+            },
+            "required": ["seq", "type", "text"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "reasoning" },
+              "item": { "$ref": "#/components/schemas/ReasoningItem" }
+            },
+            "required": ["seq", "type", "item"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "tool_call_started" }
+            },
+            "required": ["seq", "call", "description", "type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "turn_end" },
+              "turn": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "stopReason": { "$ref": "#/components/schemas/TurnStopReason" }
+            },
+            "required": ["seq", "type", "turn", "stopReason"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "tool_batch" },
+              "calls": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/DescribedCall" }
+              }
+            },
+            "required": ["seq", "type", "calls"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "tool_result" },
+              "message": { "$ref": "#/components/schemas/Message" },
+              "durationMs": { "type": "number" },
+              "artifacts": {
+                "readOnly": true,
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ToolArtifact" }
+              }
+            },
+            "required": ["seq", "call", "description", "type", "message", "durationMs"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "call": { "$ref": "#/components/schemas/ToolCall" },
+              "description": { "type": "string" },
+              "type": { "type": "string", "const": "task_running" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" },
+              "message": { "$ref": "#/components/schemas/Message" },
+              "durationMs": { "type": "number" }
+            },
+            "required": ["seq", "call", "description", "type", "task", "message", "durationMs"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "task_completed" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" }
+            },
+            "required": ["seq", "type", "task"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "message_received" },
+              "message": { "$ref": "#/components/schemas/InboxMessage" }
+            },
+            "required": ["seq", "type", "message"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "context_added" },
+              "hook": { "type": "string" },
+              "content": { "type": "string" }
+            },
+            "required": ["seq", "type", "hook", "content"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "hook_failed" },
+              "hook": { "type": "string" },
+              "handler": { "type": "string" },
+              "error": { "type": "string" }
+            },
+            "required": ["seq", "type", "hook", "handler", "error"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "done" },
+              "reason": { "$ref": "#/components/schemas/DoneReason" },
+              "session": { "$ref": "#/components/schemas/SessionRef" }
+            },
+            "required": ["seq", "type", "reason", "session"]
+          }
+        ]
+      },
+      "DescribedCall": {
+        "type": "object",
+        "properties": {
+          "call": { "$ref": "#/components/schemas/ToolCall" },
+          "description": { "type": "string" }
+        },
+        "required": ["call", "description"]
+      },
+      "DoneReason": { "type": "string", "enum": ["completed", "interrupted", "max_turns"] },
+      "ToolArtifact": {
+        "type": "object",
+        "properties": { "kind": { "type": "string" } },
+        "required": ["kind"],
+        "additionalProperties": {}
+      },
+      "Message": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "const": "user" },
+              "content": { "type": "string" },
+              "parts": { "type": "array", "items": { "$ref": "#/components/schemas/PromptPart" } }
+            },
+            "required": ["role", "content"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "const": "assistant" },
+              "content": { "type": "string" },
+              "toolCalls": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ToolCall" }
+              },
+              "reasoning": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ReasoningItem" }
+              }
+            },
+            "required": ["role", "content", "toolCalls"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "const": "tool" },
+              "toolCallId": { "$ref": "#/components/schemas/CallId" },
+              "content": { "type": "string" },
+              "isError": { "type": "boolean" }
+            },
+            "required": ["role", "toolCallId", "content", "isError"]
+          }
+        ]
+      },
+      "PromptPart": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "text" },
+              "text": { "type": "string" }
+            },
+            "required": ["type", "text"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "skill" },
+              "name": { "$ref": "#/components/schemas/SkillName" }
+            },
+            "required": ["type", "name"]
+          }
+        ]
+      },
+      "ToolCall": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/CallId" },
+          "name": { "type": "string" },
+          "input": {}
+        },
+        "required": ["id", "name", "input"]
+      },
+      "ReasoningItem": {
+        "type": "object",
+        "properties": { "source": { "type": "string" }, "data": {} },
+        "required": ["source", "data"]
+      },
+      "TurnStopReason": {
+        "type": "string",
+        "enum": ["end_turn", "tool_use", "max_tokens", "interrupted"]
+      },
+      "SessionRef": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/SessionId" },
+          "parentId": { "$ref": "#/components/schemas/SessionId" },
+          "rootId": { "$ref": "#/components/schemas/SessionId" },
+          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["id", "rootId", "depth"]
+      },
+      "SessionState": {
+        "type": "string",
+        "enum": ["running", "idle", "completed", "interrupted", "max_turns", "failed"]
+      },
+      "RunOutcome": {
+        "type": "string",
+        "enum": ["completed", "interrupted", "max_turns", "failed"]
+      },
+      "SessionInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/SessionId" },
+          "parentId": { "$ref": "#/components/schemas/SessionId" },
+          "rootId": { "$ref": "#/components/schemas/SessionId" },
+          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "state": { "$ref": "#/components/schemas/SessionState" },
+          "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+          "startedAt": { "type": "number" },
+          "endedAt": { "type": "number" }
+        },
+        "required": ["id", "rootId", "depth", "title", "state", "startedAt"]
+      },
+      "InboxMessage": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "anyOf": [
+              { "type": "string", "const": "user" },
+              { "$ref": "#/components/schemas/SessionId" }
+            ]
+          },
+          "content": { "type": "string" },
+          "sentAt": { "type": "number" }
+        },
+        "required": ["from", "content", "sentAt"]
+      },
+      "SessionUpdate": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_started" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_status" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_message" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" },
+              "message": { "$ref": "#/components/schemas/InboxMessage" }
+            },
+            "required": ["type", "session", "message"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_idle" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_resumed" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_ended" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
+          }
+        ]
+      },
+      "StreamEntry": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "kind": { "type": "string", "const": "event" },
+              "event": { "$ref": "#/components/schemas/EntryEvent" }
+            },
+            "required": ["seq", "sessionId", "kind", "event"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "kind": { "type": "string", "const": "update" },
+              "update": { "$ref": "#/components/schemas/SessionUpdate" }
+            },
+            "required": ["seq", "sessionId", "kind", "update"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "kind": { "type": "string", "const": "approval" },
+              "update": { "$ref": "#/components/schemas/ApprovalUpdate" }
+            },
+            "required": ["seq", "sessionId", "kind", "update"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "kind": { "type": "string", "const": "task" },
+              "update": { "$ref": "#/components/schemas/TaskUpdate" }
+            },
+            "required": ["seq", "sessionId", "kind", "update"]
+          }
+        ]
+      },
+      "TaskStatus": { "type": "string", "enum": ["running", "completed", "failed", "cancelled"] },
+      "TaskInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/TaskId" },
+          "callId": { "$ref": "#/components/schemas/CallId" },
+          "command": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/TaskStatus" },
+          "startedAt": { "type": "number" },
+          "endedAt": { "type": "number" },
+          "exitCode": {
+            "anyOf": [
+              { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+              { "type": "null" }
+            ]
+          },
+          "output": { "type": "string" },
+          "error": { "type": "string" }
+        },
+        "required": ["id", "command", "description", "status", "startedAt", "output"]
+      },
+      "TaskUpdate": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "task_started" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" }
+            },
+            "required": ["type", "task"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "task_ended" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" }
+            },
+            "required": ["type", "task"]
+          }
+        ]
+      },
+      "ApprovalConcern": {
+        "type": "object",
+        "properties": { "argument": { "type": "string" }, "reason": { "type": "string" } },
+        "required": ["argument", "reason"]
+      },
+      "ApprovalOption": { "type": "string", "enum": ["approve", "skip", "skip_with_message"] },
+      "ApprovalRequest": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ApprovalId" },
+          "callId": { "$ref": "#/components/schemas/CallId" },
+          "sessionId": { "$ref": "#/components/schemas/SessionId" },
+          "tool": { "type": "string" },
+          "command": { "type": "string" },
+          "concerns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ApprovalConcern" }
+          },
+          "options": {
+            "readOnly": true,
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ApprovalOption" }
+          }
+        },
+        "required": ["id", "callId", "tool", "command", "concerns", "options"]
+      },
+      "ApprovalResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": { "decision": { "type": "string", "const": "approve" } },
+            "required": ["decision"]
+          },
+          {
+            "type": "object",
+            "properties": { "decision": { "type": "string", "const": "skip" } },
+            "required": ["decision"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "decision": { "type": "string", "const": "skip_with_message" },
+              "message": { "type": "string", "minLength": 1 }
+            },
+            "required": ["decision", "message"]
+          }
+        ]
+      },
+      "ApprovalUpdate": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "approval_requested" },
+              "request": { "$ref": "#/components/schemas/ApprovalRequest" }
+            },
+            "required": ["type", "request"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "approval_resolved" },
+              "id": { "$ref": "#/components/schemas/ApprovalId" },
+              "response": { "$ref": "#/components/schemas/ApprovalResponse" }
+            },
+            "required": ["type", "id", "response"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "approval_cancelled" },
+              "id": { "$ref": "#/components/schemas/ApprovalId" }
+            },
+            "required": ["type", "id"]
+          }
+        ]
+      },
+      "SkillName": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+      "SkillScope": { "type": "string", "enum": ["project", "user", "built-in"] },
+      "SkillInfo": {
+        "type": "object",
+        "properties": {
+          "name": { "$ref": "#/components/schemas/SkillName" },
+          "description": { "type": "string" },
+          "manualOnly": { "type": "boolean" },
+          "scope": { "$ref": "#/components/schemas/SkillScope" }
+        },
+        "required": ["name", "description", "manualOnly", "scope"]
+      },
+      "StartConversationRequest": {
+        "type": "object",
+        "properties": {
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+        }
+      },
+      "StartConversationResponse": {
+        "type": "object",
+        "properties": { "id": { "$ref": "#/components/schemas/ConversationId" } },
+        "required": ["id"]
+      },
+      "ConversationSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "title": { "type": "string" },
+          "session": { "$ref": "#/components/schemas/SessionId" },
+          "running": { "type": "boolean" },
+          "startedAt": { "type": "number" }
+        },
+        "required": ["id", "title", "session", "running", "startedAt"]
+      },
+      "ConversationsResponse": {
+        "type": "object",
+        "properties": {
+          "conversations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConversationSummary" }
+          }
+        },
+        "required": ["conversations"]
+      },
+      "ModelChoice": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "adapter": { "type": "string" },
+          "model": { "type": "string" }
+        },
+        "required": ["name", "adapter", "model"]
+      },
+      "ConversationDetails": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "title": { "type": "string" },
+          "session": { "$ref": "#/components/schemas/SessionId" },
+          "running": { "type": "boolean" },
+          "startedAt": { "type": "number" },
+          "workspace": { "type": "string" },
+          "model": { "$ref": "#/components/schemas/ModelChoice" },
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/ModelChoice" } },
+          "projectTrust": {
+            "type": "string",
+            "enum": ["trusted", "untrusted", "changed", "no_hooks"]
+          },
+          "skipAllowList": { "type": "boolean" }
+        },
+        "required": [
+          "id",
+          "title",
+          "session",
+          "running",
+          "startedAt",
+          "workspace",
+          "model",
+          "models",
+          "projectTrust",
+          "skipAllowList"
+        ]
+      },
+      "SwitchModelRequest": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "minLength": 1 } },
+        "required": ["name"]
+      },
+      "SendPromptRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": { "text": { "type": "string", "minLength": 1 } },
+            "required": ["text"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "parts": {
+                "minItems": 1,
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/PromptPart" }
+              }
+            },
+            "required": ["parts"]
+          }
+        ]
+      },
+      "StreamQuery": {
+        "type": "object",
+        "properties": {
+          "session": { "$ref": "#/components/schemas/SessionId" },
+          "subtree": { "type": "boolean" },
+          "replay": { "type": "boolean" },
+          "approvals": { "type": "boolean" }
+        }
+      },
+      "AnswerApprovalRequest": {
+        "type": "object",
+        "properties": { "response": { "$ref": "#/components/schemas/ApprovalResponse" } },
+        "required": ["response"]
+      },
+      "MessagesResponse": {
+        "type": "object",
+        "properties": {
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+        },
+        "required": ["messages"]
+      },
+      "SkillsResponse": {
+        "type": "object",
+        "properties": {
+          "skills": { "type": "array", "items": { "$ref": "#/components/schemas/SkillInfo" } }
+        },
+        "required": ["skills"]
+      },
+      "ServerErrorCode": {
+        "type": "string",
+        "enum": [
+          "bad_request",
+          "unauthorized",
+          "not_found",
+          "session_running",
+          "unknown_skill",
+          "unknown_approval",
+          "unknown_model",
+          "internal"
+        ]
+      },
+      "ServerError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "$ref": "#/components/schemas/ServerErrorCode" },
+              "message": { "type": "string" }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["error"]
+      },
+      "SessionId": { "type": "string" },
+      "CallId": { "type": "string" },
+      "TaskId": { "type": "string" },
+      "ApprovalId": { "type": "string" },
+      "ConversationId": { "type": "string" }
+    },
+    "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }
+  },
+  "security": [{ "bearer": [] }]
+}

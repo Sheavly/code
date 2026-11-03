@@ -1,13 +1,20 @@
-// Writes the contract's JSON Schema (`npm run schema -w @sheavly/protocol`). The committed file is
-// checked against the schemas by `contract.utils.test.ts`, so rerun this after changing one.
+// Writes the contract's JSON Schema and the API's OpenAPI document (`npm run schema -w
+// @sheavly/protocol`). Both committed files are checked against the code by tests, so rerun this
+// after changing a schema or a route.
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { format, resolveConfig } from 'prettier';
+import { OPENAPI_FILE } from './src/api/api.constants.ts';
+import { openApiDocument } from './src/api/api.utils.ts';
 import { CONTRACT_SCHEMA_FILE } from './src/contract/contract.constants.ts';
 import { contractJsonSchema } from './src/contract/contract.utils.ts';
 
-const file = join(import.meta.dirname, CONTRACT_SCHEMA_FILE);
-const options = await resolveConfig(file);
-const json = await format(JSON.stringify(contractJsonSchema()), { ...options, filepath: file });
+for (const [name, document] of [
+  [CONTRACT_SCHEMA_FILE, contractJsonSchema()],
+  [OPENAPI_FILE, openApiDocument()],
+]) {
+  const file = join(import.meta.dirname, name);
+  const options = await resolveConfig(file);
 
-await writeFile(file, json);
+  await writeFile(file, await format(JSON.stringify(document), { ...options, filepath: file }));
+}
