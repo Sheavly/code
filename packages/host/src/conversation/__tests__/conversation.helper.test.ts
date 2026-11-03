@@ -1,13 +1,12 @@
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
+import { blockTool } from '@sheavly/runtime/testing/block-tool.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
@@ -24,17 +23,6 @@ const callTool = (id: string, name: string, input: Record<string, unknown> = {})
   toolCall({ id, name, input }),
   { type: 'done', stopReason: 'tool_use' },
 ];
-
-/** A tool that blocks until its run is aborted. */
-const block = defineTool({
-  name: 'block',
-  description: 'Blocks until aborted',
-  inputSchema: z.object({}),
-  execute: ({ signal }) =>
-    new Promise<string>((_, reject) => {
-      signal.addEventListener('abort', () => reject(new Error('aborted')));
-    }),
-});
 
 /** A conversation on a scripted model, recording every session update as `type:state`. */
 function setup(responses: StreamEvent[][], history: Message[] = [], hooks: Hook[] = []) {
@@ -55,7 +43,7 @@ function setup(responses: StreamEvent[][], history: Message[] = [], hooks: Hook[
   const conversation = createConversation({
     harness,
     run: streamAgent,
-    tools: [block, startTaskTool(harness.tasks)],
+    tools: [blockTool, startTaskTool(harness.tasks)],
     hooks,
     messages: history,
   });
