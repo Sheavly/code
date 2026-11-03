@@ -42,7 +42,9 @@ export function getEditedFilePath(toolInput) {
 export function isProjectSource(filePath) {
   const relative = path.relative(PROJECT_ROOT, filePath);
 
-  if (relative.startsWith('..') || path.isAbsolute(relative)) return false;
+  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    return false;
+  }
 
   return !/^(node_modules|dist|coverage)[/\\]/.test(relative);
 }
