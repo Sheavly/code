@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -24,5 +25,27 @@ describe('the quality gate', () => {
     expect(scripts.knip).not.toMatch(/--preprocessor|--no-exit-code/);
     expect(read('scripts/jscpd.mjs')).not.toMatch(/--baseline|--fail-on-new-clones/);
     expect(JSON.parse(read('.jscpd.json')).threshold).toBe(0);
+  });
+
+  // A test that only reads its own package.json repeats what the layout check already holds
+  // every workspace to (its name, its domain): it is a test count, not a check.
+  it('has no test that only checks its own manifest', () => {
+    const tests = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter((file) => /\/__tests__\/[^/]+\.test\.[cm]?[jt]s$/.test(file));
+    const manifestOnly = tests.filter((file) => {
+      const source = read(file);
+
+      return (
+        /package\.json/.test(source) &&
+        !/^import .* from '\.\.?\//m.test(source) &&
+        /toMatchObject\(\{ name:/.test(source)
+      );
+    });
+
+    expect(manifestOnly, 'The layout check covers a manifest; test the code instead').toEqual([]);
   });
 });

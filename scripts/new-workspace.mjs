@@ -9,8 +9,8 @@
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
-// The configs, a README and a first test are written as files: the test holds the workspace's
-// own manifest, so typecheck and the tests have something real to run from the first commit.
+// The configs and a README are written as files. No code or test is: the first module is the
+// author's, and until it lands the layout check says the workspace has no source.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -121,24 +121,6 @@ function tsconfigBuild(params) {
   )}\n`;
 }
 
-/**
- * A first test, so typecheck and the tests have something real to run: the workspace as the
- * layout reads it. Kept short: every workspace gets one, and jscpd counts longer copies.
- */
-function manifestTest(params) {
-  const { fullName, domain } = params;
-
-  return `import { readFileSync } from 'node:fs';
-import { expect, it } from 'vitest';
-
-const manifest: unknown = JSON.parse(readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'));
-
-it('is ${fullName}, created as a ${domain} workspace', () => {
-  expect(manifest).toMatchObject({ name: '${fullName}', sheavly: { domain: '${domain}' } });
-});
-`;
-}
-
 /** Every step that creates the workspace, in order: commands for npm, files for the rest. */
 function steps(params) {
   const { plan, root } = params;
@@ -187,10 +169,6 @@ function steps(params) {
     { file: `${dir}/tsconfig.json`, content: TSCONFIG },
     { file: `${dir}/tsconfig.build.json`, content: tsconfigBuild({ layout: plan.layout, entry }) },
     { file: `${dir}/README.md`, content: `# ${fullName}\n\n${description}\n` },
-    {
-      file: `${dir}/src/${path.posix.basename(dir)}/__tests__/manifest.test.ts`,
-      content: manifestTest({ fullName, domain: entry.domain }),
-    },
   ];
 }
 
@@ -263,7 +241,9 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   }
 
   await createWorkspace({ root, plan });
-  console.log(`Created ${plan.dir} (${plan.fullName}). Next: npm run check.`);
+  console.log(
+    `Created ${plan.dir} (${plan.fullName}). Next: its first module, ${plan.dir}/src/<module>/<module>.<kind>.ts, with its tests in <module>/__tests__/.`,
+  );
 
   for (const command of installCommands(plan)) {
     console.log(`With its first import of it: ${command}`);

@@ -27,15 +27,8 @@ function wellFormed(folder, manifest = {}) {
 
 function repo(overrides = {}) {
   const files = {
-    'package.json': json({
-      name: '@sheavly/harness',
-      workspaces: ['packages/*'],
-      sheavly: { domain: 'coding' },
-      dependencies: { '@sheavly/top': '0' },
-    }),
+    'package.json': json({ name: 'monorepo', workspaces: ['packages/*', 'apps/*'] }),
     'eslint.config.js': ESLINT,
-    'tsconfig.json': json({ extends: './tsconfig.base.json', compilerOptions: { rootDir: 'src' } }),
-    'src/main.ts': 'export {};\n',
     ...wellFormed('base'),
     ...wellFormed('lint', { sheavly: { domain: 'tooling' } }),
     ...wellFormed('top', {
@@ -52,10 +45,8 @@ function repo(overrides = {}) {
   };
 }
 
-// This repo's split-app layers don't apply to a temp repo: its root app has none.
-const NO_LAYERS = { dir: '.', layers: {} };
 const problems = (overrides, notSource = {}) =>
-  findLayoutProblems({ ...repo(overrides), notSource, splitApp: NO_LAYERS });
+  findLayoutProblems({ ...repo(overrides), notSource });
 
 describe('the layout check', () => {
   it('passes workspaces that hold together', () => {
@@ -70,6 +61,12 @@ describe('the layout check', () => {
       }),
     ).toEqual([
       expect.stringContaining('@sheavly/stray has no domain: run `npm pkg set sheavly.domain='),
+    ]);
+  });
+
+  it('fails a workspace with no source of its own, and says what to add', () => {
+    expect(problems({ 'packages/base/src/base/base.utils.ts': null })).toEqual([
+      expect.stringContaining('packages/base: has no source yet. Add its first module'),
     ]);
   });
 
@@ -123,13 +120,17 @@ describe('the layout check', () => {
       ],
     );
     expect(
-      problems(
-        top({
+      problems({
+        ...top({
           dependencies: { '@sheavly/base': '0' },
-          devDependencies: { '@sheavly/harness': '0' },
+          devDependencies: { '@sheavly/cli': '0' },
         }),
-      ),
-    ).toEqual([expect.stringContaining('@sheavly/harness as a dev dependency, an app')]);
+        'apps/cli/package.json': json({ name: '@sheavly/cli', sheavly: { domain: 'coding' } }),
+        'apps/cli/eslint.config.js': ESLINT,
+        'apps/cli/tsconfig.json': TSCONFIG,
+        'apps/cli/src/main.ts': 'export {};\n',
+      }),
+    ).toEqual([expect.stringContaining('@sheavly/cli as a dev dependency, an app')]);
   });
 
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {

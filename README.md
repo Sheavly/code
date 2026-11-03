@@ -291,10 +291,10 @@ npm run new -- app <name> --domain <generic|coding|tooling> --description "…" 
 It checks each `--depends-on` against the graph first and refuses one it doesn't allow (an app,
 coding from generic, a tooling workspace), then creates `packages/<name>` or `apps/<name>` through
 `npm init -w` and `npm pkg set` (adding `apps/*` to the root `workspaces` the first time), with its
-`eslint.config.js`, `tsconfig.json`, `tsconfig.build.json`, a README and a first test. An allowed
+`eslint.config.js`, `tsconfig.json`, `tsconfig.build.json` and a README, and no code: the layout
+check fails it until its first module lands, so no workspace stays empty. An allowed
 dependency is installed with its first import (the scaffold prints the `npm install` command):
-installed earlier, nothing would import it and knip would fail. The new workspace passes
-`npm run check` as it is.
+installed earlier, nothing would import it and knip would fail.
 
 The layout is read from the workspaces, never listed by hand: which workspaces exist from the
 root `package.json` `workspaces`, package or app from the folder (`packages/*`, `apps/*`), the graph from each workspace's own `dependencies` (`devDependencies` for its
