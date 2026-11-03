@@ -47,10 +47,15 @@
     },
     "./testing/*": {
       "@sheavly/source": "./src/testing/*.ts"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
     }
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "skills"
   ]
 }
