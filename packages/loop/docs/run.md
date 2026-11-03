@@ -32,6 +32,10 @@ history stays valid. If the run fails, `onError` hooks are told and the error is
 model call that fails after it started tools (a cut-off stream, an error event) first stops those
 tools and emits their results, so every `tool_call_started` is answered, then fails the run.
 
+When the run is over its session ends with the outcome (`completed`, `interrupted`, `max_turns`,
+`failed`). With `keepSession: true` it goes idle instead, keeping the outcome as `lastOutcome`, so
+a conversation's next prompt can resume it; the host ends it when the conversation closes.
+
 ## Hook order
 
 - Hooks run in the order given. Every handler runs one after another, except `aroundToolCall`,
