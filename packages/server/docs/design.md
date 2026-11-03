@@ -102,10 +102,27 @@ A prompt that can't start is answered with an error before its stream opens.
 
 ## The typed client
 
-`createServerClient({ url, token })` is Hono's `hc<ServerApp>`: each route's request and response
-is typed from the routes themselves, so a TypeScript UI can't send a wrong body. SSE answers are
-read with `readEntries(response.body)` (`client/entries.helper`): each `entry` frame, parsed with
-`streamEntrySchema`, skipping heartbeats.
+`createServerClient({ url, token })` is built from the API's routes (`API_ROUTES`,
+`@sheavly/protocol/api/`), the same table the server's routes follow, so the two can't drift
+apart without a type error. Each route is one call by name, its path params and body typed from
+the contract's schemas, `QUERY` included:
+
+```ts
+const client = createServerClient({ url, token });
+const { id } = await client.call('startConversation', { body: {} });
+const { skills } = await client.call('querySkills', { id, body: { search: 'review' } });
+
+for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' } })) render(entry);
+```
+
+`call` parses each JSON answer with its route's schema, so ids keep their brands and an answer off
+the contract throws `ServerAnswerError`; a refused request throws `ServerRefusedError`, with the
+server's `code`. `stream` reads a route's server-sent events as entries (`readEntries`, each frame
+parsed with `streamEntrySchema`, heartbeats skipped), and `open` hands back the raw stream to save.
+
+A client in another language reads `openapi.json` (`@sheavly/protocol`), written from the same
+table. It isn't generated into this package: the generators don't yet read OpenAPI 3.2's `QUERY`
+or its stream `itemSchema`, which three of the routes use.
 
 ## Hosting it elsewhere
 

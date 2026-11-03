@@ -27,6 +27,10 @@
     },
     "./testing/*": {
       "@sheavly/source": "./src/testing/*.ts"
+    },
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
     }
   },
   "files": [

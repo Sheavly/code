@@ -1,6 +1,5 @@
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { ServerErrorCode } from '@sheavly/protocol/server/server.types';
-import type { createServerApp } from './server.helper.js';
 
 /** What the server serves, from the app that starts it. It reads no settings itself. */
 export type ServerOptions = {
@@ -9,9 +8,6 @@ export type ServerOptions = {
   /** Every request must carry it (`Authorization: Bearer <token>`). Never logged. */
   token: string;
 };
-
-/** The routes as one Hono app: what `hc<ServerApp>` (the typed client) is built from. */
-export type ServerApp = ReturnType<typeof createServerApp>;
 
 /** A failure, as the server answers it: an HTTP status and one of the protocol's codes. */
 export type ServerFailure = {

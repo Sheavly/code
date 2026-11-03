@@ -122,34 +122,26 @@ describe('over real HTTP, with the typed client', () => {
   it('starts a conversation, streams a prompt over QUERY and SSE, and reads the history', async () => {
     const url = await listen();
     const client = createServerClient({ url, token: TEST_TOKEN });
-    const started = await client.conversations.$post({ json: {} });
-    const { id } = await started.json();
+    const { id } = await client.call('startConversation', { body: {} });
 
     // The stream is opened first: it sees the prompt's entries as they happen, over the socket.
-    const stream = await client.conversations[':id'].stream.$query({ param: { id }, json: {} });
-    const prompted = await client.conversations[':id'].prompts.$post({
-      param: { id },
-      json: { text: 'hi' },
-    });
+    const stream = await client.open('streamConversation', { id, body: {} });
     const answered: string[] = [];
     const streamed: string[] = [];
 
-    for await (const { entry } of readEntries(prompted.body)) {
+    for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' } })) {
       if (entry.kind === 'event' && entry.event.type === 'text_delta') {
         answered.push(entry.event.text);
       }
     }
 
-    for await (const { entry } of readEntries(stream.body)) {
+    for await (const { entry } of readEntries(stream)) {
       streamed.push(entry.kind === 'event' ? entry.event.type : entry.update.type);
       if (streamed.includes('done')) break;
     }
 
-    const history = await (
-      await client.conversations[':id'].messages.$get({ param: { id } })
-    ).json();
+    const history = await client.call('getMessages', { id });
 
-    expect(started.status).toBe(201);
     expect(answered).toEqual(['hello']);
     expect(streamed).toContain('text_delta');
     expect(history.messages.map((message) => message.content)).toEqual(['hi', 'hello']);
@@ -159,32 +151,51 @@ describe('over real HTTP, with the typed client', () => {
     const url = await listen();
     const editor = createServerClient({ url, token: TEST_TOKEN });
     const agentWindow = createServerClient({ url, token: TEST_TOKEN });
-    const { id } = await (await editor.conversations.$post({ json: {} })).json();
-    const listed = await (await agentWindow.conversations.$get()).json();
+    const { id } = await editor.call('startConversation', { body: {} });
+    const listed = await agentWindow.call('listConversations', {});
     const found = listed.conversations.find((conversation) => conversation.id === id);
 
     if (!found) throw new Error('the agent window doesn’t see the editor’s conversation');
     expect(found).toMatchObject({ id, running: false });
 
     // The agent window follows the main session; the editor sends the prompt.
-    const stream = await agentWindow.conversations[':id'].stream.$query({
-      param: { id },
-      json: { session: found.session },
+    const stream = await agentWindow.open('streamConversation', {
+      id,
+      body: { session: found.session },
     });
 
-    for await (const _frame of readEntries(
-      (await editor.conversations[':id'].prompts.$post({ param: { id }, json: { text: 'hi' } }))
-        .body,
-    ));
+    for await (const _entry of editor.stream('sendPrompt', { id, body: { text: 'hi' } }));
 
     const seen: string[] = [];
 
-    for await (const { entry } of readEntries(stream.body)) {
+    for await (const { entry } of readEntries(stream)) {
       if (entry.kind === 'event' && entry.event.type === 'text_delta') seen.push(entry.event.text);
       if (entry.kind === 'event' && entry.event.type === 'done') break;
     }
 
     expect(seen).toEqual(['hello']);
+  });
+
+  it('refuses a request with the server’s code, and an answer off the contract loudly', async () => {
+    const url = await listen();
+    const client = createServerClient({ url, token: TEST_TOKEN });
+    const { id } = await client.call('startConversation', { body: {} });
+
+    await expect(client.send('switchModel', { id, body: { name: 'huge' } })).rejects.toMatchObject({
+      name: 'ServerRefusedError',
+      status: 422,
+      code: 'unknown_model',
+    });
+    // A server that answers something else than the route's schema says: caught at the client.
+    const drifted = createServerClient({
+      url,
+      token: TEST_TOKEN,
+      fetch: async () => Response.json({ messages: 'not a list' }),
+    });
+
+    await expect(drifted.call('getMessages', { id })).rejects.toMatchObject({
+      name: 'ServerAnswerError',
+    });
   });
 
   it('refuses a request without the token over the network too', async () => {
