@@ -75,16 +75,26 @@ start (`/git submit`), in the middle (`please /review this PR`) or at the end (`
 then /git`). A message can mention several. A mention stands on its own, so paths and URLs such
 as `/usr/bin` or `https://x.dev/git` are never one.
 
-A UI that supports this passes every message to `skillRequest({ root, home, text })`. The
+A UI that supports this passes every prompt to `skillRequest({ root, home, prompt })`. The
 terminal chat and the workbook do; the demo sends its one prompt as it is, so its model only
-sees the skills list. `skillRequest` returns:
+sees the skills list. `prompt` is the protocol's `SendPromptRequest`, one of:
 
-- `text`: the message to send. When it mentions skills, that is each skill's instructions, then
-  the message as the user typed it. Otherwise it is the message unchanged.
-- `skills`: the skills it ran, in the order they are mentioned. It runs `disable-model-invocation`
-  skills too, because the user asked for them.
-- `unknown`: mentions no skill has. They stay in the text as typed. A UI may report one the
-  message starts with as an unknown command, as the terminal chat does, so a typo isn't sent.
+- `{ text }`, as a script or a plain input types it: each `/<name>` mention of a known skill runs
+  it, and an unknown one stays text.
+- `{ parts }`, as a UI with a `/` menu builds it: `[{ type: 'text', text }, { type: 'skill', name }]`.
+  Exactly the skills picked run, and a `/name` inside a text part stays text. A picked skill no
+  one has throws `UnknownSkillError`: the UI's list is stale.
+
+`skillRequest` returns:
+
+- `text`: the message to send. With skills, that is each skill's instructions, then what the
+  user typed (a skill part reads `/<name>`). Otherwise it is the text unchanged.
+- `parts`: with skills, what the user typed, for the history (`Message.parts`), so a UI shows the
+  skills as chips. From `text`, known mentions become skill parts.
+- `skills`: the skills it ran, in order. It runs `disable-model-invocation` skills too, because
+  the user asked for them.
+- `unknown`: mentions in `text` no skill has. A UI may report one the message starts with as an
+  unknown command, as the terminal chat does, so a typo isn't sent.
 
 ## Skills in a UI
 
@@ -96,7 +106,7 @@ same thing and what is highlighted is what runs. The UI only draws it:
 | `/` opens a menu of skills              | `findSkills({ root, home })`: each skill's name, description, `manualOnly` and scope. Read it when the menu opens, not per keystroke  |
 | Typing `/rev` narrows it                | `completeSkillMention({ text, cursor, skills })` (`skills.utils`): what was typed, the range a pick replaces, and the skills that fit |
 | `/review` is highlighted, `/nope` isn't | `findSkillMentions(text)` (`skills.utils`): each mention's name and range; highlight those whose name is in the list                  |
-| Enter runs it                           | `skillRequest({ root, home, text })`, which runs the same mentions                                                                    |
+| Enter runs it                           | `skillRequest({ root, home, prompt })`, which runs the same mentions                                                                  |
 
 `completeSkillMention` offers every skill for a bare `/`, names starting with what was typed
 first, then names containing it. It offers user-only skills too, since the user runs them. A UI

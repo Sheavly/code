@@ -99,7 +99,7 @@ export async function runWorkbook(params: {
     // Skills the prompt mentions (`/<name>` anywhere in it) run with it, as in the chat.
     const sent = await skillRequest({
       ...harness.skills,
-      text: request.text,
+      prompt: { text: request.text },
       signal: interrupt.signal,
     });
 

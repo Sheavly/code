@@ -28,7 +28,7 @@ and a new package only when nothing that exists owns it.
 | [`@sheavly/runtime`](../../../packages/runtime/README.md)             | generic     | The stateful services a run uses: sessions, background tasks and approvals. Nothing about files or code.                                                 | `core`, `protocol`                                                                         |
 | [`@sheavly/testing`](../../../packages/testing/README.md)             | test-only   | Test fakes every workspace's tests share: scripted and routed providers, fake fetch, a tool runner. Tests and fakes only.                                | `core`, `protocol`                                                                         |
 | [`@sheavly/tools`](../../../packages/tools/README.md)                 | generic     | The generic tools a UI can include: sub-agents (start_agent, message_agent, report_status) and the background task tools. No files, no commands.         | `core`, `protocol`, `runtime`                                                              |
-| [`@sheavly/workspace`](../../../packages/workspace/README.md)         | coding      | A project on disk, for coding UIs: path confinement, file locks, the process runner, workspace trust, .sheavly/ project hooks and the AGENTS.md hook.    | `core`, `runtime`                                                                          |
+| [`@sheavly/workspace`](../../../packages/workspace/README.md)         | coding      | A project on disk, for coding UIs: path confinement, file locks, the process runner, workspace trust, .sheavly/ project hooks and the AGENTS.md hook.    | `core`, `protocol`, `runtime`                                                              |
 
 <!-- packages:end -->
 

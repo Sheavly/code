@@ -139,7 +139,11 @@ async function send(text: string): Promise<void> {
   current = new AbortController();
 
   try {
-    const request = await skillRequest({ ...harness.skills, text, signal: current.signal });
+    const request = await skillRequest({
+      ...harness.skills,
+      prompt: { text },
+      signal: current.signal,
+    });
     const unknown =
       request.skills.length === 0 ? unknownCommand({ text, unknown: request.unknown }) : undefined;
 

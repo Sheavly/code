@@ -1,3 +1,4 @@
+import type { PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Skill, SkillCompletion, SkillMention } from './skills.types.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
 
@@ -194,4 +195,35 @@ export function formatSkillRequest(params: {
     'relative to its folder).';
 
   return `${intro}\n\n${sections.join('\n\n')}\n\n---\n\n${text}`;
+}
+
+/**
+ * `text` as parts: each mention of a skill in `known` becomes a skill part, everything else
+ * (unknown mentions included) stays text. What a typed message keeps for a UI to show as chips.
+ */
+export function partsOf(params: { text: string; known: ReadonlySet<string> }): PromptPart[] {
+  const { text, known } = params;
+  const parts: PromptPart[] = [];
+  let from = 0;
+
+  for (const mention of findSkillMentions(text)) {
+    if (!known.has(mention.name)) continue;
+    if (mention.start > from) parts.push({ type: 'text', text: text.slice(from, mention.start) });
+    parts.push({ type: 'skill', name: mention.name });
+    from = mention.end;
+  }
+
+  if (from < text.length) parts.push({ type: 'text', text: text.slice(from) });
+
+  return parts;
+}
+
+/** Parts as the text the model reads after the skills' instructions: each skill as `/<name>`. */
+export function textOf(parts: readonly PromptPart[]): string {
+  return parts.map((part) => (part.type === 'text' ? part.text : `/${part.name}`)).join('');
+}
+
+/** The skills `parts` names, in order, once each. */
+export function skillNamesOf(parts: readonly PromptPart[]): string[] {
+  return [...new Set(parts.flatMap((part) => (part.type === 'skill' ? [part.name] : [])))];
 }
