@@ -263,6 +263,30 @@
         }
       ]
     },
+    "StreamEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "sessionId": { "type": "string" },
+            "kind": { "type": "string", "const": "event" },
+            "event": { "$ref": "#/$defs/AgentEvent" }
+          },
+          "required": ["seq", "sessionId", "kind", "event"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "sessionId": { "type": "string" },
+            "kind": { "type": "string", "const": "update" },
+            "update": { "$ref": "#/$defs/SessionUpdate" }
+          },
+          "required": ["seq", "sessionId", "kind", "update"]
+        }
+      ]
+    },
     "TaskStatus": { "type": "string", "enum": ["running", "completed", "failed", "cancelled"] },
     "TaskInfo": {
       "type": "object",

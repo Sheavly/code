@@ -5,7 +5,7 @@ What is in the contract, what stays out, and how it is kept honest.
 ## What is in it
 
 `@sheavly/protocol` is the bottom layer: everything the harness sends a UI or accepts from one
-(`AgentEvent`, `SessionUpdate`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them),
+(`AgentEvent`, `SessionUpdate`, `StreamEntry`, `ApprovalUpdate`, `ApprovalResponse` and the types inside them),
 defined once as zod schemas. Every type is `z.infer` of its schema, so the TypeScript types and
 what goes over the wire can't drift. It depends on zod only; its `eslint.config.js` keeps the
 other workspace packages out.

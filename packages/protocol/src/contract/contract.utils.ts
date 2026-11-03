@@ -26,6 +26,7 @@ import {
   sessionStateSchema,
   sessionUpdateSchema,
 } from '../session/session.validator.js';
+import { streamEntrySchema } from '../stream/stream.validator.js';
 import { taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
 
@@ -48,6 +49,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     SessionInfo: sessionInfoSchema,
     InboxMessage: inboxMessageSchema,
     SessionUpdate: sessionUpdateSchema,
+    StreamEntry: streamEntrySchema,
     TaskStatus: taskStatusSchema,
     TaskInfo: taskInfoSchema,
     ApprovalConcern: approvalConcernSchema,
