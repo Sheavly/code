@@ -69,7 +69,7 @@ export const checkSchema = z
 /** `workbook/run-sources.json`: which changed files change what a run does. */
 export const runSourcesSchema = z.object({
   description: z.string().optional(),
-  /** Path prefixes (`src/runtime/`, a file such as `src/demo.ts`). */
+  /** Path prefixes (`packages/runtime/src/`, a file such as `apps/terminal/src/demo.ts`). */
   include: z.array(z.string().min(1)).min(1),
   /** Substrings that mark a file as a test or fake, never run source. */
   exclude: z.array(z.string().min(1)),

@@ -11,17 +11,11 @@ RuleTester.describe = describe;
 RuleTester.it = it;
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
-const SPLIT_APP = { dir: '.', layers: { a: ['@sheavly/base'], 'main.ts': ['a'] } };
 
-/** A repo whose workspaces are `packages` (folder → manifest fields), with a root app. */
-function repo(packages, app = { dependencies: { '@sheavly/base': '0' } }) {
+/** A monorepo whose workspaces are `packages` (folder → manifest fields). */
+function repo(packages) {
   return tempWorkspace({
-    'package.json': {
-      name: '@sheavly/app',
-      workspaces: ['packages/*', 'apps/*'],
-      sheavly: { domain: 'coding' },
-      ...app,
-    },
+    'package.json': { name: 'monorepo', workspaces: ['packages/*', 'apps/*'] },
     ...Object.fromEntries(
       Object.entries(packages).map(([dir, fields]) => [
         `${dir}/package.json`,
@@ -37,13 +31,14 @@ const root = repo({
   'packages/coding': { sheavly: { domain: 'coding' }, dependencies: { '@sheavly/base': '0' } },
   'packages/bare': {},
   'packages/upward': { ...generic, dependencies: { '@sheavly/coding': '0' } },
+  'apps/cli': { sheavly: { domain: 'coding' }, dependencies: { '@sheavly/coding': '0' } },
 });
 const at = (file) => path.join(root, file);
-const options = [{ root, splitApp: SPLIT_APP }];
+const options = [{ root }];
 
 describe('readLayout', () => {
   it('derives kind from the folder, dependsOn from package.json and domain from its sheavly field', () => {
-    const layout = readLayout({ root, splitApp: SPLIT_APP });
+    const layout = readLayout({ root });
 
     expect(layout['@sheavly/coding']).toEqual({
       dir: 'packages/coding',
@@ -53,11 +48,9 @@ describe('readLayout', () => {
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
     });
-    expect(layout['@sheavly/app']).toMatchObject({
-      dir: '.',
-      kind: 'app',
-      layers: SPLIT_APP.layers,
-    });
+    expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
+    // The root holds no source, so it is the monorepo around the workspaces, not one of them.
+    expect(layout.monorepo).toBeUndefined();
   });
 
   it('picks up a workspace added after the rule was written, with no edit anywhere else', () => {
@@ -82,11 +75,7 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
     valid: [
       { code: '', filename: at('packages/base/src/b/b.utils.ts'), options },
       { code: '', filename: at('packages/coding/src/c/c.utils.ts'), options },
-      {
-        code: '',
-        filename: at('src/main.ts'),
-        options,
-      },
+      { code: '', filename: at('apps/cli/src/main.ts'), options },
       // Outside every workspace: the layout check reports stray source.
       { code: '', filename: at('tools/gen.ts'), options },
     ],
@@ -104,13 +93,6 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
         filename: at('packages/upward/src/x/x.utils.ts'),
         options,
         errors: [{ messageId: 'broken' }],
-      },
-      // A new src/ folder, or root file, of the app being split that isn't one of its layers.
-      {
-        code: '',
-        filename: at('src/zz/zz.utils.ts'),
-        options,
-        errors: [{ messageId: 'newLayer' }],
       },
     ],
   },
@@ -134,11 +116,9 @@ describe('layoutProblems', () => {
     expect(layoutProblems({ '@x/p': pkg({}) })).toEqual([
       '@x/p must be named @sheavly/p, after its folder',
     ]);
-    // The root app isn't one of its own workspaces: npm takes no -w for it.
+    // A root that holds source is a workspace too; npm takes no -w for it.
     expect(
-      layoutProblems({
-        '@sheavly/app': { ...pkg({}), dir: '.', kind: 'app', domain: undefined, layers: {} },
-      }),
+      layoutProblems({ '@sheavly/app': { ...pkg({}), dir: '.', kind: 'app', domain: undefined } }),
     ).toEqual([
       '@sheavly/app has no domain: run `npm pkg set sheavly.domain=<generic|coding|tooling>`',
     ]);
@@ -179,23 +159,6 @@ describe('layoutProblems', () => {
     expect(layoutProblems(layout)).toEqual([
       '@sheavly/a is generic but its tests depend on @sheavly/coding, a coding workspace: they must run without a project',
       '@sheavly/a has @sheavly/cli as a dev dependency, an app: nothing imports an app',
-    ]);
-  });
-
-  it("fails a layer that imports what its app doesn't depend on, or no layer at all", () => {
-    const app = {
-      ...pkg({ name: 'app' }),
-      dir: '.',
-      kind: 'app',
-      domain: 'coding',
-      layers: { tools: ['@sheavly/other'], loop: ['tools', 'nowhere'] },
-    };
-
-    expect(
-      layoutProblems({ '@sheavly/other': pkg({ name: 'other' }), '@sheavly/app': app }),
-    ).toEqual([
-      "@sheavly/app's layer tools imports @sheavly/other, which @sheavly/app doesn't depend on",
-      "@sheavly/app's layer loop imports nowhere, which is neither a layer nor a workspace",
     ]);
   });
 });

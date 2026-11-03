@@ -55,12 +55,16 @@ const maxLinesPerKind = Object.entries(FILE_KIND_POLICIES).map(([kind, policy]) 
  * @param {object} params
  * @param {string} params.tsconfigRootDir The workspace directory: pass `import.meta.dirname`.
  * @param {string[]} [params.entryFiles] Files without a kind (an app's entry points).
- * @param {string[]} [params.frontEndFiles] The only files that may do terminal I/O (a UI). Empty
- *   by default: a workspace is a backend unless it names its front end here, in review.
+ *
+ * A workspace in `apps/` is a front end and a host: its source may talk to the terminal, print and
+ * read env. Every other workspace is a backend that emits typed events, so none of that is allowed
+ * there. Read from where the workspace is, so a new app needs no list and a package can't opt in.
  */
 export function baseConfig(params) {
-  const { tsconfigRootDir, entryFiles = [], frontEndFiles = [] } = params;
+  const { tsconfigRootDir, entryFiles = [] } = params;
   const testFiles = testFilesOf(tsconfigRootDir);
+  const isApp = path.basename(path.dirname(tsconfigRootDir)) === 'apps';
+  const frontEndFiles = isApp ? SOURCE_FILES : [];
 
   return defineConfig([
     globalIgnores(['dist/', 'coverage/', 'node_modules/']),
@@ -115,17 +119,21 @@ export function baseConfig(params) {
         'harness/single-definition': 'error',
         // Every workspace holds together as the layout reads it from the workspaces.
         'harness/layout': 'error',
-        // Imports follow the layout's graph and the split app's layers; tests are checked too.
+        // Imports follow the layout's graph; tests are checked too.
         'harness/imports': 'error',
       },
     },
 
-    // --- Backend only: no terminal I/O outside the front-end files a workspace names ---
+    // --- Backend only: no terminal I/O outside an app ---
     {
       files: SOURCE_FILES,
       ignores: [...frontEndFiles, ...testFiles],
       rules: { 'harness/no-terminal-io': 'error' },
     },
+    // --- An app: a host and a front end. It reads env and prints, which a backend never does ---
+    ...(isApp
+      ? [{ files: SOURCE_FILES, rules: { 'harness/no-process-env': 'off', 'no-console': 'off' } }]
+      : []),
 
     // --- Structure: `<name>.<kind>.ts`, each kind exports one shape, utils and validators stay pure ---
     {

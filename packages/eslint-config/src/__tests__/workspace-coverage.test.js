@@ -16,11 +16,6 @@ const BASE_CONFIG = pathToFileURL(path.join(import.meta.dirname, '..', 'base.js'
 /** A module file of a kind every rule applies to, in a folder no workspace special-cases. */
 const PROBE = 'src/zz-probe/zz-probe.utils.ts';
 const REQUIRED_SCRIPTS = ['typecheck', 'lint', 'test'];
-/** Scripts a workspace may lack, with why. Keep it short. */
-const MISSING_SCRIPT_EXCEPTIONS = {
-  // The app is the root package: turbo runs its `typecheck:root`, `lint:root` and `test:root`.
-  '.': ['typecheck', 'lint', 'test'],
-};
 
 function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
@@ -36,16 +31,18 @@ async function enabledRules(dir) {
     .sort();
 }
 
-/** A workspace that only calls `baseConfig`: what every workspace gets at the least. */
 /**
  * A workspace that only calls `baseConfig`: what every workspace gets at the least. A test-only
- * one (`sheavly.testOnly`, like `@sheavly/testing`) has the test rules on all its source.
+ * one (`sheavly.testOnly`, like `@sheavly/testing`) has the test rules on all its source; an app
+ * may read env, print and use the terminal.
  */
 async function baselineRules(params = {}) {
-  const { testOnly = false } = params;
-  const dir = mkdtempSync(path.join(tmpdir(), 'zz-synthetic-workspace-'));
+  const { testOnly = false, app = false } = params;
+  const parent = mkdtempSync(path.join(tmpdir(), 'zz-synthetic-workspace-'));
+  // An app is a workspace in an `apps/` folder: baseConfig reads that from where it is.
+  const dir = path.join(parent, app ? 'apps' : 'packages', 'zz');
 
-  mkdirSync(path.join(dir, 'src'));
+  mkdirSync(path.join(dir, 'src'), { recursive: true });
   writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
   writeFileSync(
     path.join(dir, 'package.json'),
@@ -60,13 +57,29 @@ async function baselineRules(params = {}) {
 }
 
 const isTestOnly = (dir) => readJson(path.join(dir, 'package.json')).sheavly?.testOnly === true;
+const isApp = (dir) => path.basename(path.dirname(dir)) === 'apps';
 const WORKSPACES = workspaceDirs(REPO_ROOT);
 const BASELINE = await baselineRules();
 const TEST_ONLY_BASELINE = await baselineRules({ testOnly: true });
+const APP_BASELINE = await baselineRules({ app: true });
 
-it('reads the app and at least one package from the root workspaces', () => {
-  expect(WORKSPACES).toContain(REPO_ROOT);
-  expect(WORKSPACES.length).toBeGreaterThan(1);
+/** What a workspace of this kind gets from the shared config alone. */
+function baselineFor(dir) {
+  if (isTestOnly(dir)) return TEST_ONLY_BASELINE;
+
+  return isApp(dir) ? APP_BASELINE : BASELINE;
+}
+
+it('reads the packages and the apps from the root workspaces', () => {
+  expect(WORKSPACES.some((dir) => isApp(dir))).toBe(true);
+  expect(WORKSPACES.some((dir) => !isApp(dir))).toBe(true);
+});
+
+it('lets an app, and only an app, read env, print and use the terminal', () => {
+  const offInApps = ['harness/no-process-env', 'harness/no-terminal-io', 'no-console'];
+
+  expect(BASELINE).toEqual(expect.arrayContaining(offInApps));
+  expect(APP_BASELINE.filter((rule) => offInApps.includes(rule))).toEqual([]);
 });
 
 it('gets the harness rules from the shared config alone', () => {
@@ -98,17 +111,16 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
       const enabled = new Set(await enabledRules(dir));
 
       expect(
-        (isTestOnly(dir) ? TEST_ONLY_BASELINE : BASELINE).filter((rule) => !enabled.has(rule)),
+        baselineFor(dir).filter((rule) => !enabled.has(rule)),
         `${name} turns off shared rules. Keep them on; a justified exception is a files: override with a reason, on the files it is for.`,
       ).toEqual([]);
     });
 
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};
-      const allowed = MISSING_SCRIPT_EXCEPTIONS[name] ?? [];
 
       expect(
-        REQUIRED_SCRIPTS.filter((script) => !scripts[script] && !allowed.includes(script)),
+        REQUIRED_SCRIPTS.filter((script) => !scripts[script]),
         'Add them like the other packages (`tsc --noEmit`, `eslint .`, `vitest run --config ../../vitest.config.ts`).',
       ).toEqual([]);
     });

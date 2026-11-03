@@ -86,18 +86,17 @@ describe('headers', () => {
     expect(checkHeader({ header: `fix: ${'a'.repeat(70)}`, scopes: SCOPES })[0]).toContain('72');
   });
 
-  it('reads scopes from the packages, apps and src/ folders', () => {
-    const root = createTempRepo({ 'packages/testing/package.json': '{}', 'src/loop/loop.ts': '' });
-
-    expect(listScopes(root)).toEqual(['loop', 'testing']);
+  it('reads scopes from the packages and apps folders', () => {
     expect(listScopes(REPO_ROOT)).toEqual(
-      expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools']),
+      expect.arrayContaining(['core', 'eslint-config', 'loop', 'testing', 'tools', 'workbook']),
     );
   });
 
-  it('reads an apps/ workspace as a scope', () => {
+  it('reads each workspace in packages/ and apps/ as a scope, and a folder with no manifest as none', () => {
     const root = createTempRepo({
+      'package.json': JSON.stringify({ workspaces: ['packages/*', 'apps/*'] }),
       'apps/cli/package.json': '{}',
+      'apps/vscode/README.md': '# not a workspace yet\n',
       'packages/core/package.json': '{}',
     });
 

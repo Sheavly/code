@@ -1,9 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "includeEntryExports": true,
+  // A type used in its own file's exported signatures (`Hook`'s `ToolCallContext`) is part of
+  // that API: a hook or tool author names it, even if nothing in the repo does.
+  "ignoreExportsUsedInFile": { "type": true },
   "workspaces": {
     ".": {
-      "includeEntryExports": false,
       "entry": [".cursor/hooks/*.mjs", "!.cursor/hooks/*.utils.mjs"],
       "ignore": ["workbook/workspaces/**"]
     }

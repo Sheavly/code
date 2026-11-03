@@ -8,7 +8,7 @@ const PARAMS_OBJECT_MESSAGE =
 const TERMINAL_MODULES = '/^(node:)?(readline|tty)(\\u002Fpromises)?$/';
 const STDIO = '/^(stdin|stdout|stderr)$/';
 const TERMINAL_IO_MESSAGE =
-  'No terminal I/O (node:readline, node:tty, process.stdin/stdout/stderr) outside the front-end files: the harness emits typed events and a UI renders them. A UI is built only when its issue asks for one; then add its files to `FRONT_END_FILES` in eslint.config.js, where review sees it.';
+  'No terminal I/O (node:readline, node:tty, process.stdin/stdout/stderr) outside an app: the harness emits typed events and a UI renders them. A UI is an app in apps/ (`npm run new -- app <name> …`), built only when its issue asks for one; a package that formats output takes a write function from the app instead.';
 
 export const SYNTAX_RULES = {
   'no-default-export': [
@@ -21,7 +21,7 @@ export const SYNTAX_RULES = {
     {
       selector: "MemberExpression[object.name='process'][property.name='env']",
       message:
-        'Read env only in a host (e.g. src/demo.ts) and pass values in as options; library code must not read process.env.',
+        'Read env only in an app (apps/*, e.g. apps/terminal/src/demo.ts) and pass values in as options; library code must not read process.env.',
     },
   ],
   // Only module-level functions: inline callbacks (`.map((x, i) => ...)`) and class methods
@@ -41,8 +41,8 @@ export const SYNTAX_RULES = {
         "No re-exports (barrels). Import from the defining `<name>.<kind>.ts` file, or a package's exported subpath (`@sheavly/core/tool/tool.utils`).",
     },
   ],
-  // The harness is a backend: it emits typed events and registries, and renders nothing. A
-  // workspace names its front-end files (`frontEndFiles` in `baseConfig`), the only ones exempt.
+  // The harness is a backend: it emits typed events and registries, and renders nothing. Only an
+  // app (a workspace in apps/) is exempt; `baseConfig` reads that from where it is.
   'no-terminal-io': [
     {
       selector: `ImportDeclaration[source.value=${TERMINAL_MODULES}], ImportExpression[source.value=${TERMINAL_MODULES}]`,

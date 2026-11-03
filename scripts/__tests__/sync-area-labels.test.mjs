@@ -27,8 +27,9 @@ function createGh(params) {
 
 const createRepo = () =>
   createTempRepo({
+    'package.json': JSON.stringify({ workspaces: ['packages/*', 'apps/*'] }),
     'packages/core/package.json': '{}',
-    'src/loop/loop.ts': '',
+    'apps/loop/package.json': '{}',
   });
 const IN_STEP = ['area/core', 'area/loop', 'area/tooling', 'security', 'documentation'];
 
@@ -61,12 +62,15 @@ describe('area label sync', () => {
       '--color',
       '1d76db',
       '--description',
-      'Commit scope loop: src/loop',
+      'Commit scope loop: apps/loop',
     ]);
   });
 
   it('names an app workspace after apps/', () => {
-    const repoRoot = createTempRepo({ 'apps/cli/package.json': '{}' });
+    const repoRoot = createTempRepo({
+      'package.json': JSON.stringify({ workspaces: ['apps/*'] }),
+      'apps/cli/package.json': '{}',
+    });
     const { gh, calls } = createGh({ labels: [] });
 
     expect(syncAreaLabels({ repoRoot, gh }).created).toContain('area/cli');

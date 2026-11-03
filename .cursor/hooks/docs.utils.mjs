@@ -34,10 +34,8 @@ const DOC_SOURCES = [
     ],
   },
   { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
-  {
-    doc: 'docs/overview.md',
-    sources: [/^packages\/[^/]+\/src\//, /^src\//, /^eslint\.config\.js$/],
-  },
+  { doc: 'workbook/README.md', sources: [/^apps\/workbook\/src\//] },
+  { doc: 'docs/overview.md', sources: [/^(packages|apps)\/[^/]+\/src\//] },
 ];
 
 const IS_TEST = /(^|\/)__tests__\/|\.test\.[cm]?[jt]s$/;

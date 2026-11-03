@@ -4,19 +4,18 @@
 // scaffold (`scripts/new-workspace.mjs`) all use it, so they can't disagree.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { NOT_SOURCE, SPLIT_APP } from './layout.js';
+import { NOT_SOURCE } from './layout.js';
 import { workspaceDirs } from './rules/workspace-types.js';
 
 /**
- * The options of the rules that read the layout: tests point them at a temp workspace (`root`),
- * a layout of their own, or another split app.
+ * The options of the rules that read the layout: tests point them at a temp workspace (`root`)
+ * or a layout of their own.
  */
 export const LAYOUT_RULE_OPTIONS = {
   type: 'object',
   properties: {
     root: { type: 'string' },
     layout: { type: 'object' },
-    splitApp: { type: 'object' },
   },
   additionalProperties: false,
 };
@@ -25,7 +24,7 @@ export const DOMAINS = ['generic', 'coding', 'tooling'];
 const SCOPE = '@sheavly/';
 const toPosix = (file) => file.split(path.sep).join('/');
 
-/** Every workspace on disk (the root app and each `workspaces` match): where it is and its manifest. */
+/** Every workspace on disk (each `workspaces` match): where it is and its manifest. */
 export function listWorkspaces(root) {
   return workspaceDirs(root).map((dir) => {
     const manifest = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
@@ -39,7 +38,7 @@ export function listWorkspaces(root) {
   });
 }
 
-/** `packages/*` is a package; `apps/*` and the root are apps. */
+/** `packages/*` is a package; `apps/*` (and a root with source) is an app. */
 function kindOf(relative) {
   return relative.startsWith('packages/') ? 'package' : 'app';
 }
@@ -53,10 +52,10 @@ function workspaceDeps(params) {
 /**
  * The layout, by workspace name, derived from the workspaces at `root`: `kind` from the folder,
  * `dependsOn` and `devDependsOn` from the manifest's dependencies on other workspaces, `domain`
- * and `testOnly` from its `sheavly` field, and the split app's `layers` from `SPLIT_APP`.
+ * and `testOnly` from its `sheavly` field.
  */
 export function readLayout(params) {
-  const { root, splitApp = SPLIT_APP } = params;
+  const { root } = params;
   const workspaces = listWorkspaces(root);
   const names = new Set(workspaces.map(({ name }) => name));
 
@@ -70,7 +69,6 @@ export function readLayout(params) {
         testOnly: manifest.sheavly?.testOnly === true,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
-        ...(relative === splitApp.dir ? { layers: splitApp.layers } : {}),
       },
     ]),
   );
@@ -83,13 +81,6 @@ export function workspaceOfFile(params) {
   return workspaces
     .filter(({ dir }) => file === dir || file.startsWith(`${dir}${path.sep}`))
     .sort((a, b) => b.dir.length - a.dir.length)[0];
-}
-
-/** A layer's entry, as `{ testOnly, dependsOn }` whether it was written as a list or an object. */
-export function layerEntry(entry) {
-  return Array.isArray(entry)
-    ? { testOnly: false, dependsOn: entry }
-    : { testOnly: false, ...entry };
 }
 
 /** npm's flag for the workspace at `dir`; none for the root, which isn't one of its workspaces. */
@@ -124,23 +115,6 @@ export function edgeProblem(params) {
   return null;
 }
 
-function layerProblems(params) {
-  const { name, entry, layout } = params;
-  const layers = entry.layers ?? {};
-
-  return Object.entries(layers).flatMap(([layer, raw]) =>
-    layerEntry(raw)
-      .dependsOn.filter(
-        (dependency) => !(dependency in layers) && !entry.dependsOn.includes(dependency),
-      )
-      .map((dependency) =>
-        dependency in layout
-          ? `${name}'s layer ${layer} imports ${dependency}, which ${name} doesn't depend on`
-          : `${name}'s layer ${layer} imports ${dependency}, which is neither a layer nor a workspace`,
-      ),
-  );
-}
-
 function identityProblems(params) {
   const { name, entry } = params;
   const problems = [];
@@ -151,14 +125,15 @@ function identityProblems(params) {
 
   const folder = path.posix.basename(entry.dir);
 
-  if (!entry.layers && name !== `${SCOPE}${folder}`) {
+  // A root with source has no folder of its own to be named after.
+  if (entry.dir !== '.' && name !== `${SCOPE}${folder}`) {
     problems.push(`${name} must be named ${SCOPE}${folder}, after its folder`);
   }
 
   return problems;
 }
 
-/** What is wrong with one workspace's entry: its domain, its name, its edges and its layers. */
+/** What is wrong with one workspace's entry: its domain, its name and its edges. */
 export function entryProblems(params) {
   const { name, entry, layout } = params;
   // A test may use any workspace below it (a real tool to drive the loop with), but never an
@@ -183,11 +158,10 @@ export function entryProblems(params) {
     ...identityProblems({ name, entry }),
     ...entry.dependsOn.map((dependency) => edgeProblem({ name, entry, dependency, layout })),
     ...devProblems,
-    ...layerProblems({ name, entry, layout }),
   ].filter(Boolean);
 }
 
-/** What is wrong with `layout`: each workspace's domain, name and graph, and the split app's layers. */
+/** What is wrong with `layout`: each workspace's domain, name and graph. */
 export function layoutProblems(layout) {
   return Object.entries(layout).flatMap(([name, entry]) => entryProblems({ name, entry, layout }));
 }

@@ -56,7 +56,7 @@ function runGate() {
   // uncommitted changes affect, and nothing whose inputs a cached run already passed.
   const workspaces = runBin('turbo', [
     'run',
-    ...['typecheck', 'typecheck:root', 'lint', 'lint:root'],
+    ...['typecheck', 'lint', 'lint:root'],
     '--affected',
     '--continue',
     '--output-logs=errors-only',

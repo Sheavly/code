@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import { WorkbookNotFoundError, WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
+import { WorkbookNotFoundError, WorkbookStoreError } from '../errors/workbook.errors.js';
 import {
   EMPTY_STATE,
   FAKE_ENV,

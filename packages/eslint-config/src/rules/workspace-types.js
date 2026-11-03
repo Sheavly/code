@@ -28,7 +28,7 @@ export function findRoot(cwd) {
   }
 }
 
-/** The root and every directory the root `workspaces` patterns (`packages/*`, `tools/cli`) match that holds a `package.json`. */
+/** The root (while it has `src/`) and every directory the root `workspaces` patterns (`packages/*`, `tools/cli`) match that holds a `package.json`. */
 export function workspaceDirs(root) {
   const packageDirs = readJson(path.join(root, 'package.json')).workspaces.flatMap((pattern) => {
     if (!pattern.endsWith('/*')) return [path.join(root, pattern)];
@@ -43,7 +43,11 @@ export function workspaceDirs(root) {
       .map((entry) => path.join(parent, entry.name));
   });
 
-  return [root, ...packageDirs].filter((dir) => existsSync(path.join(dir, 'package.json')));
+  // The root is a workspace only while it holds source of its own (`src/`); otherwise it is just
+  // the monorepo around the workspaces.
+  const rootDirs = existsSync(path.join(root, 'src')) ? [root] : [];
+
+  return [...rootDirs, ...packageDirs].filter((dir) => existsSync(path.join(dir, 'package.json')));
 }
 
 /** The workspaces with a `src/`: their directory, source, name and scripts. */

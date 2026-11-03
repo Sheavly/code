@@ -3,9 +3,9 @@
 // documents the same rules with examples (.cursor/skills/git/conventions.md). GitHub is the only
 // tracker: work is a GitHub issue (`#123`), linked from branches, commits and PRs. A PR may be
 // stacked on another issue branch (.cursor/skills/git/stacks.md).
-import { readdirSync } from 'node:fs';
+// Node built-ins and local files only: the CI format check runs this with no `npm ci`.
+import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { SPLIT_APP } from '../../packages/eslint-config/src/layout.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 
 export const NO_ISSUE = 'NO-ISSUE';
@@ -65,35 +65,28 @@ export function getBranchIssue(name) {
   return match ? Number(match[1]) : null;
 }
 
-function listDirs(dir) {
+/** The folders in `dir` that hold a `package.json`: the workspaces there. */
+function listWorkspaceFolders(dir) {
   try {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
+      .filter((entry) => existsSync(path.join(dir, entry.name, 'package.json')))
       .map((entry) => entry.name);
   } catch (caughtError) {
-    if (isMissingPath(caughtError)) return []; // e.g. no packages/ folder: no scopes from it
+    if (isMissingPath(caughtError)) return []; // e.g. no apps/ folder yet: no scopes from it
     throw new ProjectReadError({ file: dir, cause: caughtError });
   }
 }
 
-/** The test-only layers of the app being split (`testing`): fakes, never a commit scope. */
-const TEST_ONLY_LAYERS = new Set(
-  Object.entries(SPLIT_APP.layers)
-    .filter(([, layer]) => !Array.isArray(layer) && layer.testOnly)
-    .map(([name]) => name),
-);
-
 /**
- * Valid commit scopes, read from disk so a new one needs no edit here: each workspace folder in
- * `packages/` and `apps/` (`core`, `eslint-config`), and each `src/` folder of the app being split
- * (`loop`, `tools`, …) until #29 moves them into workspaces, minus the layers the layout marks
- * test-only (packages/eslint-config/src/layout.js).
+ * Valid commit scopes, read from disk so a new one needs no edit here: the folder of each
+ * workspace in `packages/` and `apps/` (`core`, `eslint-config`, `workbook`). A folder with no
+ * `package.json` yet (`apps/vscode`) isn't a workspace, so it isn't a scope.
  */
 export function listScopes(repoRoot) {
   const scopes = [
-    ...listDirs(path.join(repoRoot, 'packages')),
-    ...listDirs(path.join(repoRoot, 'apps')),
-    ...listDirs(path.join(repoRoot, 'src')).filter((name) => !TEST_ONLY_LAYERS.has(name)),
+    ...listWorkspaceFolders(path.join(repoRoot, 'packages')),
+    ...listWorkspaceFolders(path.join(repoRoot, 'apps')),
   ];
 
   return [...new Set(scopes)].sort();

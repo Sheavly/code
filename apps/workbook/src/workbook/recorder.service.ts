@@ -2,7 +2,7 @@ import { createWriteStream, type WriteStream } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { Writable } from 'node:stream';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
+import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';

@@ -70,7 +70,12 @@ describe('judgeRun', () => {
 
 /** The real list, so these tests pin what the stop hook nudges for too. */
 const sources = runSourcesSchema.parse(
-  JSON.parse(readFileSync(path.resolve('workbook/run-sources.json'), 'utf8')),
+  JSON.parse(
+    readFileSync(
+      path.join(import.meta.dirname, '../../../../../workbook/run-sources.json'),
+      'utf8',
+    ),
+  ),
 );
 
 describe('selectChecks', () => {

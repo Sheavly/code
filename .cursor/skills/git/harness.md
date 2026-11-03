@@ -1,6 +1,6 @@
 # Harness impact
 
-The harness (the skills in `.cursor/skills/`, the `harness/*` lint rules, the ESLint layers, the
+The harness (the skills in `.cursor/skills/`, the `harness/*` lint rules, the workspace graph, the
 hooks, `knip.json`, the docs nudge) only checks what someone wired in. When a change introduces
 something the next agent must follow, the same PR adds its enforcement: never a gap, never a
 doc-only note ("Enforce what you add" in the project skill). Run this at [triage.md](triage.md)
@@ -11,10 +11,10 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 
 **Mechanical**, visible in the diff:
 
-- a new workspace (`packages/<name>/`);
+- a new workspace (`packages/<name>/`, `apps/<name>/`);
 - a new `exports` pattern shape in a `package.json` (anything but `./*` with `@sheavly/source`,
   `types` and `default`);
-- a new top-level folder in `src/` (a new layer, scope or front end);
+- a new module folder a doc describes (a `DOC_SOURCES` entry in `docs.utils.mjs`);
 - a new file kind, or a file named `<name>.<kind>.ts` with a kind `file-kinds.js` doesn't know;
 - a new skill in `.cursor/skills/`, or a skill's files moved;
 - a new contract other code must import rather than copy (a wire type, an artifact kind, a hook
@@ -35,8 +35,8 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 (`harness/single-definition`), a new workspace's rules and scripts (`workspace-coverage.test.js`),
 a new skill's metadata (`skills.utils.test.mjs`), a new scope's area label
 (`sync-area-labels.mjs`), file names and kinds (`harness/file-kind`), a new workspace's domain, configs and
-dependencies (`harness/layout`, `npm run layout`), imports across workspaces and layers
-(`harness/imports`).
+dependencies (`harness/layout`, `npm run layout`), imports across workspaces
+(`harness/imports`), an app's front-end rules (`baseConfig`, from its folder).
 
 ## What to add
 
@@ -44,7 +44,6 @@ dependencies (`harness/layout`, `npm run layout`), imports across workspaces and
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | a new workspace                            | create it with the scaffold (the skill's "A new package"): it sets its `sheavly.domain`, configs and dependencies; nothing central to edit    |
 | an `exports` pattern                       | the matching resolution in `harness/single-definition`'s workspace reader (`workspace-types.js`) and a test with the new shape                |
-| a new `src/` folder                        | a layer in `layout.js`, `FRONT_END_FILES` if it is a UI, a `DOC_SOURCES` entry (`docs.utils.mjs`), the skill's layer table                    |
 | a file kind                                | its policy in `file-kinds.js` and RuleTester cases                                                                                            |
 | a skill                                    | its `harness.json` (`governs` globs, or `manual` with a reason)                                                                               |
 | a contract to import, not copy             | its schema or type in the owning package's `*.types.ts`, so `harness/single-definition` covers it; a `harness/*` rule if the shape needs more |
