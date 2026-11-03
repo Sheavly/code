@@ -7,6 +7,7 @@ import type {
   MessagesResponse,
   SkillsResponse,
   StartConversationResponse,
+  SwitchModelRequest,
 } from '@sheavly/protocol/server/server.types';
 import {
   answerApprovalRequestSchema,
@@ -39,10 +40,9 @@ export function conversationRoutes(conversations: Conversations) {
       ),
     )
     .put('/:id/model', validJson(switchModelRequestSchema), (c) => {
-      conversations.useModel({
-        id: conversationIdSchema.parse(c.req.param('id')),
-        name: c.req.valid('json').name,
-      });
+      const { name }: SwitchModelRequest = c.req.valid('json');
+
+      conversations.useModel({ id: conversationIdSchema.parse(c.req.param('id')), name });
 
       return c.body(null, 204);
     })

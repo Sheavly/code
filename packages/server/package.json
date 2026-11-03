@@ -24,6 +24,9 @@
     "./*.types": {
       "@sheavly/source": "./src/*.types.ts",
       "default": "./dist/*.types.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
     }
   },
   "files": [
