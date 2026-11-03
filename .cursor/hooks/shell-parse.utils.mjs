@@ -254,6 +254,32 @@ export function splitCommands(command) {
   return commands;
 }
 
+/**
+ * Shell words that only start or end a compound command: what runs is the command after them
+ * (`do sed -i …` runs sed), and a loop's header or a closer runs nothing of its own.
+ */
+const KEYWORDS = new Set(['do', 'then', 'else', 'elif', '!', '{', 'time']);
+const CLOSERS = new Set(['done', 'fi', 'esac', '}']);
+const LOOP_HEADER = /^(for|select)$/;
+
+/** `tokens` without the keywords before its command; a loop header or closer is no command. */
+function commandOfSegment(tokens) {
+  let start = 0;
+
+  while (KEYWORDS.has(tokens[start] ?? '')) start++;
+  const rest = tokens.slice(start);
+
+  // `for x in a b` names a variable and words; the body after `do` is its own segment.
+  if (LOOP_HEADER.test(rest[0] ?? '') || CLOSERS.has(rest[0] ?? '')) return [];
+
+  return rest.slice(
+    Math.max(
+      0,
+      rest.findIndex((t) => !ENV_ASSIGNMENT.test(t)),
+    ),
+  );
+}
+
 /** The simple commands in a (normalized) command line, each as words without leading env assignments. */
 export function toSegments(command) {
   const segments = [[]];
@@ -263,14 +289,5 @@ export function toSegments(command) {
     else segments.at(-1).push(token);
   }
 
-  return segments
-    .map((tokens) =>
-      tokens.slice(
-        Math.max(
-          0,
-          tokens.findIndex((t) => !ENV_ASSIGNMENT.test(t)),
-        ),
-      ),
-    )
-    .filter((tokens) => tokens.length > 0);
+  return segments.map(commandOfSegment).filter((tokens) => tokens.length > 0);
 }

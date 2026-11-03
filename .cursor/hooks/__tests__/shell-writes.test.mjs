@@ -92,6 +92,8 @@ describe('isSanctionedWriter', () => {
     // A `\` continuation is one command; a heredoc body is input, not commands.
     'npm run check \\\n  --workspace @sheavly/server',
     "git commit -q -F - <<'EOF'\nfix: x\n\ncp a b\nEOF",
+    // A loop runs its body's commands: `for`, `do` and `done` aren't programs.
+    'for p in protocol server; do npx tsc --noEmit -p packages/$p 2>&1 | head -5; done',
   ])('trusts %s', (command) => expect(isSanctionedWriter(command)).toBe(true));
 
   it.each([
@@ -108,6 +110,8 @@ describe('isSanctionedWriter', () => {
     // A newline ends a command: a writer on a later line isn't trusted for the first one.
     'echo go\ncp /tmp/x a.ts',
     "npm test\nsed -i 's/a/b/' README.md",
+    // Nor is a loop body that writes.
+    'for f in a b; do cp /tmp/x $f; done',
   ])('does not trust %s', (command) => expect(isSanctionedWriter(command)).toBe(false));
 });
 
@@ -154,6 +158,20 @@ describe('a shell workaround', () => {
     };
 
     expect(await shellGuardFailure({ state: learned, projectRoot: repo })).toBeNull();
+  });
+
+  it('lets go of a command recorded before the recorder knew it for a known writer', async () => {
+    const misread = {
+      unguardedCommands: [
+        {
+          command: 'for p in a b; do npm run schema -w $p; done',
+          cwd: repo,
+          files: ['contract.schema.json'],
+        },
+      ],
+    };
+
+    expect(await shellGuardFailure({ state: misread, projectRoot: repo })).toBeNull();
   });
 
   it('fails the stop hook when a case committed at HEAD left DENIED_CASES', async () => {

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { filesOtherChatsEdited } from './chat-files.utils.mjs';
 import { DENIED_CASES } from './shell-guard-cases.utils.mjs';
 import { findShellViolation } from './shell-guard.utils.mjs';
+import { isSanctionedWriter } from './shell-writes.utils.mjs';
 
 const CASES_FILE = '.cursor/hooks/shell-guard-cases.utils.mjs';
 
@@ -31,6 +32,9 @@ function describeUnlearned(params) {
     const ownFiles = files.filter((file) => !othersEdited.has(file));
 
     if (ownFiles.length === 0) return [];
+    // Recorded before the recorder knew it for a known writer (a parsing fix since): the same
+    // check as the recorder's, by today's rules, so a fixed misreading stops counting.
+    if (isSanctionedWriter(command)) return [];
     const denied = Boolean(findShellViolation({ command, cwd, projectRoot }));
     const listed = DENIED_CASES.includes(command);
 

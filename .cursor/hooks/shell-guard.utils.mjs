@@ -3,7 +3,12 @@
 // DENIED_CASES (shell-guard-cases.utils.mjs).
 import { COPY_FIX, findProjectCopy } from './file-copies.utils.mjs';
 import { findInPlaceEdit, IN_PLACE_FIX } from './in-place-edits.utils.mjs';
-import { findInlineScriptWrite, INLINE_SCRIPT_FIX } from './inline-scripts.utils.mjs';
+import {
+  findInlineBesideWriter,
+  findInlineScriptWrite,
+  INLINE_SCRIPT_FIX,
+  MIXED_INLINE_FIX,
+} from './inline-scripts.utils.mjs';
 import { stripMessages } from './shell-parse.utils.mjs';
 
 /** Why the guard denies `command` run from `cwd`, or null when it allows it. */
@@ -22,6 +27,13 @@ export function findShellViolation(params) {
     return {
       user_message: 'Blocked an agent command that writes project files from an inline script',
       agent_message: INLINE_SCRIPT_FIX,
+    };
+  }
+
+  if (findInlineBesideWriter(command)) {
+    return {
+      user_message: 'Blocked an agent command that runs inline code in the same line as a writer',
+      agent_message: MIXED_INLINE_FIX,
     };
   }
 
