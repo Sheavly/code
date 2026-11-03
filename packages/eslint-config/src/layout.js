@@ -21,7 +21,6 @@ const LOOP = '@sheavly/loop';
 const HOST = '@sheavly/host';
 const WORKSPACE = '@sheavly/workspace';
 const CODING = '@sheavly/coding';
-const TERMINAL_UI = '@sheavly/terminal-ui';
 
 /**
  * The app being split (#29): its `src/` folders and root files, each with what it may import
@@ -33,7 +32,6 @@ const TERMINAL_UI = '@sheavly/terminal-ui';
 export const SPLIT_APP = {
   dir: '.',
   layers: {
-    'demo.ts': [HOST, CODING, LOOP, TERMINAL_UI],
     'index.ts': [PROTOCOL, CORE, PROVIDERS, RUNTIME, TOOLS, HOST, WORKSPACE, CODING, LOOP],
   },
 };

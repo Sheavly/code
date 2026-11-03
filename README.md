@@ -78,7 +78,7 @@ Then run the same command. `AZURE_OPENAI_DEPLOYMENT` must match the deployment n
 ### What it does
 
 This sends one prompt to OpenAI / `gpt-6.1-sol` through the adapter registry and streams the reply.
-A short prompt costs a fraction of a cent. See `src/demo.ts`.
+A short prompt costs a fraction of a cent. See `apps/terminal/src/demo.ts`.
 
 If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
 A `Responses API error 401` means the key is wrong.
@@ -86,7 +86,7 @@ A `Responses API error 401` means the key is wrong.
 For stored prompts, saved runs and stepping through what happened, use the workbook
 (`npm run workbook -- list`, see [workbook/README.md](workbook/README.md)).
 
-Demo settings, as environment variables (see the top of `src/demo.ts`):
+Demo settings, as environment variables (see the top of `apps/terminal/src/demo.ts`):
 
 - `WORKSPACE_ROOT=<dir>`: where the file tools, AGENTS.md and `.sheavly/` hooks are read from.
 - `SHOW_MODEL_CALLS=true`: prints every model call (main session and sub-agents) with its tools,
@@ -290,9 +290,10 @@ npx turbo run lint --dry                         # what would run, and what is c
 ```
 
 The harness is a backend: `harness/no-terminal-io` (in `@sheavly/eslint-config`, so every
-workspace gets it) fails `node:readline`, `node:tty` and `process.stdin/stdout/stderr` outside
-the front-end files named in `FRONT_END_FILES` (`eslint.config.js`). A new UI is added to that list
-only when its issue asks for one.
+workspace gets it) fails `node:readline`, `node:tty` and `process.stdin/stdout/stderr` in
+every package. Only an app (`apps/*`) may use them, print or read env: `baseConfig` reads that from
+where the workspace is, so a package can't opt in. A new UI is a new app, made only when its issue
+asks for one.
 
 ### Workspace layout (`npm run layout`)
 

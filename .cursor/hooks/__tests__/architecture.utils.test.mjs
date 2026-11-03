@@ -49,7 +49,7 @@ describe('the architecture rule', () => {
 
     expect(rule).toContain('## Backend only: typed events, no UI');
     expect(rule).toContain('only when the chat');
-    expect(rule).toContain('FRONT_END_FILES');
+    expect(rule).toContain('harness/no-terminal-io');
     expect(rule).not.toContain('## Packages');
   });
 

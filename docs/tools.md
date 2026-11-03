@@ -16,7 +16,8 @@ A tool is a folder with a `<name>.tool.ts` that returns
 - `context` has the `callId`, the model's `description`, and the calling `session` (its id,
   parent, main session and depth; see [sessions.md](sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
-- Wire the tool into the host (`src/demo.ts`) and export it from `src/index.ts`.
+- Wire it into the coding preset (`createCodingHarness`) if every coding run gets it, or pass it
+  in (`tools`) from the app that needs it, and export it from `src/index.ts`.
 
 ## Built-in tools
 

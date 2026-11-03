@@ -13,8 +13,8 @@ events. That split decides where new work goes: if a UI would need it, the harne
 **Backend only.** The harness renders nothing, prompts no one and reads no terminal input. What a
 user must see or decide is a typed event or a registry request (`AgentEvent`, `SessionUpdate`,
 `ApprovalUpdate`) that a UI handles its own way. UI code is written only when an issue asks for a
-UI, and only in the front-end files named in `FRONT_END_FILES` (`eslint.config.js`); the shared
-`harness/no-terminal-io` rule fails terminal I/O anywhere else, in every workspace. Cursor injects
+UI, and only in an app (`apps/*`); the shared `harness/no-terminal-io` rule fails terminal I/O in
+every package, and `baseConfig` reads which workspaces are apps from where they are. Cursor injects
 this rule from the project skill the first time a chat edits harness source.
 
 ## Layers
@@ -77,8 +77,9 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/host/src/`        | `@sheavly/host`: wiring a run (`createHarness`) and the model from env (`providerFromEnv`). No UI, and no imports from a front end                                                                                                                                          |
 | `packages/coding/src/`      | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and the preset (`preset/`: `createCodingHarness`, `trustStoreFromEnv`); `CommandRefusedError` (`errors/`)                                                |
 | `packages/terminal-ui/src/` | `@sheavly/terminal-ui` (coding): the terminal `Renderer` the demo and the workbook print events with. It writes through a function it is given and reads no input                                                                                                           |
-| `src/demo.ts`               | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                                                                                                      |
+| `apps/terminal/`            | `@sheavly/terminal`, front end: the demo, a CLI that reads env, wires a run with `createCodingHarness` and prints events (`npm run demo`)                                                                                                                                   |
 | `apps/workbook/`            | `@sheavly/workbook`, front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`npm run workbook`; its data is in `workbook/`)                                                                                                                    |
+| `apps/vscode/`              | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                     |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions

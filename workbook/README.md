@@ -27,7 +27,7 @@ workbook/
 
 The code is the `@sheavly/workbook` app (`apps/workbook/`); this folder is its data, read from the
 directory you run it in (the repo root, through `npm run workbook`). It's a host like the demo
-(`src/demo.ts`), and shares its wiring and terminal output with it (`createCodingHarness` from
+(`apps/terminal/`), and shares its wiring and terminal output with it (`createCodingHarness` from
 `@sheavly/coding`, the renderer in `@sheavly/terminal-ui`).
 
 ## Stored prompts

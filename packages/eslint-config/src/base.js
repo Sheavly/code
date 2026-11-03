@@ -55,8 +55,6 @@ const maxLinesPerKind = Object.entries(FILE_KIND_POLICIES).map(([kind, policy]) 
  * @param {object} params
  * @param {string} params.tsconfigRootDir The workspace directory: pass `import.meta.dirname`.
  * @param {string[]} [params.entryFiles] Files without a kind (an app's entry points).
- * @param {string[]} [params.frontEndFiles] The root app's front-end files, the only ones there that
- *   may do terminal I/O, until #29 moves them into apps.
  *
  * A workspace in `apps/` is a front end and a host: its source may talk to the terminal, print and
  * read env. Every other workspace is a backend that emits typed events, so none of that is allowed
@@ -66,7 +64,7 @@ export function baseConfig(params) {
   const { tsconfigRootDir, entryFiles = [] } = params;
   const testFiles = testFilesOf(tsconfigRootDir);
   const isApp = path.basename(path.dirname(tsconfigRootDir)) === 'apps';
-  const frontEndFiles = isApp ? SOURCE_FILES : (params.frontEndFiles ?? []);
+  const frontEndFiles = isApp ? SOURCE_FILES : [];
 
   return defineConfig([
     globalIgnores(['dist/', 'coverage/', 'node_modules/']),

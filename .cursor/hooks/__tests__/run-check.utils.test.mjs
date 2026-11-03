@@ -6,23 +6,23 @@ describe('runSourceFiles', () => {
     expect(
       runSourceFiles([
         'packages/workspace/src/trust/trust.service.ts',
-        'src/demo.ts',
+        'apps/terminal/src/demo.ts',
         'packages/core/src/hook/hook.service.ts',
         'apps/workbook/src/workbook/run.helper.ts',
       ]),
     ).toEqual([
+      'apps/terminal/src/demo.ts',
       'apps/workbook/src/workbook/run.helper.ts',
       'packages/core/src/hook/hook.service.ts',
       'packages/workspace/src/trust/trust.service.ts',
-      'src/demo.ts',
     ]);
   });
 
   it('skips tests, fakes, lint rules, hooks, scripts and docs', () => {
     expect(
       runSourceFiles([
-        'src/runtime/trust/__tests__/trust.service.test.ts',
-        'src/testing/fake-fetch.fake.ts',
+        'packages/workspace/src/trust/__tests__/trust.service.test.ts',
+        'packages/runtime/src/testing/sessions.fake.ts',
         'packages/eslint-config/src/rules/no-raw-error.js',
         '.cursor/hooks/check-on-stop.mjs',
         'scripts/jscpd-runner.mjs',
@@ -35,10 +35,15 @@ describe('runSourceFiles', () => {
 
 describe('runCheckMessage', () => {
   it('names the command and every file, and says it is asked once', () => {
-    const message = runCheckMessage(['src/demo.ts', 'src/host/host.service.ts']);
+    const message = runCheckMessage([
+      'apps/terminal/src/demo.ts',
+      'packages/host/src/host/host.service.ts',
+    ]);
 
     expect(message).toContain('npm run workbook -- check');
-    expect(message).toContain('- src/demo.ts\n- src/host/host.service.ts');
+    expect(message).toContain(
+      '- apps/terminal/src/demo.ts\n- packages/host/src/host/host.service.ts',
+    );
     expect(message).toContain("won't be asked again");
   });
 });

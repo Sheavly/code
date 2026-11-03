@@ -1,0 +1,24 @@
+{
+  "name": "@sheavly/terminal",
+  "version": "0.0.0",
+  "description": "The terminal demo: a CLI that reads env, wires a run with createCodingHarness and prints its events.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts"
+  },
+  "type": "module",
+  "license": "UNLICENSED",
+  "sheavly": {
+    "domain": "coding"
+  },
+  "private": true,
+  "dependencies": {
+    "@sheavly/coding": "^0.0.0",
+    "@sheavly/host": "^0.0.0",
+    "@sheavly/loop": "^0.0.0",
+    "@sheavly/terminal-ui": "^0.0.0",
+    "zod": "^4.6.7"
+  }
+}
