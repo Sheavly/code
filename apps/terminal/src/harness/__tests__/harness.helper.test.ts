@@ -6,12 +6,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
+import { createConversation } from '@sheavly/host/conversation/conversation.helper';
+import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import type { Script } from '@sheavly/testing/provider/provider.types';
+import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { createTerminalHarness } from '../harness.helper.js';
 
-/** The project: AGENTS.md, and one `.sheavly/` hook that does nothing. */
+/** The project: AGENTS.md, a skill, and one `.sheavly/` hook that does nothing. */
 const FILES = {
   'AGENTS.md': 'AGENTS NOTE\n',
+  '.agents/skills/review/SKILL.md': '---\nname: review\ndescription: REVIEW SKILL\n---\nSteps\n',
   '.sheavly/hooks.json': JSON.stringify({ version: 1, hooks: [{ path: 'hooks/marker.js' }] }),
   '.sheavly/hooks/marker.js': `export default { name: 'marker', sessionStart: async () => {} };\n`,
 };
@@ -36,9 +40,13 @@ afterEach(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
-const open = (trustWorkspace: boolean, onModelCall?: (request: ProviderRequest) => void) =>
+const open = (
+  trustWorkspace: boolean,
+  onModelCall?: (request: ProviderRequest) => void,
+  scripts: Record<string, Script[]> = { hi: [say('hello')] },
+) =>
   createTerminalHarness({
-    provider: routedProvider({ hi: [say('hello')] }),
+    provider: routedProvider(scripts),
     title: 'hi',
     workspaceRoot: root,
     trustStore,
@@ -56,6 +64,7 @@ describe('createTerminalHarness: what a terminal run includes', () => {
       'read_file',
       'write_file',
       'edit_file',
+      'read_skill',
       'run_command',
       'task_status',
       'cancel_task',
@@ -69,15 +78,15 @@ describe('createTerminalHarness: what a terminal run includes', () => {
 
     expect(harness.projectTrust).toBe('untrusted');
     expect(harness.projectHooks).toEqual([]);
-    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md']);
+    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills']);
   });
 
-  it('runs the AGENTS.md hook first, then a trusted workspace’s .sheavly/ hooks', async () => {
+  it('runs the AGENTS.md and skills hooks first, then a trusted workspace’s .sheavly/ hooks', async () => {
     const requests: ProviderRequest[] = [];
     const harness = await open(true, (request) => requests.push(request));
 
     expect(harness.projectTrust).toBe('trusted');
-    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'marker']);
+    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills', 'marker']);
 
     await runAgent({
       provider: harness.provider,
@@ -87,5 +96,34 @@ describe('createTerminalHarness: what a terminal run includes', () => {
     });
 
     expect(requests[0]?.instructions).toContain('AGENTS NOTE');
+    expect(requests[0]?.instructions).toContain('- review: REVIEW SKILL');
+  });
+
+  it('gives sub-agents the same skill list and read_skill', async () => {
+    const requests: ProviderRequest[] = [];
+    const harness = await open(false, (request) => requests.push(request), {
+      go: [
+        () => [
+          toolCall({ id: 'm1', name: 'start_agent', input: { title: 'Helper', task: 'help' } }),
+          { type: 'done', stopReason: 'tool_use' },
+        ],
+        say('done'),
+      ],
+      help: [say('helped')],
+    });
+    const conversation = createConversation({
+      harness,
+      run: streamAgent,
+      tools: harness.tools,
+      hooks: harness.hooks,
+    });
+
+    for await (const _event of conversation.send('go'));
+    await conversation.close();
+
+    const sub = requests.find((request) => request.messages[0]?.content === 'help');
+
+    expect(sub?.instructions).toContain('- review: REVIEW SKILL');
+    expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
   });
 });

@@ -47,8 +47,14 @@ A prompt's name and its `workspace` are single file names (letters, digits, `-`,
 never paths, so a run can only read, copy and clear folders inside the workbook.
 
 The included prompts cover the harness's features: `hooks-and-agents-md`, `write-and-edit`,
-`guards`, `read-ranges`, `background-tasks`, `sub-agent-nesting`, `steer-sub-agent`, and the
-workspace-trust cases `trust-changed` and `trust-untrusted`. Each has a `check`.
+`guards`, `read-ranges`, `background-tasks`, `sub-agent-nesting`, `steer-sub-agent`, the
+workspace-trust cases `trust-changed` and `trust-untrusted`, and the skills cases `skills` (the
+model picks a skill and reads it) and `skill-mention` (a `/<skill>` in the middle of the prompt
+runs it). Each has a `check`.
+
+A prompt runs the skills it mentions (`/<name>` anywhere in it), as the chat does. A run reads
+the workspace's skills and the built-in ones, never your `~/.agents/skills/`, so a check gives
+the same result on every machine.
 
 ## Real-model checks
 

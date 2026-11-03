@@ -8,3 +8,13 @@ export type TempWorkspace = {
   readonly root: string;
   readonly workspace: Workspace;
 };
+
+/** The skill folders from `useSkillFolders`; readable only while its tests run. */
+export type SkillFolders = {
+  /** The temp dir; holds `project/` and `home/`. */
+  readonly base: string;
+  /** The project root, with `.sheavly/skills/` and `.agents/skills/`. */
+  readonly root: string;
+  /** The user's home, with `.sheavly/skills/` and `.agents/skills/`. */
+  readonly home: string;
+};

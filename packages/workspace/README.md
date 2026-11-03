@@ -19,11 +19,13 @@ const workspace = await Workspace.open(root);
 | `trust/`         | `TrustStore`: which workspaces the user trusts, outside every repo                    |
 | `project-hooks/` | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                |
 | `agents-md/`     | `createAgentsMdHook`: AGENTS.md files as system instructions                          |
+| `skills/`        | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs     |
 | `errors/`        | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                |
 | `testing/`       | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                  |
 
 ## Docs
 
 - [AGENTS.md](docs/agents-md.md): which files the hook reads, and when.
+- [Skills](docs/skills.md): the skill format, where skills are found, and which one wins.
 - [Project hooks](docs/project-hooks.md): writing `.sheavly/` hooks, loading them, and workspace
   trust.

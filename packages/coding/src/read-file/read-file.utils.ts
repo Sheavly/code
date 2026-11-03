@@ -19,8 +19,9 @@ function resolveRange(params: {
   startLine?: number | undefined;
   endLine?: number | undefined;
   maxLines: number;
+  tool: string;
 }): { start: number; end: number; notes: string[] } {
-  const { total, startLine, endLine, maxLines } = params;
+  const { total, startLine, endLine, maxLines, tool } = params;
   const notes: string[] = [];
   const start = Math.max(1, Math.floor(startLine ?? 1));
 
@@ -37,7 +38,7 @@ function resolveRange(params: {
 
   if (end - start + 1 > maxLines) {
     end = start + maxLines - 1;
-    notes.push(`read_file returns at most ${maxLines} lines per call.`);
+    notes.push(`${tool} returns at most ${maxLines} lines per call.`);
   }
 
   return { start, end, notes };
@@ -47,13 +48,13 @@ function resolveRange(params: {
  * Keeps as many whole lines as fit in `maxChars` (cutting the first line itself if even it is
  * too long). Returns the kept lines and a note when anything was dropped.
  */
-function capChars(params: { selected: string[]; start: number; maxChars: number }): {
+function capChars(params: { selected: string[]; start: number; maxChars: number; tool: string }): {
   kept: string[];
   /** The first line itself was cut, so the shown part doesn't end where a line ends. */
   cut?: boolean;
   note?: string;
 } {
-  const { selected, start, maxChars } = params;
+  const { selected, start, maxChars, tool } = params;
 
   if (selected.join('\n').length <= maxChars) return { kept: selected };
 
@@ -74,14 +75,15 @@ function capChars(params: { selected: string[]; start: number; maxChars: number 
     };
   }
 
-  return { kept, note: `read_file returns at most ${maxChars} characters per call.` };
+  return { kept, note: `${tool} returns at most ${maxChars} characters per call.` };
 }
 
 /**
  * Picks lines `startLine`–`endLine` (1-based, inclusive) of `text`, at most `maxLines` lines and
  * `maxChars` characters. Fails open: an out-of-range, reversed or oversized request never errors.
  * It returns what fits, plus a note saying exactly what was left out and how to read it, and
- * `lines`: the range it returned (`whole` when that is every line of an intact file).
+ * `lines`: the range it returned (`whole` when that is every line of an intact file). The notes
+ * name `tool` (default `read_file`), the tool to call to read on.
  */
 export function selectLines(params: {
   text: string;
@@ -89,14 +91,15 @@ export function selectLines(params: {
   endLine?: number | undefined;
   maxLines: number;
   maxChars: number;
+  tool?: string;
 }): { content: string; note?: string; lines: ShownLines } {
-  const { text, maxLines, maxChars } = params;
+  const { text, maxLines, maxChars, tool = 'read_file' } = params;
 
   if (text === '') return { content: '', lines: { start: 0, end: 0, total: 0, whole: true } };
 
   const { lines, endsWithNewline } = toLines(text);
   const total = lines.length;
-  const range = resolveRange({ ...params, total, maxLines });
+  const range = resolveRange({ ...params, total, maxLines, tool });
   const { start, notes } = range;
 
   if (start > total) {
@@ -115,6 +118,7 @@ export function selectLines(params: {
     selected: lines.slice(start - 1, range.end),
     start,
     maxChars,
+    tool,
   });
 
   if (note) notes.push(note);
@@ -132,7 +136,7 @@ export function selectLines(params: {
 
   const next = reachedEnd
     ? 'That is the end of the file.'
-    : `To read on, call read_file with startLine ${end + 1}.`;
+    : `To read on, call ${tool} with startLine ${end + 1}.`;
 
   return {
     content,
