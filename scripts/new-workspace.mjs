@@ -5,7 +5,8 @@
 // is refused before anything changes. An allowed dependency is installed with its first import
 // (the scaffold prints the command): installed earlier, nothing would import it, and knip fails.
 //
-//   package   packages/<name>, exported by subpath (`@sheavly/<name>/<module>/<file>`)
+//   package   packages/<name>, imported by the subpaths its `exports` lists
+//             (`@sheavly/<name>/<module>/<file>`, added with `npm run export`)
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
@@ -134,14 +135,6 @@ function steps(params) {
     'scripts.lint=eslint .',
     'scripts.test=vitest run --config ../../vitest.config.ts',
   ];
-  const exportsField =
-    entry.kind === 'package'
-      ? [
-          'exports[./*][@sheavly/source]=./src/*.ts',
-          'exports[./*].types=./dist/*.d.ts',
-          'exports[./*].default=./dist/*.js',
-        ]
-      : [];
 
   return [
     ...(workspaces.includes(pattern)
@@ -158,10 +151,14 @@ function steps(params) {
         'license=UNLICENSED',
         `sheavly.domain=${entry.domain}`,
         ...scripts,
-        ...exportsField,
       ),
     },
     { npm: ['pkg', 'set', 'private=true', '--json', '-w', dir] },
+    // A package's public API starts empty: each module other workspaces import gets its own entry
+    // (`npm run export`), so nothing is public by accident. An app exports nothing.
+    ...(entry.kind === 'package'
+      ? [{ npm: ['pkg', 'set', 'exports={}', '--json', '-w', dir] }]
+      : []),
     // `npm init -w` registered it under its folder name; `npm pkg` renamed it without touching the
     // lockfile or the node_modules link. Reify once, so both know it as `@sheavly/<name>`.
     { npm: ['install', '--no-audit', '--no-fund'] },

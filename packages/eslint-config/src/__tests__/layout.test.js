@@ -47,6 +47,7 @@ describe('readLayout', () => {
       testOnly: false,
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
+      exports: [],
     });
     expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
     // The root holds no source, so it is the monorepo around the workspaces, not one of them.

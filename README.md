@@ -225,8 +225,9 @@ Workspaces are built: each has a `dist/` for plain Node, and `npm run build` com
 dependency order through turbo. Dev, tests and typecheck read their source instead, through the
 `@sheavly/source` export condition, so nothing is built first (see
 [docs/overview.md](docs/overview.md#packages)). They're imported by subpath:
-`import { defineTool } from '@sheavly/core/tool/tool.utils'`. A workspace can only import what its
-own `package.json` depends on, and nothing imports an app.
+`import { defineTool } from '@sheavly/core/tool/tool.utils'`, and only the subpaths a package's
+`exports` lists, its public API (`npm run export` adds one, in review). A workspace can only import
+what its own `package.json` depends on, and nothing imports an app.
 
 A tool folder, for example, holds everything about that tool:
 

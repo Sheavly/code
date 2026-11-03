@@ -14,10 +14,30 @@
     "domain": "coding"
   },
   "exports": {
-    "./*": {
-      "@sheavly/source": "./src/*.ts",
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./files/files.helper": {
+      "@sheavly/source": "./src/files/files.helper.ts",
+      "types": "./dist/files/files.helper.d.ts",
+      "default": "./dist/files/files.helper.js"
+    },
+    "./files/files.utils": {
+      "@sheavly/source": "./src/files/files.utils.ts",
+      "types": "./dist/files/files.utils.d.ts",
+      "default": "./dist/files/files.utils.js"
+    },
+    "./preset/coding.helper": {
+      "@sheavly/source": "./src/preset/coding.helper.ts",
+      "types": "./dist/preset/coding.helper.d.ts",
+      "default": "./dist/preset/coding.helper.js"
+    },
+    "./read-file/read-file.types": {
+      "@sheavly/source": "./src/read-file/read-file.types.ts",
+      "types": "./dist/read-file/read-file.types.d.ts",
+      "default": "./dist/read-file/read-file.types.js"
+    },
+    "./read-file/read-file.utils": {
+      "@sheavly/source": "./src/read-file/read-file.utils.ts",
+      "types": "./dist/read-file/read-file.utils.d.ts",
+      "default": "./dist/read-file/read-file.utils.js"
     }
   },
   "private": true,

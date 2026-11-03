@@ -20,7 +20,8 @@
     "check:affected": "turbo run typecheck lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
     "layout": "node scripts/check-layout.mjs",
     "new": "node scripts/new-workspace.mjs",
-    "graph": "node scripts/graph.mjs"
+    "graph": "node scripts/graph.mjs",
+    "export": "node scripts/export.mjs"
   },
   "type": "module",
   "devDependencies": {

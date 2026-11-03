@@ -19,12 +19,19 @@ const root = tempWorkspace({
   'apps/web/package.json': { name: '@x/web' },
 });
 const layout = {
-  '@x/protocol': { dir: 'packages/protocol', kind: 'package', domain: 'generic', dependsOn: [] },
+  '@x/protocol': {
+    dir: 'packages/protocol',
+    kind: 'package',
+    domain: 'generic',
+    dependsOn: [],
+    exports: ['./a/a.utils'],
+  },
   '@x/core': {
     dir: 'packages/core',
     kind: 'package',
     domain: 'generic',
     dependsOn: ['@x/protocol'],
+    exports: ['./tool/tool.utils', './testing/*'],
   },
   '@x/coding': {
     dir: 'packages/coding',
@@ -32,6 +39,7 @@ const layout = {
     domain: 'coding',
     dependsOn: ['@x/core'],
     devDependsOn: ['@x/testing', '@x/protocol'],
+    exports: ['./files/files.utils'],
   },
   '@x/testing': {
     dir: 'packages/testing',
@@ -39,6 +47,7 @@ const layout = {
     domain: 'generic',
     testOnly: true,
     dependsOn: [],
+    exports: ['./fake/fake.fake'],
   },
   '@x/cli': { dir: 'apps/cli', kind: 'app', domain: 'coding', dependsOn: ['@x/core', '@x/coding'] },
   '@x/web': { dir: 'apps/web', kind: 'app', domain: 'coding', dependsOn: ['@x/core'] },
@@ -79,8 +88,30 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
       },
       // A relative import within the app.
       { code: "import { x } from '../../main/main.helper.js';", filename: CLI_TEST },
+      // A package's fakes, from a test.
+      {
+        code: "import { echo } from '@x/core/testing/echo-tool.fake';",
+        filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
+      },
     ].map((test) => ({ ...test, options })),
     invalid: [
+      // A module the package doesn't export: not its public API, from source or a test.
+      {
+        code: "import { x } from '@x/core/tool/tool.helper';",
+        filename: CODING_FILE,
+        errors: error('notExported'),
+      },
+      {
+        code: "import { x } from '@x/core/tool/tool.helper';",
+        filename: at('packages/coding/src/files/__tests__/files.utils.test.ts'),
+        errors: error('notExported'),
+      },
+      // A package's fakes from source.
+      {
+        code: "import { echo } from '@x/core/testing/echo-tool.fake';",
+        filename: CODING_FILE,
+        errors: error('fakeInSource'),
+      },
       // Upward: core importing a package above it.
       {
         code: "import { x } from '@x/coding/files/files.utils';",

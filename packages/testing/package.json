@@ -15,10 +15,35 @@
     "testOnly": true
   },
   "exports": {
-    "./*": {
-      "@sheavly/source": "./src/*.ts",
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./fetch/fake-fetch.fake": {
+      "@sheavly/source": "./src/fetch/fake-fetch.fake.ts",
+      "types": "./dist/fetch/fake-fetch.fake.d.ts",
+      "default": "./dist/fetch/fake-fetch.fake.js"
+    },
+    "./provider/provider.types": {
+      "@sheavly/source": "./src/provider/provider.types.ts",
+      "types": "./dist/provider/provider.types.d.ts",
+      "default": "./dist/provider/provider.types.js"
+    },
+    "./provider/routed-provider.fake": {
+      "@sheavly/source": "./src/provider/routed-provider.fake.ts",
+      "types": "./dist/provider/routed-provider.fake.d.ts",
+      "default": "./dist/provider/routed-provider.fake.js"
+    },
+    "./provider/scripted-provider.fake": {
+      "@sheavly/source": "./src/provider/scripted-provider.fake.ts",
+      "types": "./dist/provider/scripted-provider.fake.d.ts",
+      "default": "./dist/provider/scripted-provider.fake.js"
+    },
+    "./tool/tool-runner.fake": {
+      "@sheavly/source": "./src/tool/tool-runner.fake.ts",
+      "types": "./dist/tool/tool-runner.fake.d.ts",
+      "default": "./dist/tool/tool-runner.fake.js"
+    },
+    "./wait/until.fake": {
+      "@sheavly/source": "./src/wait/until.fake.ts",
+      "types": "./dist/wait/until.fake.d.ts",
+      "default": "./dist/wait/until.fake.js"
     }
   },
   "private": true,

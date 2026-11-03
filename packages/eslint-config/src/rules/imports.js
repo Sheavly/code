@@ -4,9 +4,12 @@
 // - another workspace only if this one's package.json depends on it (its `devDependencies` count
 //   for tests and fakes); a test-only workspace only from tests and fakes;
 // - no relative import that leaves the importing workspace (`../../packages/core/...`): import
-//   another workspace by its package name.
+//   another workspace by its package name;
+// - a package only through its public API, the subpaths its package.json `exports` lists (plus
+//   `./testing/*`, its fakes, from tests only).
 import path from 'node:path';
 import {
+  isExported,
   LAYOUT_RULE_OPTIONS,
   listWorkspaces,
   readLayout,
@@ -29,6 +32,8 @@ export const importsRule = {
       notInGraph: `{{from}} may not import {{target}}: {{from}}'s package.json doesn't depend on it. {{why}}`,
       testOnly: `{{target}} is for tests and fakes only; source never imports it.`,
       crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), and depend on it in package.json.`,
+      notExported: `{{specifier}} isn't part of {{target}}'s public API: its package.json \`exports\` doesn't list \`./{{subpath}}\`. Import what it exports, or, if this should be public, add it in review: \`npm run export -- {{specifier}}\`.`,
+      fakeInSource: `{{specifier}} is a fake ({{target}}'s \`testing/\`): only tests and other fakes import it.`,
     },
   },
   create(context) {
@@ -82,6 +87,24 @@ export const importsRule = {
           messageId: 'notInGraph',
           data: { from: from.name, target, why: whyNot(target) },
         });
+
+        return;
+      }
+
+      checkSurface({ node, specifier, target });
+    };
+
+    // A package is imported only through what its `exports` list, and its fakes only from tests.
+    const checkSurface = (params) => {
+      const { node, specifier, target } = params;
+      const subpath = specifier.slice(target.length + 1);
+
+      if (!subpath || layout[target].kind !== 'package') return;
+
+      if (!isExported({ exports: layout[target].exports ?? [], subpath })) {
+        context.report({ node, messageId: 'notExported', data: { specifier, target, subpath } });
+      } else if (subpath.startsWith('testing/') && !isTestCode) {
+        context.report({ node, messageId: 'fakeInSource', data: { specifier, target } });
       }
     };
 

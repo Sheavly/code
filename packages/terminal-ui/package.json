@@ -14,10 +14,25 @@
     "domain": "coding"
   },
   "exports": {
-    "./*": {
-      "@sheavly/source": "./src/*.ts",
-      "types": "./dist/*.d.ts",
-      "default": "./dist/*.js"
+    "./render/render.constants": {
+      "@sheavly/source": "./src/render/render.constants.ts",
+      "types": "./dist/render/render.constants.d.ts",
+      "default": "./dist/render/render.constants.js"
+    },
+    "./render/render.service": {
+      "@sheavly/source": "./src/render/render.service.ts",
+      "types": "./dist/render/render.service.d.ts",
+      "default": "./dist/render/render.service.js"
+    },
+    "./render/render.types": {
+      "@sheavly/source": "./src/render/render.types.ts",
+      "types": "./dist/render/render.types.d.ts",
+      "default": "./dist/render/render.types.js"
+    },
+    "./render/render.utils": {
+      "@sheavly/source": "./src/render/render.utils.ts",
+      "types": "./dist/render/render.utils.d.ts",
+      "default": "./dist/render/render.utils.js"
     }
   },
   "private": true,

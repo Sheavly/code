@@ -25,6 +25,7 @@ function repo(params = {}) {
 
   const pkg = (folder, domain) => ({
     [fileOf(folder, 'package.json')]: json({
+      ...(WORKSPACES[folder] === 'packages' && { exports: {} }),
       name: `@sheavly/${folder}`,
       version: '0.0.0',
       sheavly: { domain },
@@ -173,6 +174,7 @@ describe('creating a workspace', () => {
       'pkg delete',
       'pkg set',
       'pkg set',
+      'pkg set', // exports={}: its public API starts empty
       'install --no-audit',
     ]);
   });

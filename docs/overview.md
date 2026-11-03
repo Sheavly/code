@@ -134,12 +134,23 @@ the coding preset reaches them, which is what let them move into their own packa
 
 Workspaces (`packages/*`, `apps/*`) are **built**: each compiles its own `dist/` (`.js`, `.d.ts`,
 source maps) with `tsc -b`, and `npm run build` runs each workspace's build through turbo after
-the ones it imports (`@sheavly/protocol`, then `@sheavly/core`, … then the apps). Each package's
-`exports` has two targets per subpath:
+the ones it imports (`@sheavly/protocol`, then `@sheavly/core`, … then the apps).
+
+A package's `exports` is its public API: one entry per module other workspaces may import, each
+with its source, types and build targets, and never a wildcard over `src/` (its fakes,
+`./testing/*`, from source only, for tests):
 
 ```json
-"./*": { "@sheavly/source": "./src/*.ts", "types": "./dist/*.d.ts", "default": "./dist/*.js" }
+"./tool/tool.utils": {
+  "@sheavly/source": "./src/tool/tool.utils.ts",
+  "types": "./dist/tool/tool.utils.d.ts",
+  "default": "./dist/tool/tool.utils.js"
+}
 ```
+
+Anything not listed is internal: `harness/imports` fails an import of it, and the layout check fails
+a wildcard, a misshapen entry or one naming no file. `npm run export -- @sheavly/<pkg>/<module>/<file>`
+adds an entry, in review; an app exports nothing.
 
 | Where it runs            | Reads                                      | How                                                                                   |
 | ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------- |
