@@ -1,5 +1,6 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
@@ -9,10 +10,12 @@ export type CodingHarnessOptions = Pick<HarnessOptions, 'provider' | 'title' | '
   workspaceRoot?: string | undefined;
   skipAllowList?: boolean;
   /**
-   * Which workspaces the user trusts to run `.sheavly/` hooks. Default: `trustStoreFromEnv()`.
-   * Either way an untrusted workspace loads none.
+   * Which workspaces the user trusts to run `.sheavly/` hooks (an app passes
+   * `trustStoreFromEnv(process.env)`). An untrusted workspace loads none.
    */
-  trustStore?: TrustStore;
+  trustStore: TrustStore;
+  /** The environment commands start from, secrets scrubbed (an app passes `process.env`). */
+  env: Environment;
   /** Trust this workspace now (a host's `--trust`), so its `.sheavly/` hooks load. */
   trustWorkspace?: boolean;
 };

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
@@ -13,13 +13,11 @@ import type { Harness, HarnessOptions, ProviderSettings } from './host.types.js'
 import { parseProviderEnv } from './host.validator.js';
 
 /**
- * The model backend from the environment (and `.env`, if present): `ADAPTER` is "openai" (the
- * default) or "azure", each with its own keys. Shared by every host (the demo, the workbook).
+ * The model backend from an environment the app passes in (`process.env`, after loading `.env`):
+ * `ADAPTER` is "openai" (the default) or "azure", each with its own keys. Shared by every app.
  */
-export function providerFromEnv(): ProviderSettings {
-  if (existsSync('.env')) process.loadEnvFile('.env');
-
-  const env = parseProviderEnv(process.env);
+export function providerFromEnv(environment: Environment): ProviderSettings {
+  const env = parseProviderEnv(environment);
   const registry = createDefaultRegistry();
 
   if (env.ADAPTER === 'azure') {

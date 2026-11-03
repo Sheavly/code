@@ -9,6 +9,7 @@ import { approveEverything } from '@sheavly/runtime/testing/approvals.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
+import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 
 /**
  * A repo whose `.git/config` was poisoned to run a program from git status, diff and log: the
@@ -50,7 +51,13 @@ const approveAll = () => {
 
 const run = (command: string) =>
   runTool({
-    tools: [createRunCommandTool({ workspace: temp.workspace, approvals: approveAll() })],
+    tools: [
+      createRunCommandTool({
+        processes: testProcesses(),
+        workspace: temp.workspace,
+        approvals: approveAll(),
+      }),
+    ],
     call: { id: '1', name: 'run_command', input: { description: `running ${command}`, command } },
     signal,
   });
@@ -87,7 +94,7 @@ describe('run_command in a repo without commits', () => {
     execFileSync('git', ['init', '-q'], { cwd: fresh.root });
     execFileSync('git', ['add', 'b.txt'], { cwd: fresh.root });
 
-    const tool = createRunCommandTool({ workspace: fresh.workspace });
+    const tool = createRunCommandTool({ processes: testProcesses(), workspace: fresh.workspace });
 
     for (const command of ['git status -sb', 'git diff --stat --cached']) {
       const result = await runTool({

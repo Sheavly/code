@@ -26,7 +26,7 @@ export async function runWorkbook(params: {
   /** Where trust is remembered: the user's store by default, a throwaway one for `check`. */
   trustStore?: TrustStore;
 }): Promise<RunResult & { id: string }> {
-  const { store, settings, request, trustStore = trustStoreFromEnv() } = params;
+  const { store, settings, request, trustStore = trustStoreFromEnv(process.env) } = params;
   const paths = await store.beginRun({
     prompt: request.name,
     id: (number) => runId({ number, prompt: request.name }),
@@ -48,6 +48,7 @@ export async function runWorkbook(params: {
     workspaceRoot,
     title: request.text,
     trustStore,
+    env: process.env,
     // A fresh copy of a committed fixture is this repo's own code, so its hooks run. A kept or
     // continued workspace the agent may have edited needs trust like any other: `--trust`.
     trustWorkspace: workspace.fresh || request.trust,

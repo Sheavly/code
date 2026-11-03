@@ -11,6 +11,7 @@
  * Every run is saved in workbook/runs/<id>/ as it happens. See workbook/README.md.
  * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
  */
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { providerFromEnv } from '@sheavly/host/host/host.helper';
 import { checkWorkbook } from './check.helper.js';
@@ -19,6 +20,8 @@ import { runWorkbook } from './run.helper.js';
 import { WorkbookStore } from './store.service.js';
 import { WORKBOOK_DIR } from './workbook.constants.js';
 import { parseCommand, usage } from './workbook.utils.js';
+
+if (existsSync('.env')) process.loadEnvFile('.env');
 
 const store = new WorkbookStore(path.resolve(WORKBOOK_DIR));
 const write = (text: string) => void process.stdout.write(text);
@@ -32,7 +35,7 @@ try {
         command.continueRun === undefined ? undefined : await store.resolveRun(command.continueRun);
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(),
+        settings: providerFromEnv(process.env),
         request: {
           name: stored.name,
           text: stored.text,
@@ -51,7 +54,7 @@ try {
     case 'ask': {
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(),
+        settings: providerFromEnv(process.env),
         request: {
           name: 'ask',
           text: command.text,
@@ -70,7 +73,7 @@ try {
       const meta = await store.meta(continues);
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(),
+        settings: providerFromEnv(process.env),
         request: {
           name: meta.prompt,
           text: command.text,
@@ -88,7 +91,7 @@ try {
     case 'check': {
       const passed = await checkWorkbook({
         store,
-        settings: providerFromEnv(),
+        settings: providerFromEnv(process.env),
         names: command.prompts,
         all: command.all,
         write,

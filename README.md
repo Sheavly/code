@@ -381,7 +381,7 @@ switches off exactly one, on the files it is for, with a reason.
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
 - **`type`, not `interface`**; **named exports only** (`harness/no-default-export`); **no barrels** (`harness/no-barrel`,
-  import from the defining file); env only in apps and the hosts' `*FromEnv` helpers (`harness/no-process-env`); caught errors are named `caughtError`.
+  import from the defining file); env only in apps, which pass `process.env` in (`harness/no-process-env`, checked on every package file); caught errors are named `caughtError`.
 - **Fail loudly** (`harness/no-silent-catch`, every workspace plus `.cursor/hooks/` and `scripts/`):
   a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
   handle only what it expects, or pass it on as `cause`. Turning every error into a default

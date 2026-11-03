@@ -8,6 +8,7 @@ import { findConcerns } from '../arguments.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
+import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 
 const temp = useTempWorkspace({
   prefix: 'run-command-args-',
@@ -22,9 +23,16 @@ const concernsOf = (command: string) => {
   return findConcerns({ workspace: temp.workspace, file, args });
 };
 
-const run = (command: string, options: Omit<RunCommandOptions, 'workspace'> = {}) =>
+const run = (command: string, options: Omit<RunCommandOptions, 'workspace' | 'processes'> = {}) =>
   runTool({
-    tools: [createRunCommandTool({ workspace: temp.workspace, allowList: ['ls *'], ...options })],
+    tools: [
+      createRunCommandTool({
+        processes: testProcesses(),
+        workspace: temp.workspace,
+        allowList: ['ls *'],
+        ...options,
+      }),
+    ],
     call: { id: '1', name: 'run_command', input: { description: 'listing', command } },
     signal,
   });

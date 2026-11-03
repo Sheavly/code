@@ -10,6 +10,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 
 let root: string;
 let workspace: Workspace;
@@ -26,11 +27,11 @@ afterAll(async () => {
 
 const run = (
   command: string,
-  options: Omit<RunCommandOptions, 'workspace'> = {},
+  options: Omit<RunCommandOptions, 'workspace' | 'processes'> = {},
   description = `running ${command}`,
 ) =>
   runTool({
-    tools: [createRunCommandTool({ workspace, ...options })],
+    tools: [createRunCommandTool({ processes: testProcesses(), workspace, ...options })],
     call: { id: '1', name: 'run_command', input: { description, command } },
     signal,
   });
@@ -125,7 +126,7 @@ describe('run_command with skipAllowList', () => {
     setTimeout(() => controller.abort(), 100);
     const messages = await runAgent({
       provider,
-      tools: [createRunCommandTool({ workspace, skipAllowList: true })],
+      tools: [createRunCommandTool({ processes: testProcesses(), workspace, skipAllowList: true })],
       messages: [{ role: 'user', content: 'go' }],
       signal: controller.signal,
     });
@@ -141,7 +142,7 @@ describe('run_command with skipAllowList', () => {
 describe('run_command description', () => {
   it('is required: a call without one is rejected and nothing runs', async () => {
     const result = await runTool({
-      tools: [createRunCommandTool({ workspace, skipAllowList: true })],
+      tools: [createRunCommandTool({ processes: testProcesses(), workspace, skipAllowList: true })],
       call: { id: '1', name: 'run_command', input: { command: 'touch marker.txt' } },
       signal,
     });
@@ -171,7 +172,7 @@ describe('run_command description', () => {
 
     await runAgent({
       provider,
-      tools: [createRunCommandTool({ workspace, allowList: ['pwd'] })],
+      tools: [createRunCommandTool({ processes: testProcesses(), workspace, allowList: ['pwd'] })],
       messages: [{ role: 'user', content: 'where are we?' }],
       onEvent: (event) => events.push(event),
     });

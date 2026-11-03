@@ -11,6 +11,7 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 
 /**
  * The approval flow end to end: a UI subscribes to the registry, the tool waits for its answer,
@@ -23,7 +24,12 @@ const temp = useTempWorkspace({
 });
 
 const tool = (approvals: ApprovalRegistry, allowList = ['ls *']) =>
-  createRunCommandTool({ workspace: temp.workspace, allowList, approvals });
+  createRunCommandTool({
+    processes: testProcesses(),
+    workspace: temp.workspace,
+    allowList,
+    approvals,
+  });
 
 /** The model asks for `command` once, then ends. Records what each model call was sent. */
 function oneCommandModel(command: string): { provider: Provider; sent: Message[][] } {

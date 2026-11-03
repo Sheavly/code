@@ -17,7 +17,7 @@
  * For stored prompts, saved runs and inspecting what happened, use the workbook instead
  * (`npm run workbook`, see workbook/README.md).
  */
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, existsSync } from 'node:fs';
 import { Writable } from 'node:stream';
 import { z } from 'zod';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -28,7 +28,9 @@ import { SAME_KEYPRESS_MS } from '@sheavly/terminal-ui/render/render.constants';
 import { Renderer } from '@sheavly/terminal-ui/render/render.service';
 import { projectTrustNotice, shortId } from '@sheavly/terminal-ui/render/render.utils';
 
-const { adapter, model, provider } = providerFromEnv();
+if (existsSync('.env')) process.loadEnvFile('.env');
+
+const { adapter, model, provider } = providerFromEnv(process.env);
 const args = process.argv.slice(2);
 /** `--trust`: trust this workspace's `.sheavly/` hooks (remembered until `.sheavly/` changes). */
 const trustWorkspace = args.includes('--trust');
@@ -51,7 +53,8 @@ const harness = await createCodingHarness({
   workspaceRoot,
   skipAllowList,
   title: prompt,
-  trustStore: trustStoreFromEnv(),
+  trustStore: trustStoreFromEnv(process.env),
+  env: process.env,
   trustWorkspace,
   ...(showModelCalls && { onModelCall: (request) => view.renderer?.modelCall(request) }),
 });
