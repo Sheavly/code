@@ -2,8 +2,9 @@
 // where): which workspace a file belongs to, and what is wrong with the layout. The rules
 // (`rules/layout.js`, `rules/imports.js`), the layout check (`scripts/check-layout.mjs`) and the
 // scaffold (`scripts/new-workspace.mjs`) all use it, so they can't disagree.
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { exportsProblems } from './exports.utils.js';
 import { NOT_SOURCE } from './layout.js';
 import { workspaceDirs } from './rules/workspace-types.js';
 
@@ -69,23 +70,48 @@ export function readLayout(params) {
         testOnly: manifest.sheavly?.testOnly === true,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
-        // The public surface: the subpaths its package.json `exports` (`./tool/tool.utils`).
-        exports: Object.keys(manifest.exports ?? {}),
+        // The public surface: its package.json `exports`, by file kind (`./*.types`), its
+        // module folders and their files, and the modules its README documents as API.
+        exports: manifest.exports,
+        modules: modulesOf(path.join(root, relative)),
+        // What a publish ships, and what builds it first.
+        files: manifest.files,
+        prepack: manifest.scripts?.prepack,
+        documented: documentedModules(path.join(root, relative)),
       },
     ]),
   );
 }
 
-/** The one pattern a package may export: its fakes, from source only, for other tests. */
-export const TESTING_EXPORT = './testing/*';
+const MODULE_FILE = /^([a-z0-9-]+\.[a-z]+)\.ts$/;
 
-/** Whether `subpath` (`tool/tool.utils`) is one of `exports`, the public surface of a workspace. */
-export function isExported(params) {
-  const { exports, subpath } = params;
+/** A workspace's module folders in `src/` and their source files' subpaths (`tool.utils`). */
+function modulesOf(dir) {
+  const src = path.join(dir, 'src');
 
-  return (
-    exports.includes(`./${subpath}`) ||
-    (exports.includes(TESTING_EXPORT) && subpath.startsWith('testing/'))
+  if (!existsSync(src)) return [];
+
+  return readdirSync(src, { withFileTypes: true })
+    .filter((folder) => folder.isDirectory() && folder.name !== '__tests__')
+    .map((folder) => ({
+      name: folder.name,
+      files: readdirSync(path.join(src, folder.name))
+        .map((file) => MODULE_FILE.exec(file)?.[1])
+        .filter(Boolean),
+    }));
+}
+
+/**
+ * The module folders a workspace's README documents as API: a table row starting with one
+ * (`| \`queue/\` |`). Null when it has no README, which the layout check reports by itself.
+ */
+function documentedModules(dir) {
+  const readme = path.join(dir, 'README.md');
+
+  if (!existsSync(readme)) return null;
+
+  return [...readFileSync(readme, 'utf8').matchAll(/^\| `([a-z0-9-]+)\/` +\|/gm)].map(
+    (match) => match[1],
   );
 }
 
@@ -173,6 +199,7 @@ export function entryProblems(params) {
     ...identityProblems({ name, entry }),
     ...entry.dependsOn.map((dependency) => edgeProblem({ name, entry, dependency, layout })),
     ...devProblems,
+    ...exportsProblems({ name, entry }),
   ].filter(Boolean);
 }
 

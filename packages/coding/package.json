@@ -6,64 +6,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "type": "module",
   "license": "UNLICENSED",
   "sheavly": {
     "domain": "coding"
-  },
-  "exports": {
-    "./files/files.helper": {
-      "@sheavly/source": "./src/files/files.helper.ts",
-      "types": "./dist/files/files.helper.d.ts",
-      "default": "./dist/files/files.helper.js"
-    },
-    "./files/files.utils": {
-      "@sheavly/source": "./src/files/files.utils.ts",
-      "types": "./dist/files/files.utils.d.ts",
-      "default": "./dist/files/files.utils.js"
-    },
-    "./preset/coding.helper": {
-      "@sheavly/source": "./src/preset/coding.helper.ts",
-      "types": "./dist/preset/coding.helper.d.ts",
-      "default": "./dist/preset/coding.helper.js"
-    },
-    "./read-file/read-file.types": {
-      "@sheavly/source": "./src/read-file/read-file.types.ts",
-      "types": "./dist/read-file/read-file.types.d.ts",
-      "default": "./dist/read-file/read-file.types.js"
-    },
-    "./read-file/read-file.utils": {
-      "@sheavly/source": "./src/read-file/read-file.utils.ts",
-      "types": "./dist/read-file/read-file.utils.d.ts",
-      "default": "./dist/read-file/read-file.utils.js"
-    },
-    "./preset/coding.types": {
-      "@sheavly/source": "./src/preset/coding.types.ts",
-      "types": "./dist/preset/coding.types.d.ts",
-      "default": "./dist/preset/coding.types.js"
-    },
-    "./edit-file/edit-file.tool": {
-      "@sheavly/source": "./src/edit-file/edit-file.tool.ts",
-      "types": "./dist/edit-file/edit-file.tool.d.ts",
-      "default": "./dist/edit-file/edit-file.tool.js"
-    },
-    "./read-file/read-file.tool": {
-      "@sheavly/source": "./src/read-file/read-file.tool.ts",
-      "types": "./dist/read-file/read-file.tool.d.ts",
-      "default": "./dist/read-file/read-file.tool.js"
-    },
-    "./run-command/run-command.tool": {
-      "@sheavly/source": "./src/run-command/run-command.tool.ts",
-      "types": "./dist/run-command/run-command.tool.d.ts",
-      "default": "./dist/run-command/run-command.tool.js"
-    },
-    "./write-file/write-file.tool": {
-      "@sheavly/source": "./src/write-file/write-file.tool.ts",
-      "types": "./dist/write-file/write-file.tool.d.ts",
-      "default": "./dist/write-file/write-file.tool.js"
-    }
   },
   "private": true,
   "dependencies": {
@@ -78,5 +27,31 @@
     "@sheavly/loop": "^0.0.0",
     "@sheavly/testing": "^0.0.0",
     "@sheavly/tools": "^0.0.0"
-  }
+  },
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.tool": {
+      "@sheavly/source": "./src/*.tool.ts",
+      "default": "./dist/*.tool.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    },
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }

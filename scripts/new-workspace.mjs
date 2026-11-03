@@ -5,8 +5,8 @@
 // is refused before anything changes. An allowed dependency is installed with its first import
 // (the scaffold prints the command): installed earlier, nothing would import it, and knip fails.
 //
-//   package   packages/<name>, imported by the subpaths its `exports` lists
-//             (`@sheavly/<name>/<module>/<file>`, added with `npm run export`)
+//   package   packages/<name>, imported by the file kinds its `exports` makes public
+//             (`@sheavly/<name>/<module>/<module>.<kind>`, added with `npm run export`)
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
@@ -179,10 +179,17 @@ function steps(params) {
       ),
     },
     { npm: ['pkg', 'set', 'private=true', '--json', '-w', dir] },
-    // A package's public API starts empty: each module other workspaces import gets its own entry
-    // (`npm run export`), so nothing is public by accident. An app exports nothing.
+    // A package's public API starts empty: each file kind other workspaces import is made public
+    // with `npm run export`, so nothing is public by accident. An app exports nothing.
     ...(entry.kind === 'package'
       ? [{ npm: ['pkg', 'set', 'exports={}', '--json', '-w', dir] }]
+      : []),
+    // A package is published: it ships its build and docs, never its source, built first.
+    ...(entry.kind === 'package' && entry.domain !== 'tooling'
+      ? [
+          { npm: ['pkg', 'set', 'files=["dist","docs"]', '--json', '-w', dir] },
+          { npm: ['pkg', 'set', 'scripts.prepack=npm run build', '-w', dir] },
+        ]
       : []),
     // `npm init -w` registered it under its folder name; `npm pkg` renamed it without touching the
     // lockfile or the node_modules link. Reify once, so both know it as `@sheavly/<name>`.

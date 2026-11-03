@@ -30,7 +30,11 @@ function repo(params = {}) {
 
   const pkg = (folder, domain) => ({
     [fileOf(folder, 'package.json')]: json({
-      ...(WORKSPACES[folder] === 'packages' && { exports: {} }),
+      ...(WORKSPACES[folder] === 'packages' && {
+        exports: {},
+        files: ['dist', 'docs'],
+        scripts: { prepack: 'npm run build' },
+      }),
       name: `@sheavly/${folder}`,
       version: '0.0.0',
       sheavly: { domain },
@@ -183,6 +187,8 @@ describe('creating a workspace', () => {
       'pkg set',
       'pkg set',
       'pkg set', // exports={}: its public API starts empty
+      'pkg set', // files: its build and docs
+      'pkg set', // scripts.prepack: built before it packs
       'install --no-audit',
     ]);
   });

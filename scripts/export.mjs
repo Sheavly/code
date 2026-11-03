@@ -1,55 +1,56 @@
-// Adds a module to a package's public API: `npm run export -- @sheavly/<name>/<module>/<file>`.
-// It checks the file exists, then writes the one `exports` entry through `npm pkg set` (never by
-// hand), with the source, types and build targets every entry has. The layout check holds every
-// entry to that shape, and `harness/imports` refuses an import of anything not listed.
+// Makes a file kind of a package public: `npm run export -- packages/<name> <kind>`. Every
+// `<module>.<kind>.ts` in it becomes importable as `@sheavly/<name>/<module>/<module>.<kind>`, so a
+// new module of that kind needs no entry. It writes the one `exports` entry through `npm pkg set`
+// (never by hand), with the source and build targets every entry has. `harness/layout` holds
+// every entry to that shape, and `harness/imports` refuses an import of a kind not exported.
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FILE_KINDS } from '../packages/eslint-config/src/file-kinds.js';
+import { kindExportKey, kindExportTarget } from '../packages/eslint-config/src/exports.utils.js';
 import { listWorkspaces } from '../packages/eslint-config/src/layout.utils.js';
 
-/** The `npm pkg set` arguments that export `specifier`, or the problem that stops it. */
+/** The `npm pkg set` arguments that export `kind` from the package at `dir`, or the problem. */
 export function exportCommand(params) {
-  const { root, specifier } = params;
-  const workspace = listWorkspaces(root).find(({ name }) => specifier.startsWith(`${name}/`));
+  const { root, dir, kind } = params;
+  const workspace = listWorkspaces(root).find(({ relative }) => relative === dir);
 
-  if (!workspace || !workspace.relative.startsWith('packages/')) {
-    return { problem: `${specifier} names no package: use @sheavly/<package>/<module>/<file>.` };
+  if (!workspace || !dir.startsWith('packages/')) {
+    return { problem: `${dir} is no package: use packages/<name>.` };
   }
 
-  const file = specifier.slice(workspace.name.length + 1);
-  const source = `./src/${file}.ts`;
-
-  if (!existsSync(path.join(workspace.dir, source))) {
-    return { problem: `${workspace.relative}/src/${file}.ts doesn't exist.` };
+  if (!FILE_KINDS.includes(kind) || kind === 'test' || kind === 'fake') {
+    return {
+      problem: `${kind} is no kind a package exports: use one of ${FILE_KINDS.filter((k) => k !== 'test' && k !== 'fake').join(', ')} (fakes are exported as ./testing/*).`,
+    };
   }
 
-  const key = `exports[./${file}]`;
+  const key = `exports[${kindExportKey(kind)}]`;
 
   return {
     args: [
       'pkg',
       'set',
-      `${key}[@sheavly/source]=${source}`,
-      `${key}.types=./dist/${file}.d.ts`,
-      `${key}.default=./dist/${file}.js`,
+      ...Object.entries(kindExportTarget(kind)).map(
+        ([condition, target]) => `${key}[${condition}]=${target}`,
+      ),
       '-w',
-      workspace.relative,
+      dir,
     ],
   };
 }
 
 if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   const root = path.resolve(import.meta.dirname, '..');
-  const specifiers = process.argv.slice(2);
+  const [dir, ...kinds] = process.argv.slice(2);
 
-  if (specifiers.length === 0) {
-    console.error('Usage: npm run export -- @sheavly/<package>/<module>/<file> […]');
+  if (!dir || kinds.length === 0) {
+    console.error('Usage: npm run export -- packages/<name> <kind> […]');
     process.exit(1);
   }
 
-  for (const specifier of specifiers) {
-    const { problem, args } = exportCommand({ root, specifier });
+  for (const kind of kinds) {
+    const { problem, args } = exportCommand({ root, dir, kind });
 
     if (problem) {
       console.error(problem);
@@ -59,6 +60,6 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
     const result = spawnSync('npm', args, { cwd: root, stdio: 'inherit' });
 
     if (result.status !== 0) process.exit(result.status ?? 1);
-    console.log(`Exported ${specifier}.`);
+    console.log(`${dir} now exports every *.${kind}.ts.`);
   }
 }

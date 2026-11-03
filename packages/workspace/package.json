@@ -6,67 +6,13 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "type": "module",
   "license": "UNLICENSED",
   "sheavly": {
     "domain": "coding"
-  },
-  "exports": {
-    "./agents-md/agents-md.helper": {
-      "@sheavly/source": "./src/agents-md/agents-md.helper.ts",
-      "types": "./dist/agents-md/agents-md.helper.d.ts",
-      "default": "./dist/agents-md/agents-md.helper.js"
-    },
-    "./errors/workspace.errors": {
-      "@sheavly/source": "./src/errors/workspace.errors.ts",
-      "types": "./dist/errors/workspace.errors.d.ts",
-      "default": "./dist/errors/workspace.errors.js"
-    },
-    "./file-locks/file-locks.service": {
-      "@sheavly/source": "./src/file-locks/file-locks.service.ts",
-      "types": "./dist/file-locks/file-locks.service.d.ts",
-      "default": "./dist/file-locks/file-locks.service.js"
-    },
-    "./process/process.constants": {
-      "@sheavly/source": "./src/process/process.constants.ts",
-      "types": "./dist/process/process.constants.d.ts",
-      "default": "./dist/process/process.constants.js"
-    },
-    "./process/process.service": {
-      "@sheavly/source": "./src/process/process.service.ts",
-      "types": "./dist/process/process.service.d.ts",
-      "default": "./dist/process/process.service.js"
-    },
-    "./process/process.types": {
-      "@sheavly/source": "./src/process/process.types.ts",
-      "types": "./dist/process/process.types.d.ts",
-      "default": "./dist/process/process.types.js"
-    },
-    "./project-hooks/project-hooks.helper": {
-      "@sheavly/source": "./src/project-hooks/project-hooks.helper.ts",
-      "types": "./dist/project-hooks/project-hooks.helper.d.ts",
-      "default": "./dist/project-hooks/project-hooks.helper.js"
-    },
-    "./project-hooks/project-hooks.types": {
-      "@sheavly/source": "./src/project-hooks/project-hooks.types.ts",
-      "types": "./dist/project-hooks/project-hooks.types.d.ts",
-      "default": "./dist/project-hooks/project-hooks.types.js"
-    },
-    "./trust/trust.service": {
-      "@sheavly/source": "./src/trust/trust.service.ts",
-      "types": "./dist/trust/trust.service.d.ts",
-      "default": "./dist/trust/trust.service.js"
-    },
-    "./workspace/workspace.service": {
-      "@sheavly/source": "./src/workspace/workspace.service.ts",
-      "types": "./dist/workspace/workspace.service.d.ts",
-      "default": "./dist/workspace/workspace.service.js"
-    },
-    "./testing/*": {
-      "@sheavly/source": "./src/testing/*.ts"
-    }
   },
   "private": true,
   "dependencies": {
@@ -77,5 +23,34 @@
   "devDependencies": {
     "@sheavly/loop": "^0.0.0",
     "@sheavly/testing": "^0.0.0"
-  }
+  },
+  "exports": {
+    "./*.constants": {
+      "@sheavly/source": "./src/*.constants.ts",
+      "default": "./dist/*.constants.js"
+    },
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
+    },
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }

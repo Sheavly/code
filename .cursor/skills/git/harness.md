@@ -12,7 +12,7 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 **Mechanical**, visible in the diff:
 
 - a new workspace (`packages/<name>/`, `apps/<name>/`);
-- a new `exports` entry in a package's `package.json` (a module made public: is it meant to be?);
+- a new `exports` entry in a package's `package.json` (a file kind made public: is every file of it meant to be?);
 - a new file kind, or a file named `<name>.<kind>.ts` with a kind `file-kinds.js` doesn't know;
 - a new skill in `.cursor/skills/`, or a skill's files moved;
 - a new contract other code must import rather than copy (a wire type, an artifact kind, a hook
@@ -42,7 +42,7 @@ dependencies (`harness/layout`, `npm run layout`), imports across workspaces
 | The trigger is about…                      | Add                                                                                                                                           |
 | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | a new workspace                            | create it with the scaffold (the skill's "A new package"): it sets its `sheavly.domain`, configs and dependencies; nothing central to edit    |
-| an `exports` entry                         | added with `npm run export` (the layout check holds its shape); the PR body says why the module is public, not just used                      |
+| an `exports` entry                         | a whole file kind, added with `npm run export` (`harness/layout` holds its shape); the PR body says why every file of that kind is public     |
 | a file kind                                | its policy in `file-kinds.js` and RuleTester cases                                                                                            |
 | a skill                                    | its `harness.json` (`governs` globs, or `manual` with a reason)                                                                               |
 | a contract to import, not copy             | its schema or type in the owning package's `*.types.ts`, so `harness/single-definition` covers it; a `harness/*` rule if the shape needs more |

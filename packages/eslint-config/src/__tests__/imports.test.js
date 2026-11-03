@@ -19,20 +19,30 @@ const root = tempWorkspace({
   'apps/cli/package.json': { name: '@x/cli' },
   'apps/web/package.json': { name: '@x/web' },
 });
+/** The `exports` of a package that makes these file kinds public, plus its fakes if listed. */
+const kinds = (...names) =>
+  Object.fromEntries(
+    names.map((kind) => [
+      kind === 'testing' ? './testing/*' : `./*.${kind}`,
+      kind === 'testing'
+        ? { '@sheavly/source': './src/testing/*.ts' }
+        : { '@sheavly/source': `./src/*.${kind}.ts`, default: `./dist/*.${kind}.js` },
+    ]),
+  );
 const layout = {
   '@x/protocol': {
     dir: 'packages/protocol',
     kind: 'package',
     domain: 'generic',
     dependsOn: [],
-    exports: ['./a/a.utils'],
+    exports: kinds('utils'),
   },
   '@x/core': {
     dir: 'packages/core',
     kind: 'package',
     domain: 'generic',
     dependsOn: ['@x/protocol'],
-    exports: ['./tool/tool.utils', './testing/*'],
+    exports: kinds('utils', 'testing'),
   },
   '@x/coding': {
     dir: 'packages/coding',
@@ -40,7 +50,7 @@ const layout = {
     domain: 'coding',
     dependsOn: ['@x/core'],
     devDependsOn: ['@x/testing', '@x/protocol'],
-    exports: ['./files/files.utils', './read/read.tool'],
+    exports: kinds('utils', 'tool'),
   },
   '@x/testing': {
     dir: 'packages/testing',
@@ -48,14 +58,14 @@ const layout = {
     domain: 'generic',
     testOnly: true,
     dependsOn: [],
-    exports: ['./fake/fake.fake'],
+    exports: kinds('fake'),
   },
   '@x/coding2': {
     dir: 'packages/coding2',
     kind: 'package',
     domain: 'coding',
     dependsOn: ['@x/coding'],
-    exports: [],
+    exports: {},
   },
   '@x/cli': { dir: 'apps/cli', kind: 'app', domain: 'coding', dependsOn: ['@x/core', '@x/coding'] },
   '@x/web': { dir: 'apps/web', kind: 'app', domain: 'coding', dependsOn: ['@x/core'] },

@@ -22,7 +22,6 @@ import { copiedGraphProblems, generatedProblems } from './graph.mjs';
 import { staleReferenceProblems } from './stale-references.mjs';
 import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
 import {
-  TESTING_EXPORT,
   isStraySource,
   layoutProblems,
   listWorkspaces,
@@ -129,62 +128,6 @@ function strayProblems(params) {
 }
 
 /**
- * A package's public API is what its `exports` lists, one module file per subpath, each with the
- * source, types and build targets; never a wildcard over its whole `src/` (only its fakes,
- * `./testing/*`, from source). An app exports nothing: nothing imports it.
- */
-function exportsProblems(params) {
-  const { workspace, kind } = params;
-  const exportsField = workspace.manifest.exports;
-  const where = `${workspace.relative}: package.json exports`;
-
-  if (kind === 'app') {
-    return exportsField ? [`${where} something, but nothing imports an app; remove it.`] : [];
-  }
-
-  if (workspace.manifest.sheavly?.domain === 'tooling') return [];
-
-  if (!exportsField || typeof exportsField !== 'object') {
-    return [
-      `${workspace.relative}: package.json has no exports, so every file is public. List its public modules: \`npm run export -- ${workspace.manifest.name}/<module>/<file>\` (or \`npm pkg set exports={} --json\` while it has none).`,
-    ];
-  }
-
-  return Object.entries(exportsField).flatMap(([subpath, targets]) => {
-    if (subpath === TESTING_EXPORT) {
-      return targets?.['@sheavly/source'] === './src/testing/*.ts'
-        ? []
-        : [
-            `${where} ${subpath} must point at its source only: { "@sheavly/source": "./src/testing/*.ts" }.`,
-          ];
-    }
-
-    if (subpath.includes('*')) {
-      return [
-        `${where} ${subpath}, a wildcard: every file would be public. List the modules other workspaces may import, one subpath each.`,
-      ];
-    }
-
-    const file = subpath.slice(2);
-    const expected = {
-      '@sheavly/source': `./src/${file}.ts`,
-      types: `./dist/${file}.d.ts`,
-      default: `./dist/${file}.js`,
-    };
-
-    if (JSON.stringify(targets) !== JSON.stringify(expected)) {
-      return [`${where} ${subpath} must be ${JSON.stringify(expected)}.`];
-    }
-
-    return existsSync(path.join(workspace.dir, expected['@sheavly/source']))
-      ? []
-      : [
-          `${where} ${subpath}, but ${expected['@sheavly/source']} doesn't exist; remove the entry.`,
-        ];
-  });
-}
-
-/**
  * Which backend a run uses is the UI's choice: a package takes a `Provider` and never depends at
  * runtime on one that holds model backends (`*.adapter.ts` files, read from the files). Tests may
  * use them as dev dependencies, to drive the real code.
@@ -271,9 +214,6 @@ export function findLayoutProblems(params) {
   return [
     ...layoutProblems(layout).map((problem) => `${problem}.`),
     ...workspaces.flatMap((workspace) => configProblems({ workspace })),
-    ...workspaces.flatMap((workspace) =>
-      exportsProblems({ workspace, kind: layout[workspace.name]?.kind }),
-    ),
     ...referenceProblems({ root, layout, files }),
     ...emptyProblems({ root, workspaces, files }),
     ...docsProblems({ root, workspaces, files }),

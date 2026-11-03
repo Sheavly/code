@@ -37,11 +37,23 @@ settings. The imports themselves are `harness/imports`.
 
 ## Public API
 
-A package's `exports` is its public API: one entry per module other workspaces may import, each
-with its source, types and build targets, never a wildcard over `src/` (its fakes, `./testing/*`,
-from source only, for tests). `harness/imports` fails an import of anything not listed, and the
-layout check fails a wildcard, a misshapen entry, one naming no file, and `exports` on an app.
-`npm run export -- @sheavly/<pkg>/<module>/<file>` adds an entry, in review.
+A package's `exports` is its public API, by file kind: `"./*.types": { "@sheavly/source":
+"./src/*.types.ts", "default": "./dist/*.types.js" }` makes every `*.types.ts` public, so a new
+module needs no entry. Its fakes are `./testing/*`, from source only. `harness/imports` fails an
+import of a kind not exported, and `harness/layout` (in lint and the layout check) fails an entry
+for one file, a kind that doesn't exist, other targets, fakes exported as a kind, and `exports` on
+an app. `npm run export -- packages/<pkg> <kind>` makes a kind public, in review.
+
+Every package is treated as published, so `exports` is its semver contract:
+
+- A module folder that holds files of an exported kind but isn't API is closed:
+  `"./hooks/*": null`. Node picks the longest matching key, so it wins over `./*.helper`.
+- The public modules are exactly the ones the README's API table has a row for
+  (``| `hooks/` | … |``). A module that `exports` opens without a row, or a row for a module
+  it keeps closed, fails: what is public is what is documented.
+- A published package (not tooling, not test-only) ships its build and docs only
+  (`"files": ["dist", "docs"]`, never `src`) and builds before it packs
+  (`"prepack": "npm run build"`). The scaffold sets both.
 
 ## What a run includes is the UI's choice
 

@@ -20,8 +20,7 @@ const tools = [createReadFileTool({ workspace: harness.workspace })];
 | `edit-file/`   | `edit_file`                                                                                     |
 | `run-command/` | `run_command`: the allow list, argument checks, safe git config, approvals                      |
 | `files/`       | What the file tools share: `resolveWritable`, the `.env` guard, `FileChange` and `isFileChange` |
-
-Internal: `errors/` (`CommandRefusedError`).
+| `errors/`      | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it            |
 
 ## Docs
 

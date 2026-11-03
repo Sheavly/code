@@ -6,62 +6,43 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
-    "test": "vitest run --config ../../vitest.config.ts"
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
   },
   "type": "module",
   "license": "UNLICENSED",
   "sheavly": {
     "domain": "generic"
   },
-  "exports": {
-    "./approvals/approvals.service": {
-      "@sheavly/source": "./src/approvals/approvals.service.ts",
-      "types": "./dist/approvals/approvals.service.d.ts",
-      "default": "./dist/approvals/approvals.service.js"
-    },
-    "./errors/errors.utils": {
-      "@sheavly/source": "./src/errors/errors.utils.ts",
-      "types": "./dist/errors/errors.utils.d.ts",
-      "default": "./dist/errors/errors.utils.js"
-    },
-    "./sessions/sessions.constants": {
-      "@sheavly/source": "./src/sessions/sessions.constants.ts",
-      "types": "./dist/sessions/sessions.constants.d.ts",
-      "default": "./dist/sessions/sessions.constants.js"
-    },
-    "./sessions/sessions.service": {
-      "@sheavly/source": "./src/sessions/sessions.service.ts",
-      "types": "./dist/sessions/sessions.service.d.ts",
-      "default": "./dist/sessions/sessions.service.js"
-    },
-    "./sessions/sessions.types": {
-      "@sheavly/source": "./src/sessions/sessions.types.ts",
-      "types": "./dist/sessions/sessions.types.d.ts",
-      "default": "./dist/sessions/sessions.types.js"
-    },
-    "./sessions/sessions.utils": {
-      "@sheavly/source": "./src/sessions/sessions.utils.ts",
-      "types": "./dist/sessions/sessions.utils.d.ts",
-      "default": "./dist/sessions/sessions.utils.js"
-    },
-    "./tasks/tasks.service": {
-      "@sheavly/source": "./src/tasks/tasks.service.ts",
-      "types": "./dist/tasks/tasks.service.d.ts",
-      "default": "./dist/tasks/tasks.service.js"
-    },
-    "./tasks/tasks.utils": {
-      "@sheavly/source": "./src/tasks/tasks.utils.ts",
-      "types": "./dist/tasks/tasks.utils.d.ts",
-      "default": "./dist/tasks/tasks.utils.js"
-    },
-    "./testing/*": {
-      "@sheavly/source": "./src/testing/*.ts"
-    }
-  },
   "private": true,
   "dependencies": {
     "@sheavly/core": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
     "zod": "^4.6.7"
-  }
+  },
+  "exports": {
+    "./*.constants": {
+      "@sheavly/source": "./src/*.constants.ts",
+      "default": "./dist/*.constants.js"
+    },
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ]
 }
