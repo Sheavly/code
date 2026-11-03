@@ -1,35 +1,27 @@
 # @sheavly/providers
 
-Model backends for the harness. Everything here is written against `@sheavly/core` (the
-`Provider` and `Adapter` contracts) and `zod`, and on no other workspace, so the adapters can be
-used without the harness.
+Model backends for the harness, written against `@sheavly/core`'s `Provider` and `Adapter`
+contracts and nothing else, so they can be used without the harness. A UI builds its provider
+here and passes it in; no other package depends on this one at runtime.
 
+```ts
+import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
+
+const provider = createDefaultRegistry().create('openai', { apiKey, model: 'gpt-6.1-sol' });
 ```
-src/
-  responses/    the OpenAI Responses protocol: createResponsesProvider, defineResponsesAdapter,
-                SSE reader, event and input mapping
-  openai/       backend: config → Responses endpoint (Bearer key)
-  azure/        backend: config → Responses endpoint (api-key, api-version, deployment)
-  registry/     AdapterRegistry (kind + config → Provider) and createDefaultRegistry
-  switch/       ProviderSwitch: swap the active provider between turns
-  errors/       AdapterError, ResponsesApiError, ProviderSwitchError
-```
+
+| Module       | What it holds                                                                      |
+| ------------ | ---------------------------------------------------------------------------------- |
+| `registry/`  | `AdapterRegistry` (kind + config → `Provider`) and `createDefaultRegistry`         |
+| `switch/`    | `ProviderSwitch`: swap the active provider between turns                           |
+| `responses/` | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter` |
+| `openai/`    | Backend: config → Responses endpoint (Bearer key)                                  |
+| `azure/`     | Backend: config → Responses endpoint (api-key, api-version, deployment)            |
+| `errors/`    | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                         |
+| `testing/`   | Fakes for tests: Responses API items                                               |
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
-A UI keeps its own: the terminal app's are in `apps/terminal/src/harness/harness.constants.ts`.
 
-## Adding a backend
+## Docs
 
-- **It speaks the Responses API** (OpenAI-compatible gateways, local servers that support it): a
-  folder `src/<name>/` with `<name>.adapter.ts` calling `defineResponsesAdapter({ kind,
-description, configSchema, toEndpoint })`. `toEndpoint` is a pure map from validated config to
-  base URL, model, headers and query; streaming, tool calls and reasoning are shared. Test the
-  mapping in `src/<name>/__tests__/` with `requestSentBy` from `@sheavly/testing/fetch/fake-fetch.fake`.
-- **It speaks another protocol** (Anthropic Messages, Google Gemini, Chat Completions): a protocol
-  folder next to `responses/` (`src/anthropic-messages/`, ...) with its own `create<Name>Provider`
-  that turns a `ProviderRequest` into that API's request and its stream into `StreamEvent`s, and
-  backends built on it. Only the `Provider` contract is shared: nothing in `responses/` is reused
-  or extended for another protocol. Reasoning items keep a `source` naming the protocol, endpoint
-  and model, so one provider's reasoning is never sent to another.
-- Register it in `createDefaultRegistry` if it is built in, or `registry.register(adapter)` from
-  the caller.
+- [Backends](docs/backends.md): creating and switching providers, and adding a backend.

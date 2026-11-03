@@ -16,9 +16,14 @@ const TSCONFIG = json({ extends: '../../tsconfig.base.json', compilerOptions: { 
 const WORKSPACES = { core: 'packages', coding: 'packages', web: 'apps' };
 const fileOf = (folder, file) => `${WORKSPACES[folder]}/${folder}/${file}`;
 const repoFiles = (folder) =>
-  ['package.json', 'eslint.config.js', 'tsconfig.json', `src/${folder}/${folder}.utils.ts`].map(
-    (file) => fileOf(folder, file),
-  );
+  [
+    'package.json',
+    'eslint.config.js',
+    'tsconfig.json',
+    'README.md',
+    'docs/design.md',
+    `src/${folder}/${folder}.utils.ts`,
+  ].map((file) => fileOf(folder, file));
 
 function repo(params = {}) {
   const { workspaces = ['packages/*', 'apps/*'] } = params;
@@ -33,6 +38,8 @@ function repo(params = {}) {
     [fileOf(folder, 'eslint.config.js')]: ESLINT,
     [fileOf(folder, 'tsconfig.json')]: TSCONFIG,
     [fileOf(folder, `src/${folder}/${folder}.utils.ts`)]: 'export {};\n',
+    [fileOf(folder, 'README.md')]: '# x\n\n## Docs\n\n- [Design](docs/design.md)\n',
+    [fileOf(folder, 'docs/design.md')]: '# Design\n',
   });
 
   // npm runs in it for real, so it gets no link to this repo's node_modules.
@@ -120,6 +127,7 @@ describe('creating a workspace', () => {
           'tsconfig.json',
           'tsconfig.build.json',
           'README.md',
+          'docs/design.md',
         ].map((file) => `${dir}/${file}`),
       ];
 

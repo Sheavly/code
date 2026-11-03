@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/runtime",
   "version": "0.0.0",
-  "description": "The generic stateful services a run uses: sessions, background tasks and approvals. No project on disk.",
+  "description": "The stateful services a run uses: sessions, background tasks and approvals. Nothing about files or code.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",

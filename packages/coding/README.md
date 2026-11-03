@@ -1,3 +1,29 @@
 # @sheavly/coding
 
-The coding tools (the file tools, run_command) and `createCodingHarness`, the workspace, file locks and process runner a coding run shares. A coding UI picks which tools a run includes and builds them on those services.
+The coding tools and the services a coding run shares. `createCodingHarness` opens the workspace
+and makes one set of file locks and one process runner on top of `createHarness`; the tools are
+built on those. It adds no tools or hooks to a run itself: a coding UI picks which ones a run gets.
+
+```ts
+import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
+import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
+
+const harness = await createCodingHarness({ provider, title, workspaceRoot, env: process.env });
+const tools = [createReadFileTool({ workspace: harness.workspace })];
+```
+
+| Module         | What it holds                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| `preset/`      | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                  |
+| `read-file/`   | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                            |
+| `write-file/`  | `write_file`                                                                                    |
+| `edit-file/`   | `edit_file`                                                                                     |
+| `run-command/` | `run_command`: the allow list, argument checks, safe git config, approvals                      |
+| `files/`       | What the file tools share: `resolveWritable`, the `.env` guard, `FileChange` and `isFileChange` |
+
+Internal: `errors/` (`CommandRefusedError`).
+
+## Docs
+
+- [File tools](docs/file-tools.md): confinement, the three tools, and the artifacts they return.
+- [run_command](docs/run-command.md): how a command is checked before it runs.

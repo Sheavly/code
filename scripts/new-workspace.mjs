@@ -10,7 +10,7 @@
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
-// The configs and a README are written as files. No code or test is: the first module is the
+// The configs, a README and a first doc in docs/ are written as files. No code or test is: the first module is the
 // author's, and until it lands the layout check says the workspace has no source.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -122,6 +122,31 @@ function tsconfigBuild(params) {
   )}\n`;
 }
 
+/**
+ * The README: the first place someone looks. What it is for, then (once it has code) its public
+ * API with an example, and a link to each doc in docs/, which goes deeper.
+ */
+function readme(params) {
+  const { fullName, description } = params;
+
+  return `# ${fullName}
+
+${description}
+
+## Docs
+
+- [Design](docs/design.md): how it works, and how to extend it.
+`;
+}
+
+/** The first doc in docs/: a place for what goes beyond the README, for the author to write. */
+const DESIGN_DOC = `# Design
+
+How this workspace works inside, why it is built this way, and how to extend it. Keep the README
+to what it is for, its public API and an example; what goes deeper goes here, one topic per file,
+each linked from the README.
+`;
+
 /** Every step that creates the workspace, in order: commands for npm, files for the rest. */
 function steps(params) {
   const { plan, root } = params;
@@ -165,7 +190,8 @@ function steps(params) {
     { file: `${dir}/eslint.config.js`, content: ESLINT_CONFIG },
     { file: `${dir}/tsconfig.json`, content: TSCONFIG },
     { file: `${dir}/tsconfig.build.json`, content: tsconfigBuild({ layout: plan.layout, entry }) },
-    { file: `${dir}/README.md`, content: `# ${fullName}\n\n${description}\n` },
+    { file: `${dir}/README.md`, content: readme({ fullName, description }) },
+    { file: `${dir}/docs/design.md`, content: DESIGN_DOC },
   ];
 }
 

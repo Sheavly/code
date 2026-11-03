@@ -13,6 +13,10 @@
     "turbo.json",
     "tsconfig*.json",
     "vitest.config.ts",
-    "docs/**"
+    "docs/**",
+    "packages/*/README.md",
+    "packages/*/docs/**",
+    "apps/*/README.md",
+    "apps/*/docs/**"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/core",
   "version": "0.0.0",
-  "description": "Contracts and the tool definition the harness, its tools and its providers are written against",
+  "description": "The code contracts tools, hooks and providers are written against: defineTool, defineHook, defineAdapter, Provider and the Environment an app passes in.",
   "type": "module",
   "private": true,
   "license": "UNLICENSED",

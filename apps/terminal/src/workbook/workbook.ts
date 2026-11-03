@@ -8,7 +8,7 @@
  *   npm run workbook -- diff 0003 0007          compare two runs
  *   npm run workbook -- check                   real-model checks for what this branch changed
  *
- * Every run is saved in workbook/runs/<id>/ as it happens. See workbook/README.md.
+ * Every run is saved in workbook/runs/<id>/ as it happens. See apps/terminal/docs/workbook.md.
  * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
  */
 import { existsSync } from 'node:fs';

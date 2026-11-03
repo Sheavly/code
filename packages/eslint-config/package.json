@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/eslint-config",
   "version": "0.0.0",
-  "description": "Shared ESLint config and structure rules for @sheavly/harness",
+  "description": "The shared ESLint config and the harness/* rules every workspace is checked with: file kinds, the import graph, public APIs, one definition per type.",
   "type": "module",
   "private": true,
   "license": "UNLICENSED",

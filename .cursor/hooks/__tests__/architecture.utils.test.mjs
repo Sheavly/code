@@ -2,7 +2,6 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readLayout } from '../../../packages/eslint-config/src/layout.utils.js';
 import {
   architectureRule,
   coveredByRule,
@@ -91,22 +90,21 @@ describe('the architecture rule', () => {
 });
 
 describe('"Where code goes"', () => {
-  it('is read from the project skill: the table and the new-package criteria', () => {
+  it('is read from the project skill: the decision rules and the new-package criteria', () => {
     const guide = whereCodeGoes();
 
     expect(guide).toContain(WHERE_CODE_GOES);
-    expect(guide).toContain('would a non-coding LLM project');
+    expect(guide).toContain('Would a non-coding LLM project');
     expect(guide).toContain('A new package, instead of a folder');
     expect(guide).not.toContain('## Backend only');
   });
 
-  it('names every workspace the layout reads, so a new one needs a row', () => {
+  it('routes to the generated workspace list instead of keeping its own', () => {
     const guide = whereCodeGoes() ?? '';
-    const missing = Object.keys(readLayout({ root: ROOT })).filter(
-      (name) => !guide.includes(`\`${name}\``),
-    );
 
-    expect(missing).toEqual([]);
+    expect(guide).toContain('sheavly-packages');
+    // A row per workspace here would be a hand-kept copy of the router, which drifts.
+    expect(guide).not.toMatch(/^\| `@sheavly\//m);
   });
 
   it('is injected once per chat, on its first edit of harness source', () => {
