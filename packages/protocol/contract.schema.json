@@ -123,10 +123,10 @@
           "properties": {
             "type": { "type": "string", "const": "done" },
             "reason": { "$ref": "#/$defs/DoneReason" },
-            "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } },
-            "session": { "$ref": "#/$defs/SessionRef" }
+            "session": { "$ref": "#/$defs/SessionRef" },
+            "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } }
           },
-          "required": ["type", "reason", "messages", "session"]
+          "required": ["type", "reason", "session", "messages"]
         }
       ]
     },
@@ -295,7 +295,144 @@
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
             "kind": { "type": "string", "const": "event" },
-            "event": { "$ref": "#/$defs/AgentEvent" }
+            "event": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "text_delta" },
+                    "text": { "type": "string" }
+                  },
+                  "required": ["seq", "type", "text"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "reasoning" },
+                    "item": { "$ref": "#/$defs/ReasoningItem" }
+                  },
+                  "required": ["seq", "type", "item"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "call": { "$ref": "#/$defs/ToolCall" },
+                    "description": { "type": "string" },
+                    "type": { "type": "string", "const": "tool_call_started" }
+                  },
+                  "required": ["seq", "call", "description", "type"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "turn_end" },
+                    "turn": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "stopReason": { "$ref": "#/$defs/TurnStopReason" }
+                  },
+                  "required": ["seq", "type", "turn", "stopReason"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "tool_batch" },
+                    "calls": { "type": "array", "items": { "$ref": "#/$defs/DescribedCall" } }
+                  },
+                  "required": ["seq", "type", "calls"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "call": { "$ref": "#/$defs/ToolCall" },
+                    "description": { "type": "string" },
+                    "type": { "type": "string", "const": "tool_result" },
+                    "message": { "$ref": "#/$defs/Message" },
+                    "durationMs": { "type": "number" },
+                    "artifacts": {
+                      "readOnly": true,
+                      "type": "array",
+                      "items": { "$ref": "#/$defs/ToolArtifact" }
+                    }
+                  },
+                  "required": ["seq", "call", "description", "type", "message", "durationMs"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "call": { "$ref": "#/$defs/ToolCall" },
+                    "description": { "type": "string" },
+                    "type": { "type": "string", "const": "task_running" },
+                    "task": { "$ref": "#/$defs/TaskInfo" },
+                    "message": { "$ref": "#/$defs/Message" },
+                    "durationMs": { "type": "number" }
+                  },
+                  "required": [
+                    "seq",
+                    "call",
+                    "description",
+                    "type",
+                    "task",
+                    "message",
+                    "durationMs"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "task_completed" },
+                    "task": { "$ref": "#/$defs/TaskInfo" }
+                  },
+                  "required": ["seq", "type", "task"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "message_received" },
+                    "message": { "$ref": "#/$defs/InboxMessage" }
+                  },
+                  "required": ["seq", "type", "message"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "context_added" },
+                    "hook": { "type": "string" },
+                    "content": { "type": "string" }
+                  },
+                  "required": ["seq", "type", "hook", "content"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "hook_failed" },
+                    "hook": { "type": "string" },
+                    "handler": { "type": "string" },
+                    "error": { "type": "string" }
+                  },
+                  "required": ["seq", "type", "hook", "handler", "error"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "type": { "type": "string", "const": "done" },
+                    "reason": { "$ref": "#/$defs/DoneReason" },
+                    "session": { "$ref": "#/$defs/SessionRef" }
+                  },
+                  "required": ["seq", "type", "reason", "session"]
+                }
+              ]
+            }
           },
           "required": ["seq", "sessionId", "kind", "event"]
         },

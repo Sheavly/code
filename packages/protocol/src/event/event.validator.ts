@@ -35,7 +35,8 @@ export const doneReasonSchema = z.enum(['completed', 'interrupted', 'max_turns']
  *   → tool_batch → tool_result | task_running × N (results in call order)
  *   → next turn ... → done
  */
-export const agentEventBodySchema = z.discriminatedUnion('type', [
+/** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
+const stepEventSchemas = [
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */
   z.object({ type: z.literal('reasoning'), item: reasoningItemSchema }),
@@ -85,17 +86,37 @@ export const agentEventBodySchema = z.discriminatedUnion('type', [
     handler: z.string(),
     error: z.string(),
   }),
-  /** Always last. The full conversation (valid to continue from, even after an interrupt). */
-  z.object({
-    type: z.literal('done'),
-    reason: doneReasonSchema,
-    messages: z.array(messageSchema),
-    session: sessionRefSchema,
-  }),
+] as const;
+
+/** The run's end, as the combined stream carries it: how it ended, without the history. */
+const doneEntrySchema = z.object({
+  type: z.literal('done'),
+  reason: doneReasonSchema,
+  session: sessionRefSchema,
+});
+
+/**
+ * Always last. The full conversation (valid to continue from, even after an interrupt), for
+ * whoever runs the loop. The combined stream drops `messages` (`entryEventSchema`).
+ */
+const doneEventSchema = doneEntrySchema.extend({ messages: z.array(messageSchema) });
+
+export const agentEventBodySchema = z.discriminatedUnion('type', [
+  ...stepEventSchemas,
+  doneEventSchema,
 ]);
 
-/** Every event carries `seq`: 0, 1, 2, ... with no gaps, in the order consumers receive them. */
-export const agentEventSchema = z.intersection(
-  z.object({ seq: z.number().int().nonnegative() }),
-  agentEventBodySchema,
-);
+/** `seq`: 0, 1, 2, ... with no gaps, in the order consumers receive them. */
+const eventSeqSchema = z.object({ seq: z.number().int().nonnegative() });
+
+/** Every event carries `seq` (`eventSeqSchema`). */
+export const agentEventSchema = z.intersection(eventSeqSchema, agentEventBodySchema);
+
+/**
+ * An event as the combined stream (`StreamEntry`) carries it: the same, except that `done` has
+ * no `messages`. The stream keeps every entry for replay, and a prompt's history in each one
+ * would grow it with the square of the conversation; a UI reads the history on its own.
+ */
+const entryEventBodySchema = z.discriminatedUnion('type', [...stepEventSchemas, doneEntrySchema]);
+
+export const entryEventSchema = z.intersection(eventSeqSchema, entryEventBodySchema);

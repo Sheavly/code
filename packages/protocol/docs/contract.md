@@ -22,6 +22,9 @@ other workspace packages out.
   type-only, so on the wire and in `contract.schema.json` each is a plain string, named under
   `$defs`. A value gets its brand by being parsed (a TypeScript UI parses what it receives, or
   `sessionIdSchema.parse(id)`), never by `as` (`harness/branded-ids`, `harness/no-brand-cast`).
+- An event inside a `StreamEntry` is an `EntryEvent`: the same as an `AgentEvent`, except that
+  its `done` has no `messages`. The combined stream is kept for replay, so the history isn't in
+  it; a UI reads the history on its own.
 - Only the wire contract lives there. What a provider streams (`StreamEvent`, `StopReason`) and
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.

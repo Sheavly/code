@@ -42,4 +42,22 @@ describe('streamEntrySchema', () => {
       streamEntrySchema.safeParse({ seq: 0, sessionId: 'main', kind: 'log', event }).success,
     ).toBe(false);
   });
+
+  it('takes a done without messages, so the stream never carries the history', () => {
+    const session = { id: 'main', rootId: 'main', depth: 1 };
+    const done = { seq: 3, type: 'done', reason: 'completed', session };
+
+    expect(
+      streamEntrySchema.parse({ seq: 9, sessionId: 'main', kind: 'event', event: done }),
+    ).toEqual({ seq: 9, sessionId: 'main', kind: 'event', event: done });
+    // A run's own done (with messages) parses too, but the stream drops what the schema doesn't know.
+    const parsed = streamEntrySchema.parse({
+      seq: 9,
+      sessionId: 'main',
+      kind: 'event',
+      event: { ...done, messages: [{ role: 'user', content: 'hi' }] },
+    });
+
+    expect(parsed.kind === 'event' && 'messages' in parsed.event).toBe(false);
+  });
 });
