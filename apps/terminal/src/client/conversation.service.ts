@@ -52,9 +52,11 @@ export class RemoteConversation {
     return (await ok(this.#client.conversations[':id'].$get({ param: { id: this.id } }))).json();
   }
 
-  async skills(): Promise<SkillInfo[]> {
-    const response = await this.#client.conversations[':id'].skills.$get({
+  /** The skills a prompt can run, all or those `search` matches (name or description). */
+  async skills(search?: string): Promise<SkillInfo[]> {
+    const response = await this.#client.conversations[':id'].skills.$query({
       param: { id: this.id },
+      json: search ? { search } : {},
     });
 
     return (await (await ok(response)).json()).skills;

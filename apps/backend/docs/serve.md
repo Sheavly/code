@@ -61,9 +61,10 @@ curl -N -X POST -H "authorization: Bearer $T" -H 'content-type: application/json
 curl -N -X QUERY -H "authorization: Bearer $T" -H 'content-type: application/json' \
   -d '{"replay":true,"approvals":true}' $U/conversations/$ID/stream
 
-# The history, and the skills a prompt can run.
+# The history, and the skills a prompt can run (all, or those a search matches).
 curl -s -H "authorization: Bearer $T" $U/conversations/$ID/messages
-curl -s -H "authorization: Bearer $T" $U/conversations/$ID/skills
+curl -s -X QUERY -H "authorization: Bearer $T" -H 'content-type: application/json' \
+  -d '{"search":"review"}' $U/conversations/$ID/skills
 
 # Stop the running prompt, then close the conversation.
 curl -X POST -H "authorization: Bearer $T" $U/conversations/$ID/stop
