@@ -32,6 +32,8 @@ function wellFormed(folder, manifest = {}) {
     [`packages/${folder}/eslint.config.js`]: ESLINT,
     [`packages/${folder}/tsconfig.json`]: TSCONFIG,
     [`packages/${folder}/src/${folder}/${folder}.utils.ts`]: 'export const x = 1;\n',
+    [`packages/${folder}/README.md`]: `# ${folder}\n\n## Docs\n\n- [Design](docs/design.md)\n`,
+    [`packages/${folder}/docs/design.md`]: '# Design\n',
   };
 }
 
@@ -151,6 +153,8 @@ describe('the layout check', () => {
         'apps/cli/eslint.config.js': ESLINT,
         'apps/cli/tsconfig.json': TSCONFIG,
         'apps/cli/src/main.ts': 'export {};\n',
+        'apps/cli/README.md': '# cli\n\n- [Design](docs/design.md)\n',
+        'apps/cli/docs/design.md': '# Design\n',
       }),
     ).toEqual([expect.stringContaining('@sheavly/cli as a dev dependency, an app')]);
   });
@@ -227,6 +231,18 @@ describe('the layout check', () => {
     expect(
       problems({ ...files, ...wellFormed('top', { devDependencies: { '@sheavly/models': '0' } }) }),
     ).toEqual([]);
+  });
+
+  it('fails a workspace with no README, no docs/, or a doc its README never links', () => {
+    expect(problems({ 'packages/base/README.md': null })).toEqual([
+      expect.stringContaining('packages/base/README.md is missing'),
+    ]);
+    expect(problems({ 'packages/base/docs/design.md': null })).toEqual([
+      expect.stringContaining('packages/base/docs/ is missing or empty'),
+    ]);
+    expect(problems({ 'packages/base/docs/more.md': '# More\n' })).toEqual([
+      expect.stringContaining("packages/base/README.md doesn't link docs/more.md"),
+    ]);
   });
 
   it("fails source outside every workspace's src/, unless NOT_SOURCE says why", () => {

@@ -4,7 +4,8 @@
 // Every workspace also has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json`
 // extending `tsconfig.base.json` with `rootDir: "src"`, a `tsconfig.build.json` referencing
 // exactly the workspaces it depends on, and source of its own. And TypeScript
-// lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. The workspace
+// lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. Every workspace
+// has a README.md and a docs/ folder the README links each file of. The workspace
 // graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
 // draws its own; nothing names the root `src/` from before the split, and code names no issue
 // (`stale-references.mjs`). Lint runs the same checks on each workspace's files; this one also covers a
@@ -16,7 +17,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { copiedGraphProblems, graphProblem } from './graph.mjs';
+import { brokenLinkProblems } from './doc-links.mjs';
+import { copiedGraphProblems, generatedProblems } from './graph.mjs';
 import { staleReferenceProblems } from './stale-references.mjs';
 import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
 import {
@@ -213,6 +215,41 @@ function providerProblems(params) {
     );
 }
 
+/**
+ * Every workspace documents itself in two layers: its README.md, the first place to look (what it
+ * is for, its public API, an example), and its docs/ folder, which goes deeper. The README links
+ * every doc in docs/, so none is left where nobody finds it.
+ */
+function docsProblems(params) {
+  const { root, workspaces, files } = params;
+
+  return workspaces.flatMap((workspace) => {
+    const dir = path.relative(root, workspace.dir).split(path.sep).join('/');
+    const readme = `${dir}/README.md`;
+    const docs = files.filter((file) => file.startsWith(`${dir}/docs/`) && file.endsWith('.md'));
+
+    if (!files.includes(readme) || !existsSync(path.join(root, readme))) {
+      return [
+        `${readme} is missing: a workspace's README is the first place someone looks. Say what it is for, show its public API and an example, and link its docs/.`,
+      ];
+    }
+
+    if (docs.length === 0) {
+      return [
+        `${dir}/docs/ is missing or empty: put what goes beyond the README there (how it works, how to extend it), one topic per file, linked from the README.`,
+      ];
+    }
+
+    const text = readFileSync(path.join(root, readme), 'utf8');
+
+    return docs
+      .filter((doc) => !text.includes(`(${doc.slice(dir.length + 1)}`))
+      .map(
+        (doc) => `${readme} doesn't link ${doc.slice(dir.length + 1)}: list it under "## Docs".`,
+      );
+  });
+}
+
 /** A workspace with no source of its own: nothing to typecheck, test or import yet. */
 function emptyProblems(params) {
   const { root, workspaces, files } = params;
@@ -239,6 +276,7 @@ export function findLayoutProblems(params) {
     ),
     ...referenceProblems({ root, layout, files }),
     ...emptyProblems({ root, workspaces, files }),
+    ...docsProblems({ root, workspaces, files }),
     ...providerProblems({ root, workspaces, layout, files }),
     ...strayProblems({ workspaces, files, notSource }),
   ];
@@ -252,8 +290,9 @@ export function findGraphProblems(params) {
   const { root, files } = params;
 
   return [
-    graphProblem(root),
+    ...generatedProblems(root),
     ...copiedGraphProblems({ root, files }),
+    ...brokenLinkProblems({ root, files }),
     ...staleReferenceProblems({ root, files }),
   ].filter(Boolean);
 }

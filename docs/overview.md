@@ -222,7 +222,7 @@ API's `instructions` field.
 4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
    (or waits for a background task, with `waitForTasks`).
 5. `done` is always last and carries the full history, valid to continue from, and the run's
-   session (every run is a session with an id; see [sessions.md](sessions.md)).
+   session (every run is a session with an id; see [sessions](../packages/runtime/docs/sessions.md)).
 
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
 history stays valid. If the run fails, `onError` hooks are told and the error is rethrown; an
@@ -240,11 +240,11 @@ What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **pa
 
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
-  inside `.git` are refused ([tools.md](tools.md#file-tools)).
+  inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)).
 - `run_command` runs only allow-listed commands without shell syntax, checks their arguments with
   the same path rules, asks for approval when one reaches outside or can name a `.env` file, and
   sets git config that blocks most ways a repo can make git run programs
-  ([tools.md](tools.md#commands)).
+  ([run_command](../packages/coding/docs/run-command.md)).
 - Commands get the harness's env without the variables whose names look like secrets (`KEY`,
   `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL`). This is a filter on names, not complete scrubbing:
   a secret in a value under another name (`DATABASE_URL`), `SSH_AUTH_SOCK` and credential files
@@ -263,7 +263,7 @@ What runs with the user's full rights, outside those checks:
   does; on git older than 2.42, so does one an edited `.gitattributes` turns on.
 - **`.sheavly/` project hooks.** They run inside the harness process, with its rights and its env
   (keys included). They load only in a workspace the user trusted, and only until `.sheavly/`
-  changes ([hooks.md](hooks.md#workspace-trust)), but once loaded nothing confines what they do.
+  changes ([workspace trust](../packages/workspace/docs/project-hooks.md#workspace-trust)), but once loaded nothing confines what they do.
 
 ## Errors
 
@@ -317,7 +317,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 - A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
   for a Responses API backend; another protocol gets its own folder next to `responses/` (see
   [the package README](../packages/providers/README.md)).
-- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `packages/coding/src/<name>/` (see [tools.md](tools.md)).
-- A new hook point: an optional handler on `Hook` (see [hooks.md](hooks.md)).
+- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `packages/coding/src/<name>/` (see [writing a tool](../packages/core/docs/tools.md)).
+- A new hook point: an optional handler on `Hook` (see [hooks](../packages/core/docs/hooks.md)).
 - Something a UI must show: a new event in `agentEventBodySchema`
   (`packages/protocol/src/event/event.validator.ts`).

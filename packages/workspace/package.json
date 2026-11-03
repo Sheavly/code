@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/workspace",
   "version": "0.0.0",
-  "description": "The project on disk: workspace path confinement, file locks, processes, workspace trust, .sheavly/ project hooks and AGENTS.md.",
+  "description": "A project on disk, for coding UIs: path confinement, file locks, the process runner, workspace trust, .sheavly/ project hooks and the AGENTS.md hook.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",

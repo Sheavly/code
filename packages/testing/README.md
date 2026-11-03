@@ -1,14 +1,26 @@
 # @sheavly/testing
 
-Test fakes for every workspace: scripted providers, fake fetch, tool runners. Tests and fakes only.
+Test fakes every workspace's tests share: scripted and routed providers, fake fetch, a tool
+runner, and a polling wait. Test-only (`"sheavly": { "testOnly": true }`): depend on it as a dev
+dependency and import it only from tests and fakes; `harness/imports` fails it anywhere else, and
+lint treats all its source as test code.
 
-Fakes by what they fake, imported by subpath (`@sheavly/testing/provider/scripted-provider.fake`):
+```ts
+import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 
-- `provider/`: `scriptedProvider`, `callOnceProvider`, `routedProvider`, `createStepPicker`, the `Script` type
-- `fetch/`: `fakeFetch`, `fakeFetchSequence`, `collect`, `requestSentBy`, the `RecordedRequest` type
-- `tool/`: `toolRunner`, which runs tools the way the loop does
-- `wait/`: `until`, which polls a condition
+const provider = routedProvider({ hi: [say('hello')] });
+```
 
-Test-only (`"sheavly": { "testOnly": true }`): depend on it as a dev dependency, and import it only
-from tests and fakes; `harness/imports` fails it anywhere else. It depends on `@sheavly/core` and
-`@sheavly/protocol`, so core's own tests can't use it.
+| Module      | What it holds                                                               |
+| ----------- | --------------------------------------------------------------------------- |
+| `provider/` | `scriptedProvider`, `callOnceProvider`, `routedProvider`, the `Script` type |
+| `fetch/`    | `fakeFetch`, `fakeFetchSequence`, `collect`, `requestSentBy`                |
+| `tool/`     | `toolRunner`, which runs tools the way the loop does                        |
+| `wait/`     | `until`, which polls a condition                                            |
+
+It depends on `@sheavly/core` and `@sheavly/protocol`, so core's own tests can't use it; a
+package's own fakes stay in its `src/testing/`.
+
+## Docs
+
+- [Fakes](docs/fakes.md): what each one stands in for.

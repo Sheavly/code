@@ -15,7 +15,7 @@
  * This calls the real API and costs money (a fraction of a cent for a short prompt).
  *
  * For stored prompts, saved runs and inspecting what happened, use the workbook instead
- * (`npm run workbook`, see workbook/README.md).
+ * (`npm run workbook`, see apps/terminal/docs/workbook.md).
  */
 import { createWriteStream, existsSync } from 'node:fs';
 import { Writable } from 'node:stream';

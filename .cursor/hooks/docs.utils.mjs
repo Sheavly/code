@@ -1,60 +1,51 @@
-// Which doc in docs/ describes which source files, for the stop hook's "update the docs" nudge.
-// A file belongs to the first doc whose pattern matches, so specific areas come first. Tests
-// never count: they don't change what the docs describe.
+// Which docs describe which source files, for the stop hook's "update the docs" nudge. Read from
+// the workspaces, never listed by hand: a source file belongs to the workspace that holds it, and
+// that workspace's README.md and docs/ describe it. A change to one counts for the whole
+// workspace. Tests never count: they don't change what the docs describe.
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { listWorkspaces } from '../../packages/eslint-config/src/layout.utils.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
-const DOC_SOURCES = [
-  {
-    doc: 'docs/sessions.md',
-    sources: [
-      /^packages\/protocol\/src\/session\//,
-      /^packages\/runtime\/src\/sessions\//,
-      /^packages\/tools\/src\/sub-agent\//,
-    ],
-  },
-  {
-    doc: 'docs/hooks.md',
-    sources: [
-      /^packages\/core\/src\/hook\//,
-      /^packages\/loop\/src\/hooks\//,
-      /^packages\/workspace\/src\/project-hooks\//,
-      /^packages\/workspace\/src\/agents-md\//,
-    ],
-  },
-  {
-    doc: 'docs/tools.md',
-    sources: [
-      /^packages\/core\/src\/tool\//,
-      /^packages\/tools\/src\//,
-      /^packages\/coding\/src\/(files|read-file|write-file|edit-file|run-command)\//,
-    ],
-  },
-  { doc: 'packages/providers/README.md', sources: [/^packages\/providers\/src\//] },
-  { doc: 'workbook/README.md', sources: [/^apps\/terminal\/src\/workbook\//] },
-  { doc: 'docs/overview.md', sources: [/^(packages|apps)\/[^/]+\/src\//] },
-];
+const IS_TEST = /(^|\/)(__tests__|testing)\/|\.test\.[cm]?[jt]s$/;
 
-const IS_TEST = /(^|\/)__tests__\/|\.test\.[cm]?[jt]s$/;
-
-/** The doc that describes `file` (relative, `/`-separated), or undefined. */
-function docFor(file) {
-  if (IS_TEST.test(file)) return undefined;
-
-  return DOC_SOURCES.find(({ sources }) => sources.some((source) => source.test(file)))?.doc;
+/** The workspace folders (`packages/core`), relative and `/`-separated, deepest first. */
+function workspaceDirs(root) {
+  return listWorkspaces(root)
+    .map(({ relative }) => relative)
+    .filter((dir) => dir !== '.')
+    .sort((a, b) => b.length - a.length);
 }
 
-/** Docs whose source files changed while the doc itself didn't: `[{ doc, files }]`. */
-export function staleDocs(changed) {
+/** The docs of the workspace `file` is source of (`packages/core`'s README and docs/), or undefined. */
+function docsFor(params) {
+  const { file, dirs } = params;
+  const dir = dirs.find((candidate) => file.startsWith(`${candidate}/src/`));
+
+  // Only below src/: the workspace folder itself may be called testing (`packages/testing`).
+  if (!dir || IS_TEST.test(file.slice(`${dir}/src/`.length))) return undefined;
+
+  return { doc: `${dir}/README.md`, docs: `${dir}/docs/` };
+}
+
+/**
+ * Workspaces whose source changed while neither their README nor anything in their docs/ did:
+ * `[{ doc, files }]`, with `doc` the README to start from.
+ */
+export function staleDocs(changed, root = PROJECT_ROOT) {
+  const dirs = workspaceDirs(root);
   const byDoc = new Map();
 
   for (const file of changed) {
-    const doc = docFor(file);
+    const owner = docsFor({ file, dirs });
 
-    if (doc && !changed.includes(doc)) byDoc.set(doc, [...(byDoc.get(doc) ?? []), file]);
+    if (!owner) continue;
+
+    const touched = changed.some((other) => other === owner.doc || other.startsWith(owner.docs));
+
+    if (!touched) byDoc.set(owner.doc, [...(byDoc.get(owner.doc) ?? []), file]);
   }
 
   return [...byDoc].map(([doc, files]) => ({ doc, files: files.sort() }));

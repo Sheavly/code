@@ -13,7 +13,6 @@ doc-only note ("Enforce what you add" in the project skill). Run this at [triage
 
 - a new workspace (`packages/<name>/`, `apps/<name>/`);
 - a new `exports` entry in a package's `package.json` (a module made public: is it meant to be?);
-- a new module folder a doc describes (a `DOC_SOURCES` entry in `docs.utils.mjs`);
 - a new file kind, or a file named `<name>.<kind>.ts` with a kind `file-kinds.js` doesn't know;
 - a new skill in `.cursor/skills/`, or a skill's files moved;
 - a new contract other code must import rather than copy (a wire type, an artifact kind, a hook

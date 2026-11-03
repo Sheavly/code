@@ -2,8 +2,8 @@
 // workspaces through turbo, then Prettier + knip + the layout check + jscpd on the whole repo). If
 // any fails, send a follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit`
 // in hooks.json.
-// Once the gate passes, nudge (once per set of files) when source files changed but the doc in
-// docs/ that describes them didn't (see docs.utils.mjs).
+// Once the gate passes, nudge (once per set of files) when a workspace's source changed but its
+// README and docs/ didn't (see docs.utils.mjs).
 // Only a chat that changed project source in this checkout (a Write or Delete, recorded by
 // lint-edited-file.mjs) is checked, so a chat that only answered questions, worked in another
 // worktree or edited only through the shell never gets another chat's half-finished work back as
@@ -129,12 +129,16 @@ function docsNudge() {
   const stale = onlyNew(staleDocs(changed));
 
   if (stale.length > 0) {
-    const list = stale.map(({ doc, files }) => `- ${doc}, for: ${files.join(', ')}`).join('\n');
+    const list = stale
+      .map(({ doc, files }) => `- ${doc} (and its docs/), for: ${files.join(', ')}`)
+      .join('\n');
 
     messages.push(
-      'You changed files that docs/ describes, but not the docs. If what a doc says no longer ' +
-        'matches (behavior, APIs, file layout, how to add things), update it now. If nothing it ' +
-        `describes changed, just finish: you won't be asked again for these files.\n\n${list}`,
+      "You changed a workspace's source but neither its README nor its docs/. The README is the " +
+        'first place someone looks (what it is for, its public API, an example); docs/ goes deeper. ' +
+        'If what they say no longer matches (behavior, APIs, layout, how to add things), update ' +
+        "them now. If nothing they describe changed, just finish: you won't be asked again for " +
+        `these files.\n\n${list}`,
     );
   }
 

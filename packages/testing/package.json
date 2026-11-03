@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/testing",
   "version": "0.0.0",
-  "description": "Test fakes for every workspace: scripted providers, fake fetch, tool runners. Tests and fakes only.",
+  "description": "Test fakes every workspace's tests share: scripted and routed providers, fake fetch, a tool runner. Tests and fakes only.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",

@@ -1,0 +1,71 @@
+# Rules
+
+The file kinds and every `harness/*` rule the shared config (`baseConfig`) applies to every workspace.
+
+## File kinds and conventions
+
+Everything below lives in `packages/eslint-config/src/`: kinds and their policies in `file-kinds.js`,
+the rules in `rules/` (registered in `plugin.js`, tested in `__tests__/`), and the config every
+workspace uses in `base.js`. Each workspace's `eslint.config.js` is
+`baseConfig({ tsconfigRootDir: import.meta.dirname })` plus its own boundaries; `npm run lint` at the
+root lints every workspace with its own config. Each convention is its own rule ID, so an override
+switches off exactly one, on the files it is for, with a reason.
+
+| Kind        | Holds                                                    | May export                   | Max lines |
+| ----------- | -------------------------------------------------------- | ---------------------------- | --------- |
+| `types`     | shared shapes                                            | only types (imports `type`s) | 300       |
+| `constants` | literal values, `as const`                               | only literals                | 300       |
+| `utils`     | pure helpers: no I/O, no services                        | code                         | none      |
+| `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                | 300       |
+| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | 300       |
+| `service`   | code that owns state                                     | code, at least one class     | 300       |
+| `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
+| `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
+| `errors`    | error classes                                            | code                         | 150       |
+| `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
+| `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
+
+- `harness/file-kind`: every module file is named `<name>.<kind>.ts` (kebab-case, known kind);
+  tests only in `__tests__/`, and only tests there.
+- `harness/kind-contents`: code files export no types and no literal constants; those go in the
+  module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` exports a class, a `*.helper.ts`
+  none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
+  schemas are fine.
+- `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
+- `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
+  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge), and
+  imports follow the graph: another workspace only if `package.json` depends on it (dev
+  dependencies for tests), test-only workspaces only from tests and fakes, no relative import
+  across workspace roots.
+- `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
+  outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
+  exported or not (another folder, another package, a second types file of the same package), or
+  re-exported from a file that isn't its owner (`export type { X } from`, `export type * from`),
+  fails with where the original lives, how to import it and how to change it (its schema, for a
+  protocol type). Owners are read from the workspace on disk, so a new package, folder or type is
+  covered without editing the rule.
+- **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
+  `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
+  callbacks are exempt, since their caller fixes the signature; so are test files.
+- **`type`, not `interface`**; **named exports only** (`harness/no-default-export`); **no barrels** (`harness/no-barrel`,
+  import from the defining file); env only in apps, which pass `process.env` in (`harness/no-process-env`, checked on every package file); caught errors are named `caughtError`.
+- **Fail loudly** (`harness/no-silent-catch`, every workspace plus `.cursor/hooks/` and `scripts/`):
+  a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
+  handle only what it expects, or pass it on as `cause`. Turning every error into a default
+  (`[]`, `undefined`, a fresh error without the cause) fails.
+- **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
+  a class from its area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
+  exempt. The classes are listed in [the overview](../../../docs/overview.md#errors).
+
+## The rest of the config
+
+`eslint.config.js` is strict and type-aware (typescript-eslint `strictTypeChecked`), with
+readability rules: cognitive complexity, max depth/nesting, early returns, no nested ternaries, blank
+lines between steps (auto-fixed with `npm run lint:fix`).
+
+- **Tests live in `__tests__/`** next to the code they test (`packages/coding/src/read-file/__tests__/read-file.tool.test.ts`).
+  ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.
+- **No inline escape hatches.** `eslint-disable` comments are rejected
+  (`noInlineConfig`). An exception goes in a `files:` override in the config, with a reason.
+- **No baseline.** The codebase is lint-clean, and a new rule lands with its violations fixed.
+  Never suppress new code.

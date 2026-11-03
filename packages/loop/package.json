@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/loop",
   "version": "0.0.0",
-  "description": "The agent loop: streamAgent and runAgent, its events, the ordered queue, aborts and hooks. Generic: no project on disk.",
+  "description": "The agent loop: streamAgent and runAgent, its events, the ordered queue, aborts and hooks. Nothing about files or which tools a run has.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
