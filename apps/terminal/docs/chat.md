@@ -9,7 +9,9 @@ has its own.
 
 - Each message continues the same conversation (`createConversation`, see
   [the services a run shares](../../../packages/host/docs/harness.md#a-conversation-across-prompts)):
-  the model sees the history so far, in one session, idle between messages.
+  the model sees the history so far, in one session, idle between messages. The chat keeps it in
+  a `Conversations`, built by `terminalConversation`, exactly as [the server](serve.md) keeps its
+  own, so a conversation behaves the same in-process and over HTTP.
 - Background commands and sub-agents keep running between messages, and what finished meanwhile
   is reported at the next one.
 - Ctrl+C stops the running message; history stays valid, and the next message continues from it.

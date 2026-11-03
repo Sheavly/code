@@ -62,6 +62,7 @@ flowchart BT
   terminal --> coding
   terminal --> loop
   terminal --> providers
+  terminal --> server
   terminal --> tools
   tools --> runtime
   workspace --> runtime

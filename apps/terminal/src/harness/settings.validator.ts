@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST } from './harness.constants.js';
+import { DEFAULT_ADAPTER, DEFAULT_MODEL, REQUEST, SERVER } from './harness.constants.js';
 
 /** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
 const optionalSetting = z
@@ -66,6 +66,26 @@ const providerEnvSchema = z.discriminatedUnion('ADAPTER', [
 /** The settings from `env`, with `ADAPTER` defaulting to the hosts' default backend. */
 export function parseProviderEnv(env: Record<string, string | undefined>) {
   return providerEnvSchema.parse({ ...env, ADAPTER: env.ADAPTER ?? DEFAULT_ADAPTER });
+}
+
+/**
+ * What `npm run serve` reads from the environment: where to listen and the token every request
+ * must carry. It listens on 127.0.0.1 unless `SERVER_HOST` says otherwise (the server runs
+ * commands for whoever reaches it), and generates a token when `SERVER_TOKEN` is unset.
+ */
+const serverEnvSchema = z.object({
+  SERVER_HOST: optionalSetting.pipe(z.string().min(1).default(SERVER.host)),
+  SERVER_PORT: count(SERVER.port).pipe(z.number().min(1).max(65_535)),
+  SERVER_TOKEN: optionalSetting.pipe(
+    z.string().min(32, 'Set SERVER_TOKEN to at least 32 characters, or leave it unset').optional(),
+  ),
+});
+
+/** The server settings from `env`. */
+export function parseServerEnv(env: Record<string, string | undefined>) {
+  const parsed = serverEnvSchema.parse(env);
+
+  return { host: parsed.SERVER_HOST, port: parsed.SERVER_PORT, token: parsed.SERVER_TOKEN };
 }
 
 /**
