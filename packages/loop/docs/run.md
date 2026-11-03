@@ -20,6 +20,12 @@ What `streamAgent` does from start to end, how it runs hooks, and how a session'
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
+Each event also joins its session tree's combined stream the moment it is released
+(`sessions.publish`), so a UI following every session at once (`sessions.subscribeEntries`) sees
+a sub-agent's activity in the same order as its parent's: a sub-agent's start comes after the
+`tool_call_started` that launched it. An event with nothing waiting ahead of it is released as it
+happens; one queued behind a pending tool result waits for it, as in the run's own stream.
+
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
 history stays valid. If the run fails, `onError` hooks are told and the error is rethrown; an
 `onError` handler that fails is reported as a `hook_failed` event, never in place of that error. A

@@ -18,6 +18,45 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
 }
 
 describe('OrderedQueue', () => {
+  it('releases an item with nothing ahead of it as it is enqueued, and tells onRelease', () => {
+    const released: string[] = [];
+    const queue = new OrderedQueue<Item>({
+      onRelease: (next) => released.push(`${String(next.seq)}:${next.name}`),
+    });
+
+    queue.enqueue(item('first'));
+    released.push('after enqueue'); // synchronous: `first` was already released
+
+    expect(released).toEqual(['0:first', 'after enqueue']);
+  });
+
+  it('tells onRelease in release order, a pending item holding back the ones behind it', async () => {
+    const released: string[] = [];
+    const queue = new OrderedQueue<Item>({ onRelease: (next) => released.push(next.name) });
+
+    queue.enqueue(later(item('slow'), 10));
+    queue.enqueue(item('sync'));
+    queue.close();
+    await collect(queue);
+
+    expect(released).toEqual(['slow', 'sync']);
+  });
+
+  it('fails the stream, never the producer, when onRelease throws, on either path', async () => {
+    const broken = () => {
+      throw new Error('observer broke');
+    };
+    const now = new OrderedQueue<Item>({ onRelease: broken });
+    const queued = new OrderedQueue<Item>({ onRelease: broken });
+
+    expect(() => now.enqueue(item('now'))).not.toThrow();
+    queued.enqueue(later(item('slow'), 1));
+    queued.enqueue(item('queued'));
+
+    await expect(collect(now)).rejects.toThrow('observer broke');
+    await expect(collect(queued)).rejects.toThrow('observer broke');
+  });
+
   it('yields in enqueue order, not resolve order, with contiguous seq numbers', async () => {
     const queue = new OrderedQueue<Item>();
 

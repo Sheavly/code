@@ -7,6 +7,7 @@ import {
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runAgent } from '../stream-agent.helper.js';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 
 const getWeather = defineTool({
@@ -17,6 +18,29 @@ const getWeather = defineTool({
 });
 
 describe('runAgent', () => {
+  it("fails at once, calling no model, for a session its registry doesn't know", async () => {
+    let modelCalls = 0;
+    const scripted = scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]);
+    const provider = {
+      stream: (request: Parameters<typeof scripted.stream>[0]) => {
+        modelCalls++;
+
+        return scripted.stream(request);
+      },
+    };
+    const ref = { id: 'stray', rootId: 'stray', depth: 1 };
+
+    await expect(
+      runAgent({
+        provider,
+        tools: [],
+        messages: [{ role: 'user', content: 'hi' }],
+        session: { registry: new SessionRegistry(), ref },
+      }),
+    ).rejects.toThrow("Session stray isn't in the registry the run was given");
+    expect(modelCalls).toBe(0);
+  });
+
   it('stops after one turn when the model calls no tools', async () => {
     const provider = scriptedProvider([
       [

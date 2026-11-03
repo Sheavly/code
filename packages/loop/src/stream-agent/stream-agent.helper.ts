@@ -3,6 +3,7 @@ import { OrderedQueue } from '../queue/queue.service.js';
 import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
 import { StreamEndedError } from '../errors/loop.errors.js';
+import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
@@ -23,13 +24,20 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 export async function* streamAgent(options: AgentOptions): AsyncGenerator<AgentEvent> {
   const stop = new AbortController();
   const signal = options.signal ? AbortSignal.any([options.signal, stop.signal]) : stop.signal;
-  const events = new OrderedQueue<AgentEventBody>();
   const session = options.session ?? mainSession();
+  // Each event joins the session tree's combined stream as it is released, with its `seq`.
+  const events = new OrderedQueue<AgentEventBody>({
+    onRelease: (event) => session.registry.publish({ sessionId: session.ref.id, event }),
+  });
 
   drive({ options, session, signal, aborted: whenAborted(signal), events }).then(
     () => events.close(),
     (caughtError: unknown) => {
-      session.registry.end({ id: session.ref.id, state: 'failed' });
+      // A session its registry doesn't know (the run's first check) has nothing to end.
+      if (session.registry.get(session.ref.id)) {
+        session.registry.end({ id: session.ref.id, state: 'failed' });
+      }
+
       events.fail(caughtError);
     },
   );
@@ -71,6 +79,16 @@ async function drive(context: RunContext) {
   const { maxTurns = DEFAULT_MAX_TURNS, hooks = [] } = options;
   const messages = [...options.messages];
   let reason: DoneReason = 'max_turns';
+
+  // Every event is published to the session's registry as it is released, mid-turn: a session
+  // that registry doesn't know fails the run here, before anything ran, not halfway through.
+  if (!session.registry.get(session.ref.id)) {
+    throw new SessionError({
+      reason: 'unknown_session',
+      sessionId: session.ref.id,
+      message: `Session ${session.ref.id} isn't in the registry the run was given`,
+    });
+  }
 
   try {
     await runSessionStart({
