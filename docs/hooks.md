@@ -87,7 +87,7 @@ even imported.
 - The harness never asks. A host shows `harness.projectTrust` its own way, and trusts the
   workspace when the user says so: `createCodingHarness({ trustWorkspace: true })`, which is the demo's
   `--trust`. The workbook trusts a fresh copy of its committed fixture, and takes `--trust` for a kept or
-  continued workspace. Both print `projectTrustNotice` (`terminal-ui/render.utils.ts`) when hooks were skipped.
+  continued workspace. Both print `projectTrustNotice` (`apps/terminal/src/render/render.utils.ts`) when hooks were skipped.
 - A store that can't be read, parsed or written throws a `TrustStoreError` naming the file; it
   is never read as "nothing trusted".
 

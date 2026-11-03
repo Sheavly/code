@@ -101,7 +101,7 @@ describe('selectChecks', () => {
         'packages/loop/src/x.ts',
         'packages/loop/src/__tests__/x.test.ts',
         'packages/core/src/hook/hook.utils.ts',
-        'src/terminal-ui/render.service.ts',
+        'src/render/render.service.ts',
         'docs/hooks.md',
       ],
       sources,

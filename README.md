@@ -201,12 +201,11 @@ packages/
   workspace/       @sheavly/workspace (coding): path confinement, processes, trust, file locks,
                    .sheavly/ hooks, AGENTS.md
   coding/          @sheavly/coding (coding): the file tools, run_command, createCodingHarness
-  terminal-ui/     @sheavly/terminal-ui (coding): the Renderer the terminal front ends print with
   testing/         @sheavly/testing: test-only fakes (scripted providers, fake fetch)
   eslint-config/   @sheavly/eslint-config: the shared ESLint config and harness/* rules
 apps/
-  terminal/        @sheavly/terminal: the demo (npm run demo)
-  workbook/        @sheavly/workbook: stored prompts and saved runs (npm run workbook)
+  terminal/        @sheavly/terminal: the terminal front end. The demo (npm run demo) and the
+                   workbook, stored prompts and saved runs (npm run workbook), share its renderer
   vscode/          the VS Code extension, a README until it is built
 ```
 

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { firstLine, oneLine, shortId } from '@sheavly/terminal-ui/render/render.utils';
+import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';

@@ -69,7 +69,7 @@ describe('the workspace graph', () => {
   it("is current in this repo's overview", () => {
     expect(graphProblem(REPO_ROOT)).toBeNull();
     expect(readFileSync(path.join(REPO_ROOT, 'docs/overview.md'), 'utf8')).toContain(
-      '"@sheavly/terminal-ui"',
+      '"@sheavly/terminal"',
     );
   });
 });

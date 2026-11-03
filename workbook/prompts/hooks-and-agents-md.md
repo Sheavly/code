@@ -10,7 +10,7 @@ check:
         'packages/workspace/src/trust',
         'packages/host/src',
         'packages/coding/src/preset',
-        'apps/workbook/src/workbook',
+        'apps/terminal/src/workbook',
       ],
     'expect':
       {

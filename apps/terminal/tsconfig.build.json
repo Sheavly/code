@@ -21,7 +21,16 @@
       "path": "../../packages/coding/tsconfig.build.json"
     },
     {
-      "path": "../../packages/terminal-ui/tsconfig.build.json"
+      "path": "../../packages/core/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/protocol/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/runtime/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/workspace/tsconfig.build.json"
     }
   ],
   "exclude": ["src/**/__tests__", "src/testing"]

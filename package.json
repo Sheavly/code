@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "jscpd": "node scripts/jscpd.mjs",
-    "workbook": "tsx --conditions=@sheavly/source apps/workbook/src/workbook/workbook.ts",
+    "workbook": "tsx --conditions=@sheavly/source apps/terminal/src/workbook/workbook.ts",
     "demo": "tsx --conditions=@sheavly/source apps/terminal/src/demo.ts",
     "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
     "test:root": "vitest run",

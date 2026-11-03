@@ -24,9 +24,9 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { HOST_MAX_TURNS } from '@sheavly/host/host/host.constants';
 import { createCodingHarness, trustStoreFromEnv } from '@sheavly/coding/preset/coding.helper';
 import { providerFromEnv } from '@sheavly/host/host/host.helper';
-import { SAME_KEYPRESS_MS } from '@sheavly/terminal-ui/render/render.constants';
-import { Renderer } from '@sheavly/terminal-ui/render/render.service';
-import { projectTrustNotice, shortId } from '@sheavly/terminal-ui/render/render.utils';
+import { SAME_KEYPRESS_MS } from './render/render.constants.js';
+import { Renderer } from './render/render.service.js';
+import { projectTrustNotice, shortId } from './render/render.utils.js';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
