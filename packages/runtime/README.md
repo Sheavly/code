@@ -10,13 +10,13 @@ import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 ```
 
-| Module       | What it holds                                                                  |
-| ------------ | ------------------------------------------------------------------------------ |
-| `sessions/`  | `SessionRegistry`: the session tree, inboxes, `subscribe` and the SSE `stream` |
-| `tasks/`     | `TaskRegistry`: background tasks a run waits for, checks on and cancels        |
-| `approvals/` | `ApprovalRegistry`: requests a UI answers with `respond`                       |
-| `errors/`    | `SessionError`, the approval errors, and `errorMessage` / `isMissingPath`      |
-| `testing/`   | Fakes for tests: sessions, approvals, `startTaskTool`                          |
+| Module       | What it holds                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `sessions/`  | `SessionRegistry`: the session tree, inboxes, the SSE `stream`, and one ordered stream of every session (`publish`, `subscribeEntries`) |
+| `tasks/`     | `TaskRegistry`: background tasks a run waits for, checks on and cancels                                                                 |
+| `approvals/` | `ApprovalRegistry`: requests a UI answers with `respond`                                                                                |
+| `errors/`    | `SessionError`, the approval errors, and `errorMessage` / `isMissingPath`                                                               |
+| `testing/`   | Fakes for tests: sessions, approvals, `startTaskTool`                                                                                   |
 
 ## Docs
 

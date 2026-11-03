@@ -67,9 +67,27 @@ until `signal` aborts. Each event is named `session_started`, `session_status`,
 updates, indented by depth.
 
 **Ordering.** Each session's own events (text, tool calls, results, `message_received`) go
-through that session's `OrderedQueue`. A sub-agent's events stay in its own stream: the parent
-sees only `start_agent`'s result and, later, `task_completed` with the final reply. The registry
-feed (status, messages, start and end) is separate and has no `seq`. One combined ordering
-across sessions isn't built yet.
+through that session's `OrderedQueue`, with that session's `seq`. The registry also orders the
+whole tree: `sessions.subscribeEntries(listener)` gets a `StreamEntry`
+(`@sheavly/protocol/stream/`) for every session update and for every event any session's loop
+releases (the loop calls `sessions.publish`), sub-agents included, in the order they happened.
+Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
+about, and the event or update. An event keeps its own session's `seq` too, so a UI can still
+follow one session alone.
 
-Not built yet: an HTTP server that serves the stream (the demo is a CLI).
+A UI picks what it follows with the second argument:
+
+- nothing: every session's entries, the whole tree;
+- `{ sessionId }`: one session alone, e.g. a sub-agent's panel, in that session's order;
+- `{ sessionId, subtree: true }`: a session and every sub-agent under it;
+- `replay: true` (with any of these): first every matching entry since the run started, then
+  live, so a panel opened late still starts at the beginning. The registry keeps the run's
+  entries for this, for as long as it lives.
+
+Following only the main session needs none of this: the main run's own `streamAgent` stream
+has only its events, and its sub-agents work in the background (shown by their session updates).
+Each entry a listener gets is a frozen copy, so a listener can't change what the run holds. A
+listener that throws doesn't reach the run or the other listeners; its error is rethrown on its
+own as an uncaught error, so it still fails loudly.
+
+Not built yet: an HTTP server that serves the combined stream (the demo is a CLI).

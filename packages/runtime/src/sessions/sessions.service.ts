@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
+import { EntryLog } from './entry-log.service.js';
+import { notifyAll } from './listeners.helper.js';
 import { toServerSentEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
@@ -9,6 +11,9 @@ import type {
   SessionState,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { EntryFilter } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -17,10 +22,15 @@ type Listener = (update: SessionUpdate) => void;
  * sub-agent can only start under a running session that is in this registry, so none floats free,
  * and never deeper than `MAX_SESSION_DEPTH`. Status reports and endings are pushed to listeners,
  * and streamed as server-sent events for a UI (`stream()`).
+ *
+ * It also orders the whole tree's activity: every session update and every event a session's
+ * loop publishes (`publish`) becomes one `StreamEntry`, numbered 0, 1, 2, ... across all sessions
+ * in the order it happened, for a UI following every session at once (`subscribeEntries`).
  */
 export class SessionRegistry {
   #sessions = new Map<string, SessionInfo>();
   #listeners = new Set<Listener>();
+  #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
   /** Messages queued per session, delivered at its next model call. */
   #inboxes = new Map<string, InboxMessage[]>();
   /** Loops waiting idle (for tasks) that a new message should wake. */
@@ -181,6 +191,26 @@ export class SessionRegistry {
   }
 
   /**
+   * Adds an event of session `sessionId`'s loop to the combined stream, in the order published.
+   * The loop publishes each event as it releases it, so a session's events keep their own order.
+   */
+  publish(params: { sessionId: string; event: AgentEvent }): void {
+    const { sessionId, event } = params;
+
+    this.#require(sessionId);
+    this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));
+  }
+
+  /**
+   * Calls `listener` for the entries of the combined stream `filter` picks (every session's, one
+   * session's, or a session's and its sub-agents'), sub-agents included, in one `seq` order;
+   * with `replay`, from the run's start. Each entry is frozen. Returns a function that stops it.
+   */
+  subscribeEntries(listener: (entry: StreamEntry) => void, filter?: EntryFilter): () => void {
+    return this.#entries.subscribe({ listener, ...(filter && { filter }) });
+  }
+
+  /**
    * Updates as server-sent events (`text/event-stream`), for an HTTP response body:
    * `new Response(sessions.stream({ signal }), { headers: { 'content-type': 'text/event-stream' } })`.
    * Starts with every known session (so a late UI catches up), then streams live until `signal`.
@@ -239,7 +269,8 @@ export class SessionRegistry {
   #emit(update: SessionUpdate): void {
     const snapshot = { ...update, session: { ...update.session } };
 
-    for (const listener of this.#listeners) listener(snapshot);
+    notifyAll({ listeners: this.#listeners, value: snapshot });
+    this.#entries.add((seq) => ({ seq, sessionId: snapshot.session.id, kind: 'update', update }));
   }
 
   #wake(id: string): void {
