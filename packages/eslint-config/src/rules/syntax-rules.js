@@ -57,6 +57,15 @@ export const SYNTAX_RULES = {
       message: TERMINAL_IO_MESSAGE,
     },
   ],
+  // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
+  // on it lets that folder count as outside (or refuses it as inside).
+  'no-dotdot-prefix': [
+    {
+      selector: "CallExpression[callee.property.name='startsWith'][arguments.0.value='..']",
+      message:
+        "`startsWith('..')` also matches a folder named `..x/`. To test whether a path is inside a folder use `isInside` (`@sheavly/workspace`'s `workspace/workspace.utils`); elsewhere, compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.",
+    },
+  ],
 };
 
 /** A rule that reports every node matching one of `entries`' selectors with its message. */

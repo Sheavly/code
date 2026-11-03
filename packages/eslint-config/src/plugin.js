@@ -1,7 +1,9 @@
 import { fileKind } from './rules/file-kind.js';
+import { brandedIds } from './rules/branded-ids.js';
 import { importsRule } from './rules/imports.js';
 import { kindContents } from './rules/kind-contents.js';
 import { layoutRule } from './rules/layout.js';
+import { noBrandCast } from './rules/no-brand-cast.js';
 import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
 import { SYNTAX_RULES, syntaxRule } from './rules/syntax-rules.js';
@@ -12,10 +14,12 @@ import { singleDefinition } from './rules/single-definition.js';
 export const harnessPlugin = {
   meta: { name: 'harness' },
   rules: {
+    'branded-ids': brandedIds,
     'file-kind': fileKind,
     imports: importsRule,
     'kind-contents': kindContents,
     layout: layoutRule,
+    'no-brand-cast': noBrandCast,
     'no-raw-error': noRawError,
     'no-silent-catch': noSilentCatch,
     'pure-imports': pureImports,

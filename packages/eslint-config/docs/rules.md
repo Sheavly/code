@@ -56,6 +56,15 @@ switches off exactly one, on the files it is for, with a reason.
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
   a class from its area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [the overview](../../../docs/overview.md#errors).
+- **Branded ids** (`harness/branded-ids`, in `*.validator.ts` and `*.tool.ts`): a schema property
+  named `id` or `<x>Id`, and an id schema `<x>IdSchema`, is a branded zod schema
+  (`z.string().brand<'SessionId'>()`), never a bare `z.string()`, so a session's id can't go where a
+  tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
+  `harness/no-brand-cast` (type-aware, tests included) fails `as` to a branded type: a value gets
+  its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
+- **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
+  also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
+  `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.
 
 ## The rest of the config
 

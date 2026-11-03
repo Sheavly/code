@@ -7,7 +7,7 @@ RuleTester.afterAll = afterAll;
 RuleTester.describe = describe;
 RuleTester.it = it;
 
-// The fail-loudly rules: no silent catch, no raw Error.
+// The guard rules: fail loudly (no silent catch, no raw Error), branded ids, sound "is inside".
 const ruleTester = new RuleTester({ languageOptions: { parser: tseslint.parser } });
 
 ruleTester.run('no-silent-catch', harnessPlugin.rules['no-silent-catch'], {
@@ -79,4 +79,42 @@ ruleTester.run('no-raw-error', harnessPlugin.rules['no-raw-error'], {
       'src/tools/scripts-runner/scripts-runner.tool.ts',
     ].map((filename) => ({ code: RAW, filename })),
   ].map((test) => ({ ...test, errors: [{ messageId: 'raw' }] })),
+});
+
+// Branded ids: schemas brand them, and "is inside" checks hold for a folder named `..x/`.
+ruleTester.run('branded-ids', harnessPlugin.rules['branded-ids'], {
+  valid: [
+    "export const sessionIdSchema = z.string().brand<'SessionId'>();",
+    'const ref = z.object({ id: sessionIdSchema, parentId: sessionIdSchema.exactOptional() });',
+    'const call = z.object({ callId: callIdSchema, name: z.string() });',
+    // Not ids: names, and words that only end in "id" (`paid`, `valid`).
+    'const x = z.object({ title: z.string(), paid: z.boolean(), valid: z.string() });',
+    // Not zod: a plain object with an id is data, not a schema.
+    "const value = { id: 'a1' };",
+    "const branded = z.object({ id: z.string().min(1).brand<'RunId'>() });",
+  ],
+  invalid: [
+    ...[
+      'const x = z.object({ id: z.string() });',
+      'const x = z.object({ sessionId: z.string().exactOptional() });',
+      "const x = z.object({ callId: z.string().min(1).describe('the call') });",
+      "const x = z.object({ 'taskId': z.string() });",
+    ].map((code) => ({ code, errors: [{ messageId: 'unbranded' }] })),
+    {
+      code: 'export const runIdSchema = z.string().min(1);',
+      errors: [{ messageId: 'unbrandedSchema' }],
+    },
+  ],
+});
+
+ruleTester.run('no-dotdot-prefix', harnessPlugin.rules['no-dotdot-prefix'], {
+  valid: [
+    "const outside = rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel);",
+    "if (name.startsWith('.')) return;",
+    "if (rel.startsWith('../')) return;",
+  ],
+  invalid: [
+    "const inside = !relative.startsWith('..');",
+    "if (relative.startsWith('..') || path.isAbsolute(relative)) throw failure;",
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
