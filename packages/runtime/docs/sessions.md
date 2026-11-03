@@ -87,9 +87,9 @@ updates, indented by depth.
 **Ordering.** Each session's own events (text, tool calls, results, `message_received`) go
 through that session's `OrderedQueue`, with that session's `seq`. The registry also orders the
 whole tree: `sessions.subscribeEntries(listener)` gets a `StreamEntry`
-(`@sheavly/protocol/stream/`) for every session update and for every event any session's loop
-releases (the loop calls `sessions.publish`), sub-agents included, in the order they happened.
-Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
+(`@sheavly/protocol/stream/`) for every session update, for every event any session's loop
+releases (the loop calls `sessions.publish`), sub-agents included, and for every approval
+update (`kind: 'approval'`), in the order they happened. Each entry has one `seq` across the tree (0, 1, 2, ... with no gaps), the `sessionId` it is
 about, and the event or update. An event keeps its own session's `seq` too, so a UI can still
 follow one session alone.
 

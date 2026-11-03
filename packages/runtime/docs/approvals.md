@@ -38,6 +38,12 @@ With no subscriber (a headless run, the demo, the workbook) those commands are r
 instead of waiting. A refused or skipped command fails the tool call with a `CommandRefusedError`
 (`reason: 'needs_approval' | 'skipped'`), whose message is what the model reads.
 
+`observe` hears every update too, first, but doesn't count as someone who can answer: with only
+observers, a request is still refused. `createHarness` observes its registry to put each update
+in the sessions' combined stream (`kind: 'approval'`, under the session whose tool asked, the
+main session for a call outside the loop), so a UI following the stream sees approvals in order
+with the events of the call that asked, and a replay shows which still wait.
+
 A subscriber that throws doesn't stop the others: every listener still hears the update, then an
 `ApprovalListenerError` reaches whoever caused it. On `approval_requested` the request fails
 closed (the command doesn't run), unless a listener already answered it while hearing the
