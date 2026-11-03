@@ -185,11 +185,8 @@ Adapters have no default model: the caller picks it (the hosts' default is `DEFA
 ## Project layout
 
 The harness is npm workspaces: libraries in `packages/`, front ends in `apps/`. Imports only point
-down (`harness/imports`, read from each workspace's `package.json`):
-
-```
-@sheavly/protocol  ←  @sheavly/core  ←  @sheavly/providers, runtime  ←  tools  ←  loop  ←  host  ←  workspace  ←  coding  ←  terminal-ui  ←  apps
-```
+down (`harness/imports`, read from each workspace's `package.json`); [the graph](docs/overview.md#layers)
+is drawn from them.
 
 ```
 packages/

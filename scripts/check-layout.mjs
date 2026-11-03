@@ -3,8 +3,10 @@
 // domain, is named `@sheavly/<folder>`, and depends on no app, and a generic one on no coding one.
 // Every workspace also has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json`
 // extending `tsconfig.base.json` with `rootDir: "src"`, and source of its own. And TypeScript
-// lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. Lint runs the
-// same checks on each workspace's files; this one also covers a workspace with no source.
+// lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. The workspace
+// graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
+// draws its own. Lint runs the same checks on each workspace's files; this one also covers a
+// workspace with no source.
 //
 //   node scripts/check-layout.mjs   prints each problem and exits 1, or exits 0
 import { spawnSync } from 'node:child_process';
@@ -12,6 +14,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { copiedGraphProblems, graphProblem } from './graph.mjs';
 import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
 import {
   isStraySource,
@@ -105,6 +108,13 @@ export function findLayoutProblems(params) {
   ];
 }
 
+/** The repo's own docs: the generated graph is current, and nothing else draws one. */
+export function findGraphProblems(params) {
+  const { root, files } = params;
+
+  return [graphProblem(root), ...copiedGraphProblems({ root, files })].filter(Boolean);
+}
+
 function listRepoFiles(root) {
   const result = spawnSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
     cwd: root,
@@ -119,7 +129,8 @@ function listRepoFiles(root) {
 
 if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   const root = path.resolve(import.meta.dirname, '..');
-  const problems = findLayoutProblems({ root, files: listRepoFiles(root) });
+  const files = listRepoFiles(root);
+  const problems = [...findLayoutProblems({ root, files }), ...findGraphProblems({ root, files })];
 
   for (const problem of problems) console.error(problem);
 

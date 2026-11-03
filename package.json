@@ -19,7 +19,8 @@
     "test:root": "vitest run",
     "check:affected": "turbo run typecheck lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
     "layout": "node scripts/check-layout.mjs",
-    "new": "node scripts/new-workspace.mjs"
+    "new": "node scripts/new-workspace.mjs",
+    "graph": "node scripts/graph.mjs"
   },
   "type": "module",
   "devDependencies": {
