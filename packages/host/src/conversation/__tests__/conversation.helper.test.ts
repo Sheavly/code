@@ -217,3 +217,36 @@ describe('a conversation', () => {
     expect(seen.at(-1)).toMatch(/^session_ended:/);
   });
 });
+
+describe("a long conversation's combined stream", () => {
+  /** The replayable stream's size (JSON characters) after `prompts` prompts of 1,000 characters. */
+  async function streamSize(prompts: number): Promise<number> {
+    const text = 'x'.repeat(1000);
+    const harness = createHarness({
+      provider: scriptedProvider(Array.from({ length: prompts }, () => say(text))),
+      title: 'Chat',
+    });
+    const conversation = createConversation({ harness, run: streamAgent, tools: [] });
+
+    for (let index = 0; index < prompts; index++) await collect(conversation.send(text));
+
+    let size = 0;
+    const stop = harness.sessions.subscribeEntries(
+      (entry) => (size += JSON.stringify(entry).length),
+      { replay: true },
+    );
+
+    stop();
+    await conversation.close();
+
+    return size;
+  }
+
+  it('grows with the conversation, not with its square: no done keeps the history', async () => {
+    const [ten, twenty] = [await streamSize(10), await streamSize(20)];
+
+    // Twice the prompts, about twice the stream. With each done holding the history so far,
+    // it would be about four times.
+    expect(twenty / ten).toBeLessThan(2.5);
+  });
+});
