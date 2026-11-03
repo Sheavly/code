@@ -5,6 +5,10 @@ import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { parseCliSettings } from './settings.validator.js';
+
+/** What a terminal CLI read from its command line and environment. */
+export type CliSettings = ReturnType<typeof parseCliSettings>;
 
 /** Which model backend a run uses, and how the terminal reports it. */
 export type ProviderSettings = {
@@ -38,4 +42,12 @@ export type TerminalHarness = CodingHarness & {
   projectHooks: Hook[];
   /** Whether the `.sheavly/` hooks ran: `untrusted` or `changed` says why they didn't. */
   projectTrust: ProjectTrust;
+};
+
+/** A terminal CLI's run: its harness, the backend and model it uses, and its CLI settings. */
+export type CliHarness = {
+  harness: TerminalHarness;
+  adapter: string;
+  model: string;
+  settings: CliSettings;
 };

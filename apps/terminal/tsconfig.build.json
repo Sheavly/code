@@ -12,6 +12,9 @@
   },
   "references": [
     {
+      "path": "../../packages/host/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/loop/tsconfig.build.json"
     },
     {

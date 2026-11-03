@@ -10,7 +10,10 @@ import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { MAX_TURNS } from './harness.constants.js';
-import type { TerminalHarness, TerminalHarnessOptions } from './harness.types.js';
+import { providerFromEnv, trustStoreFromEnv } from './settings.helper.js';
+import { parseCliSettings } from './settings.validator.js';
+import type { CliHarness, TerminalHarness, TerminalHarnessOptions } from './harness.types.js';
+import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 
 /**
  * What a terminal run includes, chosen here and nowhere else: the file tools and run_command,
@@ -59,4 +62,32 @@ export async function createTerminalHarness(
     projectHooks: projectHooks.hooks,
     projectTrust: projectHooks.trust,
   };
+}
+
+/**
+ * A terminal CLI's run from its command line and environment (the demo's and the chat's): the
+ * backend and model from env, the terminal harness built with the CLI settings, and those
+ * settings for the CLI to report. `onModelCall` sees every model call when SHOW_MODEL_CALLS is on.
+ */
+export async function createCliHarness(params: {
+  env: NodeJS.ProcessEnv;
+  args: readonly string[];
+  title: (prompt: string) => string;
+  onModelCall: (request: ProviderRequest) => void;
+}): Promise<CliHarness> {
+  const { env, args, title, onModelCall } = params;
+  const settings = parseCliSettings({ env, args });
+  const { adapter, model, provider } = providerFromEnv(env);
+  const harness = await createTerminalHarness({
+    provider,
+    workspaceRoot: settings.workspaceRoot,
+    skipAllowList: settings.skipAllowList,
+    title: title(settings.prompt),
+    trustStore: trustStoreFromEnv(env),
+    env,
+    trustWorkspace: settings.trustWorkspace,
+    ...(settings.showModelCalls && { onModelCall }),
+  });
+
+  return { harness, adapter, model, settings };
 }
