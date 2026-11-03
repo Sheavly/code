@@ -17,7 +17,7 @@ const harness = createHarness({ provider, title: prompt });
 | `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types         |
 | `conversation/`  | `createConversation`: one conversation across prompts, in one session |
 | `conversations/` | `Conversations`: the live conversations a host serves, by id          |
-| `errors/`        | `ConversationsError`: no such conversation, or a skill no one has     |
+| `errors/`        | `ConversationsError`: no such conversation, skill or model            |
 
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`.
@@ -33,7 +33,8 @@ await conversation.close();
 
 A host serving several conversations (the HTTP server, or a UI in-process) keeps them in a
 `Conversations`, built on a function the app gives that composes each one (provider, tools,
-hooks, skills). The server only turns requests into these calls, so in-process and remote UIs
+hooks, skills, and the `run` it reports: workspace, models and trust, for `details` and
+`useModel`). The server only turns requests into these calls, so in-process and remote UIs
 behave the same:
 
 ```ts

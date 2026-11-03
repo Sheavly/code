@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { createHarness } from '../host.helper.js';
 import {
   calls,
   routedProvider,
@@ -22,12 +22,7 @@ const toolUse: StreamEvent = { type: 'done', stopReason: 'tool_use' };
  * session's events and updates are collected from the registry's combined stream.
  */
 async function runTree(): Promise<{ sessions: SessionRegistry; entries: StreamEntry[] }> {
-  const sessions = new SessionRegistry();
-  const tasks = new TaskRegistry();
   const entries: StreamEntry[] = [];
-
-  sessions.subscribeEntries((entry) => entries.push(entry));
-
   const provider = routedProvider({
     Main: [
       () => [
@@ -41,7 +36,11 @@ async function runTree(): Promise<{ sessions: SessionRegistry; entries: StreamEn
     'Task B': [calls(call('b1', 'report_status', { status: 'working on b' })), say('b done')],
     'Task A1': [say('a1 done')],
   });
-  const main = sessions.startMain({ title: 'Main' });
+  // The harness wires tasks and approvals into the stream; the tree runs on its registries.
+  const { sessions, tasks, mainSession: main } = createHarness({ provider, title: 'Main' });
+
+  sessions.subscribeEntries((entry) => entries.push(entry), { replay: true });
+
   const startAgent = createSubAgentTool({
     sessions,
     tasks,
@@ -128,5 +127,34 @@ describe("the combined stream of a run's sessions", () => {
     expect(started('B')).toBeLessThan(ended('A'));
     expect(ended('A1')).toBeLessThan(ended('A'));
     expect(ended('A')).toBeLessThan(ended('Main'));
+  });
+
+  it('files each sub-agent’s task under the session that started it, started then ended', async () => {
+    const { sessions, entries } = await runTree();
+    const byTitle = Object.fromEntries(sessions.list().map((s) => [s.title, s.id]));
+    const taskEntries = entries.flatMap((entry) =>
+      entry.kind === 'task'
+        ? [
+            {
+              session: entry.sessionId,
+              type: entry.update.type,
+              command: entry.update.task.command,
+            },
+          ]
+        : [],
+    );
+
+    for (const [title, parent] of [
+      ['A', 'Main'],
+      ['B', 'Main'],
+      ['A1', 'A'],
+    ] as const) {
+      const own = taskEntries.filter(({ command }) => command === `sub-agent: ${title}`);
+
+      expect(own).toEqual([
+        { session: byTitle[parent], type: 'task_started', command: `sub-agent: ${title}` },
+        { session: byTitle[parent], type: 'task_ended', command: `sub-agent: ${title}` },
+      ]);
+    }
   });
 });

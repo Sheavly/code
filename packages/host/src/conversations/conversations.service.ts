@@ -5,6 +5,7 @@ import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/ap
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type {
+  ConversationDetails,
   ConversationId,
   ConversationSummary,
   SendPromptRequest,
@@ -55,17 +56,49 @@ export class Conversations {
    * prompt runs now. For a UI that joins a conversation another UI started.
    */
   list(): ConversationSummary[] {
-    return [...this.#live].map(([id, { harness, conversation }]) => {
-      const session = harness.sessions.get(harness.mainSession.id);
+    return [...this.#live.keys()].map((id) => this.#summary(id));
+  }
 
-      return {
-        id,
-        title: session?.title ?? '',
-        session: harness.mainSession.id,
-        running: conversation.running,
-        startedAt: session?.startedAt ?? 0,
-      };
-    });
+  /**
+   * What conversation `id`'s run is: its summary, and the workspace, models and trust its app
+   * reports. `not_found` when no conversation has the id, or its app reports nothing.
+   */
+  details(id: ConversationId): ConversationDetails {
+    const { run } = this.get(id);
+
+    if (!run) {
+      throw new ConversationsError({
+        reason: 'not_found',
+        message: `Conversation ${id} has no details: its app reports none`,
+      });
+    }
+
+    return { ...this.#summary(id), ...run.details() };
+  }
+
+  /** Switches conversation `id` to the model `name` from its next model call, or `unknown_model`. */
+  useModel(params: { id: ConversationId; name: string }): void {
+    const { id, name } = params;
+
+    if (!this.get(id).run?.useModel(name)) {
+      throw new ConversationsError({
+        reason: 'unknown_model',
+        message: `No model ${name} in conversation ${id}; its details list the models`,
+      });
+    }
+  }
+
+  #summary(id: ConversationId): ConversationSummary {
+    const { harness, conversation } = this.get(id);
+    const session = harness.sessions.get(harness.mainSession.id);
+
+    return {
+      id,
+      title: session?.title ?? '',
+      session: harness.mainSession.id,
+      running: conversation.running,
+      startedAt: session?.startedAt ?? 0,
+    };
   }
 
   /**

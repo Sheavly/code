@@ -1,8 +1,9 @@
 /**
  * Why a call on the live conversations failed, for a transport to map to its own errors (the
- * server's codes): no conversation has that id, or a skill a prompt picked doesn't exist.
+ * server's codes): no conversation has that id, a skill a prompt picked doesn't exist, or a model
+ * to switch to isn't one the conversation has.
  */
-type ConversationFailure = 'not_found' | 'unknown_skill';
+type ConversationFailure = 'not_found' | 'unknown_skill' | 'unknown_model';
 
 export class ConversationsError extends Error {
   override name = 'ConversationsError';

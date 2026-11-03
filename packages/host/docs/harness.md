@@ -33,7 +33,9 @@ for await (const event of streamAgent({
   render(event);
 ```
 
-Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists.
+Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists. Either
+way, `createHarness` puts their updates in the sessions' combined stream (`kind: 'approval'` and
+`kind: 'task'`), so a UI following the stream sees them without asking.
 
 ## A conversation across prompts
 
