@@ -1,9 +1,9 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
-import type { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
-import type { RunSession } from '../../runtime/sessions/sessions.types.js';
-import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**

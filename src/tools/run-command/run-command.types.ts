@@ -1,6 +1,6 @@
-import type { ApprovalRegistry } from '../../runtime/approvals/approvals.service.js';
+import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ProcessRunner } from '../../runtime/process/process.service.js';
-import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Workspace } from '../../runtime/workspace/workspace.service.js';
 
 export type RunCommandOptions = {

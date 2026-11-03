@@ -120,7 +120,7 @@ anything the process can; argument checks can't stop that. Isolating the process
 ### Approvals: the harness asks, the UI renders
 
 The harness renders no prompt. A command that needs approval waits in an `ApprovalRegistry`
-(`src/runtime/approvals/`; `createHarness` makes one, as `harness.approvals`, unless one is passed in), which emits typed
+(`@sheavly/runtime/approvals/`; `createHarness` makes one, as `harness.approvals`, unless one is passed in), which emits typed
 `ApprovalUpdate` events to its subscribers. The UI subscribes, shows each request its own way,
 and answers with `respond`:
 

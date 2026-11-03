@@ -1,7 +1,7 @@
-import { inboxText } from '../../runtime/sessions/sessions.utils.js';
-import type { RunSession } from '../../runtime/sessions/sessions.types.js';
-import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
-import { taskNotification } from '../../runtime/tasks/tasks.utils.js';
+import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
+import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.helper.js';

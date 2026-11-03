@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import { isMissingPath } from '../runtime/errors/errors.utils.js';
+import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkbookNotFoundError, WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
 import {
   EMPTY_STATE,

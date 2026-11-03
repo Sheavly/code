@@ -65,18 +65,19 @@ flowchart BT
 A new workspace comes from `npm run new` (README, "Workspace layout"); the project skill's
 "Where code goes" says which one something belongs in.
 
-| Where                     | What lives there                                                                                                                                                                             |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                        |
-| `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                         |
-| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                             |
-| `src/runtime/`            | Services and helpers: workspace path confinement, processes, background tasks, sessions, approvals, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`) |
-| `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                             |
-| `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                                  |
-| `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                          |
-| `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                               |
-| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                       |
-| `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                             |
+| Where                     | What lives there                                                                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                 |
+| `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                  |
+| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`), backends on them (`openai/`, `azure/`), adapter registry, `ProviderSwitch`                                      |
+| `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/` |
+| `src/runtime/`            | The workspace-bound services, until #29 moves them: workspace path confinement, processes, file locks, workspace trust, `.sheavly/`, AGENTS.md; the typed error classes (`errors/`)   |
+| `src/tools/`              | One folder per tool: `read-file`, `write-file`, `edit-file`, `run-command`, `tasks`, `sub-agent`                                                                                      |
+| `src/loop/`               | `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks                                                                                                           |
+| `src/host/`               | Wiring a run (`createHarness`, and the `createCodingHarness` preset) and the model from env. No UI, and no imports from a front end                                                   |
+| `src/terminal-ui/`        | Front end: the terminal `Renderer` the demo and the workbook print events with                                                                                                        |
+| `src/demo.ts`             | Front end: a CLI that reads env, wires a run with `createCodingHarness`, prints events                                                                                                |
+| `src/workbook/`           | Front end: a stateful CLI with stored prompts, saved runs, continue, step and diff (`workbook/`)                                                                                      |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions
@@ -255,12 +256,13 @@ The harness fails loudly, and ESLint enforces it in every workspace and on `.cur
 
 Each area keeps its own classes, since the layers can't all import one another:
 
-| Where                            | Classes                                                    |
-| -------------------------------- | ---------------------------------------------------------- |
-| `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong            |
-| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError` |
-| `src/runtime/errors/`            | Runtime, tools, loop and hosts (below)                     |
-| `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`    |
+| Where                            | Classes                                                                            |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `packages/core/src/errors/`      | `DefinitionError`: a tool or hook defined wrong                                    |
+| `packages/providers/src/errors/` | `AdapterError`, `ResponsesApiError`, `ProviderSwitchError`                         |
+| `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts` |
+| `src/runtime/errors/`            | Tools, loop, hosts and the workspace-bound runtime (below)                         |
+| `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                            |
 
 | `src/runtime/errors/` class            | Thrown when                                                                                                                 |
 | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -282,8 +284,9 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `WorkbookNotFoundError` (`wanted`)     | A stored prompt, run or saved conversation isn't there                                                                      |
 | `WorkbookPromptError` (`prompt`)       | A stored prompt file has bad front matter                                                                                   |
 
-`errors.utils.ts` has `errorMessage`, `errorCode` and `isMissingPath` (`ENOENT` / `ENOTDIR`
-only).
+`@sheavly/runtime/errors/errors.utils` has `errorMessage`, `errorCode` and `isMissingPath`
+(`ENOENT` / `ENOTDIR` only). Each error class moves to the package that throws it as #29 splits the
+app; the table lists them where they are today.
 
 ## Where the next work goes
 

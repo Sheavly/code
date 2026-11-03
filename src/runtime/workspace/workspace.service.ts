@@ -2,7 +2,7 @@ import type { Stats } from 'node:fs';
 import { lstat, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { PathCheckError, WorkspaceError } from '../errors/workspace.errors.js';
-import { isMissingPath } from '../errors/errors.utils.js';
+import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 
 /**
  * The directory the agent is confined to. Every file tool resolves paths through

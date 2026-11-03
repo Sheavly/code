@@ -6,8 +6,8 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runSession } from '../../../loop/stream-agent/stream-agent.helper.js';
-import { SessionRegistry } from '../../../runtime/sessions/sessions.service.js';
-import { TaskRegistry } from '../../../runtime/tasks/tasks.service.js';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createSubAgentTool } from '../sub-agent.tool.js';
 import {
   calls,
@@ -15,7 +15,7 @@ import {
   say,
   toolCall,
 } from '@sheavly/testing/provider/routed-provider.fake';
-import { startDeepestSession } from '../../../testing/sessions.fake.js';
+import { startDeepestSession } from '@sheavly/runtime/testing/sessions.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 

@@ -1,4 +1,4 @@
-import type { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
+import type { ApprovalRegistry } from '../approvals/approvals.service.js';
 
 /** A UI that approves every request as soon as it's announced. Returns the unsubscribe. */
 export function approveEverything(approvals: ApprovalRegistry): () => void {

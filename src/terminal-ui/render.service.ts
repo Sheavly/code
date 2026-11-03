@@ -1,5 +1,5 @@
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { isFileChange } from '../tools/files/files.utils.js';
 import { isFileRead } from '../tools/read-file/read-file.utils.js';
 import type { Write } from './render.types.js';

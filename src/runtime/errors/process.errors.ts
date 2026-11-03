@@ -1,4 +1,4 @@
-import { errorCode, errorMessage } from './errors.utils.js';
+import { errorCode, errorMessage } from '@sheavly/runtime/errors/errors.utils';
 
 /**
  * A process group couldn't be killed for a reason other than having exited already (`ESRCH`),

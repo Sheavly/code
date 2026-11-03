@@ -1,4 +1,4 @@
-import { errorMessage } from './errors.utils.js';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 
 /**
  * The trust store exists but can't be read, parsed or written. Never treated as "nothing

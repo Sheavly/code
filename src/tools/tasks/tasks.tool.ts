@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import type { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
-import { formatTask } from '../../runtime/tasks/tasks.utils.js';
+import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 

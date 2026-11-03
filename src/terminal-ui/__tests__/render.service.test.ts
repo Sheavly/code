@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { Renderer } from '../render.service.js';
 import type { AgentEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 

@@ -1,4 +1,4 @@
-import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
+import type { SessionRegistry } from '../sessions/sessions.service.js';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** Starts Main → 2 → 3, so the deepest session sits at the nesting cap; returns it. */

@@ -1,11 +1,11 @@
 import os from 'node:os';
 import path from 'node:path';
 import { createAgentsMdHook } from '../runtime/agents-md/agents-md.helper.js';
-import { ApprovalRegistry } from '../runtime/approvals/approvals.service.js';
+import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { FileLocks } from '../runtime/file-locks/file-locks.service.js';
 import { ProcessRunner } from '../runtime/process/process.service.js';
 import { loadProjectHooks } from '../runtime/project-hooks/project-hooks.helper.js';
-import { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { TrustStore } from '../runtime/trust/trust.service.js';
 import { Workspace } from '../runtime/workspace/workspace.service.js';
 import { createEditFileTool } from '../tools/edit-file/edit-file.tool.js';

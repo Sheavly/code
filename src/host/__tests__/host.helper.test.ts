@@ -7,7 +7,7 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runAgent } from '../../loop/stream-agent/stream-agent.helper.js';
-import { TaskRegistry } from '../../runtime/tasks/tasks.service.js';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import {
   calls,
   routedProvider,

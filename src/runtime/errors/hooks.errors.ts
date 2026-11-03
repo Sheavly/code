@@ -1,5 +1,5 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import { errorMessage } from './errors.utils.js';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 
 /** Which hook handler failed. */
 type HookHandler = Exclude<keyof Hook, 'name'>;

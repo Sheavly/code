@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import { Writable } from 'node:stream';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { WorkbookStoreError } from '../runtime/errors/workbook.errors.js';
-import type { SessionRegistry } from '../runtime/sessions/sessions.service.js';
+import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';

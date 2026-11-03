@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { TaskRegistry } from '../runtime/tasks/tasks.service.js';
+import type { TaskRegistry } from '../tasks/tasks.service.js';
 
 /**
  * Test-only tool: `start_task` starts a background task that prints `output` and exits with

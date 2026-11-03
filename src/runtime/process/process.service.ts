@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { ProcessInterruptedError, ProcessKillError } from '../errors/process.errors.js';
-import { errorCode } from '../errors/errors.utils.js';
+import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import { MAX_OUTPUT_CHARS, SECRET_ENV } from './process.constants.js';
 import type { ProcessParams, ProcessResult } from './process.types.js';
 

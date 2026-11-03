@@ -12,7 +12,7 @@ const DOC_SOURCES = [
     doc: 'docs/sessions.md',
     sources: [
       /^packages\/protocol\/src\/session\//,
-      /^src\/runtime\/sessions\//,
+      /^packages\/runtime\/src\/sessions\//,
       /^src\/tools\/sub-agent\//,
     ],
   },

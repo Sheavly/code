@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { SessionRegistry } from '../../runtime/sessions/sessions.service.js';
+import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { ToolCallError } from '../../runtime/errors/tools.errors.js';
 
 /**
