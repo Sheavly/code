@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
+import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
-import { toServerSentEvent } from './sessions.utils.js';
+import { updateStream } from './update-stream.helper.js';
+import { isOpen } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
+  RunOutcome,
   SessionId,
   SessionInfo,
   SessionRef,
-  SessionState,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -33,10 +35,7 @@ export class SessionRegistry {
   #sessions = new Map<SessionId, SessionInfo>();
   #listeners = new Set<Listener>();
   #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
-  /** Messages queued per session, delivered at its next model call. */
-  #inboxes = new Map<SessionId, InboxMessage[]>();
-  /** Loops waiting idle (for tasks) that a new message should wake. */
-  #waiters = new Map<SessionId, (() => void)[]>();
+  #inboxes = new Inboxes();
 
   /** Starts the main session (depth 1). */
   startMain(params: { title: string; id?: SessionId }): SessionRef {
@@ -62,7 +61,10 @@ export class SessionRegistry {
       throw new SessionError({
         reason: 'parent_ended',
         sessionId: parentId,
-        message: `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
+        message:
+          parent.state === 'idle'
+            ? `Parent session ${parentId} is idle between prompts; only a running session starts sub-agents`
+            : `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
       });
     }
 
@@ -92,27 +94,60 @@ export class SessionRegistry {
     this.#emit({ type: 'session_status', session });
   }
 
-  /** Marks a session ended with how its run finished. Ending twice keeps the first ending. */
-  end(params: { id: SessionId; state: Exclude<SessionState, 'running'> }): void {
+  /**
+   * Ends a running or idle session for good, with how its last run finished. Ending twice keeps
+   * the first ending.
+   */
+  end(params: { id: SessionId; state: RunOutcome }): void {
     const session = this.#require(params.id);
 
-    if (session.state !== 'running') return;
+    if (!isOpen(session.state)) return;
     session.state = params.state;
+    session.lastOutcome = params.state;
     session.endedAt = Date.now();
     this.#emit({ type: 'session_ended', session });
-    this.#wake(params.id); // nobody waits on an ended session's inbox
+    this.#inboxes.wake(params.id); // nobody waits on an ended session's inbox
   }
 
   /**
-   * Queues a message for a running session; its loop delivers it at the next model call, without
-   * stopping anything. `from` is `'user'`, or a session id, which must be an ancestor of the
+   * A conversation's prompt finished, and the session stays open for the next: `outcome` is how
+   * that run ended. Only a running session goes idle; otherwise this does nothing.
+   */
+  idle(params: { id: SessionId; outcome: RunOutcome }): void {
+    const session = this.#require(params.id);
+
+    if (session.state !== 'running') return;
+    session.state = 'idle';
+    session.lastOutcome = params.outcome;
+    this.#emit({ type: 'session_idle', session });
+  }
+
+  /** The next prompt of a conversation starts: an idle session runs again. Throws otherwise. */
+  resume(id: SessionId): void {
+    const session = this.#require(id);
+
+    if (session.state !== 'idle') {
+      throw new SessionError({
+        reason: session.state === 'running' ? 'session_running' : 'session_ended',
+        sessionId: id,
+        message: `Session ${id} is ${session.state}; only an idle session can take its next prompt`,
+      });
+    }
+
+    session.state = 'running';
+    this.#emit({ type: 'session_resumed', session });
+  }
+
+  /**
+   * Queues a message for a running or idle session; its loop delivers it at the next model call
+   * (an idle session's, at its next prompt), without stopping anything. `from` is `'user'`, or a session id, which must be an ancestor of the
    * target: a session steers only its own sub-agents (and theirs). Throws otherwise.
    */
   send(params: { id: SessionId; content: string; from: InboxMessage['from'] }): void {
     const { id, content, from } = params;
     const session = this.#require(id);
 
-    if (session.state !== 'running') {
+    if (!isOpen(session.state)) {
       throw new SessionError({
         reason: 'session_ended',
         sessionId: id,
@@ -130,29 +165,22 @@ export class SessionRegistry {
 
     const message: InboxMessage = { from, content, sentAt: Date.now() };
 
-    this.#inboxes.set(id, [...(this.#inboxes.get(id) ?? []), message]);
     this.#emit({ type: 'session_message', session, message });
-    this.#wake(id);
+    this.#inboxes.add({ id, message });
   }
 
   /** Removes and returns the session's queued messages, oldest first. */
   takeMessages(id: SessionId): InboxMessage[] {
-    const messages = this.#inboxes.get(id) ?? [];
-
-    this.#inboxes.delete(id);
-
-    return messages;
+    return this.#inboxes.take(id);
   }
 
   hasMessages(id: SessionId): boolean {
-    return (this.#inboxes.get(id)?.length ?? 0) > 0;
+    return this.#inboxes.has(id);
   }
 
   /** Resolves when a message arrives for the session (or it ends). For a loop waiting idle. */
   nextMessage(id: SessionId): Promise<void> {
-    return new Promise((resolve) => {
-      this.#waiters.set(id, [...(this.#waiters.get(id) ?? []), resolve]);
-    });
+    return this.#inboxes.next(id);
   }
 
   get(id: SessionId): SessionInfo | undefined {
@@ -218,29 +246,7 @@ export class SessionRegistry {
    * Starts with every known session (so a late UI catches up), then streams live until `signal`.
    */
   stream(params: { signal?: AbortSignal } = {}): ReadableStream<Uint8Array> {
-    const encoder = new TextEncoder();
-    let unsubscribe: () => void = () => undefined;
-
-    return new ReadableStream<Uint8Array>({
-      start: (controller) => {
-        const send = (update: SessionUpdate) =>
-          controller.enqueue(encoder.encode(toServerSentEvent(update)));
-
-        for (const session of this.list()) send({ type: 'session_started', session });
-        unsubscribe = this.subscribe(send);
-        params.signal?.addEventListener(
-          'abort',
-          () => {
-            unsubscribe();
-            controller.close();
-          },
-          { once: true },
-        );
-      },
-      cancel: () => {
-        unsubscribe();
-      },
-    });
+    return updateStream({ sessions: this, ...params });
   }
 
   #add(params: SessionRef & { title: string }): SessionRef {
@@ -273,12 +279,5 @@ export class SessionRegistry {
 
     notifyAll({ listeners: this.#listeners, value: snapshot });
     this.#entries.add((seq) => ({ seq, sessionId: snapshot.session.id, kind: 'update', update }));
-  }
-
-  #wake(id: SessionId): void {
-    const waiters = this.#waiters.get(id) ?? [];
-
-    this.#waiters.delete(id);
-    waiters.forEach((wake) => wake());
   }
 }
