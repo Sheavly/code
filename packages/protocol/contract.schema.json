@@ -459,6 +459,16 @@
             "update": { "$ref": "#/$defs/SessionUpdate" }
           },
           "required": ["seq", "sessionId", "kind", "update"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "sessionId": { "$ref": "#/$defs/SessionId" },
+            "kind": { "type": "string", "const": "approval" },
+            "update": { "$ref": "#/$defs/ApprovalUpdate" }
+          },
+          "required": ["seq", "sessionId", "kind", "update"]
         }
       ]
     },

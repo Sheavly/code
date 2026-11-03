@@ -60,4 +60,34 @@ describe('streamEntrySchema', () => {
 
     expect(parsed.kind === 'event' && 'messages' in parsed.event).toBe(false);
   });
+
+  it("takes an approval a session's tool asked for, and its answer", () => {
+    const requested = {
+      seq: 4,
+      sessionId: 'main',
+      kind: 'approval',
+      update: {
+        type: 'approval_requested',
+        request: {
+          id: 'a1',
+          callId: 'c1',
+          sessionId: 'main',
+          tool: 'run_command',
+          command: 'rm -rf build',
+          concerns: [],
+          options: ['approve', 'skip', 'skip_with_message'],
+        },
+      },
+    };
+    const resolved = {
+      seq: 5,
+      sessionId: 'main',
+      kind: 'approval',
+      update: { type: 'approval_resolved', id: 'a1', response: { decision: 'skip' } },
+    };
+
+    for (const entry of [requested, resolved]) {
+      expect(streamEntrySchema.parse(entry)).toEqual(entry);
+    }
+  });
 });
