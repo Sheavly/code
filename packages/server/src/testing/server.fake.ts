@@ -9,8 +9,6 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { blockTool } from '@sheavly/runtime/testing/block-tool.fake';
 import { routedProvider } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
-import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
-import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { z } from 'zod';
 import { createServerApp } from '../server/server.helper.js';
 import { TEST_TOKEN } from './testing.constants.js';
@@ -90,32 +88,4 @@ async function startConversation(request: (path: string, init?: TestRequest) => 
   if (response.status !== 201) throw new Error(`starting failed: ${String(response.status)}`);
 
   return ((await response.json()) as { id: string }).id;
-}
-
-/** Test-only: the `entry` frames of an SSE body, parsed and checked against the protocol. */
-export async function* readEntries(body: ReadableStream<Uint8Array> | null): AsyncGenerator<{
-  id: string;
-  entry: StreamEntry;
-}> {
-  if (!body) return;
-
-  const decoder = new TextDecoder();
-  let buffered = '';
-
-  for await (const chunk of body) {
-    buffered += decoder.decode(chunk, { stream: true });
-
-    for (let end = buffered.indexOf('\n\n'); end !== -1; end = buffered.indexOf('\n\n')) {
-      const frame = buffered.slice(0, end);
-
-      buffered = buffered.slice(end + 2);
-
-      const id = /^id: (.*)$/m.exec(frame)?.[1];
-      const data = /^data: (.*)$/m.exec(frame)?.[1];
-
-      if (id !== undefined && data !== undefined) {
-        yield { id, entry: streamEntrySchema.parse(JSON.parse(data)) };
-      }
-    }
-  }
 }

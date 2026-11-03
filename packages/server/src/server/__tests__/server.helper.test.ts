@@ -2,7 +2,8 @@ import { serve } from '@hono/node-server';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createServerClient } from '../../client/client.helper.js';
-import { readEntries, reply, testServer } from '../../testing/server.fake.js';
+import { reply, testServer } from '../../testing/server.fake.js';
+import { readEntries } from '../../client/entries.helper.js';
 import { TEST_TOKEN } from '../../testing/testing.constants.js';
 
 describe('the server’s guards', () => {

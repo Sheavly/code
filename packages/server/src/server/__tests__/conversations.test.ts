@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { readEntries, reply, testServer } from '../../testing/server.fake.js';
+import { reply, testServer } from '../../testing/server.fake.js';
+import { readEntries } from '../../client/entries.helper.js';
 
 const calls = (name: string) => () => [
   toolCall({ id: 'c1', name, input: {} }),

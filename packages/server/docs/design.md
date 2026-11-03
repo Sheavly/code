@@ -99,7 +99,8 @@ A prompt that can't start is answered with an error before its stream opens.
 
 `createServerClient({ url, token })` is Hono's `hc<ServerApp>`: each route's request and response
 is typed from the routes themselves, so a TypeScript UI can't send a wrong body. SSE answers are
-read as streams; each frame's data parses with `streamEntrySchema`.
+read with `readEntries(response.body)` (`client/entries.helper`): each `entry` frame, parsed with
+`streamEntrySchema`, skipping heartbeats.
 
 ## Hosting it elsewhere
 

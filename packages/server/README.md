@@ -16,10 +16,10 @@ const app = createServerApp({ conversations, token });
 serve({ fetch: app.fetch, hostname: '127.0.0.1', port });
 ```
 
-| Module    | What it holds                                                                          |
-| --------- | -------------------------------------------------------------------------------------- |
-| `server/` | `createServerApp`: the routes, the bearer token, body limits, errors; `ServerApp`      |
-| `client/` | `createServerClient`: a typed client, every request and response typed from the routes |
+| Module    | What it holds                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `server/` | `createServerApp`: the routes, the bearer token, body limits, errors; `ServerApp`                                              |
+| `client/` | `createServerClient`: a typed client, every request and response typed from the routes; `readEntries`: an SSE answer's entries |
 
 ## Docs
 
