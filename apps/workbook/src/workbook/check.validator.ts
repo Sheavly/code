@@ -50,7 +50,7 @@ export const checkStepSchema = z.union([
 
 /**
  * A stored prompt's check. A single-run check sets `expect` / `forbid` at the top; a check that
- * needs several runs lists `steps`. `areas` are source paths (`src/runtime/trust`) whose changes
+ * needs several runs lists `steps`. `areas` are source paths (`packages/workspace/src/trust`) whose changes
  * make it relevant: `check` with no names runs only the ones a branch touched.
  */
 export const checkSchema = z

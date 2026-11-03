@@ -5,7 +5,8 @@
 // extending `tsconfig.base.json` with `rootDir: "src"`, and source of its own. And TypeScript
 // lives only in a workspace's `src/`, apart from what `NOT_SOURCE` lists and why. The workspace
 // graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
-// draws its own. Lint runs the same checks on each workspace's files; this one also covers a
+// draws its own; nothing names the root `src/` from before the split, and code names no issue
+// (`stale-references.mjs`). Lint runs the same checks on each workspace's files; this one also covers a
 // workspace with no source.
 //
 //   node scripts/check-layout.mjs   prints each problem and exits 1, or exits 0
@@ -15,6 +16,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { copiedGraphProblems, graphProblem } from './graph.mjs';
+import { staleReferenceProblems } from './stale-references.mjs';
 import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
 import {
   TESTING_EXPORT,
@@ -169,11 +171,18 @@ export function findLayoutProblems(params) {
   ];
 }
 
-/** The repo's own docs: the generated graph is current, and nothing else draws one. */
+/**
+ * The repo's own words: the generated graph is current, nothing else draws one, and nothing
+ * names the layout before the split or promises what an issue will do.
+ */
 export function findGraphProblems(params) {
   const { root, files } = params;
 
-  return [graphProblem(root), ...copiedGraphProblems({ root, files })].filter(Boolean);
+  return [
+    graphProblem(root),
+    ...copiedGraphProblems({ root, files }),
+    ...staleReferenceProblems({ root, files }),
+  ].filter(Boolean);
 }
 
 function listRepoFiles(root) {

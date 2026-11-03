@@ -1,6 +1,6 @@
-// A type has one definition. Each `*.types.ts` in the app's `src/` and in every workspace
-// package's `src/` owns the type names it exports (`workspace-types.js` reads them from disk, so
-// a new package, folder or type is covered from the next lint with no change here). Anywhere
+// A type has one definition. Each `*.types.ts` in every workspace's `src/` owns the type names
+// it exports (`workspace-types.js` reads them from disk, so a new package, folder or type is
+// covered from the next lint with no change here). Anywhere
 // else, a type of the same name is a copy that drifts from the original, and fails with where the
 // original lives and how to change it:
 //

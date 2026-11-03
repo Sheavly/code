@@ -75,8 +75,8 @@ export function planWorkspace(params) {
 }
 
 /**
- * Every workspace starts on the shared config alone. An app that grows a UI names its front-end
- * files (`frontEndFiles`) in review, when an issue asks for one, never from the scaffold.
+ * Every workspace starts on the shared config alone. An app is a front end because of where it is
+ * (`apps/`): the shared config gives it terminal I/O, printing and env, and a package none of them.
  */
 const ESLINT_CONFIG =
   "import { baseConfig } from '@sheavly/eslint-config';\n\nexport default baseConfig({ tsconfigRootDir: import.meta.dirname });\n";

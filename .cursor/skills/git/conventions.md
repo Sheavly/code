@@ -139,7 +139,7 @@ Review bottom up, one commit at a time.
 
 ## What changes
 
-**Switch** (`src/providers/switch/`)
+**Switch** (`packages/providers/src/switch/`)
 
 - `ProviderSwitch.use(kind)` swaps the adapter; the next model call uses it.
 - Encrypted reasoning from the old provider is dropped, since only its source can read it.

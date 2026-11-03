@@ -1,5 +1,5 @@
-// Reads which file defines each type, from the workspace on disk: the root package's `src/` and
-// every workspace package's `src/`. Each `*.types.ts` (outside tests and fakes) owns the type
+// Reads which file defines each type, from the workspaces on disk: every workspace's `src/` (and
+// the root's, if it ever has one). Each `*.types.ts` (outside tests and fakes) owns the type
 // names it exports. Nothing is listed by hand: the packages come from the root `package.json`
 // `workspaces`, their names from their own `package.json`, the types from their source. Files are
 // re-read when they change, so a long-running ESLint (an editor) sees new ones too.

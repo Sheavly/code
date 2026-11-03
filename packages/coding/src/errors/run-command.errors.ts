@@ -1,4 +1,4 @@
-// Errors `run_command` throws. It moves with the tool into the coding package (#29).
+// Errors `run_command` throws.
 
 /** Why a command was refused instead of run. */
 type CommandRefusedReason = 'needs_approval' | 'skipped';

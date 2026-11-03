@@ -54,7 +54,8 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    second round and give the user what is left, rather than looping.
 
 5. **Real-model check**, when the branch changes what a run does (the source `workbook/run-sources.json`
-   lists: the host, loop, runtime, tools, providers and core packages, and the app's `src/`):
+   lists: the core, providers, runtime, tools, loop, host, workspace and coding packages, and
+   the apps' `src/`):
    `npm run workbook -- check`, after the reviews' fixes. It runs only the checks whose `areas` the
    branch changed, retries a failure once, and lists changed source no check covers: add or
    extend a prompt's `check` for that (`workbook/README.md`). It's a local, on-demand command and

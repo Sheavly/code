@@ -127,8 +127,8 @@ The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the g
 (`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
 (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
 (`read-file`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
-the coding preset reaches them, which is what let them move into their own packages
-([#29](https://github.com/Sheavly/code/issues/29)) without untangling anything.
+the coding preset reaches them, which is why each lives in a package of its own and the generic
+ones never depend on the coding ones.
 
 ## Packages
 
