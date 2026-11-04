@@ -16,10 +16,11 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 | `hook/`        | `Hook` and its handlers' contexts, `defineHook`                           |
 | `provider/`    | `Provider`, `ProviderRequest`, `ToolDefinition`                           |
 | `adapter/`     | `Adapter` types and `defineAdapter`, for model backends                   |
+| `store/`       | `ConversationStore` and `EntryStore`: where past conversations are kept   |
 | `message/`     | `StreamEvent` and what a provider streams                                 |
 | `environment/` | `Environment`: settings an app passes in, since packages never read env   |
 | `validation/`  | `parseOrThrow` / `validate`, which turn zod failures into an area's error |
-| `errors/`      | `DefinitionError`, `ToolCallError`                                        |
+| `errors/`      | `DefinitionError`, `ToolCallError`, `StoreError`                          |
 
 ## Docs
 
