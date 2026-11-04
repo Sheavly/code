@@ -43,6 +43,18 @@ export type ConversationOptions = {
    * prompt runs on it, in this harness's new session.
    */
   messages?: Message[];
+  /**
+   * Starts as a conversation whose session already ran: its first prompt resumes the main
+   * session instead of starting it (a reopened conversation, whose `sessionStart` hooks already
+   * added their context to `messages`).
+   */
+  resumed?: boolean;
+  /**
+   * Told the history whenever a prompt starts (with the user's message on it) and whenever one
+   * ends or fails (the history as it is now). It must not throw or wait: a caller that keeps the
+   * history somewhere queues the write and reports a failure its own way.
+   */
+  keepHistory?: (messages: readonly Message[]) => void;
 };
 
 /**

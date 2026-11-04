@@ -1,5 +1,7 @@
 import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
+import type { EntryStore } from '@sheavly/core/store/store.types';
+import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type {
@@ -54,11 +56,27 @@ export type LiveConversation = {
 
 /**
  * Builds one conversation, as the app decides it: the provider, tools and hooks, and its skills.
- * `messages` is history to continue from. The host picks none of it.
+ * `messages` is history to continue from. `storage`, when the host keeps conversations, is what
+ * the app builds the conversation on so it is kept (see `ConversationStorage`). The host picks
+ * none of the rest.
  */
 export type CreateConversation = (params: {
   messages?: Message[] | undefined;
+  storage?: ConversationStorage | undefined;
 }) => Promise<LiveConversation>;
+
+/**
+ * What an app builds a kept conversation on: its stream goes to `entries` (`createHarness`'s
+ * `entries`), and `keepHistory` is called with the history whenever a prompt starts and ends
+ * (`createConversation`'s `keepHistory`). `resume`, set when a stored conversation is reopened, is
+ * the stored log to carry on from (`createHarness`'s `resume`), and the conversation is then
+ * `resumed`: its session already ran its `sessionStart` hooks.
+ */
+export type ConversationStorage = {
+  entries: EntryStore;
+  keepHistory: (messages: readonly Message[]) => void;
+  resume?: StoredLog | undefined;
+};
 
 /** One prompt's events, and the text and parts it sent. */
 export type SentPrompt = {

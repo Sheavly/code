@@ -1,5 +1,4 @@
 {
-  "keepHistory": "AGENTS.md uses it as an example of a name that says what a function changes, not as code.",
   "@sheavly/source": "An export condition in every package's `exports` (the source build), not an import specifier.",
   "issueType": "A `gh --json` field (GitHub's API), not code in this repo.",
   "subIssues": "A `gh --json` field (GitHub's API), not code in this repo.",

@@ -18,7 +18,7 @@ export function createConversation(options: ConversationOptions): Conversation {
   const closing = new AbortController();
   let messages: Message[] = [...(options.messages ?? [])];
   let running = false;
-  let started = false;
+  let started = options.resumed ?? false;
   /** Set by the first close(): the cleanup every close() call waits for. */
   let closed: Promise<void> | undefined;
 
@@ -70,6 +70,9 @@ export function createConversation(options: ConversationOptions): Conversation {
     };
     let finished = false;
 
+    // The user's prompt is kept before the run starts, so a crash mid-run loses nothing they sent.
+    options.keepHistory?.([...messages, user]);
+
     try {
       for (let next = await events.next(); !next.done; next = await events.next()) {
         record(next.value);
@@ -88,6 +91,8 @@ export function createConversation(options: ConversationOptions): Conversation {
       }
 
       running = false;
+      // Whatever happened, what is kept matches the history now: a failed prompt leaves it as it was.
+      options.keepHistory?.(messages);
     }
   }
 
