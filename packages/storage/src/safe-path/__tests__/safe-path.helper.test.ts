@@ -2,13 +2,14 @@ import { mkdir, readdir, stat, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import { StorageFileError, UnsafeRemovalError } from '../../errors/storage.errors.js';
+import { StorageFileError, UnsafePathError } from '../../errors/storage.errors.js';
 import { useTempFolder } from '../../testing/temp-folder.fake.js';
-import { removeFile, removeFolder } from '../folder.helper.js';
+import { assertSafeRoot, namedPath, removeFile, removeFolder } from '../safe-path.helper.js';
 
 const ID = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
 const OTHER = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
-const temp = useTempFolder('remove-folder-');
+const LINKED = '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20';
+const temp = useTempFolder('safe-path-');
 const canLink = process.platform !== 'win32';
 
 const exists = async (target: string) => {
@@ -21,6 +22,52 @@ const exists = async (target: string) => {
     throw caughtError;
   }
 };
+
+describe('assertSafeRoot', () => {
+  it('hands back an absolute folder as it is', () => {
+    expect(assertSafeRoot(temp.path())).toBe(temp.path());
+  });
+
+  it.each(['', 'relative/folder', '.', '..'])(
+    'refuses %j, which is wherever the process runs',
+    (root) => {
+      expect(() => assertSafeRoot(root)).toThrow(UnsafePathError);
+    },
+  );
+
+  it('refuses the top of a file system, and names it', () => {
+    const top = path.parse(temp.path()).root;
+
+    expect(() => assertSafeRoot(top)).toThrow(
+      `Refusing to use ${top}: it is the root of a file system`,
+    );
+  });
+});
+
+describe('namedPath', () => {
+  it('is the id and its extension inside the folder', () => {
+    const folder = temp.path();
+
+    expect(namedPath({ folder, id: ID, extension: '.json' })).toBe(path.join(folder, `${ID}.json`));
+    expect(namedPath({ folder, id: ID })).toBe(path.join(folder, ID));
+  });
+
+  it('refuses a name that could reach another file, naming the path it was asked for', () => {
+    const folder = temp.path();
+
+    expect(() => namedPath({ folder, id: '../neighbour', extension: '.json' })).toThrow(
+      `Refusing to use ${path.join(folder, '../neighbour.json')}: its name is not an id`,
+    );
+    expect(() => namedPath({ folder, id: ID, extension: '/../x' })).toThrow(UnsafePathError);
+  });
+
+  it('refuses a folder that is relative or the top of a file system', () => {
+    expect(() => namedPath({ folder: 'models', id: ID })).toThrow(UnsafePathError);
+    expect(() => namedPath({ folder: path.parse(temp.path()).root, id: ID })).toThrow(
+      UnsafePathError,
+    );
+  });
+});
 
 /** A store folder with an id-named folder in it that holds a file, and a file beside them. */
 async function populated() {
@@ -64,7 +111,7 @@ describe('removeFolder', () => {
     expect(await exists(path.join(root, OTHER))).toBe(true);
   });
 
-  it('refuses what is not a store’s folder with an UnsafeRemovalError, and deletes nothing', async () => {
+  it('refuses what is not a store’s folder with an UnsafePathError, and deletes nothing', async () => {
     const { root, folder } = await populated();
     const dangerous = [
       '',
@@ -80,9 +127,7 @@ describe('removeFolder', () => {
     ];
 
     for (const target of dangerous) {
-      await expect(removeFolder({ root, folder: target })).rejects.toBeInstanceOf(
-        UnsafeRemovalError,
-      );
+      await expect(removeFolder({ root, folder: target })).rejects.toBeInstanceOf(UnsafePathError);
     }
 
     expect(await exists(path.join(folder, 'deep', 'kept.txt'))).toBe(true);
@@ -94,7 +139,7 @@ describe('removeFolder', () => {
     const { root } = await populated();
 
     await expect(removeFolder({ root, folder: root })).rejects.toThrow(
-      `Refusing to remove ${root}: it is not directly inside its store’s folder`,
+      `Refusing to use ${root}: it is not directly inside its store’s folder`,
     );
   });
 
@@ -102,11 +147,11 @@ describe('removeFolder', () => {
     const { root, folder } = await populated();
 
     await expect(removeFolder({ root, folder, home: folder })).rejects.toBeInstanceOf(
-      UnsafeRemovalError,
+      UnsafePathError,
     );
     await expect(
       removeFolder({ root, folder, home: path.join(folder, 'deep') }),
-    ).rejects.toBeInstanceOf(UnsafeRemovalError);
+    ).rejects.toBeInstanceOf(UnsafePathError);
     expect(await exists(path.join(folder, 'deep', 'kept.txt'))).toBe(true);
   });
 
@@ -118,11 +163,11 @@ describe('removeFolder', () => {
 
       await mkdir(elsewhere);
       await writeFile(path.join(elsewhere, 'precious.txt'), 'x');
-      await symlink(elsewhere, path.join(root, '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20'), 'dir');
+      await symlink(elsewhere, path.join(root, LINKED), 'dir');
 
-      await removeFolder({ root, folder: path.join(root, '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20') });
+      await removeFolder({ root, folder: path.join(root, LINKED) });
 
-      expect(await exists(path.join(root, '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20'))).toBe(false);
+      expect(await exists(path.join(root, LINKED))).toBe(false);
       expect(await exists(path.join(elsewhere, 'precious.txt'))).toBe(true);
     },
   );
@@ -178,39 +223,31 @@ describe('removeFile', () => {
 
     for (const id of names) {
       await expect(removeFile({ folder, id, extension: '.json' })).rejects.toBeInstanceOf(
-        UnsafeRemovalError,
+        UnsafePathError,
       );
     }
 
     await expect(removeFile({ folder, id: ID, extension: '/../neighbour.json' })).rejects.toThrow(
-      UnsafeRemovalError,
+      UnsafePathError,
     );
     await expect(removeFile({ folder: 'models', id: ID, extension: '.json' })).rejects.toThrow(
-      UnsafeRemovalError,
+      UnsafePathError,
     );
 
     expect(await exists(path.join(profile, 'neighbour.json'))).toBe(true);
     expect(await readdir(folder)).toHaveLength(3);
   });
 
-  it('names the file it refused, as it was asked for, and why', async () => {
-    const { folder } = await models();
-
-    await expect(removeFile({ folder, id: '../neighbour', extension: '.json' })).rejects.toThrow(
-      `Refusing to remove ${path.join(folder, '../neighbour.json')}: its name is not an id`,
-    );
-  });
-
   it('never removes a folder: one named like a file is left with its contents, and it throws', async () => {
     const { folder } = await models();
-    const lookalike = path.join(folder, '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20.json');
+    const lookalike = path.join(folder, `${LINKED}.json`);
 
     await mkdir(lookalike);
     await writeFile(path.join(lookalike, 'inside.txt'), 'x');
 
-    await expect(
-      removeFile({ folder, id: '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20', extension: '.json' }),
-    ).rejects.toBeInstanceOf(StorageFileError);
+    await expect(removeFile({ folder, id: LINKED, extension: '.json' })).rejects.toBeInstanceOf(
+      StorageFileError,
+    );
     expect(await exists(path.join(lookalike, 'inside.txt'))).toBe(true);
   });
 

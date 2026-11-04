@@ -1,3 +1,4 @@
+import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { SerialQueue } from '../serial-queue/serial-queue.service.js';
 import { documentSchema } from './document-file.validator.js';
@@ -18,7 +19,7 @@ export class DocumentFile {
   readonly #changes = new SerialQueue();
 
   constructor(params: { file: string }) {
-    this.file = params.file;
+    this.file = assertSafeRoot(params.file);
   }
 
   /**

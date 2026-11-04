@@ -1,9 +1,15 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { isFilesystemRoot, unsafeFileRemovalReason, unsafeRemovalReason } from '../folder.utils.js';
+import {
+  isFilesystemRoot,
+  unsafeNameReason,
+  unsafeRemovalReason,
+  unsafeRootReason,
+} from '../safe-path.utils.js';
 
 const TMP = path.resolve(path.sep, 'data');
 const ROOT = path.join(TMP, 'profiles');
+const TOP = path.parse(TMP).root;
 const ID = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
 const OTHER = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
 const HOME = path.join(TMP, 'home', 'someone');
@@ -26,7 +32,7 @@ describe('unsafeRemovalReason: the folders a store may delete', () => {
     ['just an id, taken from wherever the process runs', ID],
     ['the store’s own folder', ROOT],
     ['the folder above the store', TMP],
-    ['a file system’s top', path.parse(TMP).root],
+    ['a file system’s top', TOP],
     ['a folder that is not named by an id', path.join(ROOT, 'work')],
     [
       'a folder named for an id in capitals (two names on macOS and Windows)',
@@ -42,9 +48,7 @@ describe('unsafeRemovalReason: the folders a store may delete', () => {
   });
 
   it('refuses when the store’s own folder is a file system’s top', () => {
-    const top = path.parse(TMP).root;
-
-    expect(reason(path.join(top, ID), { root: top })).toMatch(/root of a file system/);
+    expect(reason(path.join(TOP, ID), { root: TOP })).toMatch(/root of a file system/);
   });
 
   it('refuses a relative store folder, even with an id-named folder in it', () => {
@@ -65,22 +69,31 @@ describe('unsafeRemovalReason: the folders a store may delete', () => {
   });
 });
 
-describe('isFilesystemRoot', () => {
-  it('is true for the top of a file system and false for anything in it', () => {
-    expect(isFilesystemRoot(path.parse(TMP).root)).toBe(true);
-    expect(isFilesystemRoot(TMP)).toBe(false);
+describe('unsafeRootReason: where a store may keep things', () => {
+  it('allows an absolute folder', () => {
+    expect(unsafeRootReason(ROOT)).toBeUndefined();
+    expect(unsafeRootReason(path.join(ROOT, 'a', '..', 'b'))).toBeUndefined();
+  });
+
+  it.each([
+    ['empty', ''],
+    ['relative', 'profiles'],
+    ['relative with a dot', path.join('.', 'profiles')],
+    ['a parent folder', '..'],
+    ['the top of a file system', TOP],
+    ['the top of a file system reached through `..`', path.join(ROOT, '..', '..')],
+  ])('refuses a folder that is %s', (_label, root) => {
+    expect(unsafeRootReason(root)).toEqual(expect.any(String));
   });
 });
 
-describe('unsafeFileRemovalReason: the files a store may delete', () => {
-  const file = (overrides: { folder?: string; id?: string; extension?: string }) =>
-    unsafeFileRemovalReason({ folder: ROOT, id: ID, extension: '.json', ...overrides });
-
+describe('unsafeNameReason: what a store may call a file or folder', () => {
   it.each([
-    ['an id with .json', {}],
+    ['an id', {}],
+    ['an id with .json', { extension: '.json' }],
     ['an id with .jsonl', { extension: '.jsonl' }],
   ])('allows %s', (_label, overrides) => {
-    expect(file(overrides)).toBeUndefined();
+    expect(unsafeNameReason({ id: ID, ...overrides })).toBeUndefined();
   });
 
   it.each([
@@ -92,14 +105,19 @@ describe('unsafeFileRemovalReason: the files a store may delete', () => {
     ['an id with a separator in it', { id: `${ID}${path.sep}x` }],
     ['a parent folder as the id', { id: '..' }],
     ['a glob', { id: '*' }],
-    ['an empty extension', { extension: '' }],
-    ['an extension that is a path', { extension: '/../x' }],
-    ['an extension with no dot', { extension: 'json' }],
-    ['an extension with two dots', { extension: '..json' }],
-    ['an extension that is long', { extension: '.abcdefghijk' }],
-    ['a relative folder', { folder: 'models' }],
-    ['a file system’s top as the folder', { folder: path.parse(TMP).root }],
-  ])('refuses %s', (_label, overrides) => {
-    expect(file(overrides)).toEqual(expect.any(String));
+    ['an extension that is a path', { id: ID, extension: '/../x' }],
+    ['an extension with no dot', { id: ID, extension: 'json' }],
+    ['an extension with two dots', { id: ID, extension: '..json' }],
+    ['an extension that is long', { id: ID, extension: '.abcdefghijk' }],
+    ['an extension in capitals', { id: ID, extension: '.JSON' }],
+  ])('refuses %s', (_label, params) => {
+    expect(unsafeNameReason(params)).toEqual(expect.any(String));
+  });
+});
+
+describe('isFilesystemRoot', () => {
+  it('is true for the top of a file system and false for anything in it', () => {
+    expect(isFilesystemRoot(TOP)).toBe(true);
+    expect(isFilesystemRoot(TMP)).toBe(false);
   });
 });

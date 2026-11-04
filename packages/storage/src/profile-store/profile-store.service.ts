@@ -2,11 +2,11 @@ import path from 'node:path';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { profileIdSchema, profileSchema } from '@sheavly/protocol/profile/profile.validator';
 import { StorageFileError } from '../errors/storage.errors.js';
-import { removeFolder } from '../folder/folder.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { listFolderNames } from '../listing/listing.helper.js';
 import type { ListedFile } from '../listing/listing.types.js';
 import { sortByName, splitListed } from '../listing/listing.utils.js';
+import { assertSafeRoot, namedPath, removeFolder } from '../safe-path/safe-path.helper.js';
 import { PROFILE_FILE, PROFILES_FOLDER } from './profile-store.constants.js';
 import type { ProfileListing } from './profile-store.types.js';
 
@@ -25,12 +25,12 @@ export class ProfileStore {
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
   constructor(params: { root: string }) {
-    this.#folder = path.join(params.root, PROFILES_FOLDER);
+    this.#folder = path.join(assertSafeRoot(params.root), PROFILES_FOLDER);
   }
 
   /** The folder of profile `id`: where its models, keys and conversations are kept. */
   folderOf(id: ProfileId): string {
-    return path.join(this.#folder, id);
+    return namedPath({ folder: this.#folder, id });
   }
 
   /**

@@ -7,11 +7,11 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { storedConversationSchema } from '@sheavly/protocol/store/store.validator';
 import { StorageFileError } from '../errors/storage.errors.js';
-import { removeFolder } from '../folder/folder.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { listFolderNames } from '../listing/listing.helper.js';
 import type { FileProblem, ListedFile } from '../listing/listing.types.js';
 import { splitListed } from '../listing/listing.utils.js';
+import { assertSafeRoot, removeFolder } from '../safe-path/safe-path.helper.js';
 import { CONVERSATIONS_FOLDER, HISTORY_FILE, INDEX_FILE } from './conversation-store.constants.js';
 import { agentHistoryFile, asStoreError, conversationFolder } from './conversation-store.utils.js';
 import { historySchema } from './conversation-store.validator.js';
@@ -38,7 +38,7 @@ export class FileConversationStore implements ConversationStore {
    * list itself has no place for it: a typo in one index must not hide the others, nor vanish.
    */
   constructor(params: { folder: string; onProblem: (problem: FileProblem) => void }) {
-    this.#folder = path.join(params.folder, CONVERSATIONS_FOLDER);
+    this.#folder = path.join(assertSafeRoot(params.folder), CONVERSATIONS_FOLDER);
     this.#onProblem = params.onProblem;
   }
 

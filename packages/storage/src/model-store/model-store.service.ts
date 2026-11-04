@@ -5,7 +5,7 @@ import { fileIsNamedForItsId, toModel, toModelFile } from '@sheavly/protocol/mod
 import { modelFileSchema, modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
-import { removeFile } from '../folder/folder.helper.js';
+import { assertSafeRoot, namedPath, removeFile } from '../safe-path/safe-path.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import type { ListedFile } from '../listing/listing.types.js';
 import { sortByName, splitListed } from '../listing/listing.utils.js';
@@ -26,7 +26,7 @@ export class ModelStore {
 
   /** `folder` is the profile's folder (`<root>/profiles/<profile-id>`), which an app passes in. */
   constructor(params: { folder: string }) {
-    this.#folder = path.join(params.folder, MODELS_FOLDER);
+    this.#folder = path.join(assertSafeRoot(params.folder), MODELS_FOLDER);
   }
 
   /**
@@ -67,7 +67,7 @@ export class ModelStore {
   }
 
   #fileOf(id: ModelId): string {
-    return path.join(this.#folder, `${id}${MODEL_FILE_EXTENSION}`);
+    return namedPath({ folder: this.#folder, id, extension: MODEL_FILE_EXTENSION });
   }
 
   /** The names in the folder that could be models, in a fixed order: `readdir`'s is the system's. */

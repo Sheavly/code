@@ -165,29 +165,37 @@ reads and writes through `json-file/`, names its files from ids, and says in its
 when a file is missing, damaged or being replaced. Add its row to the README, and export its file
 kind with `npm run export -- packages/storage <kind>` if it has none yet.
 
-## Deleting
+## Naming and deleting
 
-Nothing here calls `rm` itself. Every delete goes through `folder/` (`removeFolder`,
-`removeFile`), which checks what it was asked for before it touches the disk, because a recursive
-delete with a wrong path (an empty one, a variable that was never set, an id that is really
-`../x`) is not undone. Both throw an `UnsafeRemovalError` and touch nothing when:
+A store never builds a path from an id by hand, and nothing here calls `rm` itself. Every path a
+store reads, writes or deletes comes from `safe-path/`, which checks what it was asked for before it
+touches the disk. A recursive delete with a wrong path (an empty one, a variable that was never set,
+an id that is really `../x`) is not undone, and a write to one overwrites a file; the same bug that
+makes one dangerous makes the other, so they share the rules. Each throws an `UnsafePathError` and
+touches nothing when:
 
-- **The name is not an id.** Only a lowercase UUID passes, so nothing holds a separator, a `..`, a
-  glob or a reserved name, whatever the type of the value says: a type is not proof for a value
-  that came from outside.
-- **The place is not the store's own.** `removeFolder` takes only a folder directly inside the
-  store's folder (`profiles/<id>`), never the store's folder, a folder above it, a relative path,
-  the home folder, or the folder that holds it. The path is resolved first (`..` applied), and what
-  is checked is what is deleted. A store folder reached through a link must not really be the top
-  of a file system.
-- **It is not the kind of thing asked for.** `removeFile` builds the path itself from the id and a
-  plain extension (`.json`), is never recursive, and leaves a folder with that name alone.
+- **The name is not an id.** `namedPath` makes the path of `<id><extension>` in a folder, and only a
+  lowercase UUID and a plain extension (`.json`) pass, so nothing holds a separator, a `..`, a glob
+  or a reserved name, whatever the type of the value says: a type is not proof for a value that
+  came from outside. Reads, writes and deletes of a model or a profile all name their file this way.
+- **The root is not a place for a store.** A store checks the folder it is given when it is built
+  (`assertSafeRoot`): a relative one would silently mean wherever the process runs, so the same
+  store would read and write somewhere else after a `cd`; the top of a file system is no place
+  for our files.
+- **The place is not the store's own** (deleting a folder). `removeFolder` takes only a folder
+  directly inside the store's folder (`profiles/<id>`), never the store's folder, a folder above
+  it, a relative path, the home folder, or the folder that holds it. The path is resolved first
+  (`..` applied), and what is checked is what is deleted. A store folder reached through a link
+  must not really be the top of a file system.
+- **It is not the kind of thing asked for.** `removeFile` is never recursive, and leaves a folder
+  with that name alone.
 
-A new delete in a store uses these. The one other `rm` is `writeJsonFile` discarding the temp file
-of a write that failed: a non-recursive remove of `<file>.<uuid>.tmp`, a name that function made
-itself a moment before, so it can't name anything else. The test helpers' `rm` removes a folder
-the test just made. The tests of this module hold the rules: each was broken on purpose to see a
-test fail.
+`writeJsonFile` and `appendJsonLine` take any path by design (the config and the trust document
+have a fixed name and no id in it); their callers choose the path, and a store chooses it with
+`namedPath`. The one other `rm` is `writeJsonFile` discarding the temp file of a write that failed: a
+non-recursive remove of `<file>.<uuid>.tmp`, a name that function made itself a moment before, so it
+can't name anything else. The test helpers' `rm` removes a folder the test just made. The tests of
+this module hold the rules: each was broken on purpose to see a test fail.
 
 Tests run in a temp folder and never touch the real `~/.sheavly`. CI runs on Linux only today;
 Windows and macOS behaviour here rests on documented behaviour of the platform, so a change to a

@@ -43,7 +43,7 @@
     "./serial-queue/*": null,
     "./listing/*": null,
     "./jsonl-file/*": null,
-    "./folder/*": null
+    "./safe-path/*": null
   },
   "files": [
     "dist",

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { assertPrivateFile, readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
 import { SerialQueue } from '../serial-queue/serial-queue.service.js';
 import { CREDENTIALS_FILE } from './credential-store.constants.js';
 import type { Secrets } from './credential-store.types.js';
@@ -23,7 +24,7 @@ export class CredentialStore {
 
   /** `folder` is the profile's folder (`<root>/profiles/<profile-id>`), which an app passes in. */
   constructor(params: { folder: string }) {
-    this.#file = path.join(params.folder, CREDENTIALS_FILE);
+    this.#file = path.join(assertSafeRoot(params.folder), CREDENTIALS_FILE);
   }
 
   /** The secrets of model `id`, or `undefined` when it has none. */
