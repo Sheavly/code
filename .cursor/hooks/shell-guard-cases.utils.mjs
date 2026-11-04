@@ -84,6 +84,10 @@ export const DENIED_CASES = [
   // Inline code in one line with a writer: the line's writes can't be put on the writer alone.
   `npm pkg set -w @sheavly/x 'exports[./a]=./b' && node -e "console.log(1)"`,
   `npm pkg set -w @sheavly/server 'exports[./testing/*][@sheavly/source]=./src/testing/*.ts' && node -e "console.log(JSON.stringify(require('./packages/server/package.json').exports['./testing/*']))" && npm install -D -w @sheavly/terminal @sheavly/host@0.0.0 2>&1 | tail -1`,
+  // A deletion in one line with a writer: what each changed can't be told apart.
+  'npm uninstall -D -w @sheavly/server @hey-api/openapi-ts 2>&1 | tail -1; git status --short; rm -rf /tmp/heyapi-probe',
+  'npm install -D -w @sheavly/x zod && rm -rf node_modules/.cache',
+  'git checkout main; rm -rf /tmp/probe',
   // The command that taught the guard the technique (a test file copied in from /tmp).
   "cat > /tmp/order.test.ts <<'EOF'\nimport { it } from 'vitest';\nimport { readEntries, reply, testServer } from '/home/gustaf/projects/coding-harness/packages/server/src/testing/server.fake.js';\nit('prints the order', async () => {\n  const { request } = testServer({ hi: [reply('hello'), reply('again')] });\n  const { id } = (await (await request('/conversations', { method: 'POST', body: {} })).json()) as { id: string };\n  for (const text of ['hi', 'again?']) {\n    const r = await request(`/conversations/${id}/prompts`, { method: 'POST', body: { text } });\n    for await (const { entry } of readEntries(r.body)) console.log(text, entry.seq, entry.kind, entry.kind === 'event' ? entry.event.type : entry.update.type);\n  }\n  const s = await request(`/conversations/${id}/stream`, { method: 'QUERY', body: { replay: true } });\n  let n = 0;\n  for await (const { entry } of readEntries(s.body)) { console.log('replay', entry.seq, entry.kind === 'event' ? entry.event.type : entry.update.type); if (++n > 12) break; }\n});\nEOF\ncp /tmp/order.test.ts packages/server/src/server/__tests__/zz-order.test.ts && timeout 60 npx vitest run --config vitest.config.ts packages/server/src/server/__tests__/zz-order.test.ts --root packages/server 2>&1 | rg \"^(hi|again|replay) \" | head -40",
 ];
@@ -124,6 +128,10 @@ export const ALLOWED_CASES = [
   'git mv packages/core/src/a.ts /tmp/a.ts',
   `rg -n "\\bcp |\\bmv |rsync|install " .cursor/hooks/shell-guard-cases.utils.mjs`,
   'echo cp a b',
+  // A deletion alone on its line, or a writer beside commands that delete nothing.
+  'rm -rf /tmp/heyapi-probe',
+  'npm uninstall -D -w @sheavly/x zod 2>&1 | tail -1; git status --short',
+  'rg "rm -rf" docs && npm run check',
   // Redirects that write nothing in the project: outside it, to /dev/null, a descriptor copy, or
   // a `>` that is quoted data.
   'echo x > /tmp/x.txt',

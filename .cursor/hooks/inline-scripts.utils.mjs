@@ -87,7 +87,7 @@ export function findInlineScriptWrite(params) {
 
 // The programs whose writes the hooks trust (SANCTIONED_WRITERS in shell-writes.utils.mjs). Kept
 // here as the guard's own list: the cases file the stop hook loads can't import the recorder.
-const KNOWN_WRITERS = new Set(['npm', 'npx', 'git', 'gh', 'turbo']);
+export const KNOWN_WRITERS = new Set(['npm', 'npx', 'git', 'gh', 'turbo']);
 
 export const MIXED_INLINE_FIX =
   'Run inline code (`node -e`, `python3 -c`) on its own line, not in one with a writer (`npm`, `git`, …): when a command changes files, the hooks trust its writers only if nothing else in it could have, and inline code could. Split the command, and change project files only through a writer or the edit tools (StrReplace/Write), whose edits are formatted, linted and shown as a diff.';

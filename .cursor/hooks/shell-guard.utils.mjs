@@ -4,6 +4,7 @@
 import { COPY_FIX, findProjectCopy } from './file-copies.utils.mjs';
 import { findProjectRedirect, REDIRECT_FIX } from './file-redirects.utils.mjs';
 import { findInPlaceEdit, IN_PLACE_FIX } from './in-place-edits.utils.mjs';
+import { findRemovalBesideWriter, REMOVAL_FIX } from './file-removals.utils.mjs';
 import {
   findInlineBesideWriter,
   findInlineScriptWrite,
@@ -35,6 +36,13 @@ export function findShellViolation(params) {
     return {
       user_message: 'Blocked an agent command that runs inline code in the same line as a writer',
       agent_message: MIXED_INLINE_FIX,
+    };
+  }
+
+  if (findRemovalBesideWriter(command)) {
+    return {
+      user_message: 'Blocked an agent command that deletes files in the same line as a writer',
+      agent_message: REMOVAL_FIX,
     };
   }
 
