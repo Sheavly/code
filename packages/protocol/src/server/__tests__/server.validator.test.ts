@@ -9,10 +9,35 @@ import {
   startConversationRequestSchema,
   streamQuerySchema,
   switchModelRequestSchema,
+  conversationIdSchema,
 } from '../server.validator.js';
 
 /** A model's id: a lowercase UUID, the only thing a switch is keyed by. */
 const FAST = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
+/** A conversation's id: a lowercase UUID too. */
+const CONVERSATION = '00000000-0000-4000-8000-0000000000ab';
+
+describe('conversationIdSchema', () => {
+  it('takes a lowercase UUID: it names a folder on disk and nothing else may', () => {
+    expect(conversationIdSchema.parse(CONVERSATION)).toBe(CONVERSATION);
+  });
+
+  it('refuses anything that could name another path, or the same folder twice', () => {
+    for (const bad of [
+      '',
+      'c1',
+      'nope',
+      '..',
+      '../config',
+      `${CONVERSATION}/..`,
+      CONVERSATION.toUpperCase(),
+      `${CONVERSATION} `,
+      CONVERSATION.replaceAll('-', ''),
+    ]) {
+      expect(conversationIdSchema.safeParse(bad).success, bad).toBe(false);
+    }
+  });
+});
 
 describe('sendPromptRequestSchema', () => {
   it('takes text from a script, or parts from a UI', () => {
@@ -74,7 +99,7 @@ describe('the responses', () => {
   it('describes a conversation’s run, with the models it can switch to', () => {
     const model = { id: FAST, name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
     const details = {
-      id: 'c1',
+      id: CONVERSATION,
       title: 'Chat',
       session: 's1',
       running: false,
@@ -107,7 +132,13 @@ describe('the responses', () => {
   });
 
   it('lists live conversations with what another UI needs to join one', () => {
-    const summary = { id: 'c1', title: 'Chat', session: 's1', running: true, startedAt: 1 };
+    const summary = {
+      id: CONVERSATION,
+      title: 'Chat',
+      session: 's1',
+      running: true,
+      startedAt: 1,
+    };
 
     expect(conversationsResponseSchema.parse({ conversations: [summary] })).toEqual({
       conversations: [summary],

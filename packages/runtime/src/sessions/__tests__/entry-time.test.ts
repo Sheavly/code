@@ -4,7 +4,7 @@ import { MemoryConversationStore } from '@sheavly/testing/store/memory-store.fak
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { SessionRegistry } from '../sessions.service.js';
 
-const id = conversationIdSchema.parse('c1');
+const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 
 describe('the time a stream entry carries', () => {
   const clock = useFixedClock();

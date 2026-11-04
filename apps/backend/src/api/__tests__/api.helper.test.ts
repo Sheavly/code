@@ -79,11 +79,23 @@ describe('the API’s guards', () => {
     expect(both.status).toBe(400);
     expect(await both.json()).toMatchObject({ error: { code: 'bad_request' } });
 
-    const missing = await request('/conversations/nope/messages');
+    const missing = await request('/conversations/00000000-0000-4000-8000-0000000000ff/messages');
 
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ error: { code: 'not_found' } });
     expect((await request('/nowhere')).status).toBe(404);
+  });
+
+  it('answers an id that cannot be a conversation’s as not found, never as a server failure', async () => {
+    const { request } = testApi({});
+
+    // Not a lowercase UUID: nothing could have that id, and none of these may reach a path.
+    for (const bad of ['nope', '..', 'C1', '0000', '00000000-0000-4000-8000-0000000000FF']) {
+      const response = await request(`/conversations/${bad}/messages`);
+
+      expect(response.status, bad).toBe(404);
+      expect(await response.json(), bad).toMatchObject({ error: { code: 'not_found' } });
+    }
   });
 
   it('refuses a picked skill no one has with unknown_skill, and searches the skills', async () => {

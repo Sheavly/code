@@ -7,7 +7,7 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { MemoryConversationStore } from '../memory-store.fake.js';
 
-const id = conversationIdSchema.parse('c1');
+const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const entry = (seq: number): StreamEntry => ({
   seq,
   at: 0,
@@ -60,7 +60,7 @@ describe('MemoryConversationStore', () => {
 
   it('lists the index oldest first, and deletes a conversation with its entries', async () => {
     const store = new MemoryConversationStore();
-    const other = conversationIdSchema.parse('c2');
+    const other = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002');
 
     await store.writeIndex(stored(other, 20));
     await store.writeIndex(stored(id, 10));

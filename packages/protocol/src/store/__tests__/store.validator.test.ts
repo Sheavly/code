@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { storedConversationSchema } from '../store.validator.js';
 
 const stored = {
-  id: 'c1',
+  id: '00000000-0000-4000-8000-000000000001',
   title: 'Chat',
   modelId: '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30',
   status: 'interrupted',

@@ -939,13 +939,13 @@
       },
       "StartConversationResponse": {
         "type": "object",
-        "properties": { "id": { "$ref": "#/components/schemas/ConversationId" } },
+        "properties": { "id": { "$ref": "#/components/schemas/ModelId" } },
         "required": ["id"]
       },
       "ConversationSummary": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "session": { "$ref": "#/components/schemas/SessionId" },
           "running": { "type": "boolean" },
@@ -976,7 +976,7 @@
       "ConversationDetails": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "session": { "$ref": "#/components/schemas/SessionId" },
           "running": { "type": "boolean" },
@@ -1092,11 +1092,19 @@
       "CallId": { "type": "string" },
       "TaskId": { "type": "string" },
       "ApprovalId": { "type": "string" },
-      "ConversationId": { "type": "string" },
+      "ConversationId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "pattern": "^[0-9a-f-]{36}$" }
+        ]
+      },
       "StoredConversation": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
           "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },

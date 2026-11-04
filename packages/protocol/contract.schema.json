@@ -623,13 +623,13 @@
     },
     "StartConversationResponse": {
       "type": "object",
-      "properties": { "id": { "$ref": "#/$defs/ConversationId" } },
+      "properties": { "id": { "$ref": "#/$defs/ModelId" } },
       "required": ["id"]
     },
     "ConversationSummary": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "#/$defs/ConversationId" },
+        "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
@@ -657,7 +657,7 @@
     "ConversationDetails": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "#/$defs/ConversationId" },
+        "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
@@ -765,11 +765,19 @@
     "CallId": { "type": "string" },
     "TaskId": { "type": "string" },
     "ApprovalId": { "type": "string" },
-    "ConversationId": { "type": "string" },
+    "ConversationId": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        { "pattern": "^[0-9a-f-]{36}$" }
+      ]
+    },
     "StoredConversation": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "#/$defs/ConversationId" },
+        "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "modelId": { "$ref": "#/$defs/ModelId" },
         "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },

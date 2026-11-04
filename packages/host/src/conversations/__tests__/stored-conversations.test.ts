@@ -144,7 +144,7 @@ describe('Conversations with a store', () => {
 
   it('repairs a history cut off mid-tool-call, so a model can continue from it', async () => {
     const store = new MemoryConversationStore();
-    const id = conversationIdSchema.parse('cut-off');
+    const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000cc');
     const main = sessionIdSchema.parse('main');
     const asking: Message = {
       role: 'assistant',
@@ -193,7 +193,9 @@ describe('Conversations with a store', () => {
   it('refuses a reopen of a conversation the store does not have', async () => {
     const { conversations } = setup({ store: new MemoryConversationStore(), replies: [] });
 
-    await expect(conversations.reopen(conversationIdSchema.parse('nope'))).rejects.toMatchObject({
+    await expect(
+      conversations.reopen(conversationIdSchema.parse('00000000-0000-4000-8000-0000000000ff')),
+    ).rejects.toMatchObject({
       reason: 'not_found',
     });
   });

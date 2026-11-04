@@ -7,7 +7,7 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { EntryLog } from '../entry-log.service.js';
 import { ENTRY_TAIL_SIZE } from '../sessions.constants.js';
 
-const id = conversationIdSchema.parse('c1');
+const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const main = sessionIdSchema.parse('main');
 const noLineage = () => [];
 

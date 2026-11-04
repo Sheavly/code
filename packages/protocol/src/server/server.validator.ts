@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
+import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
 import { adapterKindSchema, modelIdSchema } from '../model/model.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
@@ -7,10 +8,12 @@ import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 /**
- * A conversation's id on a server. Branded, so it can't be passed where a session's id goes
- * (a conversation has one main session, but they aren't the same); a plain string on the wire.
+ * A conversation's id on a server: a UUID in lowercase, which names its folder on disk and is
+ * what every route calls it by (see `lowercaseUuidSchema` for why that shape). Branded, so it can't
+ * be passed where a session's id goes (a conversation has one main session, but they aren't the
+ * same); a plain string on the wire.
  */
-export const conversationIdSchema = z.string().brand<'ConversationId'>();
+export const conversationIdSchema = lowercaseUuidSchema.brand<'ConversationId'>();
 
 /** `POST /conversations`: start one, empty or continuing saved history. */
 export const startConversationRequestSchema = z.object({

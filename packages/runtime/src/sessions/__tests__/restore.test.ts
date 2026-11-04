@@ -10,7 +10,7 @@ import { SessionRegistry } from '../sessions.service.js';
 import { ENTRY_TAIL_SIZE } from '../sessions.constants.js';
 import { readStoredLog } from '../stored-log.helper.js';
 
-const id = conversationIdSchema.parse('c1');
+const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const text = (value: string) => ({ seq: 0, type: 'text_delta' as const, text: value });
 
 /** A conversation that ran, left behind in `store`: a main session with one sub-agent. */

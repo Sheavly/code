@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { RouteBody } from '@sheavly/protocol/api/api.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
@@ -11,8 +12,23 @@ import type { ApiHandlers } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
 import { streamEntries } from './sse.helper.js';
 
-/** The conversation id in a route's path; routes without one (`/conversations`) never read it. */
-export const idOf = (c: Context) => conversationIdSchema.parse(c.req.param('id'));
+/**
+ * The conversation id in a route's path; routes without one (`/conversations`) never read it. An
+ * id that isn't a conversation id's shape (a lowercase UUID) can name no conversation, so it
+ * answers as one nothing has does: `not_found`, not an error of the server's.
+ */
+export function idOf(c: Context): ConversationId {
+  const parsed = conversationIdSchema.safeParse(c.req.param('id'));
+
+  if (!parsed.success) {
+    throw new ConversationsError({
+      reason: 'not_found',
+      message: `No conversation ${c.req.param('id')}: a conversation id is a lowercase UUID`,
+    });
+  }
+
+  return parsed.data;
+}
 
 /** Each route's handler on `conversations`. */
 export function apiHandlers(conversations: Conversations): ApiHandlers {

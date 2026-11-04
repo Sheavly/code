@@ -174,9 +174,9 @@ describe('Conversations', () => {
 
     expect(disposed).toEqual(['disposed']);
     expect(() => conversations.messages(id)).toThrow(ConversationsError);
-    expect(() => conversations.get(conversationIdSchema.parse('nope'))).toThrow(
-      expect.objectContaining({ reason: 'not_found' }),
-    );
+    expect(() =>
+      conversations.get(conversationIdSchema.parse('00000000-0000-4000-8000-0000000000ff')),
+    ).toThrow(expect.objectContaining({ reason: 'not_found' }));
   });
 
   it('closes every conversation at once, for a host shutting down', async () => {
