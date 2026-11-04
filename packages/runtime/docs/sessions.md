@@ -114,6 +114,14 @@ hears a `StoreError`, rather than show a conversation with a hole in it. If a wr
 registry stops writing, keeps everything in memory from then on, and reports it as
 `storageFailure`: whoever owns the conversation should stop it rather than let it go on unrecorded.
 
+A stored conversation can be carried on: `readStoredLog(store)` reads its entries once, in order, and
+`new SessionRegistry({ store, resume })` continues from there. Numbering carries on from the last
+stored entry, the newest entries are the ones in memory, and every session is back as its last
+update left it. The main session is idle for its next prompt (`restoredMain()` is its ref). A
+sub-agent that was still open when the process ended is settled as `interrupted` and announced in
+the stream: it is not run again, since what it was doing is gone. Stored entries with a gap throw
+a `StoreError` instead of resuming a conversation with a hole in it.
+
 A `done` in the combined stream has no `messages`, for live listeners and replay alike
 (`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
 so far, and a kept log would grow with the square of a long conversation. The history comes from

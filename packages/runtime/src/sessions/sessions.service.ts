@@ -22,7 +22,7 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
-import type { EntryFilter } from './sessions.types.js';
+import type { EntryFilter, StoredLog } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -46,13 +46,21 @@ export class SessionRegistry {
 
   /**
    * With a `store`, the combined stream is also written to it and only its newest entries stay in
-   * memory (`EntryLog`); without one, behaves as it always has.
+   * memory (`EntryLog`); without one, behaves as it always has. With `resume` (read from the same
+   * store by `readStoredLog`), it carries on a stored conversation: numbering continues, its
+   * sessions are back, and `restoredMain()` is the main session, idle for the next prompt. A
+   * sub-agent that was still open when the process died is `interrupted`: it is not run again.
    */
-  constructor(options: { store?: EntryStore } = {}) {
+  constructor(options: { store?: EntryStore; resume?: StoredLog } = {}) {
+    const { store, resume } = options;
+
     this.#entries = new EntryLog({
       lineage: (id) => this.lineage(id),
-      ...(options.store && { store: options.store }),
+      ...(store && { store }),
+      ...(resume && { resume }),
     });
+
+    if (resume) this.#restore(resume.sessions);
   }
 
   /** The first failed write to the store, if any: the conversation should stop, not go on unrecorded. */
@@ -351,6 +359,49 @@ export class SessionRegistry {
     const { id, parentId, rootId, depth } = session;
 
     return { id, ...(parentId !== undefined && { parentId }), rootId, depth };
+  }
+
+  /**
+   * The main session of a restored conversation: the one a prompt resumes. Undefined for a
+   * registry that was not restored.
+   */
+  restoredMain(): SessionRef | undefined {
+    const main = [...this.#sessions.values()].find((session) => session.depth === 1);
+
+    return main && { id: main.id, rootId: main.rootId, depth: main.depth };
+  }
+
+  /**
+   * Puts back the sessions a stored conversation had, as their last update left them. One that
+   * was open when the process ended did not finish: a sub-agent becomes `interrupted` for good,
+   * and the main session goes idle, so the conversation can take its next prompt. The change is
+   * announced like any other, so it is in the stream and in the store.
+   */
+  #restore(sessions: readonly SessionInfo[]): void {
+    for (const session of sessions) this.#sessions.set(session.id, { ...session });
+
+    for (const session of this.#sessions.values()) {
+      if (session.depth === 1) this.#idleRestoredMain(session);
+      else if (isOpen(session.state)) this.#interruptRestoredChild(session);
+    }
+  }
+
+  /** A restored main session takes the next prompt: idle, whether it was closed or cut off. */
+  #idleRestoredMain(session: SessionInfo): void {
+    if (session.state === 'idle') return;
+
+    // A run that was still going did not finish; one that ended keeps how it did.
+    if (session.state === 'running') session.lastOutcome = 'interrupted';
+    session.state = 'idle';
+    delete session.endedAt;
+    this.#emit({ type: 'session_idle', session });
+  }
+
+  #interruptRestoredChild(session: SessionInfo): void {
+    session.state = 'interrupted';
+    session.lastOutcome = 'interrupted';
+    session.endedAt = now();
+    this.#emit({ type: 'session_ended', session });
   }
 
   #require(id: SessionId): SessionInfo {

@@ -4,7 +4,7 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { replayStored, toStoreError } from './entry-replay.helper.js';
-import type { EntryFilter } from './sessions.types.js';
+import type { EntryFilter, StoredLog } from './sessions.types.js';
 import { ENTRY_TAIL_SIZE } from './sessions.constants.js';
 import { deepFreeze, notifyAll } from './listeners.helper.js';
 
@@ -34,10 +34,25 @@ export class EntryLog {
   #written: Promise<void> = Promise.resolve();
   #failure: StoreError | undefined;
 
-  /** `lineage` walks a session up to the main session, for a filter on a whole subtree. */
-  constructor(params: { lineage: (id: SessionId) => SessionInfo[]; store?: EntryStore }) {
+  /**
+   * `lineage` walks a session up to the main session, for a filter on a whole subtree. `resume`
+   * carries on a stored conversation: numbering continues from it and its newest entries are the
+   * ones in memory, the rest being in the store (so `resume` needs the store it was read from).
+   */
+  constructor(params: {
+    lineage: (id: SessionId) => SessionInfo[];
+    store?: EntryStore;
+    resume?: Pick<StoredLog, 'next' | 'tail'>;
+  }) {
     this.#lineage = params.lineage;
     this.#store = params.store;
+
+    const { resume } = params;
+
+    if (!resume) return;
+
+    this.#tail = resume.tail.map((entry) => deepFreeze(entry));
+    this.#tailStart = resume.next - this.#tail.length;
   }
 
   /** The first failed write, if any. The entries since it are in memory only. */
