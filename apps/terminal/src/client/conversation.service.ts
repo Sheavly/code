@@ -114,7 +114,15 @@ export class RemoteConversation {
     return this.#client.send('closeConversation', { id: this.id });
   }
 
+  // A task that ends between prompts sends its `task_ended` to no prompt's stream; the loop tells
+  // the next prompt with `task_completed` instead, so that counts as its end too.
   #countTask(entry: StreamEntry): void {
+    if (entry.kind === 'event' && entry.event.type === 'task_completed') {
+      this.#running.delete(entry.event.task.id);
+
+      return;
+    }
+
     if (entry.kind !== 'task') return;
     if (entry.update.type === 'task_started') this.#running.add(entry.update.task.id);
     else this.#running.delete(entry.update.task.id);

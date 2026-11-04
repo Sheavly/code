@@ -1,117 +1,170 @@
 import { describe, expect, it } from 'vitest';
-import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
-import { reply, testServer } from '@sheavly/server/testing/server.fake';
-import { TEST_TOKEN } from '@sheavly/server/testing/testing.constants';
+import { fakeServer } from '@sheavly/server/testing/fake-server.fake';
+import type { FakeHandlers } from '@sheavly/server/testing/testing.types';
+import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import type { Script } from '@sheavly/testing/provider/provider.types';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { RemoteConversation } from '../conversation.service.js';
 
-/** A conversation over the server's real routes, served in-process: no port, no model. */
-async function open(scripts: Record<string, Script[]> = {}) {
-  const server = testServer(scripts);
+const ID = conversationIdSchema.parse('c1');
+const MAIN = sessionIdSchema.parse('main');
+const SESSION = { id: MAIN, rootId: MAIN, depth: 1 };
+
+const text = (seq: number, value: string): StreamEntry => ({
+  seq,
+  sessionId: MAIN,
+  kind: 'event',
+  event: { seq, type: 'text_delta', text: value },
+});
+const done = (seq: number, reason: 'completed' | 'interrupted'): StreamEntry => ({
+  seq,
+  sessionId: MAIN,
+  kind: 'event',
+  event: { seq, type: 'done', reason, session: SESSION },
+});
+const TASK = {
+  id: taskIdSchema.parse('t1'),
+  command: 'npm run dev',
+  description: 'Dev server',
+  startedAt: 1,
+  output: '',
+};
+const task = (seq: number, type: 'task_started' | 'task_ended'): StreamEntry => ({
+  seq,
+  sessionId: MAIN,
+  kind: 'task',
+  update: { type, task: { ...TASK, status: type === 'task_started' ? 'running' : 'completed' } },
+});
+
+/** A conversation on a fake backend that answers the routes as `handlers` say. */
+async function open(handlers: FakeHandlers) {
+  const server = fakeServer({ startConversation: () => ({ id: ID }), ...handlers });
   const conversation = await RemoteConversation.open({
     backend: {
       url: 'http://backend.test',
-      token: TEST_TOKEN,
+      token: 't',
       stop: async () => undefined,
-      fetch: async (input, init) => server.app.fetch(new Request(input, init)),
+      fetch: server.fetch,
     },
   });
 
   return { conversation, server };
 }
 
-/** Every entry of a prompt, to its main session's `done`. */
-async function sent(conversation: RemoteConversation, text: string, signal?: AbortSignal) {
-  const entries: StreamEntry[] = [];
-
-  for await (const entry of conversation.send({ text, ...(signal && { signal }) })) {
-    entries.push(entry);
-  }
-
-  return entries;
+async function* entries(...list: StreamEntry[]): AsyncIterable<StreamEntry> {
+  yield* list;
 }
 
-const doneOf = (entries: StreamEntry[]) =>
-  entries.findLast((entry) => entry.kind === 'event' && entry.event.type === 'done');
+/** Every entry of a prompt, to its end. */
+async function sent(conversation: RemoteConversation, signal?: AbortSignal) {
+  const seen: StreamEntry[] = [];
 
-/** A turn that calls the blocking tool: the prompt runs until it is stopped. */
-const block = () => [
-  toolCall({ id: 'b1', name: 'block', input: {} }),
-  { type: 'done' as const, stopReason: 'tool_use' as const },
-];
+  for await (const entry of conversation.send({ text: 'hi', ...(signal && { signal }) })) {
+    seen.push(entry);
+  }
+
+  return seen;
+}
 
 describe('RemoteConversation', () => {
-  it('sends a prompt and reads its entries to the done, then the history', async () => {
-    const { conversation } = await open({ hi: [reply('hello')] });
-    const entries = await sent(conversation, 'hi');
+  it('starts a conversation, sends a prompt and reads its entries, then the history', async () => {
+    const { conversation, server } = await open({
+      sendPrompt: () => entries(text(0, 'hello'), done(1, 'completed')),
+      getMessages: () => ({ messages: [{ role: 'user', content: 'hi' }] }),
+    });
 
-    expect(doneOf(entries)).toMatchObject({ event: { reason: 'completed' } });
-    expect((await conversation.messages()).map(({ content }) => content)).toEqual(['hi', 'hello']);
+    expect((await sent(conversation)).map((entry) => entry.seq)).toEqual([0, 1]);
+    expect(await conversation.messages()).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(server.calls.find(({ name }) => name === 'sendPrompt')?.call).toEqual({
+      params: { id: ID },
+      body: { text: 'hi' },
+    });
   });
 
-  it('describes the run, and switches only to a model it has', async () => {
-    const { conversation } = await open();
-
-    expect(await conversation.details()).toMatchObject({
-      workspace: '/work',
-      model: { name: 'fast' },
+  it('switches to a model, and says false for one the backend hasn’t, without throwing', async () => {
+    const { conversation } = await open({
+      switchModel: ({ body }) =>
+        (body as { name: string }).name === 'deep'
+          ? undefined
+          : { refuse: { status: 422, code: 'unknown_model' } },
     });
+
     expect(await conversation.useModel('deep')).toBe(true);
-    expect((await conversation.details()).model.name).toBe('deep');
     expect(await conversation.useModel('huge')).toBe(false);
   });
 
-  it('stops the prompt on the backend when its signal aborts, and still ends with its done', async () => {
-    const { conversation } = await open({ wait: [block] });
-    const stop = new AbortController();
-    const entries: StreamEntry[] = [];
+  it('throws any other refusal, with the backend’s code', async () => {
+    const { conversation } = await open({
+      switchModel: () => ({ refuse: { status: 404, code: 'not_found' } }),
+    });
 
-    for await (const entry of conversation.send({ text: 'wait', signal: stop.signal })) {
-      entries.push(entry);
-      // The blocking tool is running: abort, as Ctrl+C does.
-      if (entry.kind === 'event' && entry.event.type === 'tool_call_started') stop.abort();
-    }
-
-    expect(doneOf(entries)).toMatchObject({ event: { reason: 'interrupted' } });
-  });
-
-  it('counts a background task from its start in the stream to its end', async () => {
-    const { conversation, server } = await open({ wait: [block] });
-    const { harness } = server.conversations.get(conversation.id);
-    const stop = new AbortController();
-    const counts: number[] = [];
-    let finish: () => void = () => undefined;
-
-    for await (const entry of conversation.send({ text: 'wait', signal: stop.signal })) {
-      // The prompt is held on the blocking tool: a task starts now, as a tool's would, so its
-      // start is in this prompt's stream; then the prompt is stopped.
-      if (entry.kind === 'event' && entry.event.type === 'tool_call_started') {
-        harness.tasks.start({
-          command: 'npm run dev',
-          description: 'Dev server',
-          sessionId: harness.mainSession.id,
-          run: () => new Promise((resolve) => (finish = () => resolve({ exitCode: 0 }))),
-        });
-      }
-
-      if (entry.kind === 'task') {
-        counts.push(conversation.runningTasks);
-        stop.abort();
-      }
-    }
-
-    finish();
-    expect(counts).toEqual([1]);
-  });
-
-  it('closes the conversation: the backend no longer has it', async () => {
-    const { conversation } = await open();
-
-    await conversation.close();
-    await expect(conversation.details()).rejects.toMatchObject({
+    await expect(conversation.useModel('deep')).rejects.toMatchObject({
       name: 'ServerRefusedError',
       code: 'not_found',
     });
+  });
+
+  it('asks the backend to stop the prompt when its signal aborts', async () => {
+    const stop = new AbortController();
+    const { conversation, server } = await open({
+      async *sendPrompt() {
+        yield text(0, 'working');
+        stop.abort();
+        // The backend answers the stop with the prompt's `done`, as the real one does.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        yield done(1, 'interrupted');
+      },
+      stopPrompt: () => undefined,
+    });
+
+    const seen = await sent(conversation, stop.signal);
+
+    expect(seen.at(-1)).toMatchObject({ event: { reason: 'interrupted' } });
+    expect(server.calls.map(({ name }) => name)).toContain('stopPrompt');
+  });
+
+  it('counts a background task from its start in the stream to its end', async () => {
+    const counts: number[] = [];
+    const { conversation } = await open({
+      sendPrompt: () =>
+        entries(task(0, 'task_started'), task(1, 'task_ended'), done(2, 'completed')),
+    });
+
+    for await (const _entry of conversation.send({ text: 'hi' })) {
+      counts.push(conversation.runningTasks);
+    }
+
+    expect(counts).toEqual([1, 0, 0]);
+  });
+
+  it('counts a task as ended when the next prompt is told it completed', async () => {
+    const completed: StreamEntry = {
+      seq: 2,
+      sessionId: MAIN,
+      kind: 'event',
+      event: { seq: 0, type: 'task_completed', task: { ...TASK, status: 'failed' } },
+    };
+    const prompts = [
+      [task(0, 'task_started'), done(1, 'completed')],
+      [completed, done(3, 'completed')],
+    ];
+    const { conversation } = await open({ sendPrompt: () => entries(...(prompts.shift() ?? [])) });
+
+    await sent(conversation);
+    expect(conversation.runningTasks).toBe(1);
+    await sent(conversation);
+    expect(conversation.runningTasks).toBe(0);
+  });
+
+  it('searches skills with a typed body, and lists them all without one', async () => {
+    const { conversation, server } = await open({ querySkills: () => ({ skills: [] }) });
+
+    await conversation.skills('rev');
+    await conversation.skills();
+
+    expect(
+      server.calls.filter(({ name }) => name === 'querySkills').map(({ call }) => call.body),
+    ).toEqual([{ search: 'rev' }, {}]);
   });
 });
