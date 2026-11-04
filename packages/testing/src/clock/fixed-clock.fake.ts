@@ -12,7 +12,8 @@ const DEFAULT_START = 1_700_000_000_000;
 export function useFixedClock(start = DEFAULT_START) {
   const clock = {
     at: start,
-    advance(ms: number) {
+    // An arrow, so it can be handed on as a plain function (`advance: clock.advance`).
+    advance: (ms: number) => {
       clock.at += ms;
     },
   };
