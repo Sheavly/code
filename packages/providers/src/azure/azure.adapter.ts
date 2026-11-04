@@ -13,30 +13,42 @@ import { defineResponsesAdapter } from '../responses/responses.helper.js';
  *   - https://<resource>.cognitiveservices.azure.com/openai/responses?api-version=2025-04-01-preview
  * An `api-version` in the URL is used unless `apiVersion` is set explicitly.
  */
-const azureEndpoint = z.url().transform((raw) => {
-  const url = new URL(raw);
+const azureEndpoint = z
+  .url()
+  .transform((raw) => {
+    const url = new URL(raw);
 
-  return {
-    url: `${url.origin}${url.pathname}`.replace(/\/+$/, '').replace(/\/responses$/, ''),
-    apiVersion: url.searchParams.get('api-version') ?? undefined,
-  };
-});
+    return {
+      url: `${url.origin}${url.pathname}`.replace(/\/+$/, '').replace(/\/responses$/, ''),
+      apiVersion: url.searchParams.get('api-version') ?? undefined,
+    };
+  })
+  .meta({
+    title: 'Endpoint',
+    description:
+      'The resource’s address from the Azure portal; the “Target URI” can be pasted as it is',
+  });
 
 const azureApiVersion = z
   .string()
   .regex(
     /^(v1|preview|\d{4}-\d{2}-\d{2}(-preview)?)$/,
     'Expected v1, preview, or a date like 2025-04-01-preview',
-  );
+  )
+  .meta({ title: 'API version', description: 'Only when the endpoint doesn’t carry one' });
 
 /** Azure OpenAI. `deployment` is your deployment name (sent as the model). */
 export const azureAdapter = defineResponsesAdapter({
   kind: 'azure',
   description: 'Azure Responses API (Azure OpenAI and AI Foundry: GPT, DeepSeek, ...)',
+  remoteField: 'deployment',
   configSchema: z.object({
     apiKey: apiKeySchema,
     baseUrl: azureEndpoint,
-    deployment: z.string().min(1),
+    deployment: z.string().min(1).meta({
+      title: 'Deployment',
+      description: 'The deployment’s name in the Azure portal',
+    }),
     apiVersion: azureApiVersion.optional(),
     reasoning: reasoningSchema.default(true),
     request: requestPolicySchema,

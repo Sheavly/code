@@ -97,6 +97,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
   kind: string;
   description: string;
   configSchema: TSchema;
+  remoteField?: string;
   toEndpoint: (config: z.infer<TSchema>) => MessagesEndpoint;
 }): Adapter<TSchema> {
   const { toEndpoint, ...adapter } = params;

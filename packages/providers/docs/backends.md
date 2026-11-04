@@ -81,6 +81,33 @@ A call that still fails throws a `ModelApiError` (its message names the API) who
 `timeout`, `http` with its `status`), with the original error as `cause` and Node's own reason
 in the message (`UND_ERR_SOCKET: other side closed`), so a saved run says what happened.
 
+## Describing adapters, and checking a model
+
+A UI that sets a model up never imports this package. The backend reads the registry for it:
+
+- `registry.describe()` lists every adapter for a form: its config as JSON Schema, without what the
+  backend supplies (the request policy), with the secret fields marked (`secret: true`), the names
+  of the secrets, and `remoteField`, the field that holds what the provider calls the model
+  (`model`, `deployment`). Fields carry a `title` and `description` for labels and help.
+- `registry.validateDefinition({ kind, definition, host })` says what is wrong with a model's
+  fields before any key exists: the secret is stood in for, `host` supplies the request policy, and
+  the adapter's own schema judges the rest. A key inside a definition is itself a problem, since a
+  model's file holds none. `registry.secretFields(kind)` says which fields are secrets.
+- `registry.check({ kind, config })` asks the model one tiny question through the adapter's own
+  provider and stops at the first thing it says, so the key, the endpoint and the deployment are
+  all tried at once. It never retries, gives up after `responseTimeoutMs`, and ends as `valid`,
+  `invalid` (401/403), `not_found` (404), `rejected` (any other refusal) or `unreachable` (a server
+  failure, the network, a timeout), with a fixed message: what the provider said is never passed
+  on, since it can echo what was sent. Aborting `signal` rejects instead; that is not an answer.
+
+What marks a field is in its schema, so an adapter that reuses `apiKeySchema` and
+`requestPolicySchema` is described correctly with nothing more. A field named like a secret that is
+not marked one fails a test for every registered adapter.
+
+`providers.pinned(key)` hands out the provider added under `key` and keeps it there whatever the
+switch is set to, for a run pinned to one model (a sub-agent) while the main session switches. A
+host adds each provider under a model's id; a display name is never a key.
+
 ## Adding a backend
 
 - **It speaks the Responses API** (OpenAI-compatible gateways, local servers that support it): a

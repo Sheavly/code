@@ -40,6 +40,26 @@ export class ProviderSwitch implements Provider {
     return [...this.providers.keys()];
   }
 
+  /**
+   * The provider added under `key`, which stays on it whatever the switch is set to: for a run
+   * pinned to one model (a sub-agent) while the main session switches around. A key is whatever
+   * the caller added the provider under; a host registers a model's provider under the model's
+   * id, never its display name. Throws a `ProviderSwitchError` (`unknown`) for a key that was
+   * never added.
+   */
+  pinned(key: string): Provider {
+    const provider = this.providers.get(key);
+
+    if (!provider) {
+      throw new ProviderSwitchError({
+        reason: 'unknown',
+        message: `Unknown provider: ${key} (available: ${this.names().join(', ') || 'none'})`,
+      });
+    }
+
+    return provider;
+  }
+
   stream(request: ProviderRequest): AsyncIterable<StreamEvent> {
     const provider = this.activeName ? this.providers.get(this.activeName) : undefined;
 

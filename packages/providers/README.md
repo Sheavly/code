@@ -17,8 +17,8 @@ const provider = createDefaultRegistry().create('openai', {
 
 | Module                | What it holds                                                                                 |
 | --------------------- | --------------------------------------------------------------------------------------------- |
-| `registry/`           | `AdapterRegistry` (kind + config → `Provider`) and `createDefaultRegistry`                    |
-| `switch/`             | `ProviderSwitch`: swap the active provider between turns                                      |
+| `registry/`           | `AdapterRegistry` (kind + config → `Provider`), `describe`, `validateDefinition`, `check`     |
+| `switch/`             | `ProviderSwitch`: swap the active provider between turns, or pin a run to one                 |
 | `http/`               | What every protocol shares: `sendRequest` (timeouts, retries), the SSE reader, config schemas |
 | `responses/`          | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter`            |
 | `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`            |
@@ -32,4 +32,5 @@ The caller chooses the backend and the model: adapters validate config but have 
 
 ## Docs
 
-- [Backends](docs/backends.md): creating and switching providers, and adding a backend.
+- [Backends](docs/backends.md): creating and switching providers, describing adapters and checking a
+  model, and adding a backend.

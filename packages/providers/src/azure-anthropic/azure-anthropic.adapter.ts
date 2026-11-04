@@ -9,27 +9,44 @@ import { defineMessagesAdapter } from '../anthropic-messages/messages.helper.js'
  *   - https://<resource>.services.ai.azure.com/anthropic/v1
  *   - https://<resource>.services.ai.azure.com/anthropic/v1/messages
  */
-const foundryEndpoint = z.url().transform((raw) => {
-  const url = new URL(raw);
-  const path = url.pathname
-    .replace(/\/+$/, '')
-    .replace(/\/messages$/, '')
-    .replace(/\/v1$/, '');
+const foundryEndpoint = z
+  .url()
+  .transform((raw) => {
+    const url = new URL(raw);
+    const path = url.pathname
+      .replace(/\/+$/, '')
+      .replace(/\/messages$/, '')
+      .replace(/\/v1$/, '');
 
-  return `${url.origin}${path}/v1`;
-});
+    return `${url.origin}${path}/v1`;
+  })
+  .meta({
+    title: 'Endpoint',
+    description: 'The resource’s address from the Azure AI Foundry portal, pasted as it is',
+  });
 
 /** Claude on Azure AI Foundry. `deployment` is your deployment name (sent as the model). */
 export const azureAnthropicAdapter = defineMessagesAdapter({
   kind: 'azure-anthropic',
   description: 'Anthropic Messages API on Azure AI Foundry (Claude)',
+  remoteField: 'deployment',
   configSchema: z
     .object({
       apiKey: apiKeySchema,
       baseUrl: foundryEndpoint,
-      deployment: z.string().min(1),
-      maxTokens: z.number().int().positive(),
-      thinkingBudget: z.number().int().min(MIN_THINKING_BUDGET).optional(),
+      deployment: z.string().min(1).meta({
+        title: 'Deployment',
+        description: 'The deployment’s name in the Azure AI Foundry portal',
+      }),
+      maxTokens: z.number().int().positive().meta({
+        title: 'Max tokens',
+        description: 'The most a reply may run to; the API requires one',
+      }),
+      thinkingBudget: z.number().int().min(MIN_THINKING_BUDGET).optional().meta({
+        title: 'Thinking budget',
+        description:
+          'Tokens for extended thinking (at least 1024, under max tokens); leave empty for none',
+      }),
       request: requestPolicySchema,
     })
     .refine(

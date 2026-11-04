@@ -97,6 +97,7 @@ export function defineResponsesAdapter<TSchema extends z.ZodType<ResponsesAdapte
   kind: string;
   description: string;
   configSchema: TSchema;
+  remoteField?: string;
   toEndpoint: (config: z.infer<TSchema>) => ResponsesEndpoint;
 }): Adapter<TSchema> {
   const { toEndpoint, ...adapter } = params;
