@@ -4,6 +4,9 @@ import type { RouteBody } from '@sheavly/protocol/api/api.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { ApiHandlers } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
 import { streamEntries } from './sse.helper.js';
@@ -99,15 +102,40 @@ async function sendPrompt(params: {
     live,
     filter: { replay: first !== undefined },
     lastEventId: first === undefined ? undefined : first - 1,
-    isLast: (entry) =>
-      entry.kind === 'event' && entry.sessionId === mainSession.id && entry.event.type === 'done',
+    isLast: (entry) => endsMainRun({ entry, mainSessionId: mainSession.id }),
     // The run starts once the stream is listening, so none of its entries is missed; it is driven
     // here rather than by the response, so a client leaving doesn't stop it.
     onOpen: () => void drain(sent.events),
   });
 }
 
-/** Runs a prompt to its end: its events reach clients through the combined stream. */
+/**
+ * Whether `entry` ends the main session's run: its `done`, or, for a run that failed (which emits
+ * no `done`), the update that leaves the session idle as `failed`.
+ */
+function endsMainRun(params: { entry: StreamEntry; mainSessionId: SessionId }): boolean {
+  const { entry, mainSessionId } = params;
+
+  if (entry.sessionId !== mainSessionId) return false;
+  if (entry.kind === 'event') return entry.event.type === 'done';
+
+  return (
+    entry.kind === 'update' &&
+    entry.update.type === 'session_idle' &&
+    entry.update.session.lastOutcome === 'failed'
+  );
+}
+
+/**
+ * Runs a prompt to its end: its events reach clients through the combined stream. A failed run
+ * throws here and nothing above awaits this, so it is caught: clients see the session go idle as
+ * `failed`, the operator sees it on stderr, and an unhandled rejection doesn't stop the backend
+ * and every other conversation with it.
+ */
 async function drain(events: AsyncIterable<unknown>): Promise<void> {
-  for await (const _event of events);
+  try {
+    for await (const _event of events);
+  } catch (caughtError) {
+    process.stderr.write(`prompt failed: ${errorMessage(caughtError)}\n`);
+  }
 }
