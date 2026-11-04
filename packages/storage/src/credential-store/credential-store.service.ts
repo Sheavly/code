@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
-import { StorageFileError } from '../errors/storage.errors.js';
 import { assertPrivateFile, readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import { SerialQueue } from '../serial-queue/serial-queue.service.js';
 import { CREDENTIALS_FILE } from './credential-store.constants.js';
 import type { Secrets } from './credential-store.types.js';
 import { credentialsFileSchema } from './credential-store.validator.js';
@@ -19,7 +19,7 @@ import { credentialsFileSchema } from './credential-store.validator.js';
  */
 export class CredentialStore {
   readonly #file: string;
-  #queue: Promise<unknown> = Promise.resolve();
+  readonly #writes = new SerialQueue();
 
   /** `folder` is the profile's folder (`<root>/profiles/<profile-id>`), which an app passes in. */
   constructor(params: { folder: string }) {
@@ -71,17 +71,8 @@ export class CredentialStore {
 
   /** Reads, changes and writes the file as one step, after the steps before it. */
   #change(update: (all: Record<string, Secrets>) => Record<string, Secrets>): Promise<void> {
-    const step = this.#queue.then(async () => {
+    return this.#writes.run(async () => {
       await writeJsonFile({ file: this.#file, value: update(await this.#readAll()) });
     });
-
-    // The next step waits for this one to end, however it ends. Its failure is its own caller's
-    // (`step` is what that caller awaits), so only `StorageFileError`, which every failure of
-    // `#readAll` and `writeJsonFile` is, is let go here; anything else is a bug and surfaces.
-    this.#queue = step.catch((caughtError: unknown) => {
-      if (!(caughtError instanceof StorageFileError)) throw caughtError;
-    });
-
-    return step;
   }
 }
