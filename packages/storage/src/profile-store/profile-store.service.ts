@@ -1,11 +1,10 @@
-import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { profileIdSchema, profileSchema } from '@sheavly/protocol/profile/profile.validator';
-import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { removeFolder } from '../folder/folder.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import { listFolderNames } from '../listing/listing.helper.js';
 import type { ListedFile } from '../listing/listing.types.js';
 import { sortByName, splitListed } from '../listing/listing.utils.js';
 import { PROFILE_FILE, PROFILES_FOLDER } from './profile-store.constants.js';
@@ -75,22 +74,9 @@ export class ProfileStore {
     await removeFolder({ root: this.#folder, folder: this.folderOf(id) });
   }
 
-  /** The entries that could be profiles: folders (or links to one), not hidden, in a fixed order. */
+  /** The folders that could be profiles: folders (or links to one), not hidden, in a fixed order. */
   async #profileFolderNames(): Promise<string[]> {
-    let entries;
-
-    try {
-      entries = await readdir(this.#folder, { withFileTypes: true });
-    } catch (caughtError) {
-      if (isMissingPath(caughtError)) return [];
-      throw new StorageFileError({ file: this.#folder, cause: caughtError });
-    }
-
-    return entries
-      .filter((entry) => !entry.name.startsWith('.'))
-      .filter((entry) => entry.isDirectory() || entry.isSymbolicLink())
-      .map((entry) => entry.name)
-      .sort();
+    return listFolderNames({ folder: this.#folder, followLinks: true });
   }
 
   async #read(id: ProfileId): Promise<Profile | undefined> {

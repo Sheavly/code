@@ -58,7 +58,11 @@ export function describeConversationStore(params: { name: string; make: () => Co
 
       expect(await seqsOf({ store })).toEqual([0, 1, 2]);
       expect(await seqsOf({ store, from: 2 })).toEqual([2]);
-      expect(await seqsOf({ store: make() })).toEqual([]);
+
+      const none: number[] = [];
+
+      for await (const each of store.entries(other).read()) none.push(each.seq);
+      expect(none).toEqual([]);
     });
 
     it('refuses an entry that is not the next one, so a lost write cannot hide', async () => {
