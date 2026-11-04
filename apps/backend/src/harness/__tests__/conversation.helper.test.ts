@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
+import { twoModelRun } from '@sheavly/host/testing/run.fake';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
@@ -68,6 +69,7 @@ describe('terminalConversation', () => {
             env: process.env,
           }),
           messages,
+          run: twoModelRun(),
         }),
     });
     const id = await conversations.start();

@@ -12,7 +12,7 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createConversation } from '../../conversation/conversation.helper.js';
 import { createHarness } from '../../host/host.helper.js';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
-import { DEEP_ID, FAST_ID } from '../../testing/run.fake.js';
+import { DEEP_ID, FAST_ID, twoModelRun } from '../../testing/run.fake.js';
 import { Conversations } from '../conversations.service.js';
 
 /** A conversation that ran one prompt on `store` and was closed, as a process that ended well. */
@@ -231,6 +231,7 @@ describe('Conversations with a store', () => {
             tools: [],
             messages: messages ?? [],
           }),
+          run: twoModelRun(),
         };
       },
     });

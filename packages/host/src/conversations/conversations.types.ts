@@ -50,8 +50,11 @@ export type LiveConversation = {
   harness: Harness;
   conversation: Conversation;
   skills?: ConversationSkills | undefined;
-  /** What the run is, for `GET /conversations/:id`; without it, the details are unknown. */
-  run?: ConversationRun | undefined;
+  /**
+   * What the run is, for `GET /conversations/:id`, and the model it starts on: every conversation
+   * has one, since a conversation is always on a model and the host records which.
+   */
+  run: ConversationRun;
   /** Releases what the app opened for it (its processes, a workspace); after `close`. */
   dispose?: (() => Promise<void>) | undefined;
 };

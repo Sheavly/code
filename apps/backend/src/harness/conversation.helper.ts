@@ -1,5 +1,6 @@
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import type {
+  ConversationRun,
   ConversationSkills,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
@@ -46,15 +47,16 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
  * One conversation on a terminal harness, as the backend runs it: its tools and hooks, the
  * workspace's skills, at most `maxTurns` turns a prompt, each prompt's `done` waiting for its
  * background tasks with `waitForTasks`. Closing it stops its background commands. `messages` is
- * history to continue from.
+ * history to continue from, and `run` what the app says the run is, the model it is on included.
  */
 export function terminalConversation(params: {
   harness: TerminalHarness;
+  run: ConversationRun;
   messages?: Message[] | undefined;
   maxTurns?: number;
   waitForTasks?: boolean;
 }): LiveConversation {
-  const { harness, messages, maxTurns = MAX_TURNS, waitForTasks = false } = params;
+  const { harness, run, messages, maxTurns = MAX_TURNS, waitForTasks = false } = params;
 
   return {
     harness,
@@ -68,5 +70,6 @@ export function terminalConversation(params: {
       ...(messages && { messages }),
     }),
     skills: workspaceSkills(harness.skills),
+    run,
   };
 }

@@ -18,7 +18,7 @@ export const storedConversationSchema = z.object({
   id: conversationIdSchema,
   title: z.string(),
   /** The model it ran on last, by its id; a name is a label and could be shared or renamed. */
-  modelId: modelIdSchema.exactOptional(),
+  modelId: modelIdSchema,
   status: storedStatusSchema,
   /** When it started. */
   startedAt: timestampSchema,

@@ -15,7 +15,7 @@ describe('storedConversationSchema', () => {
     expect(storedConversationSchema.parse(stored)).toEqual(stored);
   });
 
-  it('holds the model by id: a name is no model, and a conversation may have none', () => {
+  it('holds the model by id, and always has one: a conversation is always on a model', () => {
     expect(storedConversationSchema.safeParse({ ...stored, modelId: 'claude' }).success).toBe(
       false,
     );
@@ -25,7 +25,7 @@ describe('storedConversationSchema', () => {
 
     const { modelId: _modelId, ...unmodelled } = stored;
 
-    expect(storedConversationSchema.parse(unmodelled)).toEqual(unmodelled);
+    expect(storedConversationSchema.safeParse(unmodelled).success).toBe(false);
   });
 
   it('refuses a status no conversation has, and a missing field', () => {

@@ -42,13 +42,11 @@ export async function servedConversation(params: {
 
   if (skills) log(`${skills}\n`);
 
-  return {
-    ...terminalConversation({
-      harness,
-      messages,
-      maxTurns: settings.maxTurns,
-      waitForTasks: settings.waitForTasks,
-    }),
+  return terminalConversation({
+    harness,
+    messages,
+    maxTurns: settings.maxTurns,
+    waitForTasks: settings.waitForTasks,
     run: {
       details: () => ({
         workspace: harness.workspace.root,
@@ -58,7 +56,7 @@ export async function servedConversation(params: {
       }),
       useModel: (id) => useModel({ providerSettings, id }),
     },
-  };
+  });
 }
 
 /** Where each model call goes: the file, and the log with SHOW_MODEL_CALLS. Undefined for neither. */

@@ -83,6 +83,8 @@ describe('a conversation over HTTP', () => {
 
     expect(kinds).toEqual([
       'update:session_started',
+      // The model the conversation began on is part of its history.
+      'update:session_model',
       'event:text_delta',
       'event:turn_end',
       'update:session_idle',

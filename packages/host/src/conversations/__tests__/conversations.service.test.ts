@@ -82,6 +82,44 @@ describe('Conversations', () => {
     expect(conversations.details(id).model.id).toBe(FAST_ID);
   });
 
+  it('records the model a conversation starts on and each switch on its main session', async () => {
+    const { conversations } = setup({ replies: [] });
+    const id = await conversations.start();
+    const main = conversations.get(id).harness.mainSession.id;
+    const sessions = () => conversations.get(id).harness.sessions;
+
+    expect(sessions().get(main)?.modelId).toBe(FAST_ID);
+
+    conversations.useModel({ id, modelId: DEEP_ID });
+    expect(sessions().get(main)?.modelId).toBe(DEEP_ID);
+
+    // A model the conversation does not have is refused, and records nothing.
+    expect(() =>
+      conversations.useModel({
+        id,
+        modelId: modelIdSchema.parse('00000000-0000-4000-8000-000000000000'),
+      }),
+    ).toThrow();
+    expect(sessions().get(main)?.modelId).toBe(DEEP_ID);
+  });
+
+  it('switches only its own conversation: another running one keeps its model', async () => {
+    const { conversations } = setup({ replies: [] });
+    const a = await conversations.start();
+    const b = await conversations.start();
+    const modelOf = (id: typeof a) => {
+      const live = conversations.get(id);
+
+      return live.harness.sessions.get(live.harness.mainSession.id)?.modelId;
+    };
+
+    conversations.useModel({ id: a, modelId: DEEP_ID });
+
+    expect(modelOf(a)).toBe(DEEP_ID);
+    expect(modelOf(b)).toBe(FAST_ID);
+    expect(conversations.details(b).model.id).toBe(FAST_ID);
+  });
+
   it('runs a prompt’s skills, keeping what the user typed on the history', async () => {
     const { conversations, sent } = setup({ replies: [say('ok')], withSkills: true });
     const id = await conversations.start();

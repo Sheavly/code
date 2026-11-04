@@ -133,35 +133,30 @@ export class Conversations {
 
   /**
    * What conversation `id`'s run is: its summary, and the workspace, models and trust its app
-   * reports. `not_found` when no conversation has the id, or its app reports nothing.
+   * reports. `not_found` when no conversation has the id.
    */
   details(id: ConversationId): ConversationDetails {
-    const { run } = this.get(id);
-
-    if (!run) {
-      throw new ConversationsError({
-        reason: 'not_found',
-        message: `Conversation ${id} has no details: its app reports none`,
-      });
-    }
-
-    return { ...this.#summary(id), ...run.details() };
+    return { ...this.#summary(id), ...this.get(id).run.details() };
   }
 
   /**
    * Switches conversation `id` to the model `modelId` from its next model call, or throws
-   * `unknown_model`. A kept conversation's index follows, so reopening finds the model last used.
+   * `unknown_model`. The main session records it (`session_model`) and a kept conversation's
+   * index follows, so reopening finds the model last used. Only this conversation changes: no
+   * other conversation, and no sub-agent, is on a different model because of it.
    */
   useModel(params: { id: ConversationId; modelId: ModelId }): void {
     const { id, modelId } = params;
+    const live = this.get(id);
 
-    if (!this.get(id).run?.useModel(modelId)) {
+    if (!live.run.useModel(modelId)) {
       throw new ConversationsError({
         reason: 'unknown_model',
         message: `No model with id ${modelId} in conversation ${id}; its details list the models`,
       });
     }
 
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId });
     this.#keepers.get(id)?.keepIndex({ modelId });
   }
 
@@ -205,16 +200,21 @@ export class Conversations {
     };
   }
 
-  /** Writes the index entry a new conversation starts with, now that its title and model exist. */
+  /**
+   * Writes the index entry a new conversation starts with, now that its title and model exist, and
+   * records the model on the main session: the first `session_model` of its stream.
+   */
   #begin(params: { id: ConversationId; keeper: ConversationKeeper | undefined }): void {
     const { id, keeper } = params;
+    const live = this.get(id);
     const summary = this.#summary(id);
-    const modelId = this.get(id).run?.details().model.id;
+    const modelId = live.run.details().model.id;
 
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId });
     keeper?.begin({
       id,
       title: summary.title,
-      ...(modelId !== undefined && { modelId }),
+      modelId,
       status: 'open',
       startedAt: summary.startedAt,
       updatedAt: now(),
