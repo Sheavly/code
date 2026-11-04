@@ -92,6 +92,8 @@ export function baseConfig(params) {
         'harness/no-raw-error': 'error',
         // "Is inside" checks that a folder named `..x/` can't fool.
         'harness/no-dotdot-prefix': 'error',
+        // One clock (`now()`, through Luxon), so time can be fixed in a test.
+        'harness/no-direct-clock': 'error',
       },
     },
 

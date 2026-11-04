@@ -57,6 +57,39 @@ export const SYNTAX_RULES = {
       message: TERMINAL_IO_MESSAGE,
     },
   ],
+  // Dates are Luxon's, and the current time is read in one place, `now()`
+  // (`@sheavly/core/clock/clock.helper`): a timestamp is epoch milliseconds from it, and a test
+  // fixes it with `useFixedClock`. Tests follow the same rule: they build dates with Luxon too.
+  'no-direct-clock': [
+    {
+      selector: "CallExpression[callee.object.name='Date'][callee.property.name='now']",
+      message:
+        'Read the time with `now()` (`@sheavly/core/clock/clock.helper`), not `Date.now()`: it is the one place the clock is read, so a test can fix it (`useFixedClock` from `@sheavly/testing/clock/fixed-clock.fake`). To time how long something took, use `performance.now()`.',
+    },
+    {
+      selector: "NewExpression[callee.name='Date']",
+      message:
+        'Use Luxon (`DateTime`) for dates, or `now()` (`@sheavly/core/clock/clock.helper`) for the current time as epoch milliseconds, not `new Date()`: one clock, so a test can fix it and a timestamp is always a `timestampSchema` value.',
+    },
+    {
+      selector: "CallExpression[callee.object.name='Date'][callee.property.name=/^(UTC|parse)$/]",
+      message:
+        'Use Luxon for dates: `DateTime.utc(2026, 11, 2).toMillis()`, not `Date.UTC` / `Date.parse`. Times are stored and sent as epoch milliseconds (`timestampSchema`); format one for a person with `DateTime.fromMillis(at).toFormat(...)`.',
+    },
+    // A time is epoch milliseconds everywhere it is stored or sent, so no code writes or reads an
+    // ISO 8601 string: a second format means a second parser, and files that disagree.
+    {
+      selector:
+        'CallExpression[callee.property.name=/^(toISOString|toISO|toISODate|toISOTime|fromISO|fromISODate)$/]',
+      message:
+        'Times are epoch milliseconds (`timestampSchema`), never ISO 8601 strings: keep the number, and format it for a person only at the edge with `DateTime.fromMillis(at).toFormat(...)` or `.toLocaleString(...)`.',
+    },
+    {
+      selector: "MemberExpression[object.name='z'][property.name='iso']",
+      message:
+        'Times are epoch milliseconds (`timestampSchema` from `@sheavly/protocol/time/time.validator`), never ISO 8601 strings, so a schema takes no `z.iso.*`.',
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

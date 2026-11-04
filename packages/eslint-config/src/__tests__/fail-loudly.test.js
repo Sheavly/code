@@ -118,3 +118,30 @@ ruleTester.run('no-dotdot-prefix', harnessPlugin.rules['no-dotdot-prefix'], {
     "if (relative.startsWith('..') || path.isAbsolute(relative)) throw failure;",
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
+
+ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
+  valid: [
+    "import { now } from '@sheavly/core/clock/clock.helper'; const startedAt = now();",
+    "import { DateTime } from 'luxon'; const label = DateTime.fromMillis(at).toFormat('HH:mm');",
+    "import { DateTime } from 'luxon'; const noon = DateTime.utc(2026, 11, 2, 12).toMillis();",
+    'const started = performance.now();', // a monotonic timer, not a date
+    'const later = new Dates();', // some other class
+    'const schema = z.number().int();',
+  ],
+  invalid: [
+    { code: 'const startedAt = Date.now();', messageId: 'm0' },
+    { code: 'const elapsed = Date.now() - startedAt;', messageId: 'm0' },
+    { code: 'const at = new Date(ms);', messageId: 'm1' },
+    { code: 'const at = Date.UTC(2026, 10, 2);', messageId: 'm2' },
+    { code: 'const at = Date.parse(text);', messageId: 'm2' },
+    // ISO 8601 in any form: writing it, reading it, or taking it in a schema.
+    { code: 'const at = new Date(ms).toISOString();', errors: ['m3', 'm1'] },
+    { code: "const at = DateTime.fromISO('2026-11-02');", messageId: 'm3' },
+    { code: 'const day = DateTime.now().toISODate();', messageId: 'm3' },
+    { code: 'const iso = DateTime.now().toISO();', messageId: 'm3' },
+    { code: 'const time = z.iso.datetime();', errors: ['m4'] },
+  ].map(({ code, messageId, errors }) => ({
+    code,
+    errors: (errors ?? [messageId]).map((id) => ({ messageId: id })),
+  })),
+});
