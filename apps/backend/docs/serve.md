@@ -3,7 +3,7 @@
 `npm run serve -w @sheavly/backend` serves conversations over HTTP to any UI in another process:
 the terminal, an editor, a web page, a script. Each conversation gets its own provider (so
 switching its model leaves the others alone) and the run [harness.md](harness.md) describes. The
-routes, streams and errors are in [the server's design](../../../packages/server/docs/design.md).
+routes, streams and errors are in [the API](api.md).
 
 ## Settings
 

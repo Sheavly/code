@@ -18,7 +18,7 @@ import { existsSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
-import { createServerApp } from '@sheavly/server/server/server.helper';
+import { createApiApp } from './api/api.helper.js';
 import { servedConversation } from './harness/served.helper.js';
 import { providerFromEnv } from './harness/settings.helper.js';
 import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
@@ -41,7 +41,7 @@ const log = (text: string) => void process.stderr.write(text);
 const conversations = new Conversations({
   create: ({ messages }) => servedConversation({ env: process.env, settings, messages, log }),
 });
-const app = createServerApp({ conversations, token });
+const app = createApiApp({ conversations, token });
 
 /** What the user needs once the server listens: where, the model, and the token when made here. */
 function printStarted(address: AddressInfo): void {
