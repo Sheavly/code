@@ -136,6 +136,28 @@ load; see `listing/`), and a folder is its id, so a copy made by hand is refused
   folder that is a link is listed, since a profile kept in a synced folder is one.
 - **Hidden folders and files are not profiles.** `.git`, `.Trash`, `.DS_Store`, `Thumbs.db`.
 
+## The profile registry
+
+`ProfileRegistry` is the one door to all of this: the profiles, the config and each profile's
+models and keys. The backend uses it and not the stores under it, because the stores each do one
+thing and don't keep each other in step: removing a model through `ModelStore` leaves its key
+behind, and deleting a profile folder leaves the config naming it.
+
+- **`delete(id)` forgets the config first, then removes the folder.** If the folder can't be removed
+  the profile is still there, unbound, and deleting it again finishes the job. The other order
+  could leave the config naming a profile that is gone. `profileFor` also falls back from a
+  profile whose folder was deleted by hand, so a workspace is never left with nothing to use.
+- **`open(id)` returns one `OpenProfile` per profile.** Its credential store queues writes in memory,
+  so two on one file would erase each other's keys; the registry is what guarantees one, even for
+  two opens at the same moment.
+- **An open profile keeps a model and its key together.** `removeModel` removes the key first (a
+  failure then leaves a model without a key, not a key for nothing), `putSecrets` refuses a model
+  the profile doesn't have, and every write checks the profile still exists, so one deleted in the
+  meantime is not recreated as a folder holding one key. That check is not atomic with the write; a
+  folder left by a delete landing in between is listed as a problem, and deleting it clears it.
+- **It is a key holder.** `getSecrets` hands a key to whoever asks, so `harness/no-key-holder-import`
+  keeps its import to the backend app, exactly as for the credential store.
+
 ## Adding a store
 
 A store is a module folder here (`<kind>-store/`), a class over a root folder it is given. It

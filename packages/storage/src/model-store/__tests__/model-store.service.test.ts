@@ -5,18 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { StorageFileError } from '../../errors/storage.errors.js';
 import { ModelStore } from '../model-store.service.js';
+import { ASTRA, BORA, twoModels } from '../../testing/registry.fake.js';
 
-const ASTRA = modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30');
-const BORA = modelIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71');
 const OTHER = modelIdSchema.parse('c1e8a3d4-7b25-4e69-8f10-2a6d9b4c7e53');
-
-const astra = {
-  id: ASTRA,
-  name: 'Astra 6',
-  adapter: 'azure-openai',
-  definition: { baseUrl: 'https://acme.openai.azure.com/openai/v1', deployment: 'gpt-5' },
-};
-const bora = { id: BORA, name: 'Bora', adapter: 'openai', definition: { model: 'gpt-6' } };
+const { astra, bora } = twoModels();
 
 let profile: string;
 let models: string;
