@@ -7,7 +7,6 @@
   "blockedBy": "A `gh --json` field (GitHub's API), not code in this repo.",
   "isDraft": "A `gh --json` field (GitHub's API), not code in this repo.",
   "baseRefName": "A `gh --json` field (GitHub's API), not code in this repo.",
-  "updatedAt": "A `gh --json` field (GitHub's API), not code in this repo.",
   "reviewDecision": "A `gh --json` field (GitHub's API), not code in this repo.",
   "statusCheckRollup": "A `gh --json` field (GitHub's API), not code in this repo.",
   "closingIssuesReferences": "A `gh --json` field (GitHub's API), not code in this repo.",

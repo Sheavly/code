@@ -24,6 +24,7 @@ run `npm run schema -w @sheavly/protocol`; a test fails while either file is out
 | `message/`  | The conversation history, and the `PromptPart`s a user typed                 |
 | `skill/`    | `SkillInfo`: a skill as a UI lists it                                        |
 | `server/`   | The server's requests, responses and `ServerError` codes                     |
+| `store/`    | `StoredConversation`: a past conversation as the store lists it              |
 | `api/`      | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument` |
 | `contract/` | `contract.schema.json`, generated from the schemas                           |
 
