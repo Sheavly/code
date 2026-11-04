@@ -20,6 +20,7 @@ import type {
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -138,6 +139,30 @@ export class SessionRegistry {
       depth: parent.depth + 1,
       title,
     });
+  }
+
+  /**
+   * Records the model session `id` runs on, at its start and at each switch, and announces it
+   * (`session_model`). It is that session's only: a sub-agent's model never changes the main
+   * session's. Setting the model it already has is not announced again. Throws for an unknown
+   * session, and for one that has ended: its model is the one it ran on.
+   */
+  setModel(params: { id: SessionId; modelId: ModelId }): void {
+    const { id, modelId } = params;
+    const session = this.#require(id);
+
+    if (!isOpen(session.state)) {
+      throw new SessionError({
+        reason: 'session_ended',
+        sessionId: id,
+        message: `Session ${id} has ended (${session.state}); its model is the one it ran on`,
+      });
+    }
+
+    if (session.modelId === modelId) return;
+
+    session.modelId = modelId;
+    this.#emit({ type: 'session_model', session, modelId });
   }
 
   /** A sub-agent's own status report ("editing core package"). Ignored once the session ended. */

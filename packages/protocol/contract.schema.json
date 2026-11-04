@@ -389,7 +389,8 @@
             "state": { "$ref": "#/$defs/SessionState" },
             "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
             "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "modelId": { "$ref": "#/$defs/ModelId" }
           },
           "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
           "additionalProperties": false
@@ -407,7 +408,8 @@
             "state": { "$ref": "#/$defs/SessionState" },
             "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
             "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "modelId": { "$ref": "#/$defs/ModelId" }
           },
           "required": [
             "id",
@@ -475,6 +477,15 @@
             "session": { "$ref": "#/$defs/SessionInfo" }
           },
           "required": ["type", "session"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "session_model" },
+            "session": { "$ref": "#/$defs/SessionInfo" },
+            "modelId": { "$ref": "#/$defs/ModelId" }
+          },
+          "required": ["type", "session", "modelId"]
         },
         {
           "type": "object",

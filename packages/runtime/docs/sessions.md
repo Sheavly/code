@@ -16,7 +16,13 @@ is a `SessionRef` (`packages/protocol/src/session/`):
 
 The registry also keeps each session's `title`, last reported `status`, `state` (`running`;
 `idle` between the prompts of a conversation; or how it ended: `completed`, `interrupted`,
-`max_turns`, `failed`), `lastOutcome` (how its last run ended) and timestamps.
+`max_turns`, `failed`), `lastOutcome` (how its last run ended), `modelId` and timestamps.
+
+A session's model is its own: `setModel({ id, modelId })` records it at the session's start and at
+each switch, and announces it as `session_model`. A sub-agent's never changes the main session's,
+and the other way round. It is announced once per change, so the stream holds the history of
+switches, and a restored conversation has each session's last model back. A session that has
+ended refuses it (`session_ended`): its model is the one it ran on.
 
 A session in a conversation goes `idle` when a prompt's run finishes (`sessions.idle({ id,
 outcome })`, a `session_idle` update) and runs again for the next prompt (`sessions.resume(id)`,
@@ -24,7 +30,8 @@ outcome })`, a `session_idle` update) and runs again for the next prompt (`sessi
 While idle it accepts messages, kept for its next prompt, but no status reports or sub-agents.
 `end` ends it from either state.
 
-- `startMain` starts the main session; `startChild({ parentId, title })` starts a sub-agent. It
+- `startMain` starts the main session; `startChild({ parentId, startedByCall, title })` starts a
+  sub-agent, recording the tool call in the parent's history that started it. It
   throws if the parent is unknown, has ended, or is at the depth cap.
 - Every refusal is a `SessionError` (`@sheavly/runtime/errors/`) with a `reason` (`unknown_session`,
   `parent_ended`, `too_deep`, `session_ended`, `session_running`, `not_an_ancestor`) and the `sessionId` it was
@@ -80,8 +87,9 @@ new Response(sessions.stream({ signal }), { headers: { 'content-type': 'text/eve
 
 It starts with every known session (a UI that connects late catches up), then sends updates
 until `signal` aborts. Each event is named `session_started`, `session_status`,
-`session_message`, `session_idle`, `session_resumed` or `session_ended`, and has the session id as its event id. Its JSON data is
-`{ session }` (the `SessionInfo`), plus `message` for `session_message`. The demo prints the same
+`session_message`, `session_idle`, `session_resumed`, `session_model` or `session_ended`, and has the session id as its event id. Its JSON data is
+`{ session }` (the `SessionInfo`), plus `message` for `session_message` and `modelId` for
+`session_model`. The demo prints the same
 updates, indented by depth.
 
 **Ordering.** Each session's own events (text, tool calls, results, `message_received`) go

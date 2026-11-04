@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
+import { modelIdSchema } from '../model/model.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 /**
@@ -61,6 +62,11 @@ const sessionDetails = {
   lastOutcome: runOutcomeSchema.exactOptional(),
   startedAt: timestampSchema,
   endedAt: timestampSchema.exactOptional(),
+  /**
+   * The model it runs on now: the latest `session_model`. A session no model was recorded for
+   * (a library run with no model file behind it) has none.
+   */
+  modelId: modelIdSchema.exactOptional(),
 };
 
 /** A snapshot of a session, for a UI (e.g. a sub-agent card). */
@@ -91,5 +97,15 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('session_idle'), session: sessionInfoSchema }),
   /** The next prompt of a conversation started running in the same session. */
   z.object({ type: z.literal('session_resumed'), session: sessionInfoSchema }),
+  /**
+   * The model `session` runs on, at its start and at every switch. It is that session's model
+   * and no other's: a sub-agent's never changes the conversation's, which is the main session's.
+   * `session.modelId` is this, mirrored, so a card can show it without replaying the stream.
+   */
+  z.object({
+    type: z.literal('session_model'),
+    session: sessionInfoSchema,
+    modelId: modelIdSchema,
+  }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
 ]);
