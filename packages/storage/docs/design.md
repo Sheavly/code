@@ -57,6 +57,28 @@ something that works on the system the code was written on and fails on another:
 - **Paths are built with `node:path`**, never by joining with `/`, and a path kept in a file is
   not compared as text across systems (`C:\Users\x` and `c:\users\x` are one folder).
 - **The home folder is `os.homedir()`**, chosen by the app. `HOME` doesn't exist on Windows.
+- **Sorting does not use the system's locale.** `readdir` lists in the system's order and a
+  default `Intl.Collator` follows the machine's language, so the same profile would list
+  differently on two machines. A listing sorts file names by code and labels with a fixed locale.
+- **A folder holds litter.** `.DS_Store` and `._*` files (macOS), `Thumbs.db` and `desktop.ini`
+  (Windows), `*~` and `.swp` files (editors). A store reads only what it names: `<id>.json`, and
+  nothing hidden.
+
+## The model store
+
+`ModelStore` is a profile's `models/` folder, one `<model-id>.json` each, flat so a person can
+read and edit it. It is the pattern a store of hand-editable files follows:
+
+- **`list()` never fails over one bad file.** It returns the models that read cleanly and a
+  problem for each file that did not (damaged, not what a model is, or an `id` that isn't its
+  file's name), each naming the file. People edit these files; a typo in one must not take the
+  others down, and must not be silently skipped either.
+- **`get(id)` fails for a bad file.** Asking for a model that exists but can't be used must not
+  look like asking for one that isn't there.
+- **A file is its id.** `<id>.json` holds the model with that `id`; a copy made by hand keeps the
+  old `id` inside, so it is refused, not served as a second model under a new name.
+- **A key never goes through it.** The store has no adapter and can't tell a key from a field;
+  `AdapterRegistry.validateDefinition` refuses one first, and credentials have their own store.
 
 ## Adding a store
 

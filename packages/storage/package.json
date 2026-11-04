@@ -23,6 +23,18 @@
     "./*.errors": {
       "@sheavly/source": "./src/*.errors.ts",
       "default": "./dist/*.errors.js"
+    },
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
     }
   },
   "files": [
@@ -31,6 +43,7 @@
   ],
   "dependencies": {
     "@sheavly/core": "^0.0.0",
+    "@sheavly/protocol": "^0.0.0",
     "@sheavly/runtime": "^0.0.0",
     "zod": "^4.6.7"
   }
