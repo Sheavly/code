@@ -19,6 +19,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `credential-store/`   | `CredentialStore`: a profile's keys in one private file; never in an error, never read if open to others  |
 | `config-store/`       | `ConfigStore`: the default profile and each workspace's; `workspaceKey`, a folder name from a real path   |
 | `conversation-store/` | `FileConversationStore`: a workspace's conversations, a folder each with its stream, history and index    |
+| `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |
 | `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
 | `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
 | `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                        |
