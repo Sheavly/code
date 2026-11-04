@@ -1,5 +1,5 @@
-// What the terminal app picks for a run. The packages have no defaults of their own: the UI says
-// which backend and model a run uses, how long it may go on, and where trust is remembered.
+// What the backend picks for a run. The packages have no defaults of their own: the backend says
+// which model a run uses, how long it may go on, and where trust is remembered.
 
 /** Model calls per session (main and each sub-agent): room for multi-step sub-agent work. */
 export const MAX_TURNS = 20;

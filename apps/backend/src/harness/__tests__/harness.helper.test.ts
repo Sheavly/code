@@ -10,7 +10,7 @@ import { createConversation } from '@sheavly/host/conversation/conversation.help
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
-import { createTerminalHarness } from '../harness.helper.js';
+import { createBackendHarness } from '../harness.helper.js';
 
 /** The project: AGENTS.md, a skill, and one `.sheavly/` hook that does nothing. */
 const FILES = {
@@ -45,7 +45,7 @@ const open = (
   onModelCall?: (request: ProviderRequest) => void,
   scripts: Record<string, Script[]> = { hi: [say('hello')] },
 ) =>
-  createTerminalHarness({
+  createBackendHarness({
     provider: routedProvider(scripts),
     title: 'hi',
     workspaceRoot: root,
@@ -55,7 +55,7 @@ const open = (
     onModelCall,
   });
 
-describe('createTerminalHarness: what a terminal run includes', () => {
+describe('createBackendHarness: what a backend run includes', () => {
   it('opens the workspace with the file tools, run_command, task and sub-agent tools', async () => {
     const harness = await open(false);
 

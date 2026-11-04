@@ -11,7 +11,7 @@ import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 
-/** What a terminal CLI read from its command line and environment. */
+/** What the backend's command line and environment set for a run. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
 
 /** How the backend runs each conversation: the CLI's settings and the run settings it reads. */
@@ -23,7 +23,7 @@ export type ServedSettings = CliSettings & ReturnType<typeof parseRunEnv>;
  */
 export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
 
-/** Which model backend a run uses, and how the terminal reports it. */
+/** Which model backend a run uses, and how a UI is told about it. */
 export type ProviderSettings = {
   /** The model in use at start; `models.switch.active` is its id while it is the active one. */
   id: ModelId;
@@ -34,8 +34,8 @@ export type ProviderSettings = {
   models?: ModelSwitch | undefined;
 };
 
-/** What the terminal's demo and workbook decide about a run. */
-export type TerminalHarnessOptions = {
+/** What the backend decides about a run. */
+export type BackendHarnessOptions = {
   provider: Provider;
   title: string;
   /** The workspace root the agent is confined to (default: the current directory). */
@@ -53,8 +53,8 @@ export type TerminalHarnessOptions = {
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
 };
 
-/** A terminal run: the coding services, and the tools and hooks the terminal includes. */
-export type TerminalHarness = CodingHarness & {
+/** A run on the backend: the coding services, and the tools and hooks it includes. */
+export type BackendHarness = CodingHarness & {
   tools: Tool[];
   hooks: Hook[];
   /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */

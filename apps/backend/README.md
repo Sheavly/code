@@ -1,8 +1,8 @@
 # @sheavly/backend
 
 The harness backend: it builds each conversation from its settings (provider and model, tools,
-hooks, workspace trust) and serves them to every UI over HTTP, the terminal included. This is
-where a run's choices live; a UI decides only how to show it.
+hooks, workspace trust) and serves them to every UI over HTTP. This is where a run's choices
+live; a UI decides only how to show it, and none is built into the backend.
 
 ```bash
 npm run serve -w @sheavly/backend                  # from source; prints the URL and a token
@@ -13,11 +13,11 @@ the folder it is started from (`ADAPTER`, the backend's keys, `MODEL`). A UI tha
 backend (the terminal does) passes its settings in the environment and reads the
 `→ listening on <url>` line it prints once ready.
 
-| Folder     | What it holds                                                                                                |
-| ---------- | ------------------------------------------------------------------------------------------------------------ |
-| `harness/` | What a run includes (`createTerminalHarness`), each served conversation (`servedConversation`), the settings |
-| `api/`     | The HTTP API (`createApiApp`): every route of `API_ROUTES` with its handler, the token, SSE, errors          |
-| `serve.ts` | The entry point: settings, `Conversations`, the API, and shutting it all down                                |
+| Folder     | What it holds                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------------- |
+| `harness/` | What a run includes (`createBackendHarness`), each served conversation (`servedConversation`), the settings |
+| `api/`     | The HTTP API (`createApiApp`): every route of `API_ROUTES` with its handler, the token, SSE, errors         |
+| `serve.ts` | The entry point: settings, `Conversations`, the API, and shutting it all down                               |
 
 ## Docs
 

@@ -5,8 +5,8 @@ import type { LiveConversation } from '@sheavly/host/conversations/conversations
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
-import { terminalConversation } from './conversation.helper.js';
-import { createTerminalHarness } from './harness.helper.js';
+import { harnessConversation } from './conversation.helper.js';
+import { createBackendHarness } from './harness.helper.js';
 import type { ProviderSettings, ServedSettings } from './harness.types.js';
 import { describeModelCall, modelCallLine } from './model-calls.utils.js';
 import { now } from '@sheavly/core/clock/clock.helper';
@@ -15,7 +15,7 @@ import { providerFromEnv, trustStoreFromEnv } from './settings.helper.js';
 
 /**
  * One conversation as the backend serves it: its own provider from `env` (so switching its model
- * leaves the others alone), the terminal harness on the settings, and the run it reports (the UI
+ * leaves the others alone), the harness on the settings, and the run it reports (the UI
  * shows its trust from that). Skills that didn't load go to `log`, and each model call to
  * `MODEL_CALLS_FILE` and, with SHOW_MODEL_CALLS, to `log`.
  */
@@ -27,7 +27,7 @@ export async function servedConversation(params: {
 }): Promise<LiveConversation> {
   const { env, settings, messages, log } = params;
   const providerSettings = providerFromEnv(env);
-  const harness = await createTerminalHarness({
+  const harness = await createBackendHarness({
     provider: providerSettings.provider,
     workspaceRoot: settings.workspaceRoot,
     skipAllowList: settings.skipAllowList,
@@ -42,7 +42,7 @@ export async function servedConversation(params: {
 
   if (skills) log(`${skills}\n`);
 
-  return terminalConversation({
+  return harnessConversation({
     harness,
     messages,
     maxTurns: settings.maxTurns,

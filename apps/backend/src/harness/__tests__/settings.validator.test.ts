@@ -90,7 +90,7 @@ describe('parseProviderEnv', () => {
 });
 
 describe('parseRequestEnv', () => {
-  it("defaults to the terminal's policy, and reads each setting from env", () => {
+  it("defaults to the backend's policy, and reads each setting from env", () => {
     expect(parseRequestEnv({})).toEqual(REQUEST);
     expect(
       parseRequestEnv({

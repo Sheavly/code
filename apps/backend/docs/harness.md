@@ -1,13 +1,13 @@
 # What a run includes
 
 The packages provide pieces and the services a run shares; the backend decides what its runs
-include, in one place, `createTerminalHarness` (`src/harness/harness.helper.ts`). Every
-conversation it serves (the terminal's chat, demo and workbook, and any other UI's) is built on
-it, by `servedConversation` (`src/harness/served.helper.ts`), so they all run the same agent.
+include, in one place, `createBackendHarness` (`src/harness/harness.helper.ts`). Every
+conversation it serves, for whichever UI, is built on it, by `servedConversation`
+(`src/harness/served.helper.ts`), so they all run the same agent.
 
 ## The run
 
-`createTerminalHarness` opens the coding services (`createCodingHarness`: the workspace, file
+`createBackendHarness` opens the coding services (`createCodingHarness`: the workspace, file
 locks and process runner), then composes:
 
 | What                                   | From                 | Why                                                                                  |
@@ -24,7 +24,7 @@ locks and process runner), then composes:
 Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
 task, and commands are where the trust model has the most to lose.
 
-`servedConversation` wraps it as a conversation (`terminalConversation`: the workspace's skills,
+`servedConversation` wraps it as a conversation (`harnessConversation`: the workspace's skills,
 `MAX_TURNS`, `WAIT_FOR_TASKS`) and reports its run for `GET /conversations/:id`: the workspace,
 the model in use and the ones it can switch to, workspace trust and the allow list.
 

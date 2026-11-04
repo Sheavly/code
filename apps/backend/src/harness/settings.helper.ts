@@ -13,11 +13,10 @@ import { modelIdOfEnvName } from './model-id.utils.js';
 import { parseProviderEnv, parseRequestEnv } from './settings.validator.js';
 
 /**
- * The model backend the terminal app runs against, from its environment (`process.env`, after
+ * The model the backend runs against, from its environment (`process.env`, after
  * loading `.env`). `MODELS` lists several by name, each with its own keys (`modelsFromEnv`), and
  * the run starts on the first; otherwise `ADAPTER` is "openai" (the default) or "azure-openai", each
- * with its own keys. The packages never pick one; another UI reads its own settings and builds its
- * own provider.
+ * with its own keys. The packages never pick one.
  */
 export function providerFromEnv(environment: Environment): ProviderSettings {
   const request = parseRequestEnv(environment);

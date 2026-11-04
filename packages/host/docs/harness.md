@@ -16,8 +16,8 @@ a tool or a hook for it.
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
-and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The terminal app does
-it in one place, `createTerminalHarness` (`apps/terminal/src/harness/`), with its settings from env.
+and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend does it in
+one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from env.
 
 ```ts
 const harness = createHarness({ provider, title: prompt });

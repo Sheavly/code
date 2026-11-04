@@ -7,8 +7,8 @@ import { twoModelRun } from '@sheavly/host/testing/run.fake';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { terminalConversation, workspaceSkills } from '../conversation.helper.js';
-import { createTerminalHarness } from '../harness.helper.js';
+import { harnessConversation, workspaceSkills } from '../conversation.helper.js';
+import { createBackendHarness } from '../harness.helper.js';
 
 const SKILL = '---\nname: review\ndescription: Reviews a change.\n---\nREVIEW STEPS\n';
 
@@ -16,7 +16,7 @@ let base: string;
 let root: string;
 
 beforeEach(async () => {
-  base = await mkdtemp(path.join(tmpdir(), 'terminal-conversation-'));
+  base = await mkdtemp(path.join(tmpdir(), 'harness-conversation-'));
   root = path.join(base, 'project');
   await mkdir(path.join(root, '.agents', 'skills', 'review'), { recursive: true });
   await writeFile(path.join(root, '.agents', 'skills', 'review', 'SKILL.md'), SKILL);
@@ -50,12 +50,12 @@ describe('workspaceSkills', () => {
   });
 });
 
-describe('terminalConversation', () => {
-  it('runs a prompt on the terminal’s tools and the workspace’s skills, through Conversations', async () => {
+describe('harnessConversation', () => {
+  it('runs a prompt on the harness’s tools and the workspace’s skills, through Conversations', async () => {
     const conversations = new Conversations({
       create: async ({ messages }) =>
-        terminalConversation({
-          harness: await createTerminalHarness({
+        harnessConversation({
+          harness: await createBackendHarness({
             // The message the model gets holds the skill's instructions, so any first message.
             provider: scriptedProvider([
               [

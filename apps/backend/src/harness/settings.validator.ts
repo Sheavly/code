@@ -22,7 +22,7 @@ const count = (fallback: number) =>
     .pipe(z.number().int().min(0));
 
 /**
- * How the terminal sends a model call: `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
+ * How the backend sends a model call: `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
  * `MODEL_RETRY_DELAY_MS`, each defaulting to `REQUEST`.
  */
 const requestEnvSchema = z.object({
@@ -115,8 +115,8 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
 }
 
 /**
- * What both terminal CLIs (the demo and the chat) read from their command line and environment:
- * `--trust`, the prompt (the other arguments, or empty), and the settings that shape a run.
+ * What the backend reads from its command line and environment: `--trust`, and the settings that
+ * shape a run.
  */
 export function parseCliSettings(params: {
   env: Record<string, string | undefined>;
@@ -127,7 +127,6 @@ export function parseCliSettings(params: {
   return {
     /** `--trust`: trust this workspace's `.sheavly/` hooks (remembered until `.sheavly/` changes). */
     trustWorkspace: args.includes('--trust'),
-    prompt: args.filter((arg) => arg !== '--trust').join(' '),
     workspaceRoot: optionalSetting.pipe(z.string().min(1).optional()).parse(env.WORKSPACE_ROOT),
     /** Only the exact string "true" turns these on. */
     skipAllowList: env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true',

@@ -18,8 +18,8 @@ A tool is a folder with a `<name>.tool.ts` that returns
 - `context` has the `callId`, the model's `description`, and the calling `session` (its id,
   parent, main session and depth; see [sessions](../../runtime/docs/sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
-- Include it from the UI that wants it: the terminal app adds its tools in `createTerminalHarness`
-  (`apps/terminal/src/harness/harness.helper.ts`). No package adds a tool to a run.
+- Include it from the backend that wants it: it adds its tools in `createBackendHarness`
+  (`apps/backend/src/harness/harness.helper.ts`). No package adds a tool to a run.
 
 ## Artifacts
 

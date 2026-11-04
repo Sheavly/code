@@ -88,7 +88,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                           |
 | `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                     |
 | `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)                          |
-| `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createTerminalHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                     |
+| `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createBackendHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                      |
 | `apps/terminal/`          | `@sheavly/terminal`, the terminal front end on a backend it starts: the chat, the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and their `Renderer`   |
 | `apps/vscode/`            | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                                |
 
@@ -113,7 +113,7 @@ The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSub
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
 and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
-it in one place, `createTerminalHarness` (`apps/backend/src/harness/`), with its settings from
+it in one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from
 env; the terminal and every other UI reach its conversations over HTTP.
 
 ```ts
