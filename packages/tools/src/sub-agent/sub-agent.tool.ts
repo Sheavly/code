@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -102,7 +103,7 @@ async function runChild(params: {
       ],
       hooks,
       instructions: subAgentInstructions({ rules: SUB_AGENT_INSTRUCTIONS, extra: instructions }),
-      messages: [{ role: 'user', content: task }],
+      messages: [{ role: 'user', content: task, at: now() }],
       signal,
       tasks: childTasks,
       waitForTasks: true,
