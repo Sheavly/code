@@ -119,6 +119,23 @@ says `undefined`, which is what onboarding is for.
 - **Changes are queued** (`SerialQueue`), as for credentials, and a file that can't be read stops a
   change instead of being replaced.
 
+## The profile store
+
+`ProfileStore` is the `profiles/` folder: one `<profile-id>/` folder each, with a `profile.json`
+(`{ id, name }`) and everything of that profile inside, its models, its keys and its conversations.
+It lists the way the model store does (a folder it cannot use is reported by name and the rest
+load; see `listing/`), and a folder is its id, so a copy made by hand is refused.
+
+- **Deleting a profile deletes its folder.** That is what keeping a profile's keys inside it buys:
+  nothing of a deleted profile is left on disk, with no list of what to clean up. `remove` is
+  retried while another program holds a file in it (Windows). It tells the config nothing: the
+  caller also calls `ConfigStore.forgetProfile`.
+- **A delete is bounded by its id.** The folder is `profiles/<id>` and an id is parsed as a UUID
+  before it is a path, so nothing that could name another folder reaches `rm`. A link is removed as
+  the link, never emptied through, and no link inside the profile is followed out of it. A profile
+  folder that is a link is listed, since a profile kept in a synced folder is one.
+- **Hidden folders and files are not profiles.** `.git`, `.Trash`, `.DS_Store`, `Thumbs.db`.
+
 ## Adding a store
 
 A store is a module folder here (`<kind>-store/`), a class over a root folder it is given. It

@@ -18,6 +18,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `model-store/`      | `ModelStore`: a profile's models, one `<model-id>.json` each; a bad file is reported, the rest load      |
 | `credential-store/` | `CredentialStore`: a profile's keys in one private file; never in an error, never read if open to others |
 | `config-store/`     | `ConfigStore`: the default profile and each workspace's; `workspaceKey`, a folder name from a real path  |
+| `profile-store/`    | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it     |
 | `errors/`           | `StorageFileError`: a stored file that can't be read, parsed, validated or written                       |
 
 Runs on Linux, macOS and Windows; see [Design](docs/design.md#every-operating-system) for what that
