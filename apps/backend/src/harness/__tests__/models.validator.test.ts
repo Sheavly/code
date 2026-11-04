@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CLAUDE_MAX_TOKENS } from '../harness.constants.js';
 import { parseModelsEnv } from '../models.validator.js';
 import { providerFromEnv } from '../settings.helper.js';
+import { modelIdOfEnvName } from '../model-id.utils.js';
 
 const MODELS_ENV = {
   MODELS: 'gpt, claude, deepseek-flash',
@@ -90,10 +91,19 @@ describe('providerFromEnv with MODELS', () => {
   it('starts on the first model, behind a switch that can change to the others', () => {
     const settings = providerFromEnv(MODELS_ENV);
 
-    expect(settings).toMatchObject({ adapter: 'azure-openai', model: 'gpt-6.1-sol' });
+    expect(settings).toMatchObject({
+      id: modelIdOfEnvName('gpt'),
+      adapter: 'azure-openai',
+      model: 'gpt-6.1-sol',
+    });
     expect(settings.provider).toBe(settings.models?.switch);
-    expect(settings.models?.switch.names()).toEqual(['gpt', 'claude', 'deepseek-flash']);
+    // The switch is keyed by id: a name is only the label next to it.
+    expect(settings.models?.switch.names()).toEqual(
+      ['gpt', 'claude', 'deepseek-flash'].map(modelIdOfEnvName),
+    );
+    expect(settings.models?.switch.active).toBe(modelIdOfEnvName('gpt'));
     expect(settings.models?.choices[1]).toEqual({
+      id: modelIdOfEnvName('claude'),
       name: 'claude',
       adapter: 'azure-anthropic',
       model: 'claude-sonnet',

@@ -27,7 +27,7 @@ export function apiHandlers(conversations: Conversations): ApiHandlers {
       return c.body(null, 204);
     },
     switchModel: ({ c, id, body }) => {
-      conversations.useModel({ id, name: body.name });
+      conversations.useModel({ id, modelId: body.id });
 
       return c.body(null, 204);
     },

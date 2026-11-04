@@ -1,6 +1,7 @@
 import { createClient } from '@sheavly/client/client/client.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -62,12 +63,12 @@ export class RemoteConversation {
     return (await this.#client.call('getMessages', { id: this.id })).messages;
   }
 
-  /** Switches to model `name`, from the next model call; false when the conversation hasn't it. */
-  async useModel(name: string): Promise<boolean> {
+  /** Switches to the model with this id, from the next model call; false when the conversation hasn't it. */
+  async useModel(modelId: ModelId): Promise<boolean> {
     try {
-      await this.#client.send('switchModel', { id: this.id, body: { name } });
+      await this.#client.send('switchModel', { id: this.id, body: { id: modelId } });
     } catch (caughtError) {
-      // Only "no such model" is the user's to fix with another name; anything else is a failure.
+      // Only "no such model" is the user's to fix with another model; anything else is a failure.
       if (caughtError instanceof RefusedError && caughtError.code === 'unknown_model') {
         return false;
       }

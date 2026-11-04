@@ -4,6 +4,7 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
   ConversationSummary,
@@ -40,8 +41,8 @@ export type ConversationSkills = {
  */
 export type ConversationRun = {
   details: () => Omit<ConversationDetails, keyof ConversationSummary>;
-  /** Switches to the model named `name`, from the next model call; false when there is none. */
-  useModel: (name: string) => boolean;
+  /** Switches to the model with this id, from the next model call; false when there is none. */
+  useModel: (id: ModelId) => boolean;
 };
 
 /** One live conversation the app built: its services, the conversation, and its skills if any. */

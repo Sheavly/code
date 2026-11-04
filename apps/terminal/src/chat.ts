@@ -19,7 +19,13 @@ import { createInterface } from 'node:readline/promises';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
 import { CHAT_HELP } from './chat/chat.constants.js';
-import { completeChatLine, listModels, parseChatInput, unknownCommand } from './chat/chat.utils.js';
+import {
+  completeChatLine,
+  listModels,
+  parseChatInput,
+  pickModel,
+  unknownCommand,
+} from './chat/chat.utils.js';
 import { openSession } from './client/session.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 
@@ -144,20 +150,36 @@ async function send(text: string): Promise<void> {
 
 if (firstPrompt) await send(firstPrompt);
 
-/** `/model` lists the models; `/model <name>` switches to one, from the next model call on. */
-async function modelCommand(name: string | undefined): Promise<string> {
+/**
+ * `/model` lists the models; `/model <id or name>` switches to one, from the next model call on.
+ * What is typed only finds the model (`pickModel`): the switch is made by its id.
+ */
+async function modelCommand(typed: string | undefined): Promise<string> {
   const { model, models } = await conversation.details();
 
   if (models.length === 0) {
     return `Only ${model.adapter} / ${model.model} is set up: list several in MODELS to switch.`;
   }
 
-  if (name === undefined) return listModels({ choices: models, active: model.name });
-  if (!(await conversation.useModel(name))) return `Unknown model ${name}; /model lists them.`;
+  if (typed === undefined) return listModels({ choices: models, active: model.id });
 
-  const choice = models.find((candidate) => candidate.name === name);
+  const picked = pickModel({ choices: models, typed });
 
-  return `→ ${name}: ${choice?.adapter ?? ''} / ${choice?.model ?? ''}`;
+  if (picked.kind === 'none') return `Unknown model ${typed}; /model lists them.`;
+
+  if (picked.kind === 'ambiguous') {
+    const same = listModels({ choices: picked.choices, active: model.id });
+
+    return `${String(picked.choices.length)} models are called ${typed}; use an id:\n${same}`;
+  }
+
+  const { choice } = picked;
+
+  if (!(await conversation.useModel(choice.id))) {
+    return `Unknown model ${typed}; /model lists them.`;
+  }
+
+  return `→ ${choice.name}: ${choice.adapter} / ${choice.model}`;
 }
 
 /** Handles one line; false once the user asked to leave. */

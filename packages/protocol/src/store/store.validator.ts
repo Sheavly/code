@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { modelIdSchema } from '../model/model.validator.js';
 import { conversationIdSchema } from '../server/server.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
@@ -16,8 +17,8 @@ const storedStatusSchema = z.enum(['open', 'closed', 'interrupted']);
 export const storedConversationSchema = z.object({
   id: conversationIdSchema,
   title: z.string(),
-  /** The model it ran on last, by the name a UI switches with. */
-  model: z.string(),
+  /** The model it ran on last, by its id; a name is a label and could be shared or renamed. */
+  modelId: modelIdSchema.exactOptional(),
   status: storedStatusSchema,
   /** When it started. */
   startedAt: timestampSchema,

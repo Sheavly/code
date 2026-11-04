@@ -12,19 +12,19 @@ client, built from the same table.
 
 Every route is under `/conversations`, and every request carries `Authorization: Bearer <token>`.
 
-| Request                                          | Answer                                                  |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| `GET /conversations`                             | `{ conversations }`: each live one, oldest first        |
-| `POST /conversations`, `{ messages? }`           | `201 { id }`: a new conversation, continuing `messages` |
-| `GET /conversations/:id`                         | its run: workspace, models, trust, the allow list       |
-| `PUT /conversations/:id/model`, `{ name }`       | `204`: one of its models, from the next model call      |
-| `POST /conversations/:id/prompts`                | the prompt's entries as SSE, ending with its `done`     |
-| `QUERY /conversations/:id/stream`                | every entry, as SSE, while the client stays             |
-| `POST /conversations/:id/stop`                   | `204`: the running prompt stops; history stays valid    |
-| `POST /conversations/:id/approvals/:approval`    | `204`: the waiting approval is answered                 |
-| `GET /conversations/:id/messages`                | `{ messages }`: the history, valid to continue from     |
-| `QUERY /conversations/:id/skills`, `{ search? }` | `{ skills }`: what a prompt can run, for a `/` menu     |
-| `DELETE /conversations/:id`                      | `204`: its prompts, tasks and processes stop; it's gone |
+| Request                                          | Answer                                                    |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `GET /conversations`                             | `{ conversations }`: each live one, oldest first          |
+| `POST /conversations`, `{ messages? }`           | `201 { id }`: a new conversation, continuing `messages`   |
+| `GET /conversations/:id`                         | its run: workspace, models, trust, the allow list         |
+| `PUT /conversations/:id/model`, `{ id }`         | `204`: one of its models, by id, from the next model call |
+| `POST /conversations/:id/prompts`                | the prompt's entries as SSE, ending with its `done`       |
+| `QUERY /conversations/:id/stream`                | every entry, as SSE, while the client stays               |
+| `POST /conversations/:id/stop`                   | `204`: the running prompt stops; history stays valid      |
+| `POST /conversations/:id/approvals/:approval`    | `204`: the waiting approval is answered                   |
+| `GET /conversations/:id/messages`                | `{ messages }`: the history, valid to continue from       |
+| `QUERY /conversations/:id/skills`, `{ search? }` | `{ skills }`: what a prompt can run, for a `/` menu       |
+| `DELETE /conversations/:id`                      | `204`: its prompts, tasks and processes stop; it's gone   |
 
 Bodies are the protocol's schemas (`@sheavly/protocol/server/`), validated with the same objects a
 client parses with. A prompt is `{ text }` (`/<name>` mentions run skills) or `{ parts }` (exactly
@@ -92,7 +92,7 @@ Every failure is `{ error: { code, message } }` (`ServerError`):
 | 404    | `unknown_approval` | no approval waiting with that id                       |
 | 409    | `session_running`  | a prompt is still running in that conversation         |
 | 422    | `unknown_skill`    | `parts` picked a skill no one has                      |
-| 422    | `unknown_model`    | `PUT /model` named a model the conversation hasn't     |
+| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't       |
 | 500    | `internal`         | the server failed; the message never holds its details |
 
 A prompt that can't start is answered with an error before its stream opens.

@@ -11,6 +11,9 @@ import {
   switchModelRequestSchema,
 } from '../server.validator.js';
 
+/** A model's id: a lowercase UUID, the only thing a switch is keyed by. */
+const FAST = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
+
 describe('sendPromptRequestSchema', () => {
   it('takes text from a script, or parts from a UI', () => {
     expect(sendPromptRequestSchema.parse({ text: 'fix it /git' })).toEqual({ text: 'fix it /git' });
@@ -69,7 +72,7 @@ describe('the other requests', () => {
 
 describe('the responses', () => {
   it('describes a conversation’s run, with the models it can switch to', () => {
-    const model = { name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
+    const model = { id: FAST, name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
     const details = {
       id: 'c1',
       title: 'Chat',
@@ -87,7 +90,20 @@ describe('the responses', () => {
     expect(conversationDetailsSchema.safeParse({ ...details, projectTrust: 'maybe' }).success).toBe(
       false,
     );
-    expect(switchModelRequestSchema.safeParse({ name: '' }).success).toBe(false);
+    expect(
+      conversationDetailsSchema.safeParse({ ...details, model: { ...model, id: undefined } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('switches models by id: a name is a label, and never switches anything', () => {
+    expect(switchModelRequestSchema.parse({ id: FAST })).toEqual({ id: FAST });
+    expect(switchModelRequestSchema.safeParse({ name: 'fast' }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: 'fast' }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: FAST.toUpperCase() }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: FAST, name: 'fast' }).data).toEqual({
+      id: FAST,
+    });
   });
 
   it('lists live conversations with what another UI needs to join one', () => {

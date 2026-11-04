@@ -3,8 +3,12 @@ import type {
   adapterDescriptionSchema,
   keyCheckSchema,
   modelFileSchema,
+  modelIdSchema,
   modelSchema,
 } from './model.validator.js';
+
+/** A model's id: a lowercase UUID, which names the model wherever one is picked or switched to. */
+export type ModelId = z.infer<typeof modelIdSchema>;
 
 /** A model as its file holds it. */
 export type ModelFile = z.infer<typeof modelFileSchema>;

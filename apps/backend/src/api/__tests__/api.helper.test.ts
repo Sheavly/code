@@ -4,9 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { API_ROUTES } from '@sheavly/protocol/api/api.constants';
 import { createClient } from '@sheavly/client/client/client.helper';
 import { readEntries } from '@sheavly/client/client/entries.helper';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { reply, testApi } from '../../testing/api.fake.js';
 import { TEST_TOKEN } from '../../testing/testing.constants.js';
 import { honoPath } from '../api.utils.js';
+
+/** A well-formed id that no conversation's models have. */
+const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 describe('the API’s guards', () => {
   it('refuses a request without the token, or with a wrong one, before any route runs', async () => {
@@ -236,7 +240,9 @@ describe('over real HTTP, with the client UIs use', () => {
     const client = createClient({ url, token: TEST_TOKEN });
     const { id } = await client.call('startConversation', { body: {} });
 
-    await expect(client.send('switchModel', { id, body: { name: 'huge' } })).rejects.toMatchObject({
+    await expect(
+      client.send('switchModel', { id, body: { id: modelIdSchema.parse(UNKNOWN_ID) } }),
+    ).rejects.toMatchObject({
       name: 'RefusedError',
       status: 422,
       code: 'unknown_model',

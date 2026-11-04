@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -17,7 +18,7 @@ const entry = (seq: number): StreamEntry => ({
 const stored = (conversationId: typeof id, startedAt: number) => ({
   id: conversationId,
   title: 'Chat',
-  model: 'gpt',
+  modelId: modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30'),
   status: 'open' as const,
   startedAt,
   updatedAt: startedAt,

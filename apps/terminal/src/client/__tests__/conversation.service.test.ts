@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fakeServer } from '@sheavly/client/testing/fake-server.fake';
 import type { FakeHandlers } from '@sheavly/client/testing/testing.types';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -8,6 +9,9 @@ import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { RemoteConversation } from '../conversation.service.js';
 
 const ID = conversationIdSchema.parse('c1');
+/** Two models' ids: the backend has `DEEP` and not `OTHER`. */
+const DEEP = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
+const OTHER = '00000000-0000-4000-8000-000000000000';
 const MAIN = sessionIdSchema.parse('main');
 const SESSION = { id: MAIN, rootId: MAIN, depth: 1 };
 
@@ -85,16 +89,25 @@ describe('RemoteConversation', () => {
     });
   });
 
-  it('switches to a model, and says false for one the backend hasn’t, without throwing', async () => {
+  it('switches to a model by id, and says false for one the backend hasn’t, without throwing', async () => {
     const { conversation } = await open({
       switchModel: ({ body }) =>
-        (body as { name: string }).name === 'deep'
+        (body as { id: string }).id === DEEP
           ? undefined
           : { refuse: { status: 422, code: 'unknown_model' } },
     });
 
-    expect(await conversation.useModel('deep')).toBe(true);
-    expect(await conversation.useModel('huge')).toBe(false);
+    expect(await conversation.useModel(modelIdSchema.parse(DEEP))).toBe(true);
+    expect(await conversation.useModel(modelIdSchema.parse(OTHER))).toBe(false);
+  });
+
+  it('sends the id and nothing else: the label is never what is switched by', async () => {
+    const { conversation, server } = await open({ switchModel: () => undefined });
+
+    await conversation.useModel(modelIdSchema.parse(DEEP));
+    expect(server.calls.find(({ name }) => name === 'switchModel')?.call.body).toEqual({
+      id: DEEP,
+    });
   });
 
   it('throws any other refusal, with the backend’s code', async () => {
@@ -102,7 +115,7 @@ describe('RemoteConversation', () => {
       switchModel: () => ({ refuse: { status: 404, code: 'not_found' } }),
     });
 
-    await expect(conversation.useModel('deep')).rejects.toMatchObject({
+    await expect(conversation.useModel(modelIdSchema.parse(DEEP))).rejects.toMatchObject({
       name: 'RefusedError',
       code: 'not_found',
     });

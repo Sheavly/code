@@ -15,8 +15,10 @@ has its own.
 - Ctrl+C stops the running message; history stays valid, and the next message continues from it.
   Pressed again while the message stops, it force-quits (after stopping what the conversation
   started); at the input line it quits. Either way, lines typed but not yet sent are dropped.
-- `/model` lists the models `MODELS` sets up and `/model <name>` switches to one, from the next
-  model call on, keeping the history ([several models](../../backend/docs/harness.md#several-models-on-azure)).
+- `/model` lists the models `MODELS` sets up, with their ids, and `/model <id or name>` switches to
+  one, from the next model call on, keeping the history
+  ([several models](../../backend/docs/harness.md#several-models-on-azure)). The switch is made by
+  id; a name only finds the model, and one that two models share is refused.
 - `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
   with the message, at the start (`/git submit`), in the middle or at the end
   (`review this, then /git`), including `disable-model-invocation` skills. A message that starts

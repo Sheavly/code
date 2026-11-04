@@ -55,8 +55,10 @@ No package has any of these: another backend reads its own settings and composes
 ## Several models on Azure
 
 `MODELS` names the models to set up, comma-separated; a conversation starts on the first, and
-`/model <name>` switches between them (from the next model call; the conversation keeps its
-history). Each name's keys are named after it, upper-cased with `-` as `_` (`deepseek-flash` reads
+`/model <id or name>` switches between them (from the next model call; the conversation keeps its
+history). A model is its id, a UUID made from its name here, so it is the same on every start; the
+name is the label a UI shows, and a name two models share is not enough to switch by (the chat asks
+for the id). Each name's keys are named after it, upper-cased with `-` as `_` (`deepseek-flash` reads
 `DEEPSEEK_FLASH_*`), so each model has its own key, endpoint and deployment:
 
 - `<NAME>_ADAPTER`: `azure-openai` (the Responses API: GPT, DeepSeek and other Foundry models) or

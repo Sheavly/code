@@ -12,6 +12,7 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createConversation } from '../../conversation/conversation.helper.js';
 import { createHarness } from '../../host/host.helper.js';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
+import { DEEP_ID, FAST_ID } from '../../testing/run.fake.js';
 import { Conversations } from '../conversations.service.js';
 
 /** A conversation that ran one prompt on `store` and was closed, as a process that ended well. */
@@ -37,6 +38,18 @@ const settled = async (
 describe('Conversations with a store', () => {
   const clock = useFixedClock();
 
+  it('keeps the model last used by id, so a switch is what a reopened conversation finds', async () => {
+    const store = new MemoryConversationStore();
+    const { conversations } = setup({ store, replies: [] });
+    const id = await conversations.start();
+
+    conversations.useModel({ id, modelId: DEEP_ID });
+    await settled(conversations, id);
+
+    // Both models are labelled "Astra": the index could not say which, the id does.
+    expect(await conversations.listStored()).toMatchObject([{ id, modelId: DEEP_ID }]);
+  });
+
   it('keeps a conversation as it runs: its index, history and stream', async () => {
     const store = new MemoryConversationStore();
     const { conversations } = setup({ store, replies: [say('hello')] });
@@ -47,7 +60,7 @@ describe('Conversations with a store', () => {
     await settled(conversations, id);
 
     expect(await conversations.listStored()).toMatchObject([
-      { id, title: 'Chat', model: 'fast', status: 'open' },
+      { id, title: 'Chat', modelId: FAST_ID, status: 'open' },
     ]);
     expect((await store.readMessages(id)).map((m) => [m.role, m.content])).toEqual([
       ['user', 'hi'],
@@ -144,7 +157,7 @@ describe('Conversations with a store', () => {
     await store.writeIndex({
       id,
       title: 'Chat',
-      model: 'fast',
+      modelId: FAST_ID,
       status: 'open',
       startedAt: 1,
       updatedAt: 2,

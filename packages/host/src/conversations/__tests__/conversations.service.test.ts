@@ -3,8 +3,10 @@ import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { describe, expect, it } from 'vitest';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { ConversationsError } from '../../errors/conversations.errors.js';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
+import { DEEP_ID, FAST_ID } from '../../testing/run.fake.js';
 
 describe('Conversations', () => {
   const clock = useFixedClock();
@@ -49,18 +51,35 @@ describe('Conversations', () => {
       title: 'Chat',
       running: false,
       workspace: '/work',
-      model: { name: 'fast' },
-      models: [{ name: 'fast' }, { name: 'deep' }],
+      model: { id: FAST_ID },
+      models: [{ id: FAST_ID }, { id: DEEP_ID }],
     });
-    conversations.useModel({ id, name: 'deep' });
+    conversations.useModel({ id, modelId: DEEP_ID });
     expect(conversations.details(id).model).toEqual({
-      name: 'deep',
+      id: DEEP_ID,
+      name: 'Astra',
       adapter: 'azure-openai',
       model: 'gpt-5',
     });
-    expect(() => conversations.useModel({ id, name: 'huge' })).toThrow(
+  });
+
+  it('switches by id only: models may share a label, and a label is not an id', async () => {
+    const { conversations } = setup({ replies: [] });
+    const id = await conversations.start();
+    const unknown = modelIdSchema.parse('00000000-0000-4000-8000-000000000000');
+
+    // Both are "Astra": the label can't say which, the id can.
+    expect(conversations.details(id).models.map((model) => model.name)).toEqual(['Astra', 'Astra']);
+    conversations.useModel({ id, modelId: DEEP_ID });
+    expect(conversations.details(id).model.id).toBe(DEEP_ID);
+    conversations.useModel({ id, modelId: FAST_ID });
+    expect(conversations.details(id).model.id).toBe(FAST_ID);
+    expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(
       expect.objectContaining({ reason: 'unknown_model' }),
     );
+    // The refusal names the id it was given, not a label.
+    expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(unknown);
+    expect(conversations.details(id).model.id).toBe(FAST_ID);
   });
 
   it('runs a prompt’s skills, keeping what the user typed on the history', async () => {

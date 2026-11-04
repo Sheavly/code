@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
+import { adapterKindSchema, modelIdSchema } from '../model/model.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
@@ -37,10 +38,15 @@ export const conversationsResponseSchema = z.object({
   conversations: z.array(conversationSummarySchema),
 });
 
-/** A model a conversation can use: the name a UI switches with, its backend and deployment. */
+/**
+ * A model a conversation can use. `id` is what names it, in a switch and everywhere else; `name`
+ * is the label a UI shows (two models may share one), `adapter` its backend, `model` what that
+ * backend calls it (the model or the deployment).
+ */
 export const modelChoiceSchema = z.object({
+  id: modelIdSchema,
   name: z.string(),
-  adapter: z.string(),
+  adapter: adapterKindSchema,
   model: z.string(),
 });
 
@@ -58,8 +64,11 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
   skipAllowList: z.boolean(),
 });
 
-/** `PUT /conversations/:id/model`: switch to one of `models`, from the next model call on. */
-export const switchModelRequestSchema = z.object({ name: z.string().min(1) });
+/**
+ * `PUT /conversations/:id/model`: switch to the one of `models` with this `id`, from the next
+ * model call on. A name is a label and never switches anything.
+ */
+export const switchModelRequestSchema = z.object({ id: modelIdSchema });
 
 /**
  * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in

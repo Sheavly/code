@@ -1,6 +1,7 @@
 import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { ChatInput } from './chat.types.js';
 
@@ -32,15 +33,45 @@ export function unknownCommand(params: { text: string; unknown: string[] }): str
   return unknown.find((name) => new RegExp(`^/${name}(\\s|$)`).test(text));
 }
 
-/** What `/model` prints: each model in `MODELS`, the active one marked. */
-export function listModels(params: { choices: ModelChoice[]; active: string | undefined }): string {
+/** What `/model` prints: each model in `MODELS`, the active one marked, with the id to switch by. */
+export function listModels(params: {
+  choices: ModelChoice[];
+  active: ModelId | undefined;
+}): string {
   const { choices, active } = params;
 
   return choices
     .map(
-      ({ name, adapter, model }) => `${name === active ? '●' : '○'} ${name}: ${adapter} / ${model}`,
+      ({ id, name, adapter, model }) =>
+        `${id === active ? '●' : '○'} ${name}: ${adapter} / ${model} (${id})`,
     )
     .join('\n');
+}
+
+/**
+ * Which model the user means by what they typed after `/model`: an id picks that model, and a
+ * label picks the model it names. Only the id is the model; a label is a way to find it, so a
+ * label two models share picks none (`ambiguous`, with those models) and the user is asked for
+ * the id. The reply carries the id the switch is sent with.
+ */
+export function pickModel(params: {
+  choices: ModelChoice[];
+  typed: string;
+}):
+  | { kind: 'found'; choice: ModelChoice }
+  | { kind: 'ambiguous'; choices: ModelChoice[] }
+  | { kind: 'none' } {
+  const { choices, typed } = params;
+  const byId = choices.find((choice) => choice.id === typed);
+
+  if (byId) return { kind: 'found', choice: byId };
+
+  const [first, ...others] = choices.filter((choice) => choice.name === typed);
+
+  if (first && others.length === 0) return { kind: 'found', choice: first };
+  if (first) return { kind: 'ambiguous', choices: [first, ...others] };
+
+  return { kind: 'none' };
 }
 
 /**

@@ -4,6 +4,8 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
+import { modelIdOfEnvName } from '../model-id.utils.js';
 import { servedConversation } from '../served.helper.js';
 import { parseCliSettings, parseRunEnv } from '../settings.validator.js';
 
@@ -53,12 +55,15 @@ describe('servedConversation', () => {
 
     expect(conversations.details(id)).toMatchObject({
       workspace: expect.stringContaining('project') as string,
-      model: { name: 'gpt-x', adapter: 'openai', model: 'gpt-x' },
+      model: { id: modelIdOfEnvName('gpt-x'), name: 'gpt-x', adapter: 'openai', model: 'gpt-x' },
       models: [],
       projectTrust: 'no_hooks',
       skipAllowList: false,
     });
-    expect(() => conversations.useModel({ id, name: 'other' })).toThrow('No model other');
+    // The label of the one model is no model to switch to.
+    expect(() => conversations.useModel({ id, modelId: modelIdOfEnvName('other') })).toThrow(
+      'No model with id',
+    );
     await conversations.closeAll();
   });
 
@@ -67,11 +72,13 @@ describe('servedConversation', () => {
     const { conversations } = serve(env);
     const a = await conversations.start();
     const b = await conversations.start();
+    const [fast, deep] = ['fast', 'deep'].map(modelIdOfEnvName) as [ModelId, ModelId];
 
+    expect(conversations.details(a).models.map(({ id }) => id)).toEqual([fast, deep]);
     expect(conversations.details(a).models.map(({ name }) => name)).toEqual(['fast', 'deep']);
-    conversations.useModel({ id: a, name: 'deep' });
-    expect(conversations.details(a).model.name).toBe('deep');
-    expect(conversations.details(b).model.name).toBe('fast');
+    conversations.useModel({ id: a, modelId: deep });
+    expect(conversations.details(a).model).toMatchObject({ id: deep, name: 'deep' });
+    expect(conversations.details(b).model).toMatchObject({ id: fast, name: 'fast' });
     await conversations.closeAll();
   });
 

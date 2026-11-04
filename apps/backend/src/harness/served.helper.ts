@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { LiveConversation } from '@sheavly/host/conversations/conversations.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { terminalConversation } from './conversation.helper.js';
 import { createTerminalHarness } from './harness.helper.js';
@@ -55,7 +56,7 @@ export async function servedConversation(params: {
         projectTrust: harness.projectTrust,
         skipAllowList: settings.skipAllowList,
       }),
-      useModel: (name) => useModel({ providerSettings, name }),
+      useModel: (id) => useModel({ providerSettings, id }),
     },
   };
 }
@@ -76,20 +77,22 @@ function modelCallsTo(params: { settings: ServedSettings; log: (text: string) =>
 
 /** The model in use and the ones to switch to: one, named by its model, when MODELS is unset. */
 function modelsOf(settings: ProviderSettings) {
-  const { adapter, model, models } = settings;
+  const { id, adapter, model, models } = settings;
+  const only = { id, name: model, adapter, model };
 
-  if (!models) return { model: { name: model, adapter, model }, models: [] };
+  if (!models) return { model: only, models: [] };
 
-  const active = models.choices.find((choice) => choice.name === models.switch.active);
+  const active = models.choices.find((choice) => choice.id === models.switch.active);
 
-  return { model: active ?? { name: model, adapter, model }, models: models.choices };
+  return { model: active ?? only, models: models.choices };
 }
 
-function useModel(params: { providerSettings: ProviderSettings; name: string }): boolean {
-  const { models } = params.providerSettings;
+function useModel(params: { providerSettings: ProviderSettings; id: ModelId }): boolean {
+  const { providerSettings, id } = params;
+  const { models } = providerSettings;
 
-  if (!models?.choices.some((choice) => choice.name === params.name)) return false;
-  models.switch.use(params.name);
+  if (!models?.choices.some((choice) => choice.id === id)) return false;
+  models.switch.use(id);
 
   return true;
 }

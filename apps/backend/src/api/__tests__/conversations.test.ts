@@ -4,7 +4,11 @@ import { MemoryConversationStore } from '@sheavly/testing/store/memory-store.fak
 import { readEntries } from '@sheavly/client/client/entries.helper';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { DEEP_ID, FAST_ID } from '@sheavly/host/testing/run.fake';
 import { reply, testApi } from '../../testing/api.fake.js';
+
+/** A well-formed id that no conversation's models have. */
+const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 const calls = (name: string) => () => [
   toolCall({ id: 'c1', name, input: {} }),
@@ -204,25 +208,35 @@ describe('a conversation over HTTP', () => {
     expect(results[0]).toMatch(/listening/);
   });
 
-  it('describes a conversation, and switches its model only to one it has', async () => {
+  it('describes a conversation, and switches its model by id, only to one it has', async () => {
     const { request, start } = testApi({});
     const id = await start();
-    const switchTo = (name: string) =>
-      request(`/conversations/${id}/model`, { method: 'PUT', body: { name } });
+    const switchTo = (body: object) =>
+      request(`/conversations/${id}/model`, { method: 'PUT', body });
 
     expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
       id,
       workspace: '/work',
-      model: { name: 'fast' },
+      model: { id: FAST_ID, name: 'Astra' },
     });
-    expect((await switchTo('deep')).status).toBe(204);
+    expect((await switchTo({ id: DEEP_ID })).status).toBe(204);
     expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
-      model: { name: 'deep', adapter: 'azure-openai' },
+      model: { id: DEEP_ID, name: 'Astra', adapter: 'azure-openai' },
     });
-    expect(await (await switchTo('huge')).json()).toMatchObject({
+    // A well-formed id nobody has: the backend's refusal.
+    expect(await (await switchTo({ id: UNKNOWN_ID })).json()).toMatchObject({
       error: { code: 'unknown_model' },
     });
-    expect((await switchTo('')).status).toBe(400);
+
+    // Not an id at all: a name (both models are called "Astra"), nothing, or a wrong shape.
+    for (const body of [{ name: 'Astra' }, {}, { id: 'Astra' }, { id: DEEP_ID.toUpperCase() }]) {
+      expect((await switchTo(body)).status, JSON.stringify(body)).toBe(400);
+    }
+
+    // The model in use is still the one the last good switch chose.
+    expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
+      model: { id: DEEP_ID },
+    });
   });
 
   it('answers a conversation whose storage failed with storage_failed, not a prompt run', async () => {

@@ -66,7 +66,9 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
   rename by hand is refused, not served under another id.
 - It has a **name** for people (`Astra 6`), free text, required because the file name says nothing.
   It is only a label: it is never sent to a provider and nothing is keyed by it, so two models can
-  share one, and a UI shows whatever it likes.
+  share one, and a UI shows whatever it likes. A model is picked, switched to and stored (a
+  conversation's `modelId`) by its id on every route and in every file; where a person types a
+  name, the client finds the model by it and sends the id, and asks which when it finds two.
 - What the **provider calls the model** is a different thing, one of the adapter's own fields
   (`model` for OpenAI, `deployment` for Azure). `AdapterDescription.remoteField` says which, for an
   adapter that has one, so a UI can show both ("Astra 6", gpt-5) without knowing each adapter's

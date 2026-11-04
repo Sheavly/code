@@ -14,6 +14,7 @@ import { matchesSearch } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
   ConversationId,
@@ -147,16 +148,21 @@ export class Conversations {
     return { ...this.#summary(id), ...run.details() };
   }
 
-  /** Switches conversation `id` to the model `name` from its next model call, or `unknown_model`. */
-  useModel(params: { id: ConversationId; name: string }): void {
-    const { id, name } = params;
+  /**
+   * Switches conversation `id` to the model `modelId` from its next model call, or throws
+   * `unknown_model`. A kept conversation's index follows, so reopening finds the model last used.
+   */
+  useModel(params: { id: ConversationId; modelId: ModelId }): void {
+    const { id, modelId } = params;
 
-    if (!this.get(id).run?.useModel(name)) {
+    if (!this.get(id).run?.useModel(modelId)) {
       throw new ConversationsError({
         reason: 'unknown_model',
-        message: `No model ${name} in conversation ${id}; its details list the models`,
+        message: `No model with id ${modelId} in conversation ${id}; its details list the models`,
       });
     }
+
+    this.#keepers.get(id)?.keepIndex({ modelId });
   }
 
   #summary(id: ConversationId): ConversationSummary {
@@ -203,11 +209,12 @@ export class Conversations {
   #begin(params: { id: ConversationId; keeper: ConversationKeeper | undefined }): void {
     const { id, keeper } = params;
     const summary = this.#summary(id);
+    const modelId = this.get(id).run?.details().model.id;
 
     keeper?.begin({
       id,
       title: summary.title,
-      model: this.get(id).run?.details().model.name ?? '',
+      ...(modelId !== undefined && { modelId }),
       status: 'open',
       startedAt: summary.startedAt,
       updatedAt: now(),

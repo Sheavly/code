@@ -9,6 +9,7 @@ import { TRUST_STORE_PATH } from './harness.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelSwitch, ProviderSettings } from './harness.types.js';
 import { parseModelsEnv } from './models.validator.js';
+import { modelIdOfEnvName } from './model-id.utils.js';
 import { parseProviderEnv, parseRequestEnv } from './settings.validator.js';
 
 /**
@@ -26,13 +27,20 @@ export function providerFromEnv(environment: Environment): ProviderSettings {
   if (models) {
     const [first] = models.choices as [ModelChoice, ...ModelChoice[]];
 
-    return { adapter: first.adapter, model: first.model, provider: models.switch, models };
+    return {
+      id: first.id,
+      adapter: first.adapter,
+      model: first.model,
+      provider: models.switch,
+      models,
+    };
   }
 
   const env = parseProviderEnv(environment);
 
   if (env.ADAPTER === 'azure-openai') {
     return {
+      id: modelIdOfEnvName(env.AZURE_OPENAI_DEPLOYMENT),
       adapter: 'azure-openai',
       model: env.AZURE_OPENAI_DEPLOYMENT,
       provider: registry.create('azure-openai', {
@@ -46,6 +54,7 @@ export function providerFromEnv(environment: Environment): ProviderSettings {
   }
 
   return {
+    id: modelIdOfEnvName(env.MODEL),
     adapter: 'openai',
     model: env.MODEL,
     provider: registry.create('openai', { apiKey: env.OPENAI_API_KEY, model: env.MODEL, request }),
@@ -80,8 +89,11 @@ function modelsFromEnv(params: {
         ? { ...shared, apiVersion: settings.API_VERSION, reasoning: settings.REASONING }
         : { ...shared, maxTokens: settings.MAX_TOKENS, thinkingBudget: settings.THINKING_BUDGET };
 
-    models.switch.add(name, registry.create(settings.ADAPTER, config));
-    models.choices.push({ name, adapter: settings.ADAPTER, model: settings.DEPLOYMENT });
+    // The switch is keyed by id, the one thing that names a model; the name is only its label.
+    const id = modelIdOfEnvName(name);
+
+    models.switch.add(id, registry.create(settings.ADAPTER, config));
+    models.choices.push({ id, name, adapter: settings.ADAPTER, model: settings.DEPLOYMENT });
   }
 
   return models;
