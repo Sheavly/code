@@ -64,7 +64,7 @@ flowchart BT
   loop --> runtime
   providers --> core
   runtime --> core
-  server --> host
+  server --> protocol
   terminal --> coding
   terminal --> server
   tools --> runtime
