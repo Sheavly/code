@@ -16,8 +16,13 @@ const TERMINAL_IO_MESSAGE =
  * `\`. A message that only mentions the name in a sentence is not a path and is not matched.
  */
 const CREDENTIALS_PATH = '/(^|[\\\\\\u002F])credentials\\.json$/i';
-/** The credential store's modules, imported by package subpath. */
-const CREDENTIAL_STORE_MODULES = '/^@sheavly\\u002Fstorage\\u002Fcredential-store\\u002F/';
+/**
+ * The modules that hand out keys, imported by package subpath: the credential store itself, and
+ * the profile registry, whose open profiles read and set them. Whatever can import either can
+ * read a key, so both are on this list.
+ */
+const KEY_HOLDER_MODULES =
+  '/^@sheavly\\u002Fstorage\\u002F(credential-store|profile-registry)\\u002F/';
 
 export const SYNTAX_RULES = {
   'no-default-export': [
@@ -110,11 +115,11 @@ export const SYNTAX_RULES = {
         'Do not name the credentials file (`credentials.json`). Keys are read and written through `CredentialStore` (`@sheavly/storage/credential-store/credential-store.service`), which refuses a file others can read and never puts a key in an error. Only the backend app uses it; any other code asks the backend (a UI) or is given the secret it needs as an option.',
     },
   ],
-  'no-credential-store-import': [
+  'no-key-holder-import': [
     {
-      selector: `ImportDeclaration[source.value=${CREDENTIAL_STORE_MODULES}], ImportExpression[source.value=${CREDENTIAL_STORE_MODULES}]`,
+      selector: `ImportDeclaration[source.value=${KEY_HOLDER_MODULES}], ImportExpression[source.value=${KEY_HOLDER_MODULES}]`,
       message:
-        "Only the backend app (apps/backend) uses the credential store: it is where a key is read and handed to a provider. Other code never holds a key: a UI sets one through the backend's API, and a package is given what it needs as an option. In the backend, turn this rule off for the one module that holds keys, with a `files:` override and its reason in apps/backend/eslint.config.js.",
+        "Only the backend app (apps/backend) imports the credential store or the profile registry: it is where a key is read and handed to a provider. Other code never holds a key: a UI sets one through the backend's API, and a package is given what it needs as an option. In the backend, turn this rule off for the one module that holds keys, with a `files:` override and its reason in apps/backend/eslint.config.js.",
     },
   ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built

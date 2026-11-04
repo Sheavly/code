@@ -97,7 +97,7 @@ export function baseConfig(params) {
         // Keys are read through `CredentialStore`, and only by the backend: nothing else names
         // the credentials file or imports the store. An exception is a `files:` override.
         'harness/no-credentials-file': 'error',
-        'harness/no-credential-store-import': 'error',
+        'harness/no-key-holder-import': 'error',
       },
     },
 

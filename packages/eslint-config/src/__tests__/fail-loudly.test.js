@@ -184,21 +184,29 @@ ruleTester.run('no-credentials-file', harnessPlugin.rules['no-credentials-file']
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
 
-ruleTester.run('no-credential-store-import', harnessPlugin.rules['no-credential-store-import'], {
+ruleTester.run('no-key-holder-import', harnessPlugin.rules['no-key-holder-import'], {
   valid: [
     "import { ModelStore } from '@sheavly/storage/model-store/model-store.service';",
     "import { ConfigStore } from '@sheavly/storage/config-store/config-store.service';",
+    "import { ProfileStore } from '@sheavly/storage/profile-store/profile-store.service';",
     "import { readJsonFile } from '@sheavly/storage/json-file/json-file.helper';",
     // Another package's module that happens to be named alike.
     "import { CredentialStore } from './credential-store.service.js';",
     "import { x } from '@sheavly/core/credential-store/x.helper';",
+    "import { x } from '@sheavly/core/profile-registry/x.helper';",
     "import { x } from '@sheavly/storage-extras/credential-store/x.service';",
+    "import { x } from '@sheavly/storage/profile-registry-extras/x.service';",
   ],
   invalid: [
+    // The credential store, whatever file kind of it is imported.
     "import { CredentialStore } from '@sheavly/storage/credential-store/credential-store.service';",
     "import type { Secrets } from '@sheavly/storage/credential-store/credential-store.types';",
     "import { credentialsFileSchema } from '@sheavly/storage/credential-store/credential-store.validator';",
     "const { CredentialStore } = await import('@sheavly/storage/credential-store/credential-store.service');",
+    // The profile registry hands out the same keys through an open profile: the same door.
+    "import { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';",
+    "import type { OpenProfile } from '@sheavly/storage/profile-registry/profile-registry.types';",
+    "const { ProfileRegistry } = await import('@sheavly/storage/profile-registry/profile-registry.service');",
   ].map((code) => ({
     code,
     languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },

@@ -200,14 +200,14 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
       ).toEqual([]);
     });
 
-    it('keeps the credential store imported only by the backend app', async () => {
+    it('keeps the key holders imported only by the backend app', async () => {
       expect(
         await filesWithRuleOff({
           dir,
-          rule: 'harness/no-credential-store-import',
+          rule: 'harness/no-key-holder-import',
           allowed: BACKEND_FILES,
         }),
-        `${name} lets files outside the backend app import the credential store. Only the backend reads a key: ask it over the API, or take the secret as an option.`,
+        `${name} lets files outside the backend app import the credential store or the profile registry. Only the backend reads a key: ask it over the API, or take the secret as an option.`,
       ).toEqual([]);
     });
 

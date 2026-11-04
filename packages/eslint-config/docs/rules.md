@@ -67,12 +67,14 @@ switches off exactly one, on the files it is for, with a reason.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.
-- **Keys** (`harness/no-credentials-file` and `harness/no-credential-store-import`, every file,
+- **Keys** (`harness/no-credentials-file` and `harness/no-key-holder-import`, every file,
   tests included): the credentials file holds every model's key, so only `CredentialStore`
-  (`@sheavly/storage`) reads it, and only the backend app uses the store. No other code names
-  `credentials.json` (in any case, with either separator, in a string or a template), and none
-  imports `@sheavly/storage/credential-store/*`. The store refuses a file others can read, never
-  puts a key in an error and queues writes; code that opens the file itself does none of that.
+  (`@sheavly/storage`) reads it, and only the backend app uses what hands keys out. No other code
+  names `credentials.json` (in any case, with either separator, in a string or a template), and
+  none imports `@sheavly/storage/credential-store/*` or `@sheavly/storage/profile-registry/*`: an
+  open profile of the registry reads and sets keys, so it is the same door. The store refuses a
+  file others can read, never puts a key in an error and queues writes; code that opens the file
+  itself does none of that.
   The exceptions are `files:` overrides, each in the workspace's `eslint.config.js` with its
   reason: the credential store's own folder may name the file, and the backend app's one module
   that holds keys may import the store (the override goes in with the module that first needs
