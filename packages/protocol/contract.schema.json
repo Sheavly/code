@@ -279,7 +279,8 @@
           "properties": {
             "role": { "type": "string", "const": "user" },
             "content": { "type": "string" },
-            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } }
+            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "content"]
         },
@@ -289,7 +290,8 @@
             "role": { "type": "string", "const": "assistant" },
             "content": { "type": "string" },
             "toolCalls": { "type": "array", "items": { "$ref": "#/$defs/ToolCall" } },
-            "reasoning": { "type": "array", "items": { "$ref": "#/$defs/ReasoningItem" } }
+            "reasoning": { "type": "array", "items": { "$ref": "#/$defs/ReasoningItem" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "content", "toolCalls"]
         },
@@ -299,7 +301,8 @@
             "role": { "type": "string", "const": "tool" },
             "toolCallId": { "$ref": "#/$defs/CallId" },
             "content": { "type": "string" },
-            "isError": { "type": "boolean" }
+            "isError": { "type": "boolean" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "toolCallId", "content", "isError"]
         }
@@ -369,8 +372,8 @@
         "status": { "type": "string" },
         "state": { "$ref": "#/$defs/SessionState" },
         "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
-        "startedAt": { "type": "number" },
-        "endedAt": { "type": "number" }
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["id", "rootId", "depth", "title", "state", "startedAt"]
     },
@@ -381,7 +384,7 @@
           "anyOf": [{ "type": "string", "const": "user" }, { "$ref": "#/$defs/SessionId" }]
         },
         "content": { "type": "string" },
-        "sentAt": { "type": "number" }
+        "sentAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["from", "content", "sentAt"]
     },
@@ -445,40 +448,44 @@
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "event" },
             "event": { "$ref": "#/$defs/EntryEvent" }
           },
-          "required": ["seq", "sessionId", "kind", "event"]
+          "required": ["seq", "sessionId", "at", "kind", "event"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "update" },
             "update": { "$ref": "#/$defs/SessionUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "approval" },
             "update": { "$ref": "#/$defs/ApprovalUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "task" },
             "update": { "$ref": "#/$defs/TaskUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         }
       ]
     },
@@ -491,8 +498,8 @@
         "command": { "type": "string" },
         "description": { "type": "string" },
         "status": { "$ref": "#/$defs/TaskStatus" },
-        "startedAt": { "type": "number" },
-        "endedAt": { "type": "number" },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "exitCode": {
           "anyOf": [
             { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
@@ -626,7 +633,7 @@
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
-        "startedAt": { "type": "number" }
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["id", "title", "session", "running", "startedAt"]
     },
@@ -653,7 +660,7 @@
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
-        "startedAt": { "type": "number" },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "workspace": { "type": "string" },
         "model": { "$ref": "#/$defs/ModelChoice" },
         "models": { "type": "array", "items": { "$ref": "#/$defs/ModelChoice" } },

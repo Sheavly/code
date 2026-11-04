@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { conversationIdSchema } from '../server/server.validator.js';
+import { timestampSchema } from '../time/time.validator.js';
 
 /**
  * Where a stored conversation stands. `open`: it was live when the index was last written.
@@ -18,8 +19,8 @@ export const storedConversationSchema = z.object({
   /** The model it ran on last, by the name a UI switches with. */
   model: z.string(),
   status: storedStatusSchema,
-  /** When it started (ms since the epoch). */
-  startedAt: z.number(),
-  /** When its last entry was written (ms since the epoch). */
-  updatedAt: z.number(),
+  /** When it started. */
+  startedAt: timestampSchema,
+  /** When its last entry was written. */
+  updatedAt: timestampSchema,
 });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { timestampSchema } from '../time/time.validator.js';
 
 /**
  * A session's id: the main session's and each sub-agent's. Branded, so it can't be passed where a
@@ -45,8 +46,8 @@ export const sessionInfoSchema = sessionRefSchema.extend({
   state: sessionStateSchema,
   /** How its last run ended: set once a run finishes, whether the session went idle or ended. */
   lastOutcome: runOutcomeSchema.exactOptional(),
-  startedAt: z.number(),
-  endedAt: z.number().exactOptional(),
+  startedAt: timestampSchema,
+  endedAt: timestampSchema.exactOptional(),
 });
 
 /** A message waiting in a session's inbox, delivered at its next model call. */
@@ -54,7 +55,7 @@ export const inboxMessageSchema = z.object({
   /** Who sent it: `'user'`, or the id of the session that sent it (an ancestor). */
   from: z.union([z.literal('user'), sessionIdSchema]),
   content: z.string(),
-  sentAt: z.number(),
+  sentAt: timestampSchema,
 });
 
 /** What a session registry tells its listeners (and what its SSE stream sends). */

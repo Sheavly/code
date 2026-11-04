@@ -3,6 +3,7 @@ import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
+import { timestampSchema } from '../time/time.validator.js';
 
 /**
  * A conversation's id on a server. Branded, so it can't be passed where a session's id goes
@@ -27,8 +28,8 @@ export const conversationSummarySchema = z.object({
   title: z.string(),
   session: sessionIdSchema,
   running: z.boolean(),
-  /** When it started (ms since the epoch). */
-  startedAt: z.number(),
+  /** When it started. */
+  startedAt: timestampSchema,
 });
 
 /** `GET /conversations`: every live conversation, oldest first. */
