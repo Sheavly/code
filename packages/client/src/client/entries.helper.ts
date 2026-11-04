@@ -3,7 +3,7 @@ import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
 /**
- * The entries of a server's SSE answer (a prompt's response, or `QUERY /stream`), in order, each
+ * The entries of a backend's SSE answer (a prompt's response, or `QUERY /stream`), in order, each
  * parsed with the protocol's schema. Heartbeats and other frames are skipped. Ends when the body
  * does; a client that stops early cancels it by breaking out of the loop.
  */

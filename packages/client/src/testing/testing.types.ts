@@ -5,7 +5,7 @@ import type { AnswerOf, EmptyRoute, JsonRoute, StreamRoute } from '../client/cli
 /** Test-only: what a fake route was called with: its path params and its parsed body. */
 export type FakeCall = { params: Record<string, string>; body: unknown };
 
-/** Test-only: a refusal a fake route answers with, as a server would. */
+/** Test-only: a refusal a fake route answers with, as a backend would. */
 export type FakeRefusal = { refuse: { status: number; code: ServerErrorCode; message?: string } };
 
 type Answer<T> = T | FakeRefusal | Promise<T | FakeRefusal>;

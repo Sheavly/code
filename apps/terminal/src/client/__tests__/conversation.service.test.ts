@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fakeServer } from '@sheavly/server/testing/fake-server.fake';
-import type { FakeHandlers } from '@sheavly/server/testing/testing.types';
+import { fakeServer } from '@sheavly/client/testing/fake-server.fake';
+import type { FakeHandlers } from '@sheavly/client/testing/testing.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -100,7 +100,7 @@ describe('RemoteConversation', () => {
     });
 
     await expect(conversation.useModel('deep')).rejects.toMatchObject({
-      name: 'ServerRefusedError',
+      name: 'RefusedError',
       code: 'not_found',
     });
   });

@@ -33,9 +33,6 @@
       "path": "../../packages/runtime/tsconfig.build.json"
     },
     {
-      "path": "../../packages/server/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/tools/tsconfig.build.json"
     },
     {

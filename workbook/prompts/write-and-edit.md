@@ -21,7 +21,7 @@ check:
         'apps/terminal/src/render',
         'apps/terminal/src/client',
         'apps/backend/src/serve.ts',
-        'packages/server/src',
+        'packages/client/src',
       ],
     'expect':
       {

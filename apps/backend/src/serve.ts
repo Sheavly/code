@@ -11,7 +11,7 @@
  * prints `→ listening on <url>`, the line a UI that started it waits for. Ctrl+C, SIGTERM, closing
  * the terminal or, with SERVER_EXIT_WITH_PARENT=true, its stdin closing (the UI that started it
  * is gone) stops it, and every conversation's prompts, tasks and processes with it. Calls the real
- * API, so it costs money. The routes: packages/server/docs.
+ * API, so it costs money. The routes: apps/backend/docs/api.md.
  */
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';

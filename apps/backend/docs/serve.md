@@ -71,5 +71,5 @@ curl -X POST -H "authorization: Bearer $T" $U/conversations/$ID/stop
 curl -X DELETE -H "authorization: Bearer $T" $U/conversations/$ID
 ```
 
-A TypeScript UI uses the typed client instead: `createServerClient({ url, token })` from
-`@sheavly/server/client/client.helper`, with `readEntries` for the streams.
+A TypeScript UI uses the typed client instead: `createClient({ url, token })` from
+`@sheavly/client/client/client.helper`, with `readEntries` for the streams.

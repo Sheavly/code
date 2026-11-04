@@ -1,11 +1,11 @@
 import type { ServerErrorCode } from '@sheavly/protocol/server/server.types';
 
 /**
- * A server refused a client's request: `code` is the protocol's reason (`not_found`,
+ * A backend refused a client's request: `code` is the protocol's reason (`not_found`,
  * `unknown_model`, …) when its body said one, for a UI to branch on; `status` the HTTP status.
  */
-export class ServerRefusedError extends Error {
-  override name = 'ServerRefusedError';
+export class RefusedError extends Error {
+  override name = 'RefusedError';
   readonly status: number;
   readonly code: ServerErrorCode | undefined;
 
@@ -19,15 +19,15 @@ export class ServerRefusedError extends Error {
 }
 
 /**
- * A server's answer didn't match the contract: the route's schema refused it. A client and server
- * that drifted apart fail here, loudly, instead of passing on data no type describes.
+ * A backend's answer didn't match the contract: the route's schema refused it. A client and
+ * backend that drifted apart fail here, loudly, instead of passing on data no type describes.
  */
-export class ServerAnswerError extends Error {
-  override name = 'ServerAnswerError';
+export class AnswerError extends Error {
+  override name = 'AnswerError';
 
   constructor(params: { route: string; cause: unknown }) {
     const { route, cause } = params;
 
-    super(`The server's answer to ${route} doesn't match the contract`, { cause });
+    super(`The backend's answer to ${route} doesn't match the contract`, { cause });
   }
 }

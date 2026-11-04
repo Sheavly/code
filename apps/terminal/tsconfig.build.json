@@ -12,6 +12,9 @@
   },
   "references": [
     {
+      "path": "../../packages/client/tsconfig.build.json"
+    },
+    {
       "path": "../../packages/coding/tsconfig.build.json"
     },
     {
@@ -22,9 +25,6 @@
     },
     {
       "path": "../../packages/runtime/tsconfig.build.json"
-    },
-    {
-      "path": "../../packages/server/tsconfig.build.json"
     },
     {
       "path": "../../packages/workspace/tsconfig.build.json"

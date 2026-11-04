@@ -2,8 +2,8 @@ import { serve } from '@hono/node-server';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { API_ROUTES } from '@sheavly/protocol/api/api.constants';
-import { createServerClient } from '@sheavly/server/client/client.helper';
-import { readEntries } from '@sheavly/server/client/entries.helper';
+import { createClient } from '@sheavly/client/client/client.helper';
+import { readEntries } from '@sheavly/client/client/entries.helper';
 import { reply, testApi } from '../../testing/api.fake.js';
 import { TEST_TOKEN } from '../../testing/testing.constants.js';
 import { honoPath } from '../api.utils.js';
@@ -150,7 +150,7 @@ describe('over real HTTP, with the client UIs use', () => {
 
   it('starts a conversation, streams a prompt over QUERY and SSE, and reads the history', async () => {
     const url = await listen();
-    const client = createServerClient({ url, token: TEST_TOKEN });
+    const client = createClient({ url, token: TEST_TOKEN });
     const { id } = await client.call('startConversation', { body: {} });
 
     // The stream is opened first: it sees the prompt's entries as they happen, over the socket.
@@ -178,8 +178,8 @@ describe('over real HTTP, with the client UIs use', () => {
 
   it('lets a second UI find a conversation another started, and follow it', async () => {
     const url = await listen();
-    const editor = createServerClient({ url, token: TEST_TOKEN });
-    const agentWindow = createServerClient({ url, token: TEST_TOKEN });
+    const editor = createClient({ url, token: TEST_TOKEN });
+    const agentWindow = createClient({ url, token: TEST_TOKEN });
     const { id } = await editor.call('startConversation', { body: {} });
     const listed = await agentWindow.call('listConversations', {});
     const found = listed.conversations.find((conversation) => conversation.id === id);
@@ -205,25 +205,25 @@ describe('over real HTTP, with the client UIs use', () => {
     expect(seen).toEqual(['hello']);
   });
 
-  it('refuses a request with the server’s code, and an answer off the contract loudly', async () => {
+  it('refuses a request with the backend’s code, and an answer off the contract loudly', async () => {
     const url = await listen();
-    const client = createServerClient({ url, token: TEST_TOKEN });
+    const client = createClient({ url, token: TEST_TOKEN });
     const { id } = await client.call('startConversation', { body: {} });
 
     await expect(client.send('switchModel', { id, body: { name: 'huge' } })).rejects.toMatchObject({
-      name: 'ServerRefusedError',
+      name: 'RefusedError',
       status: 422,
       code: 'unknown_model',
     });
-    // A server that answers something else than the route's schema says: caught at the client.
-    const drifted = createServerClient({
+    // A backend that answers something else than the route's schema says: caught at the client.
+    const drifted = createClient({
       url,
       token: TEST_TOKEN,
       fetch: async () => Response.json({ messages: 'not a list' }),
     });
 
     await expect(drifted.call('getMessages', { id })).rejects.toMatchObject({
-      name: 'ServerAnswerError',
+      name: 'AnswerError',
     });
   });
 

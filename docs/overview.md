@@ -35,13 +35,13 @@ dependencies only (not drawn). The diagram is generated from each workspace's `p
 ```mermaid
 flowchart BT
   subgraph group_generic ["generic packages"]
+    client["@sheavly/client"]
     core["@sheavly/core"]
     host["@sheavly/host"]
     loop["@sheavly/loop"]
     protocol["@sheavly/protocol"]
     providers["@sheavly/providers"]
     runtime["@sheavly/runtime"]
-    server["@sheavly/server"]
     tools["@sheavly/tools"]
   end
   subgraph group_coding ["coding packages"]
@@ -55,8 +55,8 @@ flowchart BT
   backend --> coding
   backend --> loop
   backend --> providers
-  backend --> server
   backend --> tools
+  client --> protocol
   coding --> host
   coding --> workspace
   core --> protocol
@@ -64,9 +64,8 @@ flowchart BT
   loop --> runtime
   providers --> core
   runtime --> core
-  server --> protocol
+  terminal --> client
   terminal --> coding
-  terminal --> server
   tools --> runtime
   workspace --> runtime
 ```

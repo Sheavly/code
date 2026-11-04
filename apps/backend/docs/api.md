@@ -5,7 +5,7 @@ How a UI in another process talks to the harness: over HTTP, to the conversation
 calling `Conversations` itself; they turn requests into calls and results into responses. They
 live in `src/api/`, one handler per route of `API_ROUTES` (`@sheavly/protocol/api/`): the table
 gives each its method, path and body schema, `ApiHandlers` makes a missing handler a type error,
-and a test fails for any route the app doesn't serve. A UI calls them with `@sheavly/server`'s
+and a test fails for any route the app doesn't serve. A UI calls them with `@sheavly/client`'s
 client, built from the same table.
 
 ## Routes

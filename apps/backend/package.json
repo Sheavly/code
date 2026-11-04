@@ -25,13 +25,13 @@
     "@sheavly/protocol": "^0.0.0",
     "@sheavly/providers": "^0.0.0",
     "@sheavly/runtime": "^0.0.0",
-    "@sheavly/server": "^0.0.0",
     "@sheavly/tools": "^0.0.0",
     "@sheavly/workspace": "^0.0.0",
     "hono": "^4.13.16",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@sheavly/client": "^0.0.0",
     "@sheavly/testing": "^0.0.0"
   }
 }

@@ -10,7 +10,7 @@ Each route is one call by name, its path params and body typed from the contract
 `QUERY` included:
 
 ```ts
-const client = createServerClient({ url, token });
+const client = createClient({ url, token });
 const { id } = await client.call('startConversation', { body: {} });
 const { skills } = await client.call('querySkills', { id, body: { search: 'review' } });
 
@@ -18,11 +18,11 @@ for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' }
 ```
 
 - `call`: a route that answers JSON. The answer is parsed with the route's schema, so ids keep
-  their brands, and one off the contract throws `ServerAnswerError`.
+  their brands, and one off the contract throws `AnswerError`.
 - `send`: a route that answers nothing (`204`).
 - `stream`: a route's server-sent events, as entries (`readEntries`: each `entry` frame parsed
   with `streamEntrySchema`, heartbeats skipped). `open` hands back the raw stream, to save.
-- A refused request throws `ServerRefusedError`, with the server's `code` (`not_found`,
+- A refused request throws `RefusedError`, with the backend's `code` (`not_found`,
   `unknown_model`, …) to branch on.
 
 The token goes in a header on every request, never in a URL. `fetch` can be passed in: a proxy,

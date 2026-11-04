@@ -1,7 +1,7 @@
 import { API_ROUTES, LAST_EVENT_ID_HEADER } from '@sheavly/protocol/api/api.constants';
 import type { RouteName } from '@sheavly/protocol/api/api.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { ServerAnswerError, ServerRefusedError } from '../errors/client.errors.js';
+import { AnswerError, RefusedError } from '../errors/client.errors.js';
 import type {
   AnswerOf,
   CallParams,
@@ -14,12 +14,12 @@ import { parseServerError } from './client.validator.js';
 import { readEntries } from './entries.helper.js';
 
 /**
- * A client for a harness server, built from the API's routes (`API_ROUTES`): one call per route,
+ * A client for a harness backend, built from the API's routes (`API_ROUTES`): one call per route,
  * its path params and body typed from the contract's schemas, and every JSON answer parsed with
- * the route's own schema, so ids keep their brands and a server that drifted from the contract
- * fails loudly. A refused request throws `ServerRefusedError` with the server's code.
+ * the route's own schema, so ids keep their brands and a backend that drifted from the contract
+ * fails loudly. A refused request throws `RefusedError` with the backend's code.
  */
-export function createServerClient(options: ClientOptions) {
+export function createClient(options: ClientOptions) {
   const send = (params: { name: RouteName; call: Record<string, unknown> }) =>
     request({ options, ...params });
 
@@ -30,7 +30,7 @@ export function createServerClient(options: ClientOptions) {
       const route = API_ROUTES[name];
       const parsed = route.response.schema.safeParse(await response.json());
 
-      if (!parsed.success) throw new ServerAnswerError({ route: name, cause: parsed.error });
+      if (!parsed.success) throw new AnswerError({ route: name, cause: parsed.error });
 
       return parsed.data as AnswerOf<N>;
     },
@@ -45,7 +45,7 @@ export function createServerClient(options: ClientOptions) {
     ): Promise<ReadableStream<Uint8Array>> {
       const response = await send({ name, call });
 
-      if (!response.body) throw new ServerAnswerError({ route: name, cause: 'no body' });
+      if (!response.body) throw new AnswerError({ route: name, cause: 'no body' });
 
       return response.body;
     },
@@ -90,9 +90,9 @@ async function request(params: {
 
   const refused = parseServerError(await response.text());
 
-  throw new ServerRefusedError({
+  throw new RefusedError({
     status: response.status,
     code: refused?.error.code,
-    message: refused?.error.message ?? `The server answered ${String(response.status)}`,
+    message: refused?.error.message ?? `The backend answered ${String(response.status)}`,
   });
 }

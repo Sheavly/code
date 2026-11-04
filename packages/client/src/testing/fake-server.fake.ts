@@ -20,7 +20,7 @@ const refusal = (refuse: FakeRefusal['refuse']) =>
     { status: refuse.status },
   );
 
-/** Test-only: a stream's entries as the server's SSE frames. */
+/** Test-only: a stream's entries as the backend's SSE frames. */
 function sse(entries: AsyncIterable<StreamEntry>): Response {
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
@@ -44,7 +44,7 @@ function sse(entries: AsyncIterable<StreamEntry>): Response {
  * Test-only: a `fetch` that answers the API's routes the way `handlers` say, for a UI's tests of
  * its own logic (the real routes are tested end to end where they live, in the backend). Each
  * request is matched to its route from `API_ROUTES`; a JSON answer is checked against the route's
- * schema, so a fake can't answer what the real server couldn't. `calls` records every call.
+ * schema, so a fake can't answer what the real backend couldn't. `calls` records every call.
  */
 export function fakeServer(handlers: FakeHandlers) {
   const calls: { name: RouteName; call: FakeCall }[] = [];
@@ -58,7 +58,7 @@ export function fakeServer(handlers: FakeHandlers) {
 
     if (!matcher) return refusal({ status: 404, code: 'not_found', message: 'No such route' });
 
-    const values = pattern(matcher).exec(pathname)?.slice(1) ?? [];
+    const values = matcher.pattern.exec(pathname)?.slice(1) ?? [];
     const params = Object.fromEntries(
       matcher.params.map((param, index) => [param, values[index] ?? '']),
     );
@@ -72,8 +72,6 @@ export function fakeServer(handlers: FakeHandlers) {
 
   return { fetch, calls };
 }
-
-const pattern = (matcher: Matcher) => matcher.pattern;
 
 /** What the fake answers route `name`: its handler's answer, checked, or `not_found`. */
 async function answer(params: {

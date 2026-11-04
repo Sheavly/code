@@ -9,7 +9,7 @@
     "packages/tools/src/",
     "packages/loop/src/",
     "packages/host/src/",
-    "packages/server/src/",
+    "packages/client/src/",
     "packages/workspace/src/",
     "packages/coding/src/"
   ],

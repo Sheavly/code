@@ -35,7 +35,7 @@ switches off exactly one, on the files it is for, with a reason.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
 - `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
   from the workspaces (a domain, named after its folder, no app or coding-from-generic edge, and
-  a transport such as `@sheavly/server`, `sheavly.transport`, only from an app), and
+  a transport such as `@sheavly/client`, `sheavly.transport`, only from an app), and
   imports follow the graph: another workspace only if `package.json` depends on it (dev
   dependencies for tests), test-only workspaces only from tests and fakes, no relative import
   across workspace roots.

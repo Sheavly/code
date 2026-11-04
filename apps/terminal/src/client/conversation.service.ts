@@ -1,18 +1,18 @@
-import { createServerClient } from '@sheavly/server/client/client.helper';
-import { ServerRefusedError } from '@sheavly/server/errors/client.errors';
+import { createClient } from '@sheavly/client/client/client.helper';
+import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { Backend } from './client.types.js';
 
-type Client = ReturnType<typeof createServerClient>;
+type Client = ReturnType<typeof createClient>;
 
 /**
  * One conversation on a backend, as the terminal drives it: started (or continued from saved
  * `messages`) on `open`, then prompts sent and their entries read, over HTTP only, through the
  * client built from the API's routes. It counts the background tasks still running from the task
- * entries it reads, for the renderer to show. A refused request throws `ServerRefusedError`.
+ * entries it reads, for the renderer to show. A refused request throws `RefusedError`.
  */
 export class RemoteConversation {
   readonly #client: Client;
@@ -31,7 +31,7 @@ export class RemoteConversation {
     messages?: Message[];
   }): Promise<RemoteConversation> {
     const { backend, messages } = params;
-    const client = createServerClient({
+    const client = createClient({
       url: backend.url,
       token: backend.token,
       ...(backend.fetch && { fetch: backend.fetch }),
@@ -68,7 +68,7 @@ export class RemoteConversation {
       await this.#client.send('switchModel', { id: this.id, body: { name } });
     } catch (caughtError) {
       // Only "no such model" is the user's to fix with another name; anything else is a failure.
-      if (caughtError instanceof ServerRefusedError && caughtError.code === 'unknown_model') {
+      if (caughtError instanceof RefusedError && caughtError.code === 'unknown_model') {
         return false;
       }
 

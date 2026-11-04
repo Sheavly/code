@@ -32,7 +32,7 @@ other workspace packages out.
 ## What a server accepts and answers
 
 `server/` holds the requests and responses of the harness's HTTP API (the backend's routes, and
-`@sheavly/server`'s client for them), so both validate with the same schemas; `api/` lists the
+`@sheavly/client`'s client for them), so both validate with the same schemas; `api/` lists the
 routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 
 | Request                                       | Body                                   | Answer                             |

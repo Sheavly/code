@@ -42,11 +42,11 @@ export type AnswerOf<N extends JsonRoute> = RouteOf<N>['response'] extends { sch
     : never
   : never;
 
-/** Where a client reaches a server, and how. */
+/** Where a client reaches a backend, and how. */
 export type ClientOptions = {
   url: string;
   /** Sent as `Authorization: Bearer <token>` on every request; never in a URL. */
   token: string;
-  /** Reaches the server (the global `fetch` when unset): a test's in-process app, a proxy. */
+  /** Reaches the backend (the global `fetch` when unset): a test's fake, a proxy. */
   fetch?: typeof fetch;
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
-import { readEntries } from '@sheavly/server/client/entries.helper';
+import { readEntries } from '@sheavly/client/client/entries.helper';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { reply, testApi } from '../../testing/api.fake.js';
