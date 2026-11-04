@@ -1,8 +1,10 @@
+import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { ConfigStore } from '../config-store/config-store.service.js';
 import type { Config } from '../config-store/config-store.types.js';
 import type { ProfileListing } from '../profile-store/profile-store.types.js';
 import { ProfileStore } from '../profile-store/profile-store.service.js';
+import { SerialQueue } from '../serial-queue/serial-queue.service.js';
 import { OpenProfile } from './open-profile.service.js';
 import { requireProfile } from './profile-registry.helper.js';
 
@@ -18,6 +20,8 @@ export class ProfileRegistry {
   readonly #profiles: ProfileStore;
   readonly #config: ConfigStore;
   readonly #open = new Map<ProfileId, OpenProfile>();
+  /** Every change to a `profile.json` reads it and writes it back, so they go one at a time. */
+  readonly #profileWrites = new SerialQueue();
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
   constructor(params: { root: string }) {
@@ -35,9 +39,36 @@ export class ProfileRegistry {
     return this.#profiles.get(id);
   }
 
-  /** Stores `profile`: makes it, or renames the one with its id. */
-  async put(profile: Profile): Promise<void> {
-    await this.#profiles.put(profile);
+  /**
+   * Makes a profile, or renames the one with this id. The model it last chose is kept: a rename
+   * changes the name and nothing else.
+   */
+  async put(params: { id: ProfileId; name: string }): Promise<void> {
+    await this.#profileWrites.run(async () => {
+      const existing = await this.#profiles.get(params.id);
+
+      await this.#profiles.put({
+        id: params.id,
+        name: params.name,
+        ...(existing?.lastModelId !== undefined && { lastModelId: existing.lastModelId }),
+      });
+    });
+  }
+
+  /**
+   * Remembers `modelId` as the model last chosen in profile `id`: where its next new conversation
+   * starts. It is a hint, not a reference kept in step: a model removed since is simply not found
+   * by whoever reads it, and the next choice replaces it. Throws a `RegistryError`
+   * (`unknown_profile`) when there is no such profile.
+   */
+  async rememberModel(params: { id: ProfileId; modelId: ModelId }): Promise<void> {
+    const { id, modelId } = params;
+
+    await this.#profileWrites.run(async () => {
+      const profile = await requireProfile({ profiles: this.#profiles, id });
+
+      await this.#profiles.put({ ...profile, lastModelId: modelId });
+    });
   }
 
   /**
