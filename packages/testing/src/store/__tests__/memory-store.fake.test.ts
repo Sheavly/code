@@ -69,12 +69,20 @@ describe('MemoryConversationStore', () => {
     expect((await store.list()).map((c) => c.id)).toEqual([id, other]);
 
     await store.writeMessages({ id, messages: [{ role: 'user', content: 'hi' }] });
+    await store.writeAgentMessages({
+      id,
+      session: sessionIdSchema.parse('reader'),
+      messages: [{ role: 'user', content: 'read it' }],
+    });
     await store.delete(id);
     await store.delete(id);
 
     expect((await store.list()).map((c) => c.id)).toEqual([other]);
     expect(await readAll({ store })).toEqual([]);
     expect(await store.readMessages(id)).toEqual([]);
+    expect(await store.readAgentMessages({ id, session: sessionIdSchema.parse('reader') })).toEqual(
+      [],
+    );
   });
 
   it('keeps the history it was given whole, and hands out copies', async () => {
@@ -98,9 +106,54 @@ describe('MemoryConversationStore', () => {
     expect(await store.readMessages(id)).toHaveLength(1);
   });
 
+  it('keeps each sub-agent’s history apart: from the conversation’s, from other agents’, and from other conversations’', async () => {
+    const store = new MemoryConversationStore();
+    const other = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002');
+    const reader = sessionIdSchema.parse('reader');
+    const writer = sessionIdSchema.parse('writer');
+    const read: Message[] = [{ role: 'user', content: 'read it', at: 1 }];
+    const wrote: Message[] = [{ role: 'user', content: 'write it', at: 2 }];
+
+    expect(await store.readAgentMessages({ id, session: reader })).toEqual([]);
+
+    await store.writeMessages({ id, messages: [{ role: 'user', content: 'main' }] });
+    await store.writeAgentMessages({ id, session: reader, messages: read });
+    await store.writeAgentMessages({ id, session: writer, messages: wrote });
+    await store.writeAgentMessages({ id: other, session: reader, messages: wrote });
+
+    expect(await store.readAgentMessages({ id, session: reader })).toEqual(read);
+    expect(await store.readAgentMessages({ id, session: writer })).toEqual(wrote);
+    expect(await store.readAgentMessages({ id: other, session: reader })).toEqual(wrote);
+    expect(await store.readMessages(id)).toEqual([{ role: 'user', content: 'main' }]);
+    expect(await store.readMessages(other)).toEqual([]);
+  });
+
+  it('replaces a sub-agent’s history whole, and hands out copies of it', async () => {
+    const store = new MemoryConversationStore();
+    const session = sessionIdSchema.parse('reader');
+    const messages: Message[] = [
+      { role: 'user', content: 'one', at: 1 },
+      { role: 'assistant', content: 'two', toolCalls: [], at: 2 },
+    ];
+
+    await store.writeAgentMessages({ id, session, messages });
+
+    const copy = await store.readAgentMessages({ id, session });
+
+    copy.pop();
+    messages.pop();
+    expect(await store.readAgentMessages({ id, session })).toHaveLength(2);
+
+    await store.writeAgentMessages({ id, session, messages: [{ role: 'user', content: 'again' }] });
+    expect(await store.readAgentMessages({ id, session })).toEqual([
+      { role: 'user', content: 'again' },
+    ]);
+  });
+
   it('fails every write while told to, as a full disk does, then mends', async () => {
     const store = new MemoryConversationStore();
     const disk = new Error('ENOSPC');
+    const session = sessionIdSchema.parse('reader');
 
     store.failWith(disk);
 
@@ -108,6 +161,7 @@ describe('MemoryConversationStore', () => {
       () => store.entries(id).append(entry(0)),
       () => store.writeIndex(stored(id, 1)),
       () => store.writeMessages({ id, messages: [] }),
+      () => store.writeAgentMessages({ id, session, messages: [] }),
       () => store.delete(id),
     ]) {
       await expect(write()).rejects.toBeInstanceOf(StoreError);

@@ -50,7 +50,8 @@ waits for time to pass.
 ## Keeping conversations
 
 `MemoryConversationStore` is a `ConversationStore` in memory, with a real store's rules: entries
-in `seq` order with no gaps, one index entry per conversation, a `StoreError` on failure.
+in `seq` order with no gaps, one index entry per conversation, the conversation's history and one
+history for each of its sub-agents (kept apart from each other), a `StoreError` on failure.
 `failWith(error)` makes every following write reject, as a full disk does, for a test of what a
 host does when storage fails.
 

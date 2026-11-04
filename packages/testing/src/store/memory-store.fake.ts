@@ -2,6 +2,7 @@ import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
@@ -14,6 +15,8 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 export class MemoryConversationStore implements ConversationStore {
   readonly #entries = new Map<ConversationId, StreamEntry[]>();
   readonly #messages = new Map<ConversationId, Message[]>();
+  /** Sub-agents' histories: conversation, then session, so two conversations never share one. */
+  readonly #agentMessages = new Map<ConversationId, Map<SessionId, Message[]>>();
   readonly #index = new Map<ConversationId, StoredConversation>();
   #failure: Error | undefined;
 
@@ -38,6 +41,23 @@ export class MemoryConversationStore implements ConversationStore {
     this.#messages.set(params.id, structuredClone([...params.messages]));
   }
 
+  async readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<Message[]> {
+    return structuredClone(this.#agentMessages.get(params.id)?.get(params.session) ?? []);
+  }
+
+  async writeAgentMessages(params: {
+    id: ConversationId;
+    session: SessionId;
+    messages: readonly Message[];
+  }): Promise<void> {
+    const { id, session, messages } = params;
+    const agents = this.#agentMessages.get(id) ?? new Map<SessionId, Message[]>();
+
+    this.#assertWritable();
+    agents.set(session, structuredClone([...messages]));
+    this.#agentMessages.set(id, agents);
+  }
+
   async list(): Promise<StoredConversation[]> {
     return [...this.#index.values()].sort((a, b) => a.startedAt - b.startedAt);
   }
@@ -51,6 +71,7 @@ export class MemoryConversationStore implements ConversationStore {
     this.#assertWritable();
     this.#entries.delete(id);
     this.#messages.delete(id);
+    this.#agentMessages.delete(id);
     this.#index.delete(id);
   }
 
