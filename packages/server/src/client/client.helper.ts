@@ -1,4 +1,5 @@
 import { API_ROUTES, LAST_EVENT_ID_HEADER } from '@sheavly/protocol/api/api.constants';
+import type { RouteName } from '@sheavly/protocol/api/api.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { ServerAnswerError, ServerRefusedError } from '../errors/client.errors.js';
 import type {
@@ -7,7 +8,6 @@ import type {
   ClientOptions,
   EmptyRoute,
   JsonRoute,
-  RouteName,
   StreamRoute,
 } from './client.types.js';
 import { parseServerError } from './client.validator.js';

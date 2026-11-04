@@ -1,8 +1,6 @@
 import type { z } from 'zod';
 import type { API_ROUTES } from '@sheavly/protocol/api/api.constants';
-
-/** Every route of the API, by name. */
-export type RouteName = keyof typeof API_ROUTES;
+import type { RouteName } from '@sheavly/protocol/api/api.types';
 
 type RouteOf<N extends RouteName> = (typeof API_ROUTES)[N];
 

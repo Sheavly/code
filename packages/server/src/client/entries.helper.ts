@@ -1,6 +1,6 @@
+import { ENTRY_EVENT } from '@sheavly/protocol/api/api.constants';
 import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { ENTRY_EVENT } from '../server/server.constants.js';
 
 /**
  * The entries of a server's SSE answer (a prompt's response, or `QUERY /stream`), in order, each
