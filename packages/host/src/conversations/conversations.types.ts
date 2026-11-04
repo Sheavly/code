@@ -10,6 +10,7 @@ import type {
   SendPromptRequest,
 } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
+import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
 /**
  * What a prompt sends once its skills ran: the text the model reads, and what the user typed
@@ -83,4 +84,14 @@ export type SentPrompt = {
   events: AsyncIterable<AgentEvent>;
   text: string;
   parts?: PromptPart[] | undefined;
+};
+
+/** What reopening a stored conversation starts from. */
+export type StoredConversationState = {
+  /** Its index entry as stored. */
+  stored: StoredConversation;
+  /** Its history, with a placeholder for every tool call that never returned. */
+  messages: Message[];
+  /** Its stream, to carry on from. */
+  resume: StoredLog;
 };

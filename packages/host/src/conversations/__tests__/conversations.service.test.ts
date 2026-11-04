@@ -1,62 +1,10 @@
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { describe, expect, it } from 'vitest';
-import type { StreamEvent } from '@sheavly/core/message/message.types';
-import { blockTool } from '@sheavly/runtime/testing/block-tool.fake';
-import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
-import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import type { Message } from '@sheavly/protocol/message/message.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
-import { createConversation } from '../../conversation/conversation.helper.js';
-import { createHarness } from '../../host/host.helper.js';
 import { ConversationsError } from '../../errors/conversations.errors.js';
-import { reviewSkill as skills } from '../../testing/skills.fake.js';
-import { twoModelRun } from '../../testing/run.fake.js';
-import { Conversations } from '../conversations.service.js';
-
-const say = (text: string): StreamEvent[] => [
-  { type: 'text_delta', text },
-  { type: 'done', stopReason: 'end_turn' },
-];
-
-/** Conversations on a scripted model, each built like an app builds one. */
-function setup(params: { replies: StreamEvent[][]; withSkills?: boolean }) {
-  const sent: Message[][] = [];
-  const disposed: string[] = [];
-  const conversations = new Conversations({
-    create: async ({ messages }) => {
-      const scripted = scriptedProvider(params.replies);
-      const harness = createHarness({
-        provider: {
-          stream: (request) => {
-            sent.push(request.messages);
-
-            return scripted.stream(request);
-          },
-        },
-        title: 'Chat',
-      });
-
-      return {
-        harness,
-        conversation: createConversation({
-          harness,
-          run: streamAgent,
-          tools: [blockTool],
-          messages: messages ?? [],
-        }),
-        ...(params.withSkills && { skills }),
-        run: twoModelRun(),
-        dispose: async () => {
-          disposed.push('disposed');
-        },
-      };
-    },
-  });
-
-  return { conversations, sent, disposed };
-}
+import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
 
 describe('Conversations', () => {
   const clock = useFixedClock();
