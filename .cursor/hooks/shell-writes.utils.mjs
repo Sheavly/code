@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { hookNow } from './hooks.utils.mjs';
 import { isMissingPath } from './hooks.errors.mjs';
 import {
   maskQuotedOperators,
@@ -48,7 +49,7 @@ function readStatusPaths(output) {
  * untracked files; ignored ones like node_modules and dist are left out). Null outside a git repo.
  */
 export function snapshotProject(root) {
-  const takenAt = Date.now();
+  const takenAt = hookNow();
   const status = git({ root, args: ['status', '--porcelain=v1', '-z', '--untracked-files=all'] });
 
   if (status === null) return null;

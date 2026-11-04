@@ -5,11 +5,21 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
+import { DateTime } from 'luxon';
 import { RULE_HINTS } from '../../packages/eslint-config/src/rule-hints.js';
 import { GuardCrashError, HookStateError, isMissingPath } from './hooks.errors.mjs';
 
 /** Project hooks run from the project root. */
 export const PROJECT_ROOT = process.cwd();
+
+/**
+ * The current time in epoch milliseconds, read through Luxon. The hooks run before anything is
+ * built, so they can't use `now()` from `@sheavly/core`; this is their one clock, so a test can
+ * pass a time in (`now = hookNow()` defaults) and nothing reads `Date` directly.
+ */
+export function hookNow() {
+  return DateTime.now().toMillis();
+}
 
 /** Files ESLint checks (see eslint.config.js). */
 export const LINTABLE = /\.(ts|js|mjs)$/;

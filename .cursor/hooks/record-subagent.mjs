@@ -3,7 +3,7 @@
 // that call as `parent_tool_call_id`. Without both ids it can't be tied to that chat's issue,
 // approvals or stop checks, so it is refused rather than started untracked.
 import { linkFromToolCall, linkSubagent } from './chat-links.utils.mjs';
-import { readHookInput, respond, updateChatState } from './hooks.utils.mjs';
+import { hookNow, readHookInput, respond, updateChatState } from './hooks.utils.mjs';
 
 const input = await readHookInput();
 const { subagent_id: subagentId, parent_conversation_id: parentId } = input;
@@ -13,7 +13,7 @@ if (subagentId && parentId) {
   linkFromToolCall(input);
   linkSubagent({ subagentId, parentId });
   // The parent's stop hook waits while this call has a start and no stop (record-subagent-stop).
-  updateChatState({ conversationId: subagentId, subagentStartedAt: Date.now() });
+  updateChatState({ conversationId: subagentId, subagentStartedAt: hookNow() });
   respond({ permission: 'allow' });
 } else {
   respond({

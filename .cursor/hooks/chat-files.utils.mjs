@@ -4,14 +4,14 @@
 // file with the time; the shell recorder leaves out what another chat edited while its command
 // ran, and the stop hook reports only problems in what this chat and its subagents edited
 // (gate-scope.utils.mjs, chat-links.utils.mjs).
-import { chatStateId, listChatStates } from './hooks.utils.mjs';
+import { chatStateId, hookNow, listChatStates } from './hooks.utils.mjs';
 
 /**
  * The state fields that record `files` (project-relative) as edited by this chat at `now`. A chat
  * that edited before files were recorded keeps an incomplete list: its gate stays unscoped.
  */
 export function editedFilesFields(params) {
-  const { state, files, now = Date.now() } = params;
+  const { state, files, now = hookNow() } = params;
   const edited = Object.fromEntries(files.map((file) => [file, now]));
   const complete = state?.editedFiles
     ? state.editedFilesComplete !== false

@@ -5,7 +5,13 @@
 // readers walk the links at read time, so nested subagents work and nothing goes stale.
 import { chatEditedFiles } from './chat-files.utils.mjs';
 import { ChatLinkError } from './hooks.errors.mjs';
-import { chatStateId, getChatState, listChatStates, updateChatState } from './hooks.utils.mjs';
+import {
+  chatStateId,
+  getChatState,
+  hookNow,
+  listChatStates,
+  updateChatState,
+} from './hooks.utils.mjs';
 import { endToolCall } from './subagents.utils.mjs';
 
 export function linkSubagent(params) {
@@ -29,7 +35,7 @@ export function linkFromToolCall(input) {
   const toolCallId = input.parent_tool_call_id;
 
   if (!chatId || typeof toolCallId !== 'string' || toolCallId === chatId) return;
-  updateChatState({ conversationId: chatId, lastActiveAt: Date.now() });
+  updateChatState({ conversationId: chatId, lastActiveAt: hookNow() });
   const previousToolCallId = getChatState(chatId)?.parentConversationId;
 
   if (previousToolCallId === toolCallId) return;
