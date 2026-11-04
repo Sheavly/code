@@ -31,6 +31,7 @@ const NON_EXECUTING_PROGRAMS = new Set([
   'head',
   'tail',
   'wc',
+  'cut',
   // Status reads: what a file or process is, never writing it.
   'stat',
   'ps',

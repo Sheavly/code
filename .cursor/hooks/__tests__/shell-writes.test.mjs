@@ -94,6 +94,9 @@ describe('isSanctionedWriter', () => {
     "git commit -q -F - <<'EOF'\nfix: x\n\ncp a b\nEOF",
     // A loop runs its body's commands: `for`, `do` and `done` aren't programs.
     'for p in protocol server; do npx tsc --noEmit -p packages/$p 2>&1 | head -5; done',
+    // `cut` only prints what it is given, like `head` and `tail`.
+    'npm run check 2>&1 | rg "Tasks:|Failed:" | cut -c1-200 | head -30',
+    'npm run schema -w @sheavly/protocol 2>&1 | rg -v "npm notice" | tail -2; npm run check 2>&1 | cut -c1-200 | head',
   ])('trusts %s', (command) => expect(isSanctionedWriter(command)).toBe(true));
 
   it.each([
@@ -112,6 +115,9 @@ describe('isSanctionedWriter', () => {
     "npm test\nsed -i 's/a/b/' README.md",
     // Nor is a loop body that writes.
     'for f in a b; do cp /tmp/x $f; done',
+    // `cut` prints, but a redirect after it writes, and a writer chained to it still counts.
+    'npm run check 2>&1 | cut -c1-200 > a.ts',
+    'cut -c1-5 README.md; cp /tmp/x a.ts',
   ])('does not trust %s', (command) => expect(isSanctionedWriter(command)).toBe(false));
 });
 
