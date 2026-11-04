@@ -9,10 +9,9 @@
  *   npm run workbook -- check                   real-model checks for what this branch changed
  *
  * Every run is saved in workbook/runs/<id>/ as it happens. See apps/terminal/docs/workbook.md.
- * Each run starts its own backend, which reads the model settings from the environment, like the
- * demo (ADAPTER, keys, .env).
+ * Each run starts its own backend, which runs on the models in the user's profile (~/.sheavly),
+ * like the demo.
  */
-import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { checkWorkbook } from './check.helper.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
@@ -20,8 +19,6 @@ import { runWorkbook } from './run.helper.js';
 import { WorkbookStore } from './store.service.js';
 import { WORKBOOK_DIR } from './workbook.constants.js';
 import { parseCommand, usage } from './workbook.utils.js';
-
-if (existsSync('.env')) process.loadEnvFile('.env');
 
 const store = new WorkbookStore(path.resolve(WORKBOOK_DIR));
 const write = (text: string) => void process.stdout.write(text);

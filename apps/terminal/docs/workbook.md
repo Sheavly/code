@@ -12,7 +12,7 @@ npm run workbook -- continue "now add tests"   # follow up on the last run, with
 npm run workbook -- diff 0003 0007             # compare two runs
 ```
 
-Runs use the real model, with the same settings as the demo (`ADAPTER`, keys, `.env`).
+Runs use the real model, on your profile's models, like the demo.
 
 ## Layout
 

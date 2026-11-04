@@ -9,12 +9,12 @@
  * (or `npm run dev` / `npm run start` inside apps/terminal).
  *
  * It starts its own backend with this environment's settings (apps/backend/docs/serve.md:
- * ADAPTER and its keys, MODEL, WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, SHOW_MODEL_CALLS,
- * --trust), and stops it on the way out; BACKEND_URL and BACKEND_TOKEN use one already running.
+ * WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, SHOW_MODEL_CALLS, --trust) and runs on the models
+ * in the user's profile (~/.sheavly), and stops it on the way out; BACKEND_URL and BACKEND_TOKEN
+ * use one already running.
  * Ctrl+C stops the running prompt, /<skill> anywhere in a message runs that skill, /exit or
  * Ctrl+D ends the conversation. Calls the real API, so it costs money.
  */
-import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
@@ -30,9 +30,8 @@ import { openSession } from './client/session.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 
 // npm runs a workspace's script inside apps/terminal; work from the folder it was started in
-// (npm's INIT_CWD), so `.env` and the default workspace are the user's.
+// (npm's INIT_CWD), so the default workspace is the user's.
 if (process.env.INIT_CWD) process.chdir(process.env.INIT_CWD);
-if (existsSync('.env')) process.loadEnvFile('.env');
 
 const write = (text: string) => void process.stdout.write(text);
 const session = await openSession({ env: process.env, args: process.argv.slice(2), write });
@@ -158,7 +157,7 @@ async function modelCommand(typed: string | undefined): Promise<string> {
   const { model, models } = await conversation.details();
 
   if (models.length === 0) {
-    return `Only ${model.adapter} / ${model.model} is set up: list several in MODELS to switch.`;
+    return `Only ${model.adapter} / ${model.model} is set up in this profile: add another model to switch.`;
   }
 
   if (typed === undefined) return listModels({ choices: models, active: model.id });

@@ -16,4 +16,11 @@ export default defineConfig([
     files: ['src/harness/model-calls.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // The backend is where a key is read and handed to a provider, so `src/profiles/` is the one
+  // place in it that imports the profile registry and an open profile (`harness/no-key-holder-import`).
+  // Nothing else in the backend does: a handler asks these modules, it never holds a key.
+  {
+    files: ['src/profiles/**'],
+    rules: { 'harness/no-key-holder-import': 'off' },
+  },
 ]);

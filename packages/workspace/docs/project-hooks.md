@@ -38,7 +38,7 @@ export default {
   (`hooks: [...hostHooks, ...projectHooks.hooks]`), so yours wrap the project's.
 - **Only in a trusted workspace.** Hook files are code from the repo, so the harness loads none
   until you trust the workspace: run the demo once with `--trust`. It's remembered (outside the
-  repo, in `~/.config/sheavly/trusted-workspaces.json`, or `SHEAVLY_TRUST_FILE`) until anything in
+  repo, in `~/.sheavly/trusted-workspaces.json`, or under `SHEAVLY_HOME`) until anything in
   `.sheavly/` changes; then the hooks are skipped again until you review and trust it again. A
   hook may import only files inside `.sheavly/` and Node built-ins, since nothing else is covered
   by that trust. See [Workspace trust](#workspace-trust), below.
@@ -74,8 +74,8 @@ even imported.
   every repo, so a repo can't trust itself. It decides what is trusted and not where the document
   lives: the host passes a `TrustPersistence` (`load`, `update`, and the `file` it is in), and the
   store refuses one whose `file` is inside the workspace. The backend gives it a `DocumentFile`
-  from `@sheavly/storage`; `trustStoreFromEnv(process.env)` picks `SHEAVLY_TRUST_FILE`, else
-  `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json` (default `~/.config/sheavly/`). This package
+  from `@sheavly/storage` at `trusted-workspaces.json` in the user's folder (`trustStoreFor`:
+  `~/.sheavly`, or `SHEAVLY_HOME`). This package
   reads and writes no file of the user's own; a store it cannot read is an error, never "nothing
   trusted".
 - Each entry is the workspace's real path and a fingerprint (SHA-256) of every file in its

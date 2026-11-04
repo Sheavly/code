@@ -11,8 +11,9 @@ npm run workbook -- list                                           # stored prom
 ```
 
 All of them call the real model API and cost money (a fraction of a cent for a short prompt).
-Settings come from the environment, or `.env` at the root, and go to the backend it starts
-(`ADAPTER`, the backend's keys, `MODEL`; [the backend's settings](../backend/docs/serve.md#settings)).
+They run on the models and keys in your profile (`~/.sheavly`, see
+[models and keys](../backend/docs/harness.md#models-and-keys)); the other settings come from the
+environment and go to the backend it starts ([the backend's settings](../backend/docs/serve.md#settings)).
 
 | Folder      | What it holds                                                                                    |
 | ----------- | ------------------------------------------------------------------------------------------------ |

@@ -5,7 +5,6 @@ import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
@@ -18,21 +17,10 @@ export type CliSettings = ReturnType<typeof parseCliSettings>;
 export type ServedSettings = CliSettings & ReturnType<typeof parseRunEnv>;
 
 /**
- * The models `MODELS` lists: `switch` serves whichever is active (the first, at start) and is the
- * run's provider, keyed by model id; `choices` is what it can switch to.
+ * A profile's usable models: `switch` serves whichever is active (the profile's last, else the
+ * first) and is the run's provider, keyed by model id; `choices` is what it can switch to.
  */
 export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
-
-/** Which model backend a run uses, and how a UI is told about it. */
-export type ProviderSettings = {
-  /** The model in use at start; `models.switch.active` is its id while it is the active one. */
-  id: ModelId;
-  adapter: string;
-  model: string;
-  provider: Provider;
-  /** Set when `MODELS` lists the models: `provider` is its switch, `adapter` and `model` its first. */
-  models?: ModelSwitch | undefined;
-};
 
 /** What the backend decides about a run. */
 export type BackendHarnessOptions = {

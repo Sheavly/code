@@ -33,7 +33,7 @@ export function unknownCommand(params: { text: string; unknown: string[] }): str
   return unknown.find((name) => new RegExp(`^/${name}(\\s|$)`).test(text));
 }
 
-/** What `/model` prints: each model in `MODELS`, the active one marked, with the id to switch by. */
+/** What `/model` prints: each model of the profile, the active one marked, with the id to switch by. */
 export function listModels(params: {
   choices: ModelChoice[];
   active: ModelId | undefined;

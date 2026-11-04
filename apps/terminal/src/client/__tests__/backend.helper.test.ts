@@ -1,15 +1,16 @@
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { connectBackend } from '../backend.helper.js';
 
 /**
- * What a started backend reads: a key so its provider builds (no model is called), and the adapter
- * pinned, so the developer's own `.env` (a set variable wins over it) doesn't pick one.
+ * What a started backend reads: an empty folder of its own as the user's (`SHEAVLY_HOME`), so the
+ * developer's real profiles are never touched. It has no profile, and it starts all the same: a
+ * UI has to reach a running backend to set it up. (No model is called.)
  */
 const env = {
   ...process.env,
-  ADAPTER: 'openai',
-  MODELS: '',
-  OPENAI_API_KEY: 'sk-test',
+  SHEAVLY_HOME: path.join(tmpdir(), 'backend-helper-test-home'),
   BACKEND_URL: '',
   BACKEND_TOKEN: '',
 };
@@ -51,8 +52,8 @@ describe('connectBackend', () => {
   it('says so when the backend exits before it listens', async () => {
     await expect(
       connectBackend({
-        // An unknown backend fails as the backend reads its settings, before it listens.
-        env: { ...env, ADAPTER: 'no-such-backend' },
+        // A setting the backend cannot accept fails as it reads its settings, before it listens.
+        env: { ...env, MAX_TURNS: '0' },
         onOutput: () => undefined,
       }),
     ).rejects.toThrow('exited');

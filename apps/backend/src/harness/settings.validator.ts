@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL, MAX_TURNS, REQUEST, SERVER } from './harness.constants.js';
+import { MAX_TURNS, REQUEST, SERVER } from './harness.constants.js';
 
-/** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
+/** An empty setting (`SERVER_HOST=`) means "not set". */
 const optionalSetting = z
   .string()
   .optional()
@@ -42,30 +42,6 @@ export function parseRequestEnv(env: Record<string, string | undefined>) {
     retries: parsed.MODEL_RETRIES,
     retryDelayMs: parsed.MODEL_RETRY_DELAY_MS,
   };
-}
-
-/**
- * The model backend settings a host reads from the environment: `ADAPTER` picks "openai" (the
- * default) or "azure-openai", each with its own keys. Each missing key names what to set.
- */
-const providerEnvSchema = z.discriminatedUnion('ADAPTER', [
-  z.object({
-    ADAPTER: z.literal('openai'),
-    OPENAI_API_KEY: z.string().min(1, 'Set OPENAI_API_KEY'),
-    MODEL: z.string().default(DEFAULT_MODEL),
-  }),
-  z.object({
-    ADAPTER: z.literal('azure-openai'),
-    AZURE_OPENAI_API_KEY: z.string().min(1, 'Set AZURE_OPENAI_API_KEY'),
-    AZURE_OPENAI_BASE_URL: z.string().min(1, 'Set AZURE_OPENAI_BASE_URL'),
-    AZURE_OPENAI_DEPLOYMENT: z.string().default(DEFAULT_MODEL),
-    AZURE_OPENAI_API_VERSION: optionalSetting,
-  }),
-]);
-
-/** The settings from `env`, with `ADAPTER` defaulting to the hosts' default backend. */
-export function parseProviderEnv(env: Record<string, string | undefined>) {
-  return providerEnvSchema.parse({ ...env, ADAPTER: env.ADAPTER ?? DEFAULT_ADAPTER });
 }
 
 /**

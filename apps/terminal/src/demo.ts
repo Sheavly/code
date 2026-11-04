@@ -3,29 +3,27 @@
  *
  *   npm run demo -- "Read package.json and tell me the project name"
  *
- * It starts its own backend with this environment's settings (or .env), and stops it after.
- * ADAPTER picks the backend: "openai" (default) or "azure-openai".
+ * It starts its own backend with this environment's settings, on the models in the user's profile
+ * (~/.sheavly), and stops it after.
  * WORKSPACE_ROOT confines file tools to a directory (default: current directory).
  * RUN_COMMAND_SKIP_ALLOW_LIST=true lets run_command run any shell command (default: allow list on).
  * SHOW_MODEL_CALLS=true prints every model call (main session and sub-agents): its task, tools
  *   and system instructions.
  * SESSIONS_SSE_LOG=<file> writes the conversation's stream, as a UI reads it, to a file.
  * --trust trusts the workspace's .sheavly/ hooks (they run repo code); without it, an untrusted
- *   workspace runs none. SHEAVLY_TRUST_FILE moves the trust store (default ~/.config/sheavly/).
+ *   workspace runs none. SHEAVLY_TRUST_FILE moves the trust store (default ~/.sheavly/).
  * The prompt waits for its background tasks before it ends (Ctrl+C stops waiting).
  * This calls the real API and costs money (a fraction of a cent for a short prompt).
  *
  * For stored prompts, saved runs and inspecting what happened, use the workbook instead
  * (`npm run workbook`, see apps/terminal/docs/workbook.md).
  */
-import { createWriteStream, existsSync } from 'node:fs';
+import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { openSession } from './client/session.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { shortId } from './render/render.utils.js';
-
-if (existsSync('.env')) process.loadEnvFile('.env');
 
 /** What the demo asks with no prompt given. */
 const DEFAULT_PROMPT = 'Read package.json and tell me the project name.';

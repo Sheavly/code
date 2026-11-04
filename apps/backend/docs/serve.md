@@ -1,29 +1,32 @@
 # Serving conversations
 
 `npm run serve -w @sheavly/backend` serves conversations over HTTP to any UI in another process:
-the terminal, an editor, a web page, a script. Each conversation gets its own provider (so
-switching its model leaves the others alone) and the run [harness.md](harness.md) describes. The
+the terminal, an editor, a web page, a script. Each conversation runs on its workspace's profile,
+with its own switch between that profile's models (so changing its model leaves the others alone),
+and the run [harness.md](harness.md) describes. The
 routes, streams and errors are in [the API](api.md).
 
 ## Settings
 
-| Setting                       | Default      | What it does                                                                |
-| ----------------------------- | ------------ | --------------------------------------------------------------------------- |
-| `SERVER_HOST`                 | `127.0.0.1`  | Where it listens. It runs commands for whoever reaches it                   |
-| `SERVER_PORT`                 | `4310`       | The port; `0` picks a free one                                              |
-| `SERVER_TOKEN`                | made per run | The bearer token every request carries; at least 32 characters              |
-| `SERVER_EXIT_WITH_PARENT`     | off          | `true`: stop when stdin closes (the UI that started it is gone)             |
-| `WORKSPACE_ROOT`              | the folder   | Where the file tools, AGENTS.md, skills and `.sheavly/` hooks are           |
-| `RUN_COMMAND_SKIP_ALLOW_LIST` | off          | `true`: `run_command` runs any shell command                                |
-| `MAX_TURNS`                   | 20           | Model calls a prompt may make, per session                                  |
-| `WAIT_FOR_TASKS`              | off          | `true`: a prompt's `done` waits for its background tasks                    |
-| `MODEL_CALLS_FILE`            | none         | Appends each model call's full request there, one JSON line each            |
-| `SHOW_MODEL_CALLS`            | off          | `true`: prints each model call (task, tools, system prompt) as sent         |
-| `SHEAVLY_TRUST_FILE`          | `~/.config/` | Where trusted workspaces are remembered (`sheavly/trusted-workspaces.json`) |
+| Setting                       | Default       | What it does                                                                                                                            |
+| ----------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `SERVER_HOST`                 | `127.0.0.1`   | Where it listens. It runs commands for whoever reaches it                                                                               |
+| `SERVER_PORT`                 | `4310`        | The port; `0` picks a free one                                                                                                          |
+| `SERVER_TOKEN`                | made per run  | The bearer token every request carries; at least 32 characters                                                                          |
+| `SERVER_EXIT_WITH_PARENT`     | off           | `true`: stop when stdin closes (the UI that started it is gone)                                                                         |
+| `WORKSPACE_ROOT`              | the folder    | Where the file tools, AGENTS.md, skills and `.sheavly/` hooks are                                                                       |
+| `RUN_COMMAND_SKIP_ALLOW_LIST` | off           | `true`: `run_command` runs any shell command                                                                                            |
+| `MAX_TURNS`                   | 20            | Model calls a prompt may make, per session                                                                                              |
+| `WAIT_FOR_TASKS`              | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |
+| `MODEL_CALLS_FILE`            | none          | Appends each model call's full request there, one JSON line each                                                                        |
+| `SHOW_MODEL_CALLS`            | off           | `true`: prints each model call (task, tools, system prompt) as sent                                                                     |
+| `SHEAVLY_HOME`                | `~/.sheavly`  | The user's folder: profiles, models, keys, conversations and trusted workspaces                                                         |
+| `SHEAVLY_TRUST_FILE`          | in the folder | Where trusted workspaces are remembered, if not `trusted-workspaces.json` in `SHEAVLY_HOME` (the workbook's checks use a throwaway one) |
 
-The model settings (`ADAPTER` and its keys, or `MODELS` for several) and how a model call is sent
-are in [harness.md](harness.md#settings). `--trust` trusts the workspace's `.sheavly/` hooks:
-`npm run serve -w @sheavly/backend -- --trust`.
+The models and keys are in the user's profile, not here, and not in a `.env`: see
+[models and keys](harness.md#models-and-keys). How a model call is sent (`MODEL_RESPONSE_TIMEOUT_MS`,
+`MODEL_RETRIES`, `MODEL_RETRY_DELAY_MS`) is in [harness.md](harness.md#settings). `--trust` trusts
+the workspace's `.sheavly/` hooks: `npm run serve -w @sheavly/backend -- --trust`.
 
 Without `SERVER_TOKEN` it makes one and prints it once, at start. Once it listens it prints
 `→ listening on <url>`, last. Ctrl+C, SIGTERM, closing the terminal or (with

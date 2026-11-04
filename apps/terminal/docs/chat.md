@@ -3,7 +3,7 @@
 One conversation you keep talking to, in the terminal: `npm run dev -w @sheavly/terminal` (from
 source) or `npm run start -w @sheavly/terminal` (built first, then plain Node), or `npm run dev` /
 `npm run start` inside `apps/terminal`. `npm run dev -w @sheavly/terminal -- "first message"`
-starts with that message. It works from the folder you start it in (`.env`, the default
+starts with that message. It works from the folder you start it in (the default
 workspace), and calls the real API, so it costs money. The root has no `dev` or `start`: each UI
 has its own.
 
@@ -15,9 +15,9 @@ has its own.
 - Ctrl+C stops the running message; history stays valid, and the next message continues from it.
   Pressed again while the message stops, it force-quits (after stopping what the conversation
   started); at the input line it quits. Either way, lines typed but not yet sent are dropped.
-- `/model` lists the models `MODELS` sets up, with their ids, and `/model <id or name>` switches to
+- `/model` lists the models of your profile, with their ids, and `/model <id or name>` switches to
   one, from the next model call on, keeping the history
-  ([several models](../../backend/docs/harness.md#several-models-on-azure)). The switch is made by
+  ([models and keys](../../backend/docs/harness.md#models-and-keys)). The switch is made by
   id; a name only finds the model, and one that two models share is refused.
 - `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
   with the message, at the start (`/git submit`), in the middle or at the end

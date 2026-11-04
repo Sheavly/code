@@ -8,9 +8,9 @@ live; a UI decides only how to show it, and none is built into the backend.
 npm run serve -w @sheavly/backend                  # from source; prints the URL and a token
 ```
 
-It calls the real model API, so it costs money. Settings come from the environment, or `.env` in
-the folder it is started from (`ADAPTER`, the backend's keys, `MODEL`). A UI that starts its own
-backend (the terminal does) passes its settings in the environment and reads the
+It calls the real model API, so it costs money. The models and keys it uses are the user's, in
+`~/.sheavly` (see [models and keys](docs/harness.md#models-and-keys)), not in the environment or a
+`.env`. A UI that starts its own backend (the terminal does) passes its settings in the environment and reads the
 `→ listening on <url>` line it prints once ready.
 
 | Folder     | What it holds                                                                                               |
