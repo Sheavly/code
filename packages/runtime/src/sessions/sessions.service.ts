@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
@@ -136,7 +137,7 @@ export class SessionRegistry {
     if (!isOpen(session.state)) return;
     session.state = params.state;
     session.lastOutcome = params.state;
-    session.endedAt = Date.now();
+    session.endedAt = now();
     this.#emit({ type: 'session_ended', session });
     this.#inboxes.wake(params.id); // nobody waits on an ended session's inbox
   }
@@ -195,7 +196,7 @@ export class SessionRegistry {
       });
     }
 
-    const message: InboxMessage = { from, content, sentAt: Date.now() };
+    const message: InboxMessage = { from, content, sentAt: now() };
 
     this.#emit({ type: 'session_message', session, message });
     this.#inboxes.add({ id, message });
@@ -342,7 +343,7 @@ export class SessionRegistry {
   }
 
   #add(params: SessionRef & { title: string }): SessionRef {
-    const session: SessionInfo = { ...params, state: 'running', startedAt: Date.now() };
+    const session: SessionInfo = { ...params, state: 'running', startedAt: now() };
 
     this.#sessions.set(session.id, session);
     this.#emit({ type: 'session_started', session });

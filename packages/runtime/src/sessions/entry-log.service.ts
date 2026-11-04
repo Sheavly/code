@@ -1,4 +1,5 @@
 import type { StoreError } from '@sheavly/core/errors/store.errors';
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -54,9 +55,14 @@ export class EntryLog {
     return this.#written;
   }
 
-  /** Numbers the next entry, keeps a frozen copy of it, and tells every listener it matches. */
-  add(build: (seq: number) => StreamEntry): void {
-    const entry = deepFreeze(structuredClone(build(this.#tailStart + this.#tail.length)));
+  /**
+   * Numbers the next entry, stamps it with the time, keeps a frozen copy of it, and tells every
+   * listener it matches. The builder gives the entry's content; `seq` and `at` are the log's.
+   */
+  add(build: (seq: number) => Omit<StreamEntry, 'at'>): void {
+    const entry = deepFreeze(
+      structuredClone({ ...build(this.#tailStart + this.#tail.length), at: now() }),
+    ) as StreamEntry;
 
     this.#tail.push(entry);
     this.#queueWrite(entry);

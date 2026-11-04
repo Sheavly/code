@@ -4,6 +4,7 @@
  * model and UI at turn boundaries, through its one ordered event queue.
  */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { StartTask, TaskObserver, TaskResult } from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -36,7 +37,7 @@ export class TaskRegistry {
       command,
       description,
       status: 'running',
-      startedAt: Date.now(),
+      startedAt: now(),
       output: '',
     };
     const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false, sessionId };
@@ -137,7 +138,7 @@ export class TaskRegistry {
     const { info } = entry;
 
     info.status = entry.controller.signal.aborted ? 'cancelled' : status;
-    info.endedAt = Date.now();
+    info.endedAt = now();
     if ('exitCode' in result) info.exitCode = result.exitCode;
     if (result.error) info.error = result.error;
 

@@ -52,6 +52,7 @@ describe("SessionRegistry's combined stream", () => {
     expect(entries).toEqual([
       {
         seq: 1, // the main session's start was entry 0
+        at: expect.any(Number) as number,
         sessionId: main.id,
         kind: 'event',
         event: { seq: 7, type: 'text_delta', text: 'a' },
@@ -84,6 +85,7 @@ describe("SessionRegistry's combined stream", () => {
     for (const entries of [live, replayed]) {
       expect(entries.at(-1)).toEqual({
         seq: 1,
+        at: expect.any(Number) as number,
         sessionId: main.id,
         kind: 'event',
         event: { seq: 0, type: 'done', reason: 'completed', session: main },

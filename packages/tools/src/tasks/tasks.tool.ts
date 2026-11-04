@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
@@ -26,14 +27,14 @@ function createTaskStatusTool(tasks: TaskRegistry) {
           });
         }
 
-        return formatTask({ task });
+        return formatTask({ task, now: now() });
       }
 
       const all = tasks.list();
 
       if (all.length === 0) return 'No background tasks.';
 
-      return all.map((task) => formatTask({ task, outputChars: 0 })).join('\n');
+      return all.map((task) => formatTask({ task, now: now(), outputChars: 0 })).join('\n');
     },
   });
 }
@@ -55,12 +56,12 @@ function createCancelTaskTool(tasks: TaskRegistry) {
       }
 
       if (before.status !== 'running') {
-        return `Task ${id} already ${before.status}.\n${formatTask({ task: before })}`;
+        return `Task ${id} already ${before.status}.\n${formatTask({ task: before, now: now() })}`;
       }
 
       const after = await tasks.cancel(id);
 
-      return `Cancelled task ${id}.\n${formatTask({ task: after ?? before })}`;
+      return `Cancelled task ${id}.\n${formatTask({ task: after ?? before, now: now() })}`;
     },
   });
 }
