@@ -39,6 +39,14 @@ export const DENIED_CASES = [
   "cd packages/core\nsed -i 's/a/b/' src/tool/tool.utils.ts",
   // A loop's body runs its command: `do` doesn't hide the edit after it.
   "for f in README.md; do sed -i 's/a/b/' $f; done",
+  // Nor does any other keyword that opens a command, on one line or several.
+  'for f in a; do cp /tmp/x packages/core/src/x.ts; done',
+  'if true; then cp /tmp/x packages/core/src/x.ts; fi',
+  "if sed -i 's/a/b/' README.md; then echo ok; fi",
+  "while sed -i 's/a/b/' README.md; do break; done",
+  "until sed -i 's/a/b/' README.md; do break; done",
+  '! cp /tmp/x packages/core/src/x.ts',
+  'time cp /tmp/x packages/core/src/x.ts',
   // Inline programs (a heredoc, `-c`, `-e`) that write files.
   "python3 - <<'EOF'\nopen('packages/core/src/x.ts','w').write('x')\nEOF",
   "python3 <<'EOF'\nfrom pathlib import Path\nPath('README.md').write_text('x')\nEOF",

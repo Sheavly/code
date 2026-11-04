@@ -224,9 +224,17 @@ function wordsOf(raw) {
 }
 
 /**
+ * Shell words that only start or end a compound command: what runs is the command after them
+ * (`do sed -i …`, `if cp …` run sed and cp), and a loop's header or a closer runs nothing of its
+ * own.
+ */
+const KEYWORDS = new Set(['if', 'while', 'until', 'do', 'then', 'else', 'elif', '!', '{', 'time']);
+
+/**
  * The simple commands of `command`, line by line, each with the heredoc it reads (the body of a
  * heredoc is that command's input, never commands of its own): `raw` keeps the quotes (a program's
- * string literals tell its paths), `words` has them off, leading env assignments dropped.
+ * string literals tell its paths), `words` has them off, leading keywords (`do`, `if`) and env
+ * assignments dropped.
  */
 export function splitCommands(command) {
   const commands = [];
@@ -245,7 +253,7 @@ export function splitCommands(command) {
     for (const part of splitOutsideQuotes(line)) {
       const raw = part.replace(/<<-?\s*(['"]?)\w+\1.*$/, '').trim();
       const words = wordsOf(raw);
-      const first = words.findIndex((word) => !ENV_ASSIGNMENT.test(word));
+      const first = words.findIndex((word) => !KEYWORDS.has(word) && !ENV_ASSIGNMENT.test(word));
 
       if (first !== -1) commands.push({ raw, words: words.slice(first), heredoc });
     }
@@ -254,11 +262,6 @@ export function splitCommands(command) {
   return commands;
 }
 
-/**
- * Shell words that only start or end a compound command: what runs is the command after them
- * (`do sed -i …` runs sed), and a loop's header or a closer runs nothing of its own.
- */
-const KEYWORDS = new Set(['do', 'then', 'else', 'elif', '!', '{', 'time']);
 const CLOSERS = new Set(['done', 'fi', 'esac', '}']);
 const LOOP_HEADER = /^(for|select)$/;
 
