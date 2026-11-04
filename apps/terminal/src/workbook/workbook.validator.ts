@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { timestampSchema } from '@sheavly/protocol/time/time.validator';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { STATE_VERSION } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
@@ -35,7 +36,8 @@ export const runMetaSchema = z.object({
   text: z.string(),
   /** The run this one continues (its history is the starting point). */
   continues: runIdSchema.optional(),
-  startedAt: z.string(),
+  /** When the run started. */
+  startedAt: timestampSchema,
   adapter: z.string(),
   model: z.string(),
   workspace: z.string(),
@@ -49,7 +51,8 @@ export const savedMessagesSchema = z.array(messageSchema);
 export const runResultSchema = z.object({
   outcome: z.enum(['completed', 'interrupted', 'max_turns', 'failed']),
   error: z.string().optional(),
-  endedAt: z.string(),
+  /** When the run ended. */
+  endedAt: timestampSchema,
   durationMs: z.number(),
   events: z.number(),
   modelCalls: z.number(),

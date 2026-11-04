@@ -1,5 +1,6 @@
 import { isFileChange } from '@sheavly/coding/files/files.utils';
 import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
@@ -140,7 +141,7 @@ export class Renderer {
     const ok = task.status === 'completed';
     const exit = task.exitCode === undefined ? '' : ` · exit ${task.exitCode ?? '?'}`;
     const output = firstLine(task.error ?? task.output.split('\n').filter(Boolean).at(-1) ?? '');
-    const elapsed = seconds((task.endedAt ?? Date.now()) - task.startedAt);
+    const elapsed = seconds((task.endedAt ?? now()) - task.startedAt);
 
     this.write(
       `\n${ok ? '✓' : '✗'} ${task.id} ${task.status}${exit} · ${elapsed} · $ ${task.command}`,

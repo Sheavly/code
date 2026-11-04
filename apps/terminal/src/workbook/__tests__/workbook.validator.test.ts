@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DateTime } from 'luxon';
 import { STATE_VERSION } from '../workbook.constants.js';
 import { parsePromptFile, runResultSchema, stateSchema } from '../workbook.validator.js';
+
+const NOV_2_NOON = DateTime.utc(2026, 11, 2, 12).toMillis();
 
 describe('parsePromptFile', () => {
   it('reads front matter and the prompt text', () => {
@@ -68,7 +71,7 @@ describe('runResultSchema', () => {
   it('rejects an outcome a run cannot have', () => {
     const result = {
       outcome: 'completed',
-      endedAt: '2026-11-02T12:00:00.000Z',
+      endedAt: NOV_2_NOON,
       durationMs: 1,
       events: 1,
       modelCalls: 1,
@@ -81,5 +84,24 @@ describe('runResultSchema', () => {
     expect(runResultSchema.safeParse(result).success).toBe(true);
     expect(runResultSchema.safeParse({ ...result, outcome: 'crashed' }).success).toBe(false);
     expect(runResultSchema.safeParse({ ...result, events: '1' }).success).toBe(false);
+  });
+
+  it('takes a time as milliseconds only: an ISO string, text or a fraction is not one', () => {
+    const result = {
+      outcome: 'completed',
+      durationMs: 1,
+      events: 1,
+      modelCalls: 1,
+      toolCalls: 0,
+      toolErrors: 0,
+      sessions: 1,
+      messages: 2,
+    };
+
+    expect(runResultSchema.safeParse({ ...result, endedAt: NOV_2_NOON }).success).toBe(true);
+
+    for (const endedAt of ['2026-11-02T12:00:00.000Z', 'soon', 1.5, -1]) {
+      expect(runResultSchema.safeParse({ ...result, endedAt }).success).toBe(false);
+    }
   });
 });

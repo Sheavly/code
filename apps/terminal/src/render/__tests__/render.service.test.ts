@@ -33,6 +33,7 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
 describe('Renderer: entries', () => {
   const text = (sessionId: string, seq: number): StreamEntry => ({
     seq,
+    at: 0,
     sessionId: sessionIdSchema.parse(sessionId),
     kind: 'event',
     event: { seq, type: 'text_delta', text: `from ${sessionId}` },

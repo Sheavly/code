@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -96,7 +97,7 @@ async function streamRun(params: {
     prompt: request.name,
     text: request.text,
     ...(request.continues !== undefined && { continues: request.continues }),
-    startedAt: new Date().toISOString(),
+    startedAt: now(),
     adapter: details.model.adapter,
     model: details.model.model,
     workspace: details.workspace,
@@ -182,12 +183,12 @@ function interruptOnCtrlC(write: (text: string) => void) {
   let interruptedAt = 0;
   const onSigint = () => {
     if (controller.signal.aborted) {
-      if (Date.now() - interruptedAt < SAME_KEYPRESS_MS) return;
+      if (now() - interruptedAt < SAME_KEYPRESS_MS) return;
       write('\n✗ Forced exit (the run folder has everything up to here).\n');
       process.exit(130);
     }
 
-    interruptedAt = Date.now();
+    interruptedAt = now();
     write('\n⏹ Interrupting… (Ctrl+C again to force quit)\n');
     controller.abort();
   };

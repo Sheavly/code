@@ -13,12 +13,14 @@ const SESSION = { id: MAIN, rootId: MAIN, depth: 1 };
 
 const text = (seq: number, value: string): StreamEntry => ({
   seq,
+  at: 0,
   sessionId: MAIN,
   kind: 'event',
   event: { seq, type: 'text_delta', text: value },
 });
 const done = (seq: number, reason: 'completed' | 'interrupted'): StreamEntry => ({
   seq,
+  at: 0,
   sessionId: MAIN,
   kind: 'event',
   event: { seq, type: 'done', reason, session: SESSION },
@@ -32,6 +34,7 @@ const TASK = {
 };
 const task = (seq: number, type: 'task_started' | 'task_ended'): StreamEntry => ({
   seq,
+  at: 0,
   sessionId: MAIN,
   kind: 'task',
   update: { type, task: { ...TASK, status: type === 'task_started' ? 'running' : 'completed' } },
@@ -141,6 +144,7 @@ describe('RemoteConversation', () => {
   it('counts a task as ended when the next prompt is told it completed', async () => {
     const completed: StreamEntry = {
       seq: 2,
+      at: 0,
       sessionId: MAIN,
       kind: 'event',
       event: { seq: 0, type: 'task_completed', task: { ...TASK, status: 'failed' } },

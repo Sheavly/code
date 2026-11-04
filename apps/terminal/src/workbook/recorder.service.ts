@@ -1,6 +1,7 @@
 import { createWriteStream, type WriteStream } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { Writable } from 'node:stream';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
@@ -21,7 +22,7 @@ export class RunRecorder {
   #sseWritten: Promise<void> = Promise.resolve();
   #counts = { events: 0, toolCalls: 0, toolErrors: 0 };
   #lastEvent: string | undefined;
-  readonly #startedAt = Date.now();
+  readonly #startedAt = now();
 
   constructor(private readonly paths: RunPaths) {
     this.#events = createWriteStream(paths.events);
@@ -90,8 +91,8 @@ export class RunRecorder {
     const result: RunResult = {
       outcome,
       ...(error !== undefined && { error }),
-      endedAt: new Date().toISOString(),
-      durationMs: Date.now() - this.#startedAt,
+      endedAt: now(),
+      durationMs: now() - this.#startedAt,
       ...this.#counts,
       modelCalls: await countLines(this.paths.modelCalls),
       sessions,

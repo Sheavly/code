@@ -20,6 +20,7 @@
  */
 import { createWriteStream, existsSync } from 'node:fs';
 import { Writable } from 'node:stream';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { openSession } from './client/session.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { shortId } from './render/render.utils.js';
@@ -59,14 +60,14 @@ let interruptedAt = 0;
 
 process.on('SIGINT', () => {
   if (interrupt.signal.aborted) {
-    if (Date.now() - interruptedAt < SAME_KEYPRESS_MS) return;
+    if (now() - interruptedAt < SAME_KEYPRESS_MS) return;
     process.stdout.write('\n✗ Forced exit.\n');
     void backend.stop().finally(() => process.exit(130));
 
     return;
   }
 
-  interruptedAt = Date.now();
+  interruptedAt = now();
   process.stdout.write('\n⏹ Interrupting… (Ctrl+C again to force quit)\n');
   interrupt.abort();
 });

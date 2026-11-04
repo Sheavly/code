@@ -16,6 +16,7 @@
  */
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
 import { CHAT_HELP } from './chat/chat.constants.js';
 import { completeChatLine, listModels, parseChatInput, unknownCommand } from './chat/chat.utils.js';
@@ -83,8 +84,8 @@ let quitting = false;
 input.on('SIGINT', () => {
   // The same key press seen twice (as under `npx tsx`) acts once, whatever it did: the echo never
   // stops another prompt, quits twice, or quits after a stop. Once quitting, every press is done.
-  if (quitting || Date.now() - interruptedAt < SAME_KEYPRESS_MS) return;
-  interruptedAt = Date.now();
+  if (quitting || now() - interruptedAt < SAME_KEYPRESS_MS) return;
+  interruptedAt = now();
 
   if (current && !current.signal.aborted) {
     write('\n⏹ Stopping this prompt… (Ctrl+C again to force quit)\n');
