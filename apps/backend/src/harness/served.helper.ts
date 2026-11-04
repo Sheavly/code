@@ -8,6 +8,7 @@ import { terminalConversation } from './conversation.helper.js';
 import { createTerminalHarness } from './harness.helper.js';
 import type { ProviderSettings, ServedSettings } from './harness.types.js';
 import { describeModelCall, modelCallLine } from './model-calls.utils.js';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { skillsNotice } from './notices.utils.js';
 import { providerFromEnv, trustStoreFromEnv } from './settings.helper.js';
 
@@ -68,7 +69,7 @@ function modelCallsTo(params: { settings: ServedSettings; log: (text: string) =>
 
   return (request: ProviderRequest) => {
     // Appended as it happens, so a run that dies mid-way still has every call up to there.
-    if (file) appendFileSync(file, modelCallLine({ request, at: new Date() }));
+    if (file) appendFileSync(file, modelCallLine({ request, at: now() }));
     if (show) log(describeModelCall(request));
   };
 }

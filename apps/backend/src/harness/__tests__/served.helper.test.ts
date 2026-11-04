@@ -96,13 +96,14 @@ describe('servedConversation', () => {
       .map(
         (line) =>
           JSON.parse(line) as {
-            at: string;
+            at: number;
             messages: { content: string }[];
             tools: string[];
           },
       );
 
     expect(call?.messages.at(-1)?.content).toBe('hello');
+    expect(Number.isInteger(call?.at)).toBe(true);
     expect(call?.tools).toContain('read_file');
     expect(logged.join('')).toContain('model call for "hello"');
     await conversations.closeAll();
