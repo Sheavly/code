@@ -14,9 +14,13 @@ import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 const registry = createDefaultRegistry();
 const request = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 1000 };
 
+// A provider is added under the model's id, never its display name: the id is what is switched by.
+const SOL = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
+const GPT = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
+
 const providers = new ProviderSwitch()
   .add(
-    'sol',
+    SOL,
     registry.create('openai', {
       apiKey: process.env.OPENAI_API_KEY,
       model: 'gpt-6.1-sol',
@@ -24,8 +28,8 @@ const providers = new ProviderSwitch()
     }),
   )
   .add(
-    'azure',
-    registry.create('azure', {
+    GPT,
+    registry.create('azure-openai', {
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       baseUrl: 'https://<resource>.openai.azure.com/openai/v1',
       deployment: '<your-deployment-name>',
@@ -33,17 +37,18 @@ const providers = new ProviderSwitch()
     }),
   );
 
-providers.use('azure'); // swap at runtime; applies from the next model call
+providers.use(GPT); // swap at runtime; applies from the next model call
 ```
 
 ## Models on Azure
 
-Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two adapters:
+Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two adapters, both in
+`azure/`:
 
 | Model                                                   | Adapter           | `baseUrl`                                            |
 | ------------------------------------------------------- | ----------------- | ---------------------------------------------------- |
-| GPT on Azure OpenAI                                     | `azure`           | `https://<resource>.openai.azure.com/openai/v1`      |
-| Foundry models on `/responses` (DeepSeek V4 Flash, ...) | `azure`           | `https://<resource>.services.ai.azure.com/openai/v1` |
+| GPT on Azure OpenAI                                     | `azure-openai`    | `https://<resource>.openai.azure.com/openai/v1`      |
+| Foundry models on `/responses` (DeepSeek V4 Flash, ...) | `azure-openai`    | `https://<resource>.services.ai.azure.com/openai/v1` |
 | Claude                                                  | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted

@@ -4,7 +4,7 @@
  *   npm run demo -- "Read package.json and tell me the project name"
  *
  * It starts its own backend with this environment's settings (or .env), and stops it after.
- * ADAPTER picks the backend: "openai" (default) or "azure".
+ * ADAPTER picks the backend: "openai" (default) or "azure-openai".
  * WORKSPACE_ROOT confines file tools to a directory (default: current directory).
  * RUN_COMMAND_SKIP_ALLOW_LIST=true lets run_command run any shell command (default: allow list on).
  * SHOW_MODEL_CALLS=true prints every model call (main session and sub-agents): its task, tools

@@ -62,13 +62,13 @@ describe('parseProviderEnv', () => {
   it('reads the azure settings, treating an empty api version as not set', () => {
     expect(
       parseProviderEnv({
-        ADAPTER: 'azure',
+        ADAPTER: 'azure-openai',
         AZURE_OPENAI_API_KEY: 'az-1',
         AZURE_OPENAI_BASE_URL: 'https://res.openai.azure.com/openai/v1',
         AZURE_OPENAI_API_VERSION: '',
       }),
     ).toEqual({
-      ADAPTER: 'azure',
+      ADAPTER: 'azure-openai',
       AZURE_OPENAI_API_KEY: 'az-1',
       AZURE_OPENAI_BASE_URL: 'https://res.openai.azure.com/openai/v1',
       AZURE_OPENAI_DEPLOYMENT: DEFAULT_MODEL,
@@ -78,7 +78,7 @@ describe('parseProviderEnv', () => {
 
   it('rejects a missing key, and names the key to set when it is empty', () => {
     expect(() => parseProviderEnv({})).toThrow('OPENAI_API_KEY');
-    expect(() => parseProviderEnv({ ADAPTER: 'azure', AZURE_OPENAI_API_KEY: 'k' })).toThrow(
+    expect(() => parseProviderEnv({ ADAPTER: 'azure-openai', AZURE_OPENAI_API_KEY: 'k' })).toThrow(
       'AZURE_OPENAI_BASE_URL',
     );
     expect(() => parseProviderEnv({ OPENAI_API_KEY: '' })).toThrow('Set OPENAI_API_KEY');

@@ -55,7 +55,7 @@ describe('Conversations', () => {
     conversations.useModel({ id, name: 'deep' });
     expect(conversations.details(id).model).toEqual({
       name: 'deep',
-      adapter: 'azure',
+      adapter: 'azure-openai',
       model: 'gpt-5',
     });
     expect(() => conversations.useModel({ id, name: 'huge' })).toThrow(

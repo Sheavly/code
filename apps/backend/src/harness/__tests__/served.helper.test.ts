@@ -8,7 +8,7 @@ import { servedConversation } from '../served.helper.js';
 import { parseCliSettings, parseRunEnv } from '../settings.validator.js';
 
 const AZURE = (name: string) => ({
-  [`${name}_ADAPTER`]: 'azure',
+  [`${name}_ADAPTER`]: 'azure-openai',
   [`${name}_API_KEY`]: 'k',
   [`${name}_BASE_URL`]: 'https://res.openai.azure.com/openai/v1',
   [`${name}_DEPLOYMENT`]: name.toLowerCase(),

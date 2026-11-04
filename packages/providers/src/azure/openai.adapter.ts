@@ -37,9 +37,9 @@ const azureApiVersion = z
   )
   .meta({ title: 'API version', description: 'Only when the endpoint doesn’t carry one' });
 
-/** Azure OpenAI. `deployment` is your deployment name (sent as the model). */
-export const azureAdapter = defineResponsesAdapter({
-  kind: 'azure',
+/** Models on Azure that speak the OpenAI Responses API. `deployment` is sent as the model. */
+export const azureOpenaiAdapter = defineResponsesAdapter({
+  kind: 'azure-openai',
   description: 'Azure Responses API (Azure OpenAI and AI Foundry: GPT, DeepSeek, ...)',
   remoteField: 'deployment',
   configSchema: z.object({

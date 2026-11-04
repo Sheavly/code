@@ -11,7 +11,7 @@ describe('toModel', () => {
     const file = read({
       id: ID,
       name: 'Astra 6',
-      adapter: 'azure',
+      adapter: 'azure-openai',
       baseUrl: 'https://acme.test',
       deployment: 'gpt-5',
     });
@@ -19,7 +19,7 @@ describe('toModel', () => {
     expect(toModel(file)).toEqual({
       id: ID,
       name: 'Astra 6',
-      adapter: 'azure',
+      adapter: 'azure-openai',
       definition: { baseUrl: 'https://acme.test', deployment: 'gpt-5' },
     });
   });
@@ -31,34 +31,40 @@ describe('toModel', () => {
 
 describe('toModelFile', () => {
   it('writes the id, name and adapter with the adapter’s fields', () => {
-    const model = toModel(read({ id: ID, name: 'Astra 6', adapter: 'azure', deployment: 'gpt-5' }));
+    const model = toModel(
+      read({ id: ID, name: 'Astra 6', adapter: 'azure-openai', deployment: 'gpt-5' }),
+    );
 
     expect(toModelFile(model)).toEqual({
       id: ID,
       name: 'Astra 6',
-      adapter: 'azure',
+      adapter: 'azure-openai',
       deployment: 'gpt-5',
     });
   });
 
   it('reads back as the same model: a file survives being written and read', () => {
     const model = toModel(
-      read({ id: ID, name: 'Astra 6', adapter: 'azure', baseUrl: 'https://a.test' }),
+      read({ id: ID, name: 'Astra 6', adapter: 'azure-openai', baseUrl: 'https://a.test' }),
     );
 
     expect(toModel(read(toModelFile(model)))).toEqual(model);
   });
 
   it('keeps the model’s own id, name and adapter when a definition holds fields of those names', () => {
-    const model = toModel(read({ id: ID, name: 'Astra 6', adapter: 'azure' }));
+    const model = toModel(read({ id: ID, name: 'Astra 6', adapter: 'azure-openai' }));
     const clashing = { ...model, definition: { id: OTHER, name: 'Other', adapter: 'x' } };
 
-    expect(toModelFile(clashing)).toMatchObject({ id: ID, name: 'Astra 6', adapter: 'azure' });
+    expect(toModelFile(clashing)).toMatchObject({
+      id: ID,
+      name: 'Astra 6',
+      adapter: 'azure-openai',
+    });
   });
 });
 
 describe('fileIsNamedForItsId', () => {
-  const file = read({ id: ID, name: 'Astra 6', adapter: 'azure' });
+  const file = read({ id: ID, name: 'Astra 6', adapter: 'azure-openai' });
 
   it('accepts the file whose name is its id', () => {
     expect(fileIsNamedForItsId({ stem: ID, file })).toBe(true);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { requestSentBy } from '@sheavly/testing/fetch/fake-fetch.fake';
-import { azureAnthropicAdapter } from '../azure-anthropic.adapter.js';
+import { azureAnthropicAdapter } from '../anthropic.adapter.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const base = {

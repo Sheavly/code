@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { connectBackend } from '../backend.helper.js';
 
-/** What a started backend reads: a key so its provider builds (no model is called), nothing else. */
-const env = { ...process.env, OPENAI_API_KEY: 'sk-test', BACKEND_URL: '', BACKEND_TOKEN: '' };
+/**
+ * What a started backend reads: a key so its provider builds (no model is called), and the adapter
+ * pinned, so the developer's own `.env` (a set variable wins over it) doesn't pick one.
+ */
+const env = {
+  ...process.env,
+  ADAPTER: 'openai',
+  MODELS: '',
+  OPENAI_API_KEY: 'sk-test',
+  BACKEND_URL: '',
+  BACKEND_TOKEN: '',
+};
 
 describe('connectBackend', () => {
   it('starts a backend through npm, on a free port with its own token, and stops it', async () => {

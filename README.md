@@ -66,7 +66,7 @@ npm run demo -- "Say hello in five words"
 Add to `.env` (your endpoint URL without `/responses` and without the `?api-version=` part):
 
 ```bash
-ADAPTER=azure
+ADAPTER=azure-openai
 AZURE_OPENAI_API_KEY=...your azure key...
 AZURE_OPENAI_BASE_URL=https://<resource>.cognitiveservices.azure.com/openai
 AZURE_OPENAI_API_VERSION=2025-04-01-preview
@@ -99,7 +99,7 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
 
 ## Using other backends
 
-`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
+`ADAPTER=azure-openai` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
 several models on Azure at once (GPT, Claude, DeepSeek), each with its own keys, and the chat's
 `/model` switches between them ([several models](apps/backend/docs/harness.md#several-models-on-azure)). Creating providers
 in code, switching between them and adding a backend are in

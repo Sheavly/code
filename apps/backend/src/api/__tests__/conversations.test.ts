@@ -217,7 +217,7 @@ describe('a conversation over HTTP', () => {
     });
     expect((await switchTo('deep')).status).toBe(204);
     expect(await (await request(`/conversations/${id}`)).json()).toMatchObject({
-      model: { name: 'deep', adapter: 'azure' },
+      model: { name: 'deep', adapter: 'azure-openai' },
     });
     expect(await (await switchTo('huge')).json()).toMatchObject({
       error: { code: 'unknown_model' },

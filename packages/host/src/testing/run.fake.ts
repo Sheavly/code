@@ -7,7 +7,7 @@ import type { ModelChoice } from '@sheavly/protocol/server/server.types';
  */
 export function twoModelRun(): ConversationRun {
   const fast: ModelChoice = { name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
-  const models: ModelChoice[] = [fast, { name: 'deep', adapter: 'azure', model: 'gpt-5' }];
+  const models: ModelChoice[] = [fast, { name: 'deep', adapter: 'azure-openai', model: 'gpt-5' }];
   let active = fast;
 
   return {

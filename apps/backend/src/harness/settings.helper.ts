@@ -14,9 +14,9 @@ import { parseProviderEnv, parseRequestEnv } from './settings.validator.js';
 /**
  * The model backend the terminal app runs against, from its environment (`process.env`, after
  * loading `.env`). `MODELS` lists several by name, each with its own keys (`modelsFromEnv`), and
- * the run starts on the first; otherwise `ADAPTER` is "openai" (the default) or "azure", each with
- * its own keys. The packages never pick one; another UI reads its own settings and builds its own
- * provider.
+ * the run starts on the first; otherwise `ADAPTER` is "openai" (the default) or "azure-openai", each
+ * with its own keys. The packages never pick one; another UI reads its own settings and builds its
+ * own provider.
  */
 export function providerFromEnv(environment: Environment): ProviderSettings {
   const request = parseRequestEnv(environment);
@@ -31,11 +31,11 @@ export function providerFromEnv(environment: Environment): ProviderSettings {
 
   const env = parseProviderEnv(environment);
 
-  if (env.ADAPTER === 'azure') {
+  if (env.ADAPTER === 'azure-openai') {
     return {
-      adapter: 'azure',
+      adapter: 'azure-openai',
       model: env.AZURE_OPENAI_DEPLOYMENT,
-      provider: registry.create('azure', {
+      provider: registry.create('azure-openai', {
         apiKey: env.AZURE_OPENAI_API_KEY,
         baseUrl: env.AZURE_OPENAI_BASE_URL,
         deployment: env.AZURE_OPENAI_DEPLOYMENT,
@@ -76,7 +76,7 @@ function modelsFromEnv(params: {
       request,
     };
     const config =
-      settings.ADAPTER === 'azure'
+      settings.ADAPTER === 'azure-openai'
         ? { ...shared, apiVersion: settings.API_VERSION, reasoning: settings.REASONING }
         : { ...shared, maxTokens: settings.MAX_TOKENS, thinkingBudget: settings.THINKING_BUDGET };
 

@@ -36,7 +36,7 @@ the model in use and the ones it can switch to, workspace trust and the allow li
 - `providerFromEnv`: `MODELS` lists several models by name, each with its own keys
   (`models.validator.ts`, see [several models](#several-models-on-azure)), behind one
   `ProviderSwitch` that starts on the first; `PUT /conversations/:id/model` (the chat's `/model`)
-  switches it. Without `MODELS`, `ADAPTER` picks `openai` (the default) or `azure`, each with its
+  switches it. Without `MODELS`, `ADAPTER` picks `openai` (the default) or `azure-openai`, each with its
   own keys (`settings.validator.ts`). Either way the providers come from `@sheavly/providers`'
   registry, and a missing key fails with the name of what to set.
 - `trustStoreFromEnv`: `SHEAVLY_TRUST_FILE`, else `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json`
@@ -59,10 +59,10 @@ No package has any of these: another backend reads its own settings and composes
 history). Each name's keys are named after it, upper-cased with `-` as `_` (`deepseek-flash` reads
 `DEEPSEEK_FLASH_*`), so each model has its own key, endpoint and deployment:
 
-- `<NAME>_ADAPTER`: `azure` (the Responses API: GPT, DeepSeek and other Foundry models) or
+- `<NAME>_ADAPTER`: `azure-openai` (the Responses API: GPT, DeepSeek and other Foundry models) or
   `azure-anthropic` (Claude).
 - `<NAME>_API_KEY`, `<NAME>_BASE_URL`, `<NAME>_DEPLOYMENT`: required.
-- `azure` only: `<NAME>_API_VERSION` (for a dated URL) and `<NAME>_REASONING` (`false` for a model
+- `azure-openai` only: `<NAME>_API_VERSION` (for a dated URL) and `<NAME>_REASONING` (`false` for a model
   that sends no encrypted reasoning back; default `true`).
 - `azure-anthropic` only: `<NAME>_MAX_TOKENS` (default 16000) and `<NAME>_THINKING_BUDGET`
   (extended thinking, at least 1024; unset = off).

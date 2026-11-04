@@ -36,7 +36,7 @@ describe('modelFileSchema', () => {
   const file = {
     id: ID,
     name: 'Astra 6',
-    adapter: 'azure',
+    adapter: 'azure-openai',
     baseUrl: 'https://acme.openai.azure.com/openai/v1',
     deployment: 'gpt-5',
   };
@@ -68,7 +68,7 @@ describe('modelFileSchema', () => {
 
 describe('modelSchema', () => {
   it('has an id, a name, the adapter and its definition', () => {
-    const model = { id: ID, name: 'Astra 6', adapter: 'azure', definition: { a: 1 } };
+    const model = { id: ID, name: 'Astra 6', adapter: 'azure-openai', definition: { a: 1 } };
 
     expect(modelSchema.parse(model)).toEqual(model);
     expect(modelSchema.safeParse({ ...model, name: undefined }).success).toBe(false);
@@ -78,7 +78,7 @@ describe('modelSchema', () => {
 describe('adapterDescriptionSchema', () => {
   it('describes an adapter: kind, text, the form as JSON Schema, and which fields are secret', () => {
     const description = {
-      kind: 'azure',
+      kind: 'azure-openai',
       description: 'Azure Responses API',
       config: { type: 'object', properties: { apiKey: { type: 'string', secret: true } } },
       secrets: ['apiKey'],

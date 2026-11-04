@@ -44,7 +44,7 @@ function modelEnvSchema(prefix: string) {
     'ADAPTER',
     [
       z.object({
-        ADAPTER: z.literal('azure'),
+        ADAPTER: z.literal('azure-openai'),
         ...shared,
         API_VERSION: optional,
         REASONING: flag({ key: key('REASONING'), fallback: true }),
@@ -56,7 +56,7 @@ function modelEnvSchema(prefix: string) {
         THINKING_BUDGET: wholeNumber({ key: key('THINKING_BUDGET') }),
       }),
     ],
-    { error: `Set ${key('ADAPTER')} to azure or azure-anthropic` },
+    { error: `Set ${key('ADAPTER')} to azure-openai or azure-anthropic` },
   );
 }
 

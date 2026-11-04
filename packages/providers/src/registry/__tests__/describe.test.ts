@@ -30,7 +30,7 @@ describe('AdapterRegistry.describe', () => {
   it('describes every built-in adapter, in the order they were registered', () => {
     expect(described.map((adapter) => adapter.kind)).toEqual([
       'openai',
-      'azure',
+      'azure-openai',
       'azure-anthropic',
     ]);
   });
@@ -79,7 +79,7 @@ describe('AdapterRegistry.describe', () => {
   });
 
   it('labels the fields a person fills in, so a form needs no per-provider code', () => {
-    const azure = described.find((adapter) => adapter.kind === 'azure');
+    const azure = described.find((adapter) => adapter.kind === 'azure-openai');
     const fields = propertiesOf(azure?.config ?? {});
 
     expect(fields.apiKey).toMatchObject({ title: 'API key' });
@@ -109,7 +109,7 @@ describe('AdapterRegistry.describe', () => {
 
 describe('AdapterRegistry.secretFields', () => {
   it('names an adapter’s secrets, and refuses an adapter it does not have', () => {
-    expect(registry.secretFields('azure')).toEqual(['apiKey']);
+    expect(registry.secretFields('azure-openai')).toEqual(['apiKey']);
     expect(() => registry.secretFields('nope')).toThrow('Unknown adapter: nope');
   });
 });

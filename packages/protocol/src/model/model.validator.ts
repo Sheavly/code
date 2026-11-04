@@ -11,7 +11,7 @@ export const modelIdSchema = z
   .regex(/^[0-9a-f-]{36}$/, 'Use a lowercase UUID')
   .brand<'ModelId'>();
 
-/** An adapter's kind (`openai`, `azure`, `azure-anthropic`): lowercase words joined by dashes. */
+/** An adapter's kind (`openai`, `azure-openai`, `azure-anthropic`): lowercase words joined by dashes. */
 export const adapterKindSchema = z
   .string()
   .min(1)

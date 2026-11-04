@@ -1,22 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { requestSentBy } from '@sheavly/testing/fetch/fake-fetch.fake';
-import { azureAdapter } from '../azure.adapter.js';
+import { azureOpenaiAdapter } from '../openai.adapter.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const sent = (config: unknown) =>
   requestSentBy({
-    adapter: azureAdapter,
+    adapter: azureOpenaiAdapter,
     config: { request: TEST_REQUEST, ...(config as object) },
   });
 
-describe('azureAdapter', () => {
+describe('azureOpenaiAdapter', () => {
   it('rejects a base URL that is not a URL, and an api-version that is not one', () => {
     expect(
-      azureAdapter.configSchema.safeParse({ apiKey: 'k', baseUrl: 'not a url', deployment: 'd' })
-        .success,
+      azureOpenaiAdapter.configSchema.safeParse({
+        apiKey: 'k',
+        baseUrl: 'not a url',
+        deployment: 'd',
+      }).success,
     ).toBe(false);
     expect(() =>
-      azureAdapter.configSchema.parse({
+      azureOpenaiAdapter.configSchema.parse({
         apiKey: 'k',
         baseUrl: 'https://res.openai.azure.com/openai/v1',
         deployment: 'd',

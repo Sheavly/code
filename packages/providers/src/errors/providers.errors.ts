@@ -7,7 +7,7 @@
 export class AdapterError extends Error {
   override name = 'AdapterError';
   readonly reason: 'duplicate' | 'unknown' | 'invalid_config';
-  /** The adapter kind asked for (`openai`, `azure`, ...). */
+  /** The adapter kind asked for (`openai`, `azure-openai`, ...). */
   readonly kind: string;
 
   constructor(params: {

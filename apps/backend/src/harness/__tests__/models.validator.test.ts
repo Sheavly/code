@@ -5,7 +5,7 @@ import { providerFromEnv } from '../settings.helper.js';
 
 const MODELS_ENV = {
   MODELS: 'gpt, claude, deepseek-flash',
-  GPT_ADAPTER: 'azure',
+  GPT_ADAPTER: 'azure-openai',
   GPT_API_KEY: 'k1',
   GPT_BASE_URL: 'https://res.openai.azure.com/openai/v1',
   GPT_DEPLOYMENT: 'gpt-6.1-sol',
@@ -14,7 +14,7 @@ const MODELS_ENV = {
   CLAUDE_BASE_URL: 'https://res.services.ai.azure.com/anthropic',
   CLAUDE_DEPLOYMENT: 'claude-sonnet',
   CLAUDE_THINKING_BUDGET: '4096',
-  DEEPSEEK_FLASH_ADAPTER: 'azure',
+  DEEPSEEK_FLASH_ADAPTER: 'azure-openai',
   DEEPSEEK_FLASH_API_KEY: 'k3',
   DEEPSEEK_FLASH_BASE_URL: 'https://other.services.ai.azure.com/openai/v1',
   DEEPSEEK_FLASH_DEPLOYMENT: 'DeepSeek-V4-Flash',
@@ -32,7 +32,7 @@ describe('parseModelsEnv', () => {
       {
         name: 'gpt',
         settings: {
-          ADAPTER: 'azure',
+          ADAPTER: 'azure-openai',
           API_KEY: 'k1',
           BASE_URL: 'https://res.openai.azure.com/openai/v1',
           DEPLOYMENT: 'gpt-6.1-sol',
@@ -54,7 +54,7 @@ describe('parseModelsEnv', () => {
       {
         name: 'deepseek-flash',
         settings: {
-          ADAPTER: 'azure',
+          ADAPTER: 'azure-openai',
           API_KEY: 'k3',
           BASE_URL: 'https://other.services.ai.azure.com/openai/v1',
           DEPLOYMENT: 'DeepSeek-V4-Flash',
@@ -70,7 +70,7 @@ describe('parseModelsEnv', () => {
       'Set CLAUDE_API_KEY',
     );
     expect(() => parseModelsEnv({ ...MODELS_ENV, GPT_ADAPTER: 'openai' })).toThrow(
-      'Set GPT_ADAPTER to azure or azure-anthropic',
+      'Set GPT_ADAPTER to azure-openai or azure-anthropic',
     );
     expect(() => parseModelsEnv({ ...MODELS_ENV, CLAUDE_MAX_TOKENS: 'lots' })).toThrow(
       'Set CLAUDE_MAX_TOKENS to a whole number',
@@ -90,7 +90,7 @@ describe('providerFromEnv with MODELS', () => {
   it('starts on the first model, behind a switch that can change to the others', () => {
     const settings = providerFromEnv(MODELS_ENV);
 
-    expect(settings).toMatchObject({ adapter: 'azure', model: 'gpt-6.1-sol' });
+    expect(settings).toMatchObject({ adapter: 'azure-openai', model: 'gpt-6.1-sol' });
     expect(settings.provider).toBe(settings.models?.switch);
     expect(settings.models?.switch.names()).toEqual(['gpt', 'claude', 'deepseek-flash']);
     expect(settings.models?.choices[1]).toEqual({

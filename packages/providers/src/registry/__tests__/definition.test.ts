@@ -11,9 +11,9 @@ const fieldsOf = (problems: { field: string }[]) => problems.map((problem) => pr
 
 describe('AdapterRegistry.validateDefinition', () => {
   it('accepts a definition that is complete without its key', () => {
-    expect(registry.validateDefinition({ kind: 'azure', definition: azure, host: HOST })).toEqual(
-      [],
-    );
+    expect(
+      registry.validateDefinition({ kind: 'azure-openai', definition: azure, host: HOST }),
+    ).toEqual([]);
     expect(
       registry.validateDefinition({ kind: 'openai', definition: { model: 'gpt-6' }, host: HOST }),
     ).toEqual([]);
@@ -21,7 +21,7 @@ describe('AdapterRegistry.validateDefinition', () => {
 
   it('names a missing field, and one that is wrong, but never the missing key', () => {
     const problems = registry.validateDefinition({
-      kind: 'azure',
+      kind: 'azure-openai',
       definition: { baseUrl: 'not a url' },
       host: HOST,
     });
@@ -62,7 +62,7 @@ describe('AdapterRegistry.validateDefinition', () => {
 
   it('refuses a key in the definition: a model’s file holds none', () => {
     const problems = registry.validateDefinition({
-      kind: 'azure',
+      kind: 'azure-openai',
       definition: { ...azure, apiKey: 'sk-real-key' },
       host: HOST,
     });
@@ -76,7 +76,7 @@ describe('AdapterRegistry.validateDefinition', () => {
 
   it('does not let a definition override what the host supplies', () => {
     const problems = registry.validateDefinition({
-      kind: 'azure',
+      kind: 'azure-openai',
       definition: { ...azure, request: { responseTimeoutMs: -1 } },
       host: HOST,
     });

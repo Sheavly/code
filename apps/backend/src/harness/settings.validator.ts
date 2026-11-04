@@ -46,7 +46,7 @@ export function parseRequestEnv(env: Record<string, string | undefined>) {
 
 /**
  * The model backend settings a host reads from the environment: `ADAPTER` picks "openai" (the
- * default) or "azure", each with its own keys. Each missing key names what to set.
+ * default) or "azure-openai", each with its own keys. Each missing key names what to set.
  */
 const providerEnvSchema = z.discriminatedUnion('ADAPTER', [
   z.object({
@@ -55,7 +55,7 @@ const providerEnvSchema = z.discriminatedUnion('ADAPTER', [
     MODEL: z.string().default(DEFAULT_MODEL),
   }),
   z.object({
-    ADAPTER: z.literal('azure'),
+    ADAPTER: z.literal('azure-openai'),
     AZURE_OPENAI_API_KEY: z.string().min(1, 'Set AZURE_OPENAI_API_KEY'),
     AZURE_OPENAI_BASE_URL: z.string().min(1, 'Set AZURE_OPENAI_BASE_URL'),
     AZURE_OPENAI_DEPLOYMENT: z.string().default(DEFAULT_MODEL),

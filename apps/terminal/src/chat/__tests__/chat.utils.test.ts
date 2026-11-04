@@ -39,12 +39,12 @@ describe('unknownCommand', () => {
 describe('listModels', () => {
   it('lists each model with its backend, marking the active one', () => {
     const choices = [
-      { name: 'gpt', adapter: 'azure', model: 'gpt-6.1-sol' },
+      { name: 'gpt', adapter: 'azure-openai', model: 'gpt-6.1-sol' },
       { name: 'claude', adapter: 'azure-anthropic', model: 'claude-sonnet' },
     ];
 
     expect(listModels({ choices, active: 'claude' })).toBe(
-      '○ gpt: azure / gpt-6.1-sol\n● claude: azure-anthropic / claude-sonnet',
+      '○ gpt: azure-openai / gpt-6.1-sol\n● claude: azure-anthropic / claude-sonnet',
     );
   });
 });
