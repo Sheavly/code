@@ -114,7 +114,7 @@ hears a `StoreError`, rather than show a conversation with a hole in it. If a wr
 registry stops writing, keeps everything in memory from then on, and reports it as
 `storageFailure`: whoever owns the conversation should stop it rather than let it go on unrecorded.
 
-A stored conversation can be carried on: `readStoredLog(store)` reads its entries once, in order, and
+A stored conversation can be carried on: `SessionRegistry.readStoredLog(store)` reads its entries once, in order, and
 `new SessionRegistry({ store, resume })` continues from there. Numbering carries on from the last
 stored entry, the newest entries are the ones in memory, and every session is back as its last
 update left it. The main session is idle for its next prompt (`restoredMain()` is its ref). A

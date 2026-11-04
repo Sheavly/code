@@ -4,6 +4,7 @@ import type { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
+import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
@@ -61,6 +62,14 @@ export class SessionRegistry {
     });
 
     if (resume) this.#restore(resume.sessions);
+  }
+
+  /**
+   * Reads a stored conversation's entries once, in order, for `new SessionRegistry({ store,
+   * resume })` to carry on from. Throws a `StoreError` when the entries have a gap.
+   */
+  static readStoredLog(store: EntryStore): Promise<StoredLog> {
+    return readStoredLog(store);
   }
 
   /** The first failed write to the store, if any: the conversation should stop, not go on unrecorded. */
