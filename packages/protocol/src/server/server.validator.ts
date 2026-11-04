@@ -124,6 +124,8 @@ export const serverErrorCodeSchema = z.enum([
   'unknown_approval',
   'unknown_model',
   'storage_failed',
+  /** No profile with a usable model yet: a UI onboards the user (profiles, models, keys) first. */
+  'not_set_up',
   'internal',
 ]);
 

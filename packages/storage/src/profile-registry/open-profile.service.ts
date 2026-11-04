@@ -1,11 +1,19 @@
+import path from 'node:path';
 import type { Model, ModelId } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
+import { workspaceKey } from '../config-store/config-store.utils.js';
+import { workspaceKeySchema } from '../config-store/config-store.validator.js';
+import { FileConversationStore } from '../conversation-store/conversation-store.service.js';
 import { CredentialStore } from '../credential-store/credential-store.service.js';
 import type { Secrets } from '../credential-store/credential-store.types.js';
 import { RegistryError } from '../errors/registry.errors.js';
+import { writeJsonFile } from '../json-file/json-file.helper.js';
+import type { FileProblem } from '../listing/listing.types.js';
 import { ModelStore } from '../model-store/model-store.service.js';
 import type { ModelListing } from '../model-store/model-store.types.js';
+import { WORKSPACE_FILE, WORKSPACES_FOLDER } from '../profile-store/profile-store.constants.js';
 import type { ProfileStore } from '../profile-store/profile-store.service.js';
+import { namedPath } from '../safe-path/safe-path.helper.js';
 import { requireProfile } from './profile-registry.helper.js';
 
 /**
@@ -23,8 +31,11 @@ import { requireProfile } from './profile-registry.helper.js';
 export class OpenProfile {
   readonly id: ProfileId;
   readonly #profiles: ProfileStore;
+  readonly #folder: string;
   readonly #models: ModelStore;
   readonly #credentials: CredentialStore;
+  /** One store per workspace, so every conversation in it shares its streams' write queues. */
+  readonly #conversations = new Map<string, FileConversationStore>();
 
   constructor(params: { id: ProfileId; profiles: ProfileStore }) {
     const { id, profiles } = params;
@@ -32,8 +43,41 @@ export class OpenProfile {
 
     this.id = id;
     this.#profiles = profiles;
+    this.#folder = folder;
     this.#models = new ModelStore({ folder });
     this.#credentials = new CredentialStore({ folder });
+  }
+
+  /**
+   * The conversations of the workspace at `realPath` (its real path, symlinks followed) under this
+   * profile: `workspaces/<workspace-key>/conversations/`. The same store every time for one
+   * workspace. The folder is named by a hash of the path, so `workspace.json` beside it says which
+   * path it is, for a person who looks. `onProblem` is told about each conversation the listing
+   * cannot use (see `FileConversationStore`).
+   */
+  async conversations(params: {
+    realPath: string;
+    onProblem: (problem: FileProblem) => void;
+  }): Promise<FileConversationStore> {
+    const { realPath, onProblem } = params;
+    const key = workspaceKey({ realPath });
+    const known = this.#conversations.get(key);
+
+    if (known) return known;
+
+    await this.#assertProfile();
+
+    const folder = namedPath({
+      folder: path.join(this.#folder, WORKSPACES_FOLDER),
+      id: key,
+      shape: workspaceKeySchema,
+    });
+    const store = new FileConversationStore({ folder, onProblem });
+
+    await writeJsonFile({ file: path.join(folder, WORKSPACE_FILE), value: { root: realPath } });
+    this.#conversations.set(key, store);
+
+    return store;
   }
 
   /** The profile's models, and a problem for each file that isn't one (see `ModelStore.list`). */

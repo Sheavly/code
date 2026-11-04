@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { z } from 'zod';
 import { lowercaseUuidSchema } from '@sheavly/protocol/id/id.validator';
 
 /** The suffix of a file a store names: a dot and a few lowercase letters (`.json`, `.jsonl`). */
@@ -28,13 +29,19 @@ export function unsafeRootReason(root: string): string | undefined {
 /**
  * Why `<id><extension>` is not a name a store may give a file or folder, or `undefined` when it
  * is. `id` is taken as the plain string it is: a type that says it is an id proves nothing about
- * a value that came from outside, so only a lowercase UUID passes (no separator, no `..`, no
- * reserved name), and `extension` must be empty or a short plain suffix like `.json`. Pure.
+ * a value that came from outside, so only what `shape` accepts passes (by default a lowercase
+ * UUID: no separator, no `..`, no reserved name), and `extension` must be empty or a short plain
+ * suffix like `.json`. A folder named by something else with a precise shape, like a workspace
+ * key, passes that shape. Pure.
  */
-export function unsafeNameReason(params: { id: string; extension?: string }): string | undefined {
-  const { id, extension = '' } = params;
+export function unsafeNameReason(params: {
+  id: string;
+  extension?: string;
+  shape?: z.ZodType<string>;
+}): string | undefined {
+  const { id, extension = '', shape = lowercaseUuidSchema } = params;
 
-  if (!lowercaseUuidSchema.safeParse(id).success) return 'its name is not an id';
+  if (!shape.safeParse(id).success) return 'its name is not an id';
 
   if (extension !== '' && !PLAIN_EXTENSION.test(extension)) {
     return 'its extension is not a plain suffix like .json';

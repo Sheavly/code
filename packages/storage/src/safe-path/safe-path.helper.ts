@@ -1,6 +1,7 @@
 import { realpath, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import type { z } from 'zod';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError, UnsafePathError } from '../errors/storage.errors.js';
 import { RM_RETRIES, RM_RETRY_DELAY_MS } from './safe-path.constants.js';
@@ -27,15 +28,22 @@ export function assertSafeRoot(root: string): string {
 
 /**
  * The path of `<id><extension>` inside `folder`, for a store to read, write or delete, so every
- * file it names is made one way. `id` must be a lowercase UUID and `extension` empty or a plain
- * suffix (`.json`): a value that came from outside can't name another file, or climb out of
- * `folder`, whatever its type says. `folder` must be absolute and not the top of a file system.
- * Throws an `UnsafePathError`, before anything is touched.
+ * file it names is made one way. `id` must be a lowercase UUID (or match `shape`, for a name with
+ * its own precise form, like a workspace key) and `extension` empty or a plain suffix (`.json`): a
+ * value that came from outside can't name another file, or climb out of `folder`, whatever its
+ * type says. `folder` must be absolute and not the top of a file system. Throws an
+ * `UnsafePathError`, before anything is touched.
  */
-export function namedPath(params: { folder: string; id: string; extension?: string }): string {
-  const { folder, id, extension = '' } = params;
+export function namedPath(params: {
+  folder: string;
+  id: string;
+  extension?: string;
+  shape?: z.ZodType<string>;
+}): string {
+  const { folder, id, extension = '', shape } = params;
   const target = path.join(folder, `${id}${extension}`);
-  const reason = unsafeRootReason(folder) ?? unsafeNameReason({ id, extension });
+  const reason =
+    unsafeRootReason(folder) ?? unsafeNameReason({ id, extension, ...(shape && { shape }) });
 
   if (reason) throw new UnsafePathError({ target, reason });
 

@@ -800,6 +800,7 @@
         "unknown_approval",
         "unknown_model",
         "storage_failed",
+        "not_set_up",
         "internal"
       ]
     },

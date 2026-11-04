@@ -12,6 +12,8 @@ const CONVERSATION_FAILURES: Record<ConversationsError['reason'], (message: stri
     unknown_skill: (message) => ({ status: 422, code: 'unknown_skill', message }),
     unknown_model: (message) => ({ status: 422, code: 'unknown_model', message }),
     storage_failed: (message) => ({ status: 507, code: 'storage_failed', message }),
+    // Not a server fault and not a bad request: the user has not set the backend up yet.
+    not_set_up: (message) => ({ status: 409, code: 'not_set_up', message }),
   };
 
 /**

@@ -5,7 +5,7 @@ import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
  * A workspace's key in the config: what its folder under a profile is named. A hash of the real
  * path (see `workspaceKey`), so 64 lowercase hex characters, never the path itself.
  */
-const workspaceKeySchema = z.string().regex(/^[0-9a-f]{64}$/, 'Use a workspace key');
+export const workspaceKeySchema = z.string().regex(/^[0-9a-f]{64}$/, 'Use a workspace key');
 
 /**
  * The user's `config.json`: which profile is the default, and which profile each workspace uses.
