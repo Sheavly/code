@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import type { StoreError } from '@sheavly/core/errors/store.errors';
+import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
 import { Inboxes } from './inboxes.service.js';
@@ -36,10 +38,36 @@ type Listener = (update: SessionUpdate) => void;
 export class SessionRegistry {
   #sessions = new Map<SessionId, SessionInfo>();
   #listeners = new Set<Listener>();
-  #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
+  readonly #entries: EntryLog;
   /** The session each waiting approval belongs to, so its answer lands in the same place. */
   #approvalSessions = new Map<ApprovalId, SessionId>();
   #inboxes = new Inboxes();
+
+  /**
+   * With a `store`, the combined stream is also written to it and only its newest entries stay in
+   * memory (`EntryLog`); without one, behaves as it always has.
+   */
+  constructor(options: { store?: EntryStore } = {}) {
+    this.#entries = new EntryLog({
+      lineage: (id) => this.lineage(id),
+      ...(options.store && { store: options.store }),
+    });
+  }
+
+  /** The first failed write to the store, if any: the conversation should stop, not go on unrecorded. */
+  get storageFailure(): StoreError | undefined {
+    return this.#entries.failure;
+  }
+
+  /** Resolves once every entry so far is in the store (or a write has failed). */
+  flushStore(): Promise<void> {
+    return this.#entries.flush();
+  }
+
+  /** How many entries of the combined stream are in memory (the newest few, with a store). */
+  get retainedEntries(): number {
+    return this.#entries.retained;
+  }
 
   /** Starts the main session (depth 1). */
   startMain(params: { title: string; id?: SessionId }): SessionRef {
@@ -274,9 +302,19 @@ export class SessionRegistry {
    * Calls `listener` for the entries of the combined stream `filter` picks (every session's, one
    * session's, or a session's and its sub-agents'), sub-agents included, in one `seq` order;
    * with `replay`, from the run's start. Each entry is frozen. Returns a function that stops it.
+   * With a store, a replay reaching past the entries in memory is delivered a moment later; if
+   * the store can't give them all, `onError` hears of it and no more is delivered.
    */
-  subscribeEntries(listener: (entry: StreamEntry) => void, filter?: EntryFilter): () => void {
-    return this.#entries.subscribe({ listener, ...(filter && { filter }) });
+  subscribeEntries(
+    listener: (entry: StreamEntry) => void,
+    filter?: EntryFilter,
+    onError?: (error: StoreError) => void,
+  ): () => void {
+    return this.#entries.subscribe({
+      listener,
+      ...(filter && { filter }),
+      ...(onError && { onError }),
+    });
   }
 
   /**

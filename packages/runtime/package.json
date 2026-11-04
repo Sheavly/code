@@ -48,5 +48,8 @@
   "files": [
     "dist",
     "docs"
-  ]
+  ],
+  "devDependencies": {
+    "@sheavly/testing": "^0.0.0"
+  }
 }
