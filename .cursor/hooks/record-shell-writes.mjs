@@ -6,10 +6,15 @@
 // missed: the agent is told to teach the guard, and the stop hook holds it to that. Several chats
 // can share the checkout, so a file another chat edited while the command ran is left out
 // (chat-files.utils.mjs).
-import { editedFilesFields, filesOtherChatsEdited } from './chat-files.utils.mjs';
+import {
+  editedFilesFields,
+  filesEditedWithToolsSince,
+  filesOtherChatsEdited,
+} from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
 import {
   getChatState,
+  hookNow,
   PROJECT_ROOT,
   readHookInput,
   respond,
@@ -52,28 +57,41 @@ linkFromToolCall(input);
 const state = conversationId ? getChatState(conversationId) : null;
 const { [command]: before, ...otherSnapshots } = state?.shellSnapshots ?? {};
 const after = before ? snapshotProject(PROJECT_ROOT) : null;
-// A file another chat edited while the command ran is that chat's change, not the command's. A
+// Read after the snapshot: an edit hook running together with the command records its edit in
+// this state, and writing back an older copy would lose it.
+const latest = conversationId ? getChatState(conversationId) : null;
+// A file another chat edited while the command ran is that chat's change, not the command's, and
+// neither is one this chat edited with the edit tools: tool calls sent together run together. A
 // snapshot from before snapshots were timed can't be told apart: all of its changes count.
 const othersEdited = before?.takenAt
   ? filesOtherChatsEdited({ exclude: [conversationId], since: before.takenAt })
   : new Set();
+const toolEdited = filesEditedWithToolsSince({ state: latest, since: before?.takenAt });
 const files = after
-  ? changedFiles({ before, after }).filter((file) => !othersEdited.has(file))
+  ? changedFiles({ before, after }).filter(
+      (file) => !othersEdited.has(file) && !toolEdited.has(file),
+    )
   : [];
 
 if (conversationId && before) updateChatState({ conversationId, shellSnapshots: otherSnapshots });
 
 if (files.length === 0 || isSanctionedWriter(command)) {
-  if (files.length > 0) updateChatState({ conversationId, ...editedFilesFields({ state, files }) });
+  if (files.length > 0) {
+    updateChatState({ conversationId, ...editedFilesFields({ state: latest, files }) });
+  }
+
   respond({});
 } else {
-  const unguarded = (state?.unguardedCommands ?? []).filter((entry) => entry.command !== command);
+  const unguarded = (latest?.unguardedCommands ?? []).filter((entry) => entry.command !== command);
   const cwd = input.cwd || toolInput.cwd || PROJECT_ROOT;
 
   updateChatState({
     conversationId,
-    ...editedFilesFields({ state, files }),
-    unguardedCommands: [...unguarded, { command, cwd, files, at: before.takenAt }],
+    ...editedFilesFields({ state: latest, files }),
+    unguardedCommands: [
+      ...unguarded,
+      { command, cwd, files, at: before.takenAt, endedAt: hookNow() },
+    ],
   });
   respond({ additional_context: workaroundNote({ command, files }) });
 }

@@ -15,7 +15,7 @@ const readState = () => JSON.parse(readFileSync(path.join(stateDir, 'c1.json'), 
 
 /** Runs `command` the way Cursor does: the guard, then (if allowed) `write`, then the after-hook. */
 function runShell(params) {
-  const { command, write } = params;
+  const { command, write, during } = params;
   const decision = runHook({
     script: 'guard-shell-commands.mjs',
     cwd: repo,
@@ -25,6 +25,8 @@ function runShell(params) {
 
   if (decision.permission !== 'allow') return { decision };
   write?.();
+  // Another tool call sent together with the command, finishing before the command's after-hook.
+  during?.();
 
   return {
     decision,
@@ -136,7 +138,7 @@ describe('a shell workaround', () => {
     expect(state.editedProjectSource).toBe(true);
     expect(Object.keys(state.editedFiles)).toEqual(['a.ts']);
     expect(state.unguardedCommands).toEqual([
-      { command, cwd: repo, files: ['a.ts'], at: expect.any(Number) },
+      { command, cwd: repo, files: ['a.ts'], at: expect.any(Number), endedAt: expect.any(Number) },
     ]);
     expect(state.shellSnapshots).toEqual({});
 
@@ -218,5 +220,49 @@ describe('a shell workaround', () => {
     expect(runShell({ command, write: otherChatEdits }).after).toEqual({});
     expect(readState().unguardedCommands).toBeUndefined();
     expect(readState().editedFiles).toBeUndefined();
+  });
+
+  it('is not blamed for a file this chat edited with the edit tools while the command ran', () => {
+    const editedTogether = () => {
+      write();
+      runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+    };
+
+    expect(runShell({ command, during: editedTogether }).after).toEqual({});
+    expect(readState().unguardedCommands).toBeUndefined();
+    expect(Object.keys(readState().editedFiles)).toEqual(['a.ts']);
+  });
+
+  it('takes the file back when the edit tool’s hook finishes just after the command’s', async () => {
+    runShell({ command, write });
+    expect(readState().unguardedCommands).toHaveLength(1);
+
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+
+    expect(readState().unguardedCommands).toEqual([]);
+    expect(await shellGuardFailure({ state: readState(), projectRoot: repo })).toBeNull();
+  });
+
+  it('still blames the command for a file the edit tools edited before it started', () => {
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+
+    const { after } = runShell({ command, write });
+
+    expect(after.additional_context).toMatch(/changed project files without the edit tools: a\.ts/);
+    expect(readState().unguardedCommands).toHaveLength(1);
+  });
+
+  it('keeps the files of the command that the edit tools did not edit', () => {
+    const writeBoth = () => {
+      write();
+      writeFileSync(path.join(repo, 'b.ts'), 'x');
+    };
+
+    runShell({ command, write: writeBoth });
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+
+    expect(readState().unguardedCommands).toEqual([
+      expect.objectContaining({ command, files: ['b.ts'] }),
+    ]);
   });
 });

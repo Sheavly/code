@@ -10,7 +10,7 @@
 // the stop hook checks only chats that changed this checkout. Advisory: it never blocks the edit.
 // The stop hook (check-on-stop.mjs) enforces.
 import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
-import { editedFilesFields } from './chat-files.utils.mjs';
+import { editToolFields } from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
@@ -48,7 +48,7 @@ const projectFile = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('
 linkFromToolCall(input);
 
 // Recorded first, so an edit Prettier or ESLint then fails on still counts.
-remember(editedFilesFields({ state: readState(), files: [projectFile] }));
+remember(editToolFields({ state: readState(), files: [projectFile] }));
 
 // A deleted file has nothing left to format or lint; the stop hook checks what it broke.
 if (!existsSync(filePath)) {
