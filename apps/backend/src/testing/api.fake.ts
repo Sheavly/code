@@ -1,5 +1,6 @@
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
@@ -46,12 +47,18 @@ function askingTool(approvals: ReturnType<typeof createHarness>['approvals']) {
 /**
  * Test-only: the backend's API on conversations of a scripted model, each prompt's first user
  * message picking its script (`routedProvider`), with a blocking and an asking tool. `request`
- * calls it in-process with the token, as a client would.
+ * calls it in-process with the token, as a client would. With a `store`, the conversations are
+ * kept in it, wired as the backend wires them.
  */
-export function testApi(scripts: Record<string, Script[]>) {
+export function testApi(scripts: Record<string, Script[]>, store?: ConversationStore) {
   const conversations = new Conversations({
-    create: async ({ messages }) => {
-      const harness = createHarness({ provider: routedProvider(scripts), title: 'Chat' });
+    ...(store && { store }),
+    create: async ({ messages, storage }) => {
+      const harness = createHarness({
+        provider: routedProvider(scripts),
+        title: 'Chat',
+        ...(storage && { entries: storage.entries, resume: storage.resume }),
+      });
 
       return {
         harness,
@@ -60,6 +67,10 @@ export function testApi(scripts: Record<string, Script[]>) {
           run: streamAgent,
           tools: [blockTool, askingTool(harness.approvals)],
           messages: messages ?? [],
+          ...(storage && {
+            keepHistory: storage.keepHistory,
+            resumed: storage.resume !== undefined,
+          }),
         }),
         skills: reviewSkill,
         run: twoModelRun(),

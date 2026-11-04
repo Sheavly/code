@@ -11,6 +11,7 @@ const CONVERSATION_FAILURES: Record<ConversationsError['reason'], (message: stri
     not_found: (message) => ({ status: 404, code: 'not_found', message }),
     unknown_skill: (message) => ({ status: 422, code: 'unknown_skill', message }),
     unknown_model: (message) => ({ status: 422, code: 'unknown_model', message }),
+    storage_failed: (message) => ({ status: 507, code: 'storage_failed', message }),
   };
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
+import { MemoryConversationStore } from '@sheavly/testing/store/memory-store.fake';
 import { readEntries } from '@sheavly/client/client/entries.helper';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -222,6 +223,25 @@ describe('a conversation over HTTP', () => {
       error: { code: 'unknown_model' },
     });
     expect((await switchTo('')).status).toBe(400);
+  });
+
+  it('answers a conversation whose storage failed with storage_failed, not a prompt run', async () => {
+    const store = new MemoryConversationStore();
+    const { request, start, conversations } = testApi({ hi: [reply('hello')] }, store);
+    const id = conversationIdSchema.parse(await start());
+    const prompt = () =>
+      request(`/conversations/${id}/prompts`, { method: 'POST', body: { text: 'hi' } });
+
+    await (await prompt()).text();
+    await conversations.get(id).harness.sessions.flushStore();
+    store.failWith(new Error('ENOSPC'));
+    await (await prompt()).text();
+    await conversations.get(id).harness.sessions.flushStore();
+
+    const refused = await prompt();
+
+    expect(refused.status).toBe(507);
+    expect(await refused.json()).toMatchObject({ error: { code: 'storage_failed' } });
   });
 
   it('streams a background task starting and ending, under the session that started it', async () => {
