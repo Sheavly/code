@@ -112,9 +112,9 @@ describe('a model call that fails after starting tools', () => {
       'tool_result',
     ]);
     expect(events).toContainEqual(expect.objectContaining({ stopReason: 'interrupted' }));
-    expect(results(events)).toEqual([
+    expect(results(events)).toMatchObject([
       { role: 'tool', toolCallId: 'c1', content: STOPPED_BY_FAILURE, isError: true },
-      expect.objectContaining({ toolCallId: 'c2', content: 'done c2', isError: false }),
+      { toolCallId: 'c2', content: 'done c2', isError: false },
     ]);
     expect(history.map((message) => message.role)).toEqual(['assistant', 'tool', 'tool']);
   });
@@ -127,7 +127,7 @@ describe('a model call that fails after starting tools', () => {
     const { events, error: thrown } = await runToFailure({ provider, log: [] });
 
     expect(thrown).toBe(error);
-    expect(results(events)).toEqual([
+    expect(results(events)).toMatchObject([
       { role: 'tool', toolCallId: 'c1', content: STOPPED_BY_FAILURE, isError: true },
     ]);
   });

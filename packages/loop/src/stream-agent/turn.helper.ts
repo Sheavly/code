@@ -1,3 +1,4 @@
+import { now } from '@sheavly/core/clock/clock.helper';
 import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -88,7 +89,8 @@ function deliverMessages(params: {
 
   for (const message of session.registry.takeMessages(session.ref.id)) {
     events.enqueue({ type: 'message_received', message });
-    messages.push({ role: 'user', content: inboxText(message) });
+    // The message is stamped with when it was sent, not when this turn read it.
+    messages.push({ role: 'user', content: inboxText(message), at: message.sentAt });
   }
 }
 
@@ -102,7 +104,11 @@ function reportFinishedTasks(params: {
 
   for (const task of tasks?.takeUnreported() ?? []) {
     events.enqueue({ type: 'task_completed', task });
-    messages.push({ role: 'user', content: taskNotification(task) });
+    messages.push({
+      role: 'user',
+      content: taskNotification(task),
+      at: task.endedAt ?? now(),
+    });
   }
 }
 

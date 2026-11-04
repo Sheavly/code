@@ -91,7 +91,7 @@ describe('interrupts', () => {
     expect(done).toMatchObject({ type: 'done', reason: 'interrupted' });
 
     if (done?.type === 'done') {
-      expect(done.messages).toEqual([
+      expect(done.messages).toMatchObject([
         { role: 'assistant', content: 'Let me think', toolCalls: [] },
       ]);
     }
@@ -210,7 +210,11 @@ describe('interrupts', () => {
     });
 
     expect(seen[0]?.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'tool', 'user']);
-    expect(continued.at(-1)).toEqual({ role: 'assistant', content: 'Resuming.', toolCalls: [] });
+    expect(continued.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Resuming.',
+      toolCalls: [],
+    });
     expectValidHistory(continued);
   });
 

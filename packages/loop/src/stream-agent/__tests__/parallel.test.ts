@@ -86,7 +86,7 @@ describe('parallel tool calls', () => {
     });
 
     expect(finished).toEqual(['fast', 'slow']); // fast really did finish first
-    expect(messages.slice(1, 3)).toEqual([
+    expect(messages.slice(1, 3)).toMatchObject([
       { role: 'tool', toolCallId: 'slow', content: 'done slow', isError: false },
       { role: 'tool', toolCallId: 'fast', content: 'done fast', isError: false },
     ]);

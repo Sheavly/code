@@ -141,10 +141,11 @@ describe('createAgentsMdHook in the loop', () => {
     expect(instructions).toContain('Core imports zod only.');
     expect(instructions).not.toContain('OUTSIDE THE PROJECT');
     // Instructions are not history: nothing was added to the conversation.
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: '', toolCalls: [] },
     ]);
+    expect(messages).toHaveLength(2);
   });
 
   it('re-reads AGENTS.md each turn, so an edit applies on the next model call', async () => {

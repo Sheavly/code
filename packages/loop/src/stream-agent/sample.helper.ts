@@ -1,3 +1,4 @@
+import { now } from '@sheavly/core/clock/clock.helper';
 import { toDefinition } from '@sheavly/core/tool/tool.utils';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
@@ -86,6 +87,7 @@ export async function sample(context: SampleContext) {
     content,
     toolCalls,
     ...(reasoning.length > 0 ? { reasoning } : {}),
+    at: now(),
   };
 
   return { message, stopReason, running, failure };
@@ -115,6 +117,7 @@ async function startTool(params: {
         toolCallId: call.id,
         content,
         isError: true,
+        at: now(),
       };
 
       return { message: placeholder, artifacts: undefined };

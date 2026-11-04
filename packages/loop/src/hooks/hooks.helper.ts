@@ -1,3 +1,4 @@
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
 import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
@@ -15,7 +16,7 @@ function contextAdder(params: { hook: Hook; messages: Message[]; onContext: OnCo
   const { hook, messages, onContext } = params;
 
   return (content: string) => {
-    messages.push({ role: 'user', content });
+    messages.push({ role: 'user', content, at: now() });
     onContext({ hook: hook.name, content });
   };
 }
@@ -142,7 +143,10 @@ export async function runToolCall(params: {
 
   const { content, isError, artifacts } = await runFrom(0, call);
 
-  return { message: { role: 'tool', toolCallId: call.id, content, isError }, artifacts };
+  return {
+    message: { role: 'tool', toolCallId: call.id, content, isError, at: now() },
+    artifacts,
+  };
 }
 
 function toResult(run: ToolRunResult): ToolResult {

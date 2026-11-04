@@ -60,7 +60,7 @@ describe('runAgent', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'Hello', toolCalls: [] },
     ]);
@@ -91,7 +91,7 @@ describe('runAgent', () => {
       onEvent: (e) => events.push(e),
     });
 
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'Weather in Stockholm?' },
       { role: 'assistant', content: '', toolCalls: [call] },
       { role: 'tool', toolCallId: '1', content: 'Sunny in Stockholm', isError: false },
@@ -173,7 +173,7 @@ describe('runAgent', () => {
 
     expect(events.find((e) => e.type === 'tool_result')).toMatchObject({ artifacts });
     expect(JSON.stringify(messages)).not.toContain('columns');
-    expect(messages[2]).toEqual({
+    expect(messages[2]).toMatchObject({
       role: 'tool',
       toolCallId: '1',
       content: 'Parsed 1 row',
