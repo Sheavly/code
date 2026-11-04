@@ -41,7 +41,8 @@
       "default": "./dist/*.validator.js"
     },
     "./serial-queue/*": null,
-    "./listing/*": null
+    "./listing/*": null,
+    "./jsonl-file/*": null
   },
   "files": [
     "dist",

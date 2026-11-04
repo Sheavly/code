@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { StorageFileError } from '../../errors/storage.errors.js';
+import { expectPrivate, useTempFolder } from '../../testing/temp-folder.fake.js';
 import { RENAME_ATTEMPTS } from '../json-file.constants.js';
 import { readJsonFile, replaceFile, writeJsonFile } from '../json-file.helper.js';
 
@@ -11,16 +11,12 @@ const schema = z.object({ name: z.string(), count: z.number() });
 /** Windows has no file modes: a test of one has nothing to check there. */
 const hasFileModes = process.platform !== 'win32';
 
-let base: string;
 let file: string;
 
-beforeEach(async () => {
-  base = await mkdtemp(path.join(tmpdir(), 'storage-json-'));
-  file = path.join(base, 'data', 'thing.json');
-});
+const temp = useTempFolder('storage-json-');
 
-afterEach(async () => {
-  await rm(base, { recursive: true, force: true });
+beforeEach(() => {
+  file = path.join(temp.path(), 'data', 'thing.json');
 });
 
 describe('writeJsonFile and readJsonFile', () => {
@@ -42,8 +38,7 @@ describe('writeJsonFile and readJsonFile', () => {
   it.skipIf(!hasFileModes)('keeps the file and the folders it made to the user alone', async () => {
     await writeJsonFile({ file, value: { name: 'a', count: 1 } });
 
-    expect((await stat(file)).mode & 0o777).toBe(0o600);
-    expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700);
+    await expectPrivate(file);
   });
 
   it('replaces the file whole, and leaves no temp file behind', async () => {
@@ -81,10 +76,10 @@ describe('writeJsonFile and readJsonFile', () => {
 describe('readJsonFile', () => {
   it('says there is nothing for a file that is not there, or a folder that is not either', async () => {
     expect(await readJsonFile({ file, schema })).toBeUndefined();
-    await writeFile(path.join(base, 'plain'), 'x');
+    await writeFile(path.join(temp.path(), 'plain'), 'x');
     // A file where a folder should be is "not there" too, as on any system.
     expect(
-      await readJsonFile({ file: path.join(base, 'plain', 'x.json'), schema }),
+      await readJsonFile({ file: path.join(temp.path(), 'plain', 'x.json'), schema }),
     ).toBeUndefined();
   });
 
