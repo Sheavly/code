@@ -1,6 +1,7 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
@@ -12,6 +13,7 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
  */
 export class MemoryConversationStore implements ConversationStore {
   readonly #entries = new Map<ConversationId, StreamEntry[]>();
+  readonly #messages = new Map<ConversationId, Message[]>();
   readonly #index = new Map<ConversationId, StoredConversation>();
   #failure: Error | undefined;
 
@@ -27,6 +29,15 @@ export class MemoryConversationStore implements ConversationStore {
     };
   }
 
+  async readMessages(id: ConversationId): Promise<Message[]> {
+    return structuredClone(this.#messages.get(id) ?? []);
+  }
+
+  async writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void> {
+    this.#assertWritable();
+    this.#messages.set(params.id, structuredClone([...params.messages]));
+  }
+
   async list(): Promise<StoredConversation[]> {
     return [...this.#index.values()].sort((a, b) => a.startedAt - b.startedAt);
   }
@@ -39,6 +50,7 @@ export class MemoryConversationStore implements ConversationStore {
   async delete(id: ConversationId): Promise<void> {
     this.#assertWritable();
     this.#entries.delete(id);
+    this.#messages.delete(id);
     this.#index.delete(id);
   }
 

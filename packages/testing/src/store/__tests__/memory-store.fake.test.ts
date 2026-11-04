@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { MemoryConversationStore } from '../memory-store.fake.js';
@@ -66,11 +67,34 @@ describe('MemoryConversationStore', () => {
 
     expect((await store.list()).map((c) => c.id)).toEqual([id, other]);
 
+    await store.writeMessages({ id, messages: [{ role: 'user', content: 'hi' }] });
     await store.delete(id);
     await store.delete(id);
 
     expect((await store.list()).map((c) => c.id)).toEqual([other]);
     expect(await readAll({ store })).toEqual([]);
+    expect(await store.readMessages(id)).toEqual([]);
+  });
+
+  it('keeps the history it was given whole, and hands out copies', async () => {
+    const store = new MemoryConversationStore();
+    const first: Message = { role: 'user', content: 'hi', at: 1 };
+    const messages: Message[] = [
+      first,
+      { role: 'assistant', content: 'hello', toolCalls: [], at: 2 },
+    ];
+
+    expect(await store.readMessages(id)).toEqual([]);
+    await store.writeMessages({ id, messages });
+
+    const read = await store.readMessages(id);
+
+    expect(read).toEqual(messages);
+    read.pop();
+    expect(await store.readMessages(id)).toHaveLength(2);
+
+    await store.writeMessages({ id, messages: [first] });
+    expect(await store.readMessages(id)).toHaveLength(1);
   });
 
   it('fails every write while told to, as a full disk does, then mends', async () => {
@@ -82,6 +106,7 @@ describe('MemoryConversationStore', () => {
     for (const write of [
       () => store.entries(id).append(entry(0)),
       () => store.writeIndex(stored(id, 1)),
+      () => store.writeMessages({ id, messages: [] }),
       () => store.delete(id),
     ]) {
       await expect(write()).rejects.toBeInstanceOf(StoreError);
