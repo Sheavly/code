@@ -1,4 +1,13 @@
 import type { z } from 'zod';
+import type { API_ROUTES } from './api.constants.js';
+
+/** Every route of the API, by its name in `API_ROUTES`. */
+export type RouteName = keyof typeof API_ROUTES;
+
+/** A route's body as its schema parsed it; `never` for a route that takes none. */
+export type RouteBody<N extends RouteName> = (typeof API_ROUTES)[N] extends { body: z.ZodType }
+  ? z.output<(typeof API_ROUTES)[N]['body']>
+  : never;
 
 /**
  * What a route answers on success: JSON in `schema`, nothing (`204`), or a server-sent event

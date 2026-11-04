@@ -23,6 +23,9 @@ export const OPENAPI_VERSION = '3.2.0';
 /** The `Last-Event-ID` header a stream resumes after: the last entry's `seq` a client got. */
 export const LAST_EVENT_ID_HEADER = 'Last-Event-ID';
 
+/** Each SSE frame's event name on a stream route: every frame is one `StreamEntry`, as JSON. */
+export const ENTRY_EVENT = 'entry';
+
 /**
  * The harness's HTTP API, by operation: every route a server implements and a client calls, with
  * the contract's schemas that validate its body and answer. The one definition of the API: the
