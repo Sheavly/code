@@ -21,8 +21,17 @@ const signal = new AbortController().signal;
 const callId = callIdSchema.parse('1');
 const PROGRAMS = ['fsmonitor', 'external', 'textconv', 'filter'];
 const marker = (name: string) => path.join(temp.base, `ran-${name}`);
+// Plain git, without the safe config run_command gives through the env: run under the harness,
+// the test inherits it, and the threat this file proves would be switched off.
+const plainEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_CONFIG')),
+);
 const git = (...args: string[]) =>
-  execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: temp.root, stdio: 'pipe' });
+  execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
+    cwd: temp.root,
+    stdio: 'pipe',
+    env: plainEnv,
+  });
 
 beforeAll(async () => {
   git('init', '-q');
