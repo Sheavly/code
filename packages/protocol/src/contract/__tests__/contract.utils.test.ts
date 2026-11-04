@@ -3,17 +3,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTRACT_SCHEMA_FILE } from '../contract.constants.js';
 import { contractJsonSchema } from '../contract.utils.js';
+import { refsIn } from '../../testing/refs.fake.js';
 
 const PACKAGE_ROOT = join(import.meta.dirname, '../../..');
-
-function refsIn(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(refsIn);
-  if (typeof value !== 'object' || value === null) return [];
-
-  return Object.entries(value).flatMap(([key, field]) =>
-    key === '$ref' && typeof field === 'string' ? [field] : refsIn(field),
-  );
-}
 
 describe('contractJsonSchema', () => {
   it('matches the committed JSON Schema (rerun `npm run schema -w @sheavly/protocol`)', async () => {

@@ -36,6 +36,30 @@ export const conversationsResponseSchema = z.object({
   conversations: z.array(conversationSummarySchema),
 });
 
+/** A model a conversation can use: the name a UI switches with, its backend and deployment. */
+export const modelChoiceSchema = z.object({
+  name: z.string(),
+  adapter: z.string(),
+  model: z.string(),
+});
+
+/**
+ * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
+ * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
+ * whether the workspace's `.sheavly/` hooks run, and why not; `skipAllowList`, whether any shell
+ * command can run.
+ */
+export const conversationDetailsSchema = conversationSummarySchema.extend({
+  workspace: z.string(),
+  model: modelChoiceSchema,
+  models: z.array(modelChoiceSchema),
+  projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
+  skipAllowList: z.boolean(),
+});
+
+/** `PUT /conversations/:id/model`: switch to one of `models`, from the next model call on. */
+export const switchModelRequestSchema = z.object({ name: z.string().min(1) });
+
 /**
  * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in
  * it run those skills) or as `parts` (a UI; exactly the skills picked run). One or the other.
@@ -48,12 +72,15 @@ export const sendPromptRequestSchema = z.xor([
 /**
  * `QUERY /conversations/:id/stream`: which entries of the combined stream to send. Nothing: every
  * session's. `session`: one session's, with `subtree` its sub-agents' too. `replay`: from the
- * conversation's start first. `Last-Event-ID` resumes after an entry instead.
+ * conversation's start first. `approvals`: this client answers approvals, so while it is
+ * connected one waits for an answer; with no such client, an approval is refused at once.
+ * `Last-Event-ID` resumes after an entry instead.
  */
 export const streamQuerySchema = z.object({
   session: sessionIdSchema.exactOptional(),
   subtree: z.boolean().exactOptional(),
   replay: z.boolean().exactOptional(),
+  approvals: z.boolean().exactOptional(),
 });
 
 /** `POST /conversations/:id/approvals/:approvalId`: the user's answer to a waiting approval. */
@@ -62,7 +89,13 @@ export const answerApprovalRequestSchema = z.object({ response: approvalResponse
 /** `GET /conversations/:id/messages`: the history so far, valid to continue from. */
 export const messagesResponseSchema = z.object({ messages: z.array(messageSchema) });
 
-/** `GET /conversations/:id/skills`: the skills a prompt can run, for a UI's `/` menu. */
+/**
+ * `QUERY /conversations/:id/skills`: which skills to list. Nothing: every one. `search`: those
+ * whose name or description has it, ignoring case, as a UI's `/` menu narrows while the user types.
+ */
+export const skillsQuerySchema = z.object({ search: z.string().min(1).exactOptional() });
+
+/** `QUERY /conversations/:id/skills`: the skills a prompt can run, for a UI's `/` menu. */
 export const skillsResponseSchema = z.object({ skills: z.array(skillInfoSchema) });
 
 /**
@@ -76,6 +109,7 @@ export const serverErrorCodeSchema = z.enum([
   'session_running',
   'unknown_skill',
   'unknown_approval',
+  'unknown_model',
   'internal',
 ]);
 

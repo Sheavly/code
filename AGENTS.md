@@ -23,6 +23,14 @@ Lint can't tell whether code reads well, so beyond that, write for a human revie
 - A function is a few steps. When one does several jobs (setting up, streaming, cleaning up),
   extract each into a function named for what it does; don't just reshuffle conditions to get
   under a limit.
+- Extract a function when its name hides something the caller no longer needs to know. If
+  reading the caller means opening the helper, the split went too far: keep it inline.
+- Remove duplication of knowledge, not of shape. Two blocks that look alike but change for
+  different reasons stay separate (shape them differently if jscpd flags them). A shared function
+  that grows flags or special cases for one caller is the wrong abstraction: inline it back and
+  extract only what is truly common.
+- Parse once at the boundary into a precise type, and let code past it trust that type: no
+  re-checks downstream, no optional fields for states that can't coexist (use a union).
 - A function that changes state outside itself says so in its name (`keepHistory`, not `record`).
 - Name a value when the name adds meaning the expression lacks; otherwise return or pass it
   directly.
@@ -31,3 +39,6 @@ Lint can't tell whether code reads well, so beyond that, write for a human revie
   matters) gets a comment saying why, so the next reader doesn't "simplify" it into a bug.
 - Comments: one or two sentences of constraint or trade-off, never what the code does. History
   ("this used to…") goes in the commit message.
+- An exported function or type gets a doc comment for what its signature can't say: what it
+  expects, what it throws, what order or state it relies on. Skip it when the signature says it
+  all.

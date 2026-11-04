@@ -3,7 +3,6 @@ import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import type { ProviderSettings } from '../harness/harness.types.js';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
@@ -15,7 +14,7 @@ import { runWorkbook } from './run.helper.js';
 import type { WorkbookStore } from './store.service.js';
 import { RUN_SOURCES_FILE } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
-import { finalAnswer, toolsUsed } from './workbook.utils.js';
+import { toolsUsed } from './workbook.utils.js';
 
 /** A check is retried once: real models aren't fully repeatable, so one bad answer can be noise. */
 const ATTEMPTS = 2;
@@ -96,7 +95,11 @@ async function readRunSources(store: WorkbookStore): Promise<RunSources> {
 /** What a saved run produced, read back from its files. */
 async function observe(params: { store: WorkbookStore; id: string }): Promise<Observed> {
   const { store, id } = params;
-  const [events, result] = await Promise.all([store.events(id), store.result(id)]);
+  const [events, result, reply] = await Promise.all([
+    store.events(id),
+    store.result(id),
+    store.answer(id),
+  ]);
   const file = store.paths(id).transcript;
   let transcript: string;
 
@@ -108,7 +111,7 @@ async function observe(params: { store: WorkbookStore; id: string }): Promise<Ob
 
   return {
     transcript,
-    reply: finalAnswer(events),
+    reply,
     events: events.map((event) => event.type),
     tools: toolsUsed(events),
     outcome: result?.outcome ?? 'failed',
@@ -123,13 +126,14 @@ function stepsOf(check: Check): CheckStep[] {
 /** Runs every step of one check once; returns its problems and the runs it made. */
 async function attempt(params: {
   store: WorkbookStore;
-  settings: ProviderSettings;
   prompt: CheckedPrompt;
 }): Promise<{ problems: string[]; runs: string[]; interrupted: boolean }> {
-  const { store, settings, prompt } = params;
+  const { store, prompt } = params;
   // A fresh trust store per attempt, outside every repo: a check never touches the user's own.
+  // Each run's backend reads it (SHEAVLY_TRUST_FILE); an `untrust` step revokes from it here.
   const scratch = await mkdtemp(path.join(tmpdir(), 'workbook-check-'));
-  const trustStore = new TrustStore({ file: path.join(scratch, 'trusted-workspaces.json') });
+  const trustFile = path.join(scratch, 'trusted-workspaces.json');
+  const trustStore = new TrustStore({ file: trustFile });
   const problems: string[] = [];
   const runs: string[] = [];
 
@@ -147,8 +151,7 @@ async function attempt(params: {
 
       const result = await runWorkbook({
         store,
-        settings,
-        trustStore,
+        trustFile,
         request: {
           name: prompt.name,
           text: step.run.text ?? prompt.text,
@@ -196,7 +199,6 @@ export async function appendToWorkspace(params: {
 /** Runs one check, retrying a failure once; the second try decides. */
 async function runCheck(params: {
   store: WorkbookStore;
-  settings: ProviderSettings;
   prompt: CheckedPrompt;
 }): Promise<CheckOutcome> {
   const attempts: string[][] = [];
@@ -229,12 +231,11 @@ async function runCheck(params: {
  */
 export async function checkWorkbook(params: {
   store: WorkbookStore;
-  settings: ProviderSettings;
   names: string[];
   all: boolean;
   write: (text: string) => void;
 }): Promise<boolean> {
-  const { store, settings, names, all, write } = params;
+  const { store, names, all, write } = params;
   const changed = names.length > 0 || all ? [] : changedFiles();
   const { checks, uncovered, unknown } = selectChecks({
     prompts: await store.prompts(),
@@ -265,7 +266,7 @@ export async function checkWorkbook(params: {
   const outcomes: CheckOutcome[] = [];
 
   for (const prompt of checks) {
-    const outcome = await runCheck({ store, settings, prompt });
+    const outcome = await runCheck({ store, prompt });
 
     outcomes.push(outcome);
     // Ctrl+C stops the paid runs: nothing more starts after a stopped one.

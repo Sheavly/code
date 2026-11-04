@@ -9,11 +9,11 @@
  *   npm run workbook -- check                   real-model checks for what this branch changed
  *
  * Every run is saved in workbook/runs/<id>/ as it happens. See apps/terminal/docs/workbook.md.
- * Model settings come from the environment, like the demo (ADAPTER, keys, .env).
+ * Each run starts its own backend, which reads the model settings from the environment, like the
+ * demo (ADAPTER, keys, .env).
  */
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { providerFromEnv } from '../harness/settings.helper.js';
 import { checkWorkbook } from './check.helper.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';
@@ -35,7 +35,6 @@ try {
         command.continueRun === undefined ? undefined : await store.resolveRun(command.continueRun);
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(process.env),
         request: {
           name: stored.name,
           text: stored.text,
@@ -54,7 +53,6 @@ try {
     case 'ask': {
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(process.env),
         request: {
           name: 'ask',
           text: command.text,
@@ -73,7 +71,6 @@ try {
       const meta = await store.meta(continues);
       const result = await runWorkbook({
         store,
-        settings: providerFromEnv(process.env),
         request: {
           name: meta.prompt,
           text: command.text,
@@ -91,7 +88,6 @@ try {
     case 'check': {
       const passed = await checkWorkbook({
         store,
-        settings: providerFromEnv(process.env),
         names: command.prompts,
         all: command.all,
         write,

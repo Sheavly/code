@@ -31,20 +31,23 @@ other workspace packages out.
 
 ## What a server accepts and answers
 
-`server/` holds the requests and responses of the harness server (`@sheavly/server`), so the
-server validates with the same schemas a client imports:
+`server/` holds the requests and responses of the harness's HTTP API (the backend's routes, and
+`@sheavly/client`'s client for them), so both validate with the same schemas; `api/` lists the
+routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 
 | Request                                       | Body                                   | Answer                             |
 | --------------------------------------------- | -------------------------------------- | ---------------------------------- |
 | `GET /conversations`                          | none                                   | `ConversationsResponse`            |
 | `POST /conversations`                         | `StartConversationRequest`             | `StartConversationResponse`        |
+| `GET /conversations/:id`                      | none                                   | `ConversationDetails`              |
+| `PUT /conversations/:id/model`                | `SwitchModelRequest`                   | nothing (`204`)                    |
 | `POST /conversations/:id/prompts`             | `SendPromptRequest`: `text` or `parts` | that prompt's `StreamEntry`s (SSE) |
 | `QUERY /conversations/:id/stream`             | `StreamQuery`, and `Last-Event-ID`     | `StreamEntry`s (SSE)               |
 | `POST /conversations/:id/approvals/:approval` | `AnswerApprovalRequest`                | nothing (`204`)                    |
 | `POST /conversations/:id/stop`                | none                                   | nothing (`204`)                    |
 | `DELETE /conversations/:id`                   | none                                   | nothing (`204`)                    |
 | `GET /conversations/:id/messages`             | none                                   | `MessagesResponse`                 |
-| `GET /conversations/:id/skills`               | none                                   | `SkillsResponse`                   |
+| `QUERY /conversations/:id/skills`             | `SkillsQuery`                          | `SkillsResponse`                   |
 
 - A prompt is `text`, as a script types it (`/<name>` mentions in it run those skills), or
   `parts`, as a UI builds it (exactly the skills picked run). Not both.

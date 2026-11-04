@@ -2,7 +2,11 @@ import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
-import type { SendPromptRequest } from '@sheavly/protocol/server/server.types';
+import type {
+  ConversationDetails,
+  ConversationSummary,
+  SendPromptRequest,
+} from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 
 /**
@@ -27,11 +31,23 @@ export type ConversationSkills = {
   }) => Promise<PreparedPrompt>;
 };
 
+/**
+ * What a conversation's run is, as the app that built it says: the workspace, the model in use
+ * and the ones it can switch to, workspace trust and the allow list. The host only passes it on.
+ */
+export type ConversationRun = {
+  details: () => Omit<ConversationDetails, keyof ConversationSummary>;
+  /** Switches to the model named `name`, from the next model call; false when there is none. */
+  useModel: (name: string) => boolean;
+};
+
 /** One live conversation the app built: its services, the conversation, and its skills if any. */
 export type LiveConversation = {
   harness: Harness;
   conversation: Conversation;
   skills?: ConversationSkills | undefined;
+  /** What the run is, for `GET /conversations/:id`; without it, the details are unknown. */
+  run?: ConversationRun | undefined;
   /** Releases what the app opened for it (its processes, a workspace); after `close`. */
   dispose?: (() => Promise<void>) | undefined;
 };

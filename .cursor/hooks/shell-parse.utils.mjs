@@ -224,9 +224,17 @@ function wordsOf(raw) {
 }
 
 /**
+ * Shell words that only start or end a compound command: what runs is the command after them
+ * (`do sed -i …`, `if cp …` run sed and cp), and a loop's header or a closer runs nothing of its
+ * own.
+ */
+const KEYWORDS = new Set(['if', 'while', 'until', 'do', 'then', 'else', 'elif', '!', '{', 'time']);
+
+/**
  * The simple commands of `command`, line by line, each with the heredoc it reads (the body of a
  * heredoc is that command's input, never commands of its own): `raw` keeps the quotes (a program's
- * string literals tell its paths), `words` has them off, leading env assignments dropped.
+ * string literals tell its paths), `words` has them off, leading keywords (`do`, `if`) and env
+ * assignments dropped.
  */
 export function splitCommands(command) {
   const commands = [];
@@ -245,13 +253,34 @@ export function splitCommands(command) {
     for (const part of splitOutsideQuotes(line)) {
       const raw = part.replace(/<<-?\s*(['"]?)\w+\1.*$/, '').trim();
       const words = wordsOf(raw);
-      const first = words.findIndex((word) => !ENV_ASSIGNMENT.test(word));
+      const first = words.findIndex((word) => !KEYWORDS.has(word) && !ENV_ASSIGNMENT.test(word));
 
       if (first !== -1) commands.push({ raw, words: words.slice(first), heredoc });
     }
   }
 
   return commands;
+}
+
+const CLOSERS = new Set(['done', 'fi', 'esac', '}']);
+const LOOP_HEADER = /^(for|select)$/;
+
+/** `tokens` without the keywords before its command; a loop header or closer is no command. */
+function commandOfSegment(tokens) {
+  let start = 0;
+
+  while (KEYWORDS.has(tokens[start] ?? '')) start++;
+  const rest = tokens.slice(start);
+
+  // `for x in a b` names a variable and words; the body after `do` is its own segment.
+  if (LOOP_HEADER.test(rest[0] ?? '') || CLOSERS.has(rest[0] ?? '')) return [];
+
+  return rest.slice(
+    Math.max(
+      0,
+      rest.findIndex((t) => !ENV_ASSIGNMENT.test(t)),
+    ),
+  );
 }
 
 /** The simple commands in a (normalized) command line, each as words without leading env assignments. */
@@ -263,14 +292,5 @@ export function toSegments(command) {
     else segments.at(-1).push(token);
   }
 
-  return segments
-    .map((tokens) =>
-      tokens.slice(
-        Math.max(
-          0,
-          tokens.findIndex((t) => !ENV_ASSIGNMENT.test(t)),
-        ),
-      ),
-    )
-    .filter((tokens) => tokens.length > 0);
+  return segments.map(commandOfSegment).filter((tokens) => tokens.length > 0);
 }

@@ -34,21 +34,30 @@ import {
 } from '../session/session.validator.js';
 import {
   answerApprovalRequestSchema,
+  conversationDetailsSchema,
   conversationIdSchema,
   conversationSummarySchema,
   conversationsResponseSchema,
   messagesResponseSchema,
+  modelChoiceSchema,
   sendPromptRequestSchema,
   serverErrorCodeSchema,
   serverErrorSchema,
   skillsResponseSchema,
+  skillsQuerySchema,
   startConversationRequestSchema,
   startConversationResponseSchema,
   streamQuerySchema,
+  switchModelRequestSchema,
 } from '../server/server.validator.js';
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
-import { taskIdSchema, taskInfoSchema, taskStatusSchema } from '../task/task.validator.js';
+import {
+  taskIdSchema,
+  taskInfoSchema,
+  taskStatusSchema,
+  taskUpdateSchema,
+} from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
 
 const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
@@ -76,6 +85,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     StreamEntry: streamEntrySchema,
     TaskStatus: taskStatusSchema,
     TaskInfo: taskInfoSchema,
+    TaskUpdate: taskUpdateSchema,
     ApprovalConcern: approvalConcernSchema,
     ApprovalOption: approvalOptionSchema,
     ApprovalRequest: approvalRequestSchema,
@@ -88,11 +98,15 @@ function contractSchemas(): Record<string, z.ZodType> {
     StartConversationResponse: startConversationResponseSchema,
     ConversationSummary: conversationSummarySchema,
     ConversationsResponse: conversationsResponseSchema,
+    ModelChoice: modelChoiceSchema,
+    ConversationDetails: conversationDetailsSchema,
+    SwitchModelRequest: switchModelRequestSchema,
     SendPromptRequest: sendPromptRequestSchema,
     StreamQuery: streamQuerySchema,
     AnswerApprovalRequest: answerApprovalRequestSchema,
     MessagesResponse: messagesResponseSchema,
     SkillsResponse: skillsResponseSchema,
+    SkillsQuery: skillsQuerySchema,
     ServerErrorCode: serverErrorCodeSchema,
     ServerError: serverErrorSchema,
     SessionId: sessionIdSchema,
@@ -104,24 +118,38 @@ function contractSchemas(): Record<string, z.ZodType> {
 }
 
 /**
- * The whole contract as one JSON Schema document (draft 2020-12), every type under `$defs` by
- * name and referencing the others with `$ref`, for clients that aren't TypeScript.
+ * Every schema of the contract as JSON Schema, by name, each referencing the others as
+ * `${prefix}${name}`: `#/$defs/` in the contract's own document, `#/components/schemas/` in
+ * the API's OpenAPI document.
  *
  * It describes what the schemas accept (`io: 'input'`): objects stay open, since parsing drops
  * unknown fields rather than rejecting them, and `AgentEvent` (`seq` with an event body, an
  * `allOf`) is only satisfiable when neither side forbids the other's fields.
  */
-export function contractJsonSchema(): ContractJsonSchema {
+export function contractDefinitions(prefix: string): ContractJsonSchema['$defs'] {
   const registry = z.registry<{ id: string }>();
 
   for (const [id, schema] of Object.entries(contractSchemas())) registry.add(schema, { id });
 
-  const { schemas } = z.toJSONSchema(registry, { uri: (id) => `#/$defs/${id}`, io: 'input' });
+  const { schemas } = z.toJSONSchema(registry, { uri: (id) => `${prefix}${id}`, io: 'input' });
   const definitions = Object.entries(schemas).map(([id, definition]) => {
     const { $schema: _dialect, $id: _id, ...rest } = definition;
 
     return [id, rest] as const;
   });
 
-  return { $schema: JSON_SCHEMA_DIALECT, $defs: Object.fromEntries(definitions) };
+  return Object.fromEntries(definitions);
+}
+
+/** The name the contract gives `schema`, for a `$ref` to it; undefined when it isn't one. */
+export function contractName(schema: z.ZodType): string | undefined {
+  return Object.entries(contractSchemas()).find(([, candidate]) => candidate === schema)?.[0];
+}
+
+/**
+ * The whole contract as one JSON Schema document (draft 2020-12), every type under `$defs` by
+ * name and referencing the others with `$ref`, for clients that aren't TypeScript.
+ */
+export function contractJsonSchema(): ContractJsonSchema {
+  return { $schema: JSON_SCHEMA_DIALECT, $defs: contractDefinitions('#/$defs/') };
 }

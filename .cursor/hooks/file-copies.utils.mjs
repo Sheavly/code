@@ -28,7 +28,7 @@ const VALUE_FLAGS = new Set([
 const TARGET_FLAGS = new Set(['-t', '--target-directory']);
 
 export const COPY_FIX =
-  'Write project files with the edit tools (StrReplace/Write), not by copying or moving one in from the shell (`cp`, `mv`): only their edits are formatted, linted and checked by the hooks, and shown as a diff.';
+  'Write project files with the edit tools (StrReplace/Write), not by copying or moving one in from the shell (`cp`, `mv`, `git mv`): only their edits are formatted, linted and checked by the hooks, and shown as a diff. To move a file, write it at its new path and delete the old one; git still sees the rename.';
 
 /** Where a copy writes: its `-t <dir>`, or else its last file operand. Undefined with none. */
 function destinationOf(args) {
@@ -46,6 +46,17 @@ function destinationOf(args) {
   return target ?? (operands.length > 1 ? operands.at(-1) : undefined);
 }
 
+/**
+ * The copy a command runs, as its program and arguments: `git mv` is a move like `mv` (git
+ * finds a rename by content either way, so writing the new file and deleting the old one with
+ * the edit tools keeps the history). Undefined for anything else.
+ */
+function copyOf(tokens) {
+  if (programName(tokens[0] ?? '') === 'git' && tokens[1] === 'mv') return tokens.slice(2);
+
+  return COPIERS.has(programName(tokens[0] ?? '')) ? tokens.slice(1) : undefined;
+}
+
 /** Whether `command`, run from `cwd`, copies or moves a file into `projectRoot`. */
 export function findProjectCopy(params) {
   const { command, projectRoot } = params;
@@ -56,9 +67,15 @@ export function findProjectCopy(params) {
     const tokens = words.filter((word) => !/^\d*>/.test(word));
 
     if (tokens[0] === 'cd' && tokens[1]) cwd = path.resolve(cwd, tokens[1]);
-    if (startsWithNonExecuting(tokens) || !COPIERS.has(programName(tokens[0] ?? ''))) continue;
 
-    const destination = destinationOf(tokens.slice(1));
+    // Checked before the read-only programs: `git` reads, but `git mv` moves.
+    const args = copyOf(tokens);
+
+    if (!args || (startsWithNonExecuting(tokens) && programName(tokens[0] ?? '') !== 'git')) {
+      continue;
+    }
+
+    const destination = destinationOf(args);
 
     // No destination it can read: it may write anywhere it was handed, so it fails closed.
     if (destination === undefined || !isOutsideProject({ file: destination, cwd, projectRoot })) {

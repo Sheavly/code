@@ -37,6 +37,16 @@ export const DENIED_CASES = [
   // A newline ends a command: an edit on a later line runs whatever the first one was.
   "echo hi\nsed -i 's/a/b/' README.md",
   "cd packages/core\nsed -i 's/a/b/' src/tool/tool.utils.ts",
+  // A loop's body runs its command: `do` doesn't hide the edit after it.
+  "for f in README.md; do sed -i 's/a/b/' $f; done",
+  // Nor does any other keyword that opens a command, on one line or several.
+  'for f in a; do cp /tmp/x packages/core/src/x.ts; done',
+  'if true; then cp /tmp/x packages/core/src/x.ts; fi',
+  "if sed -i 's/a/b/' README.md; then echo ok; fi",
+  "while sed -i 's/a/b/' README.md; do break; done",
+  "until sed -i 's/a/b/' README.md; do break; done",
+  '! cp /tmp/x packages/core/src/x.ts',
+  'time cp /tmp/x packages/core/src/x.ts',
   // Inline programs (a heredoc, `-c`, `-e`) that write files.
   "python3 - <<'EOF'\nopen('packages/core/src/x.ts','w').write('x')\nEOF",
   "python3 <<'EOF'\nfrom pathlib import Path\nPath('README.md').write_text('x')\nEOF",
@@ -55,8 +65,29 @@ export const DENIED_CASES = [
   'install -m 644 /tmp/x.ts README.md',
   'rsync /tmp/x.ts packages/core/src/x.ts',
   'cd packages/core && cp /tmp/x.ts src/x.ts',
+  // `git mv` is a move like `mv`: write the file at its new path and delete the old one instead.
+  'git mv packages/core/src/a.ts packages/core/src/b.ts',
+  'git mv apps/terminal/src/harness apps/backend/src/harness 2>&1 || (mkdir -p apps/backend/src && git mv apps/terminal/src/harness apps/backend/src/harness) && git mv apps/terminal/src/serve.ts apps/backend/src/serve.ts && ls apps/backend/src apps/backend/src/harness && git status --short | head -30',
   // No destination it can place: it may write anywhere it was handed.
   'cp /tmp/x.ts',
+  // Redirecting output into a project file is a write past the edit tools.
+  "printf '  }\\n}\\n' >> apps/backend/src/api/handlers.helper.ts; tail -5 apps/backend/src/api/handlers.helper.ts",
+  'echo x > README.md',
+  'echo x >README.md',
+  'cat /tmp/x.ts >> packages/core/src/x.ts',
+  "cat > packages/core/src/x.ts <<'EOF'\nexport const x = 1;\nEOF",
+  'npm run build 2> build.log',
+  'echo x &> README.md',
+  'cd packages/core && echo x > src/x.ts',
+  // A target it can't place (quoted, so a variable or a path with spaces) fails closed.
+  'echo x > "$FILE"',
+  // Inline code in one line with a writer: the line's writes can't be put on the writer alone.
+  `npm pkg set -w @sheavly/x 'exports[./a]=./b' && node -e "console.log(1)"`,
+  `npm pkg set -w @sheavly/server 'exports[./testing/*][@sheavly/source]=./src/testing/*.ts' && node -e "console.log(JSON.stringify(require('./packages/server/package.json').exports['./testing/*']))" && npm install -D -w @sheavly/terminal @sheavly/host@0.0.0 2>&1 | tail -1`,
+  // A deletion in one line with a writer: what each changed can't be told apart.
+  'npm uninstall -D -w @sheavly/server @hey-api/openapi-ts 2>&1 | tail -1; git status --short; rm -rf /tmp/heyapi-probe',
+  'npm install -D -w @sheavly/x zod && rm -rf node_modules/.cache',
+  'git checkout main; rm -rf /tmp/probe',
   // The command that taught the guard the technique (a test file copied in from /tmp).
   "cat > /tmp/order.test.ts <<'EOF'\nimport { it } from 'vitest';\nimport { readEntries, reply, testServer } from '/home/gustaf/projects/coding-harness/packages/server/src/testing/server.fake.js';\nit('prints the order', async () => {\n  const { request } = testServer({ hi: [reply('hello'), reply('again')] });\n  const { id } = (await (await request('/conversations', { method: 'POST', body: {} })).json()) as { id: string };\n  for (const text of ['hi', 'again?']) {\n    const r = await request(`/conversations/${id}/prompts`, { method: 'POST', body: { text } });\n    for await (const { entry } of readEntries(r.body)) console.log(text, entry.seq, entry.kind, entry.kind === 'event' ? entry.event.type : entry.update.type);\n  }\n  const s = await request(`/conversations/${id}/stream`, { method: 'QUERY', body: { replay: true } });\n  let n = 0;\n  for await (const { entry } of readEntries(s.body)) { console.log('replay', entry.seq, entry.kind === 'event' ? entry.event.type : entry.update.type); if (++n > 12) break; }\n});\nEOF\ncp /tmp/order.test.ts packages/server/src/server/__tests__/zz-order.test.ts && timeout 60 npx vitest run --config vitest.config.ts packages/server/src/server/__tests__/zz-order.test.ts --root packages/server 2>&1 | rg \"^(hi|again|replay) \" | head -40",
 ];
@@ -85,13 +116,32 @@ export const ALLOWED_CASES = [
   `node -e "console.log(require('./package.json').version)"`,
   "python3 - <<'EOF'\nopen('/tmp/out.txt','w').write('x')\nEOF",
   `node -e "require('fs').writeFileSync('/tmp/x.json', '{}')"`,
-  // The project's own scripts are its writers.
+  // The project's own scripts are its writers; a writer and a read in separate commands.
   'node scripts/check-layout.mjs',
   'npm run schema -w @sheavly/protocol',
+  `npm pkg get exports -w @sheavly/server`,
   // Copies out of the project, or between places outside it; a copier named only in data.
   'cp packages/core/src/x.ts /tmp/x.ts',
   'cp -r docs /tmp/docs-backup',
   'mv /tmp/a /tmp/b',
+  // Moving a file out of the project edits nothing in it.
+  'git mv packages/core/src/a.ts /tmp/a.ts',
   `rg -n "\\bcp |\\bmv |rsync|install " .cursor/hooks/shell-guard-cases.utils.mjs`,
   'echo cp a b',
+  // A deletion alone on its line, or a writer beside commands that delete nothing.
+  'rm -rf /tmp/heyapi-probe',
+  'npm uninstall -D -w @sheavly/x zod 2>&1 | tail -1; git status --short',
+  'rg "rm -rf" docs && npm run check',
+  // Redirects that write nothing in the project: outside it, to /dev/null, a descriptor copy, or
+  // a `>` that is quoted data.
+  'echo x > /tmp/x.txt',
+  'echo x >> /tmp/x.txt',
+  'npm test > /dev/null 2>&1',
+  'npm test 2>/dev/null | tail -5',
+  'npm run check 2>&1 | rg "Tasks:"',
+  'echo error >&2',
+  "rg '=>' packages/core/src",
+  `rg "a > b" README.md`,
+  'cat packages/core/src/x.ts > /tmp/x.ts',
+  'cd /tmp && echo x > x.txt',
 ];

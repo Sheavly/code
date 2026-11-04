@@ -1,0 +1,20 @@
+/** How the terminal reaches a backend: its settings, the CLI arguments it passes on, its output. */
+export type BackendOptions = {
+  /** This run's environment: `BACKEND_URL`/`BACKEND_TOKEN`, or the settings a started one reads. */
+  env: NodeJS.ProcessEnv;
+  /** Passed to a backend it starts (`--trust`). */
+  args?: readonly string[];
+  /** A started backend's output (its notices, model calls), as it comes. */
+  onOutput: (text: string) => void;
+};
+
+/**
+ * A backend the terminal talks to; `stop` ends it if the terminal started it. `fetch` reaches it
+ * (the global one when unset): another transport, or a server app in the same process.
+ */
+export type Backend = {
+  url: string;
+  token: string;
+  stop: () => Promise<void>;
+  fetch?: typeof fetch;
+};

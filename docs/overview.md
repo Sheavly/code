@@ -35,13 +35,13 @@ dependencies only (not drawn). The diagram is generated from each workspace's `p
 ```mermaid
 flowchart BT
   subgraph group_generic ["generic packages"]
+    client["@sheavly/client"]
     core["@sheavly/core"]
     host["@sheavly/host"]
     loop["@sheavly/loop"]
     protocol["@sheavly/protocol"]
     providers["@sheavly/providers"]
     runtime["@sheavly/runtime"]
-    server["@sheavly/server"]
     tools["@sheavly/tools"]
   end
   subgraph group_coding ["coding packages"]
@@ -49,8 +49,14 @@ flowchart BT
     workspace["@sheavly/workspace"]
   end
   subgraph group_apps ["apps"]
+    backend["@sheavly/backend"]
     terminal["@sheavly/terminal"]
   end
+  backend --> coding
+  backend --> loop
+  backend --> providers
+  backend --> tools
+  client --> protocol
   coding --> host
   coding --> workspace
   core --> protocol
@@ -58,12 +64,8 @@ flowchart BT
   loop --> runtime
   providers --> core
   runtime --> core
-  server --> host
+  terminal --> client
   terminal --> coding
-  terminal --> loop
-  terminal --> providers
-  terminal --> server
-  terminal --> tools
   tools --> runtime
   workspace --> runtime
 ```
@@ -84,7 +86,8 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                           |
 | `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                     |
 | `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)                          |
-| `apps/terminal/`          | `@sheavly/terminal`, the terminal front end: the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and the `Renderer` both print with                      |
+| `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createTerminalHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                     |
+| `apps/terminal/`          | `@sheavly/terminal`, the terminal front end on a backend it starts: the chat, the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and their `Renderer`   |
 | `apps/vscode/`            | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                                |
 
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
@@ -107,8 +110,9 @@ a tool or a hook for it.
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
-and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The terminal app does
-it in one place, `createTerminalHarness` (`apps/terminal/src/harness/`), with its settings from env.
+and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
+it in one place, `createTerminalHarness` (`apps/backend/src/harness/`), with its settings from
+env; the terminal and every other UI reach its conversations over HTTP.
 
 ```ts
 const harness = createHarness({ provider, title: prompt });

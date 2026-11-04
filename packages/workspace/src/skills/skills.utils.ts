@@ -155,11 +155,11 @@ export function findSkillMentions(text: string): SkillMention[] {
  * A bare `/` offers every skill. Undefined when the cursor isn't right after one. `start` and `end`
  * are the text a picked name replaces (`/` included).
  */
-export function completeSkillMention(params: {
+export function completeSkillMention<S extends Pick<Skill, 'name'>>(params: {
   text: string;
   cursor: number;
-  skills: Skill[];
-}): SkillCompletion | undefined {
+  skills: S[];
+}): SkillCompletion<S> | undefined {
   const { text, cursor, skills } = params;
   const typed = new RegExp(String.raw`${MENTION_BEFORE}\/([a-z0-9-]*)$`).exec(
     text.slice(0, cursor),
@@ -168,7 +168,7 @@ export function completeSkillMention(params: {
   if (!typed) return undefined;
 
   const query = typed[1] ?? '';
-  const byName = (a: Skill, b: Skill) => a.name.localeCompare(b.name);
+  const byName = (a: S, b: S) => a.name.localeCompare(b.name);
   const starting = skills.filter((skill) => skill.name.startsWith(query)).sort(byName);
   const containing = skills
     .filter((skill) => !skill.name.startsWith(query) && skill.name.includes(query))

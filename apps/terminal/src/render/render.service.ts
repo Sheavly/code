@@ -1,19 +1,18 @@
-import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { isFileChange } from '@sheavly/coding/files/files.utils';
 import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import type { Write } from './render.types.js';
-import { commandOf, describeRead, firstLine, oneLine, seconds, shortId } from './render.utils.js';
-import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
+import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
-type EventOf<T extends AgentEvent['type']> = Extract<AgentEvent, { type: T }>;
+type EventOf<T extends EntryEvent['type']> = Extract<EntryEvent, { type: T }>;
 
 /**
- * The terminal front end of the demo and the workbook: one line (or block) per loop event, per
- * session update and (optionally) per model call, written to `write`. It only renders events the
- * harness emits; nothing in the harness depends on it. Kept stateful only for the current tool
- * batch size and the reasoning count.
+ * The terminal front end of the chat, the demo and the workbook: one line (or block) per event of
+ * the main session and per sub-agent update, from the backend's stream, written to `write`.
+ * `runningTasks` says how many background tasks still run, from the stream's task entries. Kept
+ * stateful only for the current tool batch size and the reasoning count.
  */
 export class Renderer {
   #batchSize = 0;
@@ -21,11 +20,21 @@ export class Renderer {
 
   constructor(
     private readonly write: Write,
-    private readonly tasks: TaskRegistry,
+    private readonly runningTasks: () => number,
   ) {}
 
-  /** One loop event, from `streamAgent`. */
-  event(event: AgentEvent): void {
+  /**
+   * One entry of a prompt's stream: the main session's loop events, and sub-agents starting,
+   * reporting and ending. A sub-agent's own events and the task entries aren't printed: its
+   * updates and its task's completion say what it did.
+   */
+  entry(entry: StreamEntry, mainSession: string): void {
+    if (entry.kind === 'event' && entry.sessionId === mainSession) this.event(entry.event);
+    if (entry.kind === 'update') this.session(entry.update);
+  }
+
+  /** One loop event of the main session. */
+  event(event: EntryEvent): void {
     switch (event.type) {
       case 'text_delta':
         this.write(event.text);
@@ -71,7 +80,7 @@ export class Renderer {
         break;
       case 'done':
         this.write(
-          `[${event.reason} · ${event.seq + 1} events · ${event.messages.length} messages · reasoning items kept: ${this.#reasoningItems}]\n`,
+          `[${event.reason} · ${event.seq + 1} events · reasoning items kept: ${this.#reasoningItems}]\n`,
         );
         break;
     }
@@ -104,23 +113,6 @@ export class Renderer {
     }
 
     if (type === 'session_ended') this.write(`${indent}◆ sub-agent ${who} ${session.state}\n`);
-  }
-
-  /** One model call: whose task, which tools, what system prompt, the latest user message. */
-  modelCall(request: ProviderRequest): void {
-    const task = request.messages.find((m) => m.role === 'user')?.content ?? '';
-    const instructions = request.instructions ?? '';
-    const latest = request.messages.findLast((m) => m.role === 'user')?.content ?? '';
-    const prompt = instructions
-      ? `${instructions.length} chars: "${oneLine({ text: instructions, max: 90 })}"`
-      : 'none';
-
-    this.write(
-      `\n  · model call for "${oneLine({ text: task, max: 40 })}" · ${request.messages.length} messages\n` +
-        `    tools: ${request.tools.map((tool) => tool.name).join(', ') || 'none'}\n` +
-        `    system prompt: ${prompt}\n` +
-        `    latest user message: "${oneLine({ text: latest, max: 110 })}"\n`,
-    );
   }
 
   #label(description: string): string {
@@ -159,8 +151,8 @@ export class Renderer {
   #turnEnd({ stopReason }: EventOf<'turn_end'>): void {
     if (stopReason !== 'tool_use') this.write(`\n\n[stop: ${stopReason}]\n`);
 
-    if (stopReason === 'end_turn' && this.tasks.runningCount > 0) {
-      this.write(`… waiting for ${this.tasks.runningCount} background task(s) · Ctrl+C to stop\n`);
+    if (stopReason === 'end_turn' && this.runningTasks() > 0) {
+      this.write(`… waiting for ${this.runningTasks()} background task(s) · Ctrl+C to stop\n`);
     }
   }
 }

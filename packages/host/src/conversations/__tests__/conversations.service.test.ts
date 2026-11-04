@@ -11,6 +11,7 @@ import { createConversation } from '../../conversation/conversation.helper.js';
 import { createHarness } from '../../host/host.helper.js';
 import { ConversationsError } from '../../errors/conversations.errors.js';
 import { reviewSkill as skills } from '../../testing/skills.fake.js';
+import { twoModelRun } from '../../testing/run.fake.js';
 import { Conversations } from '../conversations.service.js';
 
 const say = (text: string): StreamEvent[] => [
@@ -45,6 +46,7 @@ function setup(params: { replies: StreamEvent[][]; withSkills?: boolean }) {
           messages: messages ?? [],
         }),
         ...(params.withSkills && { skills }),
+        run: twoModelRun(),
         dispose: async () => {
           disposed.push('disposed');
         },
@@ -87,6 +89,29 @@ describe('Conversations', () => {
     expect(conversations.list()[0]?.session).toBe(conversations.get(b).harness.mainSession.id);
   });
 
+  it('describes a conversation’s run, and switches its model to one it has', async () => {
+    const { conversations } = setup({ replies: [] });
+    const id = await conversations.start();
+
+    expect(conversations.details(id)).toMatchObject({
+      id,
+      title: 'Chat',
+      running: false,
+      workspace: '/work',
+      model: { name: 'fast' },
+      models: [{ name: 'fast' }, { name: 'deep' }],
+    });
+    conversations.useModel({ id, name: 'deep' });
+    expect(conversations.details(id).model).toEqual({
+      name: 'deep',
+      adapter: 'azure',
+      model: 'gpt-5',
+    });
+    expect(() => conversations.useModel({ id, name: 'huge' })).toThrow(
+      expect.objectContaining({ reason: 'unknown_model' }),
+    );
+  });
+
   it('runs a prompt’s skills, keeping what the user typed on the history', async () => {
     const { conversations, sent } = setup({ replies: [say('ok')], withSkills: true });
     const id = await conversations.start();
@@ -101,6 +126,10 @@ describe('Conversations', () => {
       parts: [{ type: 'skill', name: 'review' }],
     });
     expect(await conversations.skills({ id })).toHaveLength(1);
+    // A search narrows by name or description, ignoring case; one that matches nothing lists none.
+    expect(await conversations.skills({ id, search: 'REV' })).toHaveLength(1);
+    expect(await conversations.skills({ id, search: 'reviews' })).toHaveLength(1);
+    expect(await conversations.skills({ id, search: 'deploy' })).toEqual([]);
   });
 
   it('refuses a picked skill no one has before the prompt starts', async () => {

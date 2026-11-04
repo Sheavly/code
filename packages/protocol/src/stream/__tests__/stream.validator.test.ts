@@ -90,4 +90,31 @@ describe('streamEntrySchema', () => {
       expect(streamEntrySchema.parse(entry)).toEqual(entry);
     }
   });
+
+  it('carries a background task starting and ending, under the session that started it', () => {
+    const task = { id: 't1', command: 'npm run dev', description: 'Dev server', startedAt: 1 };
+    const started = {
+      seq: 6,
+      sessionId: 'main',
+      kind: 'task',
+      update: { type: 'task_started', task: { ...task, status: 'running', output: '' } },
+    };
+    const ended = {
+      seq: 7,
+      sessionId: 'main',
+      kind: 'task',
+      update: {
+        type: 'task_ended',
+        task: { ...task, status: 'failed', endedAt: 2, exitCode: 1, output: 'boom' },
+      },
+    };
+
+    for (const entry of [started, ended]) {
+      expect(streamEntrySchema.parse(entry)).toEqual(entry);
+    }
+
+    expect(
+      streamEntrySchema.safeParse({ ...started, update: { type: 'task_paused', task } }).success,
+    ).toBe(false);
+  });
 });

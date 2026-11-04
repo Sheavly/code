@@ -24,15 +24,18 @@ export function createHarness(options: HarnessOptions): Harness {
   const sessions = new SessionRegistry();
   const mainSession = sessions.startMain({ title: title.slice(0, 60) });
   const approvals = options.approvals ?? new ApprovalRegistry();
+  const tasks = options.tasks ?? new TaskRegistry();
 
-  // Approvals join the combined stream, in order with the events of the call that asked.
+  // Approvals and background tasks join the combined stream, in order with the events of the
+  // call that asked or started them.
   approvals.observe((update) => sessions.publishApproval(update));
+  tasks.observe((task) => sessions.publishTask(task));
 
   return {
     provider,
     sessions,
     mainSession,
-    tasks: options.tasks ?? new TaskRegistry(),
+    tasks,
     approvals,
   };
 }

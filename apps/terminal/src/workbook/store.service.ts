@@ -29,8 +29,9 @@ import {
   savedMessagesSchema,
   stateSchema,
 } from './workbook.validator.js';
-import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import { agentEventSchema } from '@sheavly/protocol/event/event.validator';
+import { finalAnswer } from './workbook.utils.js';
+import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import { entryEventSchema } from '@sheavly/protocol/event/event.validator';
 import type { Message } from '@sheavly/protocol/message/message.types';
 
 /**
@@ -204,14 +205,26 @@ export class WorkbookStore {
     return raw === undefined ? undefined : parseStored({ file, raw, schema: runResultSchema });
   }
 
-  async events(id: string): Promise<AgentEvent[]> {
+  async events(id: string): Promise<EntryEvent[]> {
     const file = this.#paths(id).events;
     const raw = (await readIfThere(file)) ?? ''; // none recorded yet
 
+    // A `done` saved before runs went through the stream carries its messages too: the schema
+    // reads past them, so every saved run reads the same.
     return raw
       .split('\n')
       .filter(Boolean)
-      .map((line) => parseStored({ file, raw: line, schema: agentEventSchema }));
+      .map((line) => parseStored({ file, raw: line, schema: entryEventSchema }));
+  }
+
+  /** The main session's last reply, from the saved conversation; empty for an unfinished run. */
+  async answer(id: string): Promise<string> {
+    const file = this.#paths(id).messages;
+    const raw = await readIfThere(file);
+
+    if (raw === undefined) return '';
+
+    return finalAnswer(parseStored({ file, raw, schema: savedMessagesSchema }));
   }
 
   /** The run's final conversation, to continue from. */

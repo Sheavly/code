@@ -109,9 +109,11 @@ same thing and what is highlighted is what runs. The UI only draws it:
 | Enter runs it                           | `skillRequest({ root, home, prompt })`, which runs the same mentions                                                                  |
 
 `completeSkillMention` offers every skill for a bare `/`, names starting with what was typed
-first, then names containing it. It offers user-only skills too, since the user runs them. A UI
-with commands of its own (the terminal's `/model`) lists them next to the skills. Tab in the
-terminal chat completes skill names this way.
+first, then names containing it. It offers user-only skills too, since the user runs them. It
+takes any list of things with a `name` (the workspace's `Skill`s, or a server's `SkillInfo`), so a
+UI that lists skills over HTTP completes them the same way. A UI with commands of its own (the
+terminal's `/model`) lists them next to the skills. Tab in the terminal chat completes skill
+names this way, from the backend's `QUERY /skills` (whose `search` narrows by name or description).
 
 The terminal adds the hook and `read_skill` to every run (the chat, the demo and the workbook)
 and to its sub-agents, so a sub-agent sees the same skills as its parent.

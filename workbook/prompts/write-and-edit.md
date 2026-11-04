@@ -19,6 +19,9 @@ check:
         'packages/providers/src/openai',
         'packages/providers/src/azure',
         'apps/terminal/src/render',
+        'apps/terminal/src/client',
+        'apps/backend/src/serve.ts',
+        'packages/client/src',
       ],
     'expect':
       {

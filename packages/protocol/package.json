@@ -27,11 +27,20 @@
     "./*.validator": {
       "@sheavly/source": "./src/*.validator.ts",
       "default": "./dist/*.validator.js"
+    },
+    "./*.constants": {
+      "@sheavly/source": "./src/*.constants.ts",
+      "default": "./dist/*.constants.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
     }
   },
   "files": [
     "dist",
     "docs",
-    "contract.schema.json"
+    "contract.schema.json",
+    "openapi.json"
   ]
 }

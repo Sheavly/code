@@ -63,13 +63,16 @@ export type SkillRequest = {
 /** A `/<name>` in a user's message: the name, and where it is (`start` at the `/`, `end` after). */
 export type SkillMention = { name: string; start: number; end: number };
 
-/** What a UI offers while the user types `/<partial>`: what to replace, and the skills that fit. */
-export type SkillCompletion = {
+/**
+ * What a UI offers while the user types `/<partial>`: what to replace, and the skills that fit (of
+ * whatever kind it listed: the workspace's `Skill`s, or a server's `SkillInfo`).
+ */
+export type SkillCompletion<S extends Pick<Skill, 'name'> = Skill> = {
   /** What was typed after the `/`; empty for a bare `/`. */
   query: string;
   /** The text a picked name replaces: from the `/` to the cursor. */
   start: number;
   end: number;
   /** The skills that fit, best first. */
-  matches: Skill[];
+  matches: S[];
 };

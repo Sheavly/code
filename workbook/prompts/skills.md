@@ -8,7 +8,7 @@ check:
         'packages/workspace/src/skills',
         'packages/workspace/skills',
         'packages/coding/src/read-skill',
-        'apps/terminal/src/harness',
+        'apps/backend/src/harness',
       ],
     'expect': { 'reply': ['Codename: Bluefin'], 'tools': ['read_skill'], 'outcome': 'completed' },
     'forbid': { 'transcript': ['team-greeting', 'skill not loaded'] },

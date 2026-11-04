@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { Renderer } from '../render.service.js';
-import type { AgentEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { EntryEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 
 const callId = callIdSchema.parse('1');
+const main = sessionIdSchema.parse('main');
 
 /** What the renderer prints for one successful `tool_result` with `artifacts`. */
 function rendered(params: { content: string; artifacts?: ToolArtifact[] }): string {
   const { content, artifacts } = params;
   let out = '';
-  const event: AgentEvent = {
+  const event: EntryEvent = {
     seq: 0,
     type: 'tool_result',
     call: { id: callId, name: 'tool', input: {} },
@@ -20,10 +22,45 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
     ...(artifacts && { artifacts }),
   };
 
-  new Renderer((text) => (out += text), new TaskRegistry()).event(event);
+  new Renderer(
+    (text) => (out += text),
+    () => 0,
+  ).event(event);
 
   return out;
 }
+
+describe('Renderer: entries', () => {
+  const text = (sessionId: string, seq: number): StreamEntry => ({
+    seq,
+    sessionId: sessionIdSchema.parse(sessionId),
+    kind: 'event',
+    event: { seq, type: 'text_delta', text: `from ${sessionId}` },
+  });
+
+  it('prints the main session’s events, not a sub-agent’s', () => {
+    let out = '';
+    const renderer = new Renderer(
+      (written) => (out += written),
+      () => 0,
+    );
+
+    renderer.entry(text('main', 0), main);
+    renderer.entry(text('child', 1), main);
+    expect(out).toBe('from main');
+  });
+
+  it('says how many background tasks a finished turn still waits for', () => {
+    let out = '';
+    const renderer = new Renderer(
+      (written) => (out += written),
+      () => 2,
+    );
+
+    renderer.event({ seq: 0, type: 'turn_end', turn: 1, stopReason: 'end_turn' });
+    expect(out).toContain('waiting for 2 background task(s)');
+  });
+});
 
 describe('Renderer: tool results', () => {
   it("names a file change by the tool's summary", () => {

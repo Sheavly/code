@@ -24,3 +24,12 @@ export const taskInfoSchema = z.object({
   output: z.string(),
   error: z.string().exactOptional(),
 });
+
+/**
+ * A background task starting or ending, as a UI follows it: its snapshot then (`task_ended`
+ * carries its status, exit code and the end of its output).
+ */
+export const taskUpdateSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('task_started'), task: taskInfoSchema }),
+  z.object({ type: z.literal('task_ended'), task: taskInfoSchema }),
+]);

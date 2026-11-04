@@ -101,7 +101,7 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
 
 `ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
 several models on Azure at once (GPT, Claude, DeepSeek), each with its own keys, and the chat's
-`/model` switches between them ([several models](apps/terminal/docs/demo.md#several-models-on-azure)). Creating providers
+`/model` switches between them ([several models](apps/backend/docs/harness.md#several-models-on-azure)). Creating providers
 in code, switching between them and adding a backend are in
 [@sheavly/providers](packages/providers/README.md).
 

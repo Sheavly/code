@@ -26,8 +26,9 @@ workbook/
 ```
 
 The code is `src/workbook/`; `workbook/` at the repo root is its data, read from the directory
-you run it in (the root, through `npm run workbook`). It runs the same agent as the demo
-(`createTerminalHarness`, [harness.md](harness.md)) and prints with the same renderer.
+you run it in (the root, through `npm run workbook`). Each run starts a backend of its own, on
+that run's workspace, trust and turn limit, so it runs the same agent as the chat and the demo
+([what a run includes](../../backend/docs/harness.md)), and prints with the same renderer.
 
 ## Stored prompts
 
@@ -102,7 +103,7 @@ check:
 
 A failed check is retried once, since real models aren't fully repeatable. The report marks a
 check that passed only on its retry (`~`), and lists every run it made for `show` and `step`.
-Each attempt uses a throwaway trust store, never your `~/.config`. The command exits 1 when a
+Each attempt uses a throwaway trust file, never your `~/.config`; each run's backend reads it. The command exits 1 when a
 check fails.
 
 ## What a run saves
@@ -110,15 +111,19 @@ check fails.
 Each file in `runs/<id>/` is written while the run goes, so a crash keeps everything up to that
 point (only `result.json` is then missing, which marks the run unfinished):
 
-| File                | What it holds                                                                 |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `run.json`          | The prompt, model, workspace, main session id and git commit. Written first   |
-| `events.jsonl`      | Every loop event, one per line, in `seq` order: what a UI would receive       |
-| `model-calls.jsonl` | Every model call (main session and sub-agents): instructions, messages, tools |
-| `sessions.sse`      | The session registry's server-sent event stream, byte for byte                |
-| `transcript.txt`    | The terminal output, exactly as printed                                       |
-| `messages.json`     | The final conversation, which `continue` starts from                          |
-| `result.json`       | Outcome (or error), duration, and counts of events, calls, sessions           |
+| File                | What it holds                                                                |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `run.json`          | The prompt, model, workspace, main session id and git commit. Written first  |
+| `events.jsonl`      | Every loop event of the main session, one per line, in `seq` order           |
+| `model-calls.jsonl` | Every model call (main session and sub-agents), written by the run's backend |
+| `sessions.sse`      | The conversation's stream (`QUERY /stream`), byte for byte, as a UI reads it |
+| `transcript.txt`    | The terminal output, exactly as printed                                      |
+| `messages.json`     | The final conversation, which `continue` starts from                         |
+| `result.json`       | Outcome (or error), duration, and counts of events, calls, sessions          |
+
+A `done` in `events.jsonl` doesn't carry the conversation (the stream never does);
+`messages.json` has it, and `show`, `diff` and the checks read the final answer from there. Runs
+saved before the stream, whose `done` still has its messages, read the same.
 
 ## Picking up where the last run left off
 

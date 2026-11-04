@@ -18,6 +18,7 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
 import type { EntryFilter } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
@@ -255,6 +256,18 @@ export class SessionRegistry {
 
     this.#require(sessionId);
     this.#entries.add((seq) => ({ seq, sessionId, kind: 'approval', update }));
+  }
+
+  /**
+   * Adds a background task's start or end to the combined stream, under the session whose tool
+   * started it, or the first main session for one started outside the loop.
+   */
+  publishTask(params: { update: TaskUpdate; sessionId?: SessionId | undefined }): void {
+    const { update } = params;
+    const sessionId = params.sessionId ?? this.#mainId();
+
+    this.#require(sessionId);
+    this.#entries.add((seq) => ({ seq, sessionId, kind: 'task', update }));
   }
 
   /**

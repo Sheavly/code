@@ -2,7 +2,8 @@ import path from 'node:path';
 import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
-import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 /** A prompt or fixture name is one file name in its folder (`write-and-edit`), never a path. */
 export function isPlainName(name: string): boolean {
@@ -115,7 +116,7 @@ export function parseCommand(argv: string[]): Command {
 // --- Inspecting runs ---
 
 /** One event as a single readable line, for `step`. */
-export function describeEvent(event: AgentEvent): string {
+export function describeEvent(event: EntryEvent): string {
   const head = `#${String(event.seq).padStart(4, ' ')} ${event.type}`;
 
   switch (event.type) {
@@ -137,7 +138,7 @@ export function describeEvent(event: AgentEvent): string {
     case 'turn_end':
       return `${head}  turn ${event.turn} · ${event.stopReason}`;
     case 'done':
-      return `${head}  ${event.reason} · ${event.messages.length} messages · session ${shortId(event.session.id)}`;
+      return `${head}  ${event.reason} · session ${shortId(event.session.id)}`;
     default:
       return head;
   }
@@ -147,8 +148,8 @@ export function describeEvent(event: AgentEvent): string {
  * Text deltas arrive a few characters at a time; for stepping, consecutive deltas are merged
  * into one event, so each step is something that happened.
  */
-export function mergeTextDeltas(events: AgentEvent[]): AgentEvent[] {
-  const merged: AgentEvent[] = [];
+export function mergeTextDeltas(events: EntryEvent[]): EntryEvent[] {
+  const merged: EntryEvent[] = [];
 
   for (const event of events) {
     const previous = merged.at(-1);
@@ -209,17 +210,13 @@ export function diffResults(params: {
 // --- Reading a saved run ---
 
 /** Tool names in the order they were first called. */
-export function toolsUsed(events: AgentEvent[]): string[] {
+export function toolsUsed(events: EntryEvent[]): string[] {
   const names = events.filter((e) => e.type === 'tool_call_started').map((e) => e.call.name);
 
   return [...new Set(names)];
 }
 
-/** The text of the main session's last reply. */
-export function finalAnswer(events: AgentEvent[]): string {
-  const done = events.findLast((e) => e.type === 'done');
-
-  if (done?.type !== 'done') return '';
-
-  return done.messages.findLast((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
+/** The text of the last assistant reply in a conversation. */
+export function finalAnswer(messages: Message[]): string {
+  return messages.findLast((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
 }
