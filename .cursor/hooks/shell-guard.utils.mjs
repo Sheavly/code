@@ -2,6 +2,7 @@
 // to check a workaround was learned. A new workaround is a new check here, with its command in
 // DENIED_CASES (shell-guard-cases.utils.mjs).
 import { COPY_FIX, findProjectCopy } from './file-copies.utils.mjs';
+import { findProjectRedirect, REDIRECT_FIX } from './file-redirects.utils.mjs';
 import { findInPlaceEdit, IN_PLACE_FIX } from './in-place-edits.utils.mjs';
 import {
   findInlineBesideWriter,
@@ -41,6 +42,13 @@ export function findShellViolation(params) {
     return {
       user_message: 'Blocked an agent command that copies or moves a file into the project',
       agent_message: COPY_FIX,
+    };
+  }
+
+  if (findProjectRedirect({ command, cwd, projectRoot })) {
+    return {
+      user_message: 'Blocked an agent command that redirects its output into a project file',
+      agent_message: REDIRECT_FIX,
     };
   }
 

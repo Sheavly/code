@@ -62,6 +62,17 @@ export const DENIED_CASES = [
   'git mv apps/terminal/src/harness apps/backend/src/harness 2>&1 || (mkdir -p apps/backend/src && git mv apps/terminal/src/harness apps/backend/src/harness) && git mv apps/terminal/src/serve.ts apps/backend/src/serve.ts && ls apps/backend/src apps/backend/src/harness && git status --short | head -30',
   // No destination it can place: it may write anywhere it was handed.
   'cp /tmp/x.ts',
+  // Redirecting output into a project file is a write past the edit tools.
+  "printf '  }\\n}\\n' >> apps/backend/src/api/handlers.helper.ts; tail -5 apps/backend/src/api/handlers.helper.ts",
+  'echo x > README.md',
+  'echo x >README.md',
+  'cat /tmp/x.ts >> packages/core/src/x.ts',
+  "cat > packages/core/src/x.ts <<'EOF'\nexport const x = 1;\nEOF",
+  'npm run build 2> build.log',
+  'echo x &> README.md',
+  'cd packages/core && echo x > src/x.ts',
+  // A target it can't place (quoted, so a variable or a path with spaces) fails closed.
+  'echo x > "$FILE"',
   // Inline code in one line with a writer: the line's writes can't be put on the writer alone.
   `npm pkg set -w @sheavly/x 'exports[./a]=./b' && node -e "console.log(1)"`,
   `npm pkg set -w @sheavly/server 'exports[./testing/*][@sheavly/source]=./src/testing/*.ts' && node -e "console.log(JSON.stringify(require('./packages/server/package.json').exports['./testing/*']))" && npm install -D -w @sheavly/terminal @sheavly/host@0.0.0 2>&1 | tail -1`,
@@ -105,4 +116,16 @@ export const ALLOWED_CASES = [
   'git mv packages/core/src/a.ts /tmp/a.ts',
   `rg -n "\\bcp |\\bmv |rsync|install " .cursor/hooks/shell-guard-cases.utils.mjs`,
   'echo cp a b',
+  // Redirects that write nothing in the project: outside it, to /dev/null, a descriptor copy, or
+  // a `>` that is quoted data.
+  'echo x > /tmp/x.txt',
+  'echo x >> /tmp/x.txt',
+  'npm test > /dev/null 2>&1',
+  'npm test 2>/dev/null | tail -5',
+  'npm run check 2>&1 | rg "Tasks:"',
+  'echo error >&2',
+  "rg '=>' packages/core/src",
+  `rg "a > b" README.md`,
+  'cat packages/core/src/x.ts > /tmp/x.ts',
+  'cd /tmp && echo x > x.txt',
 ];
