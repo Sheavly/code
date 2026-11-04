@@ -8,6 +8,9 @@
 export const PRIVATE_FILE_MODE = 0o600;
 export const PRIVATE_FOLDER_MODE = 0o700;
 
+/** The mode bits that let anyone but the owner read, write or run a file: `0o077`. */
+export const GROUP_AND_OTHERS = 0o077;
+
 /**
  * The errors a rename gives while another program briefly holds a file (Windows, with a virus
  * scanner or an indexer): worth another try, unlike every other error.

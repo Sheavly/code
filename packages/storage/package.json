@@ -35,6 +35,10 @@
     "./*.utils": {
       "@sheavly/source": "./src/*.utils.ts",
       "default": "./dist/*.utils.js"
+    },
+    "./*.validator": {
+      "@sheavly/source": "./src/*.validator.ts",
+      "default": "./dist/*.validator.js"
     }
   },
   "files": [

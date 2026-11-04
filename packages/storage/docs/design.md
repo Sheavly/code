@@ -80,6 +80,29 @@ read and edit it. It is the pattern a store of hand-editable files follows:
 - **A key never goes through it.** The store has no adapter and can't tell a key from a field;
   `AdapterRegistry.validateDefinition` refuses one first, and credentials have their own store.
 
+## The credential store
+
+`CredentialStore` is the only file with keys in it (`credentials.json`, `{ [model-id]: { [field]:
+value } }`, the field names being whatever the adapter calls its secrets). It is built so a mistake
+here cannot become a leak:
+
+- **A key is never in an error.** Node's own message for a file that is not JSON quotes the text
+  around the fault, which in this file could be a key; for it the message is fixed and carries no
+  `cause`. A file of the wrong shape is named by the path of the field only.
+- **A file open to others is refused**, as `ssh` refuses a key file: the keys in it may already
+  have been seen, so the message says to restrict it (`chmod 600`) and to replace them. It is left
+  as found. Where the system has no modes (Windows) nothing is checked, and the protection is the
+  user's profile folder.
+- **Our own writes are always private.** The file is made `0600` in a `0700` folder, and a
+  replace keeps it so.
+- **Writes are queued.** Setting a key reads the file and writes it back whole, so two at once
+  would start from the same file and the second would erase the first's key. A write that fails
+  does not hold up the ones after it.
+- **Nothing can overwrite a file that can't be read.** A write reads first, so a damaged or open
+  file stops it instead of being replaced by one holding a single key.
+- **`fieldsSet()` says which fields are set, not their values**: all a UI needs to show "a key is
+  set", with no way to read it back.
+
 ## Adding a store
 
 A store is a module folder here (`<kind>-store/`), a class over a root folder it is given. It

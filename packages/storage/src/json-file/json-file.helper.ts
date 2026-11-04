@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import type { z } from 'zod';
@@ -8,6 +8,7 @@ import { errorCode, errorMessage, isMissingPath } from '@sheavly/runtime/errors/
 import { StorageFileError } from '../errors/storage.errors.js';
 import {
   BUSY_FILE_CODES,
+  GROUP_AND_OTHERS,
   PRIVATE_FILE_MODE,
   PRIVATE_FOLDER_MODE,
   RENAME_ATTEMPTS,
@@ -21,12 +22,17 @@ const BYTE_ORDER_MARK = 0xfeff;
  * stored yet). Anything else wrong with it, whether unreadable, not JSON or not what `schema`
  * says, throws a `StorageFileError` that names the file: a stored file is never taken for empty.
  * A leading byte-order mark is ignored, as some Windows editors add one to a file saved by hand.
+ *
+ * `holdsSecrets` is for a file with keys in it: the parser's own message quotes the text around
+ * the fault, which there could be a key, so a file that is not JSON is reported without it (and
+ * without the error behind it as `cause`).
  */
 export async function readJsonFile<TSchema extends z.ZodType>(params: {
   file: string;
   schema: TSchema;
+  holdsSecrets?: boolean;
 }): Promise<z.infer<TSchema> | undefined> {
-  const { file, schema } = params;
+  const { file, schema, holdsSecrets = false } = params;
   let text: string;
 
   try {
@@ -41,6 +47,14 @@ export async function readJsonFile<TSchema extends z.ZodType>(params: {
   try {
     json = JSON.parse(text.charCodeAt(0) === BYTE_ORDER_MARK ? text.slice(1) : text);
   } catch (caughtError) {
+    if (holdsSecrets) {
+      throw new StorageFileError({
+        file,
+        cause: undefined,
+        reason: 'it is not valid JSON (what it holds is not shown: it has secrets in it)',
+      });
+    }
+
     throw new StorageFileError({ file, cause: caughtError });
   }
 
@@ -49,6 +63,35 @@ export async function readJsonFile<TSchema extends z.ZodType>(params: {
     input: json,
     onInvalid: ({ details, error }) =>
       new StorageFileError({ file, cause: error, reason: `invalid:\n${details}` }),
+  });
+}
+
+/**
+ * Throws a `StorageFileError` if `file` can be read by anyone but its owner, as `ssh` refuses a
+ * key that others can read: what was in it may already have been seen, so the message says to
+ * restrict it and to replace what it holds. A file that is not there passes. Windows has no file
+ * modes to check, so nothing is checked there.
+ */
+export async function assertPrivateFile(params: { file: string }): Promise<void> {
+  const { file } = params;
+
+  if (process.platform === 'win32') return;
+
+  let mode: number;
+
+  try {
+    ({ mode } = await stat(file));
+  } catch (caughtError) {
+    if (isMissingPath(caughtError)) return;
+    throw new StorageFileError({ file, cause: caughtError });
+  }
+
+  if ((mode & GROUP_AND_OTHERS) === 0) return;
+
+  throw new StorageFileError({
+    file,
+    cause: undefined,
+    reason: `it can be read by other users (mode ${(mode & 0o777).toString(8)}). Restrict it to yourself (chmod 600), and replace the secrets in it, which others may have seen`,
   });
 }
 
