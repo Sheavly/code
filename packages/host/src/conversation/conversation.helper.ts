@@ -1,3 +1,4 @@
+import { now } from '@sheavly/core/clock/clock.helper';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
@@ -48,6 +49,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       role: 'user',
       content: params.text,
       ...(params.parts && { parts: params.parts }),
+      at: now(),
     };
     const events = run({
       provider,

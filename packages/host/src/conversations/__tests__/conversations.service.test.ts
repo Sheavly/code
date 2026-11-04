@@ -1,4 +1,5 @@
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
+import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { describe, expect, it } from 'vitest';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { blockTool } from '@sheavly/runtime/testing/block-tool.fake';
@@ -58,6 +59,8 @@ function setup(params: { replies: StreamEvent[][]; withSkills?: boolean }) {
 }
 
 describe('Conversations', () => {
+  const clock = useFixedClock();
+
   it('keeps each conversation apart, each continuing its own history', async () => {
     const { conversations, sent } = setup({ replies: [say('one'), say('two')] });
     const a = await conversations.start();
@@ -120,7 +123,7 @@ describe('Conversations', () => {
     await collect(prompt.events);
 
     expect(prompt.text).toBe('[review]\nlook /review');
-    expect(sent[0]?.[0]).toEqual({
+    expect(sent[0]?.[0]).toMatchObject({
       role: 'user',
       content: '[review]\nlook /review',
       parts: [{ type: 'skill', name: 'review' }],
@@ -148,8 +151,23 @@ describe('Conversations', () => {
 
     await collect((await conversations.send({ id, prompt: { text: 'plain /review' } })).events);
 
-    expect(sent[0]?.[0]).toEqual({ role: 'user', content: 'plain /review' });
+    expect(sent[0]?.[0]).toMatchObject({ role: 'user', content: 'plain /review' });
     expect(await conversations.skills({ id })).toEqual([]);
+  });
+
+  it('stamps the user’s prompt with when it was sent, and keeps it on the history', async () => {
+    const { conversations } = setup({ replies: [say('ok')] });
+    const id = await conversations.start();
+    const sentAt = clock.at;
+
+    clock.advance(2_000);
+    await collect((await conversations.send({ id, prompt: { text: 'hello' } })).events);
+
+    expect(conversations.messages(id)[0]).toMatchObject({
+      role: 'user',
+      content: 'hello',
+      at: sentAt + 2_000,
+    });
   });
 
   it('stops a running prompt and keeps history valid; refuses a second while one runs', async () => {
