@@ -1,9 +1,10 @@
 /** Test-only: polls until `check` is true (background tasks finish on their own schedule). */
 export async function until(check: () => boolean, timeoutMs = 3_000) {
-  const deadline = Date.now() + timeoutMs;
+  // A monotonic timer, so a fixed or moved clock (`useFixedClock`) can't stretch the wait.
+  const deadline = performance.now() + timeoutMs;
 
   while (!check()) {
-    if (Date.now() > deadline) throw new Error('timed out waiting');
+    if (performance.now() > deadline) throw new Error('timed out waiting');
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }

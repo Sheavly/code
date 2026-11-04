@@ -18,6 +18,7 @@ const provider = routedProvider({ hi: [say('hello')] });
 | `tool/`     | `toolRunner`, which runs tools the way the loop does                               |
 | `wait/`     | `until`, which polls a condition                                                   |
 | `store/`    | `MemoryConversationStore`, a conversation store in memory that can be made to fail |
+| `clock/`    | `useFixedClock`, which freezes the time `now()` reads for each test                |
 
 It depends on `@sheavly/core` and `@sheavly/protocol`, so core's own tests can't use it; a
 package's own fakes stay in its `src/testing/`.

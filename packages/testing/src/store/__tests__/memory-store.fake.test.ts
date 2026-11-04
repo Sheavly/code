@@ -8,6 +8,7 @@ import { MemoryConversationStore } from '../memory-store.fake.js';
 const id = conversationIdSchema.parse('c1');
 const entry = (seq: number): StreamEntry => ({
   seq,
+  at: 0,
   sessionId: sessionIdSchema.parse('main'),
   kind: 'event',
   event: { seq, type: 'text_delta', text: `t${String(seq)}` },
