@@ -18,3 +18,19 @@ export class StorageFileError extends Error {
     this.file = file;
   }
 }
+
+/**
+ * A folder or file was refused for deletion because it is not one a store makes: it is not named
+ * by an id the way a store names its own, or it is the home folder or a filesystem root. It is a
+ * bug in the caller, never bad data on disk, so nothing was touched.
+ */
+export class UnsafeRemovalError extends Error {
+  override name = 'UnsafeRemovalError';
+  /** The folder or file that was asked for, as given. */
+  readonly target: string;
+
+  constructor(params: { target: string; reason: string }) {
+    super(`Refusing to remove ${params.target}: ${params.reason}`);
+    this.target = params.target;
+  }
+}

@@ -42,7 +42,8 @@
     },
     "./serial-queue/*": null,
     "./listing/*": null,
-    "./jsonl-file/*": null
+    "./jsonl-file/*": null,
+    "./folder/*": null
   },
   "files": [
     "dist",

@@ -165,6 +165,30 @@ reads and writes through `json-file/`, names its files from ids, and says in its
 when a file is missing, damaged or being replaced. Add its row to the README, and export its file
 kind with `npm run export -- packages/storage <kind>` if it has none yet.
 
+## Deleting
+
+Nothing here calls `rm` itself. Every delete goes through `folder/` (`removeFolder`,
+`removeFile`), which checks what it was asked for before it touches the disk, because a recursive
+delete with a wrong path (an empty one, a variable that was never set, an id that is really
+`../x`) is not undone. Both throw an `UnsafeRemovalError` and touch nothing when:
+
+- **The name is not an id.** Only a lowercase UUID passes, so nothing holds a separator, a `..`, a
+  glob or a reserved name, whatever the type of the value says: a type is not proof for a value
+  that came from outside.
+- **The place is not the store's own.** `removeFolder` takes only a folder directly inside the
+  store's folder (`profiles/<id>`), never the store's folder, a folder above it, a relative path,
+  the home folder, or the folder that holds it. The path is resolved first (`..` applied), and what
+  is checked is what is deleted. A store folder reached through a link must not really be the top
+  of a file system.
+- **It is not the kind of thing asked for.** `removeFile` builds the path itself from the id and a
+  plain extension (`.json`), is never recursive, and leaves a folder with that name alone.
+
+A new delete in a store uses these. The one other `rm` is `writeJsonFile` discarding the temp file
+of a write that failed: a non-recursive remove of `<file>.<uuid>.tmp`, a name that function made
+itself a moment before, so it can't name anything else. The test helpers' `rm` removes a folder
+the test just made. The tests of this module hold the rules: each was broken on purpose to see a
+test fail.
+
 Tests run in a temp folder and never touch the real `~/.sheavly`. CI runs on Linux only today;
 Windows and macOS behaviour here rests on documented behaviour of the platform, so a change to a
 rule above deserves a run on that system.

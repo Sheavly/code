@@ -1,10 +1,11 @@
-import { readdir, rm } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Model, ModelId } from '@sheavly/protocol/model/model.types';
 import { fileIsNamedForItsId, toModel, toModelFile } from '@sheavly/protocol/model/model.utils';
 import { modelFileSchema, modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
+import { removeFile } from '../folder/folder.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import type { ListedFile } from '../listing/listing.types.js';
 import { sortByName, splitListed } from '../listing/listing.utils.js';
@@ -62,13 +63,7 @@ export class ModelStore {
 
   /** Removes the model with this id; none is fine. Its credential is the credentials store's. */
   async remove(id: ModelId): Promise<void> {
-    const file = this.#fileOf(id);
-
-    try {
-      await rm(file, { force: true });
-    } catch (caughtError) {
-      throw new StorageFileError({ file, cause: caughtError });
-    }
+    await removeFile({ folder: this.#folder, id, extension: MODEL_FILE_EXTENSION });
   }
 
   #fileOf(id: ModelId): string {

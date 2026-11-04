@@ -1,18 +1,14 @@
-import { readdir, rm } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { profileIdSchema, profileSchema } from '@sheavly/protocol/profile/profile.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
+import { removeFolder } from '../folder/folder.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import type { ListedFile } from '../listing/listing.types.js';
 import { sortByName, splitListed } from '../listing/listing.utils.js';
-import {
-  PROFILE_FILE,
-  PROFILES_FOLDER,
-  RM_RETRIES,
-  RM_RETRY_DELAY_MS,
-} from './profile-store.constants.js';
+import { PROFILE_FILE, PROFILES_FOLDER } from './profile-store.constants.js';
 import type { ProfileListing } from './profile-store.types.js';
 
 /**
@@ -76,18 +72,7 @@ export class ProfileStore {
    * contents, and no link inside is followed. Tell the config (`ConfigStore.forgetProfile`) too.
    */
   async remove(id: ProfileId): Promise<void> {
-    const folder = this.folderOf(id);
-
-    try {
-      await rm(folder, {
-        recursive: true,
-        force: true,
-        maxRetries: RM_RETRIES,
-        retryDelay: RM_RETRY_DELAY_MS,
-      });
-    } catch (caughtError) {
-      throw new StorageFileError({ file: folder, cause: caughtError });
-    }
+    await removeFolder({ root: this.#folder, folder: this.folderOf(id) });
   }
 
   /** The entries that could be profiles: folders (or links to one), not hidden, in a fixed order. */
