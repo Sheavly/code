@@ -10,6 +10,15 @@ const STDIO = '/^(stdin|stdout|stderr)$/';
 const TERMINAL_IO_MESSAGE =
   'No terminal I/O (node:readline, node:tty, process.stdin/stdout/stderr) outside an app: the harness emits typed events and a UI renders them. A UI is an app in apps/ (`npm run new -- app <name> …`), built only when its issue asks for one; a package that formats output takes a write function from the app instead.';
 
+/**
+ * The credentials file as the last part of a path, in any case (macOS and Windows file systems
+ * ignore it, so `Credentials.JSON` is the same file): the whole string, or what follows a `/` or
+ * `\`. A message that only mentions the name in a sentence is not a path and is not matched.
+ */
+const CREDENTIALS_PATH = '/(^|[\\\\\\u002F])credentials\\.json$/i';
+/** The credential store's modules, imported by package subpath. */
+const CREDENTIAL_STORE_MODULES = '/^@sheavly\\u002Fstorage\\u002Fcredential-store\\u002F/';
+
 export const SYNTAX_RULES = {
   'no-default-export': [
     {
@@ -88,6 +97,24 @@ export const SYNTAX_RULES = {
       selector: "MemberExpression[object.name='z'][property.name='iso']",
       message:
         'Times are epoch milliseconds (`timestampSchema` from `@sheavly/protocol/time/time.validator`), never ISO 8601 strings, so a schema takes no `z.iso.*`.',
+    },
+  ],
+  // The credentials file holds every model's key. Reading it is `CredentialStore`'s job and the
+  // backend's alone (which serves it to nobody): the store checks that the file is private, never
+  // puts a key in an error and queues writes, none of which code that opens the file itself does.
+  // So no other code names the file, or imports the module that does.
+  'no-credentials-file': [
+    {
+      selector: `Literal[value=${CREDENTIALS_PATH}], TemplateElement[value.cooked=${CREDENTIALS_PATH}]`,
+      message:
+        'Do not name the credentials file (`credentials.json`). Keys are read and written through `CredentialStore` (`@sheavly/storage/credential-store/credential-store.service`), which refuses a file others can read and never puts a key in an error. Only the backend app uses it; any other code asks the backend (a UI) or is given the secret it needs as an option.',
+    },
+  ],
+  'no-credential-store-import': [
+    {
+      selector: `ImportDeclaration[source.value=${CREDENTIAL_STORE_MODULES}], ImportExpression[source.value=${CREDENTIAL_STORE_MODULES}]`,
+      message:
+        "Only the backend app (apps/backend) uses the credential store: it is where a key is read and handed to a provider. Other code never holds a key: a UI sets one through the backend's API, and a package is given what it needs as an option. In the backend, turn this rule off for the one module that holds keys, with a `files:` override and its reason in apps/backend/eslint.config.js.",
     },
   ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built

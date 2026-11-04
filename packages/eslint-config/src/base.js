@@ -94,6 +94,10 @@ export function baseConfig(params) {
         'harness/no-dotdot-prefix': 'error',
         // One clock (`now()`, through Luxon), so time can be fixed in a test.
         'harness/no-direct-clock': 'error',
+        // Keys are read through `CredentialStore`, and only by the backend: nothing else names
+        // the credentials file or imports the store. An exception is a `files:` override.
+        'harness/no-credentials-file': 'error',
+        'harness/no-credential-store-import': 'error',
       },
     },
 

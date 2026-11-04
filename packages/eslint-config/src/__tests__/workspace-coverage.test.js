@@ -73,13 +73,36 @@ const isOn = (entry) => {
 
   return severity === 2 || severity === 'error' || severity === 1 || severity === 'warn';
 };
+/** The one module allowed to name the credentials file: its folder in `@sheavly/storage`. */
+const CREDENTIAL_STORE_FILES = /^packages[/\\]storage[/\\]src[/\\]credential-store[/\\]/;
+/** The one workspace allowed to import the credential store. */
+const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
+
+/** A workspace's TypeScript, tests and fakes included. */
+function typescriptFiles(dir) {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.[cm]?ts$/.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}
+
+/** The files of a workspace's `src/` that have `rule` off and are not among those `allowed`. */
+async function filesWithRuleOff(params) {
+  const { dir, rule, allowed } = params;
+  const eslint = new ESLint({ cwd: dir });
+  const off = [];
+
+  for (const file of typescriptFiles(path.join(dir, 'src'))) {
+    const { rules } = await eslint.calculateConfigForFile(file);
+
+    if (!isOn(rules[rule])) off.push(path.relative(REPO_ROOT, file));
+  }
+
+  return off.filter((file) => !allowed.test(file));
+}
 
 /** A workspace's TypeScript source outside tests and fakes. */
 function sourceFiles(dir) {
-  return readdirSync(dir, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.[cm]?ts$/.test(entry.name))
-    .map((entry) => path.join(entry.parentPath, entry.name))
-    .filter((file) => !/[/\\](__tests__|testing)[/\\]/.test(file));
+  return typescriptFiles(dir).filter((file) => !/[/\\](__tests__|testing)[/\\]/.test(file));
 }
 
 const WORKSPACES = workspaceDirs(REPO_ROOT);
@@ -162,6 +185,31 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
         ).toEqual([]);
       },
     );
+
+    // Only the credential store may name the credentials file, and only the backend app may import
+    // the store. Pinned here, so an override that widens an exception (a whole workspace, its
+    // tests) fails this instead of passing quietly.
+    it('keeps the credentials file named only inside the credential store', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-credentials-file',
+          allowed: CREDENTIAL_STORE_FILES,
+        }),
+        `${name} lets files outside the credential store name the credentials file. Go through CredentialStore (apps/backend only) instead of turning \`harness/no-credentials-file\` off.`,
+      ).toEqual([]);
+    });
+
+    it('keeps the credential store imported only by the backend app', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-credential-store-import',
+          allowed: BACKEND_FILES,
+        }),
+        `${name} lets files outside the backend app import the credential store. Only the backend reads a key: ask it over the API, or take the secret as an option.`,
+      ).toEqual([]);
+    });
 
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};

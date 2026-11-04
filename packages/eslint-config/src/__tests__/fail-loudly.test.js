@@ -145,3 +145,63 @@ ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
     errors: (errors ?? [messageId]).map((id) => ({ messageId: id })),
   })),
 });
+
+// The credentials file holds every model's key: only `CredentialStore` reads it, and only the
+// backend uses the store.
+ruleTester.run('no-credentials-file', harnessPlugin.rules['no-credentials-file'], {
+  valid: [
+    // Other files, and the names that only look like it.
+    "const file = path.join(root, 'config.json');",
+    "const file = path.join(profile, 'models', `${id}.json`);",
+    "const file = 'credentials.jsonl';",
+    "const file = 'my-credentials.json';",
+    "const file = 'credentials.json.bak';",
+    "const folder = 'credentials';",
+    // A sentence that mentions the name is not a path.
+    "const message = 'Do not commit credentials.json';",
+    "throw new Failure({ reason: 'it is not the credentials.json you meant' });",
+    // Nothing to read in a name that isn't spelled out.
+    'const file = path.join(profile, CREDENTIALS_FILE);',
+  ],
+  invalid: [
+    // The file, however it is written.
+    "const file = path.join(profile, 'credentials.json');",
+    "const file = 'credentials.json';",
+    "const file = './credentials.json';",
+    "const file = '/home/u/.sheavly/profiles/p/credentials.json';",
+    "const file = 'C:\\\\Users\\\\u\\\\.sheavly\\\\profiles\\\\p\\\\credentials.json';",
+    // macOS and Windows ignore case, so these are the same file.
+    "const file = 'Credentials.JSON';",
+    "const file = path.join(profile, 'CREDENTIALS.json');",
+    // A template literal, with the folder before it.
+    'const file = `${profile}/credentials.json`;',
+    'const file = `${profile}\\\\credentials.json`;',
+    'const file = `credentials.json`;',
+    // Read from the usual places.
+    "const text = await readFile(path.join(dir, 'credentials.json'), 'utf8');",
+    "const text = readFileSync('credentials.json');",
+    'await exec(`cat ${dir}/credentials.json`);',
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
+ruleTester.run('no-credential-store-import', harnessPlugin.rules['no-credential-store-import'], {
+  valid: [
+    "import { ModelStore } from '@sheavly/storage/model-store/model-store.service';",
+    "import { ConfigStore } from '@sheavly/storage/config-store/config-store.service';",
+    "import { readJsonFile } from '@sheavly/storage/json-file/json-file.helper';",
+    // Another package's module that happens to be named alike.
+    "import { CredentialStore } from './credential-store.service.js';",
+    "import { x } from '@sheavly/core/credential-store/x.helper';",
+    "import { x } from '@sheavly/storage-extras/credential-store/x.service';",
+  ],
+  invalid: [
+    "import { CredentialStore } from '@sheavly/storage/credential-store/credential-store.service';",
+    "import type { Secrets } from '@sheavly/storage/credential-store/credential-store.types';",
+    "import { credentialsFileSchema } from '@sheavly/storage/credential-store/credential-store.validator';",
+    "const { CredentialStore } = await import('@sheavly/storage/credential-store/credential-store.service');",
+  ].map((code) => ({
+    code,
+    languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },
+    errors: [{ messageId: 'm0' }],
+  })),
+});
