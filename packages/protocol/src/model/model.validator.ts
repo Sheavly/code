@@ -1,15 +1,12 @@
 import { z } from 'zod';
+import { lowercaseUuidSchema } from '../id/id.validator.js';
 
 /**
  * A model's id: a UUID in lowercase, the stem of its file (`models/<id>.json`), and what a request,
  * a credential and the model switch call it by. Branded, so it can't be passed where another id
- * goes. A UUID can't name another path, so nothing else is accepted as a file name; lowercase, so
- * one model can't have two files on a case-insensitive disk.
+ * goes (see `lowercaseUuidSchema` for why that shape).
  */
-export const modelIdSchema = z
-  .uuid()
-  .regex(/^[0-9a-f-]{36}$/, 'Use a lowercase UUID')
-  .brand<'ModelId'>();
+export const modelIdSchema = lowercaseUuidSchema.brand<'ModelId'>();
 
 /** An adapter's kind (`openai`, `azure-openai`, `azure-anthropic`): lowercase words joined by dashes. */
 export const adapterKindSchema = z
