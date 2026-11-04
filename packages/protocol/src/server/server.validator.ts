@@ -111,6 +111,7 @@ export const serverErrorCodeSchema = z.enum([
   'unknown_skill',
   'unknown_approval',
   'unknown_model',
+  'storage_failed',
   'internal',
 ]);
 

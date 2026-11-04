@@ -1069,6 +1069,7 @@
           "unknown_skill",
           "unknown_approval",
           "unknown_model",
+          "storage_failed",
           "internal"
         ]
       },
