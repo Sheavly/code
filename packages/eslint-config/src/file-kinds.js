@@ -7,7 +7,8 @@
  *   `as const` values; `code`: functions, classes and computed values, but no exported types
  *   or literal constants (those go in the module's types/constants file).
  * - `maxLines`: lines of code (blank and comment lines aside) before a file is doing more than
- *   one job. `null` = no limit (pure helpers grow with their subject).
+ *   one job. `null` = no limit (utils and helpers are stateless functions that grow with their
+ *   subject).
  * - `classes` (optional): `required` (it exports at least one class) or `forbidden` (it exports
  *   none). Left out, a kind may export classes or not.
  * - `schemas` (optional): `allowed` means it may export zod schemas. Only validators may; a
@@ -28,7 +29,7 @@ export const FILE_KIND_POLICIES = {
    */
   validator: { exports: 'code', maxLines: LINES.DEFAULT, schemas: 'allowed' },
   /** Stateless functions that may do I/O or call services. Functions only, no classes. */
-  helper: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'forbidden' },
+  helper: { exports: 'code', maxLines: LINES.UNLIMITED, classes: 'forbidden' },
   /** Code that owns state: it exports a class. */
   service: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'required' },
   /** Error classes. */

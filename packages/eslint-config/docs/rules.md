@@ -17,7 +17,7 @@ switches off exactly one, on the files it is for, with a reason.
 | `constants` | literal values, `as const`                               | only literals                | 300       |
 | `utils`     | pure helpers: no I/O, no services                        | code                         | none      |
 | `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                | 300       |
-| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | 300       |
+| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | none      |
 | `service`   | code that owns state                                     | code, at least one class     | 300       |
 | `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
 | `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
@@ -25,6 +25,11 @@ switches off exactly one, on the files it is for, with a reason.
 | `errors`    | error classes                                            | code                         | 150       |
 | `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
 | `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
+
+Max lines counts lines of code (blank and comment lines aside), enforced by `max-lines`. `utils` and
+`helper` files have no cap: they are stateless functions that grow with their subject, so a long one
+is split by responsibility only when it does several jobs, not to fit a number. A file with no kind
+(an entry point, the demo) is capped at 300. The limits live in `file-kinds.js`.
 
 - `harness/file-kind`: every module file is named `<name>.<kind>.ts` (kebab-case, known kind);
   tests only in `__tests__/`, and only tests there.

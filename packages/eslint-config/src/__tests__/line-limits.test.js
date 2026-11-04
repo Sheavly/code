@@ -27,6 +27,11 @@ describe('line limits', () => {
     expect(await maxLinesFor('packages/core/src/hook/hook.utils.ts')).toBeUndefined();
   });
 
+  it('puts no cap on helper files either', async () => {
+    expect(FILE_KIND_POLICIES.helper.maxLines).toBeNull();
+    expect(await maxLinesFor('src/workbook/check.helper.ts')).toBeUndefined();
+  });
+
   it.each(Object.entries(FILE_KIND_POLICIES).filter(([, policy]) => policy.maxLines !== null))(
     'caps %s files at their policy',
     async (kind, policy) => {

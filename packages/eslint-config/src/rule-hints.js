@@ -1,6 +1,7 @@
 // What to do, appended by the post-edit hook to third-party rules whose messages say what is wrong
 // but not how to fix it. Optional per rule: an unlisted rule is reported with its own message, and
-// the `harness/*` rules already say what to do. A test fails when a hint names a rule that is off.
+// the `harness/*` rules already say what to do. A test fails when a hint names a rule that is off
+// for every kind of source file (a rule only some kinds are checked with, like `max-lines`, stays).
 export const RULE_HINTS = {
   'sonarjs/cognitive-complexity':
     "Extract the inner step (a loop body, a branch) into a function named for what it does; don't just reshuffle conditions.",

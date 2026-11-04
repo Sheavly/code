@@ -12,6 +12,14 @@ tools, loop, host), coding as a preset on top (workspace, coding), and every fro
 - Which workspace code belongs in: the `sheavly-packages` skill; then that workspace's README.
 - Branches, commits, PRs and issues: the `git` skill.
 
+## File length
+
+Lint caps lines of code (blank and comment lines aside) per file kind, set in
+`packages/eslint-config/src/file-kinds.js`: `tool`, `adapter`, `routes` and `errors` 150;
+`types`, `constants`, `validator`, `service` and `fake` 300; `test` 500; a file with no kind 300.
+`utils` and `helper` files have no cap: split one by responsibility when it does several jobs,
+not to fit a number.
+
 ## Code style
 
 Lint enforces the mechanics (`packages/eslint-config/src/readability.js`: blank lines around
