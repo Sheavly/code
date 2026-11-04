@@ -55,3 +55,31 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
   what the user typed, for a UI to show the skills as chips. Providers send only `content`.
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
+
+## Models
+
+`model/` is how a model is described to a UI and stored, with no code that talks to a provider:
+
+- A model has an **id**, a lowercase UUID that is the stem of its file (`models/<id>.json`) and
+  what a request, a credential and the model switch call it by. A UUID can't name another path, so
+  nothing else is accepted as a file name, and the file's own `id` must be its name: a copy or a
+  rename by hand is refused, not served under another id.
+- It has a **name** for people (`Astra 6`), free text, required because the file name says nothing.
+  It is only a label: it is never sent to a provider and nothing is keyed by it, so two models can
+  share one, and a UI shows whatever it likes.
+- What the **provider calls the model** is a different thing, one of the adapter's own fields
+  (`model` for OpenAI, `deployment` for Azure). `AdapterDescription.remoteField` says which, for an
+  adapter that has one, so a UI can show both ("Astra 6", gpt-5) without knowing each adapter's
+  vocabulary.
+- A model's file (`ModelFile`) is `{ id, name, adapter, ...the adapter's own fields }`: flat, so it
+  reads and edits by hand, and complete, so it says what it is whatever it is called. `toModel`
+  reads it once into a `Model` (`id`, `name`, `adapter`, `definition`), and `toModelFile` writes
+  one back. The file never holds a secret: a key lives with the profile's credentials.
+- `AdapterDescription` is what `GET /adapters` says about an adapter: its kind, a description,
+  the fields a model of it takes as JSON Schema (a field a person must keep secret carries
+  `secret: true`), and the names of the secret fields. A UI builds its form from it, and needs no
+  provider code to do so.
+- `KeyCheck` is how a check of a model's key ended: `valid`, or `invalid` (the key was refused),
+  `not_found` (the endpoint or deployment doesn't exist), `rejected` (the provider answered but
+  refused the request) or `unreachable`, with a fixed message, never the provider's own text, so a
+  key can't come back in it.

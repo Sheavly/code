@@ -51,6 +51,15 @@ import {
   switchModelRequestSchema,
 } from '../server/server.validator.js';
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
+import { storedConversationSchema } from '../store/store.validator.js';
+import {
+  adapterDescriptionSchema,
+  adapterKindSchema,
+  keyCheckSchema,
+  modelFileSchema,
+  modelIdSchema,
+  modelSchema,
+} from '../model/model.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
 import {
   taskIdSchema,
@@ -114,6 +123,13 @@ function contractSchemas(): Record<string, z.ZodType> {
     TaskId: taskIdSchema,
     ApprovalId: approvalIdSchema,
     ConversationId: conversationIdSchema,
+    StoredConversation: storedConversationSchema,
+    ModelId: modelIdSchema,
+    AdapterKind: adapterKindSchema,
+    ModelFile: modelFileSchema,
+    Model: modelSchema,
+    AdapterDescription: adapterDescriptionSchema,
+    KeyCheck: keyCheckSchema,
   };
 }
 
