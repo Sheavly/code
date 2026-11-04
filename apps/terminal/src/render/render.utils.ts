@@ -1,4 +1,5 @@
 import type { FileRead } from '@sheavly/coding/read-file/read-file.types';
+import { stripVTControlCharacters } from 'node:util';
 import { z } from 'zod';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
@@ -11,10 +12,16 @@ export function oneLine(params: { text: string; max: number }): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
-/** The first non-empty line, cut at 100 characters. */
+/**
+ * The first non-empty line, cut at 100 characters. Escape codes (a command's colours) are dropped
+ * first: cutting through one would leave its style on for everything printed after it.
+ */
 export function firstLine(text: string): string {
   const max = 100;
-  const line = text.split('\n').find((l) => l.trim()) ?? '';
+  const line =
+    stripVTControlCharacters(text)
+      .split('\n')
+      .find((l) => l.trim()) ?? '';
 
   return line.length > max ? `${line.slice(0, max)}…` : line;
 }
