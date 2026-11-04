@@ -56,6 +56,7 @@ flowchart BT
   backend --> coding
   backend --> loop
   backend --> providers
+  backend --> storage
   backend --> tools
   client --> protocol
   coding --> host
@@ -68,6 +69,7 @@ flowchart BT
   storage --> runtime
   terminal --> client
   terminal --> coding
+  terminal --> storage
   tools --> runtime
   workspace --> runtime
 ```

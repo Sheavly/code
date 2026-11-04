@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, readlink, realpath, rename, writeFile } from 'node:fs/promises';
+import { readdir, readFile, readlink, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
@@ -6,7 +6,12 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { TrustStoreError } from '../errors/trust.errors.js';
 import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';
-import type { FingerprintEntry, TrustState, TrustStoreData } from './trust.types.js';
+import type {
+  FingerprintEntry,
+  TrustPersistence,
+  TrustState,
+  TrustStoreData,
+} from './trust.types.js';
 import { fingerprintOf, olderFormatHint } from './trust.utils.js';
 import { trustStoreSchema } from './trust.validator.js';
 import { isInside } from '../workspace/workspace.utils.js';
@@ -22,10 +27,10 @@ import { isInside } from '../workspace/workspace.utils.js';
  * calls `trust`.
  */
 export class TrustStore {
-  readonly #file: string;
+  readonly #persistence: TrustPersistence;
 
-  constructor(params: { file: string }) {
-    this.#file = params.file;
+  constructor(params: { persistence: TrustPersistence }) {
+    this.#persistence = params.persistence;
   }
 
   /** Whether `root`'s project hooks may run (see `TrustState`). */
@@ -34,7 +39,7 @@ export class TrustStore {
 
     await this.#assertOutside(root);
 
-    const entry = (await this.#read()).workspaces[root];
+    const entry = this.#parse(await this.#guarded(() => this.#persistence.load())).workspaces[root];
 
     if (!entry) return 'untrusted';
 
@@ -47,27 +52,37 @@ export class TrustStore {
 
     await this.#assertOutside(root);
 
-    const store = await this.#read();
+    // Fingerprinted before the change, which runs inside the persistence's one-at-a-time turn.
+    const entry = { fingerprint: await fingerprintWorkspace({ root }), trustedAt: now() };
 
-    store.workspaces[root] = {
-      fingerprint: await fingerprintWorkspace({ root }),
-      trustedAt: now(),
-    };
-    await this.#write(store);
+    await this.#guarded(() =>
+      this.#persistence.update((current) => {
+        const store = this.#parse(current);
+
+        return { ...store, workspaces: { ...store.workspaces, [root]: entry } };
+      }),
+    );
   }
 
   /** Forgets `root`: its project hooks don't run until it is trusted again. */
   async revoke(params: { root: string }): Promise<void> {
     const root = await realpath(params.root);
-    const store = await this.#read();
 
-    if (!(root in store.workspaces)) return;
+    await this.#guarded(() =>
+      this.#persistence.update((current) => {
+        const store = this.#parse(current);
 
-    const workspaces = Object.fromEntries(
-      Object.entries(store.workspaces).filter(([trusted]) => trusted !== root),
+        // Nothing to forget: returning nothing leaves the store as it is.
+        if (!(root in store.workspaces)) return undefined;
+
+        return {
+          ...store,
+          workspaces: Object.fromEntries(
+            Object.entries(store.workspaces).filter(([trusted]) => trusted !== root),
+          ),
+        };
+      }),
     );
-
-    await this.#write({ ...store, workspaces });
   }
 
   /**
@@ -75,58 +90,40 @@ export class TrustStore {
    * real path of the store's folder, so a symlink out of the repo is fine and one in isn't.
    */
   async #assertOutside(root: string): Promise<void> {
-    const folder = await realFolder(path.dirname(path.resolve(this.#file)));
+    const folder = await realFolder(path.dirname(path.resolve(this.#persistence.file)));
 
     if (isInside({ folder: root, target: folder })) {
       throw new TrustStoreError({
-        file: this.#file,
+        file: this.#persistence.file,
         cause: undefined,
         reason: `it is inside the workspace ${root}, so the repo could trust itself. Keep it outside every repo (SHEAVLY_TRUST_FILE).`,
       });
     }
   }
 
-  /** The store; no file yet means nothing is trusted. Anything else wrong names the file. */
-  async #read(): Promise<TrustStoreData> {
-    let text: string;
-
-    try {
-      text = await readFile(this.#file, 'utf8');
-    } catch (caughtError) {
-      if (isMissingPath(caughtError)) return { version: TRUST_STORE_VERSION, workspaces: {} };
-      throw new TrustStoreError({ file: this.#file, cause: caughtError });
-    }
-
-    let json: unknown;
-
-    try {
-      json = JSON.parse(text);
-    } catch (caughtError) {
-      throw new TrustStoreError({ file: this.#file, cause: caughtError });
-    }
+  /** The stored document as a store; none stored means nothing is trusted. */
+  #parse(stored: unknown): TrustStoreData {
+    if (stored === undefined) return { version: TRUST_STORE_VERSION, workspaces: {} };
 
     return parseOrThrow({
       schema: trustStoreSchema,
-      input: json,
+      input: stored,
       onInvalid: ({ details, error }) =>
         new TrustStoreError({
-          file: this.#file,
+          file: this.#persistence.file,
           cause: error,
-          reason: `invalid:\n${details}${olderFormatHint(json)}`,
+          reason: `invalid:\n${details}${olderFormatHint(stored)}`,
         }),
     });
   }
 
-  /** Written to a temp file and renamed into place, so a crash never leaves half a store. */
-  async #write(store: TrustStoreData): Promise<void> {
-    const temp = `${this.#file}.${process.pid}.tmp`;
-
+  /** Runs a persistence call, and reports a failure of its own as a `TrustStoreError` naming the file. */
+  async #guarded<T>(call: () => Promise<T>): Promise<T> {
     try {
-      await mkdir(path.dirname(this.#file), { recursive: true });
-      await writeFile(temp, `${JSON.stringify(store, null, 2)}\n`, { mode: 0o600 });
-      await rename(temp, this.#file);
+      return await call();
     } catch (caughtError) {
-      throw new TrustStoreError({ file: this.#file, cause: caughtError });
+      if (caughtError instanceof TrustStoreError) throw caughtError;
+      throw new TrustStoreError({ file: this.#persistence.file, cause: caughtError });
     }
   }
 }

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { resolveWritable } from '@sheavly/coding/files/files.helper';
 import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
@@ -133,7 +134,7 @@ async function attempt(params: {
   // Each run's backend reads it (SHEAVLY_TRUST_FILE); an `untrust` step revokes from it here.
   const scratch = await mkdtemp(path.join(tmpdir(), 'workbook-check-'));
   const trustFile = path.join(scratch, 'trusted-workspaces.json');
-  const trustStore = new TrustStore({ file: trustFile });
+  const trustStore = new TrustStore({ persistence: new DocumentFile({ file: trustFile }) });
   const problems: string[] = [];
   const runs: string[] = [];
 

@@ -1,15 +1,17 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TrustStoreError } from '../../errors/trust.errors.js';
+import { memoryTrust } from '../../testing/trust.fake.js';
+import type { MemoryTrust } from '../../testing/testing.types.js';
 import { TRUST_STORE_VERSION } from '../trust.constants.js';
 import { fingerprintWorkspace, TrustStore } from '../trust.service.js';
 import { fingerprintOf } from '../trust.utils.js';
 
 let base = '';
 let root = '';
-let storeFile = '';
+let persistence: MemoryTrust;
 let store: TrustStore;
 
 /** Writes `files` under the project's `.sheavly/`. */
@@ -20,11 +22,14 @@ async function sheavly(files: Record<string, string>): Promise<void> {
   }
 }
 
+/** A trust store over `file`, a place it pretends to live in: it is never written to disk. */
+const storeAt = (file: string) => new TrustStore({ persistence: memoryTrust({ file }) });
+
 beforeEach(async () => {
   base = await mkdtemp(path.join(tmpdir(), 'trust-test-'));
   root = path.join(base, 'project');
-  storeFile = path.join(base, 'config', 'trusted-workspaces.json');
-  store = new TrustStore({ file: storeFile });
+  persistence = memoryTrust({ file: path.join(base, 'config', 'trusted-workspaces.json') });
+  store = new TrustStore({ persistence });
   await mkdir(root);
   await sheavly({
     'hooks.json': '{"version":1,"hooks":[{"path":"hooks/a.js"}]}',
@@ -33,25 +38,20 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await chmod(path.dirname(storeFile), 0o700).catch((caughtError: unknown) => {
-    if ((caughtError as { code?: string }).code !== 'ENOENT') throw caughtError;
-  });
   await rm(base, { recursive: true, force: true });
 });
 
 describe('TrustStore', () => {
-  it('treats a workspace it has never seen as untrusted, with no store file yet', async () => {
+  it('treats a workspace it has never seen as untrusted, with nothing stored yet', async () => {
     expect(await store.check({ root })).toBe('untrusted');
   });
 
-  it('remembers a trusted workspace, in a store outside the repo', async () => {
+  it('remembers a trusted workspace in what it was given, in the current format', async () => {
     await store.trust({ root });
 
     expect(await store.check({ root })).toBe('trusted');
-    expect(await new TrustStore({ file: storeFile }).check({ root })).toBe('trusted');
-    expect(JSON.parse(await readFile(storeFile, 'utf8'))).toMatchObject({
-      version: TRUST_STORE_VERSION,
-    });
+    expect(await new TrustStore({ persistence }).check({ root })).toBe('trusted');
+    expect(persistence.get()).toMatchObject({ version: TRUST_STORE_VERSION });
   });
 
   it.each([
@@ -91,64 +91,94 @@ describe('TrustStore', () => {
 
     await mkdir(other);
     await store.trust({ root });
-
-    expect(await store.check({ root: other })).toBe('untrusted');
+    await store.trust({ root: other });
 
     await store.revoke({ root });
+
     expect(await store.check({ root })).toBe('untrusted');
+    expect(await store.check({ root: other })).toBe('trusted');
+  });
+
+  it('leaves the store alone when it revokes a workspace that was never trusted', async () => {
+    await store.revoke({ root });
+
+    expect(persistence.get()).toBeUndefined();
+  });
+
+  it('keeps what was trusted when another workspace is trusted after it', async () => {
+    const other = path.join(base, 'other');
+
+    await mkdir(other);
+    await store.trust({ root });
+    await store.trust({ root: other });
+
+    expect(await store.check({ root })).toBe('trusted');
+    expect(await store.check({ root: other })).toBe('trusted');
   });
 
   it.each([
-    ['not JSON', '{ nope'],
     [
       'the wrong shape',
-      `{"version":${String(TRUST_STORE_VERSION)},"workspaces":{"/x":{"fingerprint":""}}}`,
+      { version: TRUST_STORE_VERSION, workspaces: { '/x': { fingerprint: '' } } },
     ],
-    ['another version', `{"version":${String(TRUST_STORE_VERSION + 1)},"workspaces":{}}`],
+    ['another version', { version: TRUST_STORE_VERSION + 1, workspaces: {} }],
     [
       'the previous format, with ISO times',
-      '{"version":1,"workspaces":{"/x":{"fingerprint":"sha256:a","trustedAt":"2026-11-03T11:39:39.880Z"}}}',
+      {
+        version: 1,
+        workspaces: { '/x': { fingerprint: 'sha256:a', trustedAt: '2026-11-03T11:39:39.880Z' } },
+      },
     ],
+    ['not an object at all', 'trusted'],
   ])(
     'refuses a store that is %s, naming the file, instead of trusting nothing',
-    async (_, text) => {
-      await mkdir(path.dirname(storeFile), { recursive: true });
-      await writeFile(storeFile, text);
+    async (_, stored) => {
+      persistence.set(stored);
 
-      const failure = await store.check({ root }).catch((caughtError: unknown) => caughtError);
-
-      expect(failure).toBeInstanceOf(TrustStoreError);
-      expect((failure as Error).message).toContain(storeFile);
+      await expect(store.check({ root })).rejects.toBeInstanceOf(TrustStoreError);
+      await expect(store.check({ root })).rejects.toThrow(persistence.file);
+      await expect(store.trust({ root })).rejects.toBeInstanceOf(TrustStoreError);
+      // A store that cannot be read is never replaced with a new one.
+      expect(persistence.get()).toEqual(stored);
     },
   );
 
   it('tells a user with a previous-format store to delete it and trust again', async () => {
-    await mkdir(path.dirname(storeFile), { recursive: true });
-    await writeFile(storeFile, '{"version":1,"workspaces":{}}');
+    persistence.set({ version: 1, workspaces: {} });
 
-    const failure = await store.check({ root }).catch((caughtError: unknown) => caughtError);
+    await expect(store.check({ root })).rejects.toThrow('Delete it and trust each workspace again');
+  });
 
-    expect((failure as Error).message).toContain('Delete it and trust each workspace again');
+  it('reports a store it cannot read or write as a TrustStoreError naming the file', async () => {
+    const disk = new Error('EACCES: permission denied');
+
+    persistence.failWith(disk);
+
+    for (const call of [
+      () => store.check({ root }),
+      () => store.trust({ root }),
+      () => store.revoke({ root }),
+    ]) {
+      await expect(call()).rejects.toBeInstanceOf(TrustStoreError);
+      await expect(call()).rejects.toMatchObject({ cause: disk, file: persistence.file });
+    }
   });
 
   it('refuses a store inside the workspace, which the repo could ship to trust itself', async () => {
-    const inside = new TrustStore({ file: path.join(root, 'config', 'trusted.json') });
+    const inside = storeAt(path.join(root, 'config', 'trusted.json'));
 
     await expect(inside.trust({ root })).rejects.toThrow('inside the workspace');
     await expect(inside.check({ root })).rejects.toBeInstanceOf(TrustStoreError);
   });
 
   it('refuses a store in a folder of the workspace whose name starts with dots', async () => {
-    const dotted = new TrustStore({ file: path.join(root, '..config', 'trusted.json') });
-
-    await expect(dotted.trust({ root })).rejects.toThrow('inside the workspace');
+    await expect(
+      storeAt(path.join(root, '..config', 'trusted.json')).trust({ root }),
+    ).rejects.toThrow('inside the workspace');
   });
 
-  it.skipIf(process.getuid?.() === 0)('reports a store it cannot write', async () => {
-    await mkdir(path.dirname(storeFile), { recursive: true });
-    await chmod(path.dirname(storeFile), 0o500);
-
-    await expect(store.trust({ root })).rejects.toBeInstanceOf(TrustStoreError);
+  it('accepts a store beside the workspace, which is not inside it', async () => {
+    await expect(storeAt(path.join(base, 'trusted.json')).trust({ root })).resolves.toBeUndefined();
   });
 });
 

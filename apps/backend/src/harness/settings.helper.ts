@@ -4,6 +4,7 @@ import type { Environment } from '@sheavly/core/environment/environment.types';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
+import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { TRUST_STORE_PATH } from './harness.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
@@ -109,6 +110,8 @@ export function trustStoreFromEnv(env: Environment): TrustStore {
   const configHome = set(env.XDG_CONFIG_HOME) ?? path.join(os.homedir(), '.config');
 
   return new TrustStore({
-    file: set(env.SHEAVLY_TRUST_FILE) ?? path.join(configHome, ...TRUST_STORE_PATH),
+    persistence: new DocumentFile({
+      file: set(env.SHEAVLY_TRUST_FILE) ?? path.join(configHome, ...TRUST_STORE_PATH),
+    }),
   });
 }

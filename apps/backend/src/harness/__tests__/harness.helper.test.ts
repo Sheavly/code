@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { Script } from '@sheavly/testing/provider/provider.types';
@@ -33,7 +34,9 @@ beforeEach(async () => {
     await writeFile(path.join(root, file), contents);
   }
 
-  trustStore = new TrustStore({ file: path.join(base, 'trusted.json') });
+  trustStore = new TrustStore({
+    persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
+  });
 });
 
 afterEach(async () => {

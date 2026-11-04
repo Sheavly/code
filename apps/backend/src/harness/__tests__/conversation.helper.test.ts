@@ -7,6 +7,7 @@ import { twoModelRun } from '@sheavly/host/testing/run.fake';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { harnessConversation, workspaceSkills } from '../conversation.helper.js';
 import { createBackendHarness } from '../harness.helper.js';
 
@@ -65,7 +66,9 @@ describe('harnessConversation', () => {
             ]),
             title: 'Test',
             workspaceRoot: root,
-            trustStore: new TrustStore({ file: path.join(base, 'trusted.json') }),
+            trustStore: new TrustStore({
+              persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
+            }),
             env: process.env,
           }),
           messages,

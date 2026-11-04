@@ -10,6 +10,7 @@ import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '../../trust/trust.service.js';
+import { memoryTrust } from '../../testing/trust.fake.js';
 import { loadProjectHooks } from '../project-hooks.helper.js';
 import { ProjectHooksError } from '../../errors/project-hooks.errors.js';
 
@@ -91,7 +92,8 @@ async function loadTrusted(root: string): Promise<Hook[]> {
 }
 
 /** A trust store beside the temp project, never inside it (a repo can't hold its own trust). */
-const trustStoreIn = (root: string) => new TrustStore({ file: `${root}.trusted.json` });
+const trustStoreIn = (root: string) =>
+  new TrustStore({ persistence: memoryTrust({ file: `${root}.trusted.json` }) });
 
 async function loadError(root: string): Promise<string> {
   const failure: unknown = await loadTrusted(root).catch((caughtError: unknown) => caughtError);
