@@ -103,6 +103,22 @@ here cannot become a leak:
 - **`fieldsSet()` says which fields are set, not their values**: all a UI needs to show "a key is
   set", with no way to read it back.
 
+## The config store
+
+`ConfigStore` is `config.json` at the root: `{ defaultProfile, workspaces: { <workspace-key>:
+<profile-id> } }`, ids only. A workspace not bound uses the default; with neither, `profileFor`
+says `undefined`, which is what onboarding is for.
+
+- **A workspace key is a hash of its real path**, so it can name a folder on any system.
+  `workspaceKey` lowercases a Windows path and makes its separators alike (`C:\Users\X\Proj`,
+  `c:\users\x\proj\` and `C:/Users/X/Proj` are one folder), and keeps case elsewhere. Its value
+  is pinned in a test against `sha256sum`: changing it would orphan every stored conversation.
+- **Config never points at a profile that is gone.** `forgetProfile` takes a deleted profile out
+  of the default and every binding. It touches config only: a profile's keys, models and
+  conversations are inside its own folder, so deleting the folder deletes them.
+- **Changes are queued** (`SerialQueue`), as for credentials, and a file that can't be read stops a
+  change instead of being replaced.
+
 ## Adding a store
 
 A store is a module folder here (`<kind>-store/`), a class over a root folder it is given. It
