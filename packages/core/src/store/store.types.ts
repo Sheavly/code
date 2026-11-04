@@ -1,4 +1,5 @@
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
@@ -20,10 +21,18 @@ export type EntryStore = {
 export type ConversationStore = {
   /** Conversation `id`'s entries; the conversation exists in the store from its first `append`. */
   entries(id: ConversationId): EntryStore;
+  /**
+   * The history conversation `id` continues from: the messages as last written, `[]` when none
+   * were. Entries can't rebuild it (a prompt is not an entry, and a reply arrives in pieces), so
+   * the owner of the conversation writes it whole.
+   */
+  readMessages(id: ConversationId): Promise<Message[]>;
+  /** Replaces conversation `id`'s history with `messages`. */
+  writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void>;
   /** Every stored conversation's index entry, oldest first. */
   list(): Promise<StoredConversation[]>;
   /** Writes `conversation`'s index entry, replacing the one stored for its `id`. */
   writeIndex(conversation: StoredConversation): Promise<void>;
-  /** Removes the conversation, its entries and its index entry. A conversation not stored is fine. */
+  /** Removes the conversation, its entries, its history and its index entry. A conversation not stored is fine. */
   delete(id: ConversationId): Promise<void>;
 };
