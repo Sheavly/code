@@ -40,7 +40,8 @@
       "@sheavly/source": "./src/*.validator.ts",
       "default": "./dist/*.validator.js"
     },
-    "./serial-queue/*": null
+    "./serial-queue/*": null,
+    "./listing/*": null
   },
   "files": [
     "dist",

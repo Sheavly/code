@@ -6,9 +6,10 @@ import { modelFileSchema, modelIdSchema } from '@sheavly/protocol/model/model.va
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import type { ListedFile } from '../listing/listing.types.js';
+import { sortByName, splitListed } from '../listing/listing.utils.js';
 import { MODEL_FILE_EXTENSION, MODELS_FOLDER } from './model-store.constants.js';
-import type { ModelListing, ModelProblem } from './model-store.types.js';
-import { sortModels } from './model-store.utils.js';
+import type { ModelListing } from './model-store.types.js';
 
 /**
  * The models of one profile: `<profile folder>/models/<model-id>.json`, one file each. A model is
@@ -35,12 +36,11 @@ export class ModelStore {
    */
   async list(): Promise<ModelListing> {
     const names = await this.#modelFileNames();
-    const read = await Promise.all(names.map((name) => this.#readListed(name)));
+    const { items, problems } = splitListed(
+      await Promise.all(names.map((name) => this.#readListed(name))),
+    );
 
-    return {
-      models: sortModels(read.flatMap(({ model }) => (model ? [model] : []))),
-      problems: read.flatMap(({ problem }) => (problem ? [problem] : [])),
-    };
+    return { models: sortByName(items), problems };
   }
 
   /**
@@ -109,7 +109,7 @@ export class ModelStore {
   }
 
   /** One file of the listing: its model, or what is wrong with it. Neither: it was removed since. */
-  async #readListed(name: string): Promise<{ model?: Model; problem?: ModelProblem }> {
+  async #readListed(name: string): Promise<ListedFile<Model>> {
     const file = path.join(this.#folder, name);
     const id = modelIdSchema.safeParse(name.slice(0, -MODEL_FILE_EXTENSION.length));
 
@@ -126,7 +126,7 @@ export class ModelStore {
     try {
       const model = await this.#read(id.data);
 
-      return model ? { model } : {};
+      return model ? { item: model } : undefined;
     } catch (caughtError) {
       // Only a file that cannot be used is a problem to list; any other failure is not ours to hide.
       if (caughtError instanceof StorageFileError) {
