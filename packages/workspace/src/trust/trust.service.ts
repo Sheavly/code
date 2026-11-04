@@ -1,12 +1,13 @@
 import { mkdir, readdir, readFile, readlink, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { TrustStoreError } from '../errors/trust.errors.js';
 import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';
 import type { FingerprintEntry, TrustState, TrustStoreData } from './trust.types.js';
-import { fingerprintOf } from './trust.utils.js';
+import { fingerprintOf, olderFormatHint } from './trust.utils.js';
 import { trustStoreSchema } from './trust.validator.js';
 import { isInside } from '../workspace/workspace.utils.js';
 
@@ -50,7 +51,7 @@ export class TrustStore {
 
     store.workspaces[root] = {
       fingerprint: await fingerprintWorkspace({ root }),
-      trustedAt: new Date().toISOString(),
+      trustedAt: now(),
     };
     await this.#write(store);
   }
@@ -108,7 +109,11 @@ export class TrustStore {
       schema: trustStoreSchema,
       input: json,
       onInvalid: ({ details, error }) =>
-        new TrustStoreError({ file: this.#file, cause: error, reason: `invalid:\n${details}` }),
+        new TrustStoreError({
+          file: this.#file,
+          cause: error,
+          reason: `invalid:\n${details}${olderFormatHint(json)}`,
+        }),
     });
   }
 
