@@ -4,12 +4,14 @@ import { sessionUpdateSchema } from '../session.validator.js';
 const SESSION = {
   id: 'child',
   parentId: 'main',
+  startedByCall: 'start-call',
   rootId: 'main',
   depth: 2,
   title: 'Update ESLint rules',
   state: 'running',
   startedAt: 1,
 };
+const MAIN = { id: 'main', rootId: 'main', depth: 1, title: 'Chat', state: 'idle', startedAt: 0 };
 
 describe('sessionUpdateSchema', () => {
   it('accepts every update kind', () => {
@@ -47,5 +49,22 @@ describe('sessionUpdateSchema', () => {
       false,
     );
     expect(sessionUpdateSchema.safeParse(started({ ...SESSION, depth: 0 })).success).toBe(false);
+  });
+
+  it('tells the main session from a sub-agent: only a sub-agent has a parent and the call that started it', () => {
+    const started = (session: object) => ({ type: 'session_started', session });
+    const { startedByCall: _call, ...noCall } = SESSION;
+    const { parentId: _parent, ...noParent } = SESSION;
+
+    expect(sessionUpdateSchema.safeParse(started(MAIN)).success).toBe(true);
+    expect(sessionUpdateSchema.safeParse(started(SESSION)).success).toBe(true);
+
+    // A sub-agent floats free without its parent, or without the call that started it.
+    expect(sessionUpdateSchema.safeParse(started(noCall)).success).toBe(false);
+    expect(sessionUpdateSchema.safeParse(started(noParent)).success).toBe(false);
+    // The main session is started by a prompt: no parent, no call, and always depth 1.
+    expect(sessionUpdateSchema.safeParse(started({ ...MAIN, parentId: 'x' })).success).toBe(false);
+    expect(sessionUpdateSchema.safeParse(started({ ...MAIN, depth: 2 })).success).toBe(false);
+    expect(sessionUpdateSchema.safeParse(started({ ...SESSION, depth: 1 })).success).toBe(false);
   });
 });

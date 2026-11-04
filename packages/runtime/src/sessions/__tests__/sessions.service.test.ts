@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '../sessions.service.js';
 import { toServerSentEvent } from '../sessions.utils.js';
-import { startDeepestSession } from '../../testing/sessions.fake.js';
+import { STARTED_BY, startDeepestSession } from '../../testing/sessions.fake.js';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+/** What every sub-agent started in these tests is started by. */
+const BY = { startedByCall: STARTED_BY };
 
 const s1 = sessionIdSchema.parse('s1');
 const s2 = sessionIdSchema.parse('s2');
@@ -13,14 +16,21 @@ describe('SessionRegistry', () => {
   it('gives every session a unique id, linked to its parent and the main session', () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
-    const grandchild = sessions.startChild({ parentId: child.id, title: 'Grandchild' });
+    const child = sessions.startChild({ parentId: main.id, ...BY, title: 'Child' });
+    const grandchild = sessions.startChild({ parentId: child.id, ...BY, title: 'Grandchild' });
 
     expect(main).toEqual({ id: main.id, rootId: main.id, depth: 1 });
-    expect(child).toEqual({ id: child.id, parentId: main.id, rootId: main.id, depth: 2 });
+    expect(child).toEqual({
+      id: child.id,
+      parentId: main.id,
+      startedByCall: STARTED_BY,
+      rootId: main.id,
+      depth: 2,
+    });
     expect(grandchild).toEqual({
       id: grandchild.id,
       parentId: child.id,
+      startedByCall: STARTED_BY,
       rootId: main.id,
       depth: 3,
     });
@@ -37,7 +47,7 @@ describe('SessionRegistry', () => {
     const sessions = new SessionRegistry();
     const three = startDeepestSession(sessions);
 
-    expect(() => sessions.startChild({ parentId: three.id, title: '4' })).toThrow(
+    expect(() => sessions.startChild({ parentId: three.id, ...BY, title: '4' })).toThrow(
       'Sub-agents nest at most 3 levels',
     );
     expect(sessions.list()).toHaveLength(3);
@@ -47,11 +57,13 @@ describe('SessionRegistry', () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
 
-    expect(() => sessions.startChild({ parentId: nope, title: 'Orphan' })).toThrow(
+    expect(() => sessions.startChild({ parentId: nope, ...BY, title: 'Orphan' })).toThrow(
       'Unknown parent session nope',
     );
     sessions.end({ id: main.id, state: 'completed' });
-    expect(() => sessions.startChild({ parentId: main.id, title: 'Late' })).toThrow('has ended');
+    expect(() => sessions.startChild({ parentId: main.id, ...BY, title: 'Late' })).toThrow(
+      'has ended',
+    );
   });
 
   it('records status reports and endings, and tells listeners in order', () => {
@@ -135,6 +147,7 @@ describe('toServerSentEvent', () => {
       session: {
         id: s2,
         parentId: s1,
+        startedByCall: STARTED_BY,
         rootId: s1,
         depth: 2,
         title: 'T',
@@ -169,9 +182,9 @@ describe('SessionRegistry inbox', () => {
   it('lets an ancestor message a sub-agent, and nobody else', () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
-    const a = sessions.startChild({ parentId: main.id, title: 'A' });
-    const aa = sessions.startChild({ parentId: a.id, title: 'AA' });
-    const b = sessions.startChild({ parentId: main.id, title: 'B' });
+    const a = sessions.startChild({ parentId: main.id, ...BY, title: 'A' });
+    const aa = sessions.startChild({ parentId: a.id, ...BY, title: 'AA' });
+    const b = sessions.startChild({ parentId: main.id, ...BY, title: 'B' });
 
     sessions.send({ id: aa.id, content: 'from parent', from: a.id });
     sessions.send({ id: aa.id, content: 'from main', from: main.id });

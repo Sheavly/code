@@ -8,7 +8,7 @@ import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
-import { isOpen, toEntryEvent } from './sessions.utils.js';
+import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
@@ -19,6 +19,7 @@ import type {
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -94,9 +95,12 @@ export class SessionRegistry {
     return this.#add({ id, rootId: id, depth: 1, title: params.title });
   }
 
-  /** Starts a sub-agent session under `parentId`. Throws if the parent is unknown or ended, or at the depth cap. */
-  startChild(params: { parentId: SessionId; title: string }): SessionRef {
-    const { parentId, title } = params;
+  /**
+   * Starts a sub-agent session under `parentId`, which `startedByCall` (a call in the parent's
+   * history) started. Throws if the parent is unknown or ended, or at the depth cap.
+   */
+  startChild(params: { parentId: SessionId; startedByCall: CallId; title: string }): SessionRef {
+    const { parentId, startedByCall, title } = params;
     const parent = this.#sessions.get(parentId);
 
     if (!parent) {
@@ -129,6 +133,7 @@ export class SessionRegistry {
     return this.#add({
       id: sessionIdSchema.parse(randomUUID()),
       parentId,
+      startedByCall,
       rootId: parent.rootId,
       depth: parent.depth + 1,
       title,
@@ -245,7 +250,7 @@ export class SessionRegistry {
 
   /** The sessions `id` started directly. */
   children(id: SessionId): SessionInfo[] {
-    return this.list().filter((session) => session.parentId === id);
+    return this.list().filter((session) => 'parentId' in session && session.parentId === id);
   }
 
   /** `id` and every ancestor, up to the main session (last). */
@@ -255,7 +260,7 @@ export class SessionRegistry {
 
     while (current) {
       chain.push(current);
-      current = current.parentId === undefined ? undefined : this.get(current.parentId);
+      current = 'parentId' in current ? this.get(current.parentId) : undefined;
     }
 
     return chain;
@@ -365,9 +370,7 @@ export class SessionRegistry {
     this.#sessions.set(session.id, session);
     this.#emit({ type: 'session_started', session });
 
-    const { id, parentId, rootId, depth } = session;
-
-    return { id, ...(parentId !== undefined && { parentId }), rootId, depth };
+    return refOf(session);
   }
 
   /**
@@ -377,7 +380,7 @@ export class SessionRegistry {
   restoredMain(): SessionRef | undefined {
     const main = [...this.#sessions.values()].find((session) => session.depth === 1);
 
-    return main && { id: main.id, rootId: main.rootId, depth: main.depth };
+    return main && refOf(main);
   }
 
   /**

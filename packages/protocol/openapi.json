@@ -652,14 +652,29 @@
         "enum": ["end_turn", "tool_use", "max_tokens", "interrupted"]
       },
       "SessionRef": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/SessionId" },
-          "parentId": { "$ref": "#/components/schemas/SessionId" },
-          "rootId": { "$ref": "#/components/schemas/SessionId" },
-          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
-        },
-        "required": ["id", "rootId", "depth"]
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "number", "const": 1 }
+            },
+            "required": ["id", "rootId", "depth"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "parentId": { "$ref": "#/components/schemas/SessionId" },
+              "startedByCall": { "$ref": "#/components/schemas/CallId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 }
+            },
+            "required": ["id", "parentId", "startedByCall", "rootId", "depth"]
+          }
+        ]
       },
       "SessionState": {
         "type": "string",
@@ -670,20 +685,50 @@
         "enum": ["completed", "interrupted", "max_turns", "failed"]
       },
       "SessionInfo": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/SessionId" },
-          "parentId": { "$ref": "#/components/schemas/SessionId" },
-          "rootId": { "$ref": "#/components/schemas/SessionId" },
-          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-          "title": { "type": "string" },
-          "status": { "type": "string" },
-          "state": { "$ref": "#/components/schemas/SessionState" },
-          "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
-          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-          "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
-        },
-        "required": ["id", "rootId", "depth", "title", "state", "startedAt"]
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "number", "const": 1 },
+              "title": { "type": "string" },
+              "status": { "type": "string" },
+              "state": { "$ref": "#/components/schemas/SessionState" },
+              "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+              "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "parentId": { "$ref": "#/components/schemas/SessionId" },
+              "startedByCall": { "$ref": "#/components/schemas/CallId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+              "title": { "type": "string" },
+              "status": { "type": "string" },
+              "state": { "$ref": "#/components/schemas/SessionState" },
+              "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+              "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": [
+              "id",
+              "parentId",
+              "startedByCall",
+              "rootId",
+              "depth",
+              "title",
+              "state",
+              "startedAt"
+            ]
+          }
+        ]
       },
       "InboxMessage": {
         "type": "object",

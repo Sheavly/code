@@ -1,9 +1,23 @@
 import type { AgentEvent, EntryEvent } from '@sheavly/protocol/event/event.types';
 import type {
   InboxMessage,
+  SessionInfo,
+  SessionRef,
   SessionState,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
+
+/**
+ * Who a session is, without its state: the main session's id, root and depth, or a sub-agent's
+ * with the session and call that started it. What a run is handed to run as.
+ */
+export function refOf(session: SessionInfo): SessionRef {
+  if (!('parentId' in session)) return { id: session.id, rootId: session.rootId, depth: 1 };
+
+  const { id, parentId, startedByCall, rootId, depth } = session;
+
+  return { id, parentId, startedByCall, rootId, depth };
+}
 
 /**
  * One server-sent event for a session update: the update type as the SSE event name, the

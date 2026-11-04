@@ -7,6 +7,7 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { SessionRegistry } from '../sessions.service.js';
+import { STARTED_BY } from '../../testing/sessions.fake.js';
 import { ENTRY_TAIL_SIZE } from '../sessions.constants.js';
 import { readStoredLog } from '../stored-log.helper.js';
 
@@ -17,7 +18,11 @@ const text = (value: string) => ({ seq: 0, type: 'text_delta' as const, text: va
 async function ranConversation(params: { store: MemoryConversationStore; childEnds: boolean }) {
   const sessions = new SessionRegistry({ store: params.store.entries(id) });
   const main = sessions.startMain({ title: 'Chat' });
-  const child = sessions.startChild({ parentId: main.id, title: 'Reader' });
+  const child = sessions.startChild({
+    parentId: main.id,
+    startedByCall: STARTED_BY,
+    title: 'Reader',
+  });
 
   sessions.publish({ sessionId: main.id, event: text('main says') });
   sessions.publish({ sessionId: child.id, event: text('child says') });

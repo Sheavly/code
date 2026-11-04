@@ -13,7 +13,7 @@ const ID = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const DEEP = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
 const OTHER = '00000000-0000-4000-8000-000000000000';
 const MAIN = sessionIdSchema.parse('main');
-const SESSION = { id: MAIN, rootId: MAIN, depth: 1 };
+const SESSION = { id: MAIN, rootId: MAIN, depth: 1 as const };
 
 const text = (seq: number, value: string): StreamEntry => ({
   seq,

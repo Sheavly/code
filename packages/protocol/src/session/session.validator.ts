@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { callIdSchema } from '../message/message.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 /**
@@ -8,18 +9,30 @@ import { timestampSchema } from '../time/time.validator.js';
 export const sessionIdSchema = z.string().brand<'SessionId'>();
 
 /**
- * Who a run is: every run (the main session and each sub-agent) has an id, and every sub-agent
- * is linked to the session that started it, so none can float free. `rootId` is the main session.
+ * Who a run is: the main session, or a sub-agent. A sub-agent is linked to the session that
+ * started it (`parentId`) and to the tool call that did (`startedByCall`, in the parent's
+ * history), so none can float free and a UI can put its card where it was started. The main
+ * session has neither: a user's prompt started it. `rootId` is the main session.
  */
-export const sessionRefSchema = z.object({
+const mainRefSchema = z.strictObject({
   id: sessionIdSchema,
-  /** The session that started this one; absent only for the main session. */
-  parentId: sessionIdSchema.exactOptional(),
-  /** The main session at the top of the tree (its own id for the main session). */
   rootId: sessionIdSchema,
-  /** 1 for the main session, 2 for its sub-agents, 3 for theirs (the maximum). */
-  depth: z.number().int().positive(),
+  depth: z.literal(1),
 });
+
+const agentRefSchema = z.object({
+  id: sessionIdSchema,
+  /** The session that started this one. */
+  parentId: sessionIdSchema,
+  /** The `start_agent` call, in the parent session's history, that started it. */
+  startedByCall: callIdSchema,
+  /** The main session at the top of the tree. */
+  rootId: sessionIdSchema,
+  /** 2 for a sub-agent of the main session, 3 for theirs (the maximum). */
+  depth: z.number().int().min(2),
+});
+
+export const sessionRefSchema = z.union([mainRefSchema, agentRefSchema]);
 
 /**
  * Where a session is: running a prompt, `idle` between prompts of a conversation (open, waiting
@@ -37,8 +50,8 @@ export const sessionStateSchema = z.enum([
 /** How one run of a session ended: the states it can leave behind. */
 export const runOutcomeSchema = sessionStateSchema.exclude(['running', 'idle']);
 
-/** A snapshot of a session, for a UI (e.g. a sub-agent card). */
-export const sessionInfoSchema = sessionRefSchema.extend({
+/** What a session is as a UI sees it, beyond who it is: its name, state and times. */
+const sessionDetails = {
   /** Short name, e.g. "Update ESLint rules". */
   title: z.string(),
   /** The last status the agent reported itself (`report_status`), e.g. "editing core package". */
@@ -48,7 +61,13 @@ export const sessionInfoSchema = sessionRefSchema.extend({
   lastOutcome: runOutcomeSchema.exactOptional(),
   startedAt: timestampSchema,
   endedAt: timestampSchema.exactOptional(),
-});
+};
+
+/** A snapshot of a session, for a UI (e.g. a sub-agent card). */
+export const sessionInfoSchema = z.union([
+  mainRefSchema.extend(sessionDetails),
+  agentRefSchema.extend(sessionDetails),
+]);
 
 /** A message waiting in a session's inbox, delivered at its next model call. */
 export const inboxMessageSchema = z.object({

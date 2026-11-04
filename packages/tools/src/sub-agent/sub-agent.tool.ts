@@ -45,7 +45,11 @@ export function createSubAgentTool(options: SubAgentOptions) {
       }
 
       // Throws for an unknown or ended parent, and at the depth cap: no session floats free.
-      const child = sessions.startChild({ parentId: context.session.id, title });
+      const child = sessions.startChild({
+        parentId: context.session.id,
+        startedByCall: context.callId,
+        title,
+      });
       const started = tasks.start({
         command: `sub-agent: ${title}`,
         description: context.description,

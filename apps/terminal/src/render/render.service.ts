@@ -91,7 +91,8 @@ export class Renderer {
   session(update: SessionUpdate): void {
     const { type, session } = update;
 
-    if (session.depth === 1) return;
+    // The main session is not a card: only a sub-agent, which has a parent, is drawn.
+    if (!('parentId' in session)) return;
     const indent = '  '.repeat(session.depth - 1);
     const who = `"${session.title}" [${shortId(session.id)}]`;
 

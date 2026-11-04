@@ -85,6 +85,8 @@ describe('start_agent', () => {
     expect(helper).toMatchObject({
       title: 'Helper',
       parentId: main.id,
+      // The call, in the main session's history, that started it: where a UI puts its card.
+      startedByCall: 'm1',
       rootId: main.id,
       depth: 2,
       state: 'completed',

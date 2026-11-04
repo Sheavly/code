@@ -4,6 +4,7 @@ import { streamEntrySchema } from '../stream.validator.js';
 const SESSION = {
   id: 'child',
   parentId: 'main',
+  startedByCall: 'start-call',
   rootId: 'main',
   depth: 2,
   title: 'Read the docs',

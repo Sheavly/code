@@ -33,7 +33,7 @@ describe('runAgent', () => {
       },
     };
     const stray = sessionIdSchema.parse('stray');
-    const ref = { id: stray, rootId: stray, depth: 1 };
+    const ref = { id: stray, rootId: stray, depth: 1 as const };
 
     await expect(
       runAgent({
