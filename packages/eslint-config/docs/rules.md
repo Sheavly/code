@@ -87,6 +87,20 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   override that turns a rule off outside those places (the credential store's folder for the
   file name, `apps/backend` for the import), and fails one that covers a whole workspace, so
   widening an exception means editing that test, where review sees it.
+- **File writes** (`harness/no-direct-file-writes`, source files; tests and fakes write fixtures
+  into temp folders and are exempt): no import of a function that creates, changes, moves or
+  deletes a file or folder from `node:fs` or `node:fs/promises` (`writeFile`, `appendFile`,
+  `rename`, `rm`, `mkdir`, `cp`, `createWriteStream`, `chmod`, `open`, and the rest, sync forms
+  included), and no whole-module import (`import fs`, `import * as fs`, `import('node:fs')`) that
+  would hide which are used: read functions are imported by name. The user's data is written
+  through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, a store): atomic
+  and private, retried on Windows, one change at a time, and the path checked. A hand-rolled copy
+  of that is how the trust store ended up with a temp name two writes could share. The exceptions
+  are `files:` overrides in the workspace's `eslint.config.js`, each with its reason: the storage
+  primitives themselves, the agent's two file-writing tools (`Workspace` confines them), the
+  backend's model-call debug log, and the terminal's developer tooling (the workbook and the
+  demo's SSE log). `workspace-coverage.test.js` lists those files and fails an override for any
+  other, or for a whole workspace.
 
 ## The rest of the config
 

@@ -100,6 +100,12 @@ export function baseConfig(params) {
         'harness/no-key-holder-import': 'error',
       },
     },
+    // --- Files are written through storage (or a tool, on the agent's project): not in tests ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-direct-file-writes': 'error' },
+    },
 
     // --- TypeScript: strict + stylistic, type-aware ---
     {

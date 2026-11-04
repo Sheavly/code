@@ -1,6 +1,4 @@
-import { appendFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { LiveConversation } from '@sheavly/host/conversations/conversations.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
@@ -8,8 +6,7 @@ import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
 import type { ProviderSettings, ServedSettings } from './harness.types.js';
-import { describeModelCall, modelCallLine } from './model-calls.utils.js';
-import { now } from '@sheavly/core/clock/clock.helper';
+import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
 import { providerFromEnv, trustStoreFromEnv } from './settings.helper.js';
 
@@ -57,20 +54,6 @@ export async function servedConversation(params: {
       useModel: (id) => useModel({ providerSettings, id }),
     },
   });
-}
-
-/** Where each model call goes: the file, and the log with SHOW_MODEL_CALLS. Undefined for neither. */
-function modelCallsTo(params: { settings: ServedSettings; log: (text: string) => void }) {
-  const { settings, log } = params;
-  const { modelCallsFile: file, showModelCalls: show } = settings;
-
-  if (!file && !show) return undefined;
-
-  return (request: ProviderRequest) => {
-    // Appended as it happens, so a run that dies mid-way still has every call up to there.
-    if (file) appendFileSync(file, modelCallLine({ request, at: now() }));
-    if (show) log(describeModelCall(request));
-  };
 }
 
 /** The model in use and the ones to switch to: one, named by its model, when MODELS is unset. */

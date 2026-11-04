@@ -1,14 +1,8 @@
-import { RuleTester } from 'eslint';
-import tseslint from 'typescript-eslint';
-import { afterAll, describe, it } from 'vitest';
 import { harnessPlugin } from '../plugin.js';
-
-RuleTester.afterAll = afterAll;
-RuleTester.describe = describe;
-RuleTester.it = it;
+import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
 // The guard rules: fail loudly (no silent catch, no raw Error), branded ids, sound "is inside".
-const ruleTester = new RuleTester({ languageOptions: { parser: tseslint.parser } });
+const ruleTester = typescriptRuleTester();
 
 ruleTester.run('no-silent-catch', harnessPlugin.rules['no-silent-catch'], {
   valid: [

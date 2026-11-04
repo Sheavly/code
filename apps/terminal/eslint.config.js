@@ -1,8 +1,23 @@
+import { defineConfig } from 'eslint/config';
 import { baseConfig } from '@sheavly/eslint-config';
 
-// An app: baseConfig lets its source read env, print and use the terminal (it is in apps/).
-export default baseConfig({
-  tsconfigRootDir: import.meta.dirname,
-  // The CLI entry points: files without a kind.
-  entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
-});
+export default defineConfig([
+  // An app: baseConfig lets its source read env, print and use the terminal (it is in apps/).
+  ...baseConfig({
+    tsconfigRootDir: import.meta.dirname,
+    // The CLI entry points: files without a kind.
+    entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
+  }),
+  // The workbook is a developer tool: it records each run (events, transcript, results) and
+  // prepares a scratch workspace in its own folder, and the demo can log the SSE stream to a file.
+  // None of it is the user's data, which is `@sheavly/storage`'s (`harness/no-direct-file-writes`).
+  {
+    files: [
+      'src/demo.ts',
+      'src/workbook/recorder.service.ts',
+      'src/workbook/store.service.ts',
+      'src/workbook/check.helper.ts',
+    ],
+    rules: { 'harness/no-direct-file-writes': 'off' },
+  },
+]);
