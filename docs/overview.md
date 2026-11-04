@@ -42,6 +42,7 @@ flowchart BT
     protocol["@sheavly/protocol"]
     providers["@sheavly/providers"]
     runtime["@sheavly/runtime"]
+    storage["@sheavly/storage"]
     tools["@sheavly/tools"]
   end
   subgraph group_coding ["coding packages"]
@@ -64,6 +65,7 @@ flowchart BT
   loop --> runtime
   providers --> core
   runtime --> core
+  storage --> runtime
   terminal --> client
   terminal --> coding
   tools --> runtime
