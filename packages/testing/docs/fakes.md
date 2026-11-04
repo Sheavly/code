@@ -40,6 +40,13 @@ a real backend; a provider fake for anything above it.
 - `until(check)` polls until `check()` is true. Background tasks and sub-agents finish on their
   own schedule, so a test waits on the state it expects, never on a fixed delay.
 
+## Keeping conversations
+
+`MemoryConversationStore` is a `ConversationStore` in memory, with a real store's rules: entries
+in `seq` order with no gaps, one index entry per conversation, a `StoreError` on failure.
+`failWith(error)` makes every following write reject, as a full disk does, for a test of what a
+host does when storage fails.
+
 ## Not here
 
 A package's fakes for its own services stay in its `src/testing/`, exported as `./testing/*`
