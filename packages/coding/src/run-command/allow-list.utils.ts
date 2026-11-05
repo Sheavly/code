@@ -80,7 +80,8 @@ function expansionAdvice(params: { line: string; start: number; char: string }):
   const what = char === '$' ? 'variables and substitution ($)' : 'backticks';
   const close = line.indexOf('"', start + 1);
   const inner = close === -1 ? '' : line.slice(start + 1, close);
-  const rewrite = inner !== '' && !/['\\]/.test(inner) ? `, e.g. '${inner}'` : '';
+  const cannotRewrite = inner === '' || /['\\]/.test(inner);
+  const rewrite = cannotRewrite ? '' : `, e.g. '${inner}'`;
 
   return `${what} inside double quotes${NOT_SUPPORTED}: \`${char}\` is not expanded here. Use single quotes for the literal text${rewrite}`;
 }
