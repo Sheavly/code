@@ -119,6 +119,22 @@ says `undefined`, which is what onboarding is for.
 - **Changes are queued** (`SerialQueue`), as for credentials, and a file that can't be read stops a
   change instead of being replaced.
 
+## The permission store
+
+`PermissionStore` is `permissions/<workspace-key>.json` under the root: `{ root, mode, allow }`
+for one workspace, where `mode` is `ask`, `always_ask` or `allow_all` and `allow` the commands the
+user allowed for good (`git log *`). It is not under a profile, since a folder's permissions are
+the same whichever profile runs in it, and never in the repo, where the agent could edit it.
+Nothing stored is `ask` with nothing allowed, and reading writes nothing.
+
+- **A file is trusted only under its own name.** The name is the hash of `root`, so a file copied
+  to another workspace's name is refused, not read as that workspace's grants.
+- **A write can't make a file the next read refuses.** The result is checked against the schema
+  first (no empty entry, no entry starting with `*`), and a file that can't be read stops every
+  change instead of being replaced.
+- **Changes are queued** (`SerialQueue`) and read the file fresh, so a mode set while
+  conversations run applies to their next command.
+
 ## The profile store
 
 `ProfileStore` is the `profiles/` folder: one `<profile-id>/` folder each, with a `profile.json`
