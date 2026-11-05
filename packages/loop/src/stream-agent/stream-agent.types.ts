@@ -17,6 +17,7 @@ export type AgentOptions = {
   provider: Provider;
   tools: Tool[];
   messages: Message[];
+  /** Model calls before the run stops with `max_turns`. Without it a run goes on until it is done or stopped. */
   maxTurns?: number;
   /** The host's system instructions, sent with every model call (hooks may add more). */
   instructions?: string;
