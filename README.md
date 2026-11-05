@@ -41,8 +41,9 @@ you alone (`chmod 600`); the backend refuses to read it otherwise, and never put
 Without a profile the backend still starts, and a conversation is refused with `not_set_up` and a
 message saying what to do.
 
-Settings that are about how a process runs (`WORKSPACE_ROOT`, `RUN_COMMAND_SKIP_ALLOW_LIST`) stay
-environment variables; `.env.example` lists them.
+Settings that are about how a process runs (`WORKSPACE_ROOT`) stay environment variables;
+`.env.example` lists them. What commands the agent may run is not one: the user decides that per
+folder, and it is kept with their profiles.
 
 ## 3. Run the tests (free, no network)
 

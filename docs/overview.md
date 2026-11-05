@@ -254,9 +254,10 @@ What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **pa
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
   inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)).
-- `run_command` runs only allow-listed commands without shell syntax, checks their arguments with
-  the same path rules, asks for approval when one reaches outside or can name a `.env` file, and
-  sets git config that blocks most ways a repo can make git run programs
+- `run_command` runs commands without a shell (a line may chain them with `|`, `&&`, `||` and
+  `;`), asks the user before any command they have not allowed, checks the arguments of every
+  command with the same path rules, asks for approval when one reaches outside or can name a
+  `.env` file, and sets git config that blocks most ways a repo can make git run programs
   ([run_command](../packages/coding/docs/run-command.md)).
 - Commands get the harness's env without the variables whose names look like secrets (`KEY`,
   `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL`). This is a filter on names, not complete scrubbing:
@@ -268,9 +269,9 @@ What runs with the user's full rights, outside those checks:
 - **Allowed commands, and anything they execute.** `npm test` runs the repo's npm scripts, test
   config and test files; those can read, write or send anything the user can. Argument checks
   don't reach inside them. Isolating commands is [#4](https://github.com/Sheavly/code/issues/4).
-- **Any command, with `skipAllowList`.** With it set (`RUN_COMMAND_SKIP_ALLOW_LIST=true` in the
-  demo), `run_command` runs whatever shell command the model writes, with no allow list, argument
-  checks or approvals.
+- **Everything, in a folder set to `allow_all`.** The user can tell a folder to run every command
+  without asking, argument checks and approvals included. It is a choice for one folder, kept in
+  their own folder where the agent can't change it, and a conversation reports it in its details.
 - **Git filter drivers a repo brings.** A filter defined in a cloned repo's `.git/config` and
   named in a committed `.gitattributes` still runs when an allowed `git status` or `git diff`
   does; on git older than 2.42, so does one an edited `.gitattributes` turns on.
