@@ -11,7 +11,6 @@ import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
 import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
-import { MAX_TURNS } from './harness.constants.js';
 import type { BackendHarness } from './harness.types.js';
 
 /**
@@ -46,7 +45,7 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
 
 /**
  * One conversation on a backend harness: its tools and hooks, the
- * workspace's skills, at most `maxTurns` turns a prompt, each prompt's `done` waiting for its
+ * workspace's skills, at most `maxTurns` turns a prompt (no limit without it), each prompt's `done` waiting for its
  * background tasks with `waitForTasks`. Closing it stops its background commands. `messages` is
  * history to continue from, and `run` what the app says the run is, the model it is on included.
  */
@@ -59,7 +58,7 @@ export function harnessConversation(params: {
   maxTurns?: number;
   waitForTasks?: boolean;
 }): LiveConversation {
-  const { harness, run, messages, storage, maxTurns = MAX_TURNS, waitForTasks = false } = params;
+  const { harness, run, messages, storage, maxTurns, waitForTasks = false } = params;
 
   return {
     harness,
@@ -68,7 +67,7 @@ export function harnessConversation(params: {
       run: streamAgent,
       tools: harness.tools,
       hooks: harness.hooks,
-      maxTurns,
+      ...(maxTurns !== undefined && { maxTurns }),
       waitForTasks,
       ...(messages && { messages }),
       ...(storage && {

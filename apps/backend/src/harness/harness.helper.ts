@@ -11,7 +11,6 @@ import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
-import { MAX_TURNS } from './harness.constants.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
@@ -67,7 +66,6 @@ export async function createBackendHarness(
         runAgent: runSession,
         tools: fileTools,
         hooks: [agentsMd, skills],
-        maxTurns: MAX_TURNS,
       }),
       createMessageAgentTool({ sessions }),
     ],

@@ -16,7 +16,7 @@ routes, streams and errors are in [the API](api.md).
 | `SERVER_EXIT_WITH_PARENT`   | off           | `true`: stop when stdin closes (the UI that started it is gone)                                                                         |
 | `SERVER_ALLOW_REMOTE_SETUP` | off           | `true`: take model keys and grant trust even when listening beyond this machine (`SERVER_HOST` not loopback); only behind TLS           |
 | `WORKSPACE_ROOT`            | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                       |
-| `MAX_TURNS`                 | 20            | Model calls a prompt may make, per session                                                                                              |
+| `MAX_TURNS`                 | no limit      | Model calls a prompt may make, per session                                                                                              |
 | `WAIT_FOR_TASKS`            | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |
 | `MODEL_CALLS_FILE`          | none          | Appends each model call's full request there, one JSON line each                                                                        |
 | `SHOW_MODEL_CALLS`          | off           | `true`: prints each model call (task, tools, system prompt) as sent                                                                     |

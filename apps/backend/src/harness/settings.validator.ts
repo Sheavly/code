@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MAX_TURNS, REQUEST, SERVER } from './harness.constants.js';
+import { REQUEST, SERVER } from './harness.constants.js';
 
 /** An empty setting (`SERVER_HOST=`) means "not set". */
 const optionalSetting = z
@@ -89,13 +89,17 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
 }
 
 /**
- * How the backend runs each conversation, from its environment: `MAX_TURNS`, `WAIT_FOR_TASKS`
- * (a prompt's `done` waits for its background tasks, as a one-shot run wants), `MODEL_CALLS_FILE`
- * (each model call's full request appended there, one JSON line each) and `SERVER_EXIT_WITH_PARENT`
- * (stop when stdin closes: the UI that started it is gone).
+ * How the backend runs each conversation, from its environment: `MAX_TURNS` (no limit unless
+ * set), `WAIT_FOR_TASKS` (a prompt's `done` waits for its background tasks, as a one-shot run
+ * wants), `MODEL_CALLS_FILE` (each model call's full request appended there, one JSON line each)
+ * and `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone).
  */
 const runEnvSchema = z.object({
-  MAX_TURNS: count(MAX_TURNS).pipe(z.number().min(1)),
+  MAX_TURNS: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
+    .pipe(z.number().int().min(1).optional()),
   WAIT_FOR_TASKS: optionalSetting,
   MODEL_CALLS_FILE: optionalSetting,
   SERVER_EXIT_WITH_PARENT: optionalSetting,

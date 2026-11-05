@@ -93,7 +93,7 @@ export async function servedConversation(params: {
     harness,
     messages,
     storage,
-    maxTurns: settings.maxTurns,
+    ...(settings.maxTurns !== undefined && { maxTurns: settings.maxTurns }),
     waitForTasks: settings.waitForTasks,
     run: {
       details: () => ({

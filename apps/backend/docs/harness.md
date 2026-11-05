@@ -77,7 +77,6 @@ What stays in the environment is how this process runs, not who the user is. `se
   [sending a call](../../../packages/providers/docs/backends.md#sending-a-call-timeouts-and-retries).
 - `parseServerEnv` and `parseRunEnv`: where it listens, and how each conversation runs
   ([serve.md](serve.md#settings)).
-- `harness.constants.ts`: the request policy, and `MAX_TURNS` (model calls per session, 20: room for
-  multi-step sub-agent work).
+- `harness.constants.ts`: the request policy. A run has no turn limit unless `MAX_TURNS` sets one.
 
 No package has any of these: another backend reads its own settings and composes its own run.

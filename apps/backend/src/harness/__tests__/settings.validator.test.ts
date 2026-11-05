@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_TURNS, REQUEST, SERVER } from '../harness.constants.js';
+import { REQUEST, SERVER } from '../harness.constants.js';
 import { parseRequestEnv, parseRunEnv, parseServerEnv } from '../settings.validator.js';
 
 describe('parseServerEnv', () => {
@@ -50,7 +50,7 @@ describe('parseServerEnv', () => {
 describe('parseRunEnv', () => {
   it('reads the run limits and files, with every switch off unless exactly "true"', () => {
     expect(parseRunEnv({})).toEqual({
-      maxTurns: MAX_TURNS,
+      maxTurns: undefined,
       waitForTasks: false,
       modelCallsFile: undefined,
       exitWithParent: false,
@@ -68,6 +68,7 @@ describe('parseRunEnv', () => {
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
     });
+    expect(parseRunEnv({ MAX_TURNS: '' }).maxTurns).toBeUndefined();
     expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
   });
 });
