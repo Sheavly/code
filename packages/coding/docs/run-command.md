@@ -37,12 +37,24 @@ argument, and skipping it skips the whole line. The user can answer:
 - **approve**: run it this once.
 - **always allow**: run it and keep an entry for each command not allowed yet (`allow-entry.utils.ts`):
   retain the first two words, or three for `npm run`, and append `*` only if more arguments follow.
-  Thus `touch /path/file` stays exact, `git log --oneline` becomes `git log *`, and
-  `npm run test -- --watch` becomes `npm run test *`. When a flag comes second (`git -c x log`),
-  keep only the exact command, since then it could mean anything.
-  Not offered when nothing could be kept: no entry can spell the command, the line is only risky
-  arguments, or the mode is `always_ask`. The entry is kept before the line runs; if it can't be,
-  the line does not run.
+  Thus `git log --oneline` becomes `git log *`, and `npm run test -- --watch` becomes
+  `npm run test *`. Three kinds of command differ, because a wildcard must never allow more than
+  the user can tell they agreed to:
+  - A program that can run other programs or change files (`find`, `xargs`, `npx`, `env`, `sh`,
+    `bash`, `zsh`, `sed`, `awk`, `perl`, `python*`, `node`, `ruby`, `make`, `rsync`, `tar`,
+    `curl`, `wget`, `ssh`, `scp`, `sudo`, and `npm exec`; `EXACT_ONLY_PROGRAMS`) keeps only the
+    exact command: `find src -type f` does not become `find src *`, which would allow
+    `find src -exec rm {} +`. They match by name wherever the program lives, so
+    `/usr/bin/find` is no way around it.
+  - A read-only searcher (`grep`, `egrep`, `fgrep`; `SEARCHERS`) keeps `grep *` even when a flag
+    comes second, since its second word is a flag or a pattern and never a subcommand: one
+    approved search covers the next. Only a bare `grep`: `./grep` is a file the agent could have
+    written. `rg`, `ag` and `ack` are not here, because they can run a program (`rg --pre`).
+  - Anything else with a flag in second place (`git -c x log`) keeps only the exact command, since
+    then it could mean anything. A `touch /path/file` stays exact because nothing follows it.
+    Not offered when nothing could be kept: no entry can spell the command, the line is only risky
+    arguments, or the mode is `always_ask`. The entry is kept before the line runs; if it can't be,
+    the line does not run.
 - **skip**, or **skip with a message**, which the model reads as the user's direction.
 
 When "always allow" is offered, the approval request's `keeps` lists the exact entries that
@@ -50,6 +62,13 @@ would be saved, with duplicates removed. A UI displays these rather than derivin
 permission from the command text. The same entries are saved if the user chooses that option.
 
 A run with no one listening (no UI connected) refuses what it would have asked about.
+
+A `grep` also gets `--exclude` flags for `.env` files added after its own arguments
+(`safeGrepArgs`), in every mode including `allow_all`. Without them a recursive `grep -r KEY .`
+reads every `.env` under the folder and prints it, which the file tools refuse by name and
+argument checks cannot see (the folder is `.`, not a `.env`). They are added last because the last
+matching `--include` decides, so a command's own `--include=*` cannot bring them back; and such an
+`--include` glob is asked about anyway, as any glob that could name a `.env` file.
 
 ## The checks on arguments
 

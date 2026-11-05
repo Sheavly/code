@@ -7,8 +7,10 @@ import type {
 import {
   DIFF_SUBCOMMANDS,
   NO_DIFF_PROGRAM_FLAGS,
+  NO_ENV_SEARCH_FLAGS,
   SAFE_GIT_CONFIG,
 } from './run-command.constants.js';
+import { searchesFiles } from './program.utils.js';
 
 /**
  * The env that keeps a repo's config from making git run programs: `SAFE_GIT_CONFIG` as
@@ -43,10 +45,29 @@ export function safeGitArgs(params: { file: string; args: readonly string[] }): 
   return [subcommand, ...NO_DIFF_PROGRAM_FLAGS, ...rest];
 }
 
-/** `steps` with `safeGitArgs` applied to each command, the connectors kept. */
+/**
+ * `args` for `file`, with `--exclude` flags for `.env` files added after a searcher's own options
+ * and before a `--` (what follows it is file names), so a recursive search can't read the `.env`
+ * files the file tools refuse. They go last because the last matching `--include` decides, so a
+ * command's own `--include=*` can't bring them back. Other programs' `args` are returned as they
+ * are.
+ */
+export function safeGrepArgs(params: { file: string; args: readonly string[] }): string[] {
+  const { file, args } = params;
+
+  if (!searchesFiles(file)) return [...args];
+
+  const dashes = args.indexOf('--');
+  const end = dashes === -1 ? args.length : dashes;
+
+  return [...args.slice(0, end), ...NO_ENV_SEARCH_FLAGS, ...args.slice(end)];
+}
+
+/** `steps` with `safeGitArgs` and `safeGrepArgs` applied to each command, the connectors kept. */
 export function safeSteps(steps: ScriptParams['steps']): ScriptParams['steps'] {
   const [first, ...rest] = steps.map(({ argv: [file, ...args], joinedBy }): ScriptStep => {
-    const argv: [string, ...string[]] = [file, ...safeGitArgs({ file, args })];
+    const safe = safeGrepArgs({ file, args: safeGitArgs({ file, args }) });
+    const argv: [string, ...string[]] = [file, ...safe];
 
     return joinedBy ? { argv, joinedBy } : { argv };
   });
