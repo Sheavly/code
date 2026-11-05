@@ -81,6 +81,20 @@ describe('ChatScreen', () => {
     expect(text()).toContain('second half');
   });
 
+  it('keeps the blank lines between paragraphs', () => {
+    const { screen, text } = open();
+
+    screen.write('one\n\ntwo\n');
+    expect(text()).toContain('one\n\ntwo');
+  });
+
+  it('shows a message the user sent, set apart by blank lines', () => {
+    const { screen, text } = open();
+
+    screen.echo('fix the bug\nin a.ts');
+    expect(text()).toContain('\n› fix the bug\n  in a.ts\n\n');
+  });
+
   it('sends a typed line when Enter is pressed, and empties the editor', async () => {
     const { type, sent, text } = open();
 

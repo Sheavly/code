@@ -3,26 +3,25 @@ import {
   Container,
   Editor,
   matchesKey,
+  Spacer,
   Text,
   type EditorTheme,
   type SelectListTheme,
   type TUI,
 } from '@earendil-works/pi-tui';
-import { styleText } from 'node:util';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { CHAT_COMMANDS } from '../chat/chat.constants.js';
+import { cyan, cyanBold, gray } from '../render/style.utils.js';
 import { ApprovalPrompt } from './approval-prompt.service.js';
 import { QUIT_WINDOW_MS } from './tui.constants.js';
 import { LineBuffer } from './line-buffer.service.js';
 import type { ApprovalAnswer, ApprovalOutcome, StatusInfo } from './tui.types.js';
-import { approvalText, queueText, statusText } from './view.utils.js';
-
-const gray = (text: string) => styleText('gray', text, { validateStream: false });
+import { approvalText, echoText, queueText, statusText } from './view.utils.js';
 
 const selectTheme: SelectListTheme = {
-  selectedPrefix: (text) => styleText('cyan', text, { validateStream: false }),
-  selectedText: (text) => styleText(['cyan', 'bold'], text, { validateStream: false }),
+  selectedPrefix: cyan,
+  selectedText: cyanBold,
   description: gray,
   scrollInfo: gray,
   noMatch: gray,
@@ -129,6 +128,14 @@ export class ChatScreen {
     this.#tui.requestRender();
   }
 
+  /** Shows a message the user sent, set apart from the reply that follows it. */
+  echo(text: string): void {
+    this.#flushTail();
+
+    for (const line of echoText(text).split('\n')) this.#print(line);
+    this.#tui.requestRender();
+  }
+
   /** Changes what the status line says. */
   setStatus(patch: Partial<StatusInfo>): void {
     this.#info = { ...this.#info, ...patch };
@@ -158,8 +165,9 @@ export class ChatScreen {
     return this.#prompt.current !== undefined;
   }
 
+  /** A `Text` draws nothing for a blank line, which would swallow every paragraph break. */
   #print(line: string): void {
-    this.#history.addChild(new Text(line, 0, 0));
+    this.#history.addChild(line.trim() === '' ? new Spacer(1) : new Text(line, 0, 0));
   }
 
   #flushTail(): void {

@@ -17,6 +17,12 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   `working`, `waiting for you`), the model, the folder's permission mode (`allow all` in red) and
   how many background tasks run. Without a terminal (piped input, or `SHEAVLY_PLAIN=1`) it reads
   and writes lines, as it always did.
+- **The conversation reads as a conversation.** Each message you send is shown after a `›`, then
+  the reply as plain text, with a blank line between it and the steps around it. A step is one
+  dim line (`⏺ Run the tests  $ npm test`) and its result under it (`⎿ ✓ … · 0.3s`, in red when
+  it failed); the loop's bookkeeping (event counts, stop reasons, sub-agent ids) is left out, and
+  only a problem is said: a reply cut off at the token limit, the turn limit, a stopped run. The
+  demo and the workbook keep the complete plain log, which their saved runs and checks read.
 - **A command you haven't allowed asks you.** It shows the command and why it asks, and four
   choices: run it once, always allow it (kept for this folder, [see permissions](../../backend/docs/api.md)),
   skip it (the model is told not to retry), or skip and type what to do instead (the model reads

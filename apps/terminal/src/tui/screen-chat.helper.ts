@@ -4,6 +4,7 @@ import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
+import { chatLook } from '../render/chat-look.utils.js';
 import { Renderer } from '../render/render.service.js';
 import { ChatScreen } from './chat-screen.service.js';
 import type { ApprovalAnswer, ScreenChat } from './tui.types.js';
@@ -42,7 +43,7 @@ export async function startScreenChat(params: {
     onAnswer: (answer) => void answerApproval({ conversation, screen, answer }),
     onQuit: () => leave(),
   });
-  const renderer = new Renderer(screen.write, () => conversation.runningTasks);
+  const renderer = new Renderer(screen.write, () => conversation.runningTasks, chatLook);
   let leave: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => (leave = resolve));
   const session: ChatSession = new ChatSession({
@@ -50,6 +51,7 @@ export async function startScreenChat(params: {
     renderer,
     mainSession: details.session,
     write: screen.write,
+    onSend: (text) => screen.echo(text),
     onQueue: (queue) => screen.setQueue(queue),
     onBusy: (busy) => {
       screen.setStatus({ state: busy ? 'working' : 'ready' });

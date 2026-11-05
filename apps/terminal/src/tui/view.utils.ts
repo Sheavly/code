@@ -1,20 +1,25 @@
-import { styleText } from 'node:util';
+import { bold, cyan, cyanBold, gray, green, red, yellow } from '../render/style.utils.js';
 import type { ApprovalPrompt } from './approval-prompt.service.js';
 import type { StatusInfo } from './tui.types.js';
 
-type Style = Parameters<typeof styleText>[0];
+const ECHO_MAX_LINES = 12;
 
-// The screen writes to its own terminal through pi-tui, not to stdout, so whether stdout is a
-// terminal says nothing about it: always style.
-const styled = (format: Style) => (text: string) =>
-  styleText(format, text, { validateStream: false });
-const gray = styled('gray');
-const bold = styled('bold');
-const cyan = styled('cyan');
-const cyanBold = styled(['cyan', 'bold']);
-const green = styled('green');
-const yellow = styled('yellow');
-const red = styled('red');
+/**
+ * A message the user sent, as the conversation shows it: a blank line, the text after a `›`, and
+ * a blank line. A long one (a pasted file) shows its first lines and how many were left out.
+ */
+export function echoText(text: string): string {
+  const lines = text.trim().split('\n');
+  const shown = lines.slice(0, ECHO_MAX_LINES);
+  const hidden = lines.length - shown.length;
+  const body = shown.map((line, index) =>
+    index === 0 ? `${cyanBold('›')} ${bold(line)}` : `  ${bold(line)}`,
+  );
+
+  if (hidden > 0) body.push(gray(`  … ${String(hidden)} more lines`));
+
+  return ['', ...body, ''].join('\n');
+}
 
 /**
  * What the approval question looks like: the command, why it is asked, the options with the

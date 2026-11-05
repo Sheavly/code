@@ -22,6 +22,7 @@ export class ChatSession {
   readonly #write: Write;
   readonly #onQueue: (queue: readonly string[]) => void;
   readonly #onBusy: (busy: boolean) => void;
+  readonly #onSend: (text: string) => void;
   readonly #onExit: () => void;
   #queue: string[] = [];
   #current: AbortController | undefined;
@@ -39,6 +40,8 @@ export class ChatSession {
     onQueue?: (queue: readonly string[]) => void;
     /** Told when the chat starts running lines, and when it has run them all. */
     onBusy?: (busy: boolean) => void;
+    /** Told when a message starts running (not when it is queued), so a UI can show it. */
+    onSend?: (text: string) => void;
     /** Told once, when the user asked to leave. */
     onExit: () => void;
   }) {
@@ -48,6 +51,7 @@ export class ChatSession {
     this.#write = params.write;
     this.#onQueue = params.onQueue ?? (() => undefined);
     this.#onBusy = params.onBusy ?? (() => undefined);
+    this.#onSend = params.onSend ?? (() => undefined);
     this.#onExit = params.onExit;
   }
 
@@ -161,6 +165,7 @@ export class ChatSession {
     const current = new AbortController();
 
     this.#current = current;
+    this.#onSend(text);
 
     try {
       const known = new Set((await this.#conversation.skills()).map(({ name }) => name));

@@ -21,16 +21,16 @@ They run on the models and keys in your profile (`~/.sheavly`, see
 [models and keys](../backend/docs/harness.md#models-and-keys)); the other settings come from the
 environment and go to the backend it starts ([the backend's settings](../backend/docs/serve.md#settings)).
 
-| Folder      | What it holds                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------ |
-| `client/`   | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)   |
-| `render/`   | The `Renderer` every entry point prints a conversation's stream with, through a `write` function |
-| `tui/`      | The chat's screen on the terminal's main screen: editor, approval question, queue, status line   |
-| `setup/`    | Guided profile, provider, model and credential setup through the backend's API                   |
-| `workbook/` | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                    |
-| `chat/`     | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion       |
-| `chat.ts`   | The chat CLI: one conversation across prompts                                                    |
-| `demo.ts`   | The demo CLI                                                                                     |
+| Folder      | What it holds                                                                                            |
+| ----------- | -------------------------------------------------------------------------------------------------------- |
+| `client/`   | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)           |
+| `render/`   | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's |
+| `tui/`      | The chat's screen on the terminal's main screen: editor, approval question, queue, status line           |
+| `setup/`    | Guided profile, provider, model and credential setup through the backend's API                           |
+| `workbook/` | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
+| `chat/`     | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
+| `chat.ts`   | The chat CLI: one conversation across prompts                                                            |
+| `demo.ts`   | The demo CLI                                                                                             |
 
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.
