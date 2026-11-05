@@ -5,8 +5,10 @@ import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type {
   ConversationDetails,
+  ConversationId,
   ConversationSummary,
   SendPromptRequest,
 } from '@sheavly/protocol/server/server.types';
@@ -60,15 +62,31 @@ export type LiveConversation = {
 };
 
 /**
- * Builds one conversation, as the app decides it: the provider, tools and hooks, and its skills.
- * `messages` is history to continue from. `storage`, when the host keeps conversations, is what
- * the app builds the conversation on so it is kept (see `ConversationStorage`). The host picks
- * none of the rest.
+ * What a start can say: history to continue from, the folder the conversation works in and the
+ * profile it runs on. Both are for the app to act on (see `CreateConversation`); the host passes
+ * them on and records what the run reports.
  */
-export type CreateConversation = (params: {
+export type StartConversationParams = {
   messages?: Message[] | undefined;
-  storage?: ConversationStorage | undefined;
-}) => Promise<LiveConversation>;
+  workspace?: string | undefined;
+  profile?: ProfileId | undefined;
+};
+
+/**
+ * Builds one conversation, as the app decides it: the provider, tools and hooks, and its skills.
+ * `id` is the conversation's own, made by the host before this runs (and a stored one's when it
+ * is reopened). `messages`, `workspace` and `profile` are what the start asked for, or what a
+ * reopened conversation was kept with: the app decides what an absent one means, and what the run
+ * reports (`ConversationRun.details`) is what the host records. `storage`, when the host keeps
+ * conversations, is what the app builds the conversation on so it is kept (see
+ * `ConversationStorage`). The host picks none of the rest.
+ */
+export type CreateConversation = (
+  params: StartConversationParams & {
+    id: ConversationId;
+    storage?: ConversationStorage | undefined;
+  },
+) => Promise<LiveConversation>;
 
 /**
  * What an app builds a kept conversation on: its stream goes to `entries` (`createHarness`'s

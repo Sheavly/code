@@ -9,8 +9,9 @@ import type {
   CreateConversation,
   LiveConversation,
   SentPrompt,
+  StartConversationParams,
 } from './conversations.types.js';
-import { matchesSearch } from './conversations.utils.js';
+import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
@@ -48,12 +49,18 @@ export class Conversations {
     this.#store = params.store;
   }
 
-  /** Starts a conversation, empty or continuing `messages`, and returns its id. */
-  async start(params: { messages?: Message[] | undefined } = {}): Promise<ConversationId> {
+  /**
+   * Starts a conversation, empty or continuing `messages`, and returns its id. `workspace` and
+   * `profile` are for the app to act on (see `StartConversationParams`).
+   */
+  async start(params: StartConversationParams = {}): Promise<ConversationId> {
     const id = conversationIdSchema.parse(randomUUID());
     const keeper = this.#keeperFor(id);
     const live = await this.#create({
+      id,
       messages: params.messages,
+      workspace: params.workspace,
+      profile: params.profile,
       ...(keeper && this.#storageOf({ keeper, id })),
     });
 
@@ -84,7 +91,12 @@ export class Conversations {
     const keeper = this.#keeperFor(id);
     const storage = this.#storageOf({ keeper, id }).storage;
     const live = await this.#create({
+      id,
       messages,
+      // The conversation is reopened where it was kept: the app builds it on the same folder and
+      // profile, whatever it would pick for a new one now.
+      workspace: stored.workspace,
+      profile: stored.profile,
       ...(storage && { storage: { ...storage, resume } }),
     });
 
@@ -97,12 +109,28 @@ export class Conversations {
 
   /**
    * The stored conversations, oldest first, as the store lists them, except that one marked open
-   * which no live conversation here owns is `interrupted`: the process that kept it ended.
+   * which no live conversation here owns is `interrupted`: the process that kept it ended. With
+   * `search`, only those whose title has it, ignoring case: the index holds no more than that, and
+   * reading every history to search it would make listing as slow as the history is long.
+   * `workspace` and `profile` keep only the conversations of that folder or that profile.
    */
-  async listStored(): Promise<StoredConversation[]> {
+  async listStored(
+    params: {
+      search?: string | undefined;
+      workspace?: string | undefined;
+      profile?: string | undefined;
+    } = {},
+  ): Promise<StoredConversation[]> {
+    const { search, workspace, profile } = params;
     const stored = (await this.#store?.list()) ?? [];
+    const wanted = stored.filter(
+      (each) =>
+        (!search || matchesTitle({ stored: each, search })) &&
+        (workspace === undefined || each.workspace === workspace) &&
+        (profile === undefined || each.profile === profile),
+    );
 
-    return stored.map((conversation) =>
+    return wanted.map((conversation) =>
       conversation.status === 'open' && !this.#live.has(conversation.id)
         ? { ...conversation, status: 'interrupted' }
         : conversation,
@@ -208,13 +236,16 @@ export class Conversations {
     const { id, keeper } = params;
     const live = this.get(id);
     const summary = this.#summary(id);
-    const modelId = live.run.details().model.id;
+    const { model, workspace, profile } = live.run.details();
+    const modelId = model.id;
 
     live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId });
     keeper?.begin({
       id,
       title: summary.title,
       modelId,
+      workspace,
+      profile,
       status: 'open',
       startedAt: summary.startedAt,
       updatedAt: now(),

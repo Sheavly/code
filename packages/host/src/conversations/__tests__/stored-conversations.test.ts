@@ -4,15 +4,18 @@ import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { MemoryConversationStore } from '@sheavly/testing/store/memory-store.fake';
+import { indexOf } from '@sheavly/testing/store/store-contract.fake';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
+import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createConversation } from '../../conversation/conversation.helper.js';
 import { createHarness } from '../../host/host.helper.js';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
-import { DEEP_ID, FAST_ID, twoModelRun } from '../../testing/run.fake.js';
+import { DEEP_ID, FAST_ID, TEST_PROFILE_ID, twoModelRun } from '../../testing/run.fake.js';
 import { Conversations } from '../conversations.service.js';
 
 /** A conversation that ran one prompt on `store` and was closed, as a process that ended well. */
@@ -154,14 +157,7 @@ describe('Conversations with a store', () => {
     };
 
     await store.writeMessages({ id, messages: [{ role: 'user', content: 'go', at: 1 }, asking] });
-    await store.writeIndex({
-      id,
-      title: 'Chat',
-      modelId: FAST_ID,
-      status: 'open',
-      startedAt: 1,
-      updatedAt: 2,
-    });
+    await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 2 });
     await store.entries(id).append({
       seq: 0,
       at: 1,
@@ -241,5 +237,144 @@ describe('Conversations with a store', () => {
 
     expect(await conversations.listStored()).toEqual([]);
     await expect(conversations.reopen(id)).resolves.toBe(id);
+  });
+
+  describe('which workspace and profile a conversation is built on', () => {
+    const REPO = '/work/repo';
+    const OTHER = profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b11');
+    const KEPT = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000dd');
+
+    it('hands the app the id, workspace and profile a start asked for, and the id is the conversation’s', async () => {
+      const { conversations, created } = setup({
+        store: new MemoryConversationStore(),
+        replies: [],
+      });
+      const id = await conversations.start({ workspace: REPO, profile: OTHER });
+
+      expect(created).toHaveLength(1);
+      expect(created[0]).toMatchObject({ id, workspace: REPO, profile: OTHER });
+    });
+
+    it('passes neither when the start named neither: the app decides what that means', async () => {
+      const { conversations, created } = setup({
+        store: new MemoryConversationStore(),
+        replies: [],
+      });
+
+      await conversations.start();
+
+      expect(created[0]?.workspace).toBeUndefined();
+      expect(created[0]?.profile).toBeUndefined();
+    });
+
+    it('keeps in the index the workspace and profile the run reports, not what was asked', async () => {
+      const store = new MemoryConversationStore();
+      const { conversations } = setup({ store, replies: [] });
+      const id = await conversations.start({ workspace: '/asked', profile: OTHER });
+
+      await settled(conversations, id);
+
+      // The fake's run reports its own: what the app made of the request is what is recorded.
+      expect(await conversations.listStored()).toMatchObject([
+        { id, workspace: '/work', profile: TEST_PROFILE_ID },
+      ]);
+    });
+
+    it('reopens a conversation on the workspace and profile it was kept with', async () => {
+      const store = new MemoryConversationStore();
+
+      await store.writeIndex({ ...indexOf(KEPT, 1), workspace: REPO, profile: OTHER });
+      await store.writeMessages({ id: KEPT, messages: [{ role: 'user', content: 'hi', at: 1 }] });
+
+      const { conversations, created } = setup({ store, replies: [] });
+
+      await conversations.reopen(KEPT);
+
+      expect(created[0]).toMatchObject({ id: KEPT, workspace: REPO, profile: OTHER });
+    });
+  });
+
+  describe('listing the stored of one workspace or profile', () => {
+    const [A, B, C] = ['01', '02', '03'].map((n) =>
+      conversationIdSchema.parse(`00000000-0000-4000-8000-0000000000${n}`),
+    ) as [ConversationId, ConversationId, ConversationId];
+    const WORK = profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b11');
+    const HOME = profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b12');
+
+    /** Three conversations: two in one repo (on different profiles), one in another repo. */
+    async function threeKept() {
+      const store = new MemoryConversationStore();
+
+      await store.writeIndex({ ...indexOf(A, 1), workspace: '/a', profile: WORK });
+      await store.writeIndex({ ...indexOf(B, 2), workspace: '/a', profile: HOME });
+      await store.writeIndex({ ...indexOf(C, 3), workspace: '/b', profile: WORK });
+
+      return setup({ store, replies: [] }).conversations;
+    }
+
+    const idsOf = async (
+      conversations: Awaited<ReturnType<typeof threeKept>>,
+      filter: { workspace?: string; profile?: string },
+    ) => (await conversations.listStored(filter)).map((each) => each.id);
+
+    it('lists every workspace’s and profile’s when asked for none', async () => {
+      expect(await idsOf(await threeKept(), {})).toEqual([A, B, C]);
+    });
+
+    it('keeps only the workspace’s, only the profile’s, or both', async () => {
+      const conversations = await threeKept();
+
+      expect(await idsOf(conversations, { workspace: '/a' })).toEqual([A, B]);
+      expect(await idsOf(conversations, { profile: WORK })).toEqual([A, C]);
+      expect(await idsOf(conversations, { workspace: '/a', profile: WORK })).toEqual([A]);
+      expect(await idsOf(conversations, { workspace: '/nowhere' })).toEqual([]);
+    });
+
+    it('does not take a path that merely starts with the workspace for the workspace', async () => {
+      const conversations = await threeKept();
+
+      expect(await idsOf(conversations, { workspace: '/' })).toEqual([]);
+      expect(await idsOf(conversations, { workspace: '/a/' })).toEqual([]);
+    });
+  });
+
+  describe('searching the stored', () => {
+    const FIRST = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
+    const SECOND = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002');
+
+    async function twoTitled() {
+      const store = new MemoryConversationStore();
+
+      await store.writeIndex(indexOf(FIRST, 1, 'Fix the Login bug'));
+      await store.writeIndex(indexOf(SECOND, 2, 'Add dark mode'));
+
+      return setup({ store, replies: [] }).conversations;
+    }
+
+    it('lists those whose title has the search, ignoring case', async () => {
+      const conversations = await twoTitled();
+
+      expect((await conversations.listStored({ search: 'LOGIN' })).map((each) => each.id)).toEqual([
+        FIRST,
+      ]);
+      expect((await conversations.listStored({ search: 'mode' })).map((each) => each.id)).toEqual([
+        SECOND,
+      ]);
+    });
+
+    it('lists every one without a search, and none when nothing matches', async () => {
+      const conversations = await twoTitled();
+
+      expect((await conversations.listStored()).map((each) => each.id)).toEqual([FIRST, SECOND]);
+      expect(await conversations.listStored({ search: 'zzz' })).toEqual([]);
+    });
+
+    it('still marks a match whose process ended as interrupted', async () => {
+      const conversations = await twoTitled();
+
+      expect(await conversations.listStored({ search: 'login' })).toMatchObject([
+        { id: FIRST, status: 'interrupted' },
+      ]);
+    });
   });
 });

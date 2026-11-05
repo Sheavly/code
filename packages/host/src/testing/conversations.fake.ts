@@ -6,6 +6,7 @@ import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fa
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { createConversation } from '../conversation/conversation.helper.js';
 import { Conversations } from '../conversations/conversations.service.js';
+import type { CreateConversation } from '../conversations/conversations.types.js';
 import { createHarness } from '../host/host.helper.js';
 import { twoModelRun } from './run.fake.js';
 import { reviewSkill } from './skills.fake.js';
@@ -29,9 +30,13 @@ export function scriptedConversations(params: {
 }) {
   const sent: Message[][] = [];
   const disposed: string[] = [];
+  const created: Parameters<CreateConversation>[0][] = [];
   const conversations = new Conversations({
     ...(params.store && { store: params.store }),
-    create: async ({ messages, storage }) => {
+    create: async (asked) => {
+      created.push(asked);
+
+      const { messages, storage } = asked;
       const scripted = scriptedProvider(params.replies);
       const harness = createHarness({
         provider: {
@@ -66,5 +71,5 @@ export function scriptedConversations(params: {
     },
   });
 
-  return { conversations, sent, disposed };
+  return { conversations, sent, disposed, created };
 }

@@ -1,10 +1,14 @@
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
+import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ConversationRun } from '../conversations/conversations.types.js';
 
 /** Test-only: the ids of `twoModelRun`'s models. */
 export const FAST_ID = modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30');
 export const DEEP_ID = modelIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71');
+
+/** Test-only: the profile `twoModelRun` says it runs on. */
+export const TEST_PROFILE_ID = profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b99');
 
 /**
  * Test-only: a conversation's run as an app reports it, with two models to switch between. Both
@@ -20,6 +24,7 @@ export function twoModelRun(): ConversationRun {
   return {
     details: () => ({
       workspace: '/work',
+      profile: TEST_PROFILE_ID,
       model: active,
       models,
       projectTrust: 'no_hooks',
