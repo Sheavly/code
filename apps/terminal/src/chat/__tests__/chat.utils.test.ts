@@ -111,7 +111,7 @@ describe('completeChatLine', () => {
 
   it('completes / at the start to the chat commands and every skill', () => {
     expect(completeChatLine({ before: '/', skills })).toEqual([
-      ['/exit', '/help', '/model', '/quit', '/git', '/help-docs', '/review'],
+      ['/exit', '/help', '/model', '/mode', '/quit', '/git', '/help-docs', '/review'],
       '/',
     ]);
     expect(completeChatLine({ before: '/he', skills })).toEqual([['/help', '/help-docs'], '/he']);

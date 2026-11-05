@@ -48,6 +48,21 @@ describe('ApprovalPrompt', () => {
     expect(prompt.choices[0]).toMatchObject({ option: 'approve', label: 'Run it once' });
   });
 
+  it('says what always allow would keep, when the request says it, and a plain hint when not', () => {
+    const prompt = new ApprovalPrompt();
+
+    prompt.ask({ ...request('a1'), keeps: ['npm run test *'] });
+    expect(prompt.choices.find(({ option }) => option === 'always_allow')?.hint).toBe(
+      'keeps `npm run test *` allowed in this folder',
+    );
+
+    prompt.forget(approvalIdSchema.parse('a1'));
+    prompt.ask(request('a2'));
+    expect(prompt.choices.find(({ option }) => option === 'always_allow')?.hint).toBe(
+      'runs it, and keeps it allowed in this folder',
+    );
+  });
+
   describe('Enter never runs a command nobody chose', () => {
     it('picks nothing when a request is shown, so Enter does nothing', () => {
       const prompt = asking('a1');

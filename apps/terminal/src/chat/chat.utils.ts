@@ -19,6 +19,7 @@ export function parseChatInput(line: string): ChatInput {
   const [command, ...rest] = text.split(/\s+/);
 
   if (command === '/model' && rest.length <= 1) return { kind: 'model', name: rest[0] };
+  if (command === '/mode' && rest.length <= 1) return { kind: 'mode', name: rest[0] };
 
   return { kind: 'prompt', text };
 }

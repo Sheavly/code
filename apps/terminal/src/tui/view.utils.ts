@@ -69,5 +69,7 @@ export function statusText(info: StatusInfo): string {
   const tasks = info.tasks > 0 ? ` · ${String(info.tasks)} running in background` : '';
   const mode = info.mode === 'allow_all' ? red('allow all') : info.mode;
 
-  return `${state}${gray(` · ${info.model} · mode: `)}${mode}${gray(tasks)}`;
+  const effort = info.modelMode ? ` · ${info.modelMode}` : '';
+
+  return `${state}${gray(` · ${info.model}${effort} · mode: `)}${mode}${gray(tasks)}`;
 }

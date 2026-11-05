@@ -10,6 +10,7 @@ export type ChatInput =
   | { kind: 'help' }
   /** `/model` lists the models; `/model <name>` switches to one. */
   | { kind: 'model'; name: string | undefined }
+  | { kind: 'mode'; name: string | undefined }
   | { kind: 'empty' };
 
 /** What the chat needs of a conversation: a `RemoteConversation`, or a stand-in for a test. */

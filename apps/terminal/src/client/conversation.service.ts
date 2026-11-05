@@ -7,7 +7,7 @@ import type {
   ApprovalUpdate,
 } from '@sheavly/protocol/approval/approval.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -36,14 +36,17 @@ export class RemoteConversation {
   static async open(params: {
     backend: Backend;
     messages?: Message[];
+    workspace?: string;
   }): Promise<RemoteConversation> {
-    const { backend, messages } = params;
+    const { backend, messages, workspace } = params;
     const client = createClient({
       url: backend.url,
       token: backend.token,
       ...(backend.fetch && { fetch: backend.fetch }),
     });
-    const { id } = await client.call('startConversation', { body: messages ? { messages } : {} });
+    const { id } = await client.call('startConversation', {
+      body: { ...(messages && { messages }), ...(workspace && { workspace }) },
+    });
 
     return new RemoteConversation(client, id);
   }
@@ -70,9 +73,12 @@ export class RemoteConversation {
   }
 
   /** Switches to the model with this id, from the next model call; false when the conversation hasn't it. */
-  async useModel(modelId: ModelId): Promise<boolean> {
+  async useModel(modelId: ModelId, mode?: ModelMode): Promise<boolean> {
     try {
-      await this.#client.send('switchModel', { id: this.id, body: { id: modelId } });
+      await this.#client.send('switchModel', {
+        id: this.id,
+        body: { id: modelId, ...(mode && { mode }) },
+      });
     } catch (caughtError) {
       // Only "no such model" is the user's to fix with another model; anything else is a failure.
       if (caughtError instanceof RefusedError && caughtError.code === 'unknown_model') {

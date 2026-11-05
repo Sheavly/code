@@ -19,61 +19,16 @@
  * running prompt, /<skill> anywhere in a message runs that skill, /exit ends the conversation.
  * Calls the real API, so it costs money.
  */
-import { runLineChat } from './chat/line-chat.helper.js';
-import { openSession } from './client/session.helper.js';
-import { startScreenChat } from './tui/screen-chat.helper.js';
+import { runTerminalChat } from './chat/start.helper.js';
+import { SetupCancelledError } from './errors/setup.errors.js';
 
 // npm runs a workspace's script inside apps/terminal; work from the folder it was started in
 // (npm's INIT_CWD), so the default workspace is the user's.
 if (process.env.INIT_CWD) process.chdir(process.env.INIT_CWD);
 
-const write = (text: string) => void process.stdout.write(text);
-const session = await openSession({ env: process.env, args: process.argv.slice(2), write });
-const { backend, conversation, details, renderer, prompt: firstPrompt } = session;
-
-/** Closes the conversation, then the backend if this chat started it. */
-async function end(): Promise<void> {
-  await conversation.close();
-  await backend.stop();
+try {
+  await runTerminalChat();
+} catch (caughtError) {
+  console.error(caughtError instanceof Error ? caughtError.message : String(caughtError));
+  process.exitCode = caughtError instanceof SetupCancelledError ? 130 : 1;
 }
-
-// Closing the terminal (SIGHUP) or being killed (SIGTERM) skips Node's exit hooks: close the
-// conversation and the backend first, so none of its background commands outlive the chat.
-for (const [signal, code] of [
-  ['SIGHUP', 129],
-  ['SIGTERM', 143],
-] as const) {
-  process.once(signal, () => {
-    void end().finally(() => process.exit(code));
-  });
-}
-
-/** A screen needs a terminal on both ends; piped input or output gets lines. */
-const onTerminal = process.stdin.isTTY && process.stdout.isTTY && !process.env.SHEAVLY_PLAIN;
-
-if (onTerminal) {
-  const skills = (await conversation.skills()).map(({ name, description }) => ({
-    name,
-    description,
-  }));
-  const chat = await startScreenChat({ conversation, details, skills, firstPrompt });
-
-  await chat.finished;
-  await chat.stop();
-} else {
-  await runLineChat({
-    conversation,
-    details,
-    renderer,
-    write,
-    firstPrompt,
-    forceQuit: () => void end().finally(() => process.exit(130)),
-  });
-}
-
-if (conversation.runningTasks > 0) {
-  console.log(`⏹ Stopping ${String(conversation.runningTasks)} background task(s)`);
-}
-
-await end();
-console.log('→ conversation ended');

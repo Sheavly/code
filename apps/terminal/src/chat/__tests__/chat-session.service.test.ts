@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
+import type { ModelMode } from '@sheavly/protocol/model/model.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -32,6 +33,7 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
   const sent: string[] = [];
   const open: { release: () => void; signal: AbortSignal | undefined }[] = [];
   let model = FAST;
+  const modes = new Map<string, ModelMode>();
 
   const conversation: ChatConversation = {
     runningTasks: 0,
@@ -45,10 +47,17 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
         })),
       ),
     details: () =>
-      Promise.resolve({ model: models.find((choice) => choice.id === model), models } as never),
-    useModel: (id) => {
+      Promise.resolve({
+        model: {
+          ...models.find((choice) => choice.id === model),
+          mode: modes.get(model) ?? 'medium',
+        },
+        models,
+      } as never),
+    useModel: (id, mode) => {
       if (!models.some((choice) => choice.id === id)) return Promise.resolve(false);
       model = id;
+      if (mode) modes.set(id, mode);
 
       return Promise.resolve(true);
     },
@@ -187,6 +196,29 @@ describe('ChatSession', () => {
 
     expect(output()).toContain('Unknown model Nope');
     expect(fake.model()).toBe(FAST);
+  });
+
+  it('sets effort independently and restores each model’s last effort when switching back', async () => {
+    const { session, fake, output } = chat();
+
+    for (const line of [
+      '/mode high',
+      '/model Deep',
+      '/mode low',
+      '/model Fast',
+      '/mode',
+      '/mode turbo',
+    ]) {
+      session.submit(line);
+    }
+
+    await session.idle();
+    expect((await fake.conversation.details()).model.mode).toBe('high');
+    expect(output()).toContain('→ Fast · high');
+    expect(output()).toContain('→ Deep · low');
+    expect(output()).toContain('Fast · high');
+    expect(output()).toContain('Choose a mode: low, medium, high, extreme.');
+    expect(fake.sent).toEqual([]);
   });
 
   it('reports a command no skill has, instead of sending it', async () => {

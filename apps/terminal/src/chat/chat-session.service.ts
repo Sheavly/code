@@ -4,6 +4,7 @@ import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
 import { CHAT_HELP } from './chat.constants.js';
 import type { ChatConversation, StopResult } from './chat.types.js';
 import { listModels, parseChatInput, pickModel, unknownCommand } from './chat.utils.js';
+import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
 
 /**
  * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
@@ -124,7 +125,10 @@ export class ChatSession {
         this.#print(CHAT_HELP);
         break;
       case 'model':
-        this.#print(await this.#modelCommand(parsed.name));
+        await this.#printCommand(() => this.#modelCommand(parsed.name));
+        break;
+      case 'mode':
+        await this.#printCommand(() => this.#modeCommand(parsed.name));
         break;
       case 'prompt':
         await this.#send(parsed.text);
@@ -138,6 +142,14 @@ export class ChatSession {
 
   #print(text: string): void {
     this.#write(`${text}\n`);
+  }
+
+  async #printCommand(run: () => Promise<string>): Promise<void> {
+    try {
+      this.#print(await run());
+    } catch (caughtError) {
+      this.#print(`✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}`);
+    }
   }
 
   /**
@@ -208,6 +220,26 @@ export class ChatSession {
       return `Unknown model ${typed}; /model lists them.`;
     }
 
-    return `→ ${choice.name}: ${choice.adapter} / ${choice.model}`;
+    const updated = await this.#conversation.details();
+
+    return `→ ${choice.name}: ${choice.adapter} / ${choice.model} · ${updated.model.mode ?? 'medium'}`;
+  }
+
+  async #modeCommand(typed: string | undefined): Promise<string> {
+    const { model } = await this.#conversation.details();
+
+    if (typed === undefined) {
+      return `${model.name} · ${model.mode ?? 'medium'}\nModes: low, medium, high, extreme`;
+    }
+
+    const mode = modelModeSchema.safeParse(typed.toLowerCase());
+
+    if (!mode.success) return 'Choose a mode: low, medium, high, extreme.';
+
+    if (!(await this.#conversation.useModel(model.id, mode.data))) {
+      return 'The selected model is no longer available.';
+    }
+
+    return `→ ${model.name} · ${mode.data}`;
   }
 }

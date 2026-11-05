@@ -1,11 +1,11 @@
 # The chat
 
-One conversation you keep talking to, in the terminal: `npm run dev -w @sheavly/terminal` (from
-source) or `npm run start -w @sheavly/terminal` (built first, then plain Node), or `npm run dev` /
-`npm run start` inside `apps/terminal`. `npm run dev -w @sheavly/terminal -- "first message"`
-starts with that message. It works from the folder you start it in (the default
-workspace), and calls the real API, so it costs money. The root has no `dev` or `start`: each UI
-has its own.
+One conversation you keep talking to, in the terminal: `npm run dev:terminal` from the repo root
+(from source), `npm run dev -w @sheavly/terminal`, or `npm run start -w @sheavly/terminal` (built
+first, then plain Node), or `npm run dev` / `npm run start` inside `apps/terminal`.
+`npm run dev:terminal -- "first message"` starts with that message. It works from the folder you
+start it in (the default workspace), and calls the real API, so it costs money. The root has
+`dev:terminal` but no plain `dev` or `start`: each UI has its own.
 
 - Each message continues the same conversation, on the [backend](demo.md#the-backend) the chat
   starts: the model sees the history so far, in one session, idle between messages. The chat is
@@ -25,6 +25,11 @@ has its own.
   soon as you type into the editor, every key is the editor's and the question waits. Several
   questions wait in order, `+N more waiting` says how many. With a plain line chat there is no one
   to ask, so such a command is refused and the model told why.
+- **Always allow shows what it saves.** Its hint lists the exact entries from the backend, such
+  as `touch /path/file` or `npm run test *`, including every entry for a command chain. A two-word
+  command like `touch /path/file` stays exact; it does not grant `touch *`. If a backend omits the
+  entries, the choice keeps its generic hint. See the
+  [entry rules](../../../packages/coding/docs/run-command.md#who-decides).
 - **You can keep typing while it works.** What you send waits its turn and is shown as
   `⏳ N queued`; it is sent in order when the prompt ends. The editor takes several lines
   (`Shift+Enter`), keeps your history (`↑` at the top), completes `/` commands and skills with
@@ -55,3 +60,43 @@ has its own.
 
 The settings are the demo's ([the demo](demo.md#settings)); a conversation isn't kept across
 restarts.
+
+## Setup
+
+### Model modes
+
+`/mode` shows the current reasoning effort. `/mode low`, `/mode medium`, `/mode high` and
+`/mode extreme` change it, with the selection shown in the status line. The profile remembers
+the mode for this model, separately from every other model. `/model` switches restore the
+selected model's latest remembered mode, or medium when it has none. Existing conversations
+and sub-agents retain their own selections; new conversations use the profile's latest pair.
+Modes take effect at the next model call, not midway through a response.
+
+On a workspace without a ready profile, the interactive chat opens setup before creating a
+conversation. You can also open it explicitly with `npm run dev:terminal -- --setup`, including
+when a profile already works.
+
+1. Choose an existing profile or create one, such as Personal or Work.
+2. Choose an existing model or add one. For a new model, choose a provider from the backend's
+   installed adapters. The form asks only for required fields, using provider defaults for
+   optional ones. It derives a display name from the model/deployment; use Edit model settings
+   to rename it or change advanced values. Claude's output limit defaults to 8192. Reasoning
+   effort defaults to medium until you select a mode.
+3. Enter the settings and API key. The key is masked, including paste, and sent only to the
+   write-only credential route. Existing keys are never loaded into an input or shown again.
+   For Azure Claude models requiring adaptive thinking, choose **adaptive** under Thinking mode
+   and leave Thinking budget empty. Max tokens is the output limit per reply, not the context
+   window; use a value supported by the deployment, such as 8192.
+4. Choose **Save and start chatting**, or **Test connection** to make a small provider API call.
+   A failed check lets you replace the key or edit the model settings in the same screen.
+
+The chosen profile is bound to this workspace; an existing default for other workspaces is kept.
+The first profile also becomes the default. The selected model is used for the new conversation.
+Reopen `--setup` to add more profiles or models, edit model settings, or replace a key. All writes
+go through the [setup API](../../backend/docs/api.md#setting-the-backend-up), including when the
+terminal connects to an existing backend.
+
+Esc or Ctrl+C cancels setup and stops a backend this terminal started. Settings already saved
+remain available to finish next time. An unconfigured chat with piped input exits with a short
+instruction to run interactive setup first; it never consumes the piped text as a key. A ready
+workspace goes directly to chat, with no setup questions.

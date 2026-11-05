@@ -1,4 +1,6 @@
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
+import { BackendError } from '../errors/backend.errors.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice } from '../render/render.utils.js';
 import { connectBackend } from './backend.helper.js';
@@ -15,6 +17,9 @@ export async function openSession(params: {
   env: NodeJS.ProcessEnv;
   args: readonly string[];
   write: (text: string) => void;
+  workspace?: string;
+  /** A chat may configure the backend before opening its first conversation. */
+  prepare?: (backend: Backend) => Promise<ModelId | undefined>;
 }): Promise<{
   backend: Backend;
   conversation: RemoteConversation;
@@ -28,7 +33,41 @@ export async function openSession(params: {
     args: args.filter((arg) => arg === '--trust'),
     onOutput: write,
   });
-  const conversation = await RemoteConversation.open({ backend });
+  let conversation: RemoteConversation | undefined;
+
+  try {
+    const model = await params.prepare?.(backend);
+
+    conversation = await RemoteConversation.open({
+      backend,
+      ...(params.workspace && { workspace: params.workspace }),
+    });
+
+    if (model && !(await conversation.useModel(model))) {
+      throw new BackendError({
+        message: 'The selected model is no longer available. Run with --setup again.',
+      });
+    }
+
+    return await describeSession({ backend, conversation, args, write });
+  } catch (caughtError) {
+    try {
+      await conversation?.close();
+    } finally {
+      await backend.stop();
+    }
+
+    throw caughtError;
+  }
+}
+
+async function describeSession(params: {
+  backend: Backend;
+  conversation: RemoteConversation;
+  args: readonly string[];
+  write: (text: string) => void;
+}) {
+  const { backend, conversation, args, write } = params;
   const details = await conversation.details();
 
   write(`→ ${details.model.adapter} / ${details.model.model} in ${details.workspace}\n`);

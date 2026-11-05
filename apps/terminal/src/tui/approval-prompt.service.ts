@@ -4,6 +4,7 @@ import type {
   ApprovalResponse,
 } from '@sheavly/protocol/approval/approval.types';
 import { APPROVAL_LABELS, APPROVAL_ORDER } from './approval.constants.js';
+import { keepsHint } from './keeps.utils.js';
 import type { ApprovalChoice, ApprovalOutcome, ApprovalPhase } from './tui.types.js';
 
 /**
@@ -33,13 +34,19 @@ export class ApprovalPrompt {
     return this.#phase;
   }
 
-  /** The options of the request shown, in the prompt's order, each with its label. */
+  /**
+   * The options of the request shown, in the prompt's order, each with its label. "Always allow"
+   * says what it would keep (the request's `keeps`), so the user agrees to those words and not to
+   * a guess at them.
+   */
   get choices(): ApprovalChoice[] {
     const offered = this.current?.options ?? [];
+    const keeps = this.current?.keeps;
 
     return APPROVAL_ORDER.filter((option) => offered.includes(option)).map((option) => ({
       option,
       ...APPROVAL_LABELS[option],
+      ...(option === 'always_allow' && keeps && keeps.length > 0 && { hint: keepsHint(keeps) }),
     }));
   }
 

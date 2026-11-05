@@ -31,6 +31,7 @@ export async function startScreenChat(params: {
     status: {
       state: 'ready',
       model: details.model.name,
+      modelMode: details.model.mode ?? 'medium',
       mode: details.permissionMode,
       tasks: 0,
     },
@@ -50,7 +51,20 @@ export async function startScreenChat(params: {
     mainSession: details.session,
     write: screen.write,
     onQueue: (queue) => screen.setQueue(queue),
-    onBusy: (busy) => screen.setStatus({ state: busy ? 'working' : 'ready' }),
+    onBusy: (busy) => {
+      screen.setStatus({ state: busy ? 'working' : 'ready' });
+
+      if (!busy) {
+        void conversation
+          .details()
+          .then(({ model }) => {
+            screen.setStatus({ model: model.name, modelMode: model.mode ?? 'medium' });
+          })
+          .catch((caughtError: unknown) =>
+            screen.notice(`Could not refresh model: ${String(caughtError)}`),
+          );
+      }
+    },
     onExit: () => leave(),
   });
 

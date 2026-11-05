@@ -4,6 +4,7 @@ import type {
   ApprovalResponse,
 } from '@sheavly/protocol/approval/approval.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
+import type { ModelMode } from '@sheavly/protocol/model/model.types';
 
 /** One thing the user can answer an approval with, as the prompt lists it. */
 export type ApprovalChoice = { option: ApprovalOption; label: string; hint: string };
@@ -30,6 +31,7 @@ export type ScreenChat = {
 export type StatusInfo = {
   state: 'ready' | 'working' | 'waiting';
   model: string;
+  modelMode?: ModelMode;
   mode: PermissionMode;
   /** Background tasks still running. */
   tasks: number;

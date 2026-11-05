@@ -58,6 +58,22 @@ describe('approvalText', () => {
     expect(marked[0]).toContain('2. Always allow');
   });
 
+  it('shows every permission entry beside always allow before a choice is made', () => {
+    const prompt = new ApprovalPrompt();
+
+    prompt.ask({
+      ...request('a1'),
+      keeps: ['touch /workspace/file', 'git push *', 'npm run test *', 'ls -la src'],
+    });
+
+    const text = plain(approvalText(prompt));
+
+    expect(text).toContain(
+      '2. Always allow  keeps `touch /workspace/file`, `git push *`, `npm run test *`, `ls -la src` allowed in this folder',
+    );
+    expect(prompt.confirm()).toEqual({ kind: 'none' });
+  });
+
   it('lists only the options a request offers, and numbers them 1 to N', () => {
     const prompt = new ApprovalPrompt();
 
