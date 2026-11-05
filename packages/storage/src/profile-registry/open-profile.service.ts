@@ -7,7 +7,9 @@ import { FileConversationStore } from '../conversation-store/conversation-store.
 import { CredentialStore } from '../credential-store/credential-store.service.js';
 import type { Secrets } from '../credential-store/credential-store.types.js';
 import { RegistryError } from '../errors/registry.errors.js';
-import { writeJsonFile } from '../json-file/json-file.helper.js';
+import { StorageFileError } from '../errors/storage.errors.js';
+import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import { listFolderNames } from '../listing/listing.helper.js';
 import type { FileProblem } from '../listing/listing.types.js';
 import { ModelStore } from '../model-store/model-store.service.js';
 import type { ModelListing } from '../model-store/model-store.types.js';
@@ -15,6 +17,8 @@ import { WORKSPACE_FILE, WORKSPACES_FOLDER } from '../profile-store/profile-stor
 import type { ProfileStore } from '../profile-store/profile-store.service.js';
 import { namedPath } from '../safe-path/safe-path.helper.js';
 import { requireProfile } from './profile-registry.helper.js';
+import { workspaceFileSchema } from './workspace-file.validator.js';
+import { workspaceFileProblem } from './workspace-file.utils.js';
 
 /**
  * One profile opened for use: its models and its keys, held together so they can't drift apart.
@@ -80,6 +84,73 @@ export class OpenProfile {
     return store;
   }
 
+  /**
+   * Every workspace this profile keeps conversations for, each with its store: the same store
+   * `conversations` hands out for that path, so listing and writing share their queues. A workspace
+   * folder that is not one (not named by a key, no readable `workspace.json`, or one that names a
+   * path of another key) is told to `onProblem` and left out, never taken for empty or hidden.
+   */
+  async workspaces(params: {
+    onProblem: (problem: FileProblem) => void;
+  }): Promise<{ root: string; store: FileConversationStore }[]> {
+    const { onProblem } = params;
+    const parent = path.join(this.#folder, WORKSPACES_FOLDER);
+    const found: { root: string; store: FileConversationStore }[] = [];
+
+    for (const key of await listFolderNames({ folder: parent })) {
+      const folder = path.join(parent, key);
+      const root = await this.#workspaceRoot({ key, folder, onProblem });
+
+      if (root === undefined) continue;
+
+      const store =
+        this.#conversations.get(key) ?? new FileConversationStore({ folder, onProblem });
+
+      this.#conversations.set(key, store);
+      found.push({ root, store });
+    }
+
+    return found;
+  }
+
+  /** The path a workspace folder is for, or `undefined` (told to `onProblem`) when it isn't one. */
+  async #workspaceRoot(params: {
+    key: string;
+    folder: string;
+    onProblem: (problem: FileProblem) => void;
+  }): Promise<string | undefined> {
+    const { key, folder, onProblem } = params;
+    const problem = (message: string) => onProblem({ file: folder, message });
+
+    if (!workspaceKeySchema.safeParse(key).success) {
+      problem('its name is not a workspace key');
+
+      return undefined;
+    }
+
+    try {
+      const file = await readJsonFile({
+        file: path.join(folder, WORKSPACE_FILE),
+        schema: workspaceFileSchema,
+      });
+      const reason = workspaceFileProblem({ file, key });
+
+      if (reason) {
+        problem(reason);
+
+        return undefined;
+      }
+
+      return file?.root;
+    } catch (caughtError) {
+      // Only an unreadable or invalid file is told as a problem; anything else is not ours to hide.
+      if (!(caughtError instanceof StorageFileError)) throw caughtError;
+      problem(caughtError.message);
+
+      return undefined;
+    }
+  }
+
   /** The profile's models, and a problem for each file that isn't one (see `ModelStore.list`). */
   async listModels(): Promise<ModelListing> {
     return this.#models.list();
@@ -138,6 +209,15 @@ export class OpenProfile {
     }
 
     await this.#credentials.put({ id, secrets });
+  }
+
+  /**
+   * Forgets model `id`'s secrets and keeps the model. None set is fine, as is a model that is
+   * gone: a key left behind by one is removed all the same.
+   */
+  async removeSecrets(id: ModelId): Promise<void> {
+    await this.#assertProfile();
+    await this.#credentials.remove(id);
   }
 
   async #assertProfile(): Promise<void> {

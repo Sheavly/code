@@ -5,18 +5,10 @@ import { entry, indexOf, CONVERSATION } from '@sheavly/testing/store/store-contr
 import { workspaceKey } from '../../config-store/config-store.utils.js';
 import { RegistryError } from '../../errors/registry.errors.js';
 import type { FileProblem } from '../../listing/listing.types.js';
-import { WORK, useTempRegistry } from '../../testing/registry.fake.js';
+import { APP, SITE, WORK, useTempRegistry } from '../../testing/registry.fake.js';
 
 const temp = useTempRegistry();
-const APP = path.resolve(path.sep, 'code', 'app');
-const SITE = path.resolve(path.sep, 'code', 'site');
-
-/** A profile that exists, opened, and the problems its conversation stores report. */
-async function openWork() {
-  await temp.registry().put({ id: WORK, name: 'Work' });
-
-  return temp.registry().open(WORK);
-}
+const openWork = temp.openWork;
 
 const conversationsOf = (params: {
   realPath: string;

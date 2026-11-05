@@ -1,6 +1,7 @@
-import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { filesHolding as holding } from '@sheavly/testing/files/files-holding.fake';
 import { RegistryError } from '../../errors/registry.errors.js';
 import {
   ASTRA,
@@ -26,18 +27,7 @@ async function openWork() {
 
 /** The files of the profile's folder, at any depth, whose content has `text` in it. */
 async function filesHolding(text: string): Promise<string[]> {
-  const folder = path.join(temp.root(), 'profiles', WORK);
-  const found: string[] = [];
-
-  for (const entry of await readdir(folder, { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile()) continue;
-
-    const file = path.join(entry.parentPath, entry.name);
-
-    if ((await readFile(file, 'utf8')).includes(text)) found.push(file);
-  }
-
-  return found;
+  return holding({ folder: path.join(temp.root(), 'profiles', WORK), text });
 }
 
 const refused = (reason: string): unknown =>
@@ -96,6 +86,19 @@ describe('OpenProfile models and keys', () => {
     await profile.removeModel(ASTRA);
 
     expect(await profile.secretFields()).toEqual({});
+  });
+
+  it('forgets a model’s key and keeps the model, and forgetting none is fine', async () => {
+    const profile = await openWork();
+
+    await profile.putModel(astra);
+    await profile.putSecrets({ id: ASTRA, secrets: { apiKey: KEY } });
+    await profile.removeSecrets(ASTRA);
+    await profile.removeSecrets(ASTRA);
+
+    expect(await profile.getModel(ASTRA)).toEqual(astra);
+    expect(await profile.getSecrets(ASTRA)).toBeUndefined();
+    expect(await filesHolding(KEY)).toEqual([]);
   });
 
   it('will not set a key for a model the profile does not have', async () => {

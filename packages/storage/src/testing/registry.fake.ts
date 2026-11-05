@@ -6,6 +6,7 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { ProfileRegistry } from '../profile-registry/profile-registry.service.js';
+import type { OpenProfile } from '../profile-registry/open-profile.service.js';
 
 /** Test-only: ids the registry's tests share. */
 export const WORK = profileIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30');
@@ -27,12 +28,21 @@ export function twoModels() {
   };
 }
 
+/** Test-only: two workspace paths (real paths of folders that need not exist). */
+export const APP = path.resolve(path.sep, 'code', 'app');
+export const SITE = path.resolve(path.sep, 'code', 'site');
+
 /**
  * Test-only: a registry on a fresh temp folder for each test, removed after it. Call it in a
  * `describe`; read `root()` and `registry()` inside the tests, since a new pair is made for each.
  * The profiles folder is made writable again before it is removed, as a test may have locked it.
  */
-export function useTempRegistry(): { root: () => string; registry: () => ProfileRegistry } {
+export function useTempRegistry(): {
+  root: () => string;
+  registry: () => ProfileRegistry;
+  /** A profile `WORK` that exists, opened. */
+  openWork: () => Promise<OpenProfile>;
+} {
   let root = '';
   let registry: ProfileRegistry | undefined;
 
@@ -48,12 +58,19 @@ export function useTempRegistry(): { root: () => string; registry: () => Profile
     await rm(root, { recursive: true, force: true });
   });
 
+  const current = () => {
+    if (!registry) throw new RangeError('useTempRegistry: read it inside a test');
+
+    return registry;
+  };
+
   return {
     root: () => root,
-    registry: () => {
-      if (!registry) throw new RangeError('useTempRegistry: read it inside a test');
+    registry: current,
+    openWork: async () => {
+      await current().put({ id: WORK, name: 'Work' });
 
-      return registry;
+      return current().open(WORK);
     },
   };
 }

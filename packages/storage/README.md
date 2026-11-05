@@ -22,12 +22,12 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |
 | `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
 | `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
+| `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide          |
 | `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                        |
 
 Internal (closed in `exports`): `safe-path/` (`namedPath`, `assertSafeRoot`, `removeFile` and
 `removeFolder`: every path a store makes, reads, writes or deletes is checked there), `serial-queue/`
-(one change at a time), `jsonl-file/` (append and read a stream's lines) and `listing/` (list a
-store's folders, and tell the usable ones from the problems).
+(one change at a time) and `jsonl-file/` (append and read a stream's lines).
 
 Runs on Linux, macOS and Windows; see [Design](docs/design.md#every-operating-system) for what that
 asks of every module here.
