@@ -12,6 +12,7 @@ import type { RunCommandOptions } from '../run-command.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { testPermissions } from '../../testing/permissions.fake.js';
 
 let root: string;
 let workspace: Workspace;
@@ -27,61 +28,89 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const run = (
-  command: string,
-  options: Omit<RunCommandOptions, 'workspace' | 'processes'> = {},
-  description = `running ${command}`,
-) =>
+type RunOptions = Partial<Omit<RunCommandOptions, 'workspace' | 'processes'>>;
+
+const toolWith = (options: RunOptions = {}) =>
+  createRunCommandTool({
+    processes: testProcesses(),
+    workspace,
+    permissions: testPermissions(),
+    ...options,
+  });
+
+const run = (command: string, options: RunOptions = {}, description = `running ${command}`) =>
   runTool({
-    tools: [createRunCommandTool({ processes: testProcesses(), workspace, ...options })],
+    tools: [toolWith(options)],
     call: { id: callId, name: 'run_command', input: { description, command } },
     signal,
   });
 
-describe('run_command with the allow list', () => {
-  it('runs an allow-listed command in the workspace root', async () => {
-    const result = await run('pwd', { allowList: ['pwd'] });
+const allowAll = () => ({ permissions: testPermissions({ mode: 'allow_all' }) });
+
+describe('run_command with what the user has allowed', () => {
+  it('runs a built-in command in the workspace root', async () => {
+    const result = await run('pwd');
 
     expect(result).toMatchObject({ isError: false });
     expect(result.content).toContain('[exit code 0]');
     expect(result.content).toContain(workspace.root);
   });
 
-  it('passes arguments for wildcard entries', async () => {
-    const result = await run(`echo "hello world"`, { allowList: ['echo *'] });
+  it('runs a command the user allowed, with arguments for a * entry', async () => {
+    const permissions = testPermissions({ allow: ['echo *'] });
+    const result = await run(`echo "hello world"`, { permissions });
 
     expect(result.content).toContain('hello world');
   });
 
-  it('rejects a command that is not on the list, without running it', async () => {
+  it('refuses a command that is not allowed when no one can be asked, without running it', async () => {
     await writeFile(path.join(root, 'keep.txt'), 'x');
-    const result = await run('rm keep.txt', { allowList: ['pwd'] });
+    const result = await run('rm keep.txt');
 
     expect(result).toMatchObject({ isError: true });
-    expect(result.content).toContain('Command not in allow list: rm keep.txt');
-    expect(result.content).toContain('Allowed: pwd');
+    expect(result.content).toContain("Command refused, it needs the user's approval: rm keep.txt");
+    expect(result.content).toContain('rm keep.txt: is not allowed yet');
     expect(existsSync(path.join(root, 'keep.txt'))).toBe(true);
   });
 
-  it('rejects chaining a forbidden command onto an allowed one', async () => {
-    await writeFile(path.join(root, 'keep2.txt'), 'x');
-    const result = await run('echo hi; rm keep2.txt', { allowList: ['echo *'] });
+  it('refuses a chain when any command in it is not allowed, and runs none of it', async () => {
+    const marker = path.join(root, 'first-ran.txt');
+    const result = await run(`touch ${marker} && rm keep.txt`, {
+      permissions: testPermissions({ allow: ['touch *'] }),
+    });
 
     expect(result).toMatchObject({ isError: true });
-    expect(result.content).toContain('chaining commands');
-    expect(existsSync(path.join(root, 'keep2.txt'))).toBe(true);
+    expect(result.content).toContain('rm keep.txt: is not allowed yet');
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('refuses what the parser cannot carry out, saying why', async () => {
+    const result = await run('echo hi > out.txt', allowAll());
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('Command rejected (redirects (< >) are not supported)');
+    expect(existsSync(path.join(root, 'out.txt'))).toBe(false);
   });
 
   it('reports non-zero exit codes', async () => {
-    const result = await run('ls does-not-exist', { allowList: ['ls *'] });
+    const result = await run('ls does-not-exist');
 
     expect(result.content).toMatch(/\[exit code [1-9]\d*\]/);
   });
+
+  it('runs allowed commands joined by a pipe or a list', async () => {
+    const permissions = testPermissions({ allow: ['printf *'] });
+    const result = await run(`printf 'a\\nb\\nc\\n' | head -n 2 && pwd`, { permissions });
+
+    expect(result.content).toContain('a\nb\n');
+    expect(result.content).not.toContain('c\n');
+    expect(result.content).toContain(workspace.root);
+  });
 });
 
-describe('run_command with skipAllowList', () => {
-  it('permits commands that are not on the list, through a real shell', async () => {
-    const result = await run('echo one && echo two', { allowList: [], skipAllowList: true });
+describe('run_command in allow_all mode', () => {
+  it('runs any command, and chains them without a shell', async () => {
+    const result = await run('echo one && echo two', allowAll());
 
     expect(result).toMatchObject({ isError: false });
     expect(result.content).toContain('one\ntwo');
@@ -91,17 +120,23 @@ describe('run_command with skipAllowList', () => {
     process.env.FAKE_TEST_API_KEY = 'should-not-leak';
 
     try {
-      const result = await run('echo "[$FAKE_TEST_API_KEY]"', { skipAllowList: true });
+      const result = await run('env', allowAll());
 
-      expect(result.content).toContain('[]');
+      expect(result.content).toContain('PATH=');
       expect(result.content).not.toContain('should-not-leak');
     } finally {
       delete process.env.FAKE_TEST_API_KEY;
     }
   });
 
+  it('does not expand what a shell would', async () => {
+    const result = await run(`echo '$HOME' '\`id\`'`, allowAll());
+
+    expect(result.content).toContain('$HOME `id`');
+  });
+
   it('kills commands that run past the timeout', async () => {
-    const result = await run('sleep 5', { skipAllowList: true, timeoutMs: 100 });
+    const result = await run('sleep 5', { ...allowAll(), timeoutMs: 100 });
 
     expect(result.content).toContain('[timed out]');
   });
@@ -128,7 +163,7 @@ describe('run_command with skipAllowList', () => {
     setTimeout(() => controller.abort(), 100);
     const messages = await runAgent({
       provider,
-      tools: [createRunCommandTool({ processes: testProcesses(), workspace, skipAllowList: true })],
+      tools: [toolWith(allowAll())],
       messages: [{ role: 'user', content: 'go' }],
       signal: controller.signal,
     });
@@ -144,7 +179,7 @@ describe('run_command with skipAllowList', () => {
 describe('run_command description', () => {
   it('is required: a call without one is rejected and nothing runs', async () => {
     const result = await runTool({
-      tools: [createRunCommandTool({ processes: testProcesses(), workspace, skipAllowList: true })],
+      tools: [toolWith(allowAll())],
       call: { id: callId, name: 'run_command', input: { command: 'touch marker.txt' } },
       signal,
     });
@@ -174,7 +209,7 @@ describe('run_command description', () => {
 
     await runAgent({
       provider,
-      tools: [createRunCommandTool({ processes: testProcesses(), workspace, allowList: ['pwd'] })],
+      tools: [toolWith()],
       messages: [{ role: 'user', content: 'where are we?' }],
       onEvent: (event) => events.push(event),
     });

@@ -1,16 +1,15 @@
 import { z } from 'zod';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { DEFAULT_ALLOW_LIST } from './allow-list.constants.js';
-import { confirmArguments } from './arguments.helper.js';
+import { confirmCommand } from './command-approval.helper.js';
+import { parseCommand } from './allow-list.utils.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
-import { checkAllowed, formatResult, safeGitArgs, safeGitEnv } from './run-command.utils.js';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { formatResult, safeGitEnv, safeSteps } from './run-command.utils.js';
 
 export function createRunCommandTool({
   workspace,
-  allowList = DEFAULT_ALLOW_LIST,
-  skipAllowList = false,
+  permissions,
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
   approvals,
@@ -19,13 +18,13 @@ export function createRunCommandTool({
   return defineTool({
     name: 'run_command',
     description:
-      (skipAllowList
-        ? 'Run a shell command in the workspace root.'
-        : `Run a command in the workspace root. Only these are allowed: ${allowList.join(', ')}. ` +
-          'No shell syntax (pipes, redirects, chaining). The user must approve commands whose ' +
-          'arguments reach outside the workspace, name .env files or use globs, and git ' +
-          'commands that can print file contents (git diff, git log -p, git show); prefer ' +
-          'git status -sb, git log --oneline and git diff --stat.') +
+      'Run a command in the workspace root, without a shell. Chain commands with | && || and ;; ' +
+      'redirects (> <), $variables, `backticks`, parentheses and & are not supported, and inside ' +
+      "double quotes so are $ and backslashes (use 'single quotes'). The user is asked before " +
+      'a command they have not allowed yet runs, before one whose arguments reach outside the ' +
+      'workspace, name .env files or use globs, and before git commands that can print file ' +
+      'contents (git diff, git log -p, git show); prefer git status -sb, git log --oneline and ' +
+      'git diff --stat. If the user skips a command, do not run it again; do what they say.' +
       (tasks ? ' Set background: true for servers, watchers, or slow commands.' : ''),
     inputSchema: z.object({
       command: z.string().min(1).describe('The command to run, e.g. `git status`'),
@@ -38,27 +37,29 @@ export function createRunCommandTool({
         ),
     }),
     execute: async ({ input: { command, background }, signal, context }) => {
-      const [file, ...args] = skipAllowList ? [command] : checkAllowed({ command, allowList });
+      const parsed = parseCommand(command);
 
-      // The allow list is the first gate; risky arguments of an allowed command are the user's call.
-      if (!skipAllowList) {
-        await confirmArguments({
-          workspace,
-          command,
-          file,
-          args,
-          approvals,
-          call: { callId: context.callId, sessionId: context.session?.id },
-          signal,
+      if (!parsed.ok) {
+        throw new ToolCallError({
+          reason: 'forbidden',
+          message: `Command rejected (${parsed.reason}): ${command}`,
         });
       }
 
+      await confirmCommand({
+        workspace,
+        command,
+        steps: parsed.steps,
+        permissions,
+        approvals,
+        call: { callId: context.callId, sessionId: context.session?.id },
+        signal,
+      });
+
       // The repo's git config can't make git run programs, whatever the command.
-      const options = {
-        file,
-        args: safeGitArgs({ file, args }),
+      const script = {
+        steps: safeSteps(parsed.steps),
         cwd: workspace.root,
-        shell: skipAllowList,
         env: safeGitEnv(),
       };
 
@@ -77,7 +78,7 @@ export function createRunCommandTool({
           callId: context.callId,
           sessionId: context.session?.id,
           run: ({ signal: taskSignal, onOutput }) =>
-            processes.run({ ...options, signal: taskSignal, onOutput }),
+            processes.runScript({ ...script, signal: taskSignal, onOutput }),
         });
 
         return (
@@ -86,7 +87,7 @@ export function createRunCommandTool({
         );
       }
 
-      const result = await processes.run({ ...options, timeoutMs, signal });
+      const result = await processes.runScript({ ...script, timeoutMs, signal });
 
       return formatResult({ command, result });
     },

@@ -8,6 +8,7 @@ import { until } from '@sheavly/testing/wait/until.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { testPermissions } from '../../testing/permissions.fake.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
@@ -32,7 +33,7 @@ function setup() {
       createRunCommandTool({
         processes: testProcesses(),
         workspace: temp.workspace,
-        skipAllowList: true,
+        permissions: testPermissions({ mode: 'allow_all' }),
         tasks,
       }),
       ...createTaskTools(tasks),
@@ -65,7 +66,11 @@ describe('background run_command', () => {
     const { run } = setup();
 
     await run('ok', 'run_command', { command: 'echo hello', background: true });
-    await run('bad', 'run_command', { command: 'echo oops >&2; exit 3', background: true });
+    // No shell: a redirect or `exit` would be refused, so a real program fails with code 3.
+    await run('bad', 'run_command', {
+      command: `node -e 'process.stderr.write("oops\\n"); process.exit(3)'`,
+      background: true,
+    });
 
     await until(() => tasks.runningCount === 0);
     expect(tasks.get(t1)).toMatchObject({ status: 'completed', exitCode: 0, output: 'hello\n' });
@@ -96,7 +101,7 @@ describe('background run_command', () => {
     const tool = createRunCommandTool({
       processes: testProcesses(),
       workspace: temp.workspace,
-      skipAllowList: true,
+      permissions: testPermissions({ mode: 'allow_all' }),
     });
 
     tasks = new TaskRegistry();
@@ -114,11 +119,12 @@ describe('background run_command', () => {
     expect(result.role === 'tool' && result.content).toContain('not enabled');
   });
 
-  it('still applies the allow list', async () => {
+  it('still asks before running a command the user has not allowed', async () => {
     tasks = new TaskRegistry();
     const tool = createRunCommandTool({
       processes: testProcesses(),
       workspace: temp.workspace,
+      permissions: testPermissions(),
       tasks,
     });
     const result = await runTool({

@@ -3,13 +3,14 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
+import { answeringUi } from '@sheavly/runtime/testing/approvals.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { findConcerns } from '../arguments.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
-import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { testPermissions } from '../../testing/permissions.fake.js';
 
 const temp = useTempWorkspace({
   prefix: 'run-command-args-',
@@ -25,33 +26,22 @@ const concernsOf = (command: string) => {
   return findConcerns({ workspace: temp.workspace, file, args });
 };
 
-const run = (command: string, options: Omit<RunCommandOptions, 'workspace' | 'processes'> = {}) =>
+const run = (
+  command: string,
+  options: Partial<Omit<RunCommandOptions, 'workspace' | 'processes'>> = {},
+) =>
   runTool({
     tools: [
       createRunCommandTool({
         processes: testProcesses(),
         workspace: temp.workspace,
-        allowList: ['ls *'],
+        permissions: testPermissions(),
         ...options,
       }),
     ],
     call: { id: callId, name: 'run_command', input: { description: 'listing', command } },
     signal,
   });
-
-/** A UI stand-in: answers every `approval_requested` with `response` and records the requests. */
-function answeringUi(response: ApprovalResponse) {
-  const approvals = new ApprovalRegistry();
-  const asked: ApprovalRequest[] = [];
-
-  approvals.subscribe((update) => {
-    if (update.type !== 'approval_requested') return;
-    asked.push(update.request);
-    approvals.respond({ id: update.request.id, response });
-  });
-
-  return { asked, approvals };
-}
 
 describe('findConcerns', () => {
   it.each([
@@ -206,11 +196,20 @@ describe('run_command argument approval', () => {
     expect(result.content).toContain('- .env: can name a .env file');
   });
 
-  it('checks the allow list first: a command not on it is never offered for approval', async () => {
+  it('asks once about a command that is not allowed and has a risky argument', async () => {
     const { asked, approvals } = answeringUi({ decision: 'approve' });
     const result = await run('cat .env', { approvals });
 
-    expect(result.content).toContain('Command not in allow list: cat .env');
-    expect(asked).toEqual([]);
+    expect(asked).toMatchObject([
+      {
+        command: 'cat .env',
+        concerns: [
+          { argument: 'cat .env', reason: 'is not allowed yet' },
+          { argument: '.env', reason: 'can name a .env file, which holds secrets' },
+        ],
+        options: ['approve', 'always_allow', 'skip', 'skip_with_message'],
+      },
+    ]);
+    expect(result).toMatchObject({ isError: false });
   });
 });

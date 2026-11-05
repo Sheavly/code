@@ -13,6 +13,7 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { testPermissions } from '../../testing/permissions.fake.js';
 
 const c1 = callIdSchema.parse('c1');
 
@@ -26,11 +27,11 @@ const temp = useTempWorkspace({
   outside: { 'secret.txt': 'outside' },
 });
 
-const tool = (approvals: ApprovalRegistry, allowList = ['ls *']) =>
+const tool = (approvals: ApprovalRegistry, permissions = testPermissions({ allow: ['ls *'] })) =>
   createRunCommandTool({
     processes: testProcesses(),
     workspace: temp.workspace,
-    allowList,
+    permissions,
     approvals,
   });
 
@@ -193,7 +194,7 @@ describe('approval flow without a UI', () => {
   it('nothing listening: the command is refused at once and never runs', async () => {
     const marker = path.join(temp.base, 'touched');
     const result = await runTool({
-      tools: [tool(new ApprovalRegistry(), ['touch *'])],
+      tools: [tool(new ApprovalRegistry(), testPermissions({ allow: ['touch *'] }))],
       call: {
         id: callIdSchema.parse('1'),
         name: 'run_command',

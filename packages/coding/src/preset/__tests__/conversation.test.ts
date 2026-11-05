@@ -11,6 +11,7 @@ import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../../run-command/run-command.tool.js';
+import { testPermissions } from '../../testing/permissions.fake.js';
 import { createCodingHarness } from '../coding.helper.js';
 
 const say = (text: string): StreamEvent[] => [
@@ -45,7 +46,12 @@ async function setup(responses: StreamEvent[][]) {
     harness,
     run: streamAgent,
     tools: [
-      createRunCommandTool({ workspace, skipAllowList: true, tasks, processes }),
+      createRunCommandTool({
+        workspace,
+        permissions: testPermissions({ mode: 'allow_all' }),
+        tasks,
+        processes,
+      }),
       ...createTaskTools(tasks),
     ],
   });
