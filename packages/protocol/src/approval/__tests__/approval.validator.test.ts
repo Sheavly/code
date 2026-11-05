@@ -18,6 +18,9 @@ const REQUEST = {
 describe('approvalResponseSchema', () => {
   it('accepts each decision a UI can give', () => {
     expect(approvalResponseSchema.parse({ decision: 'approve' })).toEqual({ decision: 'approve' });
+    expect(approvalResponseSchema.parse({ decision: 'always_allow' })).toEqual({
+      decision: 'always_allow',
+    });
     expect(approvalResponseSchema.parse({ decision: 'skip' })).toEqual({ decision: 'skip' });
     expect(
       approvalResponseSchema.parse({ decision: 'skip_with_message', message: '  use npm ci  ' }),

@@ -592,7 +592,10 @@
       "properties": { "argument": { "type": "string" }, "reason": { "type": "string" } },
       "required": ["argument", "reason"]
     },
-    "ApprovalOption": { "type": "string", "enum": ["approve", "skip", "skip_with_message"] },
+    "ApprovalOption": {
+      "type": "string",
+      "enum": ["approve", "always_allow", "skip", "skip_with_message"]
+    },
     "ApprovalRequest": {
       "type": "object",
       "properties": {
@@ -615,6 +618,11 @@
         {
           "type": "object",
           "properties": { "decision": { "type": "string", "const": "approve" } },
+          "required": ["decision"]
+        },
+        {
+          "type": "object",
+          "properties": { "decision": { "type": "string", "const": "always_allow" } },
           "required": ["decision"]
         },
         {

@@ -14,24 +14,25 @@ A client in another language reads `contract.schema.json`, the whole contract as
 or `openapi.json`, the HTTP API as an OpenAPI 3.2 document. After changing a schema or a route,
 run `npm run schema -w @sheavly/protocol`; a test fails while either file is out of date.
 
-| Module      | What it holds                                                                |
-| ----------- | ---------------------------------------------------------------------------- |
-| `event/`    | The loop's `AgentEvent`s and the `ToolArtifact` they carry                   |
-| `session/`  | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream                      |
-| `stream/`   | `StreamEntry`: every session's events and updates, in one order              |
-| `approval/` | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`                      |
-| `task/`     | Background task states                                                       |
-| `message/`  | The conversation history, and the `PromptPart`s a user typed                 |
-| `skill/`    | `SkillInfo`: a skill as a UI lists it                                        |
-| `server/`   | The server's requests, responses and `ServerError` codes                     |
-| `store/`    | `StoredConversation`: a past conversation as the store lists it              |
-| `model/`    | A model's id, name and file, `AdapterDescription`, and the `KeyCheck` result |
-| `setup/`    | `GET /setup` and the profile, model and credential requests of a setup UI    |
-| `id/`       | `lowercaseUuidSchema`: the shape of every id a file or folder is named by    |
-| `profile/`  | A profile's id and name: a bundle of models, keys and conversations          |
-| `time/`     | `timestampSchema`: when something happened, in milliseconds since the epoch  |
-| `api/`      | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument` |
-| `contract/` | `contract.schema.json`, generated from the schemas                           |
+| Module        | What it holds                                                                |
+| ------------- | ---------------------------------------------------------------------------- |
+| `event/`      | The loop's `AgentEvent`s and the `ToolArtifact` they carry                   |
+| `session/`    | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream                      |
+| `stream/`     | `StreamEntry`: every session's events and updates, in one order              |
+| `approval/`   | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`                      |
+| `task/`       | Background task states                                                       |
+| `message/`    | The conversation history, and the `PromptPart`s a user typed                 |
+| `skill/`      | `SkillInfo`: a skill as a UI lists it                                        |
+| `server/`     | The server's requests, responses and `ServerError` codes                     |
+| `store/`      | `StoredConversation`: a past conversation as the store lists it              |
+| `model/`      | A model's id, name and file, `AdapterDescription`, and the `KeyCheck` result |
+| `setup/`      | `GET /setup` and the profile, model and credential requests of a setup UI    |
+| `id/`         | `lowercaseUuidSchema`: the shape of every id a file or folder is named by    |
+| `profile/`    | A profile's id and name: a bundle of models, keys and conversations          |
+| `permission/` | A folder's command permissions: its mode and the commands the user allowed   |
+| `time/`       | `timestampSchema`: when something happened, in milliseconds since the epoch  |
+| `api/`        | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument` |
+| `contract/`   | `contract.schema.json`, generated from the schemas                           |
 
 ## Docs
 

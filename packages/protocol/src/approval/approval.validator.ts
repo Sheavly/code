@@ -13,17 +13,23 @@ export const approvalConcernSchema = z.object({ argument: z.string(), reason: z.
 
 /**
  * A UI's answer to an approval request, validated before it reaches the waiting tool: run it as
- * asked, skip it, or skip it and steer the agent with a message (passed to the model in the tool
- * result).
+ * asked, skip it, skip it and steer the agent with a message (passed to the model in the tool
+ * result), or run it and allow it for good (the command is added to the folder's allow list).
  */
 export const approvalResponseSchema = z.discriminatedUnion('decision', [
   z.object({ decision: z.literal('approve') }),
+  z.object({ decision: z.literal('always_allow') }),
   z.object({ decision: z.literal('skip') }),
   z.object({ decision: z.literal('skip_with_message'), message: z.string().trim().min(1) }),
 ]);
 
 /** What the user can answer. */
-export const approvalOptionSchema = z.enum(['approve', 'skip', 'skip_with_message']);
+export const approvalOptionSchema = z.enum([
+  'approve',
+  'always_allow',
+  'skip',
+  'skip_with_message',
+]);
 
 /**
  * A tool is waiting for the user: "the agent wants to run this; approve it?". A UI renders it its
