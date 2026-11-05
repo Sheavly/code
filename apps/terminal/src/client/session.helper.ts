@@ -9,7 +9,7 @@ import { RemoteConversation } from './conversation.service.js';
  * A terminal CLI's conversation, as the chat and the demo open it: the backend (started with
  * `env` and `--trust` from `args`, its output written as it comes), a new conversation on it, its
  * details and a renderer. `prompt` is the rest of `args`. Prints what the run is: the model, the
- * workspace, the allow list and why `.sheavly/` hooks didn't load.
+ * workspace, the permission mode and why `.sheavly/` hooks didn't load.
  */
 export async function openSession(params: {
   env: NodeJS.ProcessEnv;
@@ -33,8 +33,8 @@ export async function openSession(params: {
 
   write(`→ ${details.model.adapter} / ${details.model.model} in ${details.workspace}\n`);
 
-  if (details.skipAllowList) {
-    write('⚠ run_command allow list is OFF: any shell command can run\n');
+  if (details.permissionMode === 'allow_all') {
+    write('⚠ run_command is on allow all: any command can run without asking\n');
   }
 
   const trustNotice = projectTrustNotice(details.projectTrust);

@@ -9,7 +9,7 @@
  * (or `npm run dev` / `npm run start` inside apps/terminal).
  *
  * It starts its own backend with this environment's settings (apps/backend/docs/serve.md:
- * WORKSPACE_ROOT, RUN_COMMAND_SKIP_ALLOW_LIST, SHOW_MODEL_CALLS, --trust) and runs on the models
+ * WORKSPACE_ROOT, SHOW_MODEL_CALLS, --trust) and runs on the models
  * in the user's profile (~/.sheavly), and stops it on the way out; BACKEND_URL and BACKEND_TOKEN
  * use one already running.
  * Ctrl+C stops the running prompt, /<skill> anywhere in a message runs that skill, /exit or

@@ -6,7 +6,7 @@
  * It starts its own backend with this environment's settings, on the models in the user's profile
  * (~/.sheavly), and stops it after.
  * WORKSPACE_ROOT confines file tools to a directory (default: current directory).
- * RUN_COMMAND_SKIP_ALLOW_LIST=true lets run_command run any shell command (default: allow list on).
+ * What commands run_command may run is the user's call per folder, asked in the conversation.
  * SHOW_MODEL_CALLS=true prints every model call (main session and sub-agents): its task, tools
  *   and system instructions.
  * SESSIONS_SSE_LOG=<file> writes the conversation's stream, as a UI reads it, to a file.
