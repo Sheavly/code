@@ -1,4 +1,4 @@
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { ConfigStore } from '../config-store/config-store.service.js';
 import type { Config } from '../config-store/config-store.types.js';
@@ -50,24 +50,35 @@ export class ProfileRegistry {
       await this.#profiles.put({
         id: params.id,
         name: params.name,
-        ...(existing?.lastModelId !== undefined && { lastModelId: existing.lastModelId }),
+        ...(existing?.lastModelSelection && { lastModelSelection: existing.lastModelSelection }),
+        ...(existing?.modelModes && { modelModes: existing.modelModes }),
       });
     });
   }
 
   /**
-   * Remembers `modelId` as the model last chosen in profile `id`: where its next new conversation
-   * starts. It is a hint, not a reference kept in step: a model removed since is simply not found
+   * Remembers the model and effort together. An omitted mode restores this model's own last
+   * effort, or medium when none exists. It is a hint: a model removed since is simply not found
    * by whoever reads it, and the next choice replaces it. Throws a `RegistryError`
    * (`unknown_profile`) when there is no such profile.
    */
-  async rememberModel(params: { id: ProfileId; modelId: ModelId }): Promise<void> {
+  async rememberModel(params: {
+    id: ProfileId;
+    modelId: ModelId;
+    mode?: ModelMode;
+  }): Promise<void> {
     const { id, modelId } = params;
 
     await this.#profileWrites.run(async () => {
       const profile = await requireProfile({ profiles: this.#profiles, id });
 
-      await this.#profiles.put({ ...profile, lastModelId: modelId });
+      const mode = params.mode ?? profile.modelModes?.[modelId] ?? 'medium';
+
+      await this.#profiles.put({
+        ...profile,
+        lastModelSelection: { modelId, mode },
+        modelModes: { ...profile.modelModes, [modelId]: mode },
+      });
     });
   }
 

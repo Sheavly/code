@@ -15,7 +15,7 @@ replaced is decided once.
   trusted-workspaces.json                # shared: trust is about a repo, not a provider
   permissions/<workspace-key>.json       # shared: what run_command may do in a folder
   profiles/<profile-id>/
-    profile.json                         # { id, name }: the name is the label a UI shows
+    profile.json                         # identity, lastModelSelection and modelModes keyed by UUID
     models/<model-id>.json               # one file per model: { id, name, adapter, ...fields }
     credentials.json                     # { [model-id]: { apiKey } }, the only file with keys
     workspaces/<workspace-key>/
@@ -26,6 +26,14 @@ replaced is decided once.
 Everything on disk is named by an id, never by what a person typed (`<profile-id>` and
 `<model-id>` are lowercase UUIDs; `<workspace-key>` is a hash of the workspace's real path). A
 person's names (`work`, `Astra 6`) are inside the files, as labels.
+
+`profile.json` stores the latest model/mode pair in `lastModelSelection` and the last mode of
+each model in `modelModes`. `ProfileRegistry.rememberModel` writes both together, using the
+profile write queue and atomic file replacement. Omitting a mode restores that model's previous
+mode, or medium for a new model. Renames preserve both preferences, and profiles remain separate.
+Legacy `lastModelId` is read as a medium-mode selection; the next profile write saves the new
+structure. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
+take another conversation's latest preferences. A legacy index without a mode resumes on medium.
 
 - **A missing file is "nothing stored"; anything else wrong with a file is an error** that names
   it (`StorageFileError`). A store never starts from empty over a file it can't read: that would

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ASTRA, BORA, GHOST, HOME, WORK, useTempRegistry } from '../../testing/registry.fake.js';
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 const temp = useTempRegistry();
 
@@ -8,13 +10,19 @@ describe('the model a profile last used', () => {
     const registry = temp.registry();
 
     await registry.put({ id: WORK, name: 'Work' });
-    expect((await registry.get(WORK))?.lastModelId).toBeUndefined();
+    expect((await registry.get(WORK))?.lastModelSelection).toBeUndefined();
 
     await registry.rememberModel({ id: WORK, modelId: ASTRA });
-    expect((await registry.get(WORK))?.lastModelId).toBe(ASTRA);
+    expect((await registry.get(WORK))?.lastModelSelection).toEqual({
+      modelId: ASTRA,
+      mode: 'medium',
+    });
 
     await registry.rememberModel({ id: WORK, modelId: BORA });
-    expect((await registry.get(WORK))?.lastModelId).toBe(BORA);
+    expect((await registry.get(WORK))?.lastModelSelection).toEqual({
+      modelId: BORA,
+      mode: 'medium',
+    });
   });
 
   it('is a profile’s own: choosing in one never moves another’s', async () => {
@@ -24,7 +32,7 @@ describe('the model a profile last used', () => {
     await registry.put({ id: HOME, name: 'Home' });
     await registry.rememberModel({ id: WORK, modelId: ASTRA });
 
-    expect((await registry.get(HOME))?.lastModelId).toBeUndefined();
+    expect((await registry.get(HOME))?.lastModelSelection).toBeUndefined();
   });
 
   it('survives a rename, which changes the name and nothing else', async () => {
@@ -34,7 +42,12 @@ describe('the model a profile last used', () => {
     await registry.rememberModel({ id: WORK, modelId: ASTRA });
     await registry.put({ id: WORK, name: 'Day job' });
 
-    expect(await registry.get(WORK)).toEqual({ id: WORK, name: 'Day job', lastModelId: ASTRA });
+    expect(await registry.get(WORK)).toEqual({
+      id: WORK,
+      name: 'Day job',
+      lastModelSelection: { modelId: ASTRA, mode: 'medium' },
+      modelModes: { [ASTRA]: 'medium' },
+    });
   });
 
   it('keeps both a rename and a model chosen at the same time', async () => {
@@ -50,7 +63,44 @@ describe('the model a profile last used', () => {
       registry.rememberModel({ id: WORK, modelId: ASTRA }),
     ]);
 
-    expect(await registry.get(WORK)).toEqual({ id: WORK, name: 'Day job', lastModelId: ASTRA });
+    expect(await registry.get(WORK)).toEqual({
+      id: WORK,
+      name: 'Day job',
+      lastModelSelection: { modelId: ASTRA, mode: 'medium' },
+      modelModes: { [ASTRA]: 'medium', [BORA]: 'medium' },
+    });
+  });
+
+  it('remembers each model’s mode across switches and registry restarts', async () => {
+    const registry = temp.registry();
+
+    await registry.put({ id: WORK, name: 'Work' });
+    await registry.rememberModel({ id: WORK, modelId: ASTRA, mode: 'extreme' });
+    await registry.rememberModel({ id: WORK, modelId: BORA, mode: 'low' });
+    await registry.rememberModel({ id: WORK, modelId: ASTRA });
+
+    const file = path.join(temp.root(), 'profiles', WORK, 'profile.json');
+    const saved = JSON.parse(await readFile(file, 'utf8')) as unknown;
+
+    expect(saved).toMatchObject({
+      lastModelSelection: { modelId: ASTRA, mode: 'extreme' },
+      modelModes: { [ASTRA]: 'extreme', [BORA]: 'low' },
+    });
+  });
+
+  it('migrates lastModelId on read and writes the new structure on the next change', async () => {
+    const registry = temp.registry();
+
+    await registry.put({ id: WORK, name: 'Work' });
+    const file = path.join(temp.root(), 'profiles', WORK, 'profile.json');
+
+    await writeFile(file, JSON.stringify({ id: WORK, name: 'Work', lastModelId: ASTRA }));
+    expect((await registry.get(WORK))?.lastModelSelection).toEqual({
+      modelId: ASTRA,
+      mode: 'medium',
+    });
+    await registry.put({ id: WORK, name: 'Renamed' });
+    expect(await readFile(file, 'utf8')).not.toContain('lastModelId');
   });
 
   it('is refused for a profile that does not exist, and makes none', async () => {
