@@ -17,6 +17,7 @@
   },
   "private": true,
   "dependencies": {
+    "@earendil-works/pi-tui": "^1.5.0",
     "@sheavly/client": "^0.0.0",
     "@sheavly/coding": "^0.0.0",
     "@sheavly/core": "^0.0.0",
