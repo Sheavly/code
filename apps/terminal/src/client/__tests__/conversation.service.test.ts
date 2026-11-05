@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { fakeServer } from '@sheavly/client/testing/fake-server.fake';
 import type { FakeHandlers } from '@sheavly/client/testing/testing.types';
+import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -183,5 +185,132 @@ describe('RemoteConversation', () => {
     expect(
       server.calls.filter(({ name }) => name === 'querySkills').map(({ call }) => call.body),
     ).toEqual([{ search: 'rev' }, {}]);
+  });
+
+  describe('approvals', () => {
+    const asked = (seq: number, id: string): StreamEntry => ({
+      seq,
+      at: 0,
+      sessionId: MAIN,
+      kind: 'approval',
+      update: {
+        type: 'approval_requested',
+        request: {
+          id: approvalIdSchema.parse(id),
+          callId: callIdSchema.parse('c1'),
+          tool: 'run_command',
+          command: 'npm test',
+          concerns: [{ argument: 'npm test', reason: 'is not allowed yet' }],
+          options: ['approve', 'always_allow', 'skip', 'skip_with_message'],
+        },
+      },
+    });
+
+    it('says it will answer, so a command waits instead of being refused, and hears each update', async () => {
+      const { conversation, server } = await open({
+        streamConversation: () =>
+          entries(asked(0, 'a1'), text(1, 'not an approval'), {
+            seq: 2,
+            at: 0,
+            sessionId: MAIN,
+            kind: 'approval',
+            update: { type: 'approval_cancelled', id: approvalIdSchema.parse('a1') },
+          }),
+      });
+      const heard: string[] = [];
+      const { ended } = await conversation.watchApprovals({
+        onUpdate: (update) => heard.push(update.type),
+        signal: new AbortController().signal,
+      });
+
+      await ended;
+
+      expect(heard).toEqual(['approval_requested', 'approval_cancelled']);
+      expect(server.calls.find(({ name }) => name === 'streamConversation')?.call.body).toEqual({
+        approvals: true,
+      });
+    });
+
+    it('is connected by the time it resolves, so the first prompt is not refused', async () => {
+      const order: string[] = [];
+      const { conversation } = await open({
+        async *streamConversation() {
+          order.push('stream open');
+          yield asked(0, 'a1');
+        },
+        sendPrompt: () => {
+          order.push('prompt sent');
+
+          return entries(done(0, 'completed'));
+        },
+      });
+
+      const { ended } = await conversation.watchApprovals({
+        onUpdate: () => undefined,
+        signal: new AbortController().signal,
+      });
+
+      await sent(conversation);
+      await ended;
+
+      expect(order).toEqual(['stream open', 'prompt sent']);
+    });
+
+    it('ends quietly when it is stopped, and fails on any other error', async () => {
+      const stop = new AbortController();
+      const stopped = await open({
+        async *streamConversation() {
+          yield asked(0, 'a1');
+          stop.abort();
+          throw new Error('connection reset by the abort');
+        },
+      });
+      const watching = await stopped.conversation.watchApprovals({
+        onUpdate: () => undefined,
+        signal: stop.signal,
+      });
+
+      await expect(watching.ended).resolves.toBeUndefined();
+
+      const failing = await open({
+        async *streamConversation() {
+          yield asked(0, 'a1');
+          throw new Error('backend went away');
+        },
+      });
+      const failed = await failing.conversation.watchApprovals({
+        onUpdate: () => undefined,
+        signal: new AbortController().signal,
+      });
+
+      await expect(failed.ended).rejects.toThrow('backend went away');
+    });
+
+    it('answers an approval by its id with the decision', async () => {
+      const { conversation, server } = await open({ answerApproval: () => undefined });
+
+      await conversation.answerApproval({
+        approval: approvalIdSchema.parse('a1'),
+        response: { decision: 'skip_with_message', message: 'use ls instead' },
+      });
+
+      expect(server.calls.find(({ name }) => name === 'answerApproval')?.call).toEqual({
+        params: { id: ID, approval: 'a1' },
+        body: { response: { decision: 'skip_with_message', message: 'use ls instead' } },
+      });
+    });
+
+    it('lets the caller tell that someone else answered first', async () => {
+      const { conversation } = await open({
+        answerApproval: () => ({ refuse: { status: 404, code: 'unknown_approval' } }),
+      });
+
+      await expect(
+        conversation.answerApproval({
+          approval: approvalIdSchema.parse('a1'),
+          response: { decision: 'approve' },
+        }),
+      ).rejects.toMatchObject({ name: 'RefusedError', code: 'unknown_approval' });
+    });
   });
 });

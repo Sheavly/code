@@ -1,5 +1,11 @@
 import { createClient } from '@sheavly/client/client/client.helper';
+import { readEntries } from '@sheavly/client/client/entries.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
+import type {
+  ApprovalId,
+  ApprovalResponse,
+  ApprovalUpdate,
+} from '@sheavly/protocol/approval/approval.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
@@ -108,6 +114,49 @@ export class RemoteConversation {
    */
   rawStream(signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
     return this.#client.open('streamConversation', { id: this.id, body: { replay: true }, signal });
+  }
+
+  /**
+   * Answers the conversation's approvals: while the returned `ended` runs, a command that needs
+   * one waits for the user instead of being refused at once, and `onUpdate` hears each approval
+   * asked, and each one answered or given up on (by this UI, another, or an interrupt).
+   *
+   * Resolves once the backend has accepted the stream, which is when it counts: an approval asked
+   * before that is refused on the spot, so send the first prompt only after this resolves. `ended`
+   * resolves when `signal` aborts or the stream ends, and rejects on any other failure.
+   */
+  async watchApprovals(params: {
+    onUpdate: (update: ApprovalUpdate) => void;
+    signal: AbortSignal;
+  }): Promise<{ ended: Promise<void> }> {
+    const { onUpdate, signal } = params;
+    const body = await this.#client.open('streamConversation', {
+      id: this.id,
+      body: { approvals: true },
+      signal,
+    });
+
+    const follow = async (): Promise<void> => {
+      try {
+        for await (const { entry } of readEntries(body)) {
+          if (entry.kind === 'approval') onUpdate(entry.update);
+        }
+      } catch (caughtError) {
+        // Stopping the watch is how it ends; anything else is a real failure.
+        if (!signal.aborted) throw caughtError;
+      }
+    };
+
+    return { ended: follow() };
+  }
+
+  /** Answers a waiting approval. `unknown_approval` when it is gone: someone answered first. */
+  answerApproval(params: { approval: ApprovalId; response: ApprovalResponse }): Promise<void> {
+    return this.#client.send('answerApproval', {
+      id: this.id,
+      approval: params.approval,
+      body: { response: params.response },
+    });
   }
 
   /** Closes it on the backend: its prompts, background tasks and processes stop. */
