@@ -738,7 +738,7 @@
           "type": "string",
           "enum": ["trusted", "untrusted", "changed", "no_hooks"]
         },
-        "skipAllowList": { "type": "boolean" }
+        "permissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] }
       },
       "required": [
         "id",
@@ -751,7 +751,7 @@
         "model",
         "models",
         "projectTrust",
-        "skipAllowList"
+        "permissionMode"
       ]
     },
     "SwitchModelRequest": {

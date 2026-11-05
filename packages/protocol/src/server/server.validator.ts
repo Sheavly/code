@@ -3,6 +3,7 @@ import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
 import { adapterKindSchema, modelIdSchema } from '../model/model.validator.js';
+import { permissionModeSchema } from '../permission/permission.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
@@ -64,8 +65,9 @@ export const modelChoiceSchema = z.object({
 /**
  * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
  * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
- * whether the workspace's `.sheavly/` hooks run, and why not; `skipAllowList`, whether any shell
- * command can run.
+ * whether the workspace's `.sheavly/` hooks run, and why not; `permissionMode`, how
+ * `run_command` treats commands in this workspace right now (it can change while the
+ * conversation runs, and applies to every conversation in the workspace).
  */
 export const conversationDetailsSchema = conversationSummarySchema.extend({
   workspace: z.string(),
@@ -74,7 +76,7 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
   model: modelChoiceSchema,
   models: z.array(modelChoiceSchema),
   projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
-  skipAllowList: z.boolean(),
+  permissionMode: permissionModeSchema,
 });
 
 /**

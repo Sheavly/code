@@ -57,7 +57,7 @@
     "/conversations/{id}": {
       "get": {
         "operationId": "getConversation",
-        "summary": "What the run is: workspace, models, trust, the allow list",
+        "summary": "What the run is: workspace, models, trust, the permission mode",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -1570,7 +1570,7 @@
             "type": "string",
             "enum": ["trusted", "untrusted", "changed", "no_hooks"]
           },
-          "skipAllowList": { "type": "boolean" }
+          "permissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] }
         },
         "required": [
           "id",
@@ -1583,7 +1583,7 @@
           "model",
           "models",
           "projectTrust",
-          "skipAllowList"
+          "permissionMode"
         ]
       },
       "SwitchModelRequest": {

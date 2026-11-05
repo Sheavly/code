@@ -109,7 +109,7 @@ describe('the responses', () => {
       model,
       models: [model],
       projectTrust: 'untrusted',
-      skipAllowList: false,
+      permissionMode: 'ask',
     };
 
     expect(conversationDetailsSchema.parse(details)).toEqual(details);

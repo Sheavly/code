@@ -75,7 +75,7 @@ export const API_ROUTES = {
     effect: 'read',
     method: 'get',
     path: '/conversations/{id}',
-    summary: 'What the run is: workspace, models, trust, the allow list',
+    summary: 'What the run is: workspace, models, trust, the permission mode',
     response: { status: 200, schema: conversationDetailsSchema },
   },
   closeConversation: {
