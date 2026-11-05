@@ -112,6 +112,9 @@ describe('isSanctionedWriter', () => {
     'npm run lint >> /tmp/lint.log 2>&1',
     // The project's own scripts, and a read of the diff they leave.
     'npm run graph 2>&1 | rg -v "npm notice" | tail -3; git diff --stat -- docs/overview.md | cat; npm run layout 2>&1 | head -4 | cut -c1-220',
+    // The layout checker only prints what it finds, whether run through npm or directly.
+    'npm run graph 2>&1 | tail -3; git diff --stat -- docs/overview.md | cat; node scripts/check-layout.mjs 2>&1 | head -4 | cut -c1-220',
+    "npm pkg set 'exports[./listing/*.helper]=null' --json -w @sheavly/storage 2>&1 | tail -1; node scripts/check-layout.mjs 2>&1 | head -4",
   ])('trusts %s', (command) => expect(isSanctionedWriter(command)).toBe(true));
 
   it.each([
@@ -150,6 +153,13 @@ describe('isSanctionedWriter', () => {
     'npm run test >',
     // A relative path that climbs back in is not outside either.
     `npm run test > ../${path.basename(process.cwd())}/a.ts 2>&1`,
+    // Only the checkers listed are read-only: another script, an inline program, or a checker
+    // given arguments or a redirect into the project is not.
+    'node scripts/export.mjs',
+    'node scripts/check-layout.mjs --fix',
+    'node scripts/check-layout.mjs > a.ts',
+    'node scripts/check-layout.mjs; cp /tmp/x a.ts',
+    'node ./a.mjs',
   ])('does not trust %s', (command) => expect(isSanctionedWriter(command)).toBe(false));
 });
 

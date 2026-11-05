@@ -81,6 +81,10 @@ export function changedFiles(params) {
 // program that only prints or searches. Grow this list by hand, in review: never to let a
 // workaround through.
 const SANCTIONED_WRITERS = new Set(['git', 'gh', 'npm', 'npx', 'turbo']);
+// Project scripts that only print what they find (`npm run layout` runs the first); named in full,
+// since any other script could have been written with the edit tools to write files.
+const READ_ONLY_SCRIPTS = new Set(['scripts/check-layout.mjs']);
+const FD_DUPLICATION = /^\d*>&\d+$/;
 const REDIRECT = /^\d*>>?$/;
 // Launchers that run the next word as the program with its own arguments; their own options
 // before it (a duration, `-n 10`) are read past.
@@ -98,6 +102,16 @@ function programOf(tokens) {
   return tokens.slice(index);
 }
 
+function isReadOnlyScript(tokens) {
+  const [program, script, ...rest] = tokens;
+
+  return (
+    programName(program ?? '') === 'node' &&
+    READ_ONLY_SCRIPTS.has(script ?? '') &&
+    rest.every((token) => FD_DUPLICATION.test(token))
+  );
+}
+
 function isSanctionedSegment(segment) {
   const tokens = programOf(segment);
   const redirectsToFile = tokens.some(
@@ -110,7 +124,8 @@ function isSanctionedSegment(segment) {
     tokens[0] === 'cd' ||
     SANCTIONED_WRITERS.has(programName(tokens[0])) ||
     startsWithNonExecuting(tokens) ||
-    isLinePrint(tokens)
+    isLinePrint(tokens) ||
+    isReadOnlyScript(tokens)
   );
 }
 
