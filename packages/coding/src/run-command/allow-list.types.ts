@@ -1,12 +1,8 @@
-/** How one command of a line is joined to the next: a pipe, `&&`, `||` or `;`. */
-export type Connector = '|' | '&&' | '||' | ';';
-
-/** One simple command of a line: its words, and what joins it to the next command, if any. */
-export type CommandStep = { argv: [string, ...string[]]; joinedBy?: Connector };
+import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
 
 /** A command line split into its commands, or why it can't be. */
 export type ParseResult =
-  { ok: true; steps: [CommandStep, ...CommandStep[]] } | { ok: false; reason: string };
+  { ok: true; steps: [ScriptStep, ...ScriptStep[]] } | { ok: false; reason: string };
 
 /** What the tokenizer reads: a word (quotes removed) or a connector between commands. */
 export type Token = { word: string } | { connector: Connector };

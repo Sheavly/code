@@ -5,13 +5,8 @@
  * parser can't carry out faithfully is refused, not guessed at. The entry format is described in
  * `allow-list.constants.ts`.
  */
-import type {
-  CommandStep,
-  Connector,
-  ParseResult,
-  Token,
-  TokenResult,
-} from './allow-list.types.js';
+import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
+import type { ParseResult, Token, TokenResult } from './allow-list.types.js';
 
 // Characters a shell gives a meaning this parser does not; each is refused outside quotes.
 const REFUSED: Record<string, string> = {
@@ -129,7 +124,7 @@ function tokenize(line: string): TokenResult {
   return { ok: true, tokens };
 }
 
-function stepOf(params: { words: string[]; joinedBy?: Connector }): CommandStep | undefined {
+function stepOf(params: { words: string[]; joinedBy?: Connector }): ScriptStep | undefined {
   const [program, ...args] = params.words;
 
   if (program === undefined) return undefined;
@@ -141,7 +136,7 @@ function stepOf(params: { words: string[]; joinedBy?: Connector }): CommandStep 
 
 function buildSteps(readTokens: Token[]): ParseResult {
   const tokens = withoutTrailingSemicolon(readTokens);
-  const steps: CommandStep[] = [];
+  const steps: ScriptStep[] = [];
   let words: string[] = [];
 
   for (const token of tokens) {
