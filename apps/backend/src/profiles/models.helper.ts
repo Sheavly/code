@@ -1,4 +1,4 @@
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import { AdapterError } from '@sheavly/providers/errors/providers.errors';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
@@ -22,6 +22,7 @@ export async function modelsOf(params: {
   registry: AdapterRegistry;
   request: RequestSettings;
   startWith?: ModelId | undefined;
+  modes?: Partial<Record<ModelId, ModelMode>>;
 }): Promise<ProfileModels> {
   const { profile, registry, request, startWith } = params;
   const { models: stored, problems } = await profile.listModels();
@@ -37,6 +38,7 @@ export async function modelsOf(params: {
       const remote = model.definition[remoteFields.get(model.adapter) ?? ''];
 
       models.switch.add(model.id, provider);
+      models.switch.setMode({ name: model.id, mode: params.modes?.[model.id] ?? 'medium' });
       models.choices.push({
         id: model.id,
         name: model.name,

@@ -79,12 +79,12 @@ describe('servedConversation', () => {
     const a = await conversations.start();
     const b = await conversations.start();
 
-    conversations.useModel({ id: a, modelId: FAST_ID });
+    await conversations.useModel({ id: a, modelId: FAST_ID });
 
     expect((await conversations.details(a)).model).toMatchObject({ id: FAST_ID, name: 'Fast' });
     expect((await conversations.details(b)).model).toMatchObject({ id: DEEP_ID, name: 'Deep' });
     // A model the profile does not have is refused, by its id.
-    expect(() => conversations.useModel({ id: a, modelId: OTHER_ID })).toThrow(OTHER_ID);
+    await expect(conversations.useModel({ id: a, modelId: OTHER_ID })).rejects.toThrow(OTHER_ID);
     await conversations.closeAll();
   });
 
@@ -96,11 +96,11 @@ describe('servedConversation', () => {
     // Fast is not first by name: it is where this one starts because the profile last used it.
     expect((await conversations.details(first)).model.id).toBe(FAST_ID);
 
-    conversations.useModel({ id: first, modelId: DEEP_ID });
+    await conversations.useModel({ id: first, modelId: DEEP_ID });
 
     // Remembered after the switch, not before it: wait for the write rather than assume it.
     for (let tries = 0; tries < 200; tries += 1) {
-      if ((await registry.get(TEST_PROFILE))?.lastModelId === DEEP_ID) break;
+      if ((await registry.get(TEST_PROFILE))?.lastModelSelection?.modelId === DEEP_ID) break;
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
 
@@ -120,6 +120,50 @@ describe('servedConversation', () => {
       reason: 'not_set_up',
       message: expect.stringContaining('create a profile') as string,
     });
+  });
+
+  it('remembers effort per model, starts new conversations on the last selection, and restores an older conversation', async () => {
+    await setUpProfile({ home, models: [fast, deep], lastModelId: FAST_ID });
+    const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'OK' }]);
+    const { conversations } = serve({}, fetch);
+    const a = await conversations.start();
+    const b = await conversations.start();
+
+    await conversations.useModel({ id: a, modelId: FAST_ID, mode: 'high' });
+    await conversations.useModel({ id: a, modelId: DEEP_ID, mode: 'low' });
+    await conversations.useModel({ id: a, modelId: FAST_ID });
+    expect((await conversations.details(a)).model.mode).toBe('high');
+    expect((await conversations.details(b)).model.mode).toBe('medium');
+
+    await collect((await conversations.send({ id: a, prompt: { text: 'hi' } })).events);
+    expect(requests[0]?.body.reasoning).toEqual({ effort: 'high' });
+    await conversations.close(a);
+    await conversations.useModel({ id: b, modelId: DEEP_ID, mode: 'extreme' });
+    await conversations.closeAll();
+
+    const restarted = serve({}, fetch).conversations;
+    const fresh = await restarted.start();
+
+    expect((await restarted.details(fresh)).model).toMatchObject({ id: DEEP_ID, mode: 'extreme' });
+    await restarted.reopen(a);
+    expect((await restarted.details(a)).model).toMatchObject({ id: FAST_ID, mode: 'high' });
+    await restarted.useModel({ id: a, modelId: DEEP_ID });
+    expect((await restarted.details(a)).model.mode).toBe('extreme');
+    await restarted.closeAll();
+  });
+
+  it('serializes simultaneous model and effort selections without losing the model’s remembered mode', async () => {
+    await setUpProfile({ home, models: [fast, deep] });
+    const { conversations } = serve();
+    const id = await conversations.start();
+
+    await Promise.all([
+      conversations.useModel({ id, modelId: FAST_ID, mode: 'high' }),
+      conversations.useModel({ id, modelId: DEEP_ID, mode: 'low' }),
+      conversations.useModel({ id, modelId: FAST_ID }),
+    ]);
+    expect((await conversations.details(id)).model).toMatchObject({ id: FAST_ID, mode: 'high' });
+    await conversations.closeAll();
   });
 
   it('is refused with not_set_up when the profile has no model it can use, naming what was left out', async () => {

@@ -4,7 +4,7 @@ import type {
   CreateConversation,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
@@ -19,6 +19,7 @@ import type { PlacedConversationStore } from '../profiles/placed-conversation-st
 import type { Profiles } from '../profiles/profiles.service.js';
 import type { WorkspaceModels } from '../profiles/profiles.types.js';
 import { parseRequestEnv } from './settings.validator.js';
+import { selectedProvider } from './selected-provider.helper.js';
 
 /**
  * One conversation as the backend serves it: placed in a folder on a profile (what the start asked
@@ -58,10 +59,21 @@ export async function servedConversation(params: {
   });
   const workspace = await profiles.modelsFor({ placement, request: parseRequestEnv(env) });
 
+  // Resume the conversation's own selection, never a newer selection from another conversation.
+  if (asked.modelSelection) {
+    workspace.models.switch.use(asked.modelSelection.modelId);
+    workspace.models.switch.setMode({
+      name: asked.modelSelection.modelId,
+      mode: asked.modelSelection.mode,
+    });
+  }
+
   for (const note of workspace.notes) log(`${note}\n`);
 
+  const onModelCall = modelCallsTo({ settings, log });
   const harness = await createBackendHarness({
     provider: workspace.models.switch,
+    subAgentProvider: () => selectedProvider({ models: workspace.models, onModelCall }),
     workspaceRoot: placement.workspace,
     fileLocks,
     permissions,
@@ -70,7 +82,7 @@ export async function servedConversation(params: {
     env,
     trustWorkspace: settings.trustWorkspace,
     home: homedir(),
-    onModelCall: modelCallsTo({ settings, log }),
+    onModelCall,
     ...(storage && { entries: storage.entries, resume: storage.resume }),
   });
   const skills = skillsNotice(await findSkills(harness.skills));
@@ -91,7 +103,7 @@ export async function servedConversation(params: {
         projectTrust: harness.projectTrust,
       }),
       permissionMode: async () => (await permissions.read()).mode,
-      useModel: (id) => useModel({ workspace, id, log }),
+      useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
     },
   });
 }
@@ -101,29 +113,32 @@ function modelsIn(workspace: WorkspaceModels) {
   const { switch: active, choices } = workspace.models;
 
   return {
-    model: choices.find((choice) => choice.id === active.active) ?? workspace.first,
+    model: {
+      ...(choices.find((choice) => choice.id === active.active) ?? workspace.first),
+      mode: active.activeMode ?? 'medium',
+    },
     models: choices,
   };
 }
 
 /**
  * Switches to the model with this id, and remembers it as the profile's last, where its next new
- * conversation starts. False when this conversation has no such model. A model that can't be
- * remembered is told to `log` and does not undo the switch: the conversation is on it either way.
+ * conversation starts. Without an explicit mode it restores this model's latest mode in the
+ * profile. A failed preference write rejects the switch before the active selection changes.
  */
-function useModel(params: {
+async function useModel(params: {
   workspace: WorkspaceModels;
   id: ModelId;
-  log: (text: string) => void;
-}): boolean {
-  const { workspace, id, log } = params;
+  mode?: ModelMode;
+}): Promise<boolean> {
+  const { workspace, id } = params;
 
   if (!workspace.models.choices.some((choice) => choice.id === id)) return false;
 
+  const mode = await workspace.select({ modelId: id, ...(params.mode && { mode: params.mode }) });
+
+  workspace.models.switch.setMode({ name: id, mode });
   workspace.models.switch.use(id);
-  workspace.remember(id).catch((caughtError: unknown) => {
-    log(`Could not remember the model as the profile's last: ${String(caughtError)}\n`);
-  });
 
   return true;
 }

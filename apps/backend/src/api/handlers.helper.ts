@@ -62,8 +62,8 @@ export function apiHandlers(
 
       return c.body(null, 204);
     },
-    switchModel: ({ c, id, body }) => {
-      conversations.useModel({ id, modelId: body.id });
+    switchModel: async ({ c, id, body }) => {
+      await conversations.useModel({ id, modelId: body.id, ...(body.mode && { mode: body.mode }) });
 
       return c.body(null, 204);
     },

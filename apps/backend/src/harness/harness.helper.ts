@@ -25,7 +25,14 @@ import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 export async function createBackendHarness(
   options: BackendHarnessOptions,
 ): Promise<BackendHarness> {
-  const { trustStore, trustWorkspace = false, permissions, home, ...coding } = options;
+  const {
+    trustStore,
+    trustWorkspace = false,
+    permissions,
+    home,
+    subAgentProvider,
+    ...coding
+  } = options;
   const harness = await createCodingHarness(coding);
   const { workspace, fileLocks, fileReads, processes, tasks, approvals, sessions, provider } =
     harness;
@@ -56,6 +63,7 @@ export async function createBackendHarness(
         sessions,
         tasks,
         provider,
+        ...(subAgentProvider && { selectProvider: subAgentProvider }),
         runAgent: runSession,
         tools: fileTools,
         hooks: [agentsMd, skills],

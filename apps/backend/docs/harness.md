@@ -47,7 +47,12 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   leaves the others alone; `PUT /conversations/:id/model` (the chat's `/model`) switches it.
 - **Where it starts.** A new conversation starts on the profile's last model (the one chosen last
   in any of its conversations), else its first. A switch is remembered for the next conversation
-  without touching the ones running.
+  without touching the ones running. Profiles keep `lastModelSelection` (the model/mode pair)
+  and `modelModes` (each model's last-used effort). Low, medium, high and extreme are reasoning
+  modes; a model with no remembered mode starts on medium. Switching back to a model restores
+  its latest mode in the profile, even if another conversation changed that preference. A
+  resumed conversation instead restores its own saved pair. A mode-only switch is persisted
+  through the same API, without changing the model.
 - **A model that can't be used** (no key, a definition its adapter refuses) is left out with a
   note on the log, and never costs the user the others. A note says which model and why, never the
   key and never what a provider answered.

@@ -13,6 +13,7 @@ import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
+import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 
 /** What the backend's command line and environment set for a run. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
@@ -29,6 +30,7 @@ export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
 /** What the backend decides about a run. */
 export type BackendHarnessOptions = {
   provider: Provider;
+  subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   title: string;
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;

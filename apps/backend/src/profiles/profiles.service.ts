@@ -1,6 +1,6 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
@@ -107,7 +107,8 @@ export class Profiles {
       profile,
       registry: this.#adapters,
       request,
-      ...(found.lastModelId && { startWith: found.lastModelId }),
+      ...(found.lastModelSelection && { startWith: found.lastModelSelection.modelId }),
+      ...(found.modelModes && { modes: found.modelModes }),
     });
 
     // The switch starts on a model among the choices (see `modelsOf`), so with any choice at all
@@ -128,7 +129,14 @@ export class Profiles {
       models,
       notes,
       first,
-      remember: (modelId: ModelId) => this.#registry.rememberModel({ id: found.id, modelId }),
+      select: async (selection: { modelId: ModelId; mode?: ModelMode }) => {
+        const profile = await this.#profileNamed(found.id);
+        const mode = selection.mode ?? profile.modelModes?.[selection.modelId] ?? 'medium';
+
+        await this.#registry.rememberModel({ id: found.id, modelId: selection.modelId, mode });
+
+        return mode;
+      },
     };
   }
 
