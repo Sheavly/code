@@ -13,6 +13,7 @@ replaced is decided once.
 ~/.sheavly/
   config.json                            # the default profile; workspace → profile bindings
   trusted-workspaces.json                # shared: trust is about a repo, not a provider
+  permissions/<workspace-key>.json       # shared: what run_command may do in a folder
   profiles/<profile-id>/
     profile.json                         # { id, name }: the name is the label a UI shows
     models/<model-id>.json               # one file per model: { id, name, adapter, ...fields }
