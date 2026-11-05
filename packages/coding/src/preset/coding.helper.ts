@@ -1,4 +1,5 @@
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
@@ -11,13 +12,14 @@ import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
  * `createAgentsMdHook`, `loadProjectHooks`), so what a run includes is the UI's choice.
  */
 export async function createCodingHarness(options: CodingHarnessOptions): Promise<CodingHarness> {
-  const { workspaceRoot, env, ...harnessOptions } = options;
+  const { workspaceRoot, env, fileLocks = new FileLocks(), ...harnessOptions } = options;
   const workspace = await Workspace.open(workspaceRoot);
 
   return {
     ...createHarness(harnessOptions),
     workspace,
-    fileLocks: new FileLocks(),
+    fileLocks,
+    fileReads: new FileReads(),
     processes: new ProcessRunner({ env }),
   };
 }

@@ -9,6 +9,7 @@ check:
         'packages/coding/src/edit-file',
         'packages/coding/src/files',
         'packages/workspace/src/file-locks',
+        'packages/workspace/src/file-reads',
         'packages/workspace/src/workspace',
         'packages/loop/src/stream-agent',
         'packages/loop/src/queue',

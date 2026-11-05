@@ -1,5 +1,6 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
@@ -9,6 +10,12 @@ export type CodingHarnessOptions = HarnessOptions & {
   workspaceRoot?: string | undefined;
   /** The environment commands start from, secrets scrubbed (an app passes `process.env`). */
   env: Environment;
+  /**
+   * The locks every file tool of this run takes. Pass one set to every run of an app that has
+   * several at once, so two runs editing one file take turns (they key by real path, so one set
+   * serves any number of folders). Default: a set of this run's own.
+   */
+  fileLocks?: FileLocks | undefined;
 };
 
 /**
@@ -21,6 +28,8 @@ export type CodingHarness = Harness & {
   workspace: Workspace;
   /** Shared by every file tool, the main agent's and each sub-agent's, so edits never overlap. */
   fileLocks: FileLocks;
+  /** Which files each agent has read, so `edit_file` refuses one an agent never saw. */
+  fileReads: FileReads;
   /** Runs every command; each one it started is stopped when the process exits. */
   processes: ProcessRunner;
 };

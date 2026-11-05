@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { isFileChange } from '../../files/files.utils.js';
@@ -19,10 +20,17 @@ const temp = useTempWorkspace({
 });
 
 const fileLocks = useFileLocks();
+const fileReads = useFileReads();
 
 const write = (filePath: string, content: string) =>
   runTool({
-    tools: [createWriteFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current })],
+    tools: [
+      createWriteFileTool({
+        workspace: temp.workspace,
+        fileLocks: fileLocks.current,
+        fileReads: fileReads.current,
+      }),
+    ],
     call: {
       id: callIdSchema.parse('1'),
       name: 'write_file',
@@ -44,14 +52,62 @@ describe('write_file', () => {
     );
   });
 
-  it('overwrites a file, and reports the old content as before', async () => {
+  it('refuses a file that exists, pointing to edit_file, and leaves it as it was', async () => {
     const result = await write('existing.ts', 'new\n');
 
-    expect(result.content).toBe('Overwrote existing.ts (2 → 2 lines)');
-    expect(result.artifacts).toEqual([
-      { kind: 'file_change', path: 'existing.ts', before: 'old\n', after: 'new\n' },
-    ]);
-    expect(await readFile(path.join(temp.root, 'existing.ts'), 'utf8')).toBe('new\n');
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('existing.ts already exists');
+    expect(result.content).toContain('edit_file');
+    expect(result.artifacts).toBeUndefined();
+    expect(await readFile(path.join(temp.root, 'existing.ts'), 'utf8')).toBe('old\n');
+  });
+
+  it('refuses it through a symlink too, and an existing empty file', async () => {
+    await symlink(path.join(temp.root, 'existing.ts'), path.join(temp.root, 'alias.ts'));
+    await writeFile(path.join(temp.root, 'empty.ts'), '');
+
+    expect((await write('alias.ts', 'new\n')).content).toContain('already exists');
+    expect((await write('empty.ts', 'new\n')).content).toContain('already exists');
+    expect(await readFile(path.join(temp.root, 'existing.ts'), 'utf8')).toBe('old\n');
+    expect(await readFile(path.join(temp.root, 'empty.ts'), 'utf8')).toBe('');
+  });
+
+  it('lets only one of several agents creating the same path win', async () => {
+    const results = await Promise.all(
+      ['one\n', 'two\n', 'three\n', 'four\n'].map((content) => write('race.ts', content)),
+    );
+    const winners = results.filter((result) => !result.isError);
+
+    expect(winners).toHaveLength(1);
+    expect(
+      results.filter((result) => result.isError).every((r) => r.content.includes('already exists')),
+    ).toBe(true);
+    // What is on disk is the winner's, whole.
+    expect(await readFile(path.join(temp.root, 'race.ts'), 'utf8')).toBe(
+      winners[0]?.artifacts?.find(isFileChange)?.after,
+    );
+  });
+
+  it('counts what it creates as read: the agent can edit it without reading it back', async () => {
+    await write('fresh.ts', 'a = 1;\n');
+
+    const edited = await runTool({
+      tools: [
+        createEditFileTool({
+          workspace: temp.workspace,
+          fileLocks: fileLocks.current,
+          fileReads: fileReads.current,
+        }),
+      ],
+      call: {
+        id: callIdSchema.parse('2'),
+        name: 'edit_file',
+        input: { description: 'edit', path: 'fresh.ts', oldText: 'a = 1;', newText: 'a = 2;' },
+      },
+      signal,
+    });
+
+    expect(edited).toMatchObject({ isError: false });
   });
 
   it('refuses paths outside the workspace, and writes nothing', async () => {
@@ -115,14 +171,16 @@ describe('write_file', () => {
     expect((await write('docs/.github/x.md', 'x')).isError).toBe(false);
   });
 
-  it('takes turns with parallel edit_file calls on one file, each from the last one written', async () => {
+  it('takes turns with parallel edit_file calls on a file it created, each from the last one written', async () => {
     const lines = ['a = 0;', 'b = 0;', 'c = 0;'];
     const base = `${lines.join('\n')}\n`;
-    // Both tools on the test's one set of locks, as `createHarness` wires them.
-    const tools = [
-      createWriteFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current }),
-      createEditFileTool({ workspace: temp.workspace, fileLocks: fileLocks.current }),
-    ];
+    // Both tools on the test's one set of locks and reads, as `createHarness` wires them.
+    const shared = {
+      workspace: temp.workspace,
+      fileLocks: fileLocks.current,
+      fileReads: fileReads.current,
+    };
+    const tools = [createWriteFileTool(shared), createEditFileTool(shared)];
     const call = (name: string, input: Record<string, unknown>) =>
       runTool({
         tools,
@@ -132,11 +190,9 @@ describe('write_file', () => {
 
     await write('mixed.ts', base);
 
-    const results = await Promise.all([
-      call('write_file', { path: 'mixed.ts', content: `${base}f = 0;\n` }),
-      ...lines.map((line) => call('edit_file', { path: 'mixed.ts', oldText: line, newText: 'z;' })),
-      call('write_file', { path: 'mixed.ts', content: `${base}g = 0;\n` }),
-    ]);
+    const results = await Promise.all(
+      lines.map((line) => call('edit_file', { path: 'mixed.ts', oldText: line, newText: 'z;' })),
+    );
     const pending = results.map((result) => result.artifacts?.find(isFileChange));
     let content = base;
 

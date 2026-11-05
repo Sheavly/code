@@ -28,6 +28,7 @@ describe('createCodingHarness', () => {
     expect(Object.keys(harness).sort()).toEqual([
       'approvals',
       'fileLocks',
+      'fileReads',
       'mainSession',
       'processes',
       'provider',
