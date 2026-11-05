@@ -50,12 +50,22 @@ export function createSubAgentTool(options: SubAgentOptions) {
         startedByCall: context.callId,
         title,
       });
+      const selected = options.selectProvider?.() ?? { provider: options.provider };
+
+      if (selected.selection) sessions.setModel({ id: child.id, ...selected.selection });
+
+      const childOptions = {
+        ...options,
+        provider: selected.provider,
+        selectProvider: () => selected,
+      };
       const started = tasks.start({
         command: `sub-agent: ${title}`,
         description: context.description,
         callId: context.callId,
         sessionId: context.session.id,
-        run: ({ signal, onOutput }) => runChild({ options, child, task, signal, onOutput }),
+        run: ({ signal, onOutput }) =>
+          runChild({ options: childOptions, child, task, signal, onOutput }),
       });
 
       return (
