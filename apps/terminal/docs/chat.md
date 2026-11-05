@@ -42,6 +42,8 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   `Tab`, and folds a large paste into one marker.
 - Background commands and sub-agents keep running between messages, and what finished meanwhile
   is reported at the next one.
+- A message has no turn limit: the model keeps working until it is done, so Ctrl+C is how you stop
+  one that goes on (`MAX_TURNS` in the backend's environment sets a cap if you want one).
 - Ctrl+C stops the running message (and skips a question it waits on); history stays valid, and the
   next message continues from it. With nothing running, Ctrl+C asks to be pressed again to quit,
   so one stray press never ends the conversation. In the plain line chat, pressed again while the
