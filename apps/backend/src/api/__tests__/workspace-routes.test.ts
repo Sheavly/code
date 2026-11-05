@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { useTempFolders } from '@sheavly/testing/files/temp-folders.fake';
 import { testBackend } from '../../testing/backend.fake.js';
+import { json, post, put, query } from '../../testing/requests.fake.js';
 
 const WORK = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
 const HOME = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
@@ -22,11 +23,6 @@ const api = (extra: { remoteSetupAllowed?: boolean } = {}) =>
   });
 
 type Api = ReturnType<typeof api>;
-
-const json = async (response: Response) => (await response.json()) as Record<string, unknown>;
-const post = (a: Api, path: string, body: unknown) => a.call(path, { method: 'POST', body });
-const put = (a: Api, path: string, body: unknown) => a.call(path, { method: 'PUT', body });
-const query = (a: Api, path: string, body: unknown) => a.call(path, { method: 'QUERY', body });
 
 /** Two profiles with a model and key each, Work the default. */
 async function twoProfiles(a: Api) {

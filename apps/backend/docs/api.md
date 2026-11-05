@@ -52,6 +52,10 @@ its models and keys are its own, and a conversation sees only its profile's.
 | `QUERY /trusted-workspaces`, `{ search? }`                              | `{ workspaces }`: each trusted folder, when, and `trusted`, `changed` or `gone` |
 | `POST /trusted-workspaces`, `{ workspace }`                             | `204`: its `.sheavly/` hooks run as they are now                                |
 | `POST /trusted-workspaces/revoke`, `{ workspace }`                      | `204`: they stop running; also for a folder that is gone                        |
+| `QUERY /permissions`, `{ workspace }`                                   | `{ workspace, mode, allow, builtIn }`: what `run_command` may do in the folder  |
+| `PUT /permissions/mode`, `{ workspace, mode }`                          | `204`: `ask`, `always_ask` or `allow_all`, from the next command of every run   |
+| `POST /permissions/allow`, `{ workspace, entry }`                       | `204`: the command runs without asking in that folder from now on               |
+| `POST /permissions/revoke`, `{ workspace, entry }`                      | `204`: it asks again; one that was not allowed is fine                          |
 | `QUERY /profiles/:profile/models`, `{ search? }`                        | `{ models }`: by name, adapter or provider-side model                           |
 | `GET /profiles/:profile/models/:model`                                  | one model, its key state and whether it is `usable`                             |
 | `PUT /profiles/:profile/models/:model`, `{ name, adapter, definition }` | `204`: checked by its adapter, never with a secret                              |
@@ -63,12 +67,14 @@ its models and keys are its own, and a conversation sees only its profile's.
 - **A key is write-only.** No route answers with one, and no error, log line or stored file other
   than the profile's credentials holds it. A model's `credential` is `missing`, `set` or
   `not_needed` (its adapter has no secret): never the value.
-- **Access is handed out only on this machine.** A key, and a grant of trust, are what make the
-  backend run something on the caller's say-so. Listening on `127.0.0.1`, `::1` or `localhost` is
-  fine; on any other address, the credential routes (set, forget and check) and `POST
-/trusted-workspaces` answer `403 forbidden`, so neither crosses a network the backend can't vouch
-  for. Taking access away (forgetting a key, revoking trust) and looking are never refused.
-  `SERVER_ALLOW_REMOTE_SETUP=true` allows it, which belongs only behind TLS.
+- **Access is handed out only on this machine.** A key, a grant of trust, and a looser permission
+  are what make the backend run something on the caller's say-so. Listening on `127.0.0.1`, `::1`
+  or `localhost` is fine; on any other address, the credential routes (set, forget and check),
+  `POST /trusted-workspaces`, `POST /permissions/allow` and `PUT /permissions/mode` to anything but
+  `always_ask` answer `403 forbidden`, so none crosses a network the backend can't vouch for.
+  Taking access away (forgetting a key, revoking trust or a command, choosing `always_ask`) and
+  looking are never refused. `SERVER_ALLOW_REMOTE_SETUP=true` allows it, which belongs only behind
+  TLS.
 - **A model is checked before it is stored.** Its adapter refuses fields it doesn't have and a
   key where a model's fields go (`422`, saying which field and never quoting a value).
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
@@ -78,6 +84,12 @@ its models and keys are its own, and a conversation sees only its profile's.
   worked in can't be bound or trusted; only `revoke` takes a path that no longer exists.
 - **A folder runs on** the profile it is bound to, else the default (`QUERY /workspace-profiles`
   says which: `bound`). A binding to a profile that was deleted counts as none.
+- **A folder's permissions are the user's, not the repo's.** They are in `permissions/` in the
+  user's folder, shared by every profile, and `run_command` reads them on every command, so
+  `PUT /permissions/mode` and `POST /permissions/allow` apply to the conversations already running
+  in that folder, and `GET /conversations/:id` reports the mode as it is now. `QUERY /permissions`
+  lists the user's own entries (`allow`, which `revoke` can remove) apart from the read-only
+  commands every folder has (`builtIn`, which it cannot). Asking about a folder writes nothing.
 - **Trusting a folder makes its `.sheavly/` hooks run**, which is code from the repo, so it is the
   user's call and asks the same locality as a key. It trusts the hooks as they are now: a later
   change to `.sheavly/` makes the entry `changed` and the hooks stop until it is trusted again.

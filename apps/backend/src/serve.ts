@@ -35,13 +35,13 @@ const settings = {
 const server = parseServerEnv(process.env);
 const token = server.token ?? randomBytes(32).toString('base64url');
 const log = (text: string) => void process.stderr.write(text);
-const { conversations, setup, workspaces } = createBackend({
+const { conversations, setup, workspaces, permissions } = createBackend({
   env: process.env,
   settings,
   log,
   remoteSetupAllowed: server.remoteSetupAllowed,
 });
-const app = createApiApp({ conversations, setup, workspaces, token });
+const app = createApiApp({ conversations, setup, workspaces, permissions, token });
 
 /** What the user needs once the server listens: where their data is, and the token when made here. */
 function printStarted(address: AddressInfo): void {

@@ -10,6 +10,7 @@ import type { ApiHandlers, ApiOptions } from './api.types.js';
 import { honoPath, toApiFailure } from './api.utils.js';
 import { validJson } from './api.validator.js';
 import { apiHandlers, idOf } from './handlers.helper.js';
+import { permissionHandlers } from './permission-handlers.helper.js';
 import { setupHandlers } from './setup-handlers.helper.js';
 import { workspaceHandlers } from './workspace-handlers.helper.js';
 
@@ -58,11 +59,12 @@ function addRoute(params: { app: Hono; name: RouteName; handlers: ApiHandlers })
  * and closes the conversations when it stops.
  */
 export function createApiApp(options: ApiOptions): Hono {
-  const { conversations, setup, workspaces, token } = options;
+  const { conversations, setup, workspaces, permissions, token } = options;
   const handlers: ApiHandlers = {
     ...apiHandlers(conversations),
     ...setupHandlers(setup),
     ...workspaceHandlers(workspaces),
+    ...permissionHandlers(permissions),
   };
   const app = new Hono()
     .use(

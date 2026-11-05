@@ -6,6 +6,7 @@ import type { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-
 import type { TrustedWorkspace } from '@sheavly/workspace/trust/trust.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { SetupError } from '../errors/setup.errors.js';
+import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { resolveWorkspace } from './workspace-path.helper.js';
 
 /**
@@ -96,7 +97,10 @@ export class WorkspaceSetup {
    * hand out access; `invalid` for a folder that can't be a workspace.
    */
   async trust(workspace: string): Promise<void> {
-    this.#assertRemoteSetupAllowed();
+    assertRemoteSetupAllowed({
+      allowed: this.#remoteSetupAllowed,
+      refuses: 'takes no keys and grants no trust',
+    });
 
     const real = await resolveWorkspace({ requested: workspace, sheavlyHome: this.#home });
 
@@ -116,14 +120,5 @@ export class WorkspaceSetup {
     }
 
     await this.#trust.revoke({ root: workspace });
-  }
-
-  #assertRemoteSetupAllowed(): void {
-    if (this.#remoteSetupAllowed) return;
-    throw new SetupError({
-      reason: 'forbidden',
-      message:
-        'This backend listens beyond this machine, so it takes no keys and grants no trust. Listen on 127.0.0.1, or set SERVER_ALLOW_REMOTE_SETUP=true behind TLS.',
-    });
   }
 }

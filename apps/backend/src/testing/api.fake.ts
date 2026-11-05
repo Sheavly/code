@@ -17,6 +17,8 @@ import { z } from 'zod';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import { createApiApp } from '../api/api.helper.js';
 import { parseRequestEnv } from '../harness/settings.validator.js';
+import { permissionStoreFor } from '../profiles/home.helper.js';
+import { PermissionSetup } from '../profiles/permission-setup.service.js';
 import { Profiles } from '../profiles/profiles.service.js';
 import type { ProfileSetup } from '../profiles/setup.service.js';
 import type { WorkspaceSetup } from '../profiles/workspace-setup.service.js';
@@ -95,16 +97,21 @@ function testWorkspaces(params: {
  * message picking its script (`routedProvider`), with a blocking and an asking tool. `request`
  * calls it in-process with the token, as a client would. With a `store`, the conversations are
  * kept in it, wired as the backend wires them. `setup` is what the setup routes serve; the
- * default is over a folder that is never written, for a test that doesn't use them.
+ * default, like the folder and permission routes, is over a folder that is never written, for a
+ * test that doesn't use them.
  */
 export function testApi(
   scripts: Record<string, Script[]>,
   store?: ConversationStore,
   setup: ProfileSetup = testSetup({ home: path.join(tmpdir(), `sheavly-unused-${randomUUID()}`) }),
-  workspaces: WorkspaceSetup = testWorkspaces({
-    home: path.join(tmpdir(), `sheavly-unused-${randomUUID()}`),
-  }),
 ) {
+  const unused = path.join(tmpdir(), `sheavly-unused-${randomUUID()}`);
+  const workspaces = testWorkspaces({ home: unused });
+  const permissions = new PermissionSetup({
+    store: permissionStoreFor({ SHEAVLY_HOME: unused }),
+    home: unused,
+    remoteSetupAllowed: true,
+  });
   const conversations = new Conversations({
     ...(store && { store }),
     create: async ({ messages, storage }) => {
@@ -131,7 +138,7 @@ export function testApi(
       };
     },
   });
-  const app = createApiApp({ conversations, setup, workspaces, token: TEST_TOKEN });
+  const app = createApiApp({ conversations, setup, workspaces, permissions, token: TEST_TOKEN });
   const request = async (path: string, init: TestRequest = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',

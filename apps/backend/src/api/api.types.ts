@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { RouteBody, RouteName } from '@sheavly/protocol/api/api.types';
 import type { ConversationId, ServerErrorCode } from '@sheavly/protocol/server/server.types';
+import type { PermissionSetup } from '../profiles/permission-setup.service.js';
 import type { ProfileSetup } from '../profiles/setup.service.js';
 import type { WorkspaceSetup } from '../profiles/workspace-setup.service.js';
 
@@ -13,6 +14,8 @@ export type ApiOptions = {
   setup: ProfileSetup;
   /** Which profile each folder runs on, and which folders are trusted (`Profiles.workspaces`). */
   workspaces: WorkspaceSetup;
+  /** What `run_command` may do in each folder (`PermissionSetup`). */
+  permissions: PermissionSetup;
   /** Every request must carry it (`Authorization: Bearer <token>`). Never logged. */
   token: string;
 };
@@ -65,5 +68,12 @@ export type WorkspaceRouteName =
   | 'trustWorkspace'
   | 'revokeWorkspace';
 
+/** The routes on what `run_command` may do in a folder: its mode and the commands allowed. */
+export type PermissionRouteName =
+  'queryPermissions' | 'setPermissionMode' | 'allowCommand' | 'revokeCommand';
+
 /** The routes on the live conversations: all but the setup's and the folders'. */
-export type ConversationRouteName = Exclude<RouteName, SetupRouteName | WorkspaceRouteName>;
+export type ConversationRouteName = Exclude<
+  RouteName,
+  SetupRouteName | WorkspaceRouteName | PermissionRouteName
+>;

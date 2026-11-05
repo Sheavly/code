@@ -4,7 +4,8 @@ import type { AdapterRegistry } from '@sheavly/providers/registry/registry.servi
 import { servedConversation } from './harness/served.helper.js';
 import type { ServedSettings } from './harness/harness.types.js';
 import { parseRequestEnv } from './harness/settings.validator.js';
-import { permissionStoreFor, trustStoreFor } from './profiles/home.helper.js';
+import { permissionStoreFor, sheavlyHome, trustStoreFor } from './profiles/home.helper.js';
+import { PermissionSetup } from './profiles/permission-setup.service.js';
 import { PlacedConversationStore } from './profiles/placed-conversation-store.service.js';
 import { Profiles } from './profiles/profiles.service.js';
 import type { ProfileSetup } from './profiles/setup.service.js';
@@ -30,7 +31,12 @@ export function createBackend(params: {
   log: (text: string) => void;
   remoteSetupAllowed: boolean;
   adapters?: AdapterRegistry;
-}): { conversations: Conversations; setup: ProfileSetup; workspaces: WorkspaceSetup } {
+}): {
+  conversations: Conversations;
+  setup: ProfileSetup;
+  workspaces: WorkspaceSetup;
+  permissions: PermissionSetup;
+} {
   const { env, settings, log, remoteSetupAllowed, adapters } = params;
   const profiles = new Profiles({ env, ...(adapters && { adapters }) });
   const trustStore = trustStoreFor(env);
@@ -48,6 +54,12 @@ export function createBackend(params: {
     setup: profiles.setup({ request: parseRequestEnv(env), remoteSetupAllowed }),
     // The same trust store the conversations read, so a grant shows in the next one.
     workspaces: profiles.workspaces({ trust: trustStore, remoteSetupAllowed }),
+    // The same store the conversations read on every command, so a change applies to them at once.
+    permissions: new PermissionSetup({
+      store: permissionStore,
+      home: sheavlyHome(env),
+      remoteSetupAllowed,
+    }),
     conversations: new Conversations({
       store: places,
       create: (asked) =>

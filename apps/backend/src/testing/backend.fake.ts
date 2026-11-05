@@ -21,14 +21,14 @@ export function testBackend(params: {
   const { home, workspace, fetch, remoteSetupAllowed = true } = params;
   const env = { ...params.env, SHEAVLY_HOME: home, WORKSPACE_ROOT: workspace };
   const logged: string[] = [];
-  const { conversations, setup, workspaces } = createBackend({
+  const { conversations, setup, workspaces, permissions } = createBackend({
     env,
     settings: { ...parseCliSettings({ env, args: [] }), ...parseRunEnv(env) },
     log: (text) => logged.push(text),
     remoteSetupAllowed,
     ...(fetch && { adapters: createDefaultRegistry({ fetch }) }),
   });
-  const app = createApiApp({ conversations, setup, workspaces, token: TEST_TOKEN });
+  const app = createApiApp({ conversations, setup, workspaces, permissions, token: TEST_TOKEN });
   const call = (path: string, init: { method?: string; body?: unknown } = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',
@@ -39,7 +39,16 @@ export function testBackend(params: {
       ...(init.body !== undefined && { body: JSON.stringify(init.body) }),
     });
 
-  return { conversations, setup, workspaces, app, call, logged, client: clientFor(app) };
+  return {
+    conversations,
+    setup,
+    workspaces,
+    permissions,
+    app,
+    call,
+    logged,
+    client: clientFor(app),
+  };
 }
 
 /** A client whose requests go straight to `app`, so no server needs to listen. */

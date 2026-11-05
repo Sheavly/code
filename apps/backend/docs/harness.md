@@ -56,6 +56,10 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   user. The backend starts all the same: it has to be running for a UI to set it up.
 - **Trust** is `trusted-workspaces.json` in the same folder (`trustStoreFor`), shared by every
   profile, and outside every repo so a repo can't trust itself.
+- **Permissions** are `permissions/<workspace-key>.json` in the same folder (`permissionStoreFor`),
+  shared by every profile for the same reason: what `run_command` may run is about a folder, and
+  must be somewhere the agent can't edit. `PermissionSetup` is what the permission routes call;
+  `workspacePermissions` is what a run's `run_command` reads.
 
 ## Settings
 

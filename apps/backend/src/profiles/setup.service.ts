@@ -8,6 +8,7 @@ import { RegistryError } from '@sheavly/storage/errors/registry.errors';
 import type { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';
 import { SetupError } from '../errors/setup.errors.js';
 import type { RequestSettings } from './profiles.types.js';
+import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { matchesModel } from './setup.utils.js';
 import { profileView, secretsOf } from './setup-view.helper.js';
 
@@ -266,11 +267,9 @@ export class ProfileSetup {
   }
 
   #assertRemoteSetupAllowed(): void {
-    if (this.#remoteSetupAllowed) return;
-    throw new SetupError({
-      reason: 'forbidden',
-      message:
-        'This backend listens beyond this machine, so it takes no keys and grants no trust. Listen on 127.0.0.1, or set SERVER_ALLOW_REMOTE_SETUP=true behind TLS.',
+    assertRemoteSetupAllowed({
+      allowed: this.#remoteSetupAllowed,
+      refuses: 'takes no keys and grants no trust',
     });
   }
 }
