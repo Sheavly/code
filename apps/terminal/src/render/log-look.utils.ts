@@ -1,0 +1,44 @@
+import type { Look } from './render.types.js';
+import { shortId } from './render.utils.js';
+
+const who = (params: { title: string; id: string }) => `"${params.title}" [${shortId(params.id)}]`;
+
+/**
+ * The plain, complete log of a run: every event, ids and counts included, no colour. The demo and
+ * the workbook print it, and their saved runs and checks read it, so its text is kept as it is.
+ */
+export const logLook: Look = {
+  // Each activity carries its own leading newline here; nothing is added between sections.
+  gap: () => '',
+  toolStarted: ({ description, command }) =>
+    `\n⏺ ${description}${command ? `  $ ${command}` : ''}\n`,
+  parallel: (count) => `  ⎿ ${count} tools in parallel\n`,
+  toolResult: ({ ok, label, detail, seconds }) =>
+    `    ${ok ? '✓' : '✗'} ${label}${detail} · ${seconds}\n`,
+  taskRunning: ({ label, id }) => `    ↻ ${label}running in background as ${id}\n`,
+  taskCompleted: ({ ok, id, status, exit, elapsed, command, output }) =>
+    `\n${ok ? '✓' : '✗'} ${id} ${status}${exit} · ${elapsed} · $ ${command}${
+      output ? `\n  ⎿ ${output}\n` : '\n'
+    }`,
+  steer: (firstLine) => `\n✉ steer: ${firstLine}\n`,
+  contextAdded: ({ hook, chars }) => `\n＋ ${hook} added context (${chars} chars)\n`,
+  hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
+  turnEnd: ({ stopReason, waiting }) => {
+    const stopped = stopReason === 'tool_use' ? '' : `\n\n[stop: ${stopReason}]\n`;
+    const waits =
+      stopReason === 'end_turn' && waiting > 0
+        ? `… waiting for ${waiting} background task(s) · Ctrl+C to stop\n`
+        : '';
+
+    return stopped + waits;
+  },
+  done: ({ reason, events, reasoning }) =>
+    `[${reason} · ${events} events · reasoning items kept: ${reasoning}]\n`,
+  subAgentStarted: ({ indent, depth, parent, root, ...agent }) =>
+    `\n${indent}◆ sub-agent ${who(agent)} started · depth ${depth} · parent ${shortId(parent)} · main ${shortId(root)}\n`,
+  subAgentStatus: ({ indent, status, ...agent }) =>
+    `${indent}  ◇ ${who(agent)} status: ${status}\n`,
+  subAgentMessage: ({ indent, from, content, ...agent }) =>
+    `${indent}  ✉ ${who(agent)} got a message from ${from}: ${content}\n`,
+  subAgentEnded: ({ indent, state, ...agent }) => `${indent}◆ sub-agent ${who(agent)} ${state}\n`,
+};

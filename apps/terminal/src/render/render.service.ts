@@ -1,7 +1,8 @@
 import { isFileChange } from '@sheavly/coding/files/files.utils';
 import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
-import type { Write } from './render.types.js';
+import { logLook } from './log-look.utils.js';
+import type { Look, Section, Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
@@ -18,10 +19,14 @@ type EventOf<T extends EntryEvent['type']> = Extract<EntryEvent, { type: T }>;
 export class Renderer {
   #batchSize = 0;
   #reasoningItems = 0;
+  #last: Section | undefined;
+  #lineOpen = false;
 
+  /** `look` is how it reads: the complete plain log by default, or `chatLook` for a person. */
   constructor(
     private readonly write: Write,
     private readonly runningTasks: () => number,
+    private readonly look: Look = logLook,
   ) {}
 
   /**
@@ -38,51 +43,59 @@ export class Renderer {
   event(event: EntryEvent): void {
     switch (event.type) {
       case 'text_delta':
-        this.write(event.text);
+        this.#reply(event.text);
         break;
       case 'reasoning':
         this.#reasoningItems++; // opaque; resent to the model automatically
         break;
 
-      case 'tool_call_started': {
+      case 'tool_call_started':
         // Already running; its result is shown after the model's turn.
-        const command = commandOf(event.call);
-
-        this.write(`\n⏺ ${event.description}${command ? `  $ ${command}` : ''}\n`);
+        this.#activity(
+          this.look.toolStarted({
+            description: event.description,
+            command: commandOf(event.call),
+          }),
+        );
         break;
-      }
 
       case 'tool_batch':
         this.#batchSize = event.calls.length;
-        if (this.#batchSize > 1) this.write(`  ⎿ ${this.#batchSize} tools in parallel\n`);
+        if (this.#batchSize > 1) this.#activity(this.look.parallel(this.#batchSize));
         break;
       case 'tool_result':
         this.#toolResult(event);
         break;
       case 'task_running':
-        this.write(
-          `    ↻ ${this.#label(event.description)}running in background as ${event.task.id}\n`,
+        this.#activity(
+          this.look.taskRunning({ label: this.#label(event.description), id: event.task.id }),
         );
         break;
       case 'task_completed':
         this.#taskCompleted(event);
         break;
       case 'message_received':
-        this.write(`\n✉ steer: ${firstLine(event.message.content)}\n`);
+        this.#activity(this.look.steer(firstLine(event.message.content)));
         break;
       case 'context_added':
-        this.write(`\n＋ ${event.hook} added context (${event.content.length} chars)\n`);
+        this.#activity(this.look.contextAdded({ hook: event.hook, chars: event.content.length }));
         break;
       case 'hook_failed':
-        this.write(`\n✗ hook ${event.hook} failed in ${event.handler}: ${event.error}\n`);
+        this.#activity(
+          this.look.hookFailed({
+            hook: event.hook,
+            handler: event.handler,
+            error: event.error,
+          }),
+        );
         break;
       case 'turn_end':
-        this.#turnEnd(event);
+        this.#activity(
+          this.look.turnEnd({ stopReason: event.stopReason, waiting: this.runningTasks() }),
+        );
         break;
       case 'done':
-        this.write(
-          `[${event.reason} · ${event.seq + 1} events · reasoning items kept: ${this.#reasoningItems}]\n`,
-        );
+        this.#done(event);
         break;
     }
   }
@@ -93,28 +106,71 @@ export class Renderer {
 
     // The main session is not a card: only a sub-agent, which has a parent, is drawn.
     if (!('parentId' in session)) return;
-    const indent = '  '.repeat(session.depth - 1);
-    const who = `"${session.title}" [${shortId(session.id)}]`;
+    const agent = {
+      indent: '  '.repeat(session.depth - 1),
+      title: session.title,
+      id: session.id,
+    };
 
     if (type === 'session_started') {
-      this.write(
-        `\n${indent}◆ sub-agent ${who} started · depth ${session.depth} · parent ${shortId(session.parentId)} · main ${shortId(session.rootId)}\n`,
+      this.#activity(
+        this.look.subAgentStarted({
+          ...agent,
+          depth: session.depth,
+          parent: session.parentId,
+          root: session.rootId,
+        }),
       );
     }
 
     if (type === 'session_status') {
-      this.write(`${indent}  ◇ ${who} status: ${session.status ?? ''}\n`);
+      this.#activity(this.look.subAgentStatus({ ...agent, status: session.status ?? '' }));
     }
 
     if (type === 'session_message') {
       const from = update.message.from === 'user' ? 'the user' : shortId(update.message.from);
+      const content = firstLine(update.message.content);
 
-      this.write(
-        `${indent}  ✉ ${who} got a message from ${from}: ${firstLine(update.message.content)}\n`,
-      );
+      this.#activity(this.look.subAgentMessage({ ...agent, from, content }));
     }
 
-    if (type === 'session_ended') this.write(`${indent}◆ sub-agent ${who} ${session.state}\n`);
+    if (type === 'session_ended') {
+      this.#activity(this.look.subAgentEnded({ ...agent, state: session.state }));
+    }
+  }
+
+  /** The model's reply, as it streams: a section of its own, apart from what the run did. */
+  #reply(text: string): void {
+    if (text === '') return;
+    this.#enter('reply');
+    this.write(text);
+    this.#lineOpen = !text.endsWith('\n');
+  }
+
+  /** One thing the run did; `''` is a look choosing to show nothing. */
+  #activity(text: string): void {
+    if (text === '') return;
+    this.#enter('activity');
+    this.write(text);
+    this.#lineOpen = false;
+  }
+
+  #enter(section: Section): void {
+    this.write(this.look.gap({ from: this.#last, to: section, lineOpen: this.#lineOpen }));
+    this.#last = section;
+  }
+
+  /** The prompt is over: the next one starts a fresh layout, not a gap after this one's text. */
+  #done(event: EventOf<'done'>): void {
+    this.#activity(
+      this.look.done({
+        reason: event.reason,
+        events: event.seq + 1,
+        reasoning: this.#reasoningItems,
+      }),
+    );
+    this.#last = undefined;
+    this.#lineOpen = false;
   }
 
   #label(description: string): string {
@@ -133,28 +189,27 @@ export class Renderer {
       ? firstLine(message.content)
       : ((read && describeRead(read)) ?? summary);
 
-    this.write(
-      `    ${message.isError ? '✗' : '✓'} ${this.#label(description)}${detail} · ${seconds(durationMs)}\n`,
+    this.#activity(
+      this.look.toolResult({
+        ok: !message.isError,
+        label: this.#label(description),
+        detail,
+        seconds: seconds(durationMs),
+      }),
     );
   }
 
   #taskCompleted({ task }: EventOf<'task_completed'>): void {
-    const ok = task.status === 'completed';
-    const exit = task.exitCode === undefined ? '' : ` · exit ${task.exitCode ?? '?'}`;
-    const output = firstLine(task.error ?? task.output.split('\n').filter(Boolean).at(-1) ?? '');
-    const elapsed = seconds((task.endedAt ?? now()) - task.startedAt);
-
-    this.write(
-      `\n${ok ? '✓' : '✗'} ${task.id} ${task.status}${exit} · ${elapsed} · $ ${task.command}`,
+    this.#activity(
+      this.look.taskCompleted({
+        ok: task.status === 'completed',
+        id: task.id,
+        status: task.status,
+        exit: task.exitCode === undefined ? '' : ` · exit ${task.exitCode ?? '?'}`,
+        elapsed: seconds((task.endedAt ?? now()) - task.startedAt),
+        command: task.command,
+        output: firstLine(task.error ?? task.output.split('\n').filter(Boolean).at(-1) ?? ''),
+      }),
     );
-    this.write(output ? `\n  ⎿ ${output}\n` : '\n');
-  }
-
-  #turnEnd({ stopReason }: EventOf<'turn_end'>): void {
-    if (stopReason !== 'tool_use') this.write(`\n\n[stop: ${stopReason}]\n`);
-
-    if (stopReason === 'end_turn' && this.runningTasks() > 0) {
-      this.write(`… waiting for ${this.runningTasks()} background task(s) · Ctrl+C to stop\n`);
-    }
   }
 }

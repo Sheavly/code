@@ -1,4 +1,6 @@
+import { stripVTControlCharacters } from 'node:util';
 import { describe, expect, it } from 'vitest';
+import { chatLook } from '../chat-look.utils.js';
 import { Renderer } from '../render.service.js';
 import type { EntryEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -60,6 +62,63 @@ describe('Renderer: entries', () => {
 
     renderer.event({ seq: 0, type: 'turn_end', turn: 1, stopReason: 'end_turn' });
     expect(out).toContain('waiting for 2 background task(s)');
+  });
+});
+
+describe('Renderer: chat look', () => {
+  /** What a person sees for these events, without colour. */
+  function chatted(events: EntryEvent[]): string {
+    let out = '';
+    const renderer = new Renderer(
+      (text) => (out += text),
+      () => 0,
+      chatLook,
+    );
+
+    for (const event of events) renderer.event(event);
+
+    return stripVTControlCharacters(out);
+  }
+
+  const started: EntryEvent = {
+    seq: 0,
+    type: 'tool_call_started',
+    call: { id: callId, name: 'run_command', input: { command: 'npm test' } },
+    description: 'Run the tests',
+  };
+  const result: EntryEvent = {
+    seq: 1,
+    type: 'tool_result',
+    call: { id: callId, name: 'run_command', input: {} },
+    description: 'Run the tests',
+    message: { role: 'tool', toolCallId: callId, content: 'ok', isError: false },
+    durationMs: 300,
+  };
+  const reply = (text: string): EntryEvent => ({ seq: 2, type: 'text_delta', text });
+  const finished = (reason: 'completed' | 'max_turns'): EntryEvent => ({
+    seq: 4,
+    type: 'done',
+    reason,
+    session: { id: main, rootId: main, depth: 1 },
+  });
+
+  it('sets the reply apart from the steps around it with a blank line', () => {
+    expect(chatted([reply('Let me check.'), started, result, reply('All passing.')])).toBe(
+      'Let me check.\n\n⏺ Run the tests  $ npm test\n  ⎿ ✓ 2 chars · 0.3s\n\nAll passing.',
+    );
+  });
+
+  it('leaves out the loop’s bookkeeping, and says so when a run was cut short', () => {
+    const turnEnd: EntryEvent = { seq: 3, type: 'turn_end', turn: 1, stopReason: 'end_turn' };
+
+    expect(chatted([reply('Hi'), turnEnd, finished('completed')])).toBe('Hi');
+    expect(chatted([finished('max_turns')])).toBe('⚠ stopped at the turn limit\n');
+  });
+
+  it('starts the next prompt without a gap after the last one’s text', () => {
+    expect(chatted([reply('One'), finished('completed'), started])).toBe(
+      'One⏺ Run the tests  $ npm test\n',
+    );
   });
 });
 
