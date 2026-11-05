@@ -6,9 +6,10 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { hookNow } from './hooks.utils.mjs';
+import { hookNow, PROJECT_ROOT } from './hooks.utils.mjs';
 import { isMissingPath } from './hooks.errors.mjs';
 import {
+  isOutsideProject,
   maskQuotedOperators,
   normalize,
   programName,
@@ -100,7 +101,7 @@ function programOf(tokens) {
 function isSanctionedSegment(segment) {
   const tokens = programOf(segment);
   const redirectsToFile = tokens.some(
-    (token, index) => REDIRECT.test(token) && tokens[index + 1] !== '/dev/null',
+    (token, index) => REDIRECT.test(token) && !isOutsideRedirect(tokens[index + 1]),
   );
 
   if (redirectsToFile) return false;
@@ -108,8 +109,34 @@ function isSanctionedSegment(segment) {
   return (
     tokens[0] === 'cd' ||
     SANCTIONED_WRITERS.has(programName(tokens[0])) ||
-    startsWithNonExecuting(tokens)
+    startsWithNonExecuting(tokens) ||
+    isLinePrint(tokens)
   );
+}
+
+/**
+ * Whether a redirect's `target` is a file the command can't have changed the project through: an
+ * absolute path outside it (`/tmp/out.txt`, `/dev/null`). A relative one is taken to be inside,
+ * since an earlier `cd` in the line may have moved it, and one with no target fails closed.
+ */
+function isOutsideRedirect(target) {
+  return (
+    typeof target === 'string' &&
+    path.isAbsolute(target) &&
+    isOutsideProject({ file: target, cwd: PROJECT_ROOT, projectRoot: PROJECT_ROOT })
+  );
+}
+
+// `sed -n '3,9p' file` prints lines. Any other sed script can write (`w file`, `s///w file`) or run
+// a command (`e`), and `-i` edits in place, so this one form is the only sed read taken on trust.
+const LINE_PRINT_SCRIPT = /^(\d+|\$)(,(\d+|\$))?p$/;
+
+function isLinePrint(tokens) {
+  if (programName(tokens[0] ?? '') !== 'sed' || tokens[1] !== '-n') return false;
+
+  const script = (tokens[2] ?? '').replace(/^(['"])(.*)\1$/, '$2');
+
+  return LINE_PRINT_SCRIPT.test(script) && tokens.slice(3).every((token) => !token.startsWith('-'));
 }
 
 /** Whether every part of `command` is a known writer or writes nothing. */

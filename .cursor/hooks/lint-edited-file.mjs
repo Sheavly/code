@@ -71,6 +71,9 @@ if (FORMATTABLE.test(filePath)) {
     notes.push(
       'Prettier reformatted the file you just edited; re-read it before editing it again.',
     );
+    // The rewrite is the edit tools' change too, and lands after the stamp above: a shell command
+    // started in between would otherwise be blamed for it.
+    remember(editToolFields({ state: readState(), files: [projectFile] }));
   }
 }
 

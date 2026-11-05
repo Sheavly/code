@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -99,6 +99,19 @@ describe('isSanctionedWriter', () => {
     // `cut` only prints what it is given, like `head` and `tail`.
     'npm run check 2>&1 | rg "Tasks:|Failed:" | cut -c1-200 | head -30',
     'npm run schema -w @sheavly/protocol 2>&1 | rg -v "npm notice" | tail -2; npm run check 2>&1 | cut -c1-200 | head',
+    // `tr` rewrites the text it is given; a pipeline of readers around a test run is no write.
+    `for i in 1 2 3; do npm run test -w @sheavly/storage 2>&1 | rg "Tests |×" | head -2 | tr '\\n' ' '; echo; done`,
+    // `sed -n 'N,Mp'` prints lines of a file, which is a read.
+    'sed -n 1,4p apps/backend/src/harness/harness.constants.ts; echo ---; sed -n 10,22p apps/backend/src/serve.ts',
+    "sed -n '3,9p' README.md | head -3",
+    'sed -n 5p README.md',
+    'sed -n 7,$p README.md',
+    // A redirect to a file outside the project edits nothing in it: output kept in /tmp to read.
+    'npm run test -w @sheavly/backend > /tmp/out.txt 2>&1; rg "Tests " /tmp/out.txt | head -8',
+    'cd /home/x/project; sleep 2; npm run test -w @sheavly/backend -- a > /tmp/wr.txt 2>&1; rg "×|Tests " /tmp/wr.txt | head -20',
+    'npm run lint >> /tmp/lint.log 2>&1',
+    // The project's own scripts, and a read of the diff they leave.
+    'npm run graph 2>&1 | rg -v "npm notice" | tail -3; git diff --stat -- docs/overview.md | cat; npm run layout 2>&1 | head -4 | cut -c1-220',
   ])('trusts %s', (command) => expect(isSanctionedWriter(command)).toBe(true));
 
   it.each([
@@ -120,6 +133,23 @@ describe('isSanctionedWriter', () => {
     // `cut` prints, but a redirect after it writes, and a writer chained to it still counts.
     'npm run check 2>&1 | cut -c1-200 > a.ts',
     'cut -c1-5 README.md; cp /tmp/x a.ts',
+    // Only the one form of `sed -n` that prints lines is a read: any other script can write or run.
+    "sed -n 's/a/b/w a.ts' README.md",
+    "sed -n '1,4p;w a.ts' README.md",
+    'sed -n 1e README.md',
+    'sed -n 1,4p README.md -i',
+    "sed -i 's/a/b/' README.md",
+    'sed -n 1,4p README.md > a.ts',
+    // A redirect into the project still writes it, absolute or relative, whatever precedes it.
+    `npm run test > ${path.join(process.cwd(), 'a.ts')} 2>&1`,
+    'npm run test > ./out/x.txt 2>&1',
+    'npm run test > a.ts',
+    "tr 'a' 'b' < README.md > a.ts",
+    // `/tmp` is only a place outside the project when the redirect names it by its whole path.
+    'npm run test > tmp/out.txt 2>&1',
+    'npm run test >',
+    // A relative path that climbs back in is not outside either.
+    `npm run test > ../${path.basename(process.cwd())}/a.ts 2>&1`,
   ])('does not trust %s', (command) => expect(isSanctionedWriter(command)).toBe(false));
 });
 
@@ -231,6 +261,37 @@ describe('a shell workaround', () => {
     expect(runShell({ command, during: editedTogether }).after).toEqual({});
     expect(readState().unguardedCommands).toBeUndefined();
     expect(Object.keys(readState().editedFiles)).toEqual(['a.ts']);
+  });
+
+  it('stamps a file again once the edit hook has rewritten it, so a command that started meanwhile is not blamed', () => {
+    // A stand-in for the project's prettier: it objects to a double space, and `--write` fixes it
+    // after a pause, as a real run takes time while the next tool call is already starting.
+    const bin = path.join(repo, 'node_modules', '.bin');
+
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(
+      path.join(bin, 'prettier'),
+      `#!/usr/bin/env node
+const fs = require('node:fs');
+const [mode, file] = process.argv.slice(2);
+const text = fs.readFileSync(file, 'utf8');
+
+if (mode === '--check') process.exit(text.includes('  ') ? 1 : 0);
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 40);
+fs.writeFileSync(file, text.replaceAll('  ', ' '));
+`,
+      { mode: 0o755 },
+    );
+    writeFileSync(path.join(repo, 'a.ts'), 'export const  a = 1;\n');
+
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+
+    const rewritten = path.join(repo, 'a.ts');
+    const stamp = readState().toolEditedFiles['a.ts'];
+
+    expect(readFileSync(rewritten, 'utf8')).toBe('export const a = 1;\n');
+    // The stamp is the time the tools last changed the file, not the time the hook began.
+    expect(stamp).toBeGreaterThanOrEqual(Math.floor(statSync(rewritten).mtimeMs));
   });
 
   it('takes the file back when the edit tool’s hook finishes just after the command’s', async () => {
