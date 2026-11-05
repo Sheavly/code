@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
@@ -11,7 +14,14 @@ import { blockTool } from '@sheavly/runtime/testing/block-tool.fake';
 import { routedProvider } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { z } from 'zod';
+import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import { createApiApp } from '../api/api.helper.js';
+import { parseRequestEnv } from '../harness/settings.validator.js';
+import { Profiles } from '../profiles/profiles.service.js';
+import type { ProfileSetup } from '../profiles/setup.service.js';
+import type { WorkspaceSetup } from '../profiles/workspace-setup.service.js';
+import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { TEST_TOKEN } from './testing.constants.js';
 import type { TestRequest } from './testing.types.js';
 
@@ -45,12 +55,56 @@ function askingTool(approvals: ReturnType<typeof createHarness>['approvals']) {
 }
 
 /**
+ * Test-only: the setup a test's API serves over `home`, a folder its test made and removes. Keys
+ * and trust are accepted unless `remoteSetupAllowed` is false; `fetch` stands in for the network a
+ * key check makes.
+ */
+export function testSetup(params: {
+  home: string;
+  remoteSetupAllowed?: boolean;
+  fetch?: typeof globalThis.fetch;
+}): ProfileSetup {
+  const { home, remoteSetupAllowed = true, fetch } = params;
+  const profiles = new Profiles({
+    env: { SHEAVLY_HOME: home },
+    ...(fetch && { adapters: createDefaultRegistry({ fetch }) }),
+  });
+
+  return profiles.setup({ request: parseRequestEnv({}), remoteSetupAllowed });
+}
+
+/**
+ * Test-only: the folder routes a test's API serves, over `home` and with an in-memory trust store
+ * (so no file is written). Trust is granted unless `remoteSetupAllowed` is false.
+ */
+function testWorkspaces(params: {
+  home: string;
+  remoteSetupAllowed?: boolean;
+  trust?: TrustStore;
+}): WorkspaceSetup {
+  const { home, remoteSetupAllowed = true } = params;
+  const trust =
+    params.trust ??
+    new TrustStore({ persistence: memoryTrust({ file: path.join(home, 'trust.json') }) });
+
+  return new Profiles({ env: { SHEAVLY_HOME: home } }).workspaces({ trust, remoteSetupAllowed });
+}
+
+/**
  * Test-only: the backend's API on conversations of a scripted model, each prompt's first user
  * message picking its script (`routedProvider`), with a blocking and an asking tool. `request`
  * calls it in-process with the token, as a client would. With a `store`, the conversations are
- * kept in it, wired as the backend wires them.
+ * kept in it, wired as the backend wires them. `setup` is what the setup routes serve; the
+ * default is over a folder that is never written, for a test that doesn't use them.
  */
-export function testApi(scripts: Record<string, Script[]>, store?: ConversationStore) {
+export function testApi(
+  scripts: Record<string, Script[]>,
+  store?: ConversationStore,
+  setup: ProfileSetup = testSetup({ home: path.join(tmpdir(), `sheavly-unused-${randomUUID()}`) }),
+  workspaces: WorkspaceSetup = testWorkspaces({
+    home: path.join(tmpdir(), `sheavly-unused-${randomUUID()}`),
+  }),
+) {
   const conversations = new Conversations({
     ...(store && { store }),
     create: async ({ messages, storage }) => {
@@ -77,7 +131,7 @@ export function testApi(scripts: Record<string, Script[]>, store?: ConversationS
       };
     },
   });
-  const app = createApiApp({ conversations, token: TEST_TOKEN });
+  const app = createApiApp({ conversations, setup, workspaces, token: TEST_TOKEN });
   const request = async (path: string, init: TestRequest = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',

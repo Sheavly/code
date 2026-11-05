@@ -1,10 +1,21 @@
 import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelSwitch } from '../harness/harness.types.js';
 import type { parseRequestEnv } from '../harness/settings.validator.js';
 
 /** The request settings the backend reads from its environment (`MODEL_*`), as `parseRequestEnv` returns them. */
 export type RequestSettings = ReturnType<typeof parseRequestEnv>;
+
+/**
+ * Where a conversation belongs: the folder it works in (a real path) and the profile whose models
+ * and keys it runs on. Both are decided when it starts and never change, so its stream, history
+ * and index stay together, and a reopened conversation comes back to the same place.
+ */
+export type Placement = {
+  workspace: string;
+  profile: ProfileId;
+};
 
 /** The models of a profile that can be used, and a note for each file or model that cannot. */
 export type ProfileModels = {

@@ -14,7 +14,8 @@ routes, streams and errors are in [the API](api.md).
 | `SERVER_PORT`                 | `4310`        | The port; `0` picks a free one                                                                                                          |
 | `SERVER_TOKEN`                | made per run  | The bearer token every request carries; at least 32 characters                                                                          |
 | `SERVER_EXIT_WITH_PARENT`     | off           | `true`: stop when stdin closes (the UI that started it is gone)                                                                         |
-| `WORKSPACE_ROOT`              | the folder    | Where the file tools, AGENTS.md, skills and `.sheavly/` hooks are                                                                       |
+| `SERVER_ALLOW_REMOTE_SETUP`   | off           | `true`: take model keys and grant trust even when listening beyond this machine (`SERVER_HOST` not loopback); only behind TLS           |
+| `WORKSPACE_ROOT`              | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                       |
 | `RUN_COMMAND_SKIP_ALLOW_LIST` | off           | `true`: `run_command` runs any shell command                                                                                            |
 | `MAX_TURNS`                   | 20            | Model calls a prompt may make, per session                                                                                              |
 | `WAIT_FOR_TASKS`              | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |

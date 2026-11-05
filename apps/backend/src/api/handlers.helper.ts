@@ -8,7 +8,7 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
-import type { ApiHandlers } from './api.types.js';
+import type { ApiHandlers, ConversationRouteName } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
 import { streamEntries } from './sse.helper.js';
 
@@ -30,12 +30,32 @@ export function idOf(c: Context): ConversationId {
   return parsed.data;
 }
 
-/** Each route's handler on `conversations`. */
-export function apiHandlers(conversations: Conversations): ApiHandlers {
+/** Each conversation route's handler on `conversations`. */
+export function apiHandlers(
+  conversations: Conversations,
+): Pick<ApiHandlers, ConversationRouteName> {
   return {
     listConversations: ({ c }) => c.json({ conversations: conversations.list() }),
+    queryStoredConversations: async ({ c, body }) =>
+      c.json({
+        conversations: await conversations.listStored({
+          search: body.search,
+          workspace: body.workspace,
+          profile: body.profile,
+        }),
+      }),
+    reopenConversation: async ({ c, id }) => c.json({ id: await conversations.reopen(id) }),
     startConversation: async ({ c, body }) =>
-      c.json({ id: await conversations.start({ messages: body.messages }) }, 201),
+      c.json(
+        {
+          id: await conversations.start({
+            messages: body.messages,
+            workspace: body.workspace,
+            profile: body.profile,
+          }),
+        },
+        201,
+      ),
     getConversation: ({ c, id }) => c.json(conversations.details(id)),
     closeConversation: async ({ c, id }) => {
       await conversations.close(id);

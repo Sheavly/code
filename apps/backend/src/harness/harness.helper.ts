@@ -27,7 +27,8 @@ export async function createBackendHarness(
 ): Promise<BackendHarness> {
   const { trustStore, trustWorkspace = false, skipAllowList = false, home, ...coding } = options;
   const harness = await createCodingHarness(coding);
-  const { workspace, fileLocks, processes, tasks, approvals, sessions, provider } = harness;
+  const { workspace, fileLocks, fileReads, processes, tasks, approvals, sessions, provider } =
+    harness;
   // A broken `.sheavly` hook stops the run here, with the file and the reason. An untrusted
   // workspace loads none: `projectTrust` says why, for a UI to show.
   const projectHooks = await loadProjectHooks({
@@ -39,9 +40,9 @@ export async function createBackendHarness(
   const skillRoots = { root: workspace.root, home };
   const skills = createSkillsHook(skillRoots);
   const fileTools = [
-    createReadFileTool({ workspace }),
-    createWriteFileTool({ workspace, fileLocks }),
-    createEditFileTool({ workspace, fileLocks }),
+    createReadFileTool({ workspace, fileReads }),
+    createWriteFileTool({ workspace, fileLocks, fileReads }),
+    createEditFileTool({ workspace, fileLocks, fileReads }),
     createReadSkillTool(skillRoots),
   ];
 

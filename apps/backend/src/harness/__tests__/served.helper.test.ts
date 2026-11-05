@@ -1,17 +1,12 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { Model } from '@sheavly/protocol/model/model.types';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
-import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
-import { collect, fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
-import { trustStoreFor } from '../../profiles/home.helper.js';
-import { Profiles } from '../../profiles/profiles.service.js';
+import { collect, fakeFetch, fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { setUpProfile, TEST_PROFILE } from '../../profiles/testing/profiles.fake.js';
-import { servedConversation } from '../served.helper.js';
-import { parseCliSettings, parseRunEnv } from '../settings.validator.js';
+import { testBackend } from '../../testing/backend.fake.js';
 
 const FAST_ID = modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a31');
 const DEEP_ID = modelIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b72');
@@ -46,29 +41,14 @@ afterEach(async () => {
 
 /** A backend's conversations (its workspace the temp project, its folder the temp `home`), as `serve.ts` makes them. */
 function serve(extra: Record<string, string> = {}, fetch?: typeof globalThis.fetch) {
-  const env = { ...extra, SHEAVLY_HOME: home, WORKSPACE_ROOT: root };
-  const settings = { ...parseCliSettings({ env, args: [] }), ...parseRunEnv(env) };
-  const profiles = new Profiles({
-    env,
-    ...(fetch && { adapters: createDefaultRegistry({ fetch }) }),
+  const { conversations, logged } = testBackend({
+    home,
+    workspace: root,
+    env: extra,
+    ...(fetch && { fetch }),
   });
-  const trustStore = trustStoreFor(env);
-  const logged: string[] = [];
 
-  return {
-    logged,
-    conversations: new Conversations({
-      create: ({ messages }) =>
-        servedConversation({
-          env,
-          profiles,
-          trustStore,
-          settings,
-          messages,
-          log: (text) => logged.push(text),
-        }),
-    }),
-  };
+  return { logged, conversations };
 }
 
 describe('servedConversation', () => {
@@ -203,5 +183,103 @@ describe('servedConversation', () => {
     await conversations.start();
     expect(logged.join('')).toContain('skill not loaded');
     await conversations.closeAll();
+  });
+});
+
+const say = (text: string) => [{ type: 'response.output_text.delta', delta: text }];
+
+/** What each model call was sent, as one string to look for a message in. */
+const sentTexts = (requests: { body: Record<string, unknown> }[]) =>
+  JSON.stringify(requests.map((request) => request.body.input));
+
+describe('a conversation the backend keeps', () => {
+  it('is listed after a restart, and was closed cleanly', async () => {
+    await setUpProfile({ home, models: [fast] });
+
+    const { fetch } = fakeFetchSequence({ responses: [say('hello')] });
+    const first = serve({}, fetch).conversations;
+    const id = await first.start();
+
+    await collect((await first.send({ id, prompt: { text: 'hi there' } })).events);
+    await first.closeAll();
+
+    const restarted = serve({}, fetch).conversations;
+    const [stored] = await restarted.listStored();
+
+    expect(stored).toMatchObject({ id, modelId: FAST_ID });
+    expect(stored?.status).not.toBe('interrupted');
+    await restarted.closeAll();
+  });
+
+  it('is reopened under its own id and continues from its history', async () => {
+    await setUpProfile({ home, models: [fast] });
+
+    const before = serve({}, fakeFetchSequence({ responses: [say('hello')] }).fetch).conversations;
+    const id = await before.start();
+
+    await collect((await before.send({ id, prompt: { text: 'my name is Ada' } })).events);
+    await before.closeAll();
+
+    const second = fakeFetchSequence({ responses: [say('Hello again, Ada')] });
+    const after = serve({}, second.fetch).conversations;
+
+    expect(await after.reopen(id)).toBe(id);
+    await collect((await after.send({ id, prompt: { text: 'what is my name?' } })).events);
+
+    // The model was sent the earlier exchange, so it can answer from it.
+    expect(sentTexts(second.requests)).toContain('my name is Ada');
+    expect(after.messages(id).map((message) => message.content)).toEqual([
+      'my name is Ada',
+      'hello',
+      'what is my name?',
+      'Hello again, Ada',
+    ]);
+    await after.closeAll();
+  });
+
+  it('is kept under the profile, in the workspace’s folder, in files a person can read', async () => {
+    await setUpProfile({ home, models: [fast] });
+
+    const { conversations } = serve({}, fakeFetchSequence({ responses: [say('hello')] }).fetch);
+    const id = await conversations.start();
+
+    await collect((await conversations.send({ id, prompt: { text: 'hi' } })).events);
+    await conversations.closeAll();
+
+    const found = await readdir(path.join(home, 'profiles'), { recursive: true });
+    const kept = found.filter((name) => name.includes(`conversations${path.sep}${id}${path.sep}`));
+    const history = kept.find((name) => name.endsWith('history.json')) ?? '';
+
+    expect(kept.map((name) => path.basename(name))).toEqual(
+      expect.arrayContaining(['history.json', 'index.json', 'stream.jsonl']),
+    );
+    expect(JSON.parse(await readFile(path.join(home, 'profiles', history), 'utf8'))).toEqual(
+      expect.arrayContaining([expect.objectContaining({ role: 'user', content: 'hi' })]),
+    );
+  });
+
+  it('is not stored when there is no profile: the conversation is refused first', async () => {
+    const { conversations } = serve({}, fakeFetchSequence({ responses: [] }).fetch);
+
+    await expect(conversations.start()).rejects.toMatchObject({ reason: 'not_set_up' });
+    expect(await conversations.listStored()).toEqual([]);
+    await expect(readdir(home)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps each conversation apart, and lists them all', async () => {
+    await setUpProfile({ home, models: [fast] });
+
+    const { fetch } = fakeFetchSequence({ responses: [say('one')] });
+    const { conversations } = serve({}, fetch);
+    const a = await conversations.start();
+    const b = await conversations.start();
+
+    await collect((await conversations.send({ id: a, prompt: { text: 'to a' } })).events);
+    await collect((await conversations.send({ id: b, prompt: { text: 'to b' } })).events);
+    await conversations.closeAll();
+
+    const listed = await serve({}, fetch).conversations.listStored();
+
+    expect(listed.map((conversation) => conversation.id).sort()).toEqual([a, b].sort());
   });
 });

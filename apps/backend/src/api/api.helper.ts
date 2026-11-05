@@ -10,6 +10,8 @@ import type { ApiHandlers, ApiOptions } from './api.types.js';
 import { honoPath, toApiFailure } from './api.utils.js';
 import { validJson } from './api.validator.js';
 import { apiHandlers, idOf } from './handlers.helper.js';
+import { setupHandlers } from './setup-handlers.helper.js';
+import { workspaceHandlers } from './workspace-handlers.helper.js';
 
 /** One route's handler as the app calls it: the table types each one, the app passes it through. */
 type AnyHandler = (args: {
@@ -41,7 +43,7 @@ function addRoute(params: { app: Hono; name: RouteName; handlers: ApiHandlers })
   app.on(route.method.toUpperCase(), [honoPath(route.path)], ...parse, (c) =>
     handle({
       c,
-      // `/conversations` has no id; its handlers never read one.
+      // Only the conversation routes have an `:id`; the others read their params themselves.
       id: c.req.param('id') === undefined ? undefined : idOf(c),
       body: route.body ? c.req.valid('json' as never) : undefined,
     }),
@@ -50,14 +52,18 @@ function addRoute(params: { app: Hono; name: RouteName; handlers: ApiHandlers })
 
 /**
  * The backend's HTTP API: every route of `API_ROUTES` (method, path and body schema from the
- * contract, its handler from `apiHandlers`), behind a bearer token, with request bodies capped and
- * every failure answered as a `ServerError`. It turns requests into calls on `conversations` and
- * adds no behaviour of its own. `serve.ts` decides how to listen and closes the conversations when
- * it stops.
+ * contract, its handler from `apiHandlers` and `setupHandlers`), behind a bearer token, with request
+ * bodies capped and every failure answered as a `ServerError`. It turns requests into calls on
+ * `conversations` and `setup` and adds no behaviour of its own. `serve.ts` decides how to listen
+ * and closes the conversations when it stops.
  */
 export function createApiApp(options: ApiOptions): Hono {
-  const { conversations, token } = options;
-  const handlers = apiHandlers(conversations);
+  const { conversations, setup, workspaces, token } = options;
+  const handlers: ApiHandlers = {
+    ...apiHandlers(conversations),
+    ...setupHandlers(setup),
+    ...workspaceHandlers(workspaces),
+  };
   const app = new Hono()
     .use(
       createMiddleware(async (c, next) => {

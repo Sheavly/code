@@ -56,13 +56,36 @@ const serverEnvSchema = z.object({
   SERVER_TOKEN: optionalSetting.pipe(
     z.string().min(32, 'Set SERVER_TOKEN to at least 32 characters, or leave it unset').optional(),
   ),
+  /**
+   * Only the exact string "true" lets the setup routes that hand out access (a model's key, a
+   * workspace's trust) work over a network (put TLS in front).
+   */
+  SERVER_ALLOW_REMOTE_SETUP: optionalSetting,
 });
+
+/**
+ * Whether `host` (a bind address) only this machine can reach: `localhost`, `::1` or any
+ * `127.x.x.x`. `0.0.0.0` and `::` listen on every interface, so they are not.
+ */
+function isLoopbackHost(host: string): boolean {
+  return host === 'localhost' || host === '::1' || /^127(\.\d{1,3}){3}$/.test(host);
+}
 
 /** The server settings from `env`. */
 export function parseServerEnv(env: Record<string, string | undefined>) {
   const parsed = serverEnvSchema.parse(env);
 
-  return { host: parsed.SERVER_HOST, port: parsed.SERVER_PORT, token: parsed.SERVER_TOKEN };
+  return {
+    host: parsed.SERVER_HOST,
+    port: parsed.SERVER_PORT,
+    token: parsed.SERVER_TOKEN,
+    /**
+     * Whether the setup routes that hand out access (a model's key, a workspace's trust) may work:
+     * on this machine, or opted into for a remote one.
+     */
+    remoteSetupAllowed:
+      isLoopbackHost(parsed.SERVER_HOST) || parsed.SERVER_ALLOW_REMOTE_SETUP === 'true',
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
 import { ApprovalRequestError } from '@sheavly/runtime/errors/approvals.errors';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { SetupError } from '../errors/setup.errors.js';
 import type { ApiFailure } from './api.types.js';
 
 /** Each way a call on the live conversations fails, as the API answers it. */
@@ -15,6 +16,17 @@ const CONVERSATION_FAILURES: Record<ConversationsError['reason'], (message: stri
     // Not a server fault and not a bad request: the user has not set the backend up yet.
     not_set_up: (message) => ({ status: 409, code: 'not_set_up', message }),
   };
+
+/**
+ * Each way a setup call fails. What was sent is the caller's to fix (`bad_request`, not a plain
+ * 400 of the body's shape: the body parsed, its meaning is what's wrong); a key where the backend
+ * takes none is `forbidden`.
+ */
+const SETUP_FAILURES: Record<SetupError['reason'], (message: string) => ApiFailure> = {
+  not_found: (message) => ({ status: 404, code: 'not_found', message }),
+  invalid: (message) => ({ status: 422, code: 'bad_request', message }),
+  forbidden: (message) => ({ status: 403, code: 'forbidden', message }),
+};
 
 /**
  * How the API answers `error`: the caller's mistakes by their protocol code, and anything else
@@ -30,6 +42,8 @@ export function toApiFailure(error: unknown): ApiFailure {
   if (error instanceof ConversationsError) {
     return CONVERSATION_FAILURES[error.reason](error.message);
   }
+
+  if (error instanceof SetupError) return SETUP_FAILURES[error.reason](error.message);
 
   if (error instanceof SessionError && error.reason === 'session_running') {
     return { status: 409, code: 'session_running', message: error.message };

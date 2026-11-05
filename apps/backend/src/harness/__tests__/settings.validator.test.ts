@@ -4,13 +4,46 @@ import { parseRequestEnv, parseRunEnv, parseServerEnv } from '../settings.valida
 
 describe('parseServerEnv', () => {
   it('listens on localhost by default, and on a free port with SERVER_PORT=0', () => {
-    expect(parseServerEnv({})).toEqual({ host: SERVER.host, port: SERVER.port, token: undefined });
+    expect(parseServerEnv({})).toEqual({
+      host: SERVER.host,
+      port: SERVER.port,
+      token: undefined,
+      remoteSetupAllowed: true,
+    });
     expect(parseServerEnv({ SERVER_PORT: '0' }).port).toBe(0);
   });
 
   it('refuses a short token and a port past the range', () => {
     expect(() => parseServerEnv({ SERVER_TOKEN: 'short' })).toThrow('at least 32');
     expect(() => parseServerEnv({ SERVER_PORT: '70000' })).toThrow();
+  });
+
+  it('takes setup that hands out access where only this machine can reach, and nowhere else unless opted in', () => {
+    const takes = (env: Record<string, string>) => parseServerEnv(env).remoteSetupAllowed;
+
+    for (const host of ['127.0.0.1', '127.1.2.3', 'localhost', '::1']) {
+      expect(takes({ SERVER_HOST: host }), host).toBe(true);
+    }
+
+    // Every interface, or a LAN address, or a name: a key must not travel there.
+    for (const host of ['0.0.0.0', '::', '192.168.1.5', 'example.com', '127.0.0.1.evil.com']) {
+      expect(takes({ SERVER_HOST: host }), host).toBe(false);
+    }
+  });
+
+  it('lets a remote host take setup that hands out access only on the exact word "true"', () => {
+    const env = { SERVER_HOST: '0.0.0.0' };
+
+    expect(parseServerEnv({ ...env, SERVER_ALLOW_REMOTE_SETUP: 'true' }).remoteSetupAllowed).toBe(
+      true,
+    );
+
+    for (const word of ['TRUE', '1', 'yes', 'false', '']) {
+      expect(
+        parseServerEnv({ ...env, SERVER_ALLOW_REMOTE_SETUP: word }).remoteSetupAllowed,
+        word,
+      ).toBe(false);
+    }
   });
 });
 

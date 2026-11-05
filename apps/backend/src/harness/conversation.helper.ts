@@ -2,6 +2,7 @@ import { createConversation } from '@sheavly/host/conversation/conversation.help
 import type {
   ConversationRun,
   ConversationSkills,
+  ConversationStorage,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -53,10 +54,12 @@ export function harnessConversation(params: {
   harness: BackendHarness;
   run: ConversationRun;
   messages?: Message[] | undefined;
+  /** Where the host keeps this conversation (see `ConversationStorage`); none keeps nothing. */
+  storage?: ConversationStorage | undefined;
   maxTurns?: number;
   waitForTasks?: boolean;
 }): LiveConversation {
-  const { harness, run, messages, maxTurns = MAX_TURNS, waitForTasks = false } = params;
+  const { harness, run, messages, storage, maxTurns = MAX_TURNS, waitForTasks = false } = params;
 
   return {
     harness,
@@ -68,6 +71,11 @@ export function harnessConversation(params: {
       maxTurns,
       waitForTasks,
       ...(messages && { messages }),
+      ...(storage && {
+        keepHistory: storage.keepHistory,
+        // A reopened conversation's session already ran its `sessionStart` hooks.
+        resumed: storage.resume !== undefined,
+      }),
     }),
     skills: workspaceSkills(harness.skills),
     run,

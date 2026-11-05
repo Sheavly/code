@@ -2,10 +2,13 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
+import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
+import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
+import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
@@ -39,6 +42,12 @@ export type BackendHarnessOptions = {
   /** The user's home, for their `~/.sheavly/skills/` and `~/.agents/skills/`; omit for none. */
   home?: string | undefined;
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
+  /** Where the run's combined stream is kept (see `HarnessOptions.entries`); none keeps it in memory. */
+  entries?: EntryStore | undefined;
+  /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
+  resume?: StoredLog | undefined;
+  /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */
+  fileLocks?: FileLocks | undefined;
 };
 
 /** A run on the backend: the coding services, and the tools and hooks it includes. */

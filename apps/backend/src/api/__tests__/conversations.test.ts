@@ -296,3 +296,83 @@ describe('a conversation over HTTP', () => {
     });
   });
 });
+
+describe('kept conversations over HTTP', () => {
+  /** Starts a conversation that has a prompt in it, so it has a title and a history, then closes it. */
+  async function kept(api: ReturnType<typeof testApi>) {
+    const id = await api.start();
+    const response = await api.request(`/conversations/${id}/prompts`, {
+      method: 'POST',
+      body: { text: 'hi' },
+    });
+
+    for await (const _frame of readEntries(response.body));
+    await api.conversations.close(conversationIdSchema.parse(id));
+
+    return id;
+  }
+
+  const query = (api: ReturnType<typeof testApi>, body: unknown = {}) =>
+    api.request('/stored-conversations', { method: 'QUERY', body });
+
+  it('lists the kept conversations, and searches them by title', async () => {
+    const api = testApi({ hi: [reply('hello')] }, new MemoryConversationStore());
+    const id = await kept(api);
+
+    const all = await query(api);
+
+    expect(all.status).toBe(200);
+    expect(await all.json()).toMatchObject({ conversations: [{ id, status: 'closed' }] });
+
+    // The title is the conversation's ("Chat"): a search for it finds it, any other does not.
+    const found = (await (await query(api, { search: 'CHAT' })).json()) as { conversations: [] };
+    const missed = (await (await query(api, { search: 'nothing like it' })).json()) as {
+      conversations: [];
+    };
+
+    expect(found.conversations).toHaveLength(1);
+    expect(missed.conversations).toEqual([]);
+  });
+
+  it('refuses an empty search as bad_request, not as "match everything"', async () => {
+    const api = testApi({}, new MemoryConversationStore());
+    const response = await query(api, { search: '' });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'bad_request' } });
+  });
+
+  it('lists nothing when the host keeps nothing', async () => {
+    const api = testApi({});
+
+    expect(await (await query(api)).json()).toEqual({ conversations: [] });
+  });
+
+  it('reopens a kept conversation under its own id, with its history', async () => {
+    const api = testApi({ hi: [reply('hello')] }, new MemoryConversationStore());
+    const id = await kept(api);
+
+    expect((await api.request(`/conversations/${id}/messages`)).status).toBe(404);
+
+    const reopened = await api.request(`/stored-conversations/${id}/reopen`, { method: 'POST' });
+
+    expect(reopened.status).toBe(200);
+    expect(await reopened.json()).toEqual({ id });
+    expect(await (await api.request(`/conversations/${id}/messages`)).json()).toMatchObject({
+      messages: [{ role: 'user' }, { role: 'assistant' }],
+    });
+  });
+
+  it('answers reopening what is not kept, or is not an id, as not_found', async () => {
+    const api = testApi({}, new MemoryConversationStore());
+
+    for (const bad of [UNKNOWN_ID, 'nope', '..']) {
+      const response = await api.request(`/stored-conversations/${bad}/reopen`, {
+        method: 'POST',
+      });
+
+      expect(response.status, bad).toBe(404);
+      expect(await response.json(), bad).toMatchObject({ error: { code: 'not_found' } });
+    }
+  });
+});

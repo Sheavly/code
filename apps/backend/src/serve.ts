@@ -19,12 +19,10 @@
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
-import { Conversations } from '@sheavly/host/conversations/conversations.service';
 import { createApiApp } from './api/api.helper.js';
-import { servedConversation } from './harness/served.helper.js';
+import { createBackend } from './backend.helper.js';
 import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
-import { sheavlyHome, trustStoreFor } from './profiles/home.helper.js';
-import { Profiles } from './profiles/profiles.service.js';
+import { sheavlyHome } from './profiles/home.helper.js';
 
 // npm runs a workspace's script inside its folder; work from the folder it was started in
 // (npm's INIT_CWD), so the default workspace is the user's.
@@ -37,14 +35,13 @@ const settings = {
 const server = parseServerEnv(process.env);
 const token = server.token ?? randomBytes(32).toString('base64url');
 const log = (text: string) => void process.stderr.write(text);
-const profiles = new Profiles({ env: process.env });
-const trustStore = trustStoreFor(process.env);
-
-const conversations = new Conversations({
-  create: ({ messages }) =>
-    servedConversation({ env: process.env, profiles, trustStore, settings, messages, log }),
+const { conversations, setup, workspaces } = createBackend({
+  env: process.env,
+  settings,
+  log,
+  remoteSetupAllowed: server.remoteSetupAllowed,
 });
-const app = createApiApp({ conversations, token });
+const app = createApiApp({ conversations, setup, workspaces, token });
 
 /** What the user needs once the server listens: where their data is, and the token when made here. */
 function printStarted(address: AddressInfo): void {
