@@ -115,6 +115,7 @@ export async function confirmCommand(params: {
     command,
     concerns,
     options: offeredOptions(entries),
+    ...(entries && { keeps: entries }),
     signal,
   });
 

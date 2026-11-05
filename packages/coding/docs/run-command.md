@@ -36,12 +36,18 @@ argument, and skipping it skips the whole line. The user can answer:
 
 - **approve**: run it this once.
 - **always allow**: run it and keep an entry for each command not allowed yet (`allow-entry.utils.ts`):
-  the first two words and `*` (`git log *`), three for `npm run` (`npm run test *`), and only the
-  exact command when a flag comes second (`git -c x log`), since then it could mean anything.
+  retain the first two words, or three for `npm run`, and append `*` only if more arguments follow.
+  Thus `touch /path/file` stays exact, `git log --oneline` becomes `git log *`, and
+  `npm run test -- --watch` becomes `npm run test *`. When a flag comes second (`git -c x log`),
+  keep only the exact command, since then it could mean anything.
   Not offered when nothing could be kept: no entry can spell the command, the line is only risky
   arguments, or the mode is `always_ask`. The entry is kept before the line runs; if it can't be,
   the line does not run.
 - **skip**, or **skip with a message**, which the model reads as the user's direction.
+
+When "always allow" is offered, the approval request's `keeps` lists the exact entries that
+would be saved, with duplicates removed. A UI displays these rather than deriving its own
+permission from the command text. The same entries are saved if the user chooses that option.
 
 A run with no one listening (no UI connected) refuses what it would have asked about.
 

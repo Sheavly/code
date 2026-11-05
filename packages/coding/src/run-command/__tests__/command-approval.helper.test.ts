@@ -78,6 +78,35 @@ describe('a command the user has not allowed', () => {
     expect(second.content).toContain('hello small world');
     expect(permissions.kept).toEqual(['echo hello *']);
     expect(asked).toHaveLength(1);
+    expect(asked[0]?.keeps).toEqual(permissions.kept);
+  });
+
+  it('tells the user what always allow would keep, so the question can say it', async () => {
+    const { asked, approvals } = answeringUi({ decision: 'approve' });
+
+    await run({ command: 'echo hello big world', permissions: testPermissions(), approvals });
+    await run({
+      command: `touch ${marker('w')} && printf x y z`,
+      permissions: testPermissions(),
+      approvals,
+    });
+    await run({
+      command: `touch '${marker('w x')}'`,
+      permissions: testPermissions(),
+      approvals,
+    });
+    await run({
+      command: 'echo hi',
+      permissions: testPermissions({ mode: 'always_ask' }),
+      approvals,
+    });
+
+    expect(asked.map(({ keeps }) => keeps)).toEqual([
+      ['echo hello *'],
+      [`touch ${marker('w')}`, 'printf x *'],
+      undefined,
+      undefined,
+    ]);
   });
 
   it('keeps only the exact command when it has no arguments to allow beyond its first two words', async () => {
@@ -89,6 +118,10 @@ describe('a command the user has not allowed', () => {
 
     expect(permissions.kept).toEqual([`touch ${marker('c')}`, `touch ${marker('c2')}`]);
     expect(asked).toHaveLength(2);
+    expect(asked.map(({ keeps }) => keeps)).toEqual([
+      [`touch ${marker('c')}`],
+      [`touch ${marker('c2')}`],
+    ]);
   });
 
   it.each([
@@ -193,7 +226,7 @@ describe('a line of several commands', () => {
 
   it('keeps one entry for each kind of command not allowed on always allow, once each', async () => {
     const permissions = testPermissions();
-    const { approvals } = answeringUi({ decision: 'always_allow' });
+    const { asked, approvals } = answeringUi({ decision: 'always_allow' });
 
     await run({
       command: 'echo a b && printf x y z ; echo a c',
@@ -202,6 +235,8 @@ describe('a line of several commands', () => {
     });
 
     expect(permissions.kept).toEqual(['echo a *', 'printf x *']);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.keeps).toEqual(permissions.kept);
   });
 
   it('does not offer always allow when only an argument is risky, and the command is allowed', async () => {
@@ -213,6 +248,7 @@ describe('a line of several commands', () => {
     expect(asked[0]?.concerns).toEqual([
       { argument: '..', reason: 'reaches outside the workspace' },
     ]);
+    expect(asked[0]).not.toHaveProperty('keeps');
   });
 });
 
