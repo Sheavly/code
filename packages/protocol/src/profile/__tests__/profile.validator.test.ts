@@ -20,6 +20,22 @@ describe('profileIdSchema', () => {
 });
 
 describe('profileSchema', () => {
+  it('holds a selection and per-model modes, rejecting unknown modes and non-ID keys', () => {
+    const valid = {
+      id: ID,
+      name: 'Work',
+      lastModelSelection: { modelId: ID, mode: 'high' },
+      modelModes: { [ID]: 'high' },
+    };
+
+    expect(profileSchema.safeParse(valid).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, modelModes: { [ID]: 'turbo' } }).success).toBe(
+      false,
+    );
+    expect(profileSchema.safeParse({ ...valid, modelModes: { Sonnet: 'high' } }).success).toBe(
+      false,
+    );
+  });
   it('holds an id and the name a person gave it', () => {
     expect(profileSchema.parse({ id: ID, name: 'Work' })).toEqual({ id: ID, name: 'Work' });
   });

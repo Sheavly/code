@@ -56,7 +56,22 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
 
+## Approval permissions
+
+`ApprovalRequest.options` names the decisions a UI may offer. When it includes `always_allow`,
+the optional `keeps` array carries the exact allow-list entries the choice would save, such as
+`touch /path/file` or `npm run test *`. Each entry uses `allowEntrySchema`. A UI displays those
+entries rather than guessing their scope from `command`; requests without `keeps` remain valid.
+The answer is still `{ decision: 'always_allow' }`, and the caller saves the proposed entries.
+
 ## Models
+
+`ModelMode` is `low`, `medium`, `high` or `extreme`. `ModelSelection` pairs `modelId` with `mode`.
+A profile keeps `lastModelSelection` and `modelModes`, keyed by model UUID; absent per-model
+preferences start on medium. `PUT /conversations/:id/model` accepts optional `mode`: supplying it
+sets and remembers effort for that model; omitting it restores that model's last-used effort.
+The active model choice, session updates and stored conversation index carry the mode too.
+Modes do not change context size, tool permissions or the output-token limit.
 
 `model/` is how a model is described to a UI and stored, with no code that talks to a provider:
 

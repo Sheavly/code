@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
-import { adapterKindSchema, modelIdSchema } from '../model/model.validator.js';
+import { adapterKindSchema, modelIdSchema, modelModeSchema } from '../model/model.validator.js';
 import { permissionModeSchema } from '../permission/permission.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
@@ -60,6 +60,8 @@ export const modelChoiceSchema = z.object({
   name: z.string(),
   adapter: adapterKindSchema,
   model: z.string(),
+  /** Older clients may omit it; the backend uses medium when no mode was selected. */
+  mode: modelModeSchema.exactOptional(),
 });
 
 /**
@@ -83,7 +85,11 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
  * `PUT /conversations/:id/model`: switch to the one of `models` with this `id`, from the next
  * model call on. A name is a label and never switches anything.
  */
-export const switchModelRequestSchema = z.object({ id: modelIdSchema });
+export const switchModelRequestSchema = z.object({
+  id: modelIdSchema,
+  /** Omitted: restore the mode last used with this model in the profile. */
+  mode: modelModeSchema.exactOptional(),
+});
 
 /**
  * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in

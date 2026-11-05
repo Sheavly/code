@@ -82,6 +82,8 @@ import {
   modelFileSchema,
   modelIdSchema,
   modelSchema,
+  modelModeSchema,
+  modelSelectionSchema,
 } from '../model/model.validator.js';
 import {
   allowEntryRequestSchema,
@@ -104,6 +106,8 @@ const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
 /** Every schema of the contract, by the name its TypeScript type has. */
 function contractSchemas(): Record<string, z.ZodType> {
   return {
+    ModelMode: modelModeSchema,
+    ModelSelection: modelSelectionSchema,
     AgentEvent: agentEventSchema,
     AgentEventBody: agentEventBodySchema,
     EntryEvent: entryEventSchema,

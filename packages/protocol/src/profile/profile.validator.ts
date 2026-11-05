@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
-import { modelIdSchema } from '../model/model.validator.js';
+import { modelIdSchema, modelModeSchema, modelSelectionSchema } from '../model/model.validator.js';
 
 /**
  * A profile's id: a UUID in lowercase, the name of its folder (`profiles/<id>/`) and what a request
@@ -21,5 +21,7 @@ export const profileSchema = z.object({
    * The model last chosen in this profile: where a new conversation starts. Its own conversations
    * each keep theirs, so switching in one never moves another's. None until a model is chosen.
    */
-  lastModelId: modelIdSchema.exactOptional(),
+  lastModelSelection: modelSelectionSchema.exactOptional(),
+  /** Last-used effort for each model in this profile; absent entries start on medium. */
+  modelModes: z.record(modelIdSchema, modelModeSchema).exactOptional(),
 });

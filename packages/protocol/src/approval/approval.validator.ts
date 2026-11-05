@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
+import { allowEntrySchema } from '../permission/permission.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 
 /**
@@ -46,6 +47,11 @@ export const approvalRequestSchema = z.object({
   command: z.string(),
   concerns: z.array(approvalConcernSchema),
   options: z.array(approvalOptionSchema).readonly(),
+  /**
+   * What `always_allow` would keep: the allow-list entries (`git log *`), so a UI can say exactly
+   * what the user is agreeing to. Present only when `always_allow` is offered.
+   */
+  keeps: z.array(allowEntrySchema).readonly().exactOptional(),
 });
 
 /** Everything a subscriber (a UI) hears from an `ApprovalRegistry`. */

@@ -58,6 +58,17 @@ describe('approvalRequestSchema and approvalUpdateSchema', () => {
     expect(approvalRequestSchema.safeParse({ ...REQUEST, options: ['retry'] }).success).toBe(false);
   });
 
+  it('carry the entries always-allow would keep, and only valid ones', () => {
+    expect(approvalRequestSchema.parse({ ...REQUEST, keeps: ['git log *'] }).keeps).toEqual([
+      'git log *',
+    ]);
+    expect(approvalRequestSchema.parse(REQUEST)).not.toHaveProperty('keeps');
+
+    for (const keeps of [['*'], ['git  log'], ['']]) {
+      expect(approvalRequestSchema.safeParse({ ...REQUEST, keeps }).success).toBe(false);
+    }
+  });
+
   it('accept every update kind and reject an unknown one', () => {
     const updates = [
       { type: 'approval_requested', request: REQUEST },

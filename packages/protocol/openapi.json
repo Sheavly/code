@@ -908,6 +908,15 @@
   },
   "components": {
     "schemas": {
+      "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+      "ModelSelection": {
+        "type": "object",
+        "properties": {
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
+        },
+        "required": ["modelId", "mode"]
+      },
       "AgentEvent": {
         "allOf": [
           {
@@ -1317,7 +1326,8 @@
               "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
               "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-              "modelId": { "$ref": "#/components/schemas/ModelId" }
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
             },
             "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
             "additionalProperties": false
@@ -1336,7 +1346,8 @@
               "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
               "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-              "modelId": { "$ref": "#/components/schemas/ModelId" }
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
             },
             "required": [
               "id",
@@ -1413,7 +1424,8 @@
             "properties": {
               "type": { "type": "string", "const": "session_model" },
               "session": { "$ref": "#/components/schemas/SessionInfo" },
-              "modelId": { "$ref": "#/components/schemas/ModelId" }
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
             },
             "required": ["type", "session", "modelId"]
           },
@@ -1542,6 +1554,11 @@
             "readOnly": true,
             "type": "array",
             "items": { "$ref": "#/components/schemas/ApprovalOption" }
+          },
+          "keeps": {
+            "readOnly": true,
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AllowEntry" }
           }
         },
         "required": ["id", "callId", "tool", "command", "concerns", "options"]
@@ -1654,7 +1671,8 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string" },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
-          "model": { "type": "string" }
+          "model": { "type": "string" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
         },
         "required": ["id", "name", "adapter", "model"]
       },
@@ -1692,7 +1710,10 @@
       },
       "SwitchModelRequest": {
         "type": "object",
-        "properties": { "id": { "$ref": "#/components/schemas/ModelId" } },
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
+        },
         "required": ["id"]
       },
       "SendPromptRequest": {
@@ -1796,6 +1817,7 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" },
           "workspace": { "type": "string" },
           "profile": { "$ref": "#/components/schemas/ModelId" },
           "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
@@ -1927,7 +1949,12 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "lastModelId": { "$ref": "#/components/schemas/ModelId" },
+          "lastModelSelection": { "$ref": "#/components/schemas/ModelSelection" },
+          "modelModes": {
+            "type": "object",
+            "propertyNames": { "$ref": "#/components/schemas/ModelId" },
+            "additionalProperties": { "$ref": "#/components/schemas/ModelMode" }
+          },
           "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } },
           "ready": { "type": "boolean" }
         },

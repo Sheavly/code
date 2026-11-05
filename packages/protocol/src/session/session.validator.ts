@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
-import { modelIdSchema } from '../model/model.validator.js';
+import { modelIdSchema, modelModeSchema } from '../model/model.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 /**
@@ -67,6 +67,7 @@ const sessionDetails = {
    * (a library run with no model file behind it) has none.
    */
   modelId: modelIdSchema.exactOptional(),
+  mode: modelModeSchema.exactOptional(),
 };
 
 /** A snapshot of a session, for a UI (e.g. a sub-agent card). */
@@ -106,6 +107,7 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
     type: z.literal('session_model'),
     session: sessionInfoSchema,
     modelId: modelIdSchema,
+    mode: modelModeSchema.exactOptional(),
   }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
 ]);

@@ -1,6 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+    "ModelSelection": {
+      "type": "object",
+      "properties": {
+        "modelId": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
+      },
+      "required": ["modelId", "mode"]
+    },
     "AgentEvent": {
       "allOf": [
         {
@@ -390,7 +399,8 @@
             "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
             "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "modelId": { "$ref": "#/$defs/ModelId" }
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
           },
           "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
           "additionalProperties": false
@@ -409,7 +419,8 @@
             "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
             "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-            "modelId": { "$ref": "#/$defs/ModelId" }
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
           },
           "required": [
             "id",
@@ -483,7 +494,8 @@
           "properties": {
             "type": { "type": "string", "const": "session_model" },
             "session": { "$ref": "#/$defs/SessionInfo" },
-            "modelId": { "$ref": "#/$defs/ModelId" }
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
           },
           "required": ["type", "session", "modelId"]
         },
@@ -609,7 +621,8 @@
           "readOnly": true,
           "type": "array",
           "items": { "$ref": "#/$defs/ApprovalOption" }
-        }
+        },
+        "keeps": { "readOnly": true, "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } }
       },
       "required": ["id", "callId", "tool", "command", "concerns", "options"]
     },
@@ -718,7 +731,8 @@
         "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string" },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
-        "model": { "type": "string" }
+        "model": { "type": "string" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
       },
       "required": ["id", "name", "adapter", "model"]
     },
@@ -756,7 +770,10 @@
     },
     "SwitchModelRequest": {
       "type": "object",
-      "properties": { "id": { "$ref": "#/$defs/ModelId" } },
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
+      },
       "required": ["id"]
     },
     "SendPromptRequest": {
@@ -852,6 +869,7 @@
         "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "modelId": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" },
         "workspace": { "type": "string" },
         "profile": { "$ref": "#/$defs/ModelId" },
         "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
@@ -980,7 +998,12 @@
       "properties": {
         "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "lastModelId": { "$ref": "#/$defs/ModelId" },
+        "lastModelSelection": { "$ref": "#/$defs/ModelSelection" },
+        "modelModes": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/ModelId" },
+          "additionalProperties": { "$ref": "#/$defs/ModelMode" }
+        },
         "models": { "type": "array", "items": { "$ref": "#/$defs/SetupModel" } },
         "ready": { "type": "boolean" }
       },

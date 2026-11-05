@@ -8,6 +8,11 @@ import { lowercaseUuidSchema } from '../id/id.validator.js';
  */
 export const modelIdSchema = lowercaseUuidSchema.brand<'ModelId'>();
 
+/** Reasoning effort, independent of context size, output length and tool permissions. */
+export const modelModeSchema = z.enum(['low', 'medium', 'high', 'extreme']);
+
+export const modelSelectionSchema = z.object({ modelId: modelIdSchema, mode: modelModeSchema });
+
 /** An adapter's kind (`openai`, `azure-openai`, `azure-anthropic`): lowercase words joined by dashes. */
 export const adapterKindSchema = z
   .string()
