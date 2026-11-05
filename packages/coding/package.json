@@ -48,6 +48,10 @@
     "./*.errors": {
       "@sheavly/source": "./src/*.errors.ts",
       "default": "./dist/*.errors.js"
+    },
+    "./*.constants": {
+      "@sheavly/source": "./src/*.constants.ts",
+      "default": "./dist/*.constants.js"
     }
   },
   "files": [
