@@ -8,6 +8,7 @@ import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';
 import type {
   FingerprintEntry,
+  TrustedWorkspace,
   TrustPersistence,
   TrustState,
   TrustStoreData,
@@ -64,9 +65,32 @@ export class TrustStore {
     );
   }
 
-  /** Forgets `root`: its project hooks don't run until it is trusted again. */
+  /**
+   * Every trusted workspace, by the path it was trusted under, oldest first, with whether it is
+   * trusted now (`TrustedWorkspace`). Reads the store and each workspace's `.sheavly/`, and
+   * writes nothing.
+   */
+  async list(): Promise<TrustedWorkspace[]> {
+    const { workspaces } = this.#parse(await this.#guarded(() => this.#persistence.load()));
+    const listed: TrustedWorkspace[] = [];
+
+    for (const [root, entry] of Object.entries(workspaces)) {
+      listed.push({
+        root,
+        trustedAt: entry.trustedAt,
+        state: await this.#stateOf({ root, fingerprint: entry.fingerprint }),
+      });
+    }
+
+    return listed.sort((a, b) => a.trustedAt - b.trustedAt || (a.root < b.root ? -1 : 1));
+  }
+
+  /**
+   * Forgets `root`: its project hooks don't run until it is trusted again. A folder that is gone is
+   * forgotten by the path it was trusted under, so a stale entry can always be cleared.
+   */
   async revoke(params: { root: string }): Promise<void> {
-    const root = await realpath(params.root);
+    const root = await realpathOrAsGiven(params.root);
 
     await this.#guarded(() =>
       this.#persistence.update((current) => {
@@ -83,6 +107,25 @@ export class TrustStore {
         };
       }),
     );
+  }
+
+  /** Whether the entry for `root` still holds, or its folder is gone. */
+  async #stateOf(params: {
+    root: string;
+    fingerprint: string;
+  }): Promise<TrustedWorkspace['state']> {
+    const { root, fingerprint } = params;
+
+    try {
+      await realpath(root);
+    } catch (caughtError) {
+      // Only a folder that is not there is "gone"; a path that can't be checked is not ours to hide.
+      if (!isMissingPath(caughtError)) throw caughtError;
+
+      return 'gone';
+    }
+
+    return fingerprint === (await fingerprintWorkspace({ root })) ? 'trusted' : 'changed';
   }
 
   /**
@@ -158,6 +201,20 @@ export async function fingerprintWorkspace(params: { root: string }): Promise<st
   }
 
   return fingerprintOf(entries);
+}
+
+/**
+ * The real path of `folder`, or `folder` as given when it is not there: an entry trusted under a
+ * path that has since gone is still named by that path, and must be clearable.
+ */
+async function realpathOrAsGiven(folder: string): Promise<string> {
+  try {
+    return await realpath(folder);
+  } catch (caughtError) {
+    if (!isMissingPath(caughtError)) throw caughtError;
+
+    return path.resolve(folder);
+  }
 }
 
 /** The real path of `dir`, or of its nearest existing ancestor with the rest re-appended. */

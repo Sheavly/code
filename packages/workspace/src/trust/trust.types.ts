@@ -37,3 +37,14 @@ export type FingerprintEntry = {
  * - `changed`: it was trusted, but `.sheavly/` changed since, so it must be trusted again.
  */
 export type TrustState = 'trusted' | 'untrusted' | 'changed';
+
+/**
+ * A trusted workspace as `TrustStore.list` reports it: where it is (its real path when it was
+ * trusted), when, and whether it is trusted now. `gone`: the folder is no longer there, or can't be
+ * read, so nothing can be said of its `.sheavly/`; it is not trusted, and revoking it clears it.
+ */
+export type TrustedWorkspace = {
+  root: string;
+  trustedAt: number;
+  state: 'trusted' | 'changed' | 'gone';
+};

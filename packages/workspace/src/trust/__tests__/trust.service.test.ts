@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -6,8 +6,11 @@ import { TrustStoreError } from '../../errors/trust.errors.js';
 import { memoryTrust } from '../../testing/trust.fake.js';
 import type { MemoryTrust } from '../../testing/testing.types.js';
 import { TRUST_STORE_VERSION } from '../trust.constants.js';
+import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { fingerprintWorkspace, TrustStore } from '../trust.service.js';
 import { fingerprintOf } from '../trust.utils.js';
+
+const clock = useFixedClock();
 
 let base = '';
 let root = '';
@@ -103,6 +106,82 @@ describe('TrustStore', () => {
     await store.revoke({ root });
 
     expect(persistence.get()).toBeUndefined();
+  });
+
+  describe('listing what is trusted', () => {
+    const other = () => path.join(base, 'other');
+
+    it('lists nothing when nothing is trusted, without writing', async () => {
+      expect(await store.list()).toEqual([]);
+      expect(persistence.get()).toBeUndefined();
+    });
+
+    it('lists each trusted workspace by its real path, oldest first, trusted while unchanged', async () => {
+      await mkdir(other());
+      await store.trust({ root: other() });
+      clock.advance(1_000);
+      await store.trust({ root });
+
+      const listed = await store.list();
+
+      expect(listed.map((each) => each.root)).toEqual([
+        await realpath(other()),
+        await realpath(root),
+      ]);
+      expect(listed.map((each) => each.state)).toEqual(['trusted', 'trusted']);
+      expect((listed[1]?.trustedAt ?? 0) - (listed[0]?.trustedAt ?? 0)).toBe(1_000);
+    });
+
+    it('lists those trusted at the same moment in path order, so the order never varies', async () => {
+      await mkdir(other());
+      await store.trust({ root });
+      await store.trust({ root: other() });
+
+      expect((await store.list()).map((each) => each.root)).toEqual([
+        await realpath(other()),
+        await realpath(root),
+      ]);
+    });
+
+    it('says changed for one whose .sheavly/ changed since, and trusted for the rest', async () => {
+      await mkdir(other());
+      await store.trust({ root });
+      await store.trust({ root: other() });
+      await sheavly({ 'hooks/a.js': 'a, but evil' });
+
+      // `other` sorts before `project`; only `project` changed.
+      expect((await store.list()).map((each) => each.state)).toEqual(['trusted', 'changed']);
+    });
+
+    it('says gone for a folder that no longer exists, and revoking it clears it', async () => {
+      await mkdir(other());
+      await store.trust({ root: other() });
+
+      const trustedAs = (await store.list())[0]?.root ?? '';
+
+      await rm(other(), { recursive: true });
+
+      expect((await store.list()).map((each) => each.state)).toEqual(['gone']);
+
+      await store.revoke({ root: trustedAs });
+
+      expect(await store.list()).toEqual([]);
+    });
+
+    it('revokes by the path it was trusted under, so a gone folder given as it was is cleared too', async () => {
+      await mkdir(other());
+      await store.trust({ root: other() });
+      await rm(other(), { recursive: true });
+      await store.revoke({ root: other() });
+
+      expect(await store.list()).toEqual([]);
+    });
+
+    it('reports a damaged store as a TrustStoreError, not as nothing trusted', async () => {
+      persistence.set({ version: 999, workspaces: {} });
+
+      await expect(store.list()).rejects.toBeInstanceOf(TrustStoreError);
+    });
   });
 
   it('keeps what was trusted when another workspace is trusted after it', async () => {
