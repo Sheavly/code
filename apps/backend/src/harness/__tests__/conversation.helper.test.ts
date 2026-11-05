@@ -10,6 +10,7 @@ import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { harnessConversation, workspaceSkills } from '../conversation.helper.js';
 import { createBackendHarness } from '../harness.helper.js';
+import { askingPermissions } from '../../testing/permissions.fake.js';
 
 const SKILL = '---\nname: review\ndescription: Reviews a change.\n---\nREVIEW STEPS\n';
 
@@ -70,6 +71,7 @@ describe('harnessConversation', () => {
               persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
             }),
             env: process.env,
+            permissions: askingPermissions(),
           }),
           messages,
           run: twoModelRun(),

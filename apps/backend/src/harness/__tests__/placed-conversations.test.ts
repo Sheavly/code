@@ -79,8 +79,8 @@ describe('conversations placed by their start', () => {
 
     const id = await made.conversations.start();
 
-    expect(made.conversations.details(id)).toMatchObject({ profile: WORK });
-    expect(made.conversations.details(id).workspace).toContain('app');
+    expect(await made.conversations.details(id)).toMatchObject({ profile: WORK });
+    expect((await made.conversations.details(id)).workspace).toContain('app');
     await made.conversations.closeAll();
   });
 
@@ -91,7 +91,7 @@ describe('conversations placed by their start', () => {
 
     const id = await made.conversations.start({ workspace: folders.site, profile: HOME });
 
-    expect(made.conversations.details(id)).toMatchObject({
+    expect(await made.conversations.details(id)).toMatchObject({
       profile: HOME,
       workspace: expect.stringContaining('site') as string,
       model: { id: HOME_MODEL },
@@ -110,17 +110,17 @@ describe('conversations placed by their start', () => {
       await made.conversations.start({ workspace: folders.site }),
     ] as const;
 
-    expect(made.conversations.details(a)).toMatchObject({
-      profile: WORK,
-      model: { id: WORK_MODEL },
-    });
-    expect(made.conversations.details(b)).toMatchObject({
-      profile: HOME,
-      model: { id: HOME_MODEL },
-    });
+    const [detailsA, detailsB, detailsC] = await Promise.all([
+      made.conversations.details(a),
+      made.conversations.details(b),
+      made.conversations.details(c),
+    ]);
+
+    expect(detailsA).toMatchObject({ profile: WORK, model: { id: WORK_MODEL } });
+    expect(detailsB).toMatchObject({ profile: HOME, model: { id: HOME_MODEL } });
     // Two in one folder: the second takes the default profile, the first's folder-mate runs on Home.
-    expect(made.conversations.details(c).workspace).toBe(made.conversations.details(b).workspace);
-    expect(made.conversations.details(c).profile).toBe(WORK);
+    expect(detailsC.workspace).toBe(detailsB.workspace);
+    expect(detailsC.profile).toBe(WORK);
     await made.conversations.closeAll();
   });
 
@@ -261,7 +261,7 @@ describe('where each conversation is kept, and found again', () => {
 
     await restarted.conversations.reopen(id);
 
-    expect(restarted.conversations.details(id)).toMatchObject({
+    expect(await restarted.conversations.details(id)).toMatchObject({
       profile: HOME,
       workspace: expect.stringContaining('site') as string,
       model: { id: HOME_MODEL },

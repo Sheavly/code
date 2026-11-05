@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
+import { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { TRUSTED_WORKSPACES_FILE } from './profiles.constants.js';
 
@@ -32,4 +33,13 @@ export function trustStoreFor(env: Environment): TrustStore {
       file: override ?? path.join(sheavlyHome(env), TRUSTED_WORKSPACES_FILE),
     }),
   });
+}
+
+/**
+ * What the user lets `run_command` do in each of their folders, kept in `permissions/` in their
+ * folder: shared by every profile and every conversation, and read fresh by each command, so a
+ * change applies to the conversations already running.
+ */
+export function permissionStoreFor(env: Environment): PermissionStore {
+  return new PermissionStore({ root: sheavlyHome(env) });
 }

@@ -14,7 +14,7 @@ locks and process runner), then composes:
 | -------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `read_file`, `write_file`, `edit_file` | `@sheavly/coding`    | A coding agent works on files; all three share the run's `FileLocks` and `FileReads` (an edit needs a read first) |
 | `read_skill`                           | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                              |
-| `run_command`                          | `@sheavly/coding`    | Tests and builds; `skipAllowList` only with `RUN_COMMAND_SKIP_ALLOW_LIST=true`                                    |
+| `run_command`                          | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                   |
 | `task_status`, `cancel_task`           | `@sheavly/tools`     | Background commands and sub-agents                                                                                |
 | `start_agent`, `message_agent`         | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command`                              |
 | The AGENTS.md hook                     | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                           |
@@ -26,7 +26,10 @@ task, and commands are where the trust model has the most to lose.
 
 `servedConversation` wraps it as a conversation (`harnessConversation`: the workspace's skills,
 `MAX_TURNS`, `WAIT_FOR_TASKS`) and reports its run for `GET /conversations/:id`: the workspace,
-the model in use and the ones it can switch to, workspace trust and the allow list.
+the model in use and the ones it can switch to, workspace trust and the permission mode (read when
+asked, since the user can change it while the conversation runs). A run's `run_command` reads its
+folder's permissions from the user's folder (`workspacePermissions`), so a mode or an allowed
+command applies to every conversation in that folder from its next command.
 
 ## Models and keys
 

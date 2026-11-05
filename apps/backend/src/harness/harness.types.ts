@@ -4,6 +4,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
+import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
@@ -37,8 +38,8 @@ export type BackendHarnessOptions = {
   trustStore: TrustStore;
   /** Trust this workspace now (`--trust`), so its `.sheavly/` hooks load. */
   trustWorkspace?: boolean;
-  /** Let run_command run any shell command (`RUN_COMMAND_SKIP_ALLOW_LIST=true`). */
-  skipAllowList?: boolean;
+  /** What the user lets `run_command` do in this workspace (see `CommandPermissions`). */
+  permissions: CommandPermissions;
   /** The user's home, for their `~/.sheavly/skills/` and `~/.agents/skills/`; omit for none. */
   home?: string | undefined;
   onModelCall?: ((request: ProviderRequest) => void) | undefined;

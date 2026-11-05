@@ -52,14 +52,14 @@ function serve(extra: Record<string, string> = {}, fetch?: typeof globalThis.fet
 }
 
 describe('servedConversation', () => {
-  it('reports its run: the workspace, the profile’s models, trust and the allow list', async () => {
+  it('reports its run: the workspace, the profile’s models, trust and the permission mode', async () => {
     await setUpProfile({ home, models: [fast, deep] });
 
     const { conversations } = serve();
     const id = await conversations.start();
 
     // The profile lists its models by name, and a new profile's first is where it starts.
-    expect(conversations.details(id)).toMatchObject({
+    expect(await conversations.details(id)).toMatchObject({
       workspace: expect.stringContaining('project') as string,
       model: { id: DEEP_ID, name: 'Deep', adapter: 'openai', model: 'gpt-deep' },
       models: [
@@ -67,7 +67,7 @@ describe('servedConversation', () => {
         { id: FAST_ID, name: 'Fast' },
       ],
       projectTrust: 'no_hooks',
-      skipAllowList: false,
+      permissionMode: 'ask',
     });
     await conversations.closeAll();
   });
@@ -81,8 +81,8 @@ describe('servedConversation', () => {
 
     conversations.useModel({ id: a, modelId: FAST_ID });
 
-    expect(conversations.details(a).model).toMatchObject({ id: FAST_ID, name: 'Fast' });
-    expect(conversations.details(b).model).toMatchObject({ id: DEEP_ID, name: 'Deep' });
+    expect((await conversations.details(a)).model).toMatchObject({ id: FAST_ID, name: 'Fast' });
+    expect((await conversations.details(b)).model).toMatchObject({ id: DEEP_ID, name: 'Deep' });
     // A model the profile does not have is refused, by its id.
     expect(() => conversations.useModel({ id: a, modelId: OTHER_ID })).toThrow(OTHER_ID);
     await conversations.closeAll();
@@ -94,7 +94,7 @@ describe('servedConversation', () => {
     const first = await conversations.start();
 
     // Fast is not first by name: it is where this one starts because the profile last used it.
-    expect(conversations.details(first).model.id).toBe(FAST_ID);
+    expect((await conversations.details(first)).model.id).toBe(FAST_ID);
 
     conversations.useModel({ id: first, modelId: DEEP_ID });
 
@@ -106,9 +106,9 @@ describe('servedConversation', () => {
 
     const second = await conversations.start();
 
-    expect(conversations.details(second).model.id).toBe(DEEP_ID);
+    expect((await conversations.details(second)).model.id).toBe(DEEP_ID);
     // The conversation that switched is not moved by anyone else's choice.
-    expect(conversations.details(first).model.id).toBe(DEEP_ID);
+    expect((await conversations.details(first)).model.id).toBe(DEEP_ID);
     await conversations.closeAll();
   });
 
@@ -139,7 +139,7 @@ describe('servedConversation', () => {
     const { conversations, logged } = serve();
     const id = await conversations.start();
 
-    expect(conversations.details(id).models.map(({ id: each }) => each)).toEqual([FAST_ID]);
+    expect((await conversations.details(id)).models.map(({ id: each }) => each)).toEqual([FAST_ID]);
     expect(logged.join('')).toContain('Deep');
     expect(logged.join('')).not.toContain('sk-test');
     await conversations.closeAll();

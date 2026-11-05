@@ -5,6 +5,7 @@ import type {
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
@@ -13,6 +14,7 @@ import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
+import { workspacePermissions } from './permissions.helper.js';
 import type { PlacedConversationStore } from '../profiles/placed-conversation-store.service.js';
 import type { Profiles } from '../profiles/profiles.service.js';
 import type { WorkspaceModels } from '../profiles/profiles.types.js';
@@ -38,15 +40,22 @@ export async function servedConversation(params: {
   profiles: Profiles;
   places: PlacedConversationStore;
   trustStore: TrustStore;
+  /** What the user lets `run_command` do in each folder; every conversation reads its folder's. */
+  permissionStore: PermissionStore;
   settings: ServedSettings;
   asked: Parameters<CreateConversation>[0];
   /** Shared with the backend's other conversations, so edits to one file take turns. */
   fileLocks: FileLocks;
   log: (text: string) => void;
 }): Promise<LiveConversation> {
-  const { env, profiles, places, trustStore, settings, asked, fileLocks, log } = params;
+  const { env, profiles, places, trustStore, permissionStore, settings, asked, fileLocks, log } =
+    params;
   const { id, messages, storage } = asked;
   const placement = await places.decide({ id, asked });
+  const permissions = workspacePermissions({
+    store: permissionStore,
+    workspace: placement.workspace,
+  });
   const workspace = await profiles.modelsFor({ placement, request: parseRequestEnv(env) });
 
   for (const note of workspace.notes) log(`${note}\n`);
@@ -55,7 +64,7 @@ export async function servedConversation(params: {
     provider: workspace.models.switch,
     workspaceRoot: placement.workspace,
     fileLocks,
-    skipAllowList: settings.skipAllowList,
+    permissions,
     title: 'Conversation',
     trustStore,
     env,
@@ -80,8 +89,8 @@ export async function servedConversation(params: {
         profile: placement.profile,
         ...modelsIn(workspace),
         projectTrust: harness.projectTrust,
-        skipAllowList: settings.skipAllowList,
       }),
+      permissionMode: async () => (await permissions.read()).mode,
       useModel: (id) => useModel({ workspace, id, log }),
     },
   });

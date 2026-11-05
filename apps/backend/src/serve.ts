@@ -6,7 +6,7 @@
  * Each conversation runs on its workspace's profile: the models and keys in `~/.sheavly`
  * (`SHEAVLY_HOME` moves it), set up through the API, never `.env`. With none, a conversation is
  * refused with `not_set_up` and a UI onboards the user. Other settings: WORKSPACE_ROOT,
- * RUN_COMMAND_SKIP_ALLOW_LIST, --trust, MAX_TURNS, WAIT_FOR_TASKS, MODEL_CALLS_FILE,
+ * --trust, MAX_TURNS, WAIT_FOR_TASKS, MODEL_CALLS_FILE,
  * SHOW_MODEL_CALLS, MODEL_RESPONSE_TIMEOUT_MS, MODEL_RETRIES, MODEL_RETRY_DELAY_MS. It listens on
  * SERVER_HOST:SERVER_PORT (127.0.0.1:4310 by
  * default; port 0 picks a free one) and needs SERVER_TOKEN on every request, as
@@ -46,10 +46,6 @@ const app = createApiApp({ conversations, setup, workspaces, token });
 /** What the user needs once the server listens: where their data is, and the token when made here. */
 function printStarted(address: AddressInfo): void {
   console.log(`→ profiles and models in ${sheavlyHome(process.env)}`);
-
-  if (settings.skipAllowList) {
-    console.log('⚠ run_command allow list is OFF: any shell command can run');
-  }
 
   // Shown once, for the user to give their UI; never logged with a request.
   if (!server.token) console.log(`→ token (SERVER_TOKEN unset, so made for this run): ${token}`);

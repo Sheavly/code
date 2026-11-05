@@ -8,21 +8,20 @@ routes, streams and errors are in [the API](api.md).
 
 ## Settings
 
-| Setting                       | Default       | What it does                                                                                                                            |
-| ----------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `SERVER_HOST`                 | `127.0.0.1`   | Where it listens. It runs commands for whoever reaches it                                                                               |
-| `SERVER_PORT`                 | `4310`        | The port; `0` picks a free one                                                                                                          |
-| `SERVER_TOKEN`                | made per run  | The bearer token every request carries; at least 32 characters                                                                          |
-| `SERVER_EXIT_WITH_PARENT`     | off           | `true`: stop when stdin closes (the UI that started it is gone)                                                                         |
-| `SERVER_ALLOW_REMOTE_SETUP`   | off           | `true`: take model keys and grant trust even when listening beyond this machine (`SERVER_HOST` not loopback); only behind TLS           |
-| `WORKSPACE_ROOT`              | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                       |
-| `RUN_COMMAND_SKIP_ALLOW_LIST` | off           | `true`: `run_command` runs any shell command                                                                                            |
-| `MAX_TURNS`                   | 20            | Model calls a prompt may make, per session                                                                                              |
-| `WAIT_FOR_TASKS`              | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |
-| `MODEL_CALLS_FILE`            | none          | Appends each model call's full request there, one JSON line each                                                                        |
-| `SHOW_MODEL_CALLS`            | off           | `true`: prints each model call (task, tools, system prompt) as sent                                                                     |
-| `SHEAVLY_HOME`                | `~/.sheavly`  | The user's folder: profiles, models, keys, conversations and trusted workspaces                                                         |
-| `SHEAVLY_TRUST_FILE`          | in the folder | Where trusted workspaces are remembered, if not `trusted-workspaces.json` in `SHEAVLY_HOME` (the workbook's checks use a throwaway one) |
+| Setting                     | Default       | What it does                                                                                                                            |
+| --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `SERVER_HOST`               | `127.0.0.1`   | Where it listens. It runs commands for whoever reaches it                                                                               |
+| `SERVER_PORT`               | `4310`        | The port; `0` picks a free one                                                                                                          |
+| `SERVER_TOKEN`              | made per run  | The bearer token every request carries; at least 32 characters                                                                          |
+| `SERVER_EXIT_WITH_PARENT`   | off           | `true`: stop when stdin closes (the UI that started it is gone)                                                                         |
+| `SERVER_ALLOW_REMOTE_SETUP` | off           | `true`: take model keys and grant trust even when listening beyond this machine (`SERVER_HOST` not loopback); only behind TLS           |
+| `WORKSPACE_ROOT`            | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                       |
+| `MAX_TURNS`                 | 20            | Model calls a prompt may make, per session                                                                                              |
+| `WAIT_FOR_TASKS`            | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |
+| `MODEL_CALLS_FILE`          | none          | Appends each model call's full request there, one JSON line each                                                                        |
+| `SHOW_MODEL_CALLS`          | off           | `true`: prints each model call (task, tools, system prompt) as sent                                                                     |
+| `SHEAVLY_HOME`              | `~/.sheavly`  | The user's folder: profiles, models, keys, conversations and trusted workspaces                                                         |
+| `SHEAVLY_TRUST_FILE`        | in the folder | Where trusted workspaces are remembered, if not `trusted-workspaces.json` in `SHEAVLY_HOME` (the workbook's checks use a throwaway one) |
 
 The models and keys are in the user's profile, not here, and not in a `.env`: see
 [models and keys](harness.md#models-and-keys). How a model call is sent (`MODEL_RESPONSE_TIMEOUT_MS`,

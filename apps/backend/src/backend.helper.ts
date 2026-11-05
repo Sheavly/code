@@ -4,7 +4,7 @@ import type { AdapterRegistry } from '@sheavly/providers/registry/registry.servi
 import { servedConversation } from './harness/served.helper.js';
 import type { ServedSettings } from './harness/harness.types.js';
 import { parseRequestEnv } from './harness/settings.validator.js';
-import { trustStoreFor } from './profiles/home.helper.js';
+import { permissionStoreFor, trustStoreFor } from './profiles/home.helper.js';
 import { PlacedConversationStore } from './profiles/placed-conversation-store.service.js';
 import { Profiles } from './profiles/profiles.service.js';
 import type { ProfileSetup } from './profiles/setup.service.js';
@@ -34,6 +34,7 @@ export function createBackend(params: {
   const { env, settings, log, remoteSetupAllowed, adapters } = params;
   const profiles = new Profiles({ env, ...(adapters && { adapters }) });
   const trustStore = trustStoreFor(env);
+  const permissionStore = permissionStoreFor(env);
   const places = new PlacedConversationStore({
     profiles,
     fallbackWorkspace: settings.workspaceRoot ?? process.cwd(),
@@ -50,7 +51,17 @@ export function createBackend(params: {
     conversations: new Conversations({
       store: places,
       create: (asked) =>
-        servedConversation({ env, profiles, places, trustStore, settings, asked, fileLocks, log }),
+        servedConversation({
+          env,
+          profiles,
+          places,
+          trustStore,
+          permissionStore,
+          settings,
+          asked,
+          fileLocks,
+          log,
+        }),
     }),
   };
 }

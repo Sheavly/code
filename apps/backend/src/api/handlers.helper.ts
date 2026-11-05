@@ -56,7 +56,7 @@ export function apiHandlers(
         },
         201,
       ),
-    getConversation: ({ c, id }) => c.json(conversations.details(id)),
+    getConversation: async ({ c, id }) => c.json(await conversations.details(id)),
     closeConversation: async ({ c, id }) => {
       await conversations.close(id);
 

@@ -128,7 +128,6 @@ export function parseCliSettings(params: {
     trustWorkspace: args.includes('--trust'),
     workspaceRoot: optionalSetting.pipe(z.string().min(1).optional()).parse(env.WORKSPACE_ROOT),
     /** Only the exact string "true" turns these on. */
-    skipAllowList: env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true',
     showModelCalls: env.SHOW_MODEL_CALLS === 'true',
   };
 }

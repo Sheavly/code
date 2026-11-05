@@ -18,7 +18,7 @@ request carries `Authorization: Bearer <token>`.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
 | `GET /conversations`                                               | `{ conversations }`: each live one, oldest first                                                  |
 | `POST /conversations`, `{ messages?, workspace?, profile? }`       | `201 { id }`: a new conversation, continuing `messages`, in `workspace` on `profile`              |
-| `GET /conversations/:id`                                           | its run: workspace, models, trust, the allow list                                                 |
+| `GET /conversations/:id`                                           | its run: workspace, models, trust, the permission mode                                            |
 | `PUT /conversations/:id/model`, `{ id }`                           | `204`: one of its models, by id, from the next model call                                         |
 | `POST /conversations/:id/prompts`                                  | the prompt's entries as SSE, ending with its `done`                                               |
 | `QUERY /conversations/:id/stream`                                  | every entry, as SSE, while the client stays                                                       |

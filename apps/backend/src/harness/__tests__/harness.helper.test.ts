@@ -13,6 +13,7 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { createBackendHarness } from '../harness.helper.js';
+import { askingPermissions } from '../../testing/permissions.fake.js';
 
 /** The project: AGENTS.md, a skill, and one `.sheavly/` hook that does nothing. */
 const FILES = {
@@ -57,6 +58,7 @@ const open = (
     env: process.env,
     trustWorkspace,
     onModelCall,
+    permissions: askingPermissions(),
   });
 
 /** A script step: the model starts the sub-agent whose script is `help`. */
@@ -159,6 +161,7 @@ describe('createBackendHarness: what a backend run includes', () => {
           trustStore,
           env: process.env,
           fileLocks: shared,
+          permissions: askingPermissions(),
         });
       const [first, second] = [await make(), await make()];
 
