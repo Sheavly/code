@@ -161,10 +161,13 @@ export class Conversations {
 
   /**
    * What conversation `id`'s run is: its summary, and the workspace, models and trust its app
-   * reports. `not_found` when no conversation has the id.
+   * reports, and the permission mode its workspace has now. `not_found` when no conversation has
+   * the id.
    */
-  details(id: ConversationId): ConversationDetails {
-    return { ...this.#summary(id), ...this.get(id).run.details() };
+  async details(id: ConversationId): Promise<ConversationDetails> {
+    const { run } = this.get(id);
+
+    return { ...this.#summary(id), ...run.details(), permissionMode: await run.permissionMode() };
   }
 
   /**

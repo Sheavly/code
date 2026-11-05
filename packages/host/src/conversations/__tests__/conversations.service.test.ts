@@ -46,16 +46,17 @@ describe('Conversations', () => {
     const { conversations } = setup({ replies: [] });
     const id = await conversations.start();
 
-    expect(conversations.details(id)).toMatchObject({
+    expect(await conversations.details(id)).toMatchObject({
       id,
       title: 'Chat',
       running: false,
       workspace: '/work',
       model: { id: FAST_ID },
       models: [{ id: FAST_ID }, { id: DEEP_ID }],
+      permissionMode: 'ask',
     });
     conversations.useModel({ id, modelId: DEEP_ID });
-    expect(conversations.details(id).model).toEqual({
+    expect((await conversations.details(id)).model).toEqual({
       id: DEEP_ID,
       name: 'Astra',
       adapter: 'azure-openai',
@@ -69,17 +70,20 @@ describe('Conversations', () => {
     const unknown = modelIdSchema.parse('00000000-0000-4000-8000-000000000000');
 
     // Both are "Astra": the label can't say which, the id can.
-    expect(conversations.details(id).models.map((model) => model.name)).toEqual(['Astra', 'Astra']);
+    expect((await conversations.details(id)).models.map((model) => model.name)).toEqual([
+      'Astra',
+      'Astra',
+    ]);
     conversations.useModel({ id, modelId: DEEP_ID });
-    expect(conversations.details(id).model.id).toBe(DEEP_ID);
+    expect((await conversations.details(id)).model.id).toBe(DEEP_ID);
     conversations.useModel({ id, modelId: FAST_ID });
-    expect(conversations.details(id).model.id).toBe(FAST_ID);
+    expect((await conversations.details(id)).model.id).toBe(FAST_ID);
     expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(
       expect.objectContaining({ reason: 'unknown_model' }),
     );
     // The refusal names the id it was given, not a label.
     expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(unknown);
-    expect(conversations.details(id).model.id).toBe(FAST_ID);
+    expect((await conversations.details(id)).model.id).toBe(FAST_ID);
   });
 
   it('records the model a conversation starts on and each switch on its main session', async () => {
@@ -117,7 +121,7 @@ describe('Conversations', () => {
 
     expect(modelOf(a)).toBe(DEEP_ID);
     expect(modelOf(b)).toBe(FAST_ID);
-    expect(conversations.details(b).model.id).toBe(FAST_ID);
+    expect((await conversations.details(b)).model.id).toBe(FAST_ID);
   });
 
   it('runs a prompt’s skills, keeping what the user typed on the history', async () => {

@@ -5,6 +5,7 @@ import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type {
   ConversationDetails,
@@ -39,10 +40,13 @@ export type ConversationSkills = {
 
 /**
  * What a conversation's run is, as the app that built it says: the workspace, the model in use
- * and the ones it can switch to, workspace trust and the allow list. The host only passes it on.
+ * and the ones it can switch to, and workspace trust (`details`, which stay as they were when the
+ * run was built); and how commands are treated in its workspace now (`permissionMode`, read each
+ * time, since the user can change it while the conversation runs). The host only passes it on.
  */
 export type ConversationRun = {
-  details: () => Omit<ConversationDetails, keyof ConversationSummary>;
+  details: () => Omit<ConversationDetails, keyof ConversationSummary | 'permissionMode'>;
+  permissionMode: () => Promise<PermissionMode>;
   /** Switches to the model with this id, from the next model call; false when there is none. */
   useModel: (id: ModelId) => boolean;
 };

@@ -28,8 +28,8 @@ export function twoModelRun(): ConversationRun {
       model: active,
       models,
       projectTrust: 'no_hooks',
-      skipAllowList: false,
     }),
+    permissionMode: () => Promise.resolve('ask'),
     useModel: (id) => {
       const choice = models.find((model) => model.id === id);
 
