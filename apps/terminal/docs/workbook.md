@@ -38,7 +38,7 @@ A prompt is a markdown file. Optional front matter sets how it runs:
 ---
 description: write_file + edit_file, then read both back
 workspace: basic # a fixture folder name in workspaces/ to copy for each run (default: an empty folder)
-maxTurns: 20 # model calls per session (default 20)
+maxTurns: 20 # model calls per session (default: no limit)
 ---
 
 Create src/math.ts exporting a function add(a: number, b: number) …
