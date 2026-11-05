@@ -19,8 +19,9 @@ environment and go to the backend it starts ([the backend's settings](../backend
 | ----------- | ------------------------------------------------------------------------------------------------ |
 | `client/`   | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)   |
 | `render/`   | The `Renderer` every entry point prints a conversation's stream with, through a `write` function |
+| `tui/`      | The chat's screen on the terminal's main screen: editor, approval question, queue, status line   |
 | `workbook/` | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                    |
-| `chat/`     | The chat's input commands (`/exit`, `/help`, `/model`) and Tab completion                        |
+| `chat/`     | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion       |
 | `chat.ts`   | The chat CLI: one conversation across prompts                                                    |
 | `demo.ts`   | The demo CLI                                                                                     |
 

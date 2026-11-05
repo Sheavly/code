@@ -1,0 +1,350 @@
+import { describe, expect, it } from 'vitest';
+import { stripTerminalSequences, TuiMainScreen } from '@earendil-works/pi-tui';
+import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
+import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { fakeTerminal } from '../../testing/terminal.fake.js';
+import { ChatScreen } from '../chat-screen.service.js';
+import type { ApprovalAnswer } from '../tui.types.js';
+
+const ALL: ApprovalOption[] = ['approve', 'always_allow', 'skip', 'skip_with_message'];
+const ENTER = '\r';
+const ESC = '\u001b';
+const DOWN = '\u001b[B';
+const UP = '\u001b[A';
+const CTRL_C = '\u0003';
+
+const request = (id: string): ApprovalRequest => ({
+  id: approvalIdSchema.parse(id),
+  callId: callIdSchema.parse('c1'),
+  tool: 'run_command',
+  command: `npm test ${id}`,
+  concerns: [{ argument: 'npm test', reason: 'is not allowed yet' }],
+  options: ALL,
+});
+
+function open() {
+  const terminal = fakeTerminal();
+  const tui = new TuiMainScreen(terminal);
+  const sent: string[] = [];
+  const answers: ApprovalAnswer[] = [];
+  let quit = 0;
+  let stopResult: 'stopped' | 'stopping' | 'idle' = 'idle';
+  let stops = 0;
+  const screen = new ChatScreen({
+    tui,
+    status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
+    commands: ChatScreen.commands,
+    cwd: process.cwd(),
+    onSubmit: (line) => sent.push(line),
+    onStop: () => {
+      stops += 1;
+
+      return stopResult;
+    },
+    onAnswer: (answer) => answers.push(answer),
+    onQuit: () => (quit += 1),
+  });
+
+  screen.start();
+
+  return {
+    screen,
+    terminal,
+    sent,
+    answers,
+    quits: () => quit,
+    stops: () => stops,
+    running: (result: 'stopped' | 'stopping' | 'idle') => (stopResult = result),
+    /** What the screen shows now, as text: the lines of every part, without styling. */
+    text: () =>
+      tui
+        .render(80)
+        .map((line) => stripTerminalSequences(line).trimEnd())
+        .join('\n'),
+    type: async (data: string) => {
+      terminal.type(data);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    },
+  };
+}
+
+describe('ChatScreen', () => {
+  it('shows the conversation’s text as lines, and the line being written under them', async () => {
+    const { screen, text } = open();
+
+    screen.write('first line\nsecond ');
+    expect(text()).toContain('first line');
+    expect(text()).toContain('second');
+
+    screen.write('half\n');
+    expect(text()).toContain('second half');
+  });
+
+  it('sends a typed line when Enter is pressed, and empties the editor', async () => {
+    const { type, sent, text } = open();
+
+    await type('hello there');
+    await type(ENTER);
+
+    expect(sent).toEqual(['hello there']);
+    expect(text()).not.toContain('hello there');
+  });
+
+  it('does not send an empty line', async () => {
+    const { type, sent } = open();
+
+    await type(ENTER);
+    await type('   ');
+    await type(ENTER);
+
+    expect(sent).toEqual([]);
+  });
+
+  it('shows the lines waiting, and the model, mode and state in the status line', () => {
+    const { screen, text } = open();
+
+    screen.setQueue(['one', 'two']);
+    screen.setStatus({ state: 'working', model: 'Deep', mode: 'always_ask' });
+
+    expect(text()).toContain('2 queued: "one", "two"');
+    expect(text()).toContain('● working · Deep · mode: always_ask');
+  });
+
+  describe('an approval', () => {
+    it('is asked about with its options, and the status says it waits for the user', () => {
+      const { screen, text } = open();
+
+      screen.ask(request('a1'));
+
+      expect(text()).toContain('Run npm test a1?');
+      expect(text()).toContain('1. Run it once');
+      expect(text()).toContain('4. Skip, and say what to do instead');
+      expect(text()).toContain('● waiting for you');
+    });
+
+    it('is not answered by Enter on its own: nothing is chosen until the user moves', async () => {
+      const { screen, type, answers } = open();
+
+      screen.ask(request('a1'));
+      await type(ENTER);
+      await type(ENTER);
+
+      expect(answers).toEqual([]);
+      expect(screen.asking).toBe(true);
+    });
+
+    it('is answered by choosing with the arrows and pressing Enter', async () => {
+      const { screen, type, answers, text } = open();
+
+      screen.ask(request('a1'));
+      await type(DOWN);
+      await type(DOWN);
+      expect(text()).toContain('→ 2. Always allow');
+      await type(ENTER);
+
+      expect(answers).toEqual([{ id: 'a1', response: { decision: 'always_allow' } }]);
+      expect(screen.asking).toBe(false);
+      expect(text()).toContain('● ready');
+    });
+
+    it('starts at the last choice when the first key is up, which asks for a message', async () => {
+      const { screen, type, answers, text } = open();
+
+      screen.ask(request('a1'));
+      await type(UP);
+      expect(text()).toContain('→ 4. Skip, and say what to do instead');
+      await type(ENTER);
+
+      expect(answers).toEqual([]);
+      expect(text()).toContain('Type what it should do instead');
+      expect(screen.asking).toBe(true);
+    });
+
+    it('is answered by its number and Enter', async () => {
+      const { screen, type, answers } = open();
+
+      screen.ask(request('a1'));
+      await type('1');
+      await type(ENTER);
+
+      expect(answers).toEqual([{ id: 'a1', response: { decision: 'approve' } }]);
+    });
+
+    it('is skipped by Esc, with no choice made', async () => {
+      const { screen, type, answers } = open();
+
+      screen.ask(request('a1'));
+      await type(ESC);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      expect(answers).toEqual([{ id: 'a1', response: { decision: 'skip' } }]);
+      expect(screen.asking).toBe(false);
+    });
+
+    it('asks for a message first when the user wants to say what to do instead', async () => {
+      const { screen, type, answers, sent, text } = open();
+
+      screen.ask(request('a1'));
+      await type('4');
+      await type(ENTER);
+      expect(text()).toContain('Type what it should do instead');
+      expect(answers).toEqual([]);
+
+      await type('use ls instead');
+      await type(ENTER);
+
+      expect(answers).toEqual([
+        { id: 'a1', response: { decision: 'skip_with_message', message: 'use ls instead' } },
+      ]);
+      expect(sent).toEqual([]);
+    });
+
+    it('goes back from typing a message with Esc, keeping the question', async () => {
+      const { screen, type, answers, text } = open();
+
+      screen.ask(request('a1'));
+      await type('4');
+      await type(ENTER);
+      await type('half a mess');
+      await type(ESC);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      expect(answers).toEqual([]);
+      expect(text()).toContain('1. Run it once');
+      expect(screen.asking).toBe(true);
+    });
+
+    it('lets a half-typed line be sent with Enter instead of answering the question', async () => {
+      const { screen, type, answers, sent } = open();
+
+      screen.ask(request('a1'));
+      await type('also check');
+      await type(ENTER);
+
+      expect(sent).toEqual(['also check']);
+      expect(answers).toEqual([]);
+      expect(screen.asking).toBe(true);
+    });
+
+    it('types digits into the line, not into the question, once typing has begun', async () => {
+      const { screen, type, answers, sent } = open();
+
+      screen.ask(request('a1'));
+      await type('a');
+      await type('2');
+      await type(ENTER);
+
+      expect(sent).toEqual(['a2']);
+      expect(answers).toEqual([]);
+    });
+
+    it('shows the next one after one is answered, with nothing chosen', async () => {
+      const { screen, type, answers, text } = open();
+
+      screen.ask(request('a1'));
+      screen.ask(request('a2'));
+      expect(text()).toContain('+1 more waiting');
+
+      await type('1');
+      await type(ENTER);
+
+      expect(answers).toHaveLength(1);
+      expect(text()).toContain('Run npm test a2?');
+      expect(text()).not.toContain('→');
+    });
+
+    it('goes away when it is answered somewhere else', async () => {
+      const { screen, text } = open();
+
+      screen.ask(request('a1'));
+      screen.forget(approvalIdSchema.parse('a1'));
+
+      expect(text()).not.toContain('Run npm test');
+      expect(screen.asking).toBe(false);
+    });
+  });
+
+  describe('Ctrl+C', () => {
+    it('stops a running prompt and skips the approvals it waits on, without quitting', async () => {
+      const { screen, type, answers, quits, stops, running } = open();
+
+      running('stopped');
+      screen.ask(request('a1'));
+      screen.ask(request('a2'));
+      await type(CTRL_C);
+
+      expect(stops()).toBe(1);
+      expect(answers).toEqual([
+        { id: 'a1', response: { decision: 'skip' } },
+        { id: 'a2', response: { decision: 'skip' } },
+      ]);
+      expect(screen.asking).toBe(false);
+      expect(quits()).toBe(0);
+    });
+
+    it('asks to be pressed again when nothing runs, and quits on the second press', async () => {
+      const { type, quits, text } = open();
+
+      await type(CTRL_C);
+      expect(quits()).toBe(0);
+      expect(text()).toContain('Press Ctrl+C again to quit');
+
+      await type(CTRL_C);
+      expect(quits()).toBe(1);
+    });
+  });
+
+  describe('Ctrl+D', () => {
+    const CTRL_D = '\u0004';
+
+    it('leaves on an empty line, as in a shell', async () => {
+      const { type, quits } = open();
+
+      await type(CTRL_D);
+
+      expect(quits()).toBe(1);
+    });
+
+    it('deletes a character, and does not leave, when there is text', async () => {
+      const { type, quits, text } = open();
+
+      await type('abc');
+      await type('\u001b[D');
+      await type(CTRL_D);
+
+      expect(quits()).toBe(0);
+      expect(text()).toContain('ab');
+      expect(text()).not.toContain('abc');
+    });
+
+    it('does not leave while a question waits, where the user has not answered yet', async () => {
+      const { screen, type, quits } = open();
+
+      screen.ask(request('a1'));
+      await type(CTRL_D);
+
+      expect(quits()).toBe(0);
+    });
+  });
+
+  it('leaves the terminal when stopped, keeping an unfinished line in the scrollback', () => {
+    const { screen, terminal, text } = open();
+
+    screen.write('unfinished');
+    screen.stop();
+
+    expect(terminal.stopped).toBe(true);
+    expect(text()).toContain('unfinished');
+  });
+
+  it('shows a notice apart from the conversation’s text', () => {
+    const { screen, text } = open();
+
+    screen.write('model text');
+    screen.notice('→ switched');
+
+    expect(text()).toContain('model text');
+    expect(text()).toContain('→ switched');
+  });
+});

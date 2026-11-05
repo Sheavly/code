@@ -1,3 +1,5 @@
+import type { RemoteConversation } from '../client/conversation.service.js';
+
 /**
  * What the user typed at the chat prompt: one of the chat's commands (`/exit`, `/help`,
  * `/model [name]`), a message to send (trimmed, and running any skills it mentions), or nothing.
@@ -9,3 +11,12 @@ export type ChatInput =
   /** `/model` lists the models; `/model <name>` switches to one. */
   | { kind: 'model'; name: string | undefined }
   | { kind: 'empty' };
+
+/** What the chat needs of a conversation: a `RemoteConversation`, or a stand-in for a test. */
+export type ChatConversation = Pick<
+  RemoteConversation,
+  'send' | 'skills' | 'details' | 'useModel' | 'runningTasks'
+>;
+
+/** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
+export type StopResult = 'stopped' | 'stopping' | 'idle';
