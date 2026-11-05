@@ -38,7 +38,9 @@ describe('openApiDocument', () => {
 
       expect(seen.has(key)).toBe(false);
       seen.add(key);
-      expect(route.path).toMatch(/^\/conversations(\/(\{[a-z]+\}|[a-z-]+))*$/);
+      expect(route.path).toMatch(
+        /^\/(conversations|stored-conversations|setup|adapters|profiles|default-profile|workspace-profiles|trusted-workspaces)(\/(\{[a-z]+\}|[a-z-]+))*$/,
+      );
     }
   });
 

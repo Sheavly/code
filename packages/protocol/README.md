@@ -26,6 +26,7 @@ run `npm run schema -w @sheavly/protocol`; a test fails while either file is out
 | `server/`   | The server's requests, responses and `ServerError` codes                     |
 | `store/`    | `StoredConversation`: a past conversation as the store lists it              |
 | `model/`    | A model's id, name and file, `AdapterDescription`, and the `KeyCheck` result |
+| `setup/`    | `GET /setup` and the profile, model and credential requests of a setup UI    |
 | `id/`       | `lowercaseUuidSchema`: the shape of every id a file or folder is named by    |
 | `profile/`  | A profile's id and name: a bundle of models, keys and conversations          |
 | `time/`     | `timestampSchema`: when something happened, in milliseconds since the epoch  |

@@ -285,6 +285,521 @@
           }
         }
       }
+    },
+    "/stored-conversations": {
+      "query": {
+        "operationId": "queryStoredConversations",
+        "summary": "The kept conversations, oldest first, live or not; those a title search matches",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StoredConversationsQuery" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StoredConversationsResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/stored-conversations/{id}/reopen": {
+      "post": {
+        "operationId": "reopenConversation",
+        "summary": "Bring a kept conversation back under its own id, continuing from its history",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StartConversationResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/setup": {
+      "get": {
+        "operationId": "getSetup",
+        "summary": "Where the user’s data is, the profiles with their models, and which is the default",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Setup" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/adapters": {
+      "get": {
+        "operationId": "listAdapters",
+        "summary": "What each adapter needs, for a form that adds a model",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AdaptersResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}": {
+      "get": {
+        "operationId": "getProfile",
+        "summary": "A profile with its models, whether their keys are set and whether it is ready",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ProfileSetup" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putProfile",
+        "summary": "Make a profile under this id, or rename it",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutProfileRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProfile",
+        "summary": "Delete a profile with its models, keys and conversations",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/models": {
+      "query": {
+        "operationId": "queryModels",
+        "summary": "A profile’s models with key state, or those a name, adapter or model search matches",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ModelsQuery" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ModelsResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/models/{model}": {
+      "get": {
+        "operationId": "getModel",
+        "summary": "One model of a profile, with whether its key is set and whether it is usable",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SetupModel" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putModel",
+        "summary": "Add a model to a profile, or replace it; checked by its adapter, never with a secret",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutModelRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteModel",
+        "summary": "Remove a model and its key",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/credentials/{model}": {
+      "put": {
+        "operationId": "putCredential",
+        "summary": "Set a model’s secrets, write-only; refused unless the backend listens on loopback",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PutCredentialRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCredential",
+        "summary": "Forget a model’s secrets, keeping the model",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/credentials/{model}/check": {
+      "post": {
+        "operationId": "checkCredential",
+        "summary": "Try the model with its stored key: one tiny call, answered with a fixed message",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/KeyCheck" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/default-profile": {
+      "put": {
+        "operationId": "setDefaultProfile",
+        "summary": "The profile conversations use where nothing else is chosen",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetDefaultProfileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/workspace-profiles": {
+      "query": {
+        "operationId": "queryWorkspaceProfile",
+        "summary": "The profile a folder runs on, and whether it was chosen for the folder or is the default",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceProfile" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "bindWorkspace",
+        "summary": "Always run a folder on this profile, whatever the default is",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BindWorkspaceRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/workspace-profiles/unbind": {
+      "post": {
+        "operationId": "unbindWorkspace",
+        "summary": "Run a folder on the default profile again",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/trusted-workspaces": {
+      "query": {
+        "operationId": "queryTrustedWorkspaces",
+        "summary": "The workspaces trusted to run their .sheavly hooks, or those a path search matches",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TrustedWorkspacesQuery" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TrustedWorkspacesResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "trustWorkspace",
+        "summary": "Trust a folder’s .sheavly hooks as they are now; refused unless the backend is local",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/trusted-workspaces/revoke": {
+      "post": {
+        "operationId": "revokeWorkspace",
+        "summary": "Stop trusting a folder, also one that no longer exists",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -990,7 +1505,9 @@
       "StartConversationRequest": {
         "type": "object",
         "properties": {
-          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
         }
       },
       "StartConversationResponse": {
@@ -1038,6 +1555,7 @@
           "running": { "type": "boolean" },
           "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
           "model": { "$ref": "#/components/schemas/ModelChoice" },
           "models": { "type": "array", "items": { "$ref": "#/components/schemas/ModelChoice" } },
           "projectTrust": {
@@ -1053,6 +1571,7 @@
           "running",
           "startedAt",
           "workspace",
+          "profile",
           "model",
           "models",
           "projectTrust",
@@ -1128,6 +1647,7 @@
           "unknown_model",
           "storage_failed",
           "not_set_up",
+          "forbidden",
           "internal"
         ]
       },
@@ -1164,11 +1684,40 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
           "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
           "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "updatedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
         },
-        "required": ["id", "title", "modelId", "status", "startedAt", "updatedAt"]
+        "required": [
+          "id",
+          "title",
+          "modelId",
+          "workspace",
+          "profile",
+          "status",
+          "startedAt",
+          "updatedAt"
+        ]
+      },
+      "StoredConversationsQuery": {
+        "type": "object",
+        "properties": {
+          "search": { "type": "string", "minLength": 1 },
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
+        }
+      },
+      "StoredConversationsResponse": {
+        "type": "object",
+        "properties": {
+          "conversations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StoredConversation" }
+          }
+        },
+        "required": ["conversations"]
       },
       "ModelId": {
         "type": "string",
@@ -1243,6 +1792,144 @@
             "required": ["status", "message"]
           }
         ]
+      },
+      "CredentialState": { "type": "string", "enum": ["not_needed", "missing", "set"] },
+      "SetupModel": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "definition": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          },
+          "credential": { "$ref": "#/components/schemas/CredentialState" },
+          "usable": { "type": "boolean" }
+        },
+        "required": ["id", "name", "adapter", "definition", "credential", "usable"]
+      },
+      "ProfileSetup": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "lastModelId": { "$ref": "#/components/schemas/ModelId" },
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } },
+          "ready": { "type": "boolean" }
+        },
+        "required": ["id", "name", "models", "ready"]
+      },
+      "Setup": {
+        "type": "object",
+        "properties": {
+          "home": { "type": "string" },
+          "defaultProfile": { "$ref": "#/components/schemas/ModelId" },
+          "profiles": { "type": "array", "items": { "$ref": "#/components/schemas/ProfileSetup" } },
+          "problems": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["home", "profiles", "problems"]
+      },
+      "AdaptersResponse": {
+        "type": "object",
+        "properties": {
+          "adapters": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdapterDescription" }
+          }
+        },
+        "required": ["adapters"]
+      },
+      "ModelsQuery": {
+        "type": "object",
+        "properties": { "search": { "type": "string", "minLength": 1 } }
+      },
+      "ModelsResponse": {
+        "type": "object",
+        "properties": {
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } }
+        },
+        "required": ["models"]
+      },
+      "PutProfileRequest": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } },
+        "required": ["name"]
+      },
+      "PutModelRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "definition": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          }
+        },
+        "required": ["name", "adapter", "definition"]
+      },
+      "PutCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "secrets": {
+            "type": "object",
+            "propertyNames": { "type": "string", "minLength": 1 },
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          }
+        },
+        "required": ["secrets"]
+      },
+      "SetDefaultProfileRequest": {
+        "type": "object",
+        "properties": { "profile": { "$ref": "#/components/schemas/ModelId" } },
+        "required": ["profile"]
+      },
+      "WorkspaceRequest": {
+        "type": "object",
+        "properties": { "workspace": { "type": "string", "minLength": 1 } },
+        "required": ["workspace"]
+      },
+      "BindWorkspaceRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
+        },
+        "required": ["workspace", "profile"]
+      },
+      "WorkspaceProfile": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
+          "bound": { "type": "boolean" }
+        },
+        "required": ["workspace", "bound"]
+      },
+      "TrustedWorkspace": {
+        "type": "object",
+        "properties": {
+          "root": { "type": "string" },
+          "trustedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "state": { "type": "string", "enum": ["trusted", "changed", "gone"] }
+        },
+        "required": ["root", "trustedAt", "state"]
+      },
+      "TrustedWorkspacesQuery": {
+        "type": "object",
+        "properties": { "search": { "type": "string", "minLength": 1 } }
+      },
+      "TrustedWorkspacesResponse": {
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TrustedWorkspace" }
+          }
+        },
+        "required": ["workspaces"]
       }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }

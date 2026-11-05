@@ -51,7 +51,30 @@ import {
   switchModelRequestSchema,
 } from '../server/server.validator.js';
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
-import { storedConversationSchema } from '../store/store.validator.js';
+import {
+  adaptersResponseSchema,
+  bindWorkspaceRequestSchema,
+  credentialStateSchema,
+  modelsQuerySchema,
+  modelsResponseSchema,
+  profileSetupSchema,
+  putCredentialRequestSchema,
+  putModelRequestSchema,
+  putProfileRequestSchema,
+  setDefaultProfileRequestSchema,
+  setupModelSchema,
+  setupSchema,
+  trustedWorkspaceSchema,
+  trustedWorkspacesQuerySchema,
+  trustedWorkspacesResponseSchema,
+  workspaceProfileSchema,
+  workspaceRequestSchema,
+} from '../setup/setup.validator.js';
+import {
+  storedConversationSchema,
+  storedConversationsQuerySchema,
+  storedConversationsResponseSchema,
+} from '../store/store.validator.js';
 import {
   adapterDescriptionSchema,
   adapterKindSchema,
@@ -124,12 +147,31 @@ function contractSchemas(): Record<string, z.ZodType> {
     ApprovalId: approvalIdSchema,
     ConversationId: conversationIdSchema,
     StoredConversation: storedConversationSchema,
+    StoredConversationsQuery: storedConversationsQuerySchema,
+    StoredConversationsResponse: storedConversationsResponseSchema,
     ModelId: modelIdSchema,
     AdapterKind: adapterKindSchema,
     ModelFile: modelFileSchema,
     Model: modelSchema,
     AdapterDescription: adapterDescriptionSchema,
     KeyCheck: keyCheckSchema,
+    CredentialState: credentialStateSchema,
+    SetupModel: setupModelSchema,
+    ProfileSetup: profileSetupSchema,
+    Setup: setupSchema,
+    AdaptersResponse: adaptersResponseSchema,
+    ModelsQuery: modelsQuerySchema,
+    ModelsResponse: modelsResponseSchema,
+    PutProfileRequest: putProfileRequestSchema,
+    PutModelRequest: putModelRequestSchema,
+    PutCredentialRequest: putCredentialRequestSchema,
+    SetDefaultProfileRequest: setDefaultProfileRequestSchema,
+    WorkspaceRequest: workspaceRequestSchema,
+    BindWorkspaceRequest: bindWorkspaceRequestSchema,
+    WorkspaceProfile: workspaceProfileSchema,
+    TrustedWorkspace: trustedWorkspaceSchema,
+    TrustedWorkspacesQuery: trustedWorkspacesQuerySchema,
+    TrustedWorkspacesResponse: trustedWorkspacesResponseSchema,
   };
 }
 

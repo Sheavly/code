@@ -105,6 +105,7 @@ describe('the responses', () => {
       running: false,
       startedAt: 1,
       workspace: '/work',
+      profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
       model,
       models: [model],
       projectTrust: 'untrusted',

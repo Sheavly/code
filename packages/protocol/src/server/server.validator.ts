@@ -3,6 +3,7 @@ import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
 import { adapterKindSchema, modelIdSchema } from '../model/model.validator.js';
+import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
@@ -15,9 +16,16 @@ import { timestampSchema } from '../time/time.validator.js';
  */
 export const conversationIdSchema = lowercaseUuidSchema.brand<'ConversationId'>();
 
-/** `POST /conversations`: start one, empty or continuing saved history. */
+/**
+ * `POST /conversations`: start one, empty or continuing saved history. `workspace` is the folder
+ * the agent works in (an absolute path to an existing folder; the backend's own when omitted) and
+ * `profile` the models and keys it runs on (the profile its workspace is bound to when omitted,
+ * else the default). Both are fixed for the conversation's life and kept with it.
+ */
 export const startConversationRequestSchema = z.object({
   messages: z.array(messageSchema).exactOptional(),
+  workspace: z.string().min(1).exactOptional(),
+  profile: profileIdSchema.exactOptional(),
 });
 
 export const startConversationResponseSchema = z.object({ id: conversationIdSchema });
@@ -61,6 +69,8 @@ export const modelChoiceSchema = z.object({
  */
 export const conversationDetailsSchema = conversationSummarySchema.extend({
   workspace: z.string(),
+  /** The profile whose models and keys it runs on: fixed for the conversation's life. */
+  profile: profileIdSchema,
   model: modelChoiceSchema,
   models: z.array(modelChoiceSchema),
   projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
@@ -126,6 +136,8 @@ export const serverErrorCodeSchema = z.enum([
   'storage_failed',
   /** No profile with a usable model yet: a UI onboards the user (profiles, models, keys) first. */
   'not_set_up',
+  /** The backend refuses this here: a key may not be written over a network it is not safe on. */
+  'forbidden',
   'internal',
 ]);
 

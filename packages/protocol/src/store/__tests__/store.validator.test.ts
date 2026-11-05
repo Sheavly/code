@@ -5,6 +5,8 @@ const stored = {
   id: '00000000-0000-4000-8000-000000000001',
   title: 'Chat',
   modelId: '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30',
+  workspace: '/work/repo',
+  profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
   status: 'interrupted',
   startedAt: 1,
   updatedAt: 2,
@@ -33,5 +35,16 @@ describe('storedConversationSchema', () => {
       false,
     );
     expect(storedConversationSchema.safeParse({ ...stored, title: undefined }).success).toBe(false);
+  });
+
+  it('always knows where it belongs: its workspace, and its profile by id', () => {
+    for (const lacking of ['workspace', 'profile'] as const) {
+      expect(storedConversationSchema.safeParse({ ...stored, [lacking]: undefined }).success).toBe(
+        false,
+      );
+    }
+
+    // A profile is named by its id, never by its label.
+    expect(storedConversationSchema.safeParse({ ...stored, profile: 'Work' }).success).toBe(false);
   });
 });
