@@ -68,7 +68,7 @@ describe('run_command with the allow list', () => {
     const result = await run('echo hi; rm keep2.txt', { allowList: ['echo *'] });
 
     expect(result).toMatchObject({ isError: true });
-    expect(result.content).toContain('shell syntax');
+    expect(result.content).toContain('chaining commands');
     expect(existsSync(path.join(root, 'keep2.txt'))).toBe(true);
   });
 

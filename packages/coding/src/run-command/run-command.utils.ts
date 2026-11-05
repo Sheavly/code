@@ -56,14 +56,24 @@ export function checkAllowed(params: {
     });
   }
 
-  if (!isAllowed({ argv: parsed.argv, allowList })) {
+  // Chained commands are checked one by one once the tool runs them itself (not yet).
+  const [step, ...more] = parsed.steps;
+
+  if (more.length > 0) {
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message: `Command rejected (chaining commands with | && || ; is not supported yet): ${command}`,
+    });
+  }
+
+  if (!isAllowed({ argv: step.argv, allowList })) {
     throw new ToolCallError({
       reason: 'forbidden',
       message: `Command not in allow list: ${command}\nAllowed: ${allowList.join(', ')}`,
     });
   }
 
-  return parsed.argv as [string, ...string[]];
+  return step.argv;
 }
 
 /** The tool result for a finished foreground command. */
