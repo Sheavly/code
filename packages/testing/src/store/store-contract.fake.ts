@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
+import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -24,11 +25,16 @@ export const entry = (seq: number): StreamEntry => ({
   kind: 'event',
   event: { seq, type: 'text_delta', text: `t${String(seq)}` },
 });
-/** Test-only: the index entry of conversation `conversationId`, started at `startedAt`. */
+/**
+ * Test-only: the index entry of conversation `conversationId`, started at `startedAt`, in the
+ * workspace `/work` on a profile with the id below.
+ */
 export const indexOf = (conversationId: typeof id, startedAt: number, title = 'Chat') => ({
   id: conversationId,
   title,
   modelId: modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30'),
+  workspace: '/work',
+  profile: profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b99'),
   status: 'open' as const,
   startedAt,
   updatedAt: startedAt,

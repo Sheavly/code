@@ -17,6 +17,7 @@ const provider = routedProvider({ hi: [say('hello')] });
 | `fetch/`    | `fakeFetch`, `fakeFetchSequence`, `collect`, `requestSentBy`                       |
 | `tool/`     | `toolRunner`, which runs tools the way the loop does                               |
 | `wait/`     | `until`, which polls a condition                                                   |
+| `files/`    | `filesHolding` (the files under a folder that hold some text), `useTempFolders`    |
 | `store/`    | `MemoryConversationStore`, a conversation store in memory that can be made to fail |
 | `clock/`    | `useFixedClock`, which freezes the time `now()` reads for each test                |
 
