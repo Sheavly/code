@@ -95,6 +95,43 @@ describe('ApprovalRegistry', () => {
     );
   });
 
+  it('offers the options the caller names, and takes only those', async () => {
+    const approvals = new ApprovalRegistry();
+
+    listen(approvals);
+
+    const answer = approvals.request({
+      callId: c1,
+      tool: 'run_command',
+      command: 'git log',
+      concerns: [],
+      options: ['approve', 'always_allow', 'skip'],
+      signal: new AbortController().signal,
+    });
+
+    expect(approvals.pending()[0]?.options).toEqual(['approve', 'always_allow', 'skip']);
+
+    expect(() =>
+      approvals.respond({ id: a1, response: { decision: 'skip_with_message', message: 'no' } }),
+    ).toThrow('not one of the options offered');
+    expect(approvals.pending()).toHaveLength(1);
+
+    approvals.respond({ id: a1, response: { decision: 'always_allow' } });
+    await expect(answer).resolves.toEqual({ decision: 'always_allow' });
+  });
+
+  it('does not take always_allow for a request that did not offer it', () => {
+    const approvals = new ApprovalRegistry();
+
+    listen(approvals);
+    void ask(approvals);
+
+    expect(() => approvals.respond({ id: a1, response: { decision: 'always_allow' } })).toThrow(
+      'not one of the options offered',
+    );
+    expect(approvals.pending()).toHaveLength(1);
+  });
+
   it.each([
     { decision: 'yes' },
     { decision: 'skip_with_message' },
