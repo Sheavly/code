@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { workspaceRequestSchema } from '../setup/setup.validator.js';
 
 /**
  * How `run_command` treats a command for one folder, for every conversation running in it:
@@ -22,4 +23,22 @@ export const allowEntrySchema = z
 export const permissionsSchema = z.object({
   mode: permissionModeSchema,
   allow: z.array(allowEntrySchema),
+});
+
+/** `PUT /permissions/mode`: how `run_command` treats commands in this folder from now on. */
+export const setPermissionModeRequestSchema = workspaceRequestSchema.extend({
+  mode: permissionModeSchema,
+});
+
+/** `POST /permissions/allow` and `/permissions/revoke`: allow, or stop allowing, one command. */
+export const allowEntryRequestSchema = workspaceRequestSchema.extend({ entry: allowEntrySchema });
+
+/**
+ * `QUERY /permissions`: what a folder allows. `workspace` is the real path it is kept under;
+ * `allow` is the user's own entries, and `builtIn` the read-only commands that run without
+ * asking in every folder, which are not the user's to remove.
+ */
+export const workspacePermissionsSchema = permissionsSchema.extend({
+  workspace: z.string(),
+  builtIn: z.array(allowEntrySchema),
 });

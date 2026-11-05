@@ -83,6 +83,13 @@ import {
   modelIdSchema,
   modelSchema,
 } from '../model/model.validator.js';
+import {
+  allowEntryRequestSchema,
+  allowEntrySchema,
+  permissionModeSchema,
+  setPermissionModeRequestSchema,
+  workspacePermissionsSchema,
+} from '../permission/permission.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
 import {
   taskIdSchema,
@@ -172,6 +179,11 @@ function contractSchemas(): Record<string, z.ZodType> {
     TrustedWorkspace: trustedWorkspaceSchema,
     TrustedWorkspacesQuery: trustedWorkspacesQuerySchema,
     TrustedWorkspacesResponse: trustedWorkspacesResponseSchema,
+    PermissionMode: permissionModeSchema,
+    AllowEntry: allowEntrySchema,
+    SetPermissionModeRequest: setPermissionModeRequestSchema,
+    AllowEntryRequest: allowEntryRequestSchema,
+    WorkspacePermissions: workspacePermissionsSchema,
   };
 }
 

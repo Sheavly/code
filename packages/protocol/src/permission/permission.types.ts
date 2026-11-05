@@ -3,6 +3,7 @@ import type {
   allowEntrySchema,
   permissionModeSchema,
   permissionsSchema,
+  workspacePermissionsSchema,
 } from './permission.validator.js';
 
 export type PermissionMode = z.infer<typeof permissionModeSchema>;
@@ -11,3 +12,6 @@ export type PermissionMode = z.infer<typeof permissionModeSchema>;
 export type AllowEntry = z.infer<typeof allowEntrySchema>;
 
 export type Permissions = z.infer<typeof permissionsSchema>;
+
+/** What a folder allows, as `QUERY /permissions` answers it. */
+export type WorkspacePermissions = z.infer<typeof workspacePermissionsSchema>;

@@ -800,6 +800,110 @@
           }
         }
       }
+    },
+    "/permissions": {
+      "query": {
+        "operationId": "queryPermissions",
+        "summary": "The mode a folder is in and the commands the user allowed there, and the built-in ones",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WorkspacePermissions" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/mode": {
+      "put": {
+        "operationId": "setPermissionMode",
+        "summary": "How commands are treated in a folder from now on; a looser mode needs a local backend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetPermissionModeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/allow": {
+      "post": {
+        "operationId": "allowCommand",
+        "summary": "Allow a command in a folder for good; refused unless the backend is local",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AllowEntryRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/revoke": {
+      "post": {
+        "operationId": "revokeCommand",
+        "summary": "Stop allowing a command in a folder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AllowEntryRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1570,7 +1674,7 @@
             "type": "string",
             "enum": ["trusted", "untrusted", "changed", "no_hooks"]
           },
-          "permissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] }
+          "permissionMode": { "$ref": "#/components/schemas/PermissionMode" }
         },
         "required": [
           "id",
@@ -1938,6 +2042,34 @@
           }
         },
         "required": ["workspaces"]
+      },
+      "PermissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] },
+      "AllowEntry": { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+      "SetPermissionModeRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "mode": { "$ref": "#/components/schemas/PermissionMode" }
+        },
+        "required": ["workspace", "mode"]
+      },
+      "AllowEntryRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "entry": { "$ref": "#/components/schemas/AllowEntry" }
+        },
+        "required": ["workspace", "entry"]
+      },
+      "WorkspacePermissions": {
+        "type": "object",
+        "properties": {
+          "mode": { "$ref": "#/components/schemas/PermissionMode" },
+          "allow": { "type": "array", "items": { "$ref": "#/components/schemas/AllowEntry" } },
+          "workspace": { "type": "string" },
+          "builtIn": { "type": "array", "items": { "$ref": "#/components/schemas/AllowEntry" } }
+        },
+        "required": ["mode", "allow", "workspace", "builtIn"]
       }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }

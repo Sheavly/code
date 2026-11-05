@@ -738,7 +738,7 @@
           "type": "string",
           "enum": ["trusted", "untrusted", "changed", "no_hooks"]
         },
-        "permissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] }
+        "permissionMode": { "$ref": "#/$defs/PermissionMode" }
       },
       "required": [
         "id",
@@ -1087,6 +1087,34 @@
         "workspaces": { "type": "array", "items": { "$ref": "#/$defs/TrustedWorkspace" } }
       },
       "required": ["workspaces"]
+    },
+    "PermissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] },
+    "AllowEntry": { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+    "SetPermissionModeRequest": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "mode": { "$ref": "#/$defs/PermissionMode" }
+      },
+      "required": ["workspace", "mode"]
+    },
+    "AllowEntryRequest": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "entry": { "$ref": "#/$defs/AllowEntry" }
+      },
+      "required": ["workspace", "entry"]
+    },
+    "WorkspacePermissions": {
+      "type": "object",
+      "properties": {
+        "mode": { "$ref": "#/$defs/PermissionMode" },
+        "allow": { "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } },
+        "workspace": { "type": "string" },
+        "builtIn": { "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } }
+      },
+      "required": ["mode", "allow", "workspace", "builtIn"]
     }
   }
 }

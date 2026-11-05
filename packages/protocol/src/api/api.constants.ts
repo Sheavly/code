@@ -15,7 +15,6 @@ import { streamEntrySchema } from '../stream/stream.validator.js';
 import { keyCheckSchema } from '../model/model.validator.js';
 import {
   adaptersResponseSchema,
-  bindWorkspaceRequestSchema,
   modelsQuerySchema,
   modelsResponseSchema,
   profileSetupSchema,
@@ -25,15 +24,12 @@ import {
   setDefaultProfileRequestSchema,
   setupModelSchema,
   setupSchema,
-  trustedWorkspacesQuerySchema,
-  trustedWorkspacesResponseSchema,
-  workspaceProfileSchema,
-  workspaceRequestSchema,
 } from '../setup/setup.validator.js';
 import {
   storedConversationsQuerySchema,
   storedConversationsResponseSchema,
 } from '../store/store.validator.js';
+import { FOLDER_ROUTES } from './folder-routes.constants.js';
 import type { ApiRoute } from './api.types.js';
 
 /** The API's OpenAPI document, committed at the package root (`npm run schema -w @sheavly/protocol`). */
@@ -250,53 +246,5 @@ export const API_ROUTES = {
     body: setDefaultProfileRequestSchema,
     response: { status: 204 },
   },
-  queryWorkspaceProfile: {
-    effect: 'read',
-    method: 'query',
-    path: '/workspace-profiles',
-    summary:
-      'The profile a folder runs on, and whether it was chosen for the folder or is the default',
-    body: workspaceRequestSchema,
-    response: { status: 200, schema: workspaceProfileSchema },
-  },
-  bindWorkspace: {
-    effect: 'change',
-    method: 'put',
-    path: '/workspace-profiles',
-    summary: 'Always run a folder on this profile, whatever the default is',
-    body: bindWorkspaceRequestSchema,
-    response: { status: 204 },
-  },
-  unbindWorkspace: {
-    effect: 'change',
-    method: 'post',
-    path: '/workspace-profiles/unbind',
-    summary: 'Run a folder on the default profile again',
-    body: workspaceRequestSchema,
-    response: { status: 204 },
-  },
-  queryTrustedWorkspaces: {
-    effect: 'read',
-    method: 'query',
-    path: '/trusted-workspaces',
-    summary: 'The workspaces trusted to run their .sheavly hooks, or those a path search matches',
-    body: trustedWorkspacesQuerySchema,
-    response: { status: 200, schema: trustedWorkspacesResponseSchema },
-  },
-  trustWorkspace: {
-    effect: 'change',
-    method: 'post',
-    path: '/trusted-workspaces',
-    summary: 'Trust a folder’s .sheavly hooks as they are now; refused unless the backend is local',
-    body: workspaceRequestSchema,
-    response: { status: 204 },
-  },
-  revokeWorkspace: {
-    effect: 'change',
-    method: 'post',
-    path: '/trusted-workspaces/revoke',
-    summary: 'Stop trusting a folder, also one that no longer exists',
-    body: workspaceRequestSchema,
-    response: { status: 204 },
-  },
+  ...FOLDER_ROUTES,
 } as const satisfies Record<string, ApiRoute>;
