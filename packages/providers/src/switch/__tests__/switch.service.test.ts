@@ -63,4 +63,25 @@ describe('ProviderSwitch', () => {
     expect(() => providers.stream(request)).toThrow('No active provider');
     expect(() => providers.use('x')).toThrow('Unknown provider: x (available: none)');
   });
+
+  it('captures effort for in-flight streams and pinned providers, while later calls use the new effort', async () => {
+    const seen: (string | undefined)[] = [];
+    const provider: Provider = {
+      async *stream(call) {
+        seen.push(call.mode);
+        yield { type: 'done', stopReason: 'end_turn' };
+      },
+    };
+    const switching = new ProviderSwitch().add('a', provider);
+
+    switching.setMode({ name: 'a', mode: 'high' });
+    const started = switching.stream(request);
+    const child = switching.pinned('a');
+
+    switching.setMode({ name: 'a', mode: 'low' });
+    await collect(started);
+    await collect(child.stream(request));
+    await collect(switching.stream(request));
+    expect(seen).toEqual(['high', 'high', 'low']);
+  });
 });

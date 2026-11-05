@@ -8,6 +8,7 @@ import {
   CHECK_SERVER_ERROR_FROM,
 } from './registry.constants.js';
 import type { FailedCheck } from './registry.types.js';
+import { checkHttpMessage } from './check-message.utils.js';
 
 /** A failed check with its fixed message. */
 const failed = (status: FailedCheck): KeyCheck => ({ status, message: CHECK_MESSAGES[status] });
@@ -32,8 +33,18 @@ function classifyFailure(error: ModelApiError): KeyCheck {
     case 'timeout':
     case 'cut_off':
       return failed('unreachable');
-    case 'http':
-      return failed(statusOf(error.status ?? 0));
+
+    case 'http': {
+      const status = statusOf(error.status ?? 0);
+
+      return {
+        status,
+        message:
+          checkHttpMessage({ status: error.status ?? 0, message: error.message }) ??
+          CHECK_MESSAGES[status],
+      };
+    }
+
     default:
       return failed('rejected');
   }

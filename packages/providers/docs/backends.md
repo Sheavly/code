@@ -52,8 +52,13 @@ Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two a
 | Claude                                                  | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted
-reasoning back takes `reasoning: false`. Claude needs `maxTokens`, and `thinkingBudget` (at least
-1024, under `maxTokens`) turns on extended thinking:
+reasoning back takes `reasoning: false`. Claude needs `maxTokens`: the maximum output tokens per
+reply, not the context window. Set it within the deployment's output limit, for example 8192.
+`thinkingMode: 'adaptive'` lets supported models choose their own thinking budget, with no
+`thinkingBudget`. Models such as Sonnet 5.5 require adaptive rather than enabled thinking.
+`thinkingMode: 'enabled'` requires `thinkingBudget` (at least 1024, under `maxTokens`);
+`'disabled'` turns thinking off. For existing configurations without a mode, a budget enables
+thinking and no budget leaves thinking unspecified:
 
 ```ts
 registry.create('azure-anthropic', {
@@ -61,7 +66,7 @@ registry.create('azure-anthropic', {
   baseUrl: 'https://<resource>.services.ai.azure.com/anthropic',
   deployment: 'claude-sonnet',
   maxTokens: 16_000,
-  thinkingBudget: 4096,
+  thinkingMode: 'adaptive',
   request,
 });
 ```
@@ -102,8 +107,10 @@ A UI that sets a model up never imports this package. The backend reads the regi
   provider and stops at the first thing it says, so the key, the endpoint and the deployment are
   all tried at once. It never retries, gives up after `responseTimeoutMs`, and ends as `valid`,
   `invalid` (401/403), `not_found` (404), `rejected` (any other refusal) or `unreachable` (a server
-  failure, the network, a timeout), with a fixed message: what the provider said is never passed
-  on, since it can echo what was sent. Aborting `signal` rejects instead; that is not an answer.
+  failure, the network, a timeout). HTTP 400/422 messages explain known adaptive-thinking and
+  output-limit failures, or point to the settings to check; HTTP 429 says to retry or check quota.
+  These are fixed explanations, never the provider's error text, which can echo what was sent.
+  Aborting `signal` rejects instead; that is not an answer.
 
 What marks a field is in its schema, so an adapter that reuses `apiKeySchema` and
 `requestPolicySchema` is described correctly with nothing more. A field named like a secret that is
@@ -112,6 +119,25 @@ not marked one fails a test for every registered adapter.
 `providers.pinned(key)` hands out the provider added under `key` and keeps it there whatever the
 switch is set to, for a run pinned to one model (a sub-agent) while the main session switches. A
 host adds each provider under a model's id; a display name is never a key.
+
+### Model effort modes
+
+The backend selects low, medium, high or extreme independently for each model and conversation.
+`ProviderSwitch.setMode` changes future calls, with the effort captured in `ProviderRequest.mode`
+when the stream begins. `pinned` captures that effort as well as the provider, so a sub-agent is
+not moved by a later switch.
+
+Responses APIs receive `reasoning.effort` (low, medium, high, or xhigh for extreme). The
+Anthropic Messages API receives adaptive thinking and `output_config.effort` (low, medium, high,
+or max for extreme), with no fixed thinking budget. Signed thinking is preserved on follow-up
+tool calls. This requires a deployment supporting those native effort levels; an unsupported
+setting is reported by the provider, never silently relabelled as another mode. Calls without
+an effort mode retain their configured thinking behavior. See
+[Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
+
+Azure Claude's `maxTokens` defaults to 8192. It remains an independent output limit, not an
+effort mode or context window setting. The setup form fills optional defaults without asking;
+advanced settings can still override the output limit.
 
 ## Adding a backend
 

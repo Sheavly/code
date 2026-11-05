@@ -16,6 +16,15 @@ const provider = (fetch: typeof globalThis.fetch) =>
   });
 
 describe('createResponsesProvider', () => {
+  it.each(['low', 'medium', 'high', 'extreme'] as const)(
+    'sends %s as native reasoning effort',
+    async (mode) => {
+      const { fetch, requests } = fakeFetch([]);
+
+      await collect(provider(fetch).stream({ ...request(), mode }));
+      expect(requests[0]?.body.reasoning).toEqual({ effort: mode === 'extreme' ? 'xhigh' : mode });
+    },
+  );
   it('streams text deltas and ends the turn', async () => {
     const { fetch } = fakeFetch([
       { type: 'response.output_text.delta', delta: 'Hel' },

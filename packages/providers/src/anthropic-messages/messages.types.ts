@@ -16,6 +16,8 @@ export type MessagesEndpoint = {
   headers: Record<string, string>;
 };
 
+export type MessagesThinkingMode = 'adaptive' | 'enabled' | 'disabled';
+
 export type MessagesProviderConfig = {
   endpoint: MessagesEndpoint;
   /** The most tokens one reply may use (the API requires it), thinking included. */
@@ -23,9 +25,11 @@ export type MessagesProviderConfig = {
   /**
    * Extended thinking: how many of `maxTokens` the model may think with (at least 1024). Its
    * signed thinking blocks are kept and resent on later turns, so it keeps its chain of thought
-   * across tool calls. Undefined = no thinking.
+   * across tool calls. Used only for enabled thinking; adaptive thinking takes no budget.
    */
   thinkingBudget?: number | undefined;
+  /** Omitted: a budget enables thinking, otherwise the request leaves thinking unspecified. */
+  thinkingMode?: MessagesThinkingMode | undefined;
   request: RequestPolicy;
   fetch: typeof fetch;
 };
@@ -34,6 +38,7 @@ export type MessagesProviderConfig = {
 export type MessagesAdapterConfig = {
   maxTokens: number;
   thinkingBudget?: number | undefined;
+  thinkingMode?: MessagesThinkingMode | undefined;
   request: RequestPolicy;
 };
 

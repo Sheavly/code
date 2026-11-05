@@ -4,6 +4,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { providerRequest } from '../../testing/provider-request.fake.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createMessagesProvider } from '../messages.helper.js';
+import type { MessagesThinkingMode } from '../messages.types.js';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -11,11 +12,16 @@ const request = providerRequest;
 /** A fetch whose replies are these Messages events, sent as they are (no Responses terminal event). */
 const replies = (...responses: object[][]) => fakeFetchSequence({ responses, complete: false });
 
-const provider = (params: { fetch: typeof globalThis.fetch; thinkingBudget?: number }) =>
+const provider = (params: {
+  fetch: typeof globalThis.fetch;
+  thinkingBudget?: number;
+  thinkingMode?: MessagesThinkingMode;
+}) =>
   createMessagesProvider({
     endpoint: { baseUrl: 'https://example.test/anthropic/v1', model: 'claude', headers: {} },
     maxTokens: 4096,
     thinkingBudget: params.thinkingBudget,
+    thinkingMode: params.thinkingMode,
     request: TEST_REQUEST,
     fetch: params.fetch,
   });
@@ -48,6 +54,19 @@ const thinking = [
 const stopped = (reason: string) => ({ type: 'message_delta', delta: { stop_reason: reason } });
 
 describe('createMessagesProvider', () => {
+  it.each(['low', 'medium', 'high', 'extreme'] as const)(
+    'sends %s as adaptive effort without a fixed budget',
+    async (mode) => {
+      const { fetch, requests } = replies([...thinking, STOP]);
+      const events = await collect(provider({ fetch }).stream({ ...request(), mode }));
+
+      expect(requests[0]?.body.thinking).toEqual({ type: 'adaptive' });
+      expect(requests[0]?.body.output_config).toEqual({
+        effort: mode === 'extreme' ? 'max' : mode,
+      });
+      expect(events.some((event) => event.type === 'reasoning')).toBe(true);
+    },
+  );
   it('sends the model, max_tokens, system prompt, tools and version header', async () => {
     const { fetch, requests } = replies([STOP]);
 
@@ -117,55 +136,74 @@ describe('createMessagesProvider', () => {
     ).rejects.toMatchObject({ reason: 'cut_off' });
   });
 
-  it('joins tool results into one user message and resends its own thinking first', async () => {
-    const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
-    const thinker = provider({ fetch, thinkingBudget: 2048 });
-    const events = await collect(thinker.stream(request()));
-    const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
+  it.each(['enabled', 'adaptive'] as const)(
+    'resends its own %s thinking before tool results',
+    async (thinkingMode) => {
+      const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
+      const thinker = provider({
+        fetch,
+        thinkingMode,
+        ...(thinkingMode === 'enabled' && { thinkingBudget: 2048 }),
+      });
+      const events = await collect(thinker.stream(request()));
+      const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
 
-    await collect(
-      thinker.stream(
-        request({
-          messages: [
-            { role: 'user', content: 'hi' },
-            {
-              role: 'assistant',
-              content: '',
-              toolCalls: [{ id: c1, name: 'lookup', input: {} }],
-              reasoning: [...reasoning, { source: 'responses:elsewhere', data: { type: 'x' } }],
-            },
-            { role: 'tool', toolCallId: c1, content: 'found', isError: false },
-            { role: 'user', content: 'and?' },
+      await collect(
+        thinker.stream(
+          request({
+            messages: [
+              { role: 'user', content: 'hi' },
+              {
+                role: 'assistant',
+                content: '',
+                toolCalls: [{ id: c1, name: 'lookup', input: {} }],
+                reasoning: [...reasoning, { source: 'responses:elsewhere', data: { type: 'x' } }],
+              },
+              { role: 'tool', toolCallId: c1, content: 'found', isError: false },
+              { role: 'user', content: 'and?' },
+            ],
+          }),
+        ),
+      );
+
+      expect(requests[0]?.body.thinking).toEqual(
+        thinkingMode === 'enabled'
+          ? { type: 'enabled', budget_tokens: 2048 }
+          : { type: 'adaptive' },
+      );
+      expect(requests[1]?.body.messages).toEqual([
+        { role: 'user', content: [{ type: 'text', text: 'hi' }] },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'Hmm', signature: 'sig' },
+            { type: 'tool_use', id: 'c1', name: 'lookup', input: {} },
           ],
-        }),
-      ),
-    );
-
-    expect(requests[0]?.body).toMatchObject({ thinking: { type: 'enabled', budget_tokens: 2048 } });
-    expect(requests[1]?.body.messages).toEqual([
-      { role: 'user', content: [{ type: 'text', text: 'hi' }] },
-      {
-        role: 'assistant',
-        content: [
-          { type: 'thinking', thinking: 'Hmm', signature: 'sig' },
-          { type: 'tool_use', id: 'c1', name: 'lookup', input: {} },
-        ],
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'tool_result', tool_use_id: 'c1', content: 'found', is_error: false },
-          { type: 'text', text: 'and?' },
-        ],
-      },
-    ]);
-  });
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 'c1', content: 'found', is_error: false },
+            { type: 'text', text: 'and?' },
+          ],
+        },
+      ]);
+    },
+  );
 
   it('keeps no thinking when thinking is off', async () => {
     const events = await collect(
       provider({ fetch: replies([...thinking, STOP]).fetch }).stream(request()),
     );
 
+    expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
+  });
+
+  it('can explicitly disable thinking', async () => {
+    const { fetch, requests } = replies([...thinking, STOP]);
+    const events = await collect(provider({ fetch, thinkingMode: 'disabled' }).stream(request()));
+
+    expect(requests[0]?.body.thinking).toEqual({ type: 'disabled' });
     expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
   });
 });

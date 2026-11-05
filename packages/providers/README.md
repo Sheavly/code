@@ -29,6 +29,13 @@ const provider = createDefaultRegistry().create('openai', {
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
 
+Azure Claude supports `thinkingMode: 'adaptive'`, budgeted `'enabled'` thinking, and `'disabled'`.
+Adaptive thinking takes no fixed budget; `maxTokens` limits output per reply, not the context
+window. The registry's connection check gives fixed, actionable explanations for common thinking,
+output-limit and rate-limit failures without returning provider error bodies. See
+[Models on Azure](docs/backends.md#models-on-azure) and
+[checking a model](docs/backends.md#describing-adapters-and-checking-a-model).
+
 ## Docs
 
 - [Backends](docs/backends.md): creating and switching providers, describing adapters and checking a

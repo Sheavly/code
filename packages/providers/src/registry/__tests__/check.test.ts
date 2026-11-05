@@ -72,7 +72,16 @@ describe('AdapterRegistry.check', () => {
     const { fetch, requests } = answeringWith({ status });
     const result = await registryOn(fetch).check({ kind: 'openai', config });
 
-    expect(result).toEqual({ status: expected, message: CHECK_MESSAGES[expected] });
+    expect(result).toMatchObject({ status: expected });
+
+    if (status === 400 || status === 422 || status === 429) {
+      expect(result).toMatchObject({
+        message: expect.stringContaining(`HTTP ${String(status)}`) as string,
+      });
+    } else {
+      expect(result).toEqual({ status: expected, message: CHECK_MESSAGES[expected] });
+    }
+
     // A check that is wrong says so at once: it is never retried.
     expect(requests).toHaveLength(1);
   });
@@ -96,6 +105,25 @@ describe('AdapterRegistry.check', () => {
       status: 'unreachable',
       message: CHECK_MESSAGES.unreachable,
     });
+  });
+
+  it('explains adaptive-thinking and output-limit refusals without echoing provider data', async () => {
+    for (const [body, explanation] of [
+      [
+        `thinking.type enabled is not supported; use adaptive. ${KEY}`,
+        'requires adaptive thinking',
+      ],
+      [`max_tokens exceeds the supported maximum. ${KEY}`, 'output limit per reply'],
+    ] as const) {
+      const { fetch } = answeringWith({ status: 400, body });
+      const result = await registryOn(fetch).check({ kind: 'openai', config });
+
+      expect(result).toMatchObject({
+        status: 'rejected',
+        message: expect.stringContaining(explanation) as string,
+      });
+      expect(JSON.stringify(result)).not.toContain(KEY);
+    }
   });
 
   it('reads a provider that never starts answering as unreachable, once its time is up', async () => {

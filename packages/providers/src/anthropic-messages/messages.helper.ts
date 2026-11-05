@@ -15,16 +15,21 @@ import type {
   MessagesProviderConfig,
 } from './messages.types.js';
 import { messagesEventSchema } from './messages.validator.js';
+import { thinkingFor } from './thinking.utils.js';
 
 /** A Provider for any backend that speaks the Anthropic Messages API. */
 export function createMessagesProvider(config: MessagesProviderConfig): Provider {
-  const { endpoint, maxTokens, thinkingBudget } = config;
-  /** Thinking signatures are only valid for the backend + model that produced them. */
-  const reasoningSource =
-    thinkingBudget === undefined ? undefined : `messages:${endpoint.baseUrl}#${endpoint.model}`;
+  const { endpoint, maxTokens } = config;
+  const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, tools, signal }) {
+    async *stream({ instructions, messages, tools, signal, mode }) {
+      // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
+      const reasoningSource =
+        mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
+          ? `messages:${endpoint.baseUrl}#${endpoint.model}`
+          : undefined;
+
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,
@@ -50,9 +55,12 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
                 input_schema: tool.inputSchema,
               })),
             }),
-            ...(thinkingBudget !== undefined && {
-              thinking: { type: 'enabled', budget_tokens: thinkingBudget },
-            }),
+            ...(mode
+              ? {
+                  thinking: { type: 'adaptive' },
+                  output_config: { effort: mode === 'extreme' ? 'max' : mode },
+                }
+              : thinking && { thinking }),
             stream: true,
           }),
         },
@@ -109,6 +117,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
         endpoint: toEndpoint(config),
         maxTokens: config.maxTokens,
         thinkingBudget: config.thinkingBudget,
+        thinkingMode: config.thinkingMode,
         request: config.request,
         fetch: deps.fetch,
       }),

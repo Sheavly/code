@@ -38,20 +38,40 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
         title: 'Deployment',
         description: 'The deployment’s name in the Azure AI Foundry portal',
       }),
-      maxTokens: z.number().int().positive().meta({
+      maxTokens: z.number().int().positive().default(8192).meta({
         title: 'Max tokens',
-        description: 'The most a reply may run to; the API requires one',
+        description:
+          'Maximum output tokens per reply, not the context window. For example 8192; stay within the model’s output limit.',
+      }),
+      thinkingMode: z.enum(['adaptive', 'enabled', 'disabled']).optional().meta({
+        title: 'Thinking mode',
+        description:
+          'Use adaptive for models that require it, such as Sonnet 5.5. Enabled uses a fixed thinking budget; disabled turns thinking off.',
       }),
       thinkingBudget: z.number().int().min(MIN_THINKING_BUDGET).optional().meta({
         title: 'Thinking budget',
         description:
-          'Tokens for extended thinking (at least 1024, under max tokens); leave empty for none',
+          'Only for enabled thinking: at least 1024, under max tokens. Leave empty for adaptive or disabled.',
       }),
       request: requestPolicySchema,
     })
     .refine(
       (config) => config.thinkingBudget === undefined || config.thinkingBudget < config.maxTokens,
       { message: 'thinkingBudget must be less than maxTokens', path: ['thinkingBudget'] },
+    )
+    .refine((config) => config.thinkingMode !== 'enabled' || config.thinkingBudget !== undefined, {
+      message: 'Enabled thinking requires a thinking budget.',
+      path: ['thinkingBudget'],
+    })
+    .refine(
+      (config) =>
+        config.thinkingBudget === undefined ||
+        config.thinkingMode === undefined ||
+        config.thinkingMode === 'enabled',
+      {
+        message: 'Leave thinkingBudget empty for adaptive or disabled thinking.',
+        path: ['thinkingBudget'],
+      },
     ),
   toEndpoint: (config) => ({
     baseUrl: config.baseUrl,

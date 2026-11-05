@@ -39,4 +39,29 @@ describe('azureAnthropicAdapter', () => {
     expect(parse({ baseUrl, thinkingBudget: 8192 }).success).toBe(false);
     expect(parse({ baseUrl: 'not a url' }).success).toBe(false);
   });
+
+  it('sends adaptive thinking without a fixed budget', async () => {
+    const request = await requestSentBy({
+      adapter: azureAnthropicAdapter,
+      config: {
+        ...base,
+        baseUrl: 'https://res.services.ai.azure.com/anthropic',
+        thinkingMode: 'adaptive',
+      },
+      reply: [{ type: 'message_stop' }],
+    });
+
+    expect(request?.body.thinking).toEqual({ type: 'adaptive' });
+  });
+
+  it('refuses contradictory thinking settings before making a request', () => {
+    const baseUrl = 'https://res.services.ai.azure.com/anthropic';
+
+    expect(parse({ baseUrl, thinkingMode: 'adaptive' }).success).toBe(true);
+    expect(parse({ baseUrl, thinkingMode: 'disabled' }).success).toBe(true);
+    expect(parse({ baseUrl, thinkingMode: 'enabled' }).success).toBe(false);
+    expect(parse({ baseUrl, thinkingMode: 'enabled', thinkingBudget: 2048 }).success).toBe(true);
+    expect(parse({ baseUrl, thinkingMode: 'adaptive', thinkingBudget: 2048 }).success).toBe(false);
+    expect(parse({ baseUrl, thinkingMode: 'disabled', thinkingBudget: 2048 }).success).toBe(false);
+  });
 });
