@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { isAllowed, matchesEntry, parseCommand } from '../allow-list.utils.js';
 
@@ -57,12 +58,47 @@ describe('parseCommand', () => {
     ['echo a\\ b', 'backslash'],
     ['echo "$HOME"', 'inside double quotes'],
     ['echo "`id`"', 'inside double quotes'],
-    ['echo "a\\nb"', 'inside double quotes'],
+    ['echo "a\\\nb"', 'before a newline'],
   ])('refuses %j for its %s', (line, why) => {
     const parsed = parseCommand(line);
 
     expect(parsed).toMatchObject({ ok: false });
     expect(parsed.ok ? '' : parsed.reason).toContain(why);
+  });
+
+  it('names the character and shows the rewrite when it refuses', () => {
+    const reason = (line: string) => {
+      const parsed = parseCommand(line);
+
+      return parsed.ok ? '' : parsed.reason;
+    };
+
+    expect(reason('echo "cost $5"')).toContain('`$`');
+    expect(reason('echo "cost $5"')).toContain("e.g. 'cost $5'");
+    expect(reason('grep -rn a\\|b src')).toContain("e.g. 'a\\|b'");
+    expect(reason('echo "a`b"')).toContain('backticks');
+  });
+
+  // The words `sh` itself would hand the program, for the same text after `printf`.
+  const shWords = (text: string) =>
+    execFileSync('sh', ['-c', `printf '%s\\0' ${text}`], { encoding: 'utf8' })
+      .split('\0')
+      .slice(0, -1);
+
+  it.each([
+    String.raw`"a\|b"`,
+    String.raw`"a\\b"`,
+    String.raw`"a\$b"`,
+    String.raw`"a\"b"`,
+    'a"\\`"b',
+    String.raw`"a\nb" "c\*d" "e\ f"`,
+    String.raw`"\\\|" x"\q"y`,
+  ])('reads the double-quoted %s as sh does', (text) => {
+    expect(argvs(`printf '%s\\0' ${text}`)).toEqual([['printf', '%s\\0', ...shWords(text)]]);
+  });
+
+  it('carries grep -rnE "a\\|b" src out as the program would get it', () => {
+    expect(argvs('grep -rnE "a\\|b" src')).toEqual([['grep', '-rnE', 'a\\|b', 'src']]);
   });
 
   it('reads what a single-quoted word holds as it is', () => {

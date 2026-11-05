@@ -20,7 +20,8 @@ export function createRunCommandTool({
     description:
       'Run a command in the workspace root, without a shell. Chain commands with | && || and ;; ' +
       'redirects (> <), $variables, `backticks`, parentheses and & are not supported, and inside ' +
-      "double quotes so are $ and backslashes (use 'single quotes'). The user is asked before " +
+      "double quotes so is $ (use 'single quotes'; a backslash before other characters is literal, " +
+      'so grep -E \'a\\|b\' src and grep -E "a\\|b" src both pass a\\|b). The user is asked before ' +
       'a command they have not allowed yet runs, before one whose arguments reach outside the ' +
       'workspace, name .env files or use globs, and before git commands that can print file ' +
       'contents (git diff, git log -p, git show); prefer git status -sb, git log --oneline and ' +

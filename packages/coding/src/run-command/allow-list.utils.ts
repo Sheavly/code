@@ -16,7 +16,6 @@ const REFUSED: Record<string, string> = {
   ')': 'subshells and parentheses',
   $: 'variables and substitution ($)',
   '`': 'backticks',
-  '\\': 'backslash escapes (quote the word instead)',
   '\n': 'newlines (join commands with ; && || or |)',
   '\r': 'newlines (join commands with ; && || or |)',
 };
@@ -25,26 +24,82 @@ const NOT_SUPPORTED = ' are not supported';
 type Quoted = { ok: true; text: string; next: number } | { ok: false; reason: string };
 type Operator = { connector: Connector; length: number } | { error: string } | undefined;
 
-/** The text between the quote at `start` and its pair; in double quotes `$`, `` ` `` and `\` are refused. */
+// What a POSIX shell lets a backslash escape inside double quotes; before any other character the
+// backslash is literal (`"a\|b"` is the text `a\|b`).
+const ESCAPABLE_IN_DOUBLE_QUOTES = new Set(['$', '`', '"', '\\']);
+
+/** The text between the quote at `start` and its pair; single quotes are literal, as in a shell. */
 function readQuoted(params: { line: string; start: number }): Quoted {
   const { line, start } = params;
-  const quote = line.charAt(start);
-  const end = line.indexOf(quote, start + 1);
 
-  if (end === -1) return { ok: false, reason: 'unbalanced quotes' };
+  if (line.charAt(start) === '"') return readDoubleQuoted({ line, start });
 
-  const text = line.slice(start + 1, end);
-  // Single quotes are literal, as in a shell. In double quotes a shell would expand these, which
-  // no shell runs here, so the word would not mean what the writer expects.
-  const expanded = quote === '"' ? /[$`\\]/.exec(text)?.[0] : undefined;
+  const end = line.indexOf("'", start + 1);
 
-  if (expanded !== undefined) {
-    const what = REFUSED[expanded] ?? expanded;
+  return end === -1
+    ? { ok: false, reason: 'unbalanced quotes' }
+    : { ok: true, text: line.slice(start + 1, end), next: end + 1 };
+}
 
-    return { ok: false, reason: `${what} inside double quotes${NOT_SUPPORTED}; use single quotes` };
+/**
+ * Reads a double-quoted word the way `sh` does: a backslash escapes only `$`, `` ` ``, `"` and
+ * `\`, and is literal before anything else. An unescaped `$` or backtick would be expanded by a
+ * shell, which none runs here, so it is refused rather than passed on as text.
+ */
+function readDoubleQuoted(params: { line: string; start: number }): Quoted {
+  const { line, start } = params;
+  let text = '';
+  let index = start + 1;
+
+  while (index < line.length) {
+    const char = line.charAt(index);
+    const after = line.charAt(index + 1);
+
+    if (char === '"') return { ok: true, text, next: index + 1 };
+
+    if (char === '$' || char === '`') {
+      return { ok: false, reason: expansionAdvice({ line, start, char }) };
+    }
+
+    if (char === '\\' && after === '\n') {
+      return { ok: false, reason: `a backslash before a newline${NOT_SUPPORTED}` };
+    }
+
+    const escapes = char === '\\' && ESCAPABLE_IN_DOUBLE_QUOTES.has(after);
+
+    text += escapes ? after : char;
+    index += escapes ? 2 : 1;
   }
 
-  return { ok: true, text, next: end + 1 };
+  return { ok: false, reason: 'unbalanced quotes' };
+}
+
+/** Names the character a shell would expand and shows the word in single quotes, where it is text. */
+function expansionAdvice(params: { line: string; start: number; char: string }): string {
+  const { line, start, char } = params;
+  const what = char === '$' ? 'variables and substitution ($)' : 'backticks';
+  const close = line.indexOf('"', start + 1);
+  const inner = close === -1 ? '' : line.slice(start + 1, close);
+  const rewrite = inner !== '' && !/['\\]/.test(inner) ? `, e.g. '${inner}'` : '';
+
+  return `${what} inside double quotes${NOT_SUPPORTED}: \`${char}\` is not expanded here. Use single quotes for the literal text${rewrite}`;
+}
+
+/** The word around `index`, shown in single quotes when that can say it. */
+function singleQuoteAdvice(params: { line: string; index: number }): string {
+  const { line, index } = params;
+  let from = index;
+  let to = index + 1;
+
+  // A shell reads `\|` as one escaped character, so the word runs across it.
+  const ends = (at: number) => /[\s;&|]/.test(line.charAt(at)) && line.charAt(at - 1) !== '\\';
+
+  while (from > 0 && !ends(from - 1)) from--;
+  while (to < line.length && !ends(to)) to++;
+
+  const word = line.slice(from, to);
+
+  return /['"]/.test(word) ? '' : `, e.g. '${word}'`;
 }
 
 /** What the character at `index` is outside quotes, when it is not part of a word. */
@@ -52,6 +107,14 @@ function readOperator(params: { line: string; index: number }): Operator {
   const { line, index } = params;
   const char = line.charAt(index);
   const refused = REFUSED[char];
+
+  if (char === '\\') {
+    return {
+      error:
+        'a backslash outside quotes is not supported (a shell would drop it: `\\|` is `|`). ' +
+        `To pass it to the program as written, put the word in single quotes${singleQuoteAdvice({ line, index })}`,
+    };
+  }
 
   if (refused !== undefined) return { error: `${refused}${NOT_SUPPORTED}` };
   if (char === ';') return { connector: ';', length: 1 };
