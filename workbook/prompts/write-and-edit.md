@@ -17,6 +17,7 @@ check:
         'packages/loop/src/abort',
         'packages/loop/src/events',
         'packages/providers/src/responses',
+        'packages/providers/src/anthropic-messages',
         'packages/providers/src/openai',
         'packages/providers/src/azure',
         'apps/terminal/src/render',

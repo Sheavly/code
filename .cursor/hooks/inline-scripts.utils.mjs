@@ -3,8 +3,8 @@
 // post-edit hook never formats or lints them and the editor shows no diff.
 //
 // Best-effort like the other guards: it can't read a script's intent, so it looks for what is
-// reliably visible. The interpreter runs code from the command line, that code calls a write
-// API, and a path it writes isn't outside the project (a literal path the code names, or none it
+// reliably visible. Inline code calls a write API or launches an in-place writer, and a path
+// it writes isn't outside the project (a literal path the code names, or none it
 // can place, which fails closed). A project script (`node scripts/x.mjs`, `npm run …`) is the
 // project's own writer and is allowed, and so is inline code that only reads or prints.
 import path from 'node:path';
@@ -35,6 +35,20 @@ const WRITE_CALLS = [
 // String literals that look like file paths the code names (`'packages/x.ts'`, `"/tmp/out"`).
 const PATH_LITERAL = /['"]((?:\.{0,2}\/|[\w@.-]+\/)[^'"\s]*\.\w+|\/[^'"\s]+)['"]/g;
 
+// An inline program may delegate its writes instead of calling a file API itself. Match the
+// launched command's arguments, not mentions elsewhere (a print of "prettier --write" is data).
+const PROCESS_CALL =
+  /\b(?:subprocess\.(?:run|call|check_call|check_output|Popen)|(?:execFile|spawn)(?:Sync)?|system)\s*\(([\s\S]*?)\)/g;
+
+function launchesFileWriter(program) {
+  return [...program.matchAll(PROCESS_CALL)].some(
+    ([, args]) =>
+      (/\bprettier\b/.test(args) && /--write\b/.test(args)) ||
+      (/\beslint\b/.test(args) && /--fix\b/.test(args)) ||
+      (/\b(?:sed|perl|ruby)\b/.test(args) && /(?:['"]|\s)-(?:[a-z]*i\b|[a-z]*i\.)/.test(args)),
+  );
+}
+
 /** The inline program a segment's interpreter runs, or null when it runs a script file or none. */
 function inlineProgram(params) {
   const { raw, words, heredoc } = params;
@@ -58,7 +72,7 @@ function inlineProgram(params) {
 function writesProject(params) {
   const { program, cwd, projectRoot } = params;
 
-  if (!WRITE_CALLS.some((call) => call.test(program))) return false;
+  if (!WRITE_CALLS.some((call) => call.test(program)) && !launchesFileWriter(program)) return false;
 
   const files = [...program.matchAll(PATH_LITERAL)].map((match) => match[1]);
 

@@ -6,6 +6,7 @@
 // the whole gate on every PR, so nothing left out here goes unchecked.
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { stripVTControlCharacters } from 'node:util';
 import { listWorkspaces, readLayout } from '../../packages/eslint-config/src/layout.utils.js';
 import { GENERATED_DOCS } from '../../scripts/graph.mjs';
 
@@ -161,6 +162,45 @@ export function scopedReport(params) {
 
 /** The workspace a turbo report line comes from: `@sheavly/core` (`@sheavly/core:lint: …`), `//`. */
 const TURBO_TASK = /^(@[\w-]+\/[\w-]+|\/\/):\S+: /;
+
+/** The first line of a clone in jscpd's report; the lines indented under it name its files. */
+const CLONE_HEADER = /^Clone found/;
+
+/** The clones in jscpd's report (colors removed), each as its header and the lines under it. */
+function cloneBlocks(lines) {
+  const blocks = [];
+  let current = null;
+
+  for (const line of lines) {
+    if (CLONE_HEADER.test(line)) {
+      current = [line];
+      blocks.push(current);
+    } else if (current && /^\s+\S/.test(line)) {
+      current.push(line);
+    } else {
+      current = null;
+    }
+  }
+
+  return blocks;
+}
+
+/**
+ * jscpd's report cut to the clones with a file in this chat's scope; null when it has clones and
+ * none is. Its summary table, totals and threshold line name no file, so `scopedReport` alone
+ * would hand every chat any clone in the checkout. A report with no clone in it (a crash, a
+ * config problem) is cut the way `scopedReport` cuts it: kept whole.
+ */
+export function scopedCloneReport(params) {
+  const { output, scope, root } = params;
+  const lines = stripVTControlCharacters(output).split('\n');
+  const blocks = cloneBlocks(lines);
+
+  if (blocks.length === 0) return scopedReport(params);
+  const kept = blocks.filter((block) => block.some((line) => namesScope({ line, scope, root })));
+
+  return kept.length > 0 ? kept.map((block) => block.join('\n')).join('\n') : null;
+}
 
 /**
  * turbo's cut-down report (`formatTurboReport`) kept to the scope's workspaces: a task a scope

@@ -21,7 +21,8 @@
     "layout": "node scripts/check-layout.mjs",
     "new": "node scripts/new-workspace.mjs",
     "graph": "node scripts/graph.mjs",
-    "export": "node scripts/export.mjs"
+    "export": "node scripts/export.mjs",
+    "dev:terminal": "tsx --conditions=@sheavly/source apps/terminal/src/chat.ts"
   },
   "type": "module",
   "devDependencies": {

@@ -27,7 +27,8 @@ export function findShellViolation(params) {
 
   if (findInlineScriptWrite({ command, cwd, projectRoot })) {
     return {
-      user_message: 'Blocked an agent command that writes project files from an inline script',
+      user_message:
+        'Blocked an inline script that writes project files or launches an in-place file writer',
       agent_message: INLINE_SCRIPT_FIX,
     };
   }

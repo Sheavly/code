@@ -4,6 +4,14 @@
 
 // Commands that edit project files past the edit tools' hooks.
 export const DENIED_CASES = [
+  "python3 - <<'PY'\nimport subprocess\nchanged=subprocess.check_output(['git','diff','--name-only'],text=True).splitlines()\nnew=subprocess.check_output(['git','ls-files','--others','--exclude-standard'],text=True).splitlines()\nallowed=['apps/backend/src/harness/','apps/backend/src/profiles/','apps/backend/src/api/handlers.helper.ts','apps/terminal/src/chat/','apps/terminal/src/setup/','apps/terminal/src/client/conversation.service.ts','apps/terminal/src/tui/','packages/protocol/src/','packages/core/src/provider/','packages/providers/src/','packages/runtime/src/sessions/','packages/storage/src/profile','packages/host/src/conversations/','packages/tools/src/sub-agent/']\nfiles=[p for p in dict.fromkeys(changed+new) if p.endswith('.ts') and any(p.startswith(prefix) for prefix in allowed)]\nsubprocess.run(['npx','prettier','--write',*files],check=True)\nPY",
+  // Inline scripts cannot hide project edits behind a formatter or another in-place writer.
+  `python3 -c "import subprocess; subprocess.run(['npx', 'prettier', '--write', 'README.md'])"`,
+  "python3 - <<'PY'\nimport subprocess\nsubprocess.check_call(['npx', 'eslint', '--fix', *files])\nPY",
+  `python3 -c "import subprocess; subprocess.run('npx prettier --write README.md', shell=True)"`,
+  `node -e "require('node:child_process').spawnSync('npx', ['prettier', '--write', 'README.md'])"`,
+  `node -e "require('node:child_process').execFileSync('npx', ['eslint', '--fix', ...files])"`,
+  `python3 -c "import subprocess; subprocess.run(['sed', '-i', 's/a/b/', 'README.md'])"`,
   "sed -i 's/a/b/' packages/core/src/tool/tool.utils.ts",
   "sed -i.bak 's/a/b/' README.md",
   "sed -ni 's/a/b/p' README.md",
@@ -94,6 +102,14 @@ export const DENIED_CASES = [
 
 // Read-only uses and edits outside the project, which must stay allowed.
 export const ALLOWED_CASES = [
+  'npx prettier --write README.md',
+  'npx eslint README.md --fix',
+  `python3 -c "import subprocess; subprocess.run(['git', 'diff', '--name-only'])"`,
+  `python3 -c "import subprocess; subprocess.run(['npx', 'prettier', '--check', 'README.md'])"`,
+  `node -e "require('node:child_process').execFileSync('git', ['status', '--short'])"`,
+  `python3 -c "import subprocess; subprocess.run(['npx', 'prettier', '--write', '/tmp/out.ts'])"`,
+  `node -e "require('node:child_process').spawnSync('npx', ['prettier', '--write', '/tmp/out.ts'])"`,
+  `python3 -c "import subprocess; print('prettier --write README.md'); subprocess.run(['git', 'status'])"`,
   "sed -n '1,20p' README.md",
   "sed 's/a/b/' README.md",
   "sed -e 's/a/b/' README.md > /tmp/x",

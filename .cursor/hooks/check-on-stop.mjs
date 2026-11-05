@@ -19,6 +19,7 @@ import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
 import {
   gateScope,
   scopedFiles,
+  scopedCloneReport,
   scopedReport,
   scopedTurboReport,
   turboFilters,
@@ -109,7 +110,8 @@ const isFormattableFile = (file) => FORMATTABLE.test(file) && existsSync(file);
 function runGate(scope) {
   const failures = [];
   // A report cut to the scope, or the whole one for a chat recorded before files were kept.
-  const scoped = (output) => (scope ? scopedReport({ output, scope, root: PROJECT_ROOT }) : output);
+  const scoped = (output, cut = scopedReport) =>
+    scope ? cut({ output, scope, root: PROJECT_ROOT }) : output;
 
   // Typecheck and ESLint per workspace, through turbo: the workspaces this chat's edits affect
   // (or, unscoped, everything this branch and its uncommitted changes affect), and nothing whose
@@ -166,7 +168,7 @@ function runGate(scope) {
   }
 
   const jscpd = runNpmScript('jscpd');
-  const jscpdFailure = jscpd.ok ? null : scoped(jscpd.output);
+  const jscpdFailure = jscpd.ok ? null : scoped(jscpd.output, scopedCloneReport);
 
   if (jscpdFailure) {
     failures.push(
