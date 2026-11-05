@@ -4,6 +4,7 @@ import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import { ConversationKeeper } from './keeper.service.js';
 import { readStoredConversation } from './stored-conversation.helper.js';
+import { ModelChanges } from './model-changes.service.js';
 import type {
   ConversationStorage,
   CreateConversation,
@@ -15,7 +16,7 @@ import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
   ConversationId,
@@ -43,6 +44,7 @@ export class Conversations {
   readonly #keepers = new Map<ConversationId, ConversationKeeper>();
   /** Each conversation's running prompt's stop switch. */
   readonly #running = new Map<ConversationId, AbortController>();
+  readonly #modelChanges = new ModelChanges();
 
   constructor(params: { create: CreateConversation; store?: ConversationStore }) {
     this.#create = params.create;
@@ -97,6 +99,7 @@ export class Conversations {
       // profile, whatever it would pick for a new one now.
       workspace: stored.workspace,
       profile: stored.profile,
+      modelSelection: { modelId: stored.modelId, mode: stored.mode ?? 'medium' },
       ...(storage && { storage: { ...storage, resume } }),
     });
 
@@ -176,19 +179,33 @@ export class Conversations {
    * index follows, so reopening finds the model last used. Only this conversation changes: no
    * other conversation, and no sub-agent, is on a different model because of it.
    */
-  useModel(params: { id: ConversationId; modelId: ModelId }): void {
+  async useModel(params: {
+    id: ConversationId;
+    modelId: ModelId;
+    mode?: ModelMode;
+  }): Promise<void> {
+    return this.#modelChanges.run({ id: params.id, change: () => this.#useModel(params) });
+  }
+
+  async #useModel(params: {
+    id: ConversationId;
+    modelId: ModelId;
+    mode?: ModelMode;
+  }): Promise<void> {
     const { id, modelId } = params;
     const live = this.get(id);
 
-    if (!live.run.useModel(modelId)) {
+    if (!(await live.run.useModel(modelId, params.mode))) {
       throw new ConversationsError({
         reason: 'unknown_model',
         message: `No model with id ${modelId} in conversation ${id}; its details list the models`,
       });
     }
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId });
-    this.#keepers.get(id)?.keepIndex({ modelId });
+    const mode = live.run.details().model.mode ?? 'medium';
+
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
+    this.#keepers.get(id)?.keepIndex({ modelId, mode });
   }
 
   #summary(id: ConversationId): ConversationSummary {
@@ -241,12 +258,14 @@ export class Conversations {
     const summary = this.#summary(id);
     const { model, workspace, profile } = live.run.details();
     const modelId = model.id;
+    const mode = model.mode ?? 'medium';
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId });
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
     keeper?.begin({
       id,
       title: summary.title,
       modelId,
+      mode,
       workspace,
       profile,
       status: 'open',

@@ -47,6 +47,12 @@ const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
 
+`await conversations.useModel({ id, modelId, mode? })` changes one conversation's selection.
+The app restores that model's remembered mode when omitted. Switches for one conversation are
+serialized; a failed switch rejects its caller but does not block a later one. The main session
+and stored index retain the selected mode. Reopening passes the saved model/mode pair to the app,
+not the profile's more recent preference.
+
 **Keeping conversations.** Give `Conversations` a `store` (`ConversationStore`,
 `@sheavly/core/store/`) and every conversation is kept as it runs: its stream goes to the store
 through the `storage` the host hands `create` (`entries` for `createHarness`, `keepHistory` for

@@ -4,7 +4,7 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode, ModelSelection } from '@sheavly/protocol/model/model.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type {
@@ -48,7 +48,7 @@ export type ConversationRun = {
   details: () => Omit<ConversationDetails, keyof ConversationSummary | 'permissionMode'>;
   permissionMode: () => Promise<PermissionMode>;
   /** Switches to the model with this id, from the next model call; false when there is none. */
-  useModel: (id: ModelId) => boolean;
+  useModel: (id: ModelId, mode?: ModelMode) => boolean | Promise<boolean>;
 };
 
 /** One live conversation the app built: its services, the conversation, and its skills if any. */
@@ -74,6 +74,8 @@ export type StartConversationParams = {
   messages?: Message[] | undefined;
   workspace?: string | undefined;
   profile?: ProfileId | undefined;
+  /** An explicitly resumed selection, not the profile's last-used preference. */
+  modelSelection?: ModelSelection | undefined;
 };
 
 /**

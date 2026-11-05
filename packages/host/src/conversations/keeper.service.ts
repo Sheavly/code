@@ -49,7 +49,9 @@ export class ConversationKeeper {
   }
 
   /** Changes what the index says (the title, the model, how the conversation stands). */
-  keepIndex(change: Partial<Pick<StoredConversation, 'title' | 'modelId' | 'status'>>): void {
+  keepIndex(
+    change: Partial<Pick<StoredConversation, 'title' | 'modelId' | 'mode' | 'status'>>,
+  ): void {
     this.#queue(async () => this.#touchIndex(change));
   }
 

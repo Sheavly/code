@@ -46,7 +46,7 @@ describe('Conversations with a store', () => {
     const { conversations } = setup({ store, replies: [] });
     const id = await conversations.start();
 
-    conversations.useModel({ id, modelId: DEEP_ID });
+    await conversations.useModel({ id, modelId: DEEP_ID });
     await settled(conversations, id);
 
     // Both models are labelled "Astra": the index could not say which, the id does.

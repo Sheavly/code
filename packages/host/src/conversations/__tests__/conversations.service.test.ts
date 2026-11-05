@@ -55,7 +55,7 @@ describe('Conversations', () => {
       models: [{ id: FAST_ID }, { id: DEEP_ID }],
       permissionMode: 'ask',
     });
-    conversations.useModel({ id, modelId: DEEP_ID });
+    await conversations.useModel({ id, modelId: DEEP_ID });
     expect((await conversations.details(id)).model).toEqual({
       id: DEEP_ID,
       name: 'Astra',
@@ -74,15 +74,15 @@ describe('Conversations', () => {
       'Astra',
       'Astra',
     ]);
-    conversations.useModel({ id, modelId: DEEP_ID });
+    await conversations.useModel({ id, modelId: DEEP_ID });
     expect((await conversations.details(id)).model.id).toBe(DEEP_ID);
-    conversations.useModel({ id, modelId: FAST_ID });
+    await conversations.useModel({ id, modelId: FAST_ID });
     expect((await conversations.details(id)).model.id).toBe(FAST_ID);
-    expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(
-      expect.objectContaining({ reason: 'unknown_model' }),
-    );
+    await expect(conversations.useModel({ id, modelId: unknown })).rejects.toMatchObject({
+      reason: 'unknown_model',
+    });
     // The refusal names the id it was given, not a label.
-    expect(() => conversations.useModel({ id, modelId: unknown })).toThrow(unknown);
+    await expect(conversations.useModel({ id, modelId: unknown })).rejects.toThrow(unknown);
     expect((await conversations.details(id)).model.id).toBe(FAST_ID);
   });
 
@@ -94,16 +94,16 @@ describe('Conversations', () => {
 
     expect(sessions().get(main)?.modelId).toBe(FAST_ID);
 
-    conversations.useModel({ id, modelId: DEEP_ID });
+    await conversations.useModel({ id, modelId: DEEP_ID });
     expect(sessions().get(main)?.modelId).toBe(DEEP_ID);
 
     // A model the conversation does not have is refused, and records nothing.
-    expect(() =>
+    await expect(
       conversations.useModel({
         id,
         modelId: modelIdSchema.parse('00000000-0000-4000-8000-000000000000'),
       }),
-    ).toThrow();
+    ).rejects.toThrow();
     expect(sessions().get(main)?.modelId).toBe(DEEP_ID);
   });
 
@@ -117,7 +117,7 @@ describe('Conversations', () => {
       return live.harness.sessions.get(live.harness.mainSession.id)?.modelId;
     };
 
-    conversations.useModel({ id: a, modelId: DEEP_ID });
+    await conversations.useModel({ id: a, modelId: DEEP_ID });
 
     expect(modelOf(a)).toBe(DEEP_ID);
     expect(modelOf(b)).toBe(FAST_ID);
