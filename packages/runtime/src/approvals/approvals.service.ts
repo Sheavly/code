@@ -18,6 +18,7 @@ import {
   approvalResponseSchema,
 } from '@sheavly/protocol/approval/approval.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { AllowEntry } from '@sheavly/protocol/permission/permission.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 type Listener = (update: ApprovalUpdate) => void;
@@ -53,6 +54,8 @@ export class ApprovalRegistry {
     command: string;
     concerns: ApprovalConcern[];
     options?: readonly ApprovalOption[];
+    /** What `always_allow` would keep, when `options` offers it (see `ApprovalRequest.keeps`). */
+    keeps?: readonly AllowEntry[];
     signal: AbortSignal;
   }): Promise<ApprovalResponse> {
     const { signal, sessionId, options = DEFAULT_OPTIONS, ...rest } = params;

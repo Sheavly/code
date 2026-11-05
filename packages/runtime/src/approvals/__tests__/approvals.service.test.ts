@@ -97,8 +97,7 @@ describe('ApprovalRegistry', () => {
 
   it('offers the options the caller names, and takes only those', async () => {
     const approvals = new ApprovalRegistry();
-
-    listen(approvals);
+    const updates = listen(approvals);
 
     const answer = approvals.request({
       callId: c1,
@@ -106,10 +105,18 @@ describe('ApprovalRegistry', () => {
       command: 'git log',
       concerns: [],
       options: ['approve', 'always_allow', 'skip'],
+      keeps: ['git log'],
       signal: new AbortController().signal,
     });
 
-    expect(approvals.pending()[0]?.options).toEqual(['approve', 'always_allow', 'skip']);
+    expect(approvals.pending()[0]).toMatchObject({
+      options: ['approve', 'always_allow', 'skip'],
+      keeps: ['git log'],
+    });
+    expect(updates[0]).toMatchObject({
+      type: 'approval_requested',
+      request: { keeps: ['git log'] },
+    });
 
     expect(() =>
       approvals.respond({ id: a1, response: { decision: 'skip_with_message', message: 'no' } }),

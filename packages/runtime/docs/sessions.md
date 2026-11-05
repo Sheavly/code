@@ -24,6 +24,10 @@ and the other way round. It is announced once per change, so the stream holds th
 switches, and a restored conversation has each session's last model back. A session that has
 ended refuses it (`session_ended`): its model is the one it ran on.
 
+`setModel` also accepts `mode` (low, medium, high or extreme), mirrored on the session and in
+`session_model`. A mode-only change is announced too; identical model-and-mode pairs are not.
+Each session retains its own mode through the stored stream, independently of other sessions.
+
 A session in a conversation goes `idle` when a prompt's run finishes (`sessions.idle({ id,
 outcome })`, a `session_idle` update) and runs again for the next prompt (`sessions.resume(id)`,
 `session_resumed`); `resume` refuses a session that is running (`session_running`) or ended.

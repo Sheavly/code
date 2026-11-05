@@ -20,7 +20,7 @@ import type {
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
-import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -147,8 +147,8 @@ export class SessionRegistry {
    * session's. Setting the model it already has is not announced again. Throws for an unknown
    * session, and for one that has ended: its model is the one it ran on.
    */
-  setModel(params: { id: SessionId; modelId: ModelId }): void {
-    const { id, modelId } = params;
+  setModel(params: { id: SessionId; modelId: ModelId; mode?: ModelMode }): void {
+    const { id, modelId, mode } = params;
     const session = this.#require(id);
 
     if (!isOpen(session.state)) {
@@ -159,10 +159,12 @@ export class SessionRegistry {
       });
     }
 
-    if (session.modelId === modelId) return;
+    if (session.modelId === modelId && session.mode === mode) return;
 
     session.modelId = modelId;
-    this.#emit({ type: 'session_model', session, modelId });
+    if (mode) session.mode = mode;
+    else delete session.mode;
+    this.#emit({ type: 'session_model', session, modelId, ...(mode && { mode }) });
   }
 
   /** A sub-agent's own status report ("editing core package"). Ignored once the session ended. */
