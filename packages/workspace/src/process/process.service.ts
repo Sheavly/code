@@ -2,8 +2,10 @@ import { spawn } from 'node:child_process';
 import { ProcessInterruptedError, ProcessKillError } from '../errors/process.errors.js';
 import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import { MAX_OUTPUT_CHARS, SECRET_ENV } from './process.constants.js';
+import { connectStreams } from './process-streams.helper.js';
+import { runScript } from './script.helper.js';
 import type { Environment } from '@sheavly/core/environment/environment.types';
-import type { ProcessParams, ProcessResult } from './process.types.js';
+import type { ProcessParams, ProcessResult, ScriptParams } from './process.types.js';
 
 /** Kills a process group. Returns why it couldn't, unless the group had already exited. */
 function killGroup(pid: number): ProcessKillError | undefined {
@@ -63,11 +65,20 @@ export class ProcessRunner {
   }
 
   /**
+   * Runs a line of commands joined by `|`, `&&`, `||` and `;` as a shell would, without one: each
+   * command is its own process group, started from the same scrubbed environment as `run`. See
+   * `runScript` for what a pipe, the timeout and a failure mean.
+   */
+  runScript(script: ScriptParams): Promise<ProcessResult> {
+    return runScript({ run: (params) => this.run(params), script });
+  }
+
+  /**
    * Runs a process in its own group with secrets scrubbed from its env. Aborting `signal`
    * (or hitting the timeout) kills the whole group, including anything it started.
    */
   run(params: ProcessParams): Promise<ProcessResult> {
-    const { file, args, ...options } = params;
+    const { file, args, input, stdoutTo, ...options } = params;
 
     return new Promise((resolve, reject) => {
       if (options.signal.aborted) {
@@ -80,7 +91,7 @@ export class ProcessRunner {
         cwd: options.cwd,
         shell: options.shell,
         env: { ...this.#baseEnv, ...options.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
         detached: true, // own process group, so we can kill everything it started
       });
 
@@ -95,9 +106,6 @@ export class ProcessRunner {
         options.onOutput?.(text);
       };
 
-      child.stdout.on('data', append);
-      child.stderr.on('data', append);
-
       const kill = () => {
         const failed = child.pid ? killGroup(child.pid) : undefined;
 
@@ -107,6 +115,14 @@ export class ProcessRunner {
         clearTimeout(timer);
         reject(failed);
       };
+
+      const streams = connectStreams({
+        child,
+        input,
+        stdoutTo,
+        onChunk: append,
+        onReaderGone: kill,
+      });
       let timer: NodeJS.Timeout | undefined;
 
       if (options.timeoutMs !== undefined) {
@@ -121,6 +137,7 @@ export class ProcessRunner {
       const cleanup = () => {
         clearTimeout(timer);
         options.signal.removeEventListener('abort', kill);
+        streams.disconnect();
         if (child.pid) this.#untrack(child.pid);
       };
 
