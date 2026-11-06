@@ -27,6 +27,48 @@ function timedTool(finished: string[]) {
   });
 }
 
+/** Starts every call before the test releases completions in a chosen order. */
+function gatedTool(ids: string[], finished: string[]) {
+  const started = Promise.withResolvers<void>();
+  const gates = new Map(
+    ids.map((id) => [
+      id,
+      { release: Promise.withResolvers<void>(), completed: Promise.withResolvers<void>() },
+    ]),
+  );
+  let pending = ids.length;
+  const tool = defineTool({
+    name: 'wait',
+    description: 'Wait for an explicit completion signal',
+    inputSchema: z.object({ id: z.string() }),
+    execute: async ({ input: { id } }) => {
+      const gate = gates.get(id);
+
+      if (!gate) throw new Error(`Unexpected call ${id}`);
+      if (--pending === 0) started.resolve();
+
+      await gate.release.promise;
+      finished.push(id);
+      gate.completed.resolve();
+
+      return `done ${id}`;
+    },
+  });
+
+  return {
+    tool,
+    started: started.promise,
+    async finish(id: string) {
+      const gate = gates.get(id);
+
+      if (!gate) throw new Error(`Unexpected completion ${id}`);
+
+      gate.release.resolve();
+      await gate.completed.promise;
+    },
+  };
+}
+
 const call = (id: string, input: Record<string, unknown>, name = 'wait'): ToolCall => ({
   id: callIdSchema.parse(id),
   name,
@@ -79,11 +121,18 @@ describe('parallel tool calls', () => {
 
   it('returns results to the model matched to their calls, in call order', async () => {
     const finished: string[] = [];
-    const messages = await runAgent({
-      provider: scriptedProvider(parallelTurn([call('slow', { ms: 40 }), call('fast', { ms: 1 })])),
-      tools: [timedTool(finished)],
+    const controlled = gatedTool(['slow', 'fast'], finished);
+    const run = runAgent({
+      provider: scriptedProvider(parallelTurn([call('slow', {}), call('fast', {})])),
+      tools: [controlled.tool],
       messages: [],
     });
+
+    await controlled.started;
+    await controlled.finish('fast');
+    await controlled.finish('slow');
+
+    const messages = await run;
 
     expect(finished).toEqual(['fast', 'slow']); // fast really did finish first
     expect(messages.slice(1, 3)).toMatchObject([
@@ -95,15 +144,22 @@ describe('parallel tool calls', () => {
   it("renders a faster tool's result after a slower earlier one (call order, not completion order)", async () => {
     const finished: string[] = [];
     const events: AgentEvent[] = [];
+    const controlled = gatedTool(['slow', 'mid', 'fast'], finished);
 
-    await runAgent({
+    const run = runAgent({
       provider: scriptedProvider(
-        parallelTurn([call('slow', { ms: 40 }), call('mid', { ms: 20 }), call('fast', { ms: 1 })]),
+        parallelTurn([call('slow', {}), call('mid', {}), call('fast', {})]),
       ),
-      tools: [timedTool(finished)],
+      tools: [controlled.tool],
       messages: [],
       onEvent: (e) => events.push(e),
     });
+
+    await controlled.started;
+    await controlled.finish('fast');
+    await controlled.finish('mid');
+    await controlled.finish('slow');
+    await run;
 
     expect(finished).toEqual(['fast', 'mid', 'slow']);
     expect(toolResults(events)).toEqual(['slow', 'mid', 'fast']);
