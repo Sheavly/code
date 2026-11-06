@@ -120,6 +120,39 @@ describe('Renderer: chat look', () => {
       'One⏺ Run the tests  $ npm test\n',
     );
   });
+
+  it('hands the reply to its own sink, and says where it ends', () => {
+    const calls: string[] = [];
+    const renderer = new Renderer(
+      (text) => calls.push(`write ${JSON.stringify(stripVTControlCharacters(text))}`),
+      () => 0,
+      chatLook,
+      {
+        write: (text) => calls.push(`reply ${JSON.stringify(text)}`),
+        end: () => calls.push('end'),
+      },
+    );
+
+    for (const event of [
+      reply('Hi '),
+      reply('there'),
+      started,
+      reply('Done'),
+      finished('completed'),
+    ]) {
+      renderer.event(event);
+    }
+
+    expect(calls).toEqual([
+      'reply "Hi "',
+      'reply "there"',
+      'write "\\n\\n"',
+      'write "⏺ Run the tests  $ npm test\\n"',
+      'write "\\n"',
+      'reply "Done"',
+      'end',
+    ]);
+  });
 });
 
 describe('Renderer: tool results', () => {

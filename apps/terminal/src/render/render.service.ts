@@ -2,7 +2,7 @@ import { isFileChange } from '@sheavly/coding/files/files.utils';
 import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { logLook } from './log-look.utils.js';
-import type { Look, Section, Write } from './render.types.js';
+import type { Look, ReplySink, Section, Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
@@ -22,11 +22,15 @@ export class Renderer {
   #last: Section | undefined;
   #lineOpen = false;
 
-  /** `look` is how it reads: the complete plain log by default, or `chatLook` for a person. */
+  /**
+   * `look` is how it reads: the complete plain log by default, or `chatLook` for a person.
+   * `reply` is where the model's text goes; by default it is written like everything else.
+   */
   constructor(
     private readonly write: Write,
     private readonly runningTasks: () => number,
     private readonly look: Look = logLook,
+    private readonly reply: ReplySink = { write, end: () => undefined },
   ) {}
 
   /**
@@ -143,7 +147,7 @@ export class Renderer {
   #reply(text: string): void {
     if (text === '') return;
     this.#enter('reply');
-    this.write(text);
+    this.reply.write(text);
     this.#lineOpen = !text.endsWith('\n');
   }
 
@@ -156,12 +160,16 @@ export class Renderer {
   }
 
   #enter(section: Section): void {
-    this.write(this.look.gap({ from: this.#last, to: section, lineOpen: this.#lineOpen }));
+    const gap = this.look.gap({ from: this.#last, to: section, lineOpen: this.#lineOpen });
+
+    // An empty write is not a pause in a reply: a screen ends the reply on any other output.
+    if (gap !== '') this.write(gap);
     this.#last = section;
   }
 
   /** The prompt is over: the next one starts a fresh layout, not a gap after this one's text. */
   #done(event: EventOf<'done'>): void {
+    this.reply.end();
     this.#activity(
       this.look.done({
         reason: event.reason,

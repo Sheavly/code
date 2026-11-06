@@ -9,6 +9,9 @@ const styled = (format: Style) => (text: string) =>
 
 export const gray = styled('gray');
 export const bold = styled('bold');
+export const italic = styled('italic');
+export const underline = styled('underline');
+export const strikethrough = styled('strikethrough');
 export const cyan = styled('cyan');
 export const cyanBold = styled(['cyan', 'bold']);
 export const green = styled('green');

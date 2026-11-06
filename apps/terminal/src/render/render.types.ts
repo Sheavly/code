@@ -3,6 +3,13 @@ import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 /** Where a terminal front end's output goes (stdout, or stdout plus a log file). */
 export type Write = (text: string) => void;
 
+/**
+ * Where the model's reply goes, apart from the rest of the run's output: a screen that draws
+ * Markdown needs to know where the reply ends, since a block is only drawn once it is complete.
+ * `end` says no more of this reply is coming.
+ */
+export type ReplySink = { write: Write; end: () => void };
+
 /** What the last thing written was: the model's reply text, or anything else the run did. */
 export type Section = 'reply' | 'activity';
 
