@@ -106,6 +106,7 @@ describe('a model call that fails after starting tools', () => {
     expect(events.map((event) => event.type)).toEqual([
       'tool_call_started',
       'tool_call_started',
+      'usage',
       'turn_end',
       'tool_batch',
       'tool_result',
@@ -137,7 +138,10 @@ describe('a model call that fails after starting tools', () => {
     const { events, error: thrown, history } = await runToFailure({ provider, log: [] });
 
     expect(thrown).toBe(error);
-    expect(events.map((event) => event.type)).toEqual(['text_delta']);
+    expect(events.map((event) => event.type)).toEqual(['text_delta', 'usage']);
+    expect(events.find((event) => event.type === 'usage')).toMatchObject({
+      usage: { tokens: null },
+    });
     expect(history).toEqual([]);
   });
 });

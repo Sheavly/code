@@ -108,10 +108,12 @@ describe('runAgent', () => {
     ]);
     expect(events.map((e) => e.type)).toEqual([
       'tool_call_started',
+      'usage',
       'turn_end',
       'tool_batch',
       'tool_result',
       'text_delta',
+      'usage',
       'turn_end',
       'done',
     ]);

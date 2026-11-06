@@ -15,8 +15,9 @@ What `streamAgent` does from start to end, how it runs hooks, and how a session'
    Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
    A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
    after, which lines a read covered); the model sees only the text, a UI renders these.
-4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
-   (or waits for a background task, with `waitForTasks`).
+4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model
+   called tools, the next turn starts. Without either, the run ends (or waits for a background
+   task, with `waitForTasks`).
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
@@ -33,8 +34,20 @@ model call that fails after it started tools (a cut-off stream, an error event) 
 tools and emits their results, so every `tool_call_started` is answered, then fails the run.
 
 When the run is over its session ends with the outcome (`completed`, `interrupted`, `max_turns`,
-`failed`). With `keepSession: true` it goes idle instead, keeping the outcome as `lastOutcome`, so
+`max_tokens`, `context_window_exceeded`, `failed`). With `keepSession: true` it goes idle instead, keeping the outcome as `lastOutcome`, so
 a conversation's next prompt can resume it; the host ends it when the conversation closes.
+
+## Output-limit recovery
+
+`maxOutputContinuations` permits at most two extra model calls after output truncation by default;
+zero disables recovery. The count applies across the whole run, including truncated tool turns,
+and never bypasses `maxTurns` or an abort. Partial replies, signed reasoning and completed tool
+results stay in history. A new user instruction asks the model to finish without repeating work;
+system instructions are not changed and completed tools are not rerun by the loop.
+`output_continuation` says which attempt is starting. Exhausting the allowance ends with
+`max_tokens`, not `completed`. Context exhaustion ends with `context_window_exceeded` without
+retrying: a larger output budget cannot repair a full context window. The loop does not compact
+history or discard messages automatically.
 
 ## Hook order
 

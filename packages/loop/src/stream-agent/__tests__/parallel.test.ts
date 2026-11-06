@@ -170,9 +170,10 @@ describe('parallel tool calls', () => {
 
     await runAgent({ provider, tools: [quick], messages: [], onEvent: (e) => events.push(e) });
 
-    expect(events.slice(0, 5).map((e) => e.type)).toEqual([
+    expect(events.slice(0, 6).map((e) => e.type)).toEqual([
       'tool_call_started',
       'text_delta', // model output that came after the call...
+      'usage',
       'turn_end', // ...and the end of the model's turn...
       'tool_batch',
       'tool_result', // ...both render before the result, even though it finished first

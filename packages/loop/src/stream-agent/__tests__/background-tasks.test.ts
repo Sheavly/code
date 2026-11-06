@@ -84,14 +84,16 @@ describe('background tasks in the loop', () => {
     expect(performance.now() - started).toBeLessThan(1_000);
     expect(types(events)).toEqual([
       'tool_call_started',
+      'usage',
       'turn_end',
       'tool_batch',
       'task_running', // in place of tool_result
       'text_delta',
+      'usage',
       'turn_end',
       'done',
     ]);
-    const running = events[3];
+    const running = events.find((event) => event.type === 'task_running');
 
     expect(running?.type === 'task_running' && running.task).toMatchObject({
       id: 't1',
@@ -114,19 +116,22 @@ describe('background tasks in the loop', () => {
 
     expect(types(events)).toEqual([
       'tool_call_started',
+      'usage',
       'turn_end',
       'tool_batch',
       'task_running',
       'text_delta', // the model kept going while the task ran
+      'usage',
       'turn_end',
       'task_completed', // released at the turn boundary, before the next model call
       'text_delta',
+      'usage',
       'turn_end',
       'done',
     ]);
     expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i));
 
-    const completed = events[6];
+    const completed = events.find((event) => event.type === 'task_completed');
 
     expect(completed?.type === 'task_completed' && completed.task).toMatchObject({
       id: 't1',
@@ -158,7 +163,7 @@ describe('background tasks in the loop', () => {
       ),
     );
 
-    expect(types(events)).toEqual(['task_completed', 'text_delta', 'turn_end', 'done']);
+    expect(types(events)).toEqual(['task_completed', 'text_delta', 'usage', 'turn_end', 'done']);
     expect(lastUserMessage(second.requests[0])?.content).toContain('[task t1 · completed');
   });
 

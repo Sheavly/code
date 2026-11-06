@@ -7,6 +7,7 @@ import { runToolCall } from '../hooks/hooks.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
 import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 import type { DescribedCall } from '@sheavly/protocol/event/event.types';
+import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 import type {
   Message,
   ReasoningItem,
@@ -29,6 +30,7 @@ export async function sample(context: SampleContext) {
   const running: RunningCall[] = [];
   let stopReason: TurnStopReason = 'end_turn';
   let failure: SampleFailure | undefined;
+  let usage: ModelUsage = { tokens: null };
   // The tools' own signal: aborted with the run, or when this model call fails.
   const stopTools = new AbortController();
   const toolSignal = AbortSignal.any([signal, stopTools.signal]);
@@ -69,6 +71,7 @@ export async function sample(context: SampleContext) {
 
         case 'done':
           stopReason = event.stopReason;
+          usage = event.usage ?? { tokens: null };
           break;
       }
     }
@@ -80,6 +83,7 @@ export async function sample(context: SampleContext) {
     }
   }
 
+  events.enqueue({ type: 'usage', usage });
   if (signal.aborted || failure) stopReason = 'interrupted';
 
   const message: Message = {

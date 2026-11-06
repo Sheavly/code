@@ -83,8 +83,11 @@ describe('interrupts', () => {
 
     expect(providerSawAbort).toBe(true);
     expect(yieldedAfterAbort).toBe(false);
-    expect(events.map((e) => e.type)).toEqual(['text_delta', 'turn_end', 'done']);
-    expect(events[1]).toMatchObject({ type: 'turn_end', stopReason: 'interrupted' });
+    expect(events.map((e) => e.type)).toEqual(['text_delta', 'usage', 'turn_end', 'done']);
+    expect(events.find((event) => event.type === 'turn_end')).toMatchObject({
+      type: 'turn_end',
+      stopReason: 'interrupted',
+    });
 
     const done = events.at(-1);
 

@@ -78,12 +78,14 @@ describe('streamAgent', () => {
       'tool_call_started:slow',
       'tool_call_started:mid',
       'tool_call_started:fast',
+      'usage',
       'turn_end',
       'tool_batch',
       'tool_result:slow', // finished last, but called first
       'tool_result:mid',
       'tool_result:fast',
       'text_delta',
+      'usage',
       'turn_end',
       'done',
     ]);
@@ -160,6 +162,6 @@ describe('streamAgent', () => {
         }
       })(),
     ).rejects.toThrow('provider exploded');
-    expect(seen).toEqual(['text_delta']);
+    expect(seen).toEqual(['text_delta', 'usage']);
   });
 });
