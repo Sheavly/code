@@ -47,6 +47,57 @@ async function withModel(a: Api, model = astra, id = ASTRA) {
 }
 
 describe('GET /setup and GET /adapters', () => {
+  it('writes global terminal preferences without a profile and keeps them through profile deletion', async () => {
+    const a = api();
+
+    expect((await put(a, '/terminal-settings', { reducedMotion: true, bell: true })).status).toBe(
+      204,
+    );
+    await put(a, `/profiles/${WORK}`, { name: 'Work' });
+    await put(a, `/profiles/${WORK}`, { name: 'Day job' });
+
+    expect(await json(await a.request(`/profiles/${WORK}`))).not.toHaveProperty('terminal');
+    expect(await json(await a.request('/setup'))).toMatchObject({
+      terminal: { reducedMotion: true, bell: true },
+    });
+    expect((await put(a, '/terminal-settings', { reducedMotion: 'yes' })).status).toBe(400);
+    expect((await put(a, '/terminal-settings', { bell: 'yes' })).status).toBe(400);
+    await put(a, '/terminal-settings', { reducedMotion: false, bell: false });
+    await a.request(`/profiles/${WORK}`, { method: 'DELETE' });
+    expect(await json(await a.request('/setup'))).toMatchObject({
+      terminal: { reducedMotion: false, bell: false },
+    });
+  });
+
+  it('migrates legacy preferences explicitly, preserving models and the saved global choice', async () => {
+    const a = api();
+
+    await withModel(a);
+    await writeFile(
+      path.join(home, 'profiles', WORK, 'profile.json'),
+      JSON.stringify({
+        id: WORK,
+        name: 'Work',
+        terminal: { reducedMotion: true },
+      }),
+    );
+    expect(await json(await a.request('/setup'))).not.toHaveProperty('terminal');
+    expect(await json(await a.request('/terminal-settings/migrate', { method: 'POST' }))).toEqual({
+      reducedMotion: true,
+    });
+    expect(await json(await a.request(`/profiles/${WORK}`))).not.toHaveProperty('terminal');
+    expect(await json(await a.request(`/profiles/${WORK}/models/${ASTRA}`))).toMatchObject({
+      name: 'Astra',
+    });
+    await put(a, '/terminal-settings', { reducedMotion: false });
+    expect(await json(await a.request('/terminal-settings/migrate', { method: 'POST' }))).toEqual({
+      reducedMotion: false,
+    });
+    expect(await json(await api().request('/setup'))).toMatchObject({
+      terminal: { reducedMotion: false },
+    });
+  });
+
   it('reports a first run: where the data is, and no profile, no default', async () => {
     const a = api();
     const response = await a.request('/setup');

@@ -11,8 +11,7 @@ client, built from the same table.
 ## Routes
 
 Every route is under `/conversations`, `/stored-conversations` (the ones kept on disk, live or
-not), or the setup's own roots (`/setup`, `/adapters`, `/profiles`, `/default-profile`), and every
-request carries `Authorization: Bearer <token>`.
+not), or one of the setup roots listed below. Every request carries `Authorization: Bearer <token>`.
 
 | Request                                                            | Answer                                                                                            |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
@@ -40,10 +39,12 @@ its models and keys are its own, and a conversation sees only its profile's.
 
 | Request                                                                 | Answer                                                                          |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `GET /setup`                                                            | the home folder, every profile with its models, the default                     |
+| `GET /setup`                                                            | the home folder, profiles with models, the default and global terminal settings |
+| `PUT /terminal-settings`, `{ reducedMotion?, bell? }`                   | `204`: replaces global terminal preferences                                     |
+| `POST /terminal-settings/migrate`                                       | global preferences after migrating legacy profiles                              |
 | `GET /adapters`                                                         | what each adapter takes, as JSON Schema, with its secrets marked                |
 | `GET /profiles/:profile`                                                | one profile; `ready` says a conversation can start on it                        |
-| `PUT /profiles/:profile`, `{ name }`                                    | `204`: made, or renamed                                                         |
+| `PUT /profiles/:profile`, `{ name }`                                    | `204`: made or renamed                                                          |
 | `DELETE /profiles/:profile`                                             | `204`: gone with its models, keys and conversations                             |
 | `PUT /default-profile`, `{ profile }`                                   | `204`: where nothing else is chosen                                             |
 | `QUERY /workspace-profiles`, `{ workspace }`                            | `{ workspace, profile?, bound }`: what a folder runs on and why                 |
@@ -77,7 +78,22 @@ its models and keys are its own, and a conversation sees only its profile's.
   TLS.
 - **A model is checked before it is stored.** Its adapter refuses fields it doesn't have and a
   key where a model's fields go (`422`, saying which field and never quoting a value).
+- **Usage is reported, and cost is estimated.** `GET /conversations/:id` includes cumulative
+  `usage` across all sessions, restored from the full saved stream on reopen. Each model call
+  produces a `usage` event. Null token counts, unpriced calls and legacy history are explicit.
+  The model API also accepts optional `pricing` metadata: `input`, `output`, `cacheRead` and
+  `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
+  captures configured prices when its providers are built; saved cost estimates are never
+  recalculated on resume. The backend does not fetch prices or claim these are invoices.
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
+- **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
+  in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences
+  and answers `204`. `POST /terminal-settings/migrate` returns the preferences after migrating
+  readable legacy profiles, preserving any existing global choice. Both changes require the
+  usual bearer token; neither grants access or changes a model or credential. Reads never
+  migrate or write. The terminal calls migration when opening an interactive chat or its
+  settings menu, and applies the value to all profiles, including resumed conversations.
+  Both fields are optional booleans; the bell is off by default.
 - **A folder is named by its path**, in the body (a UI knows the path; the config keeps a hash of
   its real path, so a symlink or a trailing slash is the same folder). It is checked as a
   conversation's workspace is (see "Several conversations at once"), so a folder that couldn't be

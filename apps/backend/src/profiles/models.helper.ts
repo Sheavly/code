@@ -5,6 +5,7 @@ import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { OpenProfile } from '@sheavly/storage/profile-registry/open-profile.service';
 import type { ModelSwitch } from '../harness/harness.types.js';
 import type { ProfileModels, RequestSettings } from './profiles.types.js';
+import { pricedProvider } from '../usage/priced-provider.helper.js';
 
 /**
  * A profile's models, each combined with its secrets and built into a provider by the adapter
@@ -37,7 +38,7 @@ export async function modelsOf(params: {
       const provider = registry.create(model.adapter, { ...model.definition, ...secrets, request });
       const remote = model.definition[remoteFields.get(model.adapter) ?? ''];
 
-      models.switch.add(model.id, provider);
+      models.switch.add(model.id, pricedProvider({ provider, model }));
       models.switch.setMode({ name: model.id, mode: params.modes?.[model.id] ?? 'medium' });
       models.choices.push({
         id: model.id,

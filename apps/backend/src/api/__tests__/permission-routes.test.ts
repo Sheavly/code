@@ -24,7 +24,7 @@ describe('reading a folder’s permissions', () => {
     const read = await permissionsOf(a, folders.site);
 
     expect(read).toMatchObject({ mode: 'ask', allow: [] });
-    expect(read.builtIn).toEqual(expect.arrayContaining(['ls *', 'git status *', 'pwd']));
+    expect(read.builtIn).toEqual(['ls *', 'pwd', 'stat *']);
     expect(read.workspace).toContain('site');
   });
 

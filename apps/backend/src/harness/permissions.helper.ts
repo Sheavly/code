@@ -1,5 +1,6 @@
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
+import { ConversationPermissions } from './conversation-permissions.service.js';
 
 /**
  * What the user lets `run_command` do in one folder, as the store keeps it: read from the file on
@@ -13,8 +14,5 @@ export function workspacePermissions(params: {
 }): CommandPermissions {
   const { store, workspace } = params;
 
-  return {
-    read: () => store.read(workspace),
-    allow: (entry) => store.allow({ realPath: workspace, entry }),
-  };
+  return new ConversationPermissions({ store, workspace });
 }

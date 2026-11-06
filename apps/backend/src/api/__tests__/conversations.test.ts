@@ -86,6 +86,7 @@ describe('a conversation over HTTP', () => {
       // The model the conversation began on is part of its history.
       'update:session_model',
       'event:text_delta',
+      'event:usage',
       'event:turn_end',
       'update:session_idle',
       'event:done',

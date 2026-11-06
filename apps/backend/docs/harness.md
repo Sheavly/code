@@ -34,6 +34,11 @@ asked, since the user can change it while the conversation runs). A run's `run_c
 folder's permissions from the user's folder (`workspacePermissions`), so a mode or an allowed
 command applies to every conversation in that folder from its next command.
 
+`workspacePermissions` creates one `ConversationPermissions` per live conversation. Permanent
+entries still come from the workspace store; temporary `allow_session` entries live only in that
+object and are not restored on reopen. Tools sharing it reuse the grants. Default sub-agents
+still have no `run_command`; this does not expand their tool set.
+
 ## Models and keys
 
 The models a conversation runs on are the user's, kept in their folder (`~/.sheavly`, or

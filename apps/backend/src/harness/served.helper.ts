@@ -20,6 +20,7 @@ import type { Profiles } from '../profiles/profiles.service.js';
 import type { WorkspaceModels } from '../profiles/profiles.types.js';
 import { parseRequestEnv } from './settings.validator.js';
 import { selectedProvider } from './selected-provider.helper.js';
+import { trackConversationUsage } from '../usage/conversation-usage.helper.js';
 
 /**
  * One conversation as the backend serves it: placed in a folder on a profile (what the start asked
@@ -89,23 +90,31 @@ export async function servedConversation(params: {
 
   if (skills) log(`${skills}\n`);
 
-  return harnessConversation({
-    harness,
-    messages,
-    storage,
-    ...(settings.maxTurns !== undefined && { maxTurns: settings.maxTurns }),
-    waitForTasks: settings.waitForTasks,
-    run: {
-      details: () => ({
-        workspace: harness.workspace.root,
-        profile: placement.profile,
-        ...modelsIn(workspace),
-        projectTrust: harness.projectTrust,
-      }),
-      permissionMode: async () => (await permissions.read()).mode,
-      useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
+  const usage = await trackConversationUsage({ sessions: harness.sessions, storage });
+
+  return {
+    ...harnessConversation({
+      harness,
+      messages,
+      storage,
+      ...(settings.maxTurns !== undefined && { maxTurns: settings.maxTurns }),
+      waitForTasks: settings.waitForTasks,
+      run: {
+        details: () => ({
+          workspace: harness.workspace.root,
+          profile: placement.profile,
+          ...modelsIn(workspace),
+          usage: usage.ledger.snapshot,
+          projectTrust: harness.projectTrust,
+        }),
+        permissionMode: async () => (await permissions.read()).mode,
+        useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
+      },
+    }),
+    dispose: async () => {
+      usage.stop();
     },
-  });
+  };
 }
 
 /** The model in use and the ones to switch to, all the profile's usable ones. */

@@ -1,6 +1,8 @@
 import type { AdapterDescription, KeyCheck } from '@sheavly/protocol/model/model.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { Model } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
+import type { TerminalSettings } from '@sheavly/protocol/terminal-settings/terminal-settings.types';
 import type { Setup } from '@sheavly/protocol/setup/setup.types';
 import { AdapterError } from '@sheavly/providers/errors/providers.errors';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
@@ -62,7 +64,7 @@ export class ProfileSetup {
   /** The user's folder, the profiles with their models, and the default; see `Setup`. */
   async setup(): Promise<Setup> {
     const listing = await this.#registry.list();
-    const { defaultProfile } = await this.#registry.config();
+    const { defaultProfile, terminal } = await this.#registry.config();
     const views: ProfileView[] = [];
     const problems = listing.problems.map((problem) => `${problem.file}: ${problem.message}`);
 
@@ -78,6 +80,7 @@ export class ProfileSetup {
 
     return {
       home: this.#home,
+      ...(terminal !== undefined && { terminal }),
       ...(defaultProfile && named && { defaultProfile }),
       profiles: views,
       problems,
@@ -112,9 +115,18 @@ export class ProfileSetup {
     return found;
   }
 
-  /** Makes a profile under `id`, or renames it. Does not make it the default. */
+  /** Makes or renames a profile. Does not make it the default. */
   async putProfile(params: { id: ProfileId; name: string }): Promise<void> {
     await this.#registry.put(params);
+  }
+
+  async setTerminalSettings(terminal: TerminalSettings): Promise<void> {
+    await this.#registry.setTerminalSettings(terminal);
+  }
+
+  /** Explicit change, not a side effect of GET /setup. Existing global choices always win. */
+  async migrateTerminalSettings(): Promise<TerminalSettings> {
+    return this.#registry.migrateTerminalSettings();
   }
 
   /** Deletes a profile with its models, keys and conversations; none is fine. */
@@ -134,7 +146,7 @@ export class ProfileSetup {
   async putModel(params: {
     profile: ProfileId;
     id: ModelId;
-    model: { name: string; adapter: string; definition: Record<string, unknown> };
+    model: Omit<Model, 'id'>;
   }): Promise<void> {
     const { profile, id, model } = params;
     const open = await orNotFound(() => this.#registry.open(profile));

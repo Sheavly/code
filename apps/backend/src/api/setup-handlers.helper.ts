@@ -38,10 +38,16 @@ const done = (c: Context) => c.body(null, 204);
 export function setupHandlers(setup: ProfileSetup): Pick<ApiHandlers, SetupRouteName> {
   return {
     getSetup: async ({ c }) => c.json(await setup.setup()),
+    setTerminalSettings: async ({ c, body }) => {
+      await setup.setTerminalSettings(body);
+
+      return done(c);
+    },
+    migrateTerminalSettings: async ({ c }) => c.json(await setup.migrateTerminalSettings()),
     listAdapters: ({ c }) => c.json({ adapters: setup.adapters() }),
     getProfile: async ({ c }) => c.json(await setup.profile(profileOf(c))),
     putProfile: async ({ c, body }) => {
-      await setup.putProfile({ id: profileOf(c), name: body.name });
+      await setup.putProfile({ id: profileOf(c), ...body });
 
       return done(c);
     },

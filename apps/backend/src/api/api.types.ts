@@ -46,6 +46,8 @@ export type ApiHandlers = {
 /** The routes of the setup API: the profiles, their models and keys, and what is available. */
 export type SetupRouteName =
   | 'getSetup'
+  | 'setTerminalSettings'
+  | 'migrateTerminalSettings'
   | 'listAdapters'
   | 'getProfile'
   | 'putProfile'

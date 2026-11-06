@@ -56,4 +56,25 @@ describe('workspacePermissions', () => {
 
     expect(await second.read()).toMatchObject({ allow: ['ls src'] });
   });
+
+  it('keeps session grants in one conversation, never the workspace store or another conversation', async () => {
+    const first = workspacePermissions({ store, workspace: root });
+    const second = workspacePermissions({ store, workspace: root });
+
+    await first.allowSession?.('npx vitest run *');
+
+    expect(await first.read()).toMatchObject({ allow: ['npx vitest run *'] });
+    expect(await second.read()).toMatchObject({ allow: [] });
+    expect(await store.read(root)).toEqual({ mode: 'ask', allow: [] });
+    expect(existsSync(path.join(home, 'permissions'))).toBe(false);
+  });
+
+  it('reads policy changes fresh even after a temporary grant was made', async () => {
+    const permissions = workspacePermissions({ store, workspace: root });
+
+    await permissions.allowSession?.('npm run test *');
+    await store.setMode({ realPath: root, mode: 'always_ask' });
+
+    expect(await permissions.read()).toMatchObject({ mode: 'always_ask' });
+  });
 });
