@@ -22,7 +22,8 @@
     "new": "node scripts/new-workspace.mjs",
     "graph": "node scripts/graph.mjs",
     "export": "node scripts/export.mjs",
-    "dev:terminal": "tsx --tsconfig apps/terminal/tsconfig.json --conditions=@sheavly/source apps/terminal/src/chat.ts"
+    "dev:terminal": "tsx --tsconfig apps/terminal/tsconfig.json --conditions=@sheavly/source apps/terminal/src/chat.ts",
+    "theme:smoke": "tsx --conditions=@sheavly/source scripts/theme-smoke.mjs"
   },
   "type": "module",
   "devDependencies": {

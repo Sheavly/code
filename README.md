@@ -61,6 +61,9 @@ inputs didn't change (see "Code quality").
 
 The tests use a fake `fetch` and scripted providers, so they never call a real API.
 
+`npm run theme:smoke` prints a local visual preview of the default and colorblind terminal
+themes, including tool results, diffs and status text. It makes no model calls.
+
 ## 4. First real model call (costs money)
 
 ```bash

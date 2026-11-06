@@ -72,7 +72,7 @@ packages/coding/src/run-command/
   run-command.types.ts       exported types only
   run-command.constants.ts   exported literal constants only
   run-command.utils.ts       pure helpers (no I/O, no services)
-  arguments.helper.ts        stateless functions that do I/O (workspace checks)
+  command-approval.helper.ts stateless functions that call the approval registry
   __tests__/run-command.tool.test.ts
 ```
 
