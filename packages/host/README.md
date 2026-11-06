@@ -20,7 +20,9 @@ const harness = createHarness({ provider, title: prompt });
 | `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed  |
 
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
-the history so far, in the same session, idle between prompts until `close`.
+the history so far, in the same session, idle between prompts until `close`. A failed prompt
+keeps the user's message and completed tool work, rather than rolling back history while leaving
+the tool effects on disk.
 
 ```ts
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';

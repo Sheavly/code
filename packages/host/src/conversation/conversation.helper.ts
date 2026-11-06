@@ -1,4 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
@@ -9,7 +10,7 @@ import type { Conversation, ConversationOptions } from './conversation.types.js'
  * `streamAgent`) on the history so far with `keepSession`, so the session goes idle between
  * prompts instead of ending, and the next prompt resumes it. Background tasks outlive a prompt:
  * those that finish meanwhile are reported at the next one. An interrupted prompt leaves history
- * valid to continue from; a failed one leaves history as it was before that prompt.
+ * valid to continue from; a failed one keeps the completed work and the user's prompt too.
  */
 export function createConversation(options: ConversationOptions): Conversation {
   const { harness, run, tools, hooks = [] } = options;
@@ -54,7 +55,15 @@ export function createConversation(options: ConversationOptions): Conversation {
     const events = run({
       provider,
       tools,
-      hooks,
+      hooks: [
+        ...hooks,
+        defineHook({
+          name: 'conversation-history',
+          onError: async (context) => {
+            messages = [...context.messages];
+          },
+        }),
+      ],
       messages: [...messages, user],
       signal,
       tasks,
@@ -91,7 +100,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       }
 
       running = false;
-      // Whatever happened, what is kept matches the history now: a failed prompt leaves it as it was.
+      // Provider failures do not undo tool effects, so their completed work must stay in history.
       options.keepHistory?.(messages);
     }
   }

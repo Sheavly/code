@@ -47,8 +47,9 @@ prompt on the history so far, in the harness's main session, and yields its even
   `lastOutcome`), and the next prompt resumes it (`session_resumed`); it never ends on its own.
 - A prompt sent while one runs is refused with a `SessionError` (`session_running`); steering a
   running prompt is `sessions.send`.
-- Aborting `signal` stops that prompt with valid history, and the next continues from it. A prompt
-  whose run fails leaves the history as it was before it.
+- Aborting `signal` stops that prompt with valid history, and the next continues from it. A failed
+  run keeps the user's prompt, added context, completed assistant turns and tool results. Tool
+  effects are not undone by a provider failure, so history must not roll back either.
 - Background tasks outlive a prompt; those that finish meanwhile are reported at the next one.
 - `close()` ends the live conversation: it stops the running prompt, cancels background tasks (and
   their processes) and ends the session. It deletes nothing: `messages` stays readable, and
