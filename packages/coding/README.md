@@ -19,7 +19,7 @@ const tools = [createReadFileTool({ workspace: harness.workspace })];
 | `read-skill/`  | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's      |
 | `write-file/`  | `write_file`                                                                                    |
 | `edit-file/`   | `edit_file`                                                                                     |
-| `run-command/` | `run_command`: the user's permissions, argument checks, safe git config, approvals              |
+| `run-command/` | `run_command`: base-command permissions, safe git config, approvals                             |
 | `files/`       | What the file tools share: `resolveWritable`, the `.env` guard, `FileChange` and `isFileChange` |
 | `errors/`      | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it            |
 

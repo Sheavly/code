@@ -4,71 +4,77 @@ import type { AllowEntry, PermissionMode } from '@sheavly/protocol/permission/pe
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ScriptStep } from '@sheavly/workspace/process/process.types';
-import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { CommandRefusedError } from '../errors/run-command.errors.js';
-import { suggestEntry } from './allow-entry.utils.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
 import { isAllowed } from './allow-list.utils.js';
-import { findConcerns } from './arguments.helper.js';
+import { suggestEntry } from './allow-entry.utils.js';
 import type { CommandPermissions } from './run-command.types.js';
 
 type AskingMode = Exclude<PermissionMode, 'allow_all'>;
+
+function hasCommandGrant(params: {
+  argv: readonly string[];
+  allow: readonly AllowEntry[];
+}): boolean {
+  const { argv, allow } = params;
+
+  if (isAllowed({ argv, allowList: allow })) return true;
+
+  return !/[\\/]/.test(argv[0] ?? '') && isAllowed({ argv, allowList: BUILT_IN_ALLOW });
+}
 
 const NOT_ALLOWED: Record<AskingMode, string> = {
   ask: 'is not allowed yet',
   always_ask: 'is asked about every time in this folder',
 };
 
-/** What in the line needs the user's say: commands not allowed, and the risky arguments of any. */
-async function findLineConcerns(params: {
-  workspace: Workspace;
-  steps: readonly ScriptStep[];
-  unlisted: readonly ScriptStep[];
-  mode: AskingMode;
-}): Promise<ApprovalConcern[]> {
-  const { workspace, steps, unlisted, mode } = params;
+/** Only unapproved commands need a decision, regardless of their options and paths. */
+function findLineConcerns(params: { unlisted: readonly ScriptStep[]; mode: AskingMode }): {
+  concerns: ApprovalConcern[];
+  entries: AllowEntry[];
+} {
+  const { unlisted, mode } = params;
   const notAllowed = unlisted.map((step) => ({
     argument: step.argv.join(' '),
     reason: NOT_ALLOWED[mode],
   }));
-  const risky = await Promise.all(
-    steps.map(({ argv: [file, ...args] }) => findConcerns({ workspace, file, args })),
-  );
 
-  return [...notAllowed, ...risky.flat()];
+  return {
+    concerns: notAllowed,
+    entries: [
+      ...new Set(
+        unlisted.flatMap(({ argv }) => {
+          const entry = suggestEntry(argv);
+
+          return entry ? [entry] : [];
+        }),
+      ),
+    ],
+  };
 }
 
-/**
- * The entries "always allow" would keep for the commands not allowed yet, or undefined when it
- * can't be offered: nothing to allow (only risky arguments, which are asked every time), a
- * command no entry can spell, or a folder that asks about everything whatever the list says.
- */
-function entriesToKeep(params: {
-  unlisted: readonly ScriptStep[];
-  mode: AskingMode;
-}): AllowEntry[] | undefined {
-  const { unlisted, mode } = params;
-  const entries = unlisted.map((step) => suggestEntry(step.argv));
+function offeredOptions(params: {
+  entries: AllowEntry[] | undefined;
+  session: boolean;
+}): ApprovalOption[] {
+  const { entries, session } = params;
 
-  if (mode !== 'ask' || unlisted.length === 0) return undefined;
-  if (entries.some((entry) => entry === undefined)) return undefined;
-
-  return [...new Set(entries as AllowEntry[])];
-}
-
-function offeredOptions(entries: AllowEntry[] | undefined): ApprovalOption[] {
-  return entries
-    ? ['approve', 'always_allow', 'skip', 'skip_with_message']
+  return entries?.length
+    ? [
+        'approve',
+        ...(session ? ['allow_session' as const] : []),
+        'always_allow',
+        'skip',
+        'skip_with_message',
+      ]
     : ['approve', 'skip', 'skip_with_message'];
 }
 
 /**
  * Decides whether a parsed command line may run, and asks the user when it may not on its own.
- * In `allow_all` it always runs. Otherwise a command needs the user's say when it is not built in
- * or allowed by the user (in `always_ask`, every command), and any command with a risky argument
- * (outside the workspace, `.env`, a glob, git output that shows file contents) needs it in every
- * mode but `allow_all`. One question covers the whole line, and skipping it skips every command in
- * it.
+ * Built-in and user grants cover every argument of the base command. `always_ask` ignores grants;
+ * `allow_all` skips approval entirely. Each command in a chain is checked, and one question covers
+ * every unapproved command. There are no path, secret, option or package-verification re-prompts.
  *
  * Throws a `CommandRefusedError` when no one can answer, or the user skips (a message they sent
  * instead is put in the error, so the model reads it as the user's direction). On "always allow"
@@ -76,7 +82,6 @@ function offeredOptions(entries: AllowEntry[] | undefined): ApprovalOption[] {
  * thrown and the line does not run.
  */
 export async function confirmCommand(params: {
-  workspace: Workspace;
   command: string;
   steps: readonly ScriptStep[];
   permissions: CommandPermissions;
@@ -84,17 +89,17 @@ export async function confirmCommand(params: {
   call: { callId: CallId; sessionId?: SessionId | undefined };
   signal: AbortSignal;
 }): Promise<void> {
-  const { workspace, command, steps, permissions, approvals, call, signal } = params;
+  const { command, steps, permissions, approvals, call, signal } = params;
   const { mode, allow } = await permissions.read();
 
   if (mode === 'allow_all') return;
 
-  const allowed = [...BUILT_IN_ALLOW, ...allow];
   const unlisted =
-    mode === 'always_ask'
-      ? steps
-      : steps.filter(({ argv }) => !isAllowed({ argv, allowList: allowed }));
-  const concerns = await findLineConcerns({ workspace, steps, unlisted, mode });
+    mode === 'always_ask' ? steps : steps.filter(({ argv }) => !hasCommandGrant({ argv, allow }));
+  const { concerns, entries: proposed } = findLineConcerns({
+    unlisted,
+    mode,
+  });
 
   if (concerns.length === 0) return;
 
@@ -108,18 +113,24 @@ export async function confirmCommand(params: {
     });
   }
 
-  const entries = entriesToKeep({ unlisted, mode });
+  const entries = mode === 'ask' ? proposed : undefined;
   const response = await approvals.request({
     ...call,
     tool: 'run_command',
     command,
     concerns,
-    options: offeredOptions(entries),
+    options: offeredOptions({ entries, session: permissions.allowSession !== undefined }),
     ...(entries && { keeps: entries }),
     signal,
   });
 
   if (response.decision === 'approve') return;
+
+  if (response.decision === 'allow_session' && permissions.allowSession) {
+    for (const entry of entries ?? []) await permissions.allowSession(entry);
+
+    return;
+  }
 
   if (response.decision === 'always_allow') {
     for (const entry of entries ?? []) await permissions.allow(entry);

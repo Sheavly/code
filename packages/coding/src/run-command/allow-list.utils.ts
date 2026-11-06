@@ -7,6 +7,7 @@
  */
 import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
 import type { ParseResult, Token, TokenResult } from './allow-list.types.js';
+import { allowEntryBase, commandBase } from './command-base.utils.js';
 
 // Characters a shell gives a meaning this parser does not; each is refused outside quotes.
 const REFUSED: Record<string, string> = {
@@ -245,16 +246,13 @@ export function parseCommand(line: string): ParseResult {
   return read.ok ? buildSteps(read.tokens) : read;
 }
 
-/** True if `argv` matches one allow-list entry. */
+/** Grants match only command identity, including legacy entries. Options and operands are ignored. */
 export function matchesEntry(params: { argv: readonly string[]; entry: string }): boolean {
   const { argv, entry } = params;
-  const words = entry.trim().split(/\s+/);
-  const wildcard = words.at(-1) === '*';
-  const fixed = wildcard ? words.slice(0, -1) : words;
+  const approved = allowEntryBase(entry);
+  const actual = commandBase(argv);
 
-  if (wildcard ? argv.length < fixed.length : argv.length !== fixed.length) return false;
-
-  return fixed.every((word, i) => argv[i] === word);
+  return approved.length > 0 && approved.every((word, index) => actual[index] === word);
 }
 
 export function isAllowed(params: {

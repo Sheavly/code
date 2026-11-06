@@ -27,7 +27,7 @@ const temp = useTempWorkspace({
   outside: { 'secret.txt': 'outside' },
 });
 
-const tool = (approvals: ApprovalRegistry, permissions = testPermissions({ allow: ['ls *'] })) =>
+const tool = (approvals: ApprovalRegistry, permissions = testPermissions({ mode: 'always_ask' })) =>
   createRunCommandTool({
     processes: testProcesses(),
     workspace: temp.workspace,
@@ -194,7 +194,7 @@ describe('approval flow without a UI', () => {
   it('nothing listening: the command is refused at once and never runs', async () => {
     const marker = path.join(temp.base, 'touched');
     const result = await runTool({
-      tools: [tool(new ApprovalRegistry(), testPermissions({ allow: ['touch *'] }))],
+      tools: [tool(new ApprovalRegistry(), testPermissions())],
       call: {
         id: callIdSchema.parse('1'),
         name: 'run_command',

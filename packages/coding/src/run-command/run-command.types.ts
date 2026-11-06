@@ -13,6 +13,8 @@ export type CommandPermissions = {
   read(): Promise<Permissions>;
   /** Remembers `entry` for good (the user's "always allow"). Throws if it could not be kept. */
   allow(entry: AllowEntry): Promise<void>;
+  /** Shares a grant with this conversation's agents, without persisting it. */
+  allowSession?(entry: AllowEntry): Promise<void>;
 };
 
 export type RunCommandOptions = {
@@ -24,7 +26,7 @@ export type RunCommandOptions = {
   /** Enables `background: true`. Without it, every command runs in the foreground. */
   tasks?: TaskRegistry;
   /**
-   * Where a command the user has not allowed, or one with risky arguments, waits for the user's
+   * Where an unapproved base command (or every command in always_ask) waits for the user's
    * answer. Without it, or with no one subscribed to it (a headless run), those commands are
    * refused.
    */

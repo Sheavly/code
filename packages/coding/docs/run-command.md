@@ -1,112 +1,92 @@
 # run_command
 
-How `run_command` decides whether to run a command, and what it does when it does. When a command needs the user's say it asks through the approval registry ([@sheavly/runtime](../../runtime/docs/approvals.md)).
+Commands run without a shell through the workspace's `ProcessRunner`. The approval registry
+([@sheavly/runtime](../../runtime/docs/approvals.md)) asks only about base commands, never options
+or file operands.
 
 ## What a command is
 
-A line is split into words and run **without a shell** (`allow-list.utils.ts`). It may chain
-commands with `|`, `&&`, `||` and `;`, which `ProcessRunner.runScript`
-([@sheavly/workspace](../../workspace/README.md)) runs as a shell would: a pipe feeds one
-command's output to the next while both run, `&&` and `||` look at the exit code, and the timeout
-covers the whole line. Quotes group words, and single quotes are literal.
-
-What a shell would do and this can't do faithfully is refused, with the reason, in every mode:
-redirects (`> <`), `$variables` and `$(…)`, backticks, parentheses, a lone `&`, backslash
-escapes, newlines, and `$`, backtick or `\` inside double quotes. A `cd` or `exit` builtin does
-not exist either, since there is no shell for it to change.
+`parseCommand` splits a line into parsed argument arrays and `|`, `&&`, `||` or `;` connectors.
+Single quotes preserve literal text; double quotes group words with POSIX escaping rules.
+Redirects, shell variables/substitution, backticks, parentheses, newlines, backslashes outside
+quotes and a lone `&` are unsupported. Parsing restrictions remain in every permission mode.
+There is no glob expansion: `wc *.ts` receives a literal `*.ts`. A program may interpret its
+own patterns, but the runner never expands them or filters `.env` files from grep arguments.
 
 ## Who decides
 
-The user's **permissions** for the workspace decide, read fresh on every command so a change
-applies to every conversation running there from its next command. They come from the app
-(`CommandPermissions`: `read()` and `allow(entry)`); this package never knows where they are kept.
+The app supplies `CommandPermissions`, read fresh on every invocation. This package does not
+store preferences or read a terminal. Workspace permissions are shared across conversations;
+session grants belong to the live conversation and are not persisted.
 
-| Mode         | What `run_command` does                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------- |
-| `ask`        | Runs a built-in or allowed command; asks about every other, and about any risky argument.             |
-| `always_ask` | Asks about every command, whatever the allow list says.                                               |
-| `allow_all`  | Runs everything, asking about nothing, risky arguments included. Redirects and the like stay refused. |
+| Mode         | Behavior                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| `ask`        | Built-in or user-approved base commands run with every option and argument. Other commands ask. |
+| `always_ask` | Every command asks, ignoring built-in and user grants. No remembered grant is offered.          |
+| `allow_all`  | Approval is skipped; unsupported command syntax is still rejected.                              |
 
-**Built-in commands** (`allow-list.constants.ts`) only read: `ls`, `pwd`, `git status`, `git log`,
-`git diff`, `head`, `tail` and `wc`. The user's own allow list comes on top. No test runner is
-built in: it runs the repo's own scripts, which the agent can edit.
+Automatic approvals are limited to bare `ls`, `pwd` and `stat`, which report metadata rather
+than file contents. Content readers (`cat`, `head`, `tail`, `wc`) and all Git commands require
+an explicit approval or user grant. Git options can expose arbitrary files or launch programs;
+`wc --files0-from` can expose file contents through diagnostics. A path-qualified executable
+such as `./ls` does not inherit a built-in approval merely by sharing its name.
 
-One question covers the whole line, naming each command that is not allowed and each risky
-argument, and skipping it skips the whole line. The user can answer:
+An explicit user grant still has all-arguments semantics: granting `cat *` permits secret and
+outside paths, granting Git diff permits patches, and granting Git add permits broad staging.
 
-- **approve**: run it this once.
-- **always allow**: run it and keep an entry for each command not allowed yet (`allow-entry.utils.ts`):
-  retain the first two words, or three for `npm run`, and append `*` only if more arguments follow.
-  Thus `git log --oneline` becomes `git log *`, and `npm run test -- --watch` becomes
-  `npm run test *`. Three kinds of command differ, because a wildcard must never allow more than
-  the user can tell they agreed to:
-  - A program that can run other programs or change files (`find`, `xargs`, `npx`, `env`, `sh`,
-    `bash`, `zsh`, `sed`, `awk`, `perl`, `python*`, `node`, `ruby`, `make`, `rsync`, `tar`,
-    `curl`, `wget`, `ssh`, `scp`, `sudo`, and `npm exec`; `EXACT_ONLY_PROGRAMS`) keeps only the
-    exact command: `find src -type f` does not become `find src *`, which would allow
-    `find src -exec rm {} +`. They match by name wherever the program lives, so
-    `/usr/bin/find` is no way around it.
-  - A read-only searcher (`grep`, `egrep`, `fgrep`; `SEARCHERS`) keeps `grep *` even when a flag
-    comes second, since its second word is a flag or a pattern and never a subcommand: one
-    approved search covers the next. Only a bare `grep`: `./grep` is a file the agent could have
-    written. `rg`, `ag` and `ack` are not here, because they can run a program (`rg --pre`).
-  - Anything else with a flag in second place (`git -c x log`) keeps only the exact command, since
-    then it could mean anything. A `touch /path/file` stays exact because nothing follows it.
-    Not offered when nothing could be kept: no entry can spell the command, the line is only risky
-    arguments, or the mode is `always_ask`. The entry is kept before the line runs; if it can't be,
-    the line does not run.
-- **skip**, or **skip with a message**, which the model reads as the user's direction.
+### Base-command identity
 
-When "always allow" is offered, the approval request's `keeps` lists the exact entries that
-would be saved, with duplicates removed. A UI displays these rather than deriving its own
-permission from the command text. The same entries are saved if the user chooses that option.
+`commandBase` ignores all options and operands after identifying the command:
 
-A run with no one listening (no UI connected) refuses what it would have asked about.
+- Ordinary executables keep their name: `find *`, `sed *`, `node *`, `grep *`.
+- Git keeps its subcommand: `git diff *` does not approve `git push *`.
+- npm keeps its operation, and run/run-script also keeps the script: `npm run test *`.
+  npm's test aliases normalize to the same script. Routing and execution options are ignored.
+- npx keeps the invoked command/package name: `npx eslint *` covers checking, fixing, arbitrary
+  options, package overrides and downloads. Version/tag suffixes do not create another scope;
+  scoped package names remain distinct. A broad `npx *` deliberately covers every npx command.
+- GitHub CLI command groups keep their action: `gh issue view *` is distinct from
+  `gh issue edit *`; endpoints of `gh api` are operands, not command identities.
+- Executable locations do not create path scopes: `/usr/bin/find` has base command `find`.
 
-A `grep` also gets `--exclude` flags for `.env` files added after its own arguments
-(`safeGrepArgs`), in every mode including `allow_all`. Without them a recursive `grep -r KEY .`
-reads every `.env` under the folder and prints it, which the file tools refuse by name and
-argument checks cannot see (the folder is `.`, not a `.env`). They are added last because the last
-matching `--include` decides, so a command's own `--include=*` cannot bring them back; and such an
-`--include` glob is asked about anyway, as any glob that could name a `.env` file.
+Only leading wrapper options need parsing to find a subcommand or npm script. This parsing
+does not authorize or reject option values. Arguments do not affect an approved command:
+secret paths, outside-workspace paths, editing/execution flags, custom configuration and
+unverified packages never trigger an additional question.
 
-## The checks on arguments
+Each command in a chain is checked independently before the line runs. Approving
+`npm run test` does not approve `npm run test && npm install another`; the install command
+needs its own grant. One question covers all unapproved commands, and skipping it runs none.
 
-Whatever the mode (but `allow_all`), these need the user's approval:
+### Approval decisions
 
-1. **Arguments** (`arguments.helper.ts`): operands, `--opt=value` values, values attached to
-   short options (`-O../x`) and every word after `--` are checked with the same path rules as
-   the file tools. An argument needs the user's approval if it reaches outside the workspace
-   (`../..`, an absolute path, a symlink out) or can name a `.env` file (`.env`, `HEAD:.env`,
-   `:(top).env`, `.\env`, a symlink to one, or any glob: git's `*`, `?` and `[...]` cross `/`, so
-   `c*` or `config?.env` reach `config/.env`). Arguments that aren't existing paths (`HEAD~1`, a
-   test name) pass. One the path check can't check at all (unreadable, a symlink loop: a
-   `PathCheckError`) is never treated as "not a path": it needs approval, as "could not be
-   checked (ELOOP)".
-2. **Git output** (`git-output.utils.ts`): a git command that can print or write file contents
-   needs approval whatever its arguments, since a patch shows a committed `.env` without naming
-   it. This is an allowlist, not a list of patch flags (those always miss one: `--patch-with-stat`,
-   `status -v`, or `-G` matches that leak a secret one guess at a time): `git status`, `git log`
-   and `git diff` run without asking only when every flag is one known to show no contents
-   (`git status -sb`, `git log --oneline -n 5`, `git diff --stat`), and a diff also needs a
-   summary flag. Any other flag, subcommand or plain `git diff` asks.
+- **Run once** runs the current line without remembering anything.
+- **Allow for this session** remembers the proposed base grants in the conversation when the
+  caller supports `allowSession`.
+- **Always allow** saves the proposed base grants for the workspace.
+- **Skip** refuses the line and tells the model not to retry.
+- **Skip with a message** includes the user's alternative direction in the refusal.
 
-Every command then runs with git config that keeps a repo from making git run programs: a write
-to `.git/config` is refused (above), but a hostile repo can arrive with one. `GIT_CONFIG_NOSYSTEM=1`
-and `GIT_CONFIG_COUNT` env overrides (`SAFE_GIT_CONFIG` in `run-command.constants.ts`) win over
-every config file: `core.fsmonitor` off, `core.hooksPath=/dev/null`, `safe.bareRepository=explicit`
-(an implicit bare repo brings its own config), no signature checks and no `gpg.*` program.
-`attr.tree=HEAD` reads attributes from the last commit (an empty tree before the first), so an
-edited `.gitattributes` can't switch on a filter driver (`filter.<name>.clean`) the config
-defines. Since they're in the
-env, they also reach git that a test runner starts. `git diff`, `log` and `show` also get
-`--no-ext-diff --no-textconv`, so diff drivers (`diff.external`, textconv) never run.
+`ApprovalRequest.keeps` lists the grants being offered. Entries are saved before execution;
+if saving fails, the command does not run. With no listening UI, an unapproved command fails
+immediately rather than running unattended.
 
-Left open: a filter that is both in the repo's config and named in a committed `.gitattributes`
-still runs (there is no switch for every filter driver, and a write to `.git/config` that would
-add one is refused), and git older than 2.42 ignores `attr.tree`.
+### Existing permission files
 
-A command the user allows that runs workspace code (`npm test`, `npx vitest run`, a script) can
-read anything the process can; argument checks can't stop that. Isolating the process itself is
-[#4](https://github.com/Sheavly/code/issues/4); until then, see the
-[trust model](../../../docs/overview.md#trust-model).
+Legacy exact/path-specific entries and `read:`, `tool:` or `script:` entries are interpreted
+as base-command grants too. `sed -n 1,200p src/a.ts` and `read:sed *` both approve `sed *`;
+`tool:npx eslint check *` approves `npx eslint *`; `script:node tmp/probe.mjs *` approves `node *`.
+`exact:` JSON arrays preserve old stored data and command names containing spaces, but no
+longer require exact argument matching. The file is not rewritten automatically. The UI
+describes the effective command scope rather than claiming old restrictions remain.
+
+## Execution protections and limits
+
+Every process still receives safe Git configuration that disables repository hooks,
+filesystem monitors and signature programs, and uses committed attributes. Git diff/log/show
+retain `--no-ext-diff --no-textconv` driver protection. These do not add approval questions.
+
+There is no OS sandbox. Command approval grants the process access available to the user,
+including secrets and files outside the workspace. `read_file`, `write_file` and `edit_file`
+retain their separate confinement and secret-file rules; command permissions do not change
+those tools. See the [trust model](../../../docs/overview.md#trust-model).

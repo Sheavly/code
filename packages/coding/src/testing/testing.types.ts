@@ -6,4 +6,5 @@ export type TestPermissions = CommandPermissions & {
   setMode(mode: PermissionMode): void;
   /** What `allow` has kept so far, in order. */
   readonly kept: AllowEntry[];
+  readonly sessionKept: AllowEntry[];
 };

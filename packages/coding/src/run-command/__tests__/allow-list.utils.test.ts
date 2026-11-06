@@ -119,9 +119,19 @@ describe('parseCommand', () => {
 });
 
 describe('matchesEntry', () => {
-  it('exact entries match only the exact command', () => {
+  it('normalizes legacy serialized invocation grants to the base command', () => {
+    const entry = 'exact:["echo","a b","*"]';
+
+    expect(matchesEntry({ argv: ['echo', 'a b', '*'], entry })).toBe(true);
+    expect(matchesEntry({ argv: ['echo', 'a', 'b', '*'], entry })).toBe(true);
+    expect(matchesEntry({ argv: ['echo', 'a b', 'other'], entry })).toBe(true);
+    expect(matchesEntry({ argv: ['echo', 'a b', '*', 'extra'], entry })).toBe(true);
+    expect(matchesEntry({ argv: ['printf', 'a b'], entry })).toBe(false);
+    expect(matchesEntry({ argv: ['echo'], entry: 'exact:broken' })).toBe(false);
+  });
+  it('ordinary legacy entries also match the base command with different arguments', () => {
     expect(matchesEntry({ argv: ['git', 'status'], entry: 'git status' })).toBe(true);
-    expect(matchesEntry({ argv: ['git', 'status', '--short'], entry: 'git status' })).toBe(false);
+    expect(matchesEntry({ argv: ['git', 'status', '--short'], entry: 'git status' })).toBe(true);
     expect(matchesEntry({ argv: ['git'], entry: 'git status' })).toBe(false);
   });
 

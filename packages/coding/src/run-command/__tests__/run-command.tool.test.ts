@@ -99,7 +99,7 @@ describe('run_command with what the user has allowed', () => {
   });
 
   it('runs allowed commands joined by a pipe or a list', async () => {
-    const permissions = testPermissions({ allow: ['printf *'] });
+    const permissions = testPermissions({ allow: ['printf *', 'head *'] });
     const result = await run(`printf 'a\\nb\\nc\\n' | head -n 2 && pwd`, { permissions });
 
     expect(result.content).toContain('a\nb\n');

@@ -22,10 +22,10 @@ export function createRunCommandTool({
       'redirects (> <), $variables, `backticks`, parentheses and & are not supported, and inside ' +
       "double quotes so is $ (use 'single quotes'; a backslash before other characters is literal, " +
       'so grep -E \'a\\|b\' src and grep -E "a\\|b" src both pass a\\|b). The user is asked before ' +
-      'a command they have not allowed yet runs, before one whose arguments reach outside the ' +
-      'workspace, name .env files or use globs, and before git commands that can print file ' +
-      'contents (git diff, git log -p, git show); prefer git status -sb, git log --oneline and ' +
-      'git diff --stat. If the user skips a command, do not run it again; do what they say.' +
+      'an unapproved base command runs. A session or workspace grant covers all its options and arguments, ' +
+      'including paths outside the workspace, secret files, editing/execution options and npx downloads. ' +
+      'Examples: find, sed, git diff, npm run test, npx eslint. Chained commands are approved independently. ' +
+      'There is no shell glob expansion. If the user skips a command, do not run it again; do what they say.' +
       (tasks ? ' Set background: true for servers, watchers, or slow commands.' : ''),
     inputSchema: z.object({
       command: z.string().min(1).describe('The command to run, e.g. `git status`'),
@@ -48,7 +48,6 @@ export function createRunCommandTool({
       }
 
       await confirmCommand({
-        workspace,
         command,
         steps: parsed.steps,
         permissions,

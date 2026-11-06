@@ -114,7 +114,7 @@ describe('run_command in a repo without commits', () => {
     const tool = createRunCommandTool({
       processes: testProcesses(),
       workspace: fresh.workspace,
-      permissions: testPermissions(),
+      permissions: testPermissions({ allow: ['git status *', 'git diff *'] }),
     });
 
     for (const command of ['git status -sb', 'git diff --stat --cached']) {

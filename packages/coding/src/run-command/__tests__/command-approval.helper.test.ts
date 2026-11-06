@@ -76,7 +76,7 @@ describe('a command the user has not allowed', () => {
     expect(first).toMatchObject({ isError: false });
     expect(second).toMatchObject({ isError: false });
     expect(second.content).toContain('hello small world');
-    expect(permissions.kept).toEqual(['echo hello *']);
+    expect(permissions.kept).toEqual(['echo *']);
     expect(asked).toHaveLength(1);
     expect(asked[0]?.keeps).toEqual(permissions.kept);
   });
@@ -102,26 +102,23 @@ describe('a command the user has not allowed', () => {
     });
 
     expect(asked.map(({ keeps }) => keeps)).toEqual([
-      ['echo hello *'],
-      [`touch ${marker('w')}`, 'printf x *'],
-      undefined,
+      ['echo *'],
+      ['touch *', 'printf *'],
+      ['touch *'],
       undefined,
     ]);
   });
 
-  it('keeps only the exact command when it has no arguments to allow beyond its first two words', async () => {
+  it('keeps the base command even when the approved invocation has just one file operand', async () => {
     const permissions = testPermissions();
     const { asked, approvals } = answeringUi({ decision: 'always_allow' });
 
     await run({ command: `touch ${marker('c')}`, permissions, approvals });
     await run({ command: `touch ${marker('c2')}`, permissions, approvals });
 
-    expect(permissions.kept).toEqual([`touch ${marker('c')}`, `touch ${marker('c2')}`]);
-    expect(asked).toHaveLength(2);
-    expect(asked.map(({ keeps }) => keeps)).toEqual([
-      [`touch ${marker('c')}`],
-      [`touch ${marker('c2')}`],
-    ]);
+    expect(permissions.kept).toEqual(['touch *']);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.keeps).toEqual(['touch *']);
   });
 
   it.each([
@@ -152,7 +149,7 @@ describe('a command the user has not allowed', () => {
     expect(existsSync(marker('e'))).toBe(false);
   });
 
-  it('does not offer always allow for a command no entry can spell', async () => {
+  it('does not include spaced file operands in the proposed grant', async () => {
     const { asked, approvals } = answeringUi({ decision: 'approve' });
 
     await run({
@@ -161,12 +158,13 @@ describe('a command the user has not allowed', () => {
       approvals,
     });
 
-    expect(asked[0]?.options).toEqual(['approve', 'skip', 'skip_with_message']);
+    expect(asked[0]?.options).toEqual(['approve', 'always_allow', 'skip', 'skip_with_message']);
+    expect(asked[0]?.keeps).toEqual(['touch *']);
   });
 
   it('cannot be allowed for good by an answer that was not offered', async () => {
     const approvals = new ApprovalRegistry();
-    const permissions = testPermissions();
+    const permissions = testPermissions({ mode: 'always_ask' });
 
     approvals.subscribe((update) => {
       if (update.type !== 'approval_requested') return;
@@ -191,7 +189,7 @@ describe('a line of several commands', () => {
 
     await run({
       command: `ls src | head -n 1 && touch ${marker('j')}`,
-      permissions: testPermissions(),
+      permissions: testPermissions({ allow: ['head *'] }),
       approvals,
     });
 
@@ -234,21 +232,17 @@ describe('a line of several commands', () => {
       approvals,
     });
 
-    expect(permissions.kept).toEqual(['echo a *', 'printf x *']);
+    expect(permissions.kept).toEqual(['echo *', 'printf *']);
     expect(asked).toHaveLength(1);
     expect(asked[0]?.keeps).toEqual(permissions.kept);
   });
 
-  it('does not offer always allow when only an argument is risky, and the command is allowed', async () => {
+  it('does not ask about outside-workspace arguments of a built-in approved command', async () => {
     const { asked, approvals } = answeringUi({ decision: 'approve' });
 
     await run({ command: 'ls ..', permissions: testPermissions(), approvals });
 
-    expect(asked[0]?.options).toEqual(['approve', 'skip', 'skip_with_message']);
-    expect(asked[0]?.concerns).toEqual([
-      { argument: '..', reason: 'reaches outside the workspace' },
-    ]);
-    expect(asked[0]).not.toHaveProperty('keeps');
+    expect(asked).toEqual([]);
   });
 });
 
