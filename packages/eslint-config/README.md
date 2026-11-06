@@ -24,6 +24,10 @@ export default baseConfig({ tsconfigRootDir: import.meta.dirname });
 A new convention is a rule here, derived from the code rather than a hand-kept list, with a
 message that says what to do instead, and RuleTester tests in `src/__tests__/`.
 
+Typed source checks include `.tsx` components and their tests. React hook rules also check
+ordinary source helpers; plain `.ts` tests and fakes are excluded because their lifecycle
+helpers use `use*` names too. JSX tests retain the hook rules. See [Rules](docs/rules.md).
+
 ## Docs
 
 - [Rules](docs/rules.md): the file kinds and every `harness/*` rule.

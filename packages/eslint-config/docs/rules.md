@@ -23,8 +23,9 @@ switches off exactly one, on the files it is for, with a reason.
 | `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
 | `routes`    | one group of HTTP routes (a function building a `Hono`)  | code, no classes             | 150       |
 | `errors`    | error classes                                            | code                         | 150       |
+| `component` | one React view (`.tsx`), a function component            | code, no classes             | 150       |
 | `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
-| `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
+| `test`      | Vitest files in `__tests__/` (`.test.tsx` for a view)    | code                         | 500       |
 
 Max lines counts lines of code (blank and comment lines aside), enforced by `max-lines`. `utils` and
 `helper` files have no cap: they are stateless functions that grow with their subject, so a long one
@@ -32,7 +33,13 @@ is split by responsibility only when it does several jobs, not to fit a number. 
 (an entry point, the demo) is capped at 300. The limits live in `file-kinds.js`.
 
 - `harness/file-kind`: every module file is named `<name>.<kind>.ts` (kebab-case, known kind);
-  tests only in `__tests__/`, and only tests there.
+  tests only in `__tests__/`, and only tests there. Only a `component` (a React view) is
+  `<name>.component.tsx`, and a test of one may be `.test.tsx`: a kind's extensions are in
+  `file-kinds.js`, and a package never exports a `.tsx` kind (views belong to an app).
+- **React** (`react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`, every workspace's
+  source): a hook is called only from a component or another hook, with its dependencies listed.
+  Plain `.ts` tests and fakes are excluded because their lifecycle helpers also use `use*` names;
+  `.tsx` tests remain checked.
 - `harness/kind-contents`: code files export no types and no literal constants; those go in the
   module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` exports a class, a `*.helper.ts`
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and

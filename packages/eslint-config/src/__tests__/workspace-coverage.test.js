@@ -94,7 +94,7 @@ const FILE_WRITERS = new RegExp(
 /** A workspace's TypeScript, tests and fakes included. */
 function typescriptFiles(dir) {
   return readdirSync(dir, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.[cm]?ts$/.test(entry.name))
+    .filter((entry) => entry.isFile() && /\.[cm]?tsx?$/.test(entry.name))
     .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
