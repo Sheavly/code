@@ -13,6 +13,50 @@ const parse = (config: object) =>
   azureAnthropicAdapter.configSchema.safeParse({ ...base, ...config });
 
 describe('azureAnthropicAdapter', () => {
+  it.each([
+    ['claude-sonnet-5-5', 32768],
+    ['claude-opus-5-5', 32768],
+    ['claude-fable-5-1', 32768],
+    ['claude-haiku-5-5', 32768],
+    ['custom-deployment', 8192],
+    ['constructor', 8192],
+  ])('uses a safe default for %s when maxTokens is omitted', async (deployment, maxTokens) => {
+    const request = await requestSentBy({
+      adapter: azureAnthropicAdapter,
+      config: {
+        apiKey: base.apiKey,
+        request: TEST_REQUEST,
+        deployment,
+        baseUrl: 'https://res.services.ai.azure.com/anthropic',
+      },
+      reply: [{ type: 'message_stop' }],
+    });
+
+    expect(request?.body.max_tokens).toBe(maxTokens);
+  });
+
+  it('validates thinking against the resolved model default and preserves an explicit limit', async () => {
+    const config = {
+      apiKey: base.apiKey,
+      request: TEST_REQUEST,
+      deployment: 'claude-sonnet-5-5',
+      baseUrl: 'https://res.services.ai.azure.com/anthropic',
+      thinkingBudget: 8192,
+    };
+
+    expect(azureAnthropicAdapter.configSchema.safeParse(config).success).toBe(true);
+    expect(
+      azureAnthropicAdapter.configSchema.safeParse({ ...config, thinkingBudget: 32768 }).success,
+    ).toBe(false);
+    const request = await requestSentBy({
+      adapter: azureAnthropicAdapter,
+      config: { ...config, thinkingBudget: undefined, maxTokens: 4096 },
+      reply: [{ type: 'message_stop' }],
+    });
+
+    expect(request?.body.max_tokens).toBe(4096);
+  });
+
   for (const baseUrl of [
     'https://res.services.ai.azure.com/anthropic',
     'https://res.services.ai.azure.com/anthropic/v1/',

@@ -28,11 +28,11 @@ export function handleEvent(params: {
         ? { event: { type: 'reasoning', item: { source: reasoningSource, data: event.item } } }
         : {};
     case 'response.completed':
-      return { ended: true };
+      return { ended: true, ...usageOf(event.response?.usage) };
     case 'response.incomplete':
       return event.response.incomplete_details?.reason === 'max_output_tokens'
-        ? { stopReason: 'max_tokens', ended: true }
-        : { ended: true };
+        ? { stopReason: 'max_tokens', ended: true, ...usageOf(event.response.usage) }
+        : { ended: true, ...usageOf(event.response.usage) };
     case 'response.failed':
       throw new ModelApiError({
         reason: 'failed',
@@ -44,6 +44,21 @@ export function handleEvent(params: {
         message: `Responses API stream error: ${event.error?.message ?? event.message ?? 'unknown error'}`,
       });
   }
+}
+
+function usageOf(
+  usage: NonNullable<Extract<ResponsesEvent, { type: 'response.completed' }>['response']>['usage'],
+) {
+  if (!usage) return {};
+
+  return {
+    usage: {
+      inputTokens: usage.input_tokens,
+      outputTokens: usage.output_tokens,
+      cacheReadTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+      cacheWriteTokens: 0,
+    },
+  };
 }
 
 function toToolCall(item: FunctionCallItem): ToolCall {

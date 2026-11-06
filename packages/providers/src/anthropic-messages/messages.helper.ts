@@ -1,26 +1,24 @@
 import type { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
-import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { ModelApiError } from '../errors/providers.errors.js';
 import { sendRequest } from '../http/request.helper.js';
-import { readServerSentEvents } from '../http/sse.utils.js';
 import { ANTHROPIC_VERSION, MESSAGES_API } from './messages.constants.js';
-import { createMessagesReader } from './events.utils.js';
 import { toMessagesApiMessages } from './input.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
   MessagesProviderConfig,
 } from './messages.types.js';
-import { messagesEventSchema } from './messages.validator.js';
 import { thinkingFor } from './thinking.utils.js';
 import { messagesPrefix } from './prefix.utils.js';
+import { messagesMaxTokens } from './output-tokens.utils.js';
+import { readMessagesReply } from './messages-stream.helper.js';
 
 /** A Provider for any backend that speaks the Anthropic Messages API. */
 export function createMessagesProvider(config: MessagesProviderConfig): Provider {
-  const { endpoint, maxTokens } = config;
+  const { endpoint } = config;
+  const maxTokens = messagesMaxTokens({ model: endpoint.model, maxTokens: config.maxTokens });
   const thinking = thinkingFor(config);
 
   return {
@@ -73,37 +71,14 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
           }),
         },
       });
-      const reader = createMessagesReader({
+
+      // sendRequest guarantees a body for a started stream.
+      yield* readMessagesReply({
+        body: response.body as ReadableStream<Uint8Array>,
         reasoningSource,
         prefix: messagesPrefix({ instructions, tools: apiTools, messages: apiMessages }),
+        signal,
       });
-      let stopReason: StopReason = 'end_turn';
-      let ended = false;
-
-      // `sendRequest` returns only a response that started, so it has a body.
-      for await (const raw of readServerSentEvents(response.body as ReadableStream<Uint8Array>)) {
-        const parsed = messagesEventSchema.safeParse(raw);
-
-        if (!parsed.success) continue; // an event type we don't use
-
-        const step = reader.read(parsed.data);
-
-        if (step.stopReason) stopReason = step.stopReason;
-        if (step.ended) ended = true;
-
-        yield* step.events;
-      }
-
-      // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
-      if (!ended) {
-        signal.throwIfAborted();
-        throw new ModelApiError({
-          reason: 'cut_off',
-          message: `${MESSAGES_API} stream ended before message_stop`,
-        });
-      }
-
-      yield { type: 'done', stopReason };
     },
   };
 }

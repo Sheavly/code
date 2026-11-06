@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { apiKeySchema, requestPolicySchema } from '../http/adapter-config.validator.js';
 import { MIN_THINKING_BUDGET } from '../anthropic-messages/messages.constants.js';
 import { defineMessagesAdapter } from '../anthropic-messages/messages.helper.js';
+import { messagesMaxTokens } from '../anthropic-messages/output-tokens.utils.js';
 
 /**
  * `baseUrl` accepts any of these, including the portal's endpoint pasted as-is:
@@ -38,10 +39,10 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
         title: 'Deployment',
         description: 'The deployment’s name in the Azure AI Foundry portal',
       }),
-      maxTokens: z.number().int().positive().default(8192).meta({
+      maxTokens: z.number().int().positive().optional().meta({
         title: 'Max tokens',
         description:
-          'Maximum output tokens per reply, not the context window. For example 8192; stay within the model’s output limit.',
+          'Output tokens per reply, including thinking. Leave empty for a model-aware default (32768 for current Claude IDs, 8192 for unknown deployments). Explicit values must fit the deployment’s output limit.',
       }),
       thinkingMode: z.enum(['adaptive', 'enabled', 'disabled']).optional().meta({
         title: 'Thinking mode',
@@ -56,7 +57,10 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
       request: requestPolicySchema,
     })
     .refine(
-      (config) => config.thinkingBudget === undefined || config.thinkingBudget < config.maxTokens,
+      (config) =>
+        config.thinkingBudget === undefined ||
+        config.thinkingBudget <
+          messagesMaxTokens({ model: config.deployment, maxTokens: config.maxTokens }),
       { message: 'thinkingBudget must be less than maxTokens', path: ['thinkingBudget'] },
     )
     .refine((config) => config.thinkingMode !== 'enabled' || config.thinkingBudget !== undefined, {

@@ -54,6 +54,37 @@ const thinking = [
 const stopped = (reason: string) => ({ type: 'message_delta', delta: { stop_reason: reason } });
 
 describe('createMessagesProvider', () => {
+  it('reports cumulative output once and adds cache reads and writes to ordinary input', async () => {
+    const { fetch } = replies([
+      {
+        type: 'message_start',
+        message: {
+          usage: {
+            input_tokens: 100,
+            output_tokens: 1,
+            cache_read_input_tokens: 50,
+            cache_creation_input_tokens: 25,
+          },
+        },
+      },
+      { type: 'message_delta', delta: { stop_reason: null }, usage: { output_tokens: 10 } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 20 } },
+      STOP,
+    ]);
+
+    expect((await collect(provider({ fetch }).stream(request()))).at(-1)).toEqual({
+      type: 'done',
+      stopReason: 'end_turn',
+      usage: {
+        tokens: {
+          inputTokens: 175,
+          outputTokens: 20,
+          cacheReadTokens: 50,
+          cacheWriteTokens: 25,
+        },
+      },
+    });
+  });
   it.each(['low', 'medium', 'high', 'extreme'] as const)(
     'sends %s as adaptive effort without a fixed budget',
     async (mode) => {
@@ -134,6 +165,16 @@ describe('createMessagesProvider', () => {
     await expect(
       collect(provider({ fetch: replies(text(0, 'Hal')).fetch }).stream(request())),
     ).rejects.toMatchObject({ reason: 'cut_off' });
+  });
+
+  it('distinguishes a full context window from the output-token limit', async () => {
+    const events = await collect(
+      provider({ fetch: replies([stopped('model_context_window_exceeded'), STOP]).fetch }).stream(
+        request(),
+      ),
+    );
+
+    expect(events.at(-1)).toEqual({ type: 'done', stopReason: 'context_window_exceeded' });
   });
 
   it.each(['enabled', 'adaptive'] as const)(

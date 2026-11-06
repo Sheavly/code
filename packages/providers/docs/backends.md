@@ -53,7 +53,8 @@ Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two a
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted
 reasoning back takes `reasoning: false`. Claude needs `maxTokens`: the maximum output tokens per
-reply, not the context window. Set it within the deployment's output limit, for example 8192.
+reply including thinking, not the context window. An explicit limit must fit the deployment's
+output limit; omit it to use the model-aware default described below.
 `thinkingMode: 'adaptive'` lets supported models choose their own thinking budget, with no
 `thinkingBudget`. Models such as Sonnet 5.5 require adaptive rather than enabled thinking.
 `thinkingMode: 'enabled'` requires `thinkingBudget` (at least 1024, under `maxTokens`);
@@ -142,9 +143,15 @@ setting is reported by the provider, never silently relabelled as another mode. 
 an effort mode retain their configured thinking behavior. See
 [Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
 
-Azure Claude's `maxTokens` defaults to 8192. It remains an independent output limit, not an
-effort mode or context window setting. The setup form fills optional defaults without asking;
-advanced settings can still override the output limit.
+Azure Claude's `maxTokens` defaults to 32768 for the recognized Foundry IDs `claude-sonnet-5-5`,
+`claude-opus-5-5`, `claude-haiku-5-5` and `claude-fable-5-1`, whose documented output limit is 128K
+([model specifications](https://platform.claude.com/docs/en/models/overview)). Unknown or custom
+deployment names retain a conservative 8192 default; the adapter does not guess their capabilities.
+Explicit limits, including those already saved in model files, remain unchanged. To use an
+automatic default for an existing model, remove its explicit `maxTokens` in advanced setup.
+Effort modes do not alter the resolved output limit. The Messages API's `max_tokens` and
+`model_context_window_exceeded` stop reasons are distinct in the harness, so the loop only
+attempts output continuation for the former.
 
 ## Adding a backend
 

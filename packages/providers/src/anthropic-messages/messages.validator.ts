@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
-// The streamed Messages API events we read; any other event type (`message_start`, `ping`) fails
+// The streamed Messages API events we read; any other event type (`ping`) fails
 // to parse and is skipped.
 
 const contentBlockSchema = z.discriminatedUnion('type', [
@@ -35,7 +35,16 @@ const deltaSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('signature_delta'), signature: z.string() }),
 ]);
 
+const tokenCount = z.number().int().nonnegative();
+const usageSchema = z.object({
+  input_tokens: tokenCount,
+  output_tokens: tokenCount,
+  cache_read_input_tokens: tokenCount.optional(),
+  cache_creation_input_tokens: tokenCount.optional(),
+});
+
 export const messagesEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('message_start'), message: z.object({ usage: usageSchema }) }),
   z.object({
     type: z.literal('content_block_start'),
     index: z.number().int().min(0),
@@ -50,6 +59,7 @@ export const messagesEventSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('message_delta'),
     delta: z.object({ stop_reason: z.string().nullish() }),
+    usage: usageSchema.partial().optional(),
   }),
   z.object({ type: z.literal('message_stop') }),
   // Mid-stream errors (`overloaded_error`) arrive as HTTP 200 + this event.

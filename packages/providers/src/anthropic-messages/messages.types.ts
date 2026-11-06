@@ -20,8 +20,8 @@ export type MessagesThinkingMode = 'adaptive' | 'enabled' | 'disabled';
 
 export type MessagesProviderConfig = {
   endpoint: MessagesEndpoint;
-  /** The most tokens one reply may use (the API requires it), thinking included. */
-  maxTokens: number;
+  /** The most tokens one reply may use, thinking included. Omit for a model-aware default. */
+  maxTokens?: number | undefined;
   /**
    * Extended thinking: how many of `maxTokens` the model may think with (at least 1024). Its
    * signed thinking blocks are kept and resent on later turns, so it keeps its chain of thought
@@ -36,7 +36,7 @@ export type MessagesProviderConfig = {
 
 /** The config every Messages adapter's schema must produce, besides its own fields. */
 export type MessagesAdapterConfig = {
-  maxTokens: number;
+  maxTokens?: number | undefined;
   thinkingBudget?: number | undefined;
   thinkingMode?: MessagesThinkingMode | undefined;
   request: RequestPolicy;

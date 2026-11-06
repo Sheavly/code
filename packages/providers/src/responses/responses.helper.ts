@@ -1,19 +1,15 @@
 import type { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
-import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type {
   ResponsesAdapterConfig,
   ResponsesEndpoint,
   ResponsesProviderConfig,
 } from './responses.types.js';
-import { handleEvent } from './events.utils.js';
-import { responsesEventSchema } from './responses.validator.js';
 import { toInputItems } from './input.utils.js';
-import { ModelApiError } from '../errors/providers.errors.js';
 import { sendRequest } from '../http/request.helper.js';
-import { readServerSentEvents } from '../http/sse.utils.js';
+import { readResponsesReply } from './responses-stream.helper.js';
 
 /** A Provider for any backend that speaks the OpenAI Responses API. */
 export function createResponsesProvider(config: ResponsesProviderConfig): Provider {
@@ -59,33 +55,12 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
         },
       });
 
-      let stopReason: StopReason = 'end_turn';
-      let ended = false;
-
-      // `sendRequest` returns only a response that started, so it has a body.
-      for await (const raw of readServerSentEvents(response.body as ReadableStream<Uint8Array>)) {
-        const parsed = responsesEventSchema.safeParse(raw);
-
-        if (!parsed.success) continue; // an event type we don't use
-
-        const step = handleEvent({ event: parsed.data, reasoningSource });
-
-        if (step.stopReason) stopReason = step.stopReason;
-        if (step.ended) ended = true;
-
-        if (step.event) yield step.event;
-      }
-
-      // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
-      if (!ended) {
-        signal.throwIfAborted();
-        throw new ModelApiError({
-          reason: 'cut_off',
-          message: 'Responses stream ended before response.completed',
-        });
-      }
-
-      yield { type: 'done', stopReason };
+      // sendRequest guarantees a body for a started stream.
+      yield* readResponsesReply({
+        body: response.body as ReadableStream<Uint8Array>,
+        reasoningSource,
+        signal,
+      });
     },
   };
 }

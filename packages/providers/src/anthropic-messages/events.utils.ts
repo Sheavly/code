@@ -12,7 +12,7 @@ import type {
 const STOP_REASONS: Record<string, StopReason> = {
   tool_use: 'tool_use',
   max_tokens: 'max_tokens',
-  model_context_window_exceeded: 'max_tokens',
+  model_context_window_exceeded: 'context_window_exceeded',
 };
 
 /**
@@ -30,6 +30,8 @@ export function createMessagesReader(params: {
 
   const read = (event: MessagesEvent): MessagesStep => {
     switch (event.type) {
+      case 'message_start':
+        return { events: [] };
       case 'content_block_start':
         blocks.set(event.index, startBlock(event.content_block));
 

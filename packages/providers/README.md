@@ -28,6 +28,9 @@ const provider = createDefaultRegistry().create('openai', {
 | `testing/`            | Fakes for tests: Responses API items, a model call                                                          |
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
+Messages and Responses providers attach reported token usage to the final `done` event. Messages
+usage deltas are cumulative; its cache tokens are added to ordinary input. Responses cached input
+is already part of its input total, so it is not counted twice. No provider guesses prices.
 
 Messages replies preserve their original content-block order and request-prefix provenance.
 Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
