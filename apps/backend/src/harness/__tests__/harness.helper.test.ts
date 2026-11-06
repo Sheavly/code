@@ -129,8 +129,12 @@ describe('createBackendHarness: what a backend run includes', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(requests[0]?.instructions).toContain('AGENTS NOTE');
-    expect(requests[0]?.instructions).toContain('- review: REVIEW SKILL');
+    expect(requests[0]?.messages.map((message) => message.content).join('\n')).toContain(
+      'AGENTS NOTE',
+    );
+    expect(requests[0]?.messages.map((message) => message.content).join('\n')).toContain(
+      '- review: REVIEW SKILL',
+    );
   });
 
   it('gives sub-agents the same skill list and read_skill', async () => {
@@ -140,7 +144,9 @@ describe('createBackendHarness: what a backend run includes', () => {
     });
     const sub = requests.find((request) => request.messages[0]?.content === 'help');
 
-    expect(sub?.instructions).toContain('- review: REVIEW SKILL');
+    expect(sub?.messages.map((message) => message.content).join('\n')).toContain(
+      '- review: REVIEW SKILL',
+    );
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
   });
 

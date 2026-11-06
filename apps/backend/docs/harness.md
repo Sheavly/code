@@ -24,6 +24,9 @@ locks and process runner), then composes:
 Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
 task, and commands are where the trust model has the most to lose.
 
+AGENTS.md and skill-list updates are appended as instruction context, not substituted into the
+system prompt. Earlier messages remain unchanged, keeping Claude's signed reasoning valid.
+
 `servedConversation` wraps it as a conversation (`harnessConversation`: the workspace's skills,
 `MAX_TURNS`, `WAIT_FOR_TASKS`) and reports its run for `GET /conversations/:id`: the workspace,
 the model in use and the ones it can switch to, workspace trust and the permission mode (read when

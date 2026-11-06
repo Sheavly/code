@@ -210,7 +210,7 @@ describe('servedConversation', () => {
           JSON.parse(line) as { at: number; messages: { content: string }[]; tools: string[] },
       );
 
-    expect(call?.messages.at(-1)?.content).toBe('hello');
+    expect(call?.messages[0]?.content).toBe('hello');
     expect(Number.isInteger(call?.at)).toBe(true);
     expect(call?.tools).toContain('read_file');
     expect(logged.join('')).toContain('model call for "hello"');
@@ -272,12 +272,15 @@ describe('a conversation the backend keeps', () => {
 
     // The model was sent the earlier exchange, so it can answer from it.
     expect(sentTexts(second.requests)).toContain('my name is Ada');
-    expect(after.messages(id).map((message) => message.content)).toEqual([
-      'my name is Ada',
-      'hello',
-      'what is my name?',
-      'Hello again, Ada',
-    ]);
+    expect(
+      after.messages(id).filter((message) => message.content.startsWith('<instruction-context')),
+    ).toHaveLength(1);
+    expect(
+      after
+        .messages(id)
+        .filter((message) => !message.content.startsWith('<instruction-context'))
+        .map((message) => message.content),
+    ).toEqual(['my name is Ada', 'hello', 'what is my name?', 'Hello again, Ada']);
     await after.closeAll();
   });
 
