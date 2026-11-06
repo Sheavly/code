@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { modelSchema, adapterDescriptionSchema } from '../model/model.validator.js';
 import { profileIdSchema, profileSchema } from '../profile/profile.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
+import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 
 /**
  * Whether a model has the secrets its adapter needs. `not_needed`: its adapter has none (a local
@@ -32,6 +33,7 @@ export const profileSetupSchema = profileSchema.extend({
  */
 export const setupSchema = z.object({
   home: z.string(),
+  terminal: terminalSettingsSchema.exactOptional(),
   defaultProfile: profileIdSchema.exactOptional(),
   profiles: z.array(profileSetupSchema),
   problems: z.array(z.string()),
@@ -50,7 +52,7 @@ export const modelsQuerySchema = z.object({ search: z.string().min(1).exactOptio
 /** `QUERY /profiles/{profile}/models`: the models, by name then id. */
 export const modelsResponseSchema = z.object({ models: z.array(setupModelSchema) });
 
-/** `PUT /profiles/{profile}`: make a profile, or rename it. */
+/** `PUT /profiles/{profile}`: make or rename a profile. */
 export const putProfileRequestSchema = profileSchema.pick({ name: true });
 
 /** `PUT /default-profile`: the profile new conversations use where a workspace has none. */

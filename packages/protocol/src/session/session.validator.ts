@@ -45,6 +45,8 @@ export const sessionStateSchema = z.enum([
   'completed',
   'interrupted',
   'max_turns',
+  'max_tokens',
+  'context_window_exceeded',
   'failed',
 ]);
 

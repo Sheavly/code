@@ -15,10 +15,11 @@ export const approvalConcernSchema = z.object({ argument: z.string(), reason: z.
 /**
  * A UI's answer to an approval request, validated before it reaches the waiting tool: run it as
  * asked, skip it, skip it and steer the agent with a message (passed to the model in the tool
- * result), or run it and allow it for good (the command is added to the folder's allow list).
+ * result), or grant its proposed prefixes for this session or permanently for the workspace.
  */
 export const approvalResponseSchema = z.discriminatedUnion('decision', [
   z.object({ decision: z.literal('approve') }),
+  z.object({ decision: z.literal('allow_session') }),
   z.object({ decision: z.literal('always_allow') }),
   z.object({ decision: z.literal('skip') }),
   z.object({ decision: z.literal('skip_with_message'), message: z.string().trim().min(1) }),
@@ -27,6 +28,7 @@ export const approvalResponseSchema = z.discriminatedUnion('decision', [
 /** What the user can answer. */
 export const approvalOptionSchema = z.enum([
   'approve',
+  'allow_session',
   'always_allow',
   'skip',
   'skip_with_message',
@@ -48,8 +50,8 @@ export const approvalRequestSchema = z.object({
   concerns: z.array(approvalConcernSchema),
   options: z.array(approvalOptionSchema).readonly(),
   /**
-   * What `always_allow` would keep: the allow-list entries (`git log *`), so a UI can say exactly
-   * what the user is agreeing to. Present only when `always_allow` is offered.
+   * What a session or permanent grant would keep: the command prefixes (`git log *`), so a UI
+   * can say exactly what the user is agreeing to. Present when either grant is offered.
    */
   keeps: z.array(allowEntrySchema).readonly().exactOptional(),
 });

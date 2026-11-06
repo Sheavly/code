@@ -16,6 +16,23 @@ describe('permissionModeSchema', () => {
 });
 
 describe('allowEntrySchema', () => {
+  it.each(['exact:["cat",".env"]', 'exact:["git","commit","-m","a b"]', 'exact:["echo",""]'])(
+    'accepts exact argument grants: %s',
+    (entry) => {
+      expect(allowEntrySchema.parse(entry)).toBe(entry);
+    },
+  );
+
+  it.each([
+    'exact:[]',
+    'exact:["*"]',
+    'exact:[""]',
+    'exact:["cat",1]',
+    'exact:{"x":1}',
+    'exact:broken',
+  ])('rejects malformed exact grants: %s', (entry) => {
+    expect(allowEntrySchema.safeParse(entry).success).toBe(false);
+  });
   it.each(['git status', 'git log *', 'npm run test *', 'ls', 'node scripts/a.mjs'])(
     'accepts %j',
     (entry) => {

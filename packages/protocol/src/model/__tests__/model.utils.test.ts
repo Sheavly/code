@@ -7,6 +7,18 @@ const OTHER = '9d3e7a52-1c46-4b0f-8e21-5f6a7b8c9d02';
 const read = (json: unknown) => modelFileSchema.parse(json);
 
 describe('toModel', () => {
+  it('keeps prices in the envelope, out of the adapter definition, across a round trip', () => {
+    const pricing = { input: 2, output: 8, cacheRead: 0.2, cacheWrite: 2.5 };
+    const file = read({ id: ID, name: 'Priced', adapter: 'openai', model: 'm', pricing });
+    const model = toModel(file);
+
+    expect(model.definition).toEqual({ model: 'm' });
+    expect(model.pricing).toEqual(pricing);
+    expect(toModelFile(model)).toEqual(file);
+    expect(modelFileSchema.safeParse({ ...file, pricing: { ...pricing, input: -1 } }).success).toBe(
+      false,
+    );
+  });
   it('splits a file into its id, name and adapter, and the adapter’s definition', () => {
     const file = read({
       id: ID,

@@ -391,6 +391,49 @@
         }
       }
     },
+    "/terminal-settings": {
+      "put": {
+        "operationId": "setTerminalSettings",
+        "summary": "Replace user-wide terminal preferences, shared by every profile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TerminalSettings" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/terminal-settings/migrate": {
+      "post": {
+        "operationId": "migrateTerminalSettings",
+        "summary": "Move legacy profile terminal preferences into global config and return them",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TerminalSettings" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
     "/profiles/{profile}": {
       "get": {
         "operationId": "getProfile",
@@ -908,6 +951,64 @@
   },
   "components": {
     "schemas": {
+      "TokenUsage": {
+        "type": "object",
+        "properties": {
+          "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"]
+      },
+      "ModelUsage": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "anyOf": [{ "$ref": "#/components/schemas/TokenUsage" }, { "type": "null" }]
+          },
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "estimatedCostUsd": { "type": "number", "minimum": 0 }
+        },
+        "required": ["tokens"]
+      },
+      "ModelPricing": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "number", "minimum": 0 },
+          "output": { "type": "number", "minimum": 0 },
+          "cacheRead": { "type": "number", "minimum": 0 },
+          "cacheWrite": { "type": "number", "minimum": 0 }
+        },
+        "required": ["input", "output", "cacheRead", "cacheWrite"]
+      },
+      "UsageTotals": {
+        "type": "object",
+        "properties": {
+          "throughSeq": { "type": "integer", "minimum": -1, "maximum": 9007199254740991 },
+          "calls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "estimatedCostUsd": { "type": "number", "minimum": 0 },
+          "missingUsageCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "unpricedCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "incomplete": { "type": "boolean" }
+        },
+        "required": [
+          "throughSeq",
+          "calls",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens",
+          "estimatedCostUsd",
+          "missingUsageCalls",
+          "unpricedCalls",
+          "incomplete"
+        ]
+      },
       "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
       "ModelSelection": {
         "type": "object",
@@ -931,6 +1032,14 @@
       },
       "AgentEventBody": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "usage" },
+              "usage": { "$ref": "#/components/schemas/ModelUsage" }
+            },
+            "required": ["type", "usage"]
+          },
           {
             "type": "object",
             "properties": {
@@ -1032,6 +1141,19 @@
           {
             "type": "object",
             "properties": {
+              "type": { "type": "string", "const": "output_continuation" },
+              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "maxAttempts": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["type", "attempt", "maxAttempts"]
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": { "type": "string", "const": "hook_failed" },
               "hook": { "type": "string" },
               "handler": { "type": "string" },
@@ -1053,6 +1175,15 @@
       },
       "EntryEvent": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "usage" },
+              "usage": { "$ref": "#/components/schemas/ModelUsage" }
+            },
+            "required": ["seq", "type", "usage"]
+          },
           {
             "type": "object",
             "properties": {
@@ -1165,6 +1296,20 @@
             "type": "object",
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "output_continuation" },
+              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "maxAttempts": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["seq", "type", "attempt", "maxAttempts"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "type": { "type": "string", "const": "hook_failed" },
               "hook": { "type": "string" },
               "handler": { "type": "string" },
@@ -1192,7 +1337,10 @@
         },
         "required": ["call", "description"]
       },
-      "DoneReason": { "type": "string", "enum": ["completed", "interrupted", "max_turns"] },
+      "DoneReason": {
+        "type": "string",
+        "enum": ["completed", "interrupted", "max_turns", "max_tokens", "context_window_exceeded"]
+      },
       "ToolArtifact": {
         "type": "object",
         "properties": { "kind": { "type": "string" } },
@@ -1277,7 +1425,7 @@
       },
       "TurnStopReason": {
         "type": "string",
-        "enum": ["end_turn", "tool_use", "max_tokens", "interrupted"]
+        "enum": ["end_turn", "tool_use", "max_tokens", "context_window_exceeded", "interrupted"]
       },
       "SessionRef": {
         "anyOf": [
@@ -1306,11 +1454,27 @@
       },
       "SessionState": {
         "type": "string",
-        "enum": ["running", "idle", "completed", "interrupted", "max_turns", "failed"]
+        "enum": [
+          "running",
+          "idle",
+          "completed",
+          "interrupted",
+          "max_turns",
+          "max_tokens",
+          "context_window_exceeded",
+          "failed"
+        ]
       },
       "RunOutcome": {
         "type": "string",
-        "enum": ["completed", "interrupted", "max_turns", "failed"]
+        "enum": [
+          "completed",
+          "interrupted",
+          "max_turns",
+          "max_tokens",
+          "context_window_exceeded",
+          "failed"
+        ]
       },
       "SessionInfo": {
         "anyOf": [
@@ -1536,7 +1700,7 @@
       },
       "ApprovalOption": {
         "type": "string",
-        "enum": ["approve", "always_allow", "skip", "skip_with_message"]
+        "enum": ["approve", "allow_session", "always_allow", "skip", "skip_with_message"]
       },
       "ApprovalRequest": {
         "type": "object",
@@ -1568,6 +1732,11 @@
           {
             "type": "object",
             "properties": { "decision": { "type": "string", "const": "approve" } },
+            "required": ["decision"]
+          },
+          {
+            "type": "object",
+            "properties": { "decision": { "type": "string", "const": "allow_session" } },
             "required": ["decision"]
           },
           {
@@ -1684,6 +1853,7 @@
           "session": { "$ref": "#/components/schemas/SessionId" },
           "running": { "type": "boolean" },
           "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "usage": { "$ref": "#/components/schemas/UsageTotals" },
           "workspace": { "type": "string" },
           "profile": { "$ref": "#/components/schemas/ModelId" },
           "model": { "$ref": "#/components/schemas/ModelChoice" },
@@ -1873,7 +2043,8 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "adapter": { "$ref": "#/components/schemas/AdapterKind" }
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" }
         },
         "required": ["id", "name", "adapter"],
         "additionalProperties": {}
@@ -1884,6 +2055,7 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -1934,6 +2106,7 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -1949,6 +2122,7 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "terminal": { "$ref": "#/components/schemas/TerminalSettings" },
           "lastModelSelection": { "$ref": "#/components/schemas/ModelSelection" },
           "modelModes": {
             "type": "object",
@@ -1964,11 +2138,16 @@
         "type": "object",
         "properties": {
           "home": { "type": "string" },
+          "terminal": { "$ref": "#/components/schemas/TerminalSettings" },
           "defaultProfile": { "$ref": "#/components/schemas/ModelId" },
           "profiles": { "type": "array", "items": { "$ref": "#/components/schemas/ProfileSetup" } },
           "problems": { "type": "array", "items": { "type": "string" } }
         },
         "required": ["home", "profiles", "problems"]
+      },
+      "TerminalSettings": {
+        "type": "object",
+        "properties": { "reducedMotion": { "type": "boolean" }, "bell": { "type": "boolean" } }
       },
       "AdaptersResponse": {
         "type": "object",
@@ -2001,6 +2180,7 @@
         "properties": {
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -2071,7 +2251,12 @@
         "required": ["workspaces"]
       },
       "PermissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] },
-      "AllowEntry": { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+      "AllowEntry": {
+        "anyOf": [
+          { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+          { "type": "string", "pattern": "^exact:\\[" }
+        ]
+      },
       "SetPermissionModeRequest": {
         "type": "object",
         "properties": {

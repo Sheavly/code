@@ -18,6 +18,9 @@ const REQUEST = {
 describe('approvalResponseSchema', () => {
   it('accepts each decision a UI can give', () => {
     expect(approvalResponseSchema.parse({ decision: 'approve' })).toEqual({ decision: 'approve' });
+    expect(approvalResponseSchema.parse({ decision: 'allow_session' })).toEqual({
+      decision: 'allow_session',
+    });
     expect(approvalResponseSchema.parse({ decision: 'always_allow' })).toEqual({
       decision: 'always_allow',
     });
@@ -59,6 +62,13 @@ describe('approvalRequestSchema and approvalUpdateSchema', () => {
   });
 
   it('carry the entries always-allow would keep, and only valid ones', () => {
+    expect(
+      approvalRequestSchema.parse({
+        ...REQUEST,
+        options: ['approve', 'allow_session'],
+        keeps: ['npx vitest run *'],
+      }).keeps,
+    ).toEqual(['npx vitest run *']);
     expect(approvalRequestSchema.parse({ ...REQUEST, keeps: ['git log *'] }).keeps).toEqual([
       'git log *',
     ]);

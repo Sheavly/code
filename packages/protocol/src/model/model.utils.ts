@@ -5,9 +5,9 @@ import type { Model, ModelFile } from './model.types.js';
  * adapter, and everything past those, the adapter's own definition.
  */
 export function toModel(file: ModelFile): Model {
-  const { id, name, adapter, ...definition } = file;
+  const { id, name, adapter, pricing, ...definition } = file;
 
-  return { id, name, adapter, definition };
+  return { id, name, adapter, definition, ...(pricing && { pricing }) };
 }
 
 /**
@@ -15,7 +15,13 @@ export function toModel(file: ModelFile): Model {
  * definition can't overwrite the model's own id, name or adapter.
  */
 export function toModelFile(model: Model): ModelFile {
-  return { ...model.definition, id: model.id, name: model.name, adapter: model.adapter };
+  return {
+    ...model.definition,
+    id: model.id,
+    name: model.name,
+    adapter: model.adapter,
+    ...(model.pricing && { pricing: model.pricing }),
+  };
 }
 
 /**

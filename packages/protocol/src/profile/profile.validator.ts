@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { modelIdSchema, modelModeSchema, modelSelectionSchema } from '../model/model.validator.js';
+import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 
 /**
  * A profile's id: a UUID in lowercase, the name of its folder (`profiles/<id>/`) and what a request
@@ -17,6 +18,8 @@ export const profileIdSchema = lowercaseUuidSchema.brand<'ProfileId'>();
 export const profileSchema = z.object({
   id: profileIdSchema,
   name: z.string().trim().min(1).max(80),
+  /** Legacy read-only preferences, removed when migrated into the user's config. */
+  terminal: terminalSettingsSchema.exactOptional(),
   /**
    * The model last chosen in this profile: where a new conversation starts. Its own conversations
    * each keep theirs, so switching in one never moves another's. None until a model is chosen.

@@ -58,11 +58,29 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 
 ## Approval permissions
 
-`ApprovalRequest.options` names the decisions a UI may offer. When it includes `always_allow`,
+`ApprovalRequest.options` names the decisions a UI may offer. When it includes `allow_session` or `always_allow`,
 the optional `keeps` array carries the exact allow-list entries the choice would save, such as
-`touch /path/file` or `npm run test *`. Each entry uses `allowEntrySchema`. A UI displays those
+`touch *`, `git diff *`, `npm run test *` or `npx eslint *`. Each entry uses `allowEntrySchema`. A UI displays those
 entries rather than guessing their scope from `command`; requests without `keeps` remain valid.
-The answer is still `{ decision: 'always_allow' }`, and the caller saves the proposed entries.
+`{ decision: 'allow_session' }` grants those entries for the current conversation without persistence;
+`{ decision: 'always_allow' }` saves them for the workspace. The caller owns applying the grant;
+the registry refuses decisions that were not offered. A grant covers every option, path and
+other argument of its base command, including secret files, outside-workspace access, editing,
+execution overrides and npx downloads. Built-in approvals follow the same rule. Different base
+commands in a chain are checked independently. `always_ask` ignores every grant.
+
+Older path-specific entries, `read:`, `tool:` and `script:` scopes, and `exact:` JSON argument
+arrays remain readable for compatibility, but their effective scope is now their base command.
+For example, `read:sed *` grants `sed *` and `tool:npx eslint check *` grants `npx eslint *`.
+The stored strings need not be rewritten. A JSON array can still preserve a command identity
+such as an npm script name containing spaces; it does not impose exact argument matching.
+
+## Run limits
+
+`turn_end.stopReason` distinguishes `max_tokens` (output, including thinking) from
+`context_window_exceeded` (the conversation no longer fits). A bounded output recovery emits
+`output_continuation` with `attempt` and `maxAttempts`. A run that cannot finish because of either
+limit ends with that reason in `done`, session state and `lastOutcome`, never `completed`.
 
 ## Models
 

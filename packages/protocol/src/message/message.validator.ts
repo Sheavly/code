@@ -71,4 +71,10 @@ export const messageSchema = z.discriminatedUnion('role', [
 ]);
 
 /** Why a turn ended: the model's reason, or `interrupted` if the run's signal aborted. */
-export const turnStopReasonSchema = z.enum(['end_turn', 'tool_use', 'max_tokens', 'interrupted']);
+export const turnStopReasonSchema = z.enum([
+  'end_turn',
+  'tool_use',
+  'max_tokens',
+  'context_window_exceeded',
+  'interrupted',
+]);

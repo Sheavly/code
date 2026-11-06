@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { modelUsageSchema } from '../usage/usage.validator.js';
 import { inboxMessageSchema, sessionRefSchema } from '../session/session.validator.js';
 import { taskInfoSchema } from '../task/task.validator.js';
 import {
@@ -22,7 +23,13 @@ export const describedCallSchema = z.object({
   description: z.string(),
 });
 
-export const doneReasonSchema = z.enum(['completed', 'interrupted', 'max_turns']);
+export const doneReasonSchema = z.enum([
+  'completed',
+  'interrupted',
+  'max_turns',
+  'max_tokens',
+  'context_window_exceeded',
+]);
 
 /**
  * One step the loop took. Per turn, in causal order:
@@ -37,6 +44,7 @@ export const doneReasonSchema = z.enum(['completed', 'interrupted', 'max_turns']
  */
 /** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
 const stepEventSchemas = [
+  z.object({ type: z.literal('usage'), usage: modelUsageSchema }),
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */
   z.object({ type: z.literal('reasoning'), item: reasoningItemSchema }),
@@ -76,6 +84,12 @@ const stepEventSchemas = [
   z.object({ type: z.literal('message_received'), message: inboxMessageSchema }),
   /** A hook's `beforeTurn` added this context to history; the model sees it from this turn on. */
   z.object({ type: z.literal('context_added'), hook: z.string(), content: z.string() }),
+  /** A bounded continuation after output exhaustion; its instruction is kept in history. */
+  z.object({
+    type: z.literal('output_continuation'),
+    attempt: z.number().int().positive(),
+    maxAttempts: z.number().int().positive(),
+  }),
   /**
    * A hook handler failed where it must not stop the run (`onError`). The run's own error is
    * still what ends the stream; this says the hook couldn't do its job.

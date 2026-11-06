@@ -20,6 +20,22 @@ describe('profileIdSchema', () => {
 });
 
 describe('profileSchema', () => {
+  it('accepts legacy terminal preferences for migration without coercing motion values', () => {
+    for (const reducedMotion of [true, false]) {
+      const profile = { id: ID, name: 'Work', terminal: { reducedMotion } };
+
+      expect(profileSchema.parse(profile)).toEqual(profile);
+    }
+
+    expect(profileSchema.parse({ id: ID, name: 'Work', terminal: {} }).terminal).toEqual({});
+
+    for (const reducedMotion of ['true', 1, null]) {
+      expect(
+        profileSchema.safeParse({ id: ID, name: 'Work', terminal: { reducedMotion } }).success,
+      ).toBe(false);
+    }
+  });
+
   it('holds a selection and per-model modes, rejecting unknown modes and non-ID keys', () => {
     const valid = {
       id: ID,

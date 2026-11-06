@@ -8,6 +8,7 @@ import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
+import { usageTotalsSchema } from '../usage/usage.validator.js';
 
 /**
  * A conversation's id on a server: a UUID in lowercase, which names its folder on disk and is
@@ -72,6 +73,7 @@ export const modelChoiceSchema = z.object({
  * conversation runs, and applies to every conversation in the workspace).
  */
 export const conversationDetailsSchema = conversationSummarySchema.extend({
+  usage: usageTotalsSchema.exactOptional(),
   workspace: z.string(),
   /** The profile whose models and keys it runs on: fixed for the conversation's life. */
   profile: profileIdSchema,

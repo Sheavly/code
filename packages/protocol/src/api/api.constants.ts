@@ -31,6 +31,7 @@ import {
 } from '../store/store.validator.js';
 import { FOLDER_ROUTES } from './folder-routes.constants.js';
 import type { ApiRoute } from './api.types.js';
+import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 
 /** The API's OpenAPI document, committed at the package root (`npm run schema -w @sheavly/protocol`). */
 export const OPENAPI_FILE = 'openapi.json';
@@ -163,6 +164,21 @@ export const API_ROUTES = {
     path: '/adapters',
     summary: 'What each adapter needs, for a form that adds a model',
     response: { status: 200, schema: adaptersResponseSchema },
+  },
+  setTerminalSettings: {
+    effect: 'change',
+    method: 'put',
+    path: '/terminal-settings',
+    summary: 'Replace user-wide terminal preferences, shared by every profile',
+    body: terminalSettingsSchema,
+    response: { status: 204 },
+  },
+  migrateTerminalSettings: {
+    effect: 'change',
+    method: 'post',
+    path: '/terminal-settings/migrate',
+    summary: 'Move legacy profile terminal preferences into global config and return them',
+    response: { status: 200, schema: terminalSettingsSchema },
   },
   getProfile: {
     effect: 'read',
