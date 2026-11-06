@@ -29,11 +29,14 @@ function timedTool(finished: string[]) {
 
 /** Starts every call before the test releases completions in a chosen order. */
 function gatedTool(ids: string[], finished: string[]) {
-  const started = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<undefined>();
   const gates = new Map(
     ids.map((id) => [
       id,
-      { release: Promise.withResolvers<void>(), completed: Promise.withResolvers<void>() },
+      {
+        release: Promise.withResolvers<undefined>(),
+        completed: Promise.withResolvers<undefined>(),
+      },
     ]),
   );
   let pending = ids.length;
@@ -45,11 +48,11 @@ function gatedTool(ids: string[], finished: string[]) {
       const gate = gates.get(id);
 
       if (!gate) throw new Error(`Unexpected call ${id}`);
-      if (--pending === 0) started.resolve();
+      if (--pending === 0) started.resolve(undefined);
 
       await gate.release.promise;
       finished.push(id);
-      gate.completed.resolve();
+      gate.completed.resolve(undefined);
 
       return `done ${id}`;
     },
@@ -63,7 +66,7 @@ function gatedTool(ids: string[], finished: string[]) {
 
       if (!gate) throw new Error(`Unexpected completion ${id}`);
 
-      gate.release.resolve();
+      gate.release.resolve(undefined);
       await gate.completed.promise;
     },
   };
