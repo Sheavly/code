@@ -10,6 +10,7 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { OutputBuffer } from '../output/output.service.js';
 
 type Entry = {
   info: TaskInfo;
@@ -41,9 +42,11 @@ export class TaskRegistry {
       output: '',
     };
     const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false, sessionId };
+    const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
 
     const onOutput = (chunk: string) => {
-      info.output = (info.output + chunk).slice(-MAX_TASK_OUTPUT_CHARS);
+      output.push(chunk);
+      info.output = output.text;
     };
 
     entry.settled = run({ signal: controller.signal, onOutput }).then(
