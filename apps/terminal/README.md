@@ -7,6 +7,7 @@ like any other UI, and stops it on the way out.
 ```bash
 npm run dev -w @sheavly/terminal                                   # a conversation you keep talking to
 npm run dev:terminal -- --setup                                    # add or update profiles, models and keys
+npm run dev:terminal -- --resume <conversation-id>                  # reopen a saved conversation
 npm run demo -- "Read package.json and tell me the project name"   # one prompt, printed as it happens
 npm run workbook -- list                                           # stored prompts and saved runs
 ```
@@ -21,19 +22,25 @@ They run on the models and keys in your profile (`~/.sheavly`, see
 [models and keys](../backend/docs/harness.md#models-and-keys)); the other settings come from the
 environment and go to the backend it starts ([the backend's settings](../backend/docs/serve.md#settings)).
 
-| Folder      | What it holds                                                                                            |
-| ----------- | -------------------------------------------------------------------------------------------------------- |
-| `client/`   | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)           |
-| `render/`   | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's |
-| `tui/`      | The chat's screen on the terminal's main screen: editor, approval question, queue, status line           |
-| `setup/`    | Guided profile, provider, model and credential setup through the backend's API                           |
-| `workbook/` | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
-| `chat/`     | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
-| `chat.ts`   | The chat CLI: one conversation across prompts                                                            |
-| `demo.ts`   | The demo CLI                                                                                             |
+| Folder          | What it holds                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------- |
+| `client/`       | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)           |
+| `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's |
+| `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                     |
+| `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                             |
+| `markdown/`     | A streamed reply drawn as Markdown, one complete block at a time (`MarkdownStream`)                      |
+| `setup/`        | Guided profile, provider, model and credential setup through the backend's API                           |
+| `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
+| `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
+| `chat.ts`       | The chat CLI: one conversation across prompts                                                            |
+| `demo.ts`       | The demo CLI                                                                                             |
 
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.
+
+Interactive chat uses React and Ink. `SHEAVLY_TUI=classic` selects the previous renderer;
+`SHEAVLY_PLAIN=1` keeps linear input and output. Both interactive renderers share the editor,
+completion, paste folding, queue and approval decisions.
 
 ## Docs
 

@@ -106,6 +106,11 @@ check that passed only on its retry (`~`), and lists every run it made for `show
 Each attempt uses a throwaway trust file, never your `~/.config`; each run's backend reads it. The command exits 1 when a
 check fails.
 
+Workbook checks use the plain log renderer, not the interactive chat screen. They cannot verify
+React layout, editing, approval key handling or terminal resize behavior. Those are covered by
+the terminal app's component and interaction tests, with PTY checks for native scrollback;
+adding their paths to a prompt's `areas` would select a model run without exercising that UI.
+
 ## What a run saves
 
 Each file in `runs/<id>/` is written while the run goes, so a crash keeps everything up to that

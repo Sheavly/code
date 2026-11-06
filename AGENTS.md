@@ -15,7 +15,7 @@ tools, loop, host), coding as a preset on top (workspace, coding), and every fro
 ## File length
 
 Lint caps lines of code (blank and comment lines aside) per file kind, set in
-`packages/eslint-config/src/file-kinds.js`: `tool`, `adapter`, `routes` and `errors` 150;
+`packages/eslint-config/src/file-kinds.js`: `tool`, `adapter`, `routes`, `errors` and `component` 150;
 `types`, `constants`, `validator`, `service` and `fake` 300; `test` 500; a file with no kind 300.
 `utils` and `helper` files have no cap: split one by responsibility when it does several jobs,
 not to fit a number.

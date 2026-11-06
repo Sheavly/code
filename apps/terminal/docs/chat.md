@@ -17,8 +17,28 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   `working`, `waiting for you`), the model, the folder's permission mode (`allow all` in red) and
   how many background tasks run. Without a terminal (piped input, or `SHEAVLY_PLAIN=1`) it reads
   and writes lines, as it always did.
+- **React and Ink draw the screen.** Completed lines are committed once with Ink's static output;
+  the bounded live footer shows activity, elapsed time and `Ctrl+C to stop` while working.
+  The editor and approval state machine are shared with the previous renderer, selected with
+  `SHEAVLY_TUI=classic`. `NO_COLOR` removes styling from React's conversation and editor. No alternate
+  screen or mouse capture is used. Static history is not replayed on resize: the terminal owns
+  its reflow, while the footer is laid out again at the new size.
+  The root development command explicitly loads the terminal's JSX config; its backend subprocess
+  resolves its own workspace config rather than inheriting the terminal's `tsx` config path.
+  The hardware caret is committed with the current editor frame, including wide characters and
+  wrapped input, so typing does not leave the cursor on the previous character.
+- **A complete approval preview must fit.** If the React footer cannot show the command,
+  concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
+  review it or press `Esc` to skip; a clipped preview never grants permission.
+- **The reply is drawn as Markdown, a block at a time.** Emphasis, inline code, headings, links,
+  lists, quotes, tables and fenced code are drawn as styled terminal text, wrapped to the
+  screen's width. A block (a paragraph, a list, a table, a code fence) is drawn once it is
+  complete, at a blank line or the closing fence, because a later line can change how the ones
+  above it look. Until then its raw text shows in the live area. What it leaves out: syntax
+  colour in code, and a very long block (a code fence of hundreds of lines) only appears when it
+  ends. The demo, the workbook and line mode keep the reply as written.
 - **The conversation reads as a conversation.** Each message you send is shown after a `›`, then
-  the reply as plain text, with a blank line between it and the steps around it. A step is one
+  the reply, with a blank line between it and the steps around it. A step is one
   dim line (`⏺ Run the tests  $ npm test`) and its result under it (`⎿ ✓ … · 0.3s`, in red when
   it failed); the loop's bookkeeping (event counts, stop reasons, sub-agent ids) is left out, and
   only a problem is said: a reply cut off at the token limit, the turn limit, a stopped run. The
@@ -66,8 +86,10 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   backend too, so its background commands don't outlive the chat. A `kill -9` can't be caught,
   but the backend still stops: its stdin, a pipe from the chat, closes.
 
-The settings are the demo's ([the demo](demo.md#settings)); a conversation isn't kept across
-restarts.
+The settings are the demo's ([the demo](demo.md#settings)). Conversations are kept by the backend
+across restarts. `npm run dev:terminal -- --resume <conversation-id>` reopens one under its own id,
+with its saved history, workspace and model selection. An optional message after the id is sent
+as the next prompt. A failed prompt keeps completed tool work and the user's message.
 
 ## Setup
 
