@@ -1,8 +1,10 @@
 import type { FileRead } from '@sheavly/coding/read-file/read-file.types';
 import { stripVTControlCharacters } from 'node:util';
 import { z } from 'zod';
+import { FIRST_LINE_MAX } from './render.constants.js';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
+import { plainTerminalText } from './terminal-text.utils.js';
 
 /** Text squeezed onto one line, cut at `max` characters with an ellipsis. */
 export function oneLine(params: { text: string; max: number }): string {
@@ -17,13 +19,12 @@ export function oneLine(params: { text: string; max: number }): string {
  * first: cutting through one would leave its style on for everything printed after it.
  */
 export function firstLine(text: string): string {
-  const max = 100;
   const line =
-    stripVTControlCharacters(text)
+    plainTerminalText(stripVTControlCharacters(text))
       .split('\n')
       .find((l) => l.trim()) ?? '';
 
-  return line.length > max ? `${line.slice(0, max)}…` : line;
+  return line.length > FIRST_LINE_MAX ? `${line.slice(0, FIRST_LINE_MAX)}…` : line;
 }
 
 export function seconds(ms: number): string {
@@ -39,7 +40,9 @@ export function shortId(id: string | undefined): string {
 export function commandOf(call: ToolCall): string | undefined {
   const input = z.object({ command: z.string() }).safeParse(call.input);
 
-  return call.name === 'run_command' && input.success ? input.data.command : undefined;
+  return call.name === 'run_command' && input.success
+    ? plainTerminalText(input.data.command)
+    : undefined;
 }
 
 /** "read src/a.ts" for a whole file; "read src/a.ts lines 10–40 (of 900)" for part of one. */

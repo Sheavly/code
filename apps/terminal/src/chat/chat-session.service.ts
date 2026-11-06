@@ -1,10 +1,17 @@
 import type { Renderer } from '../render/render.service.js';
-import type { Write } from '../render/render.types.js';
+import type { RunningTool, Write } from '../render/render.types.js';
+import { defaultPalette } from '../theme/palette.utils.js';
+import type { Palette } from '../theme/theme.types.js';
 import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
-import { CHAT_HELP } from './chat.constants.js';
-import type { ChatConversation, StopResult } from './chat.types.js';
+import { changesText } from '../changes/changes-text.utils.js';
+import type { LinkFile } from '../changes/changes.types.js';
+import { failuresText } from '../failures/failures-text.utils.js';
+import { CHAT_HELP, LINE_COLUMNS } from './chat.constants.js';
+import type { ChatConversation, StopResult, TurnOutcome } from './chat.types.js';
 import { listModels, parseChatInput, pickModel, unknownCommand } from './chat.utils.js';
 import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /**
  * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
@@ -23,7 +30,15 @@ export class ChatSession {
   readonly #onQueue: (queue: readonly string[]) => void;
   readonly #onBusy: (busy: boolean) => void;
   readonly #onSend: (text: string) => void;
+  readonly #onTurnEnd: (outcome: TurnOutcome) => void;
+  readonly #onReplyComplete: () => void;
+  readonly #linkFile: LinkFile;
+  readonly #onTools: (tools: readonly RunningTool[]) => void;
+  readonly #onUsage: (entry: StreamEntry) => void;
   readonly #onExit: () => void;
+  readonly #columns: () => number;
+  readonly #palette: Palette;
+  #reportedTools: readonly RunningTool[];
   #queue: string[] = [];
   #current: AbortController | undefined;
   #draining = false;
@@ -42,17 +57,39 @@ export class ChatSession {
     onBusy?: (busy: boolean) => void;
     /** Told when a message starts running (not when it is queued), so a UI can show it. */
     onSend?: (text: string) => void;
+    /** Told when a message has run to its end, after all its output was written. */
+    onTurnEnd?: (outcome: TurnOutcome) => void;
+    /** After all output, only for a backend-confirmed completed prompt, never errors or stops. */
+    onReplyComplete?: () => void;
+    /** Makes a file path in what `/changes` prints a link; a path as it is if none. */
+    linkFile?: LinkFile;
+    /** Told whenever the set of tools running changes, so a UI can show what it waits on. */
+    onTools?: (tools: readonly RunningTool[]) => void;
+    /** Usage entries from every session, including sub-agents; seq allows replay deduplication. */
+    onUsage?: (entry: StreamEntry) => void;
     /** Told once, when the user asked to leave. */
     onExit: () => void;
+    /** The terminal's width now, which a diff is cut to; a plain line terminal has none. */
+    columns?: () => number;
+    /** The colours of what `/changes` and `/errors` print; the default theme's if none. */
+    palette?: Palette;
   }) {
     this.#conversation = params.conversation;
     this.#renderer = params.renderer;
+    this.#reportedTools = params.renderer.running;
     this.#mainSession = params.mainSession;
     this.#write = params.write;
     this.#onQueue = params.onQueue ?? (() => undefined);
     this.#onBusy = params.onBusy ?? (() => undefined);
     this.#onSend = params.onSend ?? (() => undefined);
+    this.#onTurnEnd = params.onTurnEnd ?? (() => undefined);
+    this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
+    this.#linkFile = params.linkFile ?? ((path) => path);
+    this.#onTools = params.onTools ?? (() => undefined);
+    this.#onUsage = params.onUsage ?? (() => undefined);
     this.#onExit = params.onExit;
+    this.#columns = params.columns ?? (() => LINE_COLUMNS);
+    this.#palette = params.palette ?? defaultPalette;
   }
 
   /** Whether a line is being run now. */
@@ -74,6 +111,42 @@ export class ChatSession {
     this.#queue.push(line);
     this.#onQueue(this.#queue);
     if (!this.#draining) this.#idle = this.#drain();
+  }
+
+  /** What `/changes <target>` says: the files changed in this chat, or the diffs `target` names. */
+  describeChanges(target?: string): string {
+    return changesText({
+      edits: this.#renderer.changes.edits,
+      target,
+      columns: this.#columns(),
+      palette: this.#palette,
+      linkFile: this.#linkFile,
+    });
+  }
+
+  /** What `/errors <target>` says: the failed steps with more to say, or the one `target` names. */
+  describeFailures(target?: string): string {
+    return failuresText({
+      failures: this.#renderer.failures.failures,
+      target,
+      palette: this.#palette,
+    });
+  }
+
+  /**
+   * The newest collapsed line's whole text, for a key that expands it: a failure's message or a
+   * file change's diff, whichever was printed last; says so when there is neither.
+   */
+  describeLatest(): string {
+    const failure = this.#renderer.failures.failures.at(-1);
+
+    if (failure && this.#renderer.latestExpandable === 'failure') {
+      return this.describeFailures(String(failure.number));
+    }
+
+    const change = this.#renderer.changes.edits.at(-1);
+
+    return this.describeChanges(change && String(change.number));
   }
 
   /** Resolves when nothing runs and nothing waits. */
@@ -128,6 +201,12 @@ export class ChatSession {
       case 'help':
         this.#print(CHAT_HELP);
         break;
+      case 'changes':
+        this.#print(this.describeChanges(parsed.target));
+        break;
+      case 'errors':
+        this.#print(this.describeFailures(parsed.target));
+        break;
       case 'model':
         await this.#printCommand(() => this.#modelCommand(parsed.name));
         break;
@@ -152,7 +231,9 @@ export class ChatSession {
     try {
       this.#print(await run());
     } catch (caughtError) {
-      this.#print(`✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}`);
+      this.#print(
+        `✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}`,
+      );
     }
   }
 
@@ -163,6 +244,9 @@ export class ChatSession {
    */
   async #send(text: string): Promise<void> {
     const current = new AbortController();
+
+    let outcome: TurnOutcome = 'completed';
+    let completed = false;
 
     this.#current = current;
     this.#onSend(text);
@@ -178,22 +262,55 @@ export class ChatSession {
 
       if (unknown) {
         this.#print(`Unknown command /${unknown}; /help lists them.`);
+        this.#onTurnEnd(outcome);
 
         return;
       }
 
-      for await (const entry of this.#conversation.send({ text, signal: current.signal })) {
-        this.#renderer.entry(entry, this.#mainSession);
-      }
+      completed = await this.#showEntries({ text, signal: current.signal });
     } catch (caughtError) {
+      outcome = 'failed';
       this.#write(
-        `\n✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}\n`,
+        `\n✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
       );
     } finally {
       this.#current = undefined;
+      // A failure or a stop can end the stream without the result of a call that was running.
+      this.#renderer.clearRunning();
+      this.#reportTools();
     }
 
     this.#write('\n');
+    if (completed && !current.signal.aborted) this.#onReplyComplete();
+    this.#onTurnEnd(outcome);
+  }
+
+  /** Prints a message's entries as they stream, telling the UI when the running tools change. */
+  async #showEntries(params: { text: string; signal: AbortSignal }): Promise<boolean> {
+    let completed = false;
+
+    for await (const entry of this.#conversation.send(params)) {
+      if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
+      this.#renderer.entry(entry, this.#mainSession);
+      this.#reportTools();
+
+      if (
+        entry.sessionId === this.#mainSession &&
+        entry.kind === 'event' &&
+        entry.event.type === 'done'
+      ) {
+        completed = entry.event.reason === 'completed';
+      }
+    }
+
+    return completed;
+  }
+
+  /** Tells the UI the running tools, when they are not the ones it was last told. */
+  #reportTools(): void {
+    if (this.#renderer.running === this.#reportedTools) return;
+    this.#reportedTools = this.#renderer.running;
+    this.#onTools(this.#reportedTools);
   }
 
   /**

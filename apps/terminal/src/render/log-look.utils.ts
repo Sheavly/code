@@ -15,6 +15,9 @@ export const logLook: Look = {
   parallel: (count) => `  ⎿ ${count} tools in parallel\n`,
   toolResult: ({ ok, label, detail, seconds }) =>
     `    ${ok ? '✓' : '✗'} ${label}${detail} · ${seconds}\n`,
+  // The saved runs and checks read this log, so a file change stays out of it.
+  fileChange: () => '',
+  failure: () => '',
   taskRunning: ({ label, id }) => `    ↻ ${label}running in background as ${id}\n`,
   taskCompleted: ({ ok, id, status, exit, elapsed, command, output }) =>
     `\n${ok ? '✓' : '✗'} ${id} ${status}${exit} · ${elapsed} · $ ${command}${
@@ -22,6 +25,8 @@ export const logLook: Look = {
     }`,
   steer: (firstLine) => `\n✉ steer: ${firstLine}\n`,
   contextAdded: ({ hook, chars }) => `\n＋ ${hook} added context (${chars} chars)\n`,
+  outputContinuation: ({ attempt, maxAttempts }) =>
+    `\n[output continuation ${attempt}/${maxAttempts}]\n`,
   hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
   turnEnd: ({ stopReason, waiting }) => {
     const stopped = stopReason === 'tool_use' ? '' : `\n\n[stop: ${stopReason}]\n`;

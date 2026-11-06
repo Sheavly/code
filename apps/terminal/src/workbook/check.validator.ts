@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { runOutcomeSchema } from '@sheavly/protocol/session/session.validator';
 
 // What a stored prompt's `check` and `workbook/run-sources.json` may contain.
 
@@ -11,15 +12,15 @@ const textTargetsSchema = z.strictObject({
   reply: z.array(patternSchema).optional(),
   /** Event types (`context_added`, `tool_result`, ...). */
   events: z.array(z.string().min(1)).optional(),
+  /** Hook names carried by context_added events, independent of rendered transcript text. */
+  contextHooks: z.array(z.string().min(1)).optional(),
   /** Tool names (`read_file`, `run_command`, ...). */
   tools: z.array(z.string().min(1)).optional(),
 });
 
 /** What one run of a check must show (`expect`) and must not (`forbid`). */
 export const runExpectationSchema = z.strictObject({
-  expect: textTargetsSchema
-    .extend({ outcome: z.enum(['completed', 'interrupted', 'max_turns', 'failed']).optional() })
-    .optional(),
+  expect: textTargetsSchema.extend({ outcome: runOutcomeSchema.optional() }).optional(),
   forbid: textTargetsSchema.optional(),
 });
 

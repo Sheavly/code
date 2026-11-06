@@ -148,6 +148,8 @@ export class RemoteConversation {
    */
   async watchApprovals(params: {
     onUpdate: (update: ApprovalUpdate) => void;
+    /** Usage from every session also arrives between prompts, while background agents finish. */
+    onUsage?: (entry: StreamEntry) => void;
     signal: AbortSignal;
   }): Promise<{ ended: Promise<void> }> {
     const { onUpdate, signal } = params;
@@ -160,6 +162,7 @@ export class RemoteConversation {
     const follow = async (): Promise<void> => {
       try {
         for await (const { entry } of readEntries(body)) {
+          if (entry.kind === 'event' && entry.event.type === 'usage') params.onUsage?.(entry);
           if (entry.kind === 'approval') onUpdate(entry.update);
         }
       } catch (caughtError) {

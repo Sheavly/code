@@ -1,24 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { keepsHint } from '../keeps.utils.js';
 
-describe('keepsHint', () => {
-  it('names the entry a choice would keep', () => {
-    expect(keepsHint(['git log *'])).toBe('keeps `git log *` allowed in this folder');
-  });
-
-  it('lists the entries of a line of commands', () => {
-    expect(keepsHint(['git log *', 'head *'])).toBe(
+describe('base-command approval hints', () => {
+  it('shows only the command being approved and its lifetime', () => {
+    expect(keepsHint({ keeps: ['git log *', 'head *'] })).toBe(
       'keeps `git log *`, `head *` allowed in this folder',
     );
-  });
-
-  it('shows every entry even in a long list', () => {
-    expect(keepsHint(['a *', 'b *', 'c *', 'd *', 'e *'])).toBe(
-      'keeps `a *`, `b *`, `c *`, `d *`, `e *` allowed in this folder',
+    expect(keepsHint({ keeps: ['npx eslint *'], scope: 'session' })).toBe(
+      'keeps `npx eslint *` allowed for this session only; not saved',
     );
   });
 
-  it('shows an exact command in full, since that is what it would keep', () => {
-    expect(keepsHint(['ls -la src'])).toBe('keeps `ls -la src` allowed in this folder');
+  it.each([
+    ['read:find *', 'find *'],
+    ['read:sed *', 'sed *'],
+    ['tool:npx eslint check *', 'npx eslint *'],
+    ['script:node tmp/probe.mjs *', 'node *'],
+    ['exact:["cat",".env"]', 'cat *'],
+    ['ls -la src', 'ls *'],
+    ['npx vitest run *', 'npx vitest *'],
+  ])('does not claim legacy option/path restrictions remain: %s', (legacy, base) => {
+    expect(keepsHint({ keeps: [legacy] })).toBe(`keeps \`${base}\` allowed in this folder`);
   });
 });

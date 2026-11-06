@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { createClient } from '@sheavly/client/client/client.helper';
 import { openSession } from '../client/session.helper.js';
 import { prepareSetup } from '../setup/setup.helper.js';
 import { startScreenChat } from '../tui/screen-chat.helper.js';
@@ -38,7 +39,15 @@ export async function runTerminalChat(): Promise<void> {
         name,
         description,
       }));
-      const chat = await startScreenChat({ conversation, details, skills, firstPrompt });
+      const terminal = await createClient(backend).call('migrateTerminalSettings', {});
+      const chat = await startScreenChat({
+        conversation,
+        details,
+        skills,
+        firstPrompt,
+        reducedMotion: terminal.reducedMotion ?? false,
+        bell: terminal.bell ?? false,
+      });
 
       try {
         await chat.finished;

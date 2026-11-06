@@ -92,6 +92,9 @@ check:
 - **`expect` / `forbid`**: `transcript` (what was printed) and `reply` (the final answer) take
   substrings, or regexes written `/…/flags`. `events` (types such as `context_added`) and `tools`
   (names such as `read_file`) take names. `expect.outcome` is `completed`, `failed`, ….
+- **`contextHooks`** takes hook names from structured `context_added` events. For example,
+  `forbid: { "contextHooks": ["house-rules"] }` rejects that project hook without rejecting
+  built-in AGENTS.md or skills context. Trusted steps can require the same hook through `expect`.
 - **`steps`**, for a check that needs several runs, replace the top-level `expect` / `forbid`:
   - `{ "run": { "keep": true, "trust": true, "text": "…" }, "expect": …, "forbid": … }` is a run, with
     the same flags as the command line;

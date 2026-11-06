@@ -114,6 +114,9 @@ async function observe(params: { store: WorkbookStore; id: string }): Promise<Ob
     transcript,
     reply,
     events: events.map((event) => event.type),
+    contextHooks: events
+      .filter((event) => event.type === 'context_added')
+      .map((event) => event.hook),
     tools: toolsUsed(events),
     outcome: result?.outcome ?? 'failed',
   };

@@ -46,7 +46,11 @@ export class ApprovalPrompt {
     return APPROVAL_ORDER.filter((option) => offered.includes(option)).map((option) => ({
       option,
       ...APPROVAL_LABELS[option],
-      ...(option === 'always_allow' && keeps && keeps.length > 0 && { hint: keepsHint(keeps) }),
+      ...((option === 'always_allow' || option === 'allow_session') &&
+        keeps &&
+        keeps.length > 0 && {
+          hint: keepsHint({ keeps, scope: option === 'allow_session' ? 'session' : 'workspace' }),
+        }),
     }));
   }
 

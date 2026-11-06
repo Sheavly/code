@@ -15,8 +15,17 @@ check:
         'packages/providers/src/switch',
         'packages/providers/src/anthropic-messages',
         'packages/providers/src/responses',
+        'packages/loop/src/stream-agent/sample.helper.ts',
+        'packages/runtime/src/usage',
+        'apps/backend/src/usage',
       ],
-    'expect': { 'tools': ['read_file'], 'reply': ['EFFORT_OK'], 'outcome': 'completed' },
+    'expect':
+      {
+        'tools': ['read_file'],
+        'reply': ['EFFORT_OK'],
+        'events': ['usage'],
+        'outcome': 'completed',
+      },
   }
 ---
 

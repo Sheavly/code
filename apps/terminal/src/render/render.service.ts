@@ -1,8 +1,11 @@
 import { isFileChange } from '@sheavly/coding/files/files.utils';
 import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
+import { plainTerminalText } from './terminal-text.utils.js';
+import { ChangeLog } from '../changes/change-log.service.js';
+import { FailureLog } from '../failures/failure-log.service.js';
 import { logLook } from './log-look.utils.js';
-import type { Look, ReplySink, Section, Write } from './render.types.js';
+import type { Expandable, Look, ReplySink, RunningTool, Section, Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
@@ -14,9 +17,18 @@ type EventOf<T extends EntryEvent['type']> = Extract<EntryEvent, { type: T }>;
  * The terminal front end of the chat, the demo and the workbook: one line (or block) per event of
  * the main session and per sub-agent update, from the backend's stream, written to `write`.
  * `runningTasks` says how many background tasks still run, from the stream's task entries. Kept
- * stateful only for the current tool batch size and the reasoning count.
+ * stateful only for the current tool batch size, the reasoning count, the tools running now
+ * (`running`), and the file changes and failures it has seen (`changes`, `failures`, whatever
+ * the look shows of them).
  */
 export class Renderer {
+  /** Every file change printed so far, for a screen to show in full when asked. */
+  readonly changes = new ChangeLog();
+  /** Every failed step that had more to say than its line, for a screen to show in full. */
+  readonly failures = new FailureLog();
+  #latest: Expandable | undefined;
+  // Replaced, never changed in place, so a caller sees a change by the array not being the same.
+  #running: readonly RunningTool[] = [];
   #batchSize = 0;
   #reasoningItems = 0;
   #last: Section | undefined;
@@ -33,6 +45,24 @@ export class Renderer {
     private readonly reply: ReplySink = { write, end: () => undefined },
   ) {}
 
+  /** Which of the collapsed lines printed last is the newest, for Ctrl+O to expand. */
+  get latestExpandable(): Expandable | undefined {
+    return this.#latest;
+  }
+
+  /**
+   * The tool calls that have started and not returned, oldest first. The array is replaced on
+   * every change, so a caller that kept the last one knows by identity whether it changed.
+   */
+  get running(): readonly RunningTool[] {
+    return this.#running;
+  }
+
+  /** Forgets the running tools, for a prompt that ended without its `done` (a failure, a stop). */
+  clearRunning(): void {
+    if (this.#running.length > 0) this.#running = [];
+  }
+
   /**
    * One entry of a prompt's stream: the main session's loop events, and sub-agents starting,
    * reporting and ending. A sub-agent's own events and the task entries aren't printed: its
@@ -46,18 +76,25 @@ export class Renderer {
   /** One loop event of the main session. */
   event(event: EntryEvent): void {
     switch (event.type) {
+      case 'usage':
+        // Statistics belong to the live status line, not the conversation transcript.
+        break;
       case 'text_delta':
-        this.#reply(event.text);
+        this.#reply(plainTerminalText(event.text));
         break;
       case 'reasoning':
         this.#reasoningItems++; // opaque; resent to the model automatically
         break;
 
       case 'tool_call_started':
+        this.#running = [
+          ...this.#running,
+          { id: event.call.id, description: event.description, startedAt: now() },
+        ];
         // Already running; its result is shown after the model's turn.
         this.#activity(
           this.look.toolStarted({
-            description: event.description,
+            description: plainTerminalText(event.description),
             command: commandOf(event.call),
           }),
         );
@@ -68,6 +105,7 @@ export class Renderer {
         if (this.#batchSize > 1) this.#activity(this.look.parallel(this.#batchSize));
         break;
       case 'tool_result':
+        this.#running = this.#running.filter(({ id }) => id !== event.call.id);
         this.#toolResult(event);
         break;
       case 'task_running':
@@ -82,14 +120,22 @@ export class Renderer {
         this.#activity(this.look.steer(firstLine(event.message.content)));
         break;
       case 'context_added':
-        this.#activity(this.look.contextAdded({ hook: event.hook, chars: event.content.length }));
+        this.#activity(
+          this.look.contextAdded({
+            hook: plainTerminalText(event.hook),
+            chars: event.content.length,
+          }),
+        );
+        break;
+      case 'output_continuation':
+        this.#activity(this.look.outputContinuation(event));
         break;
       case 'hook_failed':
         this.#activity(
           this.look.hookFailed({
-            hook: event.hook,
+            hook: plainTerminalText(event.hook),
             handler: event.handler,
-            error: event.error,
+            error: plainTerminalText(event.error),
           }),
         );
         break;
@@ -112,7 +158,7 @@ export class Renderer {
     if (!('parentId' in session)) return;
     const agent = {
       indent: '  '.repeat(session.depth - 1),
-      title: session.title,
+      title: plainTerminalText(session.title),
       id: session.id,
     };
 
@@ -128,7 +174,9 @@ export class Renderer {
     }
 
     if (type === 'session_status') {
-      this.#activity(this.look.subAgentStatus({ ...agent, status: session.status ?? '' }));
+      this.#activity(
+        this.look.subAgentStatus({ ...agent, status: plainTerminalText(session.status ?? '') }),
+      );
     }
 
     if (type === 'session_message') {
@@ -169,6 +217,7 @@ export class Renderer {
 
   /** The prompt is over: the next one starts a fresh layout, not a gap after this one's text. */
   #done(event: EventOf<'done'>): void {
+    this.clearRunning();
     this.reply.end();
     this.#activity(
       this.look.done({
@@ -182,17 +231,17 @@ export class Renderer {
   }
 
   #label(description: string): string {
-    return this.#batchSize > 1 ? `${description} · ` : '';
+    return this.#batchSize > 1 ? `${plainTerminalText(description)} · ` : '';
   }
 
   #toolResult(event: EventOf<'tool_result'>): void {
     const { message, description, durationMs, artifacts = [] } = event;
 
     if (message.role !== 'tool') return;
-    // A real UI would render a change's `before` / `after` as a diff; this just names it.
-    const changed = artifacts.some(isFileChange);
+
+    const change = artifacts.find(isFileChange);
     const read = artifacts.find(isFileRead);
-    const summary = changed ? message.content : `${message.content.length} chars`;
+    const summary = change ? message.content : `${message.content.length} chars`;
     const detail = message.isError
       ? firstLine(message.content)
       : ((read && describeRead(read)) ?? summary);
@@ -201,10 +250,35 @@ export class Renderer {
       this.look.toolResult({
         ok: !message.isError,
         label: this.#label(description),
-        detail,
+        detail: plainTerminalText(detail),
         seconds: seconds(durationMs),
       }),
     );
+
+    if (message.isError) {
+      this.#collapseFailure({ event, command: commandOf(event.call) });
+
+      return;
+    }
+
+    if (!change) return;
+
+    const edit = this.changes.keep(change);
+
+    if (!edit) return;
+    this.#latest = 'change';
+    this.#activity(this.look.fileChange(edit));
+  }
+
+  /** Keeps a failed step's message when it says more than its line, and shows it collapsed. */
+  #collapseFailure(params: { event: EventOf<'tool_result'>; command: string | undefined }): void {
+    const { event, command } = params;
+    const title = command ? `${event.description}  $ ${command}` : event.description;
+    const failure = this.failures.keep({ title, content: event.message.content });
+
+    if (!failure) return;
+    this.#latest = 'failure';
+    this.#activity(this.look.failure(failure));
   }
 
   #taskCompleted({ task }: EventOf<'task_completed'>): void {
@@ -215,7 +289,7 @@ export class Renderer {
         status: task.status,
         exit: task.exitCode === undefined ? '' : ` · exit ${task.exitCode ?? '?'}`,
         elapsed: seconds((task.endedAt ?? now()) - task.startedAt),
-        command: task.command,
+        command: plainTerminalText(task.command),
         output: firstLine(task.error ?? task.output.split('\n').filter(Boolean).at(-1) ?? ''),
       }),
     );

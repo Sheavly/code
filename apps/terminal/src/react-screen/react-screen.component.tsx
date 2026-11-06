@@ -21,7 +21,11 @@ export function ReactScreen(props: ReactScreenProps) {
         )}
       </Static>
       <Box flexDirection="column" width={props.columns}>
-        <Activity {...props.status} />
+        <Activity
+          {...props.status}
+          colors={props.colors}
+          reducedMotion={props.reducedMotion ?? false}
+        />
         {lines.map((line, index) => (
           <Text key={index} wrap="truncate-end">
             {line || ' '}

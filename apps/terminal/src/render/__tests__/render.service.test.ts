@@ -1,6 +1,8 @@
 import { stripVTControlCharacters } from 'node:util';
-import { describe, expect, it } from 'vitest';
-import { chatLook } from '../chat-look.utils.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPalette } from '../../theme/palette.utils.js';
+import { THEMES } from '../../theme/theme.constants.js';
+import { createChatLook } from '../chat-look.utils.js';
 import { Renderer } from '../render.service.js';
 import type { EntryEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -9,6 +11,7 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 
 const callId = callIdSchema.parse('1');
 const main = sessionIdSchema.parse('main');
+const chatLook = createChatLook();
 
 /** What the renderer prints for one successful `tool_result` with `artifacts`. */
 function rendered(params: { content: string; artifacts?: ToolArtifact[] }): string {
@@ -33,6 +36,28 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
 }
 
 describe('Renderer: entries', () => {
+  it('escapes controls before reply and tool-start rendering, without changing source events', () => {
+    let output = '';
+    const renderer = new Renderer(
+      (text) => (output += text),
+      () => 0,
+      chatLook,
+    );
+    const command = 'printf hi\u001b]52;c;tool\u0007';
+    const call = { id: callId, name: 'run_command', input: { command } };
+    const text = 'reply\u001b]';
+
+    renderer.event({ seq: 0, type: 'text_delta', text });
+    renderer.event({ seq: 1, type: 'text_delta', text: '52;c;reply\u0007' });
+    renderer.event({ seq: 2, type: 'tool_call_started', call, description: 'step\u001b[2J' });
+    expect(output).not.toContain('\u001b]52;');
+    expect(output).not.toContain('\u001b[2J');
+    expect(output).toContain('\\u001b]52;c;reply\\u0007');
+    expect(output).toContain('step\\u001b[2J');
+    expect(call.input.command).toBe(command);
+    expect(text).toBe('reply\u001b]');
+  });
+
   const text = (sessionId: string, seq: number): StreamEntry => ({
     seq,
     at: 0,
@@ -95,7 +120,7 @@ describe('Renderer: chat look', () => {
     durationMs: 300,
   };
   const reply = (text: string): EntryEvent => ({ seq: 2, type: 'text_delta', text });
-  const finished = (reason: 'completed' | 'max_turns'): EntryEvent => ({
+  const finished = (reason: Extract<EntryEvent, { type: 'done' }>['reason']): EntryEvent => ({
     seq: 4,
     type: 'done',
     reason,
@@ -113,6 +138,26 @@ describe('Renderer: chat look', () => {
 
     expect(chatted([reply('Hi'), turnEnd, finished('completed')])).toBe('Hi');
     expect(chatted([finished('max_turns')])).toBe('⚠ stopped at the turn limit\n');
+  });
+
+  it('shows continuation as activity, not a failed reply, and warns only when recovery stops', () => {
+    const turnEnd: EntryEvent = { seq: 3, type: 'turn_end', turn: 1, stopReason: 'max_tokens' };
+    const continuation: EntryEvent = {
+      seq: 4,
+      type: 'output_continuation',
+      attempt: 1,
+      maxAttempts: 2,
+    };
+
+    expect(chatted([turnEnd, continuation, reply('Finished.'), finished('completed')])).toBe(
+      '… continuing after the output limit (1/2)\n\nFinished.',
+    );
+    expect(chatted([turnEnd, finished('max_tokens')])).toBe(
+      '⚠ stopped at the output-token limit; the reply is incomplete\n',
+    );
+    expect(chatted([finished('context_window_exceeded')])).toBe(
+      '⚠ stopped at the context limit; reduce the conversation or start a new one\n',
+    );
   });
 
   it('starts the next prompt without a gap after the last one’s text', () => {
@@ -152,6 +197,280 @@ describe('Renderer: chat look', () => {
       'reply "Done"',
       'end',
     ]);
+  });
+});
+
+describe('Renderer: themes', () => {
+  const step = (isError: boolean): EntryEvent => ({
+    seq: 0,
+    type: 'tool_result',
+    call: { id: callId, name: 'tool', input: {} },
+    description: 'doing it',
+    message: { role: 'tool', toolCallId: callId, content: 'x', isError },
+    durationMs: 300,
+  });
+
+  function written(params: { look: ReturnType<typeof createChatLook>; event: EntryEvent }) {
+    let out = '';
+
+    new Renderer(
+      (text) => (out += text),
+      () => 0,
+      params.look,
+    ).event(params.event);
+
+    return out;
+  }
+
+  it('colours a step’s outcome by the theme: success and failure are never red and green together', () => {
+    const colorblind = createChatLook(createPalette(THEMES.colorblind));
+
+    expect(written({ look: createChatLook(), event: step(false) })).toContain('\u001b[32m✓');
+    expect(written({ look: createChatLook(), event: step(true) })).toContain('\u001b[31m✗');
+    expect(written({ look: colorblind, event: step(false) })).toContain('\u001b[94m✓');
+    expect(written({ look: colorblind, event: step(true) })).toContain('\u001b[33m✗');
+  });
+
+  it('says the same words in every theme: colour is never the only sign', () => {
+    const colorblind = createChatLook(createPalette(THEMES.colorblind));
+    const plain = (look: ReturnType<typeof createChatLook>) =>
+      stripVTControlCharacters(written({ look, event: step(false) }));
+
+    expect(plain(colorblind)).toBe(plain(createChatLook()));
+    expect(plain(colorblind)).toContain('✓');
+  });
+});
+
+describe('Renderer: file changes', () => {
+  const change = (before: string | null, after: string): ToolArtifact => ({
+    kind: 'file_change',
+    path: 'a.ts',
+    before,
+    after,
+  });
+
+  /** What a person sees for one `tool_result` with these artifacts, without colour. */
+  function shown(params: { artifacts: ToolArtifact[]; isError?: boolean }): {
+    out: string;
+    renderer: Renderer;
+  } {
+    let out = '';
+    const renderer = new Renderer(
+      (text) => (out += text),
+      () => 0,
+      chatLook,
+    );
+
+    renderer.event({
+      seq: 0,
+      type: 'tool_result',
+      call: { id: callId, name: 'edit_file', input: {} },
+      description: 'Edit a.ts',
+      message: {
+        role: 'tool',
+        toolCallId: callId,
+        content: 'Edited a.ts (2 → 2 lines)',
+        isError: params.isError ?? false,
+      },
+      durationMs: 300,
+      artifacts: params.artifacts,
+    });
+
+    return { out: stripVTControlCharacters(out), renderer };
+  }
+
+  it('collapses the change to one line under its result, with its size and how to expand it', () => {
+    expect(shown({ artifacts: [change('a\nb\n', 'a\nB\n')] }).out).toBe(
+      ['  ⎿ ✓ Edited a.ts (2 → 2 lines) · 0.3s', '    ▸ +1 −1 · /changes 1', ''].join('\n'),
+    );
+  });
+
+  it('says a created file is new', () => {
+    expect(shown({ artifacts: [change(null, 'x\ny\n')] }).out).toContain(
+      '▸ +2 −0 · new file · /changes 1',
+    );
+  });
+
+  it('keeps every change, numbered, for the screen to show in full', () => {
+    const { renderer } = shown({ artifacts: [change('a\n', 'b\n')] });
+
+    expect(renderer.changes.edits).toEqual([
+      { number: 1, path: 'a.ts', before: 'a\n', after: 'b\n', added: 1, removed: 1 },
+    ]);
+  });
+
+  it('shows nothing for a change that failed or changed nothing, and keeps nothing', () => {
+    const failed = shown({ artifacts: [change('a\n', 'b\n')], isError: true });
+    const same = shown({ artifacts: [change('a\n', 'a\n')] });
+
+    expect(failed.out.split('\n')).toHaveLength(2);
+    expect(same.out.split('\n')).toHaveLength(2);
+    expect(failed.renderer.changes.edits).toEqual([]);
+    expect(same.renderer.changes.edits).toEqual([]);
+  });
+
+  it('keeps the plain log free of file changes', () => {
+    expect(rendered({ content: 'Edited', artifacts: [change('a\n', 'b\n')] })).toBe(
+      '    ✓ Edited · 1.2s\n',
+    );
+  });
+});
+
+describe('Renderer: failed steps', () => {
+  const failed = (content: string, input: Record<string, unknown> = {}): EntryEvent => ({
+    seq: 0,
+    type: 'tool_result',
+    call: { id: callId, name: 'run_command', input },
+    description: 'Run the tests',
+    message: { role: 'tool', toolCallId: callId, content, isError: true },
+    durationMs: 300,
+  });
+  const edited: EntryEvent = {
+    seq: 1,
+    type: 'tool_result',
+    call: { id: callId, name: 'edit_file', input: {} },
+    description: 'Edit a.ts',
+    message: { role: 'tool', toolCallId: callId, content: 'Edited a.ts', isError: false },
+    durationMs: 300,
+    artifacts: [{ kind: 'file_change', path: 'a.ts', before: 'a\n', after: 'b\n' }],
+  };
+
+  function chatted(events: EntryEvent[]): { out: string; renderer: Renderer } {
+    let out = '';
+    const renderer = new Renderer(
+      (text) => (out += text),
+      () => 0,
+      chatLook,
+    );
+
+    for (const event of events) renderer.event(event);
+
+    return { out: stripVTControlCharacters(out), renderer };
+  }
+
+  it('collapses the rest of a failure to one line under its result, and keeps it', () => {
+    const { out, renderer } = chatted([
+      failed('FAIL a.test.ts\n  expected 1\n  got 2', { command: 'npm test' }),
+    ]);
+
+    expect(out).toBe(
+      ['  ⎿ ✗ FAIL a.test.ts · 0.3s', '    ▸ 2 more lines · /errors 1', ''].join('\n'),
+    );
+    expect(renderer.failures.failures).toMatchObject([
+      { number: 1, title: 'Run the tests  $ npm test', moreLines: 2 },
+    ]);
+  });
+
+  it('adds nothing for a failure that is one line the result already showed', () => {
+    const { out, renderer } = chatted([failed('File not found: a.ts')]);
+
+    expect(out).toBe('  ⎿ ✗ File not found: a.ts · 0.3s\n');
+    expect(renderer.failures.failures).toEqual([]);
+    expect(renderer.latestExpandable).toBeUndefined();
+  });
+
+  it('knows whether a failure or a file change was collapsed last', () => {
+    const afterChange = chatted([edited, failed('one\ntwo')]).renderer;
+    const afterFailure = chatted([failed('one\ntwo'), edited]).renderer;
+
+    expect(afterChange.latestExpandable).toBe('failure');
+    expect(afterFailure.latestExpandable).toBe('change');
+  });
+
+  it('keeps the plain log free of failure lines', () => {
+    let out = '';
+
+    new Renderer(
+      (text) => (out += text),
+      () => 0,
+    ).event(failed('one\ntwo'));
+    expect(out).toBe('    ✗ one · 0.3s\n');
+  });
+});
+
+describe('Renderer: running tools', () => {
+  const call = (id: string) => ({ id: callIdSchema.parse(id), name: 'run_command', input: {} });
+  const started = (id: string, description: string): EntryEvent => ({
+    seq: 0,
+    type: 'tool_call_started',
+    call: call(id),
+    description,
+  });
+  const returned = (id: string): EntryEvent => ({
+    seq: 1,
+    type: 'tool_result',
+    call: call(id),
+    description: 'done',
+    message: { role: 'tool', toolCallId: callIdSchema.parse(id), content: 'ok', isError: false },
+    durationMs: 1,
+  });
+  const finished: EntryEvent = {
+    seq: 2,
+    type: 'done',
+    reason: 'completed',
+    session: { id: main, rootId: main, depth: 1 },
+  };
+  const renderer = () =>
+    new Renderer(
+      () => undefined,
+      () => 0,
+    );
+
+  afterEach(() => vi.useRealTimers());
+
+  it('lists the calls that started and have not returned, oldest first, with when they began', () => {
+    vi.useFakeTimers({ now: 1_700_000_000_000 });
+
+    const subject = renderer();
+
+    subject.event(started('1', 'Build'));
+    vi.setSystemTime(1_700_000_004_000);
+    subject.event(started('2', 'Lint'));
+
+    expect(subject.running).toEqual([
+      { id: '1', description: 'Build', startedAt: 1_700_000_000_000 },
+      { id: '2', description: 'Lint', startedAt: 1_700_000_004_000 },
+    ]);
+
+    subject.event(returned('1'));
+    expect(subject.running.map(({ id }) => id)).toEqual(['2']);
+  });
+
+  it('replaces the list on every change, and keeps it while nothing changes', () => {
+    const subject = renderer();
+    const empty = subject.running;
+
+    subject.event(started('1', 'Build'));
+
+    const one = subject.running;
+
+    subject.event({ seq: 3, type: 'text_delta', text: 'hi' });
+    expect(subject.running).toBe(one);
+    expect(one).not.toBe(empty);
+
+    subject.event(returned('1'));
+    expect(subject.running).toEqual([]);
+    expect(empty).toEqual([]);
+  });
+
+  it('forgets a call at the end of the prompt, or when told to', () => {
+    const subject = renderer();
+
+    subject.event(started('1', 'Build'));
+    subject.event(finished);
+    expect(subject.running).toEqual([]);
+
+    subject.event(started('2', 'Lint'));
+    subject.clearRunning();
+    expect(subject.running).toEqual([]);
+  });
+
+  it('ignores the result of a call it never saw start', () => {
+    const subject = renderer();
+
+    subject.event(started('1', 'Build'));
+    subject.event(returned('9'));
+    expect(subject.running.map(({ id }) => id)).toEqual(['1']);
   });
 });
 

@@ -26,6 +26,20 @@ describe('parseChatInput', () => {
     });
   });
 
+  it('reads /changes with or without what to show, a path with spaces included', () => {
+    expect(parseChatInput('/changes')).toEqual({ kind: 'changes', target: undefined });
+    expect(parseChatInput('/changes #3')).toEqual({ kind: 'changes', target: '#3' });
+    expect(parseChatInput(' /changes  my docs/a.md ')).toEqual({
+      kind: 'changes',
+      target: 'my docs/a.md',
+    });
+  });
+
+  it('reads /errors with or without which failure to show', () => {
+    expect(parseChatInput('/errors')).toEqual({ kind: 'errors', target: undefined });
+    expect(parseChatInput(' /errors  #2 ')).toEqual({ kind: 'errors', target: '#2' });
+  });
+
   it('reads /model with or without a name, and not with more than one', () => {
     expect(parseChatInput('/model')).toEqual({ kind: 'model', name: undefined });
     expect(parseChatInput('/model  claude ')).toEqual({ kind: 'model', name: 'claude' });
@@ -111,7 +125,18 @@ describe('completeChatLine', () => {
 
   it('completes / at the start to the chat commands and every skill', () => {
     expect(completeChatLine({ before: '/', skills })).toEqual([
-      ['/exit', '/help', '/model', '/mode', '/quit', '/git', '/help-docs', '/review'],
+      [
+        '/changes',
+        '/errors',
+        '/exit',
+        '/help',
+        '/model',
+        '/mode',
+        '/quit',
+        '/git',
+        '/help-docs',
+        '/review',
+      ],
       '/',
     ]);
     expect(completeChatLine({ before: '/he', skills })).toEqual([['/help', '/help-docs'], '/he']);

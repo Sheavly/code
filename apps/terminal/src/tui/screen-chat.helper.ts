@@ -1,12 +1,18 @@
-import { ProcessTerminal, TuiMainScreen } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
+import { TerminalBell } from '../bell/bell.service.js';
+import { UsageLedger } from '@sheavly/runtime/usage/usage.service';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { ScrollbackTerminal } from './scrollback-terminal.service.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
-import { chatLook } from '../render/chat-look.utils.js';
+import { configureHyperlinks, createFileLinker } from '../links/links.helper.js';
+import { createChatLook } from '../render/chat-look.utils.js';
 import { Renderer } from '../render/render.service.js';
 import { ReactView } from '../react-screen/react-view.service.js';
+import { paletteFromEnv } from '../theme/theme.helper.js';
 import { createClassicView } from './classic-view.helper.js';
 import { ChatScreen } from './chat-screen.service.js';
 import type { ApprovalAnswer, ScreenChat } from './tui.types.js';
@@ -25,40 +31,68 @@ export async function startScreenChat(params: {
   details: ConversationDetails;
   skills: { name: string; description?: string }[];
   firstPrompt: string | undefined;
+  reducedMotion?: boolean;
+  bell?: boolean;
 }): Promise<ScreenChat> {
   const { conversation, details, firstPrompt } = params;
+  // Before anything is drawn: a theme that doesn't exist fails here, with the ones there are.
+  const palette = paletteFromEnv(process.env);
+
+  configureHyperlinks(process.env);
+
   const watching = new AbortController();
+  const usage = new UsageLedger(details.usage);
   const status = {
     state: 'ready' as const,
     model: details.model.name,
     modelMode: details.model.mode ?? 'medium',
     mode: details.permissionMode,
     tasks: 0,
+    usage: usage.snapshot,
   };
   const editorOptions = {
     commands: [...ChatScreen.commands, ...params.skills],
     cwd: details.workspace,
+    palette,
   };
-  const terminal = new ProcessTerminal();
+  const terminal = new ScrollbackTerminal();
+  const bell = new TerminalBell({
+    enabled: params.bell ?? false,
+    write: (text) => terminal.write(text),
+  });
   const view =
     process.env.SHEAVLY_TUI === 'classic'
       ? createClassicView({ ...editorOptions, tui: new TuiMainScreen(terminal) })
-      : new ReactView({ ...editorOptions, terminal, status });
+      : new ReactView({
+          ...editorOptions,
+          terminal,
+          status,
+          reducedMotion: params.reducedMotion ?? false,
+        });
   const screen: ChatScreen = new ChatScreen({
     view,
     status,
     ...editorOptions,
     onSubmit: (line) => session.submit(line),
-    onStop: () => session.stop(),
+    onStop: () => {
+      bell.finishTurn();
+
+      return session.stop();
+    },
     onAnswer: (answer) => void answerApproval({ conversation, screen, answer }),
     onQuit: () => leave(),
+    onExpand: () => session.describeLatest(),
   });
   const renderer = new Renderer(
     screen.write,
     () => conversation.runningTasks,
-    chatLook,
+    createChatLook(palette),
     screen.reply,
   );
+  const keepUsage = (entry: StreamEntry) => {
+    usage.observe(entry);
+    screen.setStatus({ usage: usage.snapshot });
+  };
   let leave: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => (leave = resolve));
   const session: ChatSession = new ChatSession({
@@ -66,16 +100,37 @@ export async function startScreenChat(params: {
     renderer,
     mainSession: details.session,
     write: screen.write,
-    onSend: (text) => screen.echo(text),
+    columns: () => view.columns,
+    palette,
+    linkFile: createFileLinker({ root: details.workspace, env: process.env }),
+    onSend: (text) => {
+      bell.startTurn();
+      screen.echo(text);
+    },
+    onReplyComplete: () => bell.replyCompleted(),
+    onTurnEnd: (outcome) => {
+      bell.finishTurn();
+      screen.endTurn(outcome);
+    },
     onQueue: (queue) => screen.setQueue(queue),
+    onTools: (tools) => {
+      bell.watchTools(tools);
+      screen.setStatus({ tools });
+    },
+    onUsage: keepUsage,
     onBusy: (busy) => {
       screen.setStatus({ state: busy ? 'working' : 'ready' });
 
       if (!busy) {
         void conversation
           .details()
-          .then(({ model }) => {
-            screen.setStatus({ model: model.name, modelMode: model.mode ?? 'medium' });
+          .then((details) => {
+            if (details.usage) usage.update(details.usage);
+            screen.setStatus({
+              model: details.model.name,
+              modelMode: details.model.mode ?? 'medium',
+              usage: usage.snapshot,
+            });
           })
           .catch((caughtError: unknown) =>
             screen.notice(`Could not refresh model: ${String(caughtError)}`),
@@ -86,7 +141,8 @@ export async function startScreenChat(params: {
   });
 
   const { ended } = await conversation.watchApprovals({
-    onUpdate: (update) => hear({ update, screen }),
+    onUsage: keepUsage,
+    onUpdate: (update) => hear({ update, screen, bell }),
     signal: watching.signal,
   });
 
@@ -100,6 +156,7 @@ export async function startScreenChat(params: {
   return {
     finished: view instanceof ReactView ? Promise.race([finished, view.finished]) : finished,
     stop: async () => {
+      bell.stop();
       watching.abort();
       session.dropQueued();
       session.stop();
@@ -109,11 +166,18 @@ export async function startScreenChat(params: {
 }
 
 /** What an approval update means for the screen: one asked appears, one gone disappears. */
-function hear(params: { update: ApprovalUpdate; screen: ChatScreen }): void {
-  const { update, screen } = params;
+function hear(params: { update: ApprovalUpdate; screen: ChatScreen; bell: TerminalBell }): void {
+  const { update, screen, bell } = params;
 
-  if (update.type === 'approval_requested') screen.ask(update.request);
-  else screen.forget(update.id);
+  if (update.type === 'approval_requested') {
+    screen.ask(update.request);
+    bell.requestApproval(update.request.id);
+
+    return;
+  }
+
+  screen.forget(update.id);
+  bell.forgetApproval(update.id);
 }
 
 /**

@@ -1,5 +1,6 @@
 import { CURSOR_MARKER, stripTerminalSequences, visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
+import { defaultPalette } from '../../theme/palette.utils.js';
 import { editorFrame, liveLayout, transcriptRows } from '../layout.utils.js';
 import type { ReactScreenProps } from '../react-screen.types.js';
 
@@ -10,6 +11,7 @@ function frame(patch: Partial<ReactScreenProps> = {}): ReactScreenProps {
     approval: '',
     queue: '',
     status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
+    colors: defaultPalette.colors,
     editor: { lines: ['border', 'input', 'border'], cursor: { x: 0, y: 1 } },
     columns: 80,
     rows: 24,

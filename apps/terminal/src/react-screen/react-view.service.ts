@@ -3,8 +3,13 @@ import { render, type Instance } from 'ink';
 import { stripTerminalSequences } from '@earendil-works/pi-tui';
 import type { Terminal, TuiInputListener } from '@earendil-works/pi-tui';
 import type { ChatView, EditorOptions } from '../tui/chat-view.types.js';
+import { defaultPalette } from '../theme/palette.utils.js';
+import type { Palette } from '../theme/theme.types.js';
 import type { StatusInfo } from '../tui/tui.types.js';
 import { createChatEditor } from '../tui/editor.helper.js';
+import { restoringMarks } from '../marks/marks-stdout.helper.js';
+import type { ShellMark } from '../marks/marks.types.js';
+import { carryMark } from '../marks/marks.utils.js';
 import { EditorHost } from './editor-host.service.js';
 import { editorFrame, liveLayout, transcriptRows } from './layout.utils.js';
 import { ReactScreen } from './react-screen.component.js';
@@ -13,9 +18,11 @@ import type { ReactScreenProps, TranscriptLine } from './react-screen.types.js';
 /** React/Ink owns output; pi supplies only the established editor and keyboard protocol. */
 export class ReactView implements ChatView {
   readonly editor;
+  readonly palette: Palette;
   readonly #host: EditorHost;
   readonly #history: TranscriptLine[] = [];
   readonly #stdout: NodeJS.WritableStream;
+  readonly #reducedMotion: boolean;
   #instance: Instance | undefined;
   #live = '';
   #approval = '';
@@ -27,10 +34,13 @@ export class ReactView implements ChatView {
       terminal: Terminal;
       status: StatusInfo;
       stdout?: NodeJS.WritableStream;
+      reducedMotion?: boolean;
     },
   ) {
-    this.#stdout = params.stdout ?? process.stdout;
+    this.#stdout = restoringMarks(params.stdout ?? process.stdout);
     this.#status = params.status;
+    this.#reducedMotion = params.reducedMotion ?? false;
+    this.palette = params.palette ?? defaultPalette;
     this.#host = new EditorHost({ terminal: params.terminal, draw: () => this.#draw() });
     this.editor = createChatEditor({ ...params, tui: this.#host });
     this.#host.addChild(this.editor);
@@ -75,13 +85,20 @@ export class ReactView implements ChatView {
     this.#host.requestRender();
   }
 
-  print(text: string): void {
-    for (const line of transcriptRows({
+  print(text: string, mark?: ShellMark): void {
+    const rows = transcriptRows({
       text: this.#display(text),
       columns: this.#host.terminal.columns,
-    })) {
-      this.#history.push({ id: this.#history.length, text: line });
-    }
+    });
+
+    rows.forEach((row, index) => {
+      // Only the first row of a wrapped line starts at the line's mark. Ink drops styling that
+      // has no character after it, so a blank row gets a space to carry its mark.
+      const marked = mark !== undefined && index === 0;
+      const text = marked ? `${carryMark(mark)}${row || ' '}` : row;
+
+      this.#history.push({ id: this.#history.length, text });
+    });
   }
 
   setLive(text: string): void {
@@ -109,8 +126,13 @@ export class ReactView implements ChatView {
     return liveLayout(this.snapshot).approvalFits;
   }
 
+  /** `NO_COLOR` set, even to an empty value, as the convention says. Read each time, so a change shows. */
+  get plain(): boolean {
+    return process.env.NO_COLOR !== undefined;
+  }
+
   #display(text: string): string {
-    if (process.env.NO_COLOR !== undefined) return stripTerminalSequences(text);
+    if (this.plain) return stripTerminalSequences(text);
 
     return text;
   }
@@ -127,6 +149,8 @@ export class ReactView implements ChatView {
       approval: this.#approval,
       queue: this.#queue,
       status: this.#status,
+      colors: this.palette.colors,
+      reducedMotion: this.#reducedMotion,
       editor: { ...editor, lines: editor.lines.map((line) => this.#display(line)) },
       columns: Math.max(1, columns),
       rows: Math.max(2, rows),

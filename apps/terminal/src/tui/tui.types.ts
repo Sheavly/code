@@ -5,6 +5,8 @@ import type {
 } from '@sheavly/protocol/approval/approval.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { RunningTool } from '../render/render.types.js';
+import type { UsageTotals } from '@sheavly/protocol/usage/usage.types';
 
 /** One thing the user can answer an approval with, as the prompt lists it. */
 export type ApprovalChoice = { option: ApprovalOption; label: string; hint: string };
@@ -35,4 +37,7 @@ export type StatusInfo = {
   mode: PermissionMode;
   /** Background tasks still running. */
   tasks: number;
+  /** Tool calls the prompt waits on now, which a screen that can animate shows with their time. */
+  tools?: readonly RunningTool[];
+  usage?: UsageTotals;
 };

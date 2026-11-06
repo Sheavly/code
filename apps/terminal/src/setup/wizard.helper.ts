@@ -3,6 +3,7 @@ import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import type { Setup } from '@sheavly/protocol/setup/setup.types';
 import { configureModel } from './model.helper.js';
+import { chooseSetupProfile } from './terminal-settings.helper.js';
 import type { SetupClient, SetupUi } from './setup.types.js';
 
 /** Uses only setup routes. Existing profiles and keys are never read from local config files. */
@@ -16,17 +17,7 @@ export async function runSetupWizard(params: {
 
   if (setup.problems.length) ui.notice(setup.problems.join('\n'));
 
-  const picked = await ui.choose({
-    title: 'Choose a profile for this workspace',
-    items: [
-      ...setup.profiles.map(({ id, name, ready }) => ({
-        value: id,
-        label: name,
-        description: `${ready ? 'Ready' : 'Needs setup'} · ${id}`,
-      })),
-      { value: 'new', label: 'Create a profile', description: 'For example Personal or Work' },
-    ],
-  });
+  const picked = await chooseSetupProfile({ client, ui, setup });
   const profile =
     picked === 'new' ? profileIdSchema.parse(randomUUID()) : profileIdSchema.parse(picked);
 

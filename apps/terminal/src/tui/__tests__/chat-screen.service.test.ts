@@ -1,12 +1,15 @@
 import { PassThrough } from 'node:stream';
 import { createElement } from 'react';
 import { renderToString } from 'ink';
-import { describe, expect, it, onTestFinished } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { stripTerminalSequences, TuiMainScreen } from '@earendil-works/pi-tui';
 import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { fakeTerminal } from '../../testing/terminal.fake.js';
+import { createPalette } from '../../theme/palette.utils.js';
+import { THEMES } from '../../theme/theme.constants.js';
+import type { Palette } from '../../theme/theme.types.js';
 import { ChatScreen } from '../chat-screen.service.js';
 import type { ApprovalAnswer } from '../tui.types.js';
 import { ReactView } from '../../react-screen/react-view.service.js';
@@ -28,7 +31,7 @@ const request = (id: string): ApprovalRequest => ({
   options: ALL,
 });
 
-function openScreen(renderer: 'classic' | 'react') {
+function openScreen(renderer: 'classic' | 'react', palette?: Palette) {
   const terminal = fakeTerminal();
   const tui = new TuiMainScreen(terminal);
   const sent: string[] = [];
@@ -44,10 +47,11 @@ function openScreen(renderer: 'classic' | 'react') {
           status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
           commands: ChatScreen.commands,
           cwd: process.cwd(),
+          ...(palette && { palette }),
         })
       : undefined;
   const screen = new ChatScreen({
-    ...(view ? { view } : { tui }),
+    ...(view ? { view } : { tui, ...(palette && { palette }) }),
     status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
     commands: ChatScreen.commands,
     cwd: process.cwd(),
@@ -59,6 +63,7 @@ function openScreen(renderer: 'classic' | 'react') {
     },
     onAnswer: (answer) => answers.push(answer),
     onQuit: () => (quit += 1),
+    onExpand: () => 'a diff\nof two lines',
   });
 
   screen.start();
@@ -72,6 +77,8 @@ function openScreen(renderer: 'classic' | 'react') {
     quits: () => quit,
     stops: () => stops,
     running: (result: 'stopped' | 'stopping' | 'idle') => (stopResult = result),
+    /** What the classic screen shows now, escape codes kept. */
+    raw: () => tui.render(80).join('\n'),
     /** What the screen shows now, as text: the lines of every part, without styling. */
     text: () =>
       view
@@ -130,6 +137,17 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
     expect(text()).not.toContain('|---|');
   });
 
+  it('draws the lines of a reply’s code block as they arrive, before it is closed', () => {
+    const { screen, text } = open();
+
+    screen.reply.write('```ts\nconst a = 1;\nconst b');
+    expect(text()).toContain('```ts\n  const a = 1;');
+    expect(text()).toContain('const b');
+
+    screen.reply.write(' = 2;\n```\n');
+    expect(text()).toContain('  const a = 1;\n  const b = 2;\n```');
+  });
+
   it('draws what is left of a reply when it ends, or when something else is written', () => {
     const { screen, text } = open();
 
@@ -154,7 +172,8 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
     const { screen, text } = open();
 
     screen.echo('fix the bug\nin a.ts');
-    expect(text()).toContain('\n› fix the bug\n  in a.ts\n\n');
+    // The blank row under the message carries a mark, so it holds a space on the React screen.
+    expect(text()).toMatch(/\n› fix the bug\n {2}in a\.ts\n *\n/);
   });
 
   it('sends a typed line when Enter is pressed, and empties the editor', async () => {
@@ -189,6 +208,24 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
   });
 
   describe('an approval', () => {
+    it('shows the exact temporary grant and sends the session decision without auto-selecting it', async () => {
+      const { screen, type, answers, text } = open();
+
+      screen.ask({
+        ...request('a1'),
+        options: ['approve', 'allow_session', 'always_allow', 'skip', 'skip_with_message'],
+        keeps: ['npm run test *'],
+      });
+      await type(ENTER);
+      expect(answers).toEqual([]);
+      expect(text()).toContain('Allow for this session');
+      expect(text()).toContain('not saved');
+      await type('2');
+      await type(ENTER);
+
+      expect(answers).toEqual([{ id: 'a1', response: { decision: 'allow_session' } }]);
+    });
+
     it('is asked about with its options, and the status says it waits for the user', () => {
       const { screen, text } = open();
 
@@ -415,6 +452,15 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
     expect(text()).toContain('unfinished');
   });
 
+  it('shows the latest file change in full on Ctrl+O, set apart by blank lines', async () => {
+    const { screen, type, text } = open();
+
+    screen.write('before\n');
+    await type('\u000f');
+
+    expect(text()).toContain('before\n\na diff\nof two lines\n');
+  });
+
   it('shows a notice apart from the conversation’s text', () => {
     const { screen, text } = open();
 
@@ -423,5 +469,40 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
 
     expect(text()).toContain('model text');
     expect(text()).toContain('→ switched');
+  });
+});
+
+describe('ChatScreen (react, NO_COLOR)', () => {
+  it('writes out the inline code and strike-through that styling would have shown', () => {
+    vi.stubEnv('NO_COLOR', '1');
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+
+    const { screen, text } = openScreen('react');
+
+    screen.reply.write('Use `npm test`, not ~~npm run~~.\n\n');
+    expect(text()).toContain('Use `npm test`, not ~~npm run~~.');
+  });
+});
+
+describe('ChatScreen: themes', () => {
+  it('draws its status line and a reply’s code in the palette it is given', () => {
+    const { screen, raw } = openScreen('classic', createPalette(THEMES.colorblind));
+
+    screen.reply.write('```ts\nconst a = "b";\n```\n');
+
+    expect(raw()).toContain('\u001b[94m● ready');
+    expect(raw()).toContain('\u001b[94m"b"');
+    expect(raw()).not.toContain('\u001b[32m');
+  });
+
+  it('keeps the default theme when it is given none', () => {
+    const { screen, raw } = openScreen('classic');
+
+    screen.reply.write('```ts\nconst a = "b";\n```\n');
+
+    expect(raw()).toContain('\u001b[32m● ready');
+    expect(raw()).toContain('\u001b[32m"b"');
   });
 });

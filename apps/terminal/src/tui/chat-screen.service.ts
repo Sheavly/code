@@ -1,11 +1,15 @@
 import { matchesKey, type Editor, type TUI } from '@earendil-works/pi-tui';
 import { now } from '@sheavly/core/clock/clock.helper';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
 import type { ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { CHAT_COMMANDS } from '../chat/chat.constants.js';
+import type { TurnOutcome } from '../chat/chat.types.js';
+import type { ShellMark } from '../marks/marks.types.js';
+import { CodeFence } from '../markdown/code-fence.service.js';
 import { MarkdownStream } from '../markdown/markdown-stream.service.js';
 import { renderMarkdown } from '../markdown/render-markdown.utils.js';
 import type { ReplySink } from '../render/render.types.js';
-import { gray } from '../render/style.utils.js';
+import type { Palette } from '../theme/theme.types.js';
 import type { ChatView } from './chat-view.types.js';
 import { createClassicView } from './classic-view.helper.js';
 import { ApprovalPrompt } from './approval-prompt.service.js';
@@ -34,22 +38,40 @@ export class ChatScreen {
   readonly #view: ChatView;
   readonly #editor: Editor;
   readonly #lines = new LineBuffer();
-  readonly #markdown = new MarkdownStream((markdown) =>
-    renderMarkdown({ markdown, width: this.#view.columns }),
-  );
+  readonly #markdown = new MarkdownStream({
+    render: (markdown) =>
+      renderMarkdown({
+        markdown,
+        width: this.#view.columns,
+        plain: this.#view.plain === true,
+        palette: this.#view.palette,
+      }),
+    drawFence: (info) =>
+      new CodeFence({
+        info,
+        width: this.#view.columns,
+        plain: this.#view.plain === true,
+        palette: this.#view.palette,
+      }),
+  });
   readonly #prompt = new ApprovalPrompt();
   readonly #callbacks: {
     onSubmit: (line: string) => void;
     onStop: () => 'stopped' | 'stopping' | 'idle';
     onAnswer: (answer: ApprovalAnswer) => void;
     onQuit: () => void;
+    onExpand: () => string;
   };
   #info: StatusInfo;
   #quitArmedAt = 0;
+  /** How the last turn ended, until the first row after it closes it for the terminal. */
+  #ended: 'done' | 'failed' | undefined;
 
   constructor(
     params: ({ tui: TUI; view?: never } | { view: ChatView; tui?: never }) & {
       status: StatusInfo;
+      /** The colours of the classic view it makes; a view that is passed in has its own. */
+      palette?: Palette;
       /** Skill names offered after a `/`, read when the user types. */
       commands: { name: string; description?: string }[];
       cwd: string;
@@ -58,13 +80,18 @@ export class ChatScreen {
       onStop: () => 'stopped' | 'stopping' | 'idle';
       onAnswer: (answer: ApprovalAnswer) => void;
       onQuit: () => void;
+      /** Ctrl+O: the latest collapsed line in full (a diff, a failure), as text to show. */
+      onExpand: () => string;
     },
   ) {
-    const { status, commands, cwd, onSubmit, onStop, onAnswer, onQuit } = params;
+    const { status, commands, cwd, palette } = params;
+    const { onSubmit, onStop, onAnswer, onQuit, onExpand } = params;
 
-    this.#view = params.view ?? createClassicView({ tui: params.tui, commands, cwd });
+    this.#view =
+      params.view ??
+      createClassicView({ tui: params.tui, commands, cwd, ...(palette && { palette }) });
     this.#info = status;
-    this.#callbacks = { onSubmit, onStop, onAnswer, onQuit };
+    this.#callbacks = { onSubmit, onStop, onAnswer, onQuit, onExpand };
     this.#editor = this.#view.editor;
     this.#editor.onSubmit = (text) => this.#submit(text);
     this.#view.addInputListener((data) => this.#key(data));
@@ -106,16 +133,32 @@ export class ChatScreen {
   /** Shows a line the screen itself says (a notice), apart from the conversation's text. */
   notice(text: string): void {
     this.#flushTail();
-    this.#print(gray(text));
+    this.#print(this.#view.palette.paint.text.secondary(plainTerminalText(text)));
     this.#view.requestRender();
   }
 
-  /** Shows a message the user sent, set apart from the reply that follows it. */
+  /**
+   * Shows a message the user sent, set apart from the reply that follows it. The message is
+   * marked as a prompt and the blank row under it as where the output starts, so a terminal can
+   * jump between messages.
+   */
   echo(text: string): void {
     this.#flushTail();
 
-    for (const line of echoText(text).split('\n')) this.#print(line);
+    const rows = echoText({ text, palette: this.#view.palette }).split('\n');
+
+    rows.forEach((row, index) => {
+      if (index === 1) this.#print(row, 'prompt');
+      else if (index === rows.length - 1) this.#print(row, 'output');
+      else this.#print(row);
+    });
+
     this.#view.requestRender();
+  }
+
+  /** The message that was shown ended; the next row written closes it for the terminal. */
+  endTurn(outcome: TurnOutcome): void {
+    this.#ended = outcome === 'failed' ? 'failed' : 'done';
   }
 
   /** Changes what the status line says. */
@@ -126,7 +169,7 @@ export class ChatScreen {
 
   /** Shows the lines waiting for the running one to finish. */
   setQueue(queue: readonly string[]): void {
-    this.#view.setQueue(queueText(queue));
+    this.#view.setQueue(queueText({ queue, palette: this.#view.palette }));
     this.#view.requestRender();
   }
 
@@ -147,8 +190,26 @@ export class ChatScreen {
     return this.#prompt.current !== undefined;
   }
 
-  #print(line: string): void {
-    this.#view.print(line);
+  /**
+   * Adds a row to the history. A turn that ended is closed (OSC 133 `D`) at the first row after
+   * it, as a shell closes a command with its next prompt. A row with a mark of its own would
+   * take that place, so one never comes first after a turn (`echo` starts with a blank row).
+   */
+  #print(line: string, mark?: ShellMark): void {
+    const end = this.#ended;
+
+    this.#ended = undefined;
+    this.#view.print(line, mark ?? end);
+  }
+
+  /** A block the user asked for (a diff), set apart from the text around it by blank lines. */
+  #printBlock(text: string): void {
+    this.#flushTail();
+    this.#print('');
+
+    for (const line of text.split('\n')) this.#print(line);
+    this.#print('');
+    this.#view.requestRender();
   }
 
   /** Prints the lines `text` finishes; the unfinished ones stay in the live area. */
@@ -172,7 +233,7 @@ export class ChatScreen {
   }
 
   #refresh(): void {
-    this.#view.setApproval(approvalText(this.#prompt));
+    this.#view.setApproval(approvalText({ prompt: this.#prompt, palette: this.#view.palette }));
     this.#view.setStatus({ ...this.#info, state: this.asking ? 'waiting' : this.#info.state });
     this.#view.requestRender();
   }
@@ -202,6 +263,12 @@ export class ChatScreen {
   /** The keys the screen takes before the editor sees them. */
   #key(data: string): KeyResult {
     if (matchesKey(data, 'ctrl+c')) return this.#interrupt();
+
+    if (matchesKey(data, 'ctrl+o')) {
+      this.#printBlock(this.#callbacks.onExpand());
+
+      return { consume: true };
+    }
 
     // Ctrl+D on an empty line leaves, as in a shell; with text in the editor it deletes, as there.
     if (matchesKey(data, 'ctrl+d') && this.#editor.getText() === '' && !this.asking) {

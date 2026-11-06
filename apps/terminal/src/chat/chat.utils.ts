@@ -20,6 +20,8 @@ export function parseChatInput(line: string): ChatInput {
 
   if (command === '/model' && rest.length <= 1) return { kind: 'model', name: rest[0] };
   if (command === '/mode' && rest.length <= 1) return { kind: 'mode', name: rest[0] };
+  if (command === '/changes') return { kind: 'changes', target: rest.join(' ') || undefined };
+  if (command === '/errors') return { kind: 'errors', target: rest.join(' ') || undefined };
 
   return { kind: 'prompt', text };
 }

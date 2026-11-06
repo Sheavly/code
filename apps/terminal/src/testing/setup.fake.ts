@@ -12,6 +12,7 @@ import {
 import type { AdapterDescription } from '@sheavly/protocol/model/model.types';
 import type { Setup } from '@sheavly/protocol/setup/setup.types';
 import type { SetupUi } from '../setup/setup.types.js';
+import { terminalSettingsSchema } from '@sheavly/protocol/terminal-settings/terminal-settings.validator';
 
 export function setupAdapter(): AdapterDescription {
   return {
@@ -53,14 +54,25 @@ export function fakeSetupBackend() {
   };
   const server = fakeServer({
     getSetup: () => state,
+    setTerminalSettings: ({ body }) => {
+      state.terminal = terminalSettingsSchema.parse(body);
+    },
+    migrateTerminalSettings: () => state.terminal ?? {},
     listAdapters: () => ({ adapters: [setupAdapter()] }),
     getProfile: ({ params }) => profileOf(params.profile),
     putProfile: ({ params, body }) => {
-      const { name } = putProfileRequestSchema.parse(body);
+      const settings = putProfileRequestSchema.parse(body);
+      const existing = state.profiles.find((item) => item.id === params.profile);
+
+      if (existing) {
+        Object.assign(existing, settings);
+
+        return;
+      }
 
       state.profiles.push({
         id: profileIdSchema.parse(params.profile),
-        name,
+        ...settings,
         ready: false,
         models: [],
       });

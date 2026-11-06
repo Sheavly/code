@@ -28,7 +28,15 @@ environment and go to the backend it starts ([the backend's settings](../backend
 | `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's |
 | `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                     |
 | `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                             |
-| `markdown/`     | A streamed reply drawn as Markdown, one complete block at a time (`MarkdownStream`)                      |
+| `markdown/`     | A streamed reply drawn as Markdown: a block at a time, a code fence line by line (`MarkdownStream`)      |
+| `diff/`         | A file change as rows (`buildDiff`, `countChanges`) and as styled lines (`formatDiff`)                   |
+| `changes/`      | Every file change a chat made (`ChangeLog`), shown collapsed, listed or in full (`/changes`, Ctrl+O)     |
+| `failures/`     | Failed steps with more to say than their first line (`FailureLog`): collapsed, `/errors`, Ctrl+O         |
+| `marks/`        | OSC 133 turn markers: what stands for one through Ink, and the stdout that restores them                 |
+| `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                        |
+| `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them  |
+| `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)           |
+| `usage/`        | Compact reported token totals and estimated USD cost for the status line                                 |
 | `setup/`        | Guided profile, provider, model and credential setup through the backend's API                           |
 | `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
 | `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
@@ -40,7 +48,20 @@ The terminal makes no choice about a run: which model, tools and hooks it gets i
 
 Interactive chat uses React and Ink. `SHEAVLY_TUI=classic` selects the previous renderer;
 `SHEAVLY_PLAIN=1` keeps linear input and output. Both interactive renderers share the editor,
-completion, paste folding, queue and approval decisions.
+completion, paste folding, queue and approval decisions. `SHEAVLY_THEME=colorblind` swaps the
+colours that tell success from failure for ones that stay apart in red-green colour blindness
+([colours](docs/chat.md)); `NO_COLOR` removes styling from the React screen.
+`SHEAVLY_HYPERLINKS=1|0` forces OSC 8 links on or off; otherwise they follow the terminal
+([links and turn markers](docs/chat.md)).
+Reduced motion is global: in `--setup`, choose **Terminal settings** in the profile menu.
+It replaces the spinner with a static marker while elapsed times update once per second.
+The preference is stored in `~/.sheavly/config.json`, shared by every profile. Legacy profile
+preferences migrate automatically when an interactive chat opens.
+The same menu has **Terminal bell**, off by default. When enabled, it rings for completed replies,
+new approvals and tools that reach five seconds. Both interactive renderers support it; plain
+and piped output stay silent.
+The interactive status line shows cumulative input/output tokens and estimated cost, including
+sub-agents and resumed history. Missing token usage shows `?`; unknown cost is omitted entirely.
 
 ## Docs
 

@@ -24,6 +24,29 @@ const asking = (...ids: string[]) => {
 };
 
 describe('ApprovalPrompt', () => {
+  it('offers temporary and permanent scopes explicitly, without selecting either on arrival', () => {
+    const prompt = new ApprovalPrompt();
+
+    prompt.ask({
+      ...request('a1', ['approve', 'allow_session', 'always_allow', 'skip']),
+      keeps: ['npx vitest run *'],
+    });
+
+    expect(prompt.confirm()).toEqual({ kind: 'none' });
+    expect(prompt.choices.map(({ option }) => option)).toEqual([
+      'approve',
+      'allow_session',
+      'always_allow',
+      'skip',
+    ]);
+    expect(prompt.choices[1]?.hint).toContain('for this session only; not saved');
+    prompt.pickNumber(2);
+    expect(prompt.confirm()).toEqual({
+      kind: 'answer',
+      answer: { id: 'a1', response: { decision: 'allow_session' } },
+    });
+  });
+
   it('shows the first request, and counts the ones waiting behind it', () => {
     const prompt = asking('a1', 'a2', 'a3');
 

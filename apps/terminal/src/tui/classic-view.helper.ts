@@ -1,12 +1,14 @@
 import { Container, Spacer, Text } from '@earendil-works/pi-tui';
 import type { TUI } from '@earendil-works/pi-tui';
+import { shellMarkSequence } from '../marks/marks.utils.js';
+import { defaultPalette } from '../theme/palette.utils.js';
 import type { ChatView, EditorOptions } from './chat-view.types.js';
 import { createChatEditor } from './editor.helper.js';
 import { statusText } from './view.utils.js';
 
 /** The original main-screen renderer, kept as an explicit fallback. */
 export function createClassicView(params: EditorOptions & { tui: TUI }): ChatView {
-  const { tui } = params;
+  const { tui, palette = defaultPalette } = params;
   const history = new Container();
   const live = new Text('', 0, 0);
   const approval = new Text('', 0, 0);
@@ -20,6 +22,7 @@ export function createClassicView(params: EditorOptions & { tui: TUI }): ChatVie
 
   return {
     editor,
+    palette,
     get columns() {
       return tui.terminal.columns;
     },
@@ -27,10 +30,18 @@ export function createClassicView(params: EditorOptions & { tui: TUI }): ChatVie
     stop: () => tui.stop(),
     addInputListener: (listener) => void tui.addInputListener(listener),
     requestRender: () => tui.requestRender(),
-    print: (line) => history.addChild(line.trim() === '' ? new Spacer(1) : new Text(line, 0, 0)),
+    print: (line, mark) => {
+      if (mark === undefined && line.trim() === '') {
+        history.addChild(new Spacer(1));
+
+        return;
+      }
+
+      history.addChild(new Text(`${mark ? shellMarkSequence(mark) : ''}${line}`, 0, 0));
+    },
     setLive: (text) => live.setText(text),
     setApproval: (text) => approval.setText(text),
     setQueue: (text) => queue.setText(text),
-    setStatus: (info) => status.setText(statusText(info)),
+    setStatus: (info) => status.setText(statusText({ info, palette })),
   };
 }

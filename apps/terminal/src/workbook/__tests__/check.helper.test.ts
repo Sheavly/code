@@ -14,11 +14,30 @@ const observed: Observed = {
   transcript: '＋ house-rules added context (59 chars)\n[AGENTS.md OK] The answer is 41. Sheavly\n',
   reply: '[AGENTS.md OK] The answer is 41. Sheavly',
   events: ['context_added', 'tool_call_started', 'tool_result', 'done'],
+  contextHooks: ['house-rules'],
   tools: ['read_file'],
   outcome: 'completed',
 };
 
 describe('judgeRun', () => {
+  it('allows built-in context while forbidding context from an untrusted project hook', () => {
+    const expectation = { forbid: { contextHooks: ['house-rules'] } };
+
+    expect(
+      judgeRun({ expectation, observed: { ...observed, contextHooks: ['agents-md', 'skills'] } }),
+    ).toEqual([]);
+    expect(judgeRun({ expectation, observed })).toEqual(['house-rules in contextHooks']);
+  });
+
+  it('requires the named project hook when the workspace is trusted', () => {
+    const expectation = { expect: { contextHooks: ['house-rules'] } };
+
+    expect(judgeRun({ expectation, observed })).toEqual([]);
+    expect(
+      judgeRun({ expectation, observed: { ...observed, contextHooks: ['agents-md', 'skills'] } }),
+    ).toEqual(['no house-rules in contextHooks']);
+  });
+
   it('passes a run that shows everything expected and nothing forbidden', () => {
     expect(
       judgeRun({

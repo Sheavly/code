@@ -1,4 +1,18 @@
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import type { FileEdit } from '../changes/changes.types.js';
+import type { Failure } from '../failures/failures.types.js';
+
+/** A tool call that has started and not yet returned: what the working indicator shows live. */
+export type RunningTool = {
+  id: string;
+  /** The model's description of the call. */
+  description: string;
+  /** When its start was seen, in epoch milliseconds. */
+  startedAt: number;
+};
+
+/** What the latest collapsed line under a step stands for, which Ctrl+O expands. */
+export type Expandable = 'change' | 'failure';
 
 /** Where a terminal front end's output goes (stdout, or stdout plus a log file). */
 export type Write = (text: string) => void;
@@ -27,6 +41,10 @@ export type Look = {
   toolStarted: (params: { description: string; command: string | undefined }) => string;
   parallel: (count: number) => string;
   toolResult: (params: { ok: boolean; label: string; detail: string; seconds: string }) => string;
+  /** A file change, under its result: a line standing for its diff, which a person expands. */
+  fileChange: (edit: FileEdit) => string;
+  /** A failed step's message that says more than its line, under its result, as `fileChange`. */
+  failure: (failure: Failure) => string;
   taskRunning: (params: { label: string; id: string }) => string;
   taskCompleted: (params: {
     ok: boolean;
@@ -39,6 +57,7 @@ export type Look = {
   }) => string;
   steer: (firstLine: string) => string;
   contextAdded: (params: { hook: string; chars: number }) => string;
+  outputContinuation: (params: { attempt: number; maxAttempts: number }) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   turnEnd: (params: {
     stopReason: Extract<EntryEvent, { type: 'turn_end' }>['stopReason'];

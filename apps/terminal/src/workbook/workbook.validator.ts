@@ -7,7 +7,7 @@ import { WorkbookPromptError } from '../errors/workbook.errors.js';
 import { checkSchema } from './check.validator.js';
 import { isPlainName } from './workbook.utils.js';
 import { messageSchema } from '@sheavly/protocol/message/message.validator';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { runOutcomeSchema, sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
 
@@ -49,7 +49,7 @@ export const runMetaSchema = z.object({
 export const savedMessagesSchema = z.array(messageSchema);
 
 export const runResultSchema = z.object({
-  outcome: z.enum(['completed', 'interrupted', 'max_turns', 'failed']),
+  outcome: runOutcomeSchema,
   error: z.string().optional(),
   /** When the run ended. */
   endedAt: timestampSchema,

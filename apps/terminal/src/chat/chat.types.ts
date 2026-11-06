@@ -11,6 +11,10 @@ export type ChatInput =
   /** `/model` lists the models; `/model <name>` switches to one. */
   | { kind: 'model'; name: string | undefined }
   | { kind: 'mode'; name: string | undefined }
+  /** `/changes` lists the files changed; `/changes <file or #n or all>` shows diffs. */
+  | { kind: 'changes'; target: string | undefined }
+  /** `/errors` lists the failed steps with more to say; `/errors #<n>` shows one in full. */
+  | { kind: 'errors'; target: string | undefined }
   | { kind: 'empty' };
 
 /** What the chat needs of a conversation: a `RemoteConversation`, or a stand-in for a test. */
@@ -21,3 +25,6 @@ export type ChatConversation = Pick<
 
 /** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
 export type StopResult = 'stopped' | 'stopping' | 'idle';
+
+/** How a message ended: its prompt ran (even if stopped), or failed with an error that was shown. */
+export type TurnOutcome = 'completed' | 'failed';

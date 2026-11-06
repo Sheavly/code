@@ -60,7 +60,7 @@ export function judgeRun(params: { expectation: RunExpectation; observed: Observ
         text: observed[target],
       }),
     ),
-    ...(['events', 'tools'] as const).flatMap((target) =>
+    ...(['events', 'tools', 'contextHooks'] as const).flatMap((target) =>
       nameProblems({
         wanted: wanted[target],
         forbidden: forbid[target],

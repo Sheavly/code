@@ -1,28 +1,41 @@
 import { Text, useAnimation } from 'ink';
-import type { StatusInfo } from '../tui/tui.types.js';
+import { now } from '@sheavly/core/clock/clock.helper';
+import { runningToolsText } from '../tui/view.utils.js';
+import type { ActivityProps } from './react-screen.types.js';
+import { usageText } from '../usage/usage.utils.js';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /** Real state takes priority over motion; cancellation is always visible while working. */
-export function Activity(props: StatusInfo) {
-  const { state, model, modelMode, mode, tasks } = props;
-  const { frame, time } = useAnimation({ interval: 100, isActive: state === 'working' });
+export function Activity(props: ActivityProps) {
+  const { state, model, modelMode, mode, tasks, tools = [], colors, reducedMotion = false } = props;
+  const secondary = colors.text.secondary;
+  // Reduced motion still ticks once a second so elapsed times do not freeze.
+  const { frame, time } = useAnimation({
+    interval: reducedMotion ? 1000 : 100,
+    isActive: state === 'working',
+  });
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const working = state === 'working';
   const label = state === 'waiting' ? 'waiting for you' : state;
-  const icon = working ? frames[frame % frames.length] : '●';
+  const icon = working && !reducedMotion ? frames[frame % frames.length] : '●';
+  // Read on every tick: tool elapsed times advance even without the spinner.
+  const running = working ? runningToolsText({ tools, at: now() }) : undefined;
 
   return (
     <Text wrap="truncate-end">
-      <Text color={state === 'ready' ? 'green' : 'yellow'}>
+      <Text color={state === 'ready' ? colors.status.success : colors.status.warning}>
         {icon} {label}
       </Text>
-      {working && <Text dimColor> · {Math.floor(time / 1000)}s · Ctrl+C to stop</Text>}
-      <Text dimColor>
+      {working && <Text color={secondary}> · {Math.floor(time / 1000)}s · Ctrl+C to stop</Text>}
+      {running && <Text color={secondary}> · {running}</Text>}
+      <Text color={secondary}>
         {' '}
-        · {model}
+        · {plainTerminalText(model)}
         {modelMode ? ` · ${modelMode}` : ''} · mode:{' '}
       </Text>
-      <Text {...(mode === 'allow_all' ? { color: 'red' } : {})}>{mode}</Text>
-      {tasks > 0 && <Text dimColor> · {tasks} background</Text>}
+      <Text {...(mode === 'allow_all' ? { color: colors.status.error } : {})}>{mode}</Text>
+      {tasks > 0 && <Text color={secondary}> · {tasks} background</Text>}
+      {props.usage && <Text color={secondary}> · {usageText(props.usage)}</Text>}
     </Text>
   );
 }

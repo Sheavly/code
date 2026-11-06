@@ -204,6 +204,37 @@ describe('RemoteConversation', () => {
   });
 
   describe('approvals', () => {
+    it('also delivers background-agent usage while no prompt is being sent', async () => {
+      const usage: StreamEntry = {
+        seq: 0,
+        at: 0,
+        sessionId: sessionIdSchema.parse('child'),
+        kind: 'event',
+        event: {
+          seq: 0,
+          type: 'usage',
+          usage: {
+            tokens: {
+              inputTokens: 100,
+              outputTokens: 20,
+              cacheReadTokens: 0,
+              cacheWriteTokens: 0,
+            },
+          },
+        },
+      };
+      const { conversation } = await open({ streamConversation: () => entries(usage) });
+      const heard: StreamEntry[] = [];
+      const { ended } = await conversation.watchApprovals({
+        onUpdate: () => undefined,
+        onUsage: (entry) => heard.push(entry),
+        signal: new AbortController().signal,
+      });
+
+      await ended;
+      expect(heard).toEqual([usage]);
+    });
+
     const asked = (seq: number, id: string): StreamEntry => ({
       seq,
       at: 0,

@@ -1,19 +1,21 @@
 import { CombinedAutocompleteProvider, Editor } from '@earendil-works/pi-tui';
 import type { TUI } from '@earendil-works/pi-tui';
-import { cyan, cyanBold, gray } from '../render/style.utils.js';
+import { bold } from '../render/style.utils.js';
+import { defaultPalette } from '../theme/palette.utils.js';
 import type { EditorOptions } from './chat-view.types.js';
 
 /** Keeps editing, history, completion and paste handling identical across renderers. */
 export function createChatEditor(params: EditorOptions & { tui: TUI }): Editor {
-  const { tui, commands, cwd } = params;
+  const { tui, commands, cwd, palette = defaultPalette } = params;
+  const { secondary, accent } = palette.paint.text;
   const editor = new Editor(tui, {
-    borderColor: gray,
+    borderColor: secondary,
     selectList: {
-      selectedPrefix: cyan,
-      selectedText: cyanBold,
-      description: gray,
-      scrollInfo: gray,
-      noMatch: gray,
+      selectedPrefix: accent,
+      selectedText: (text) => accent(bold(text)),
+      description: secondary,
+      scrollInfo: secondary,
+      noMatch: secondary,
     },
   });
 

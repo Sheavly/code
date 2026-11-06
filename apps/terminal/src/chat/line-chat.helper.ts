@@ -1,4 +1,5 @@
 import { createInterface } from 'node:readline/promises';
+import { stripVTControlCharacters } from 'node:util';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from './chat-session.service.js';
@@ -55,7 +56,8 @@ export async function runLineChat(params: {
     conversation,
     renderer,
     mainSession: details.session,
-    write,
+    // Line mode is plain text: what `/changes` prints is styled for the screen, so drop that.
+    write: (text) => write(stripVTControlCharacters(text)),
     onExit: () => (quitting = true),
   });
 

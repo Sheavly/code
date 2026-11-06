@@ -76,6 +76,7 @@ async function saveDefinition(
             name ?? (fieldText(definition[adapter.remoteField ?? '']) || adapter.kind).slice(0, 80),
           adapter: adapter.kind,
           definition,
+          ...(previous?.pricing && { pricing: previous.pricing }),
         },
         signal: ui.signal,
       });

@@ -5,12 +5,19 @@ When it asks to run a command, choose with the arrows or 1-4 and press Enter; Es
 Ctrl+C stops the running prompt; pressed again with nothing running, it quits.
 /model lists the models of your profile; /model <name> switches to one from the next prompt on.
 /mode shows reasoning effort; /mode low|medium|high|extreme sets it and remembers it for this model.
+File changes show as one collapsed line. /changes lists the files this chat changed; /changes <file>,
+/changes #<n> or /changes all shows their diffs. A failed step with more to say than its first line
+is collapsed too: /errors lists them and /errors #<n> shows one in full. Ctrl+O expands the latest
+collapsed line, whether a change or a failure.
 Tab after / lists the skills (and these commands); type more to narrow them.
 /<skill> anywhere in a message runs that skill with the message, e.g. "/git submit" or "review this /review".
 /exit or Ctrl+D (on an empty line) ends the conversation and stops what it started.`;
+
+/** The width a diff is cut to where the terminal's isn't known (the plain line chat). */
+export const LINE_COLUMNS = 80;
 
 /** A line that is one of these ends the chat. */
 export const EXIT_COMMANDS = ['/exit', '/quit'];
 
 /** The chat's own commands, offered by Tab completion at the start of a line. */
-export const CHAT_COMMANDS = ['/exit', '/help', '/model', '/mode', '/quit'];
+export const CHAT_COMMANDS = ['/changes', '/errors', '/exit', '/help', '/model', '/mode', '/quit'];
