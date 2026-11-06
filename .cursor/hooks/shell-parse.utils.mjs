@@ -31,6 +31,9 @@ const NON_EXECUTING_PROGRAMS = new Set([
   'head',
   'tail',
   'wc',
+  'cut',
+  // Rewrites the text it is given (stdin), never a file or another program.
+  'tr',
   // Status reads: what a file or process is, never writing it.
   'stat',
   'ps',

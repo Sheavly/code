@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -107,7 +108,7 @@ describe('mergeTextDeltas', () => {
 describe('diffResults', () => {
   const result = (overrides: Partial<RunResult> = {}): RunResult => ({
     outcome: 'completed',
-    endedAt: '',
+    endedAt: 0,
     durationMs: 1000,
     events: 10,
     modelCalls: 2,
@@ -266,7 +267,7 @@ describe('RunRecorder', () => {
       id: paths.id,
       prompt: 'demo',
       text: 'Read notes.md.',
-      startedAt: '2026-01-01T00:00:00.000Z',
+      startedAt: DateTime.utc(2026, 1, 1).toMillis(),
       adapter: 'test',
       model: 'test',
       workspace: '/tmp/x',

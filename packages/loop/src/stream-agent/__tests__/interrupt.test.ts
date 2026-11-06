@@ -83,15 +83,18 @@ describe('interrupts', () => {
 
     expect(providerSawAbort).toBe(true);
     expect(yieldedAfterAbort).toBe(false);
-    expect(events.map((e) => e.type)).toEqual(['text_delta', 'turn_end', 'done']);
-    expect(events[1]).toMatchObject({ type: 'turn_end', stopReason: 'interrupted' });
+    expect(events.map((e) => e.type)).toEqual(['text_delta', 'usage', 'turn_end', 'done']);
+    expect(events.find((event) => event.type === 'turn_end')).toMatchObject({
+      type: 'turn_end',
+      stopReason: 'interrupted',
+    });
 
     const done = events.at(-1);
 
     expect(done).toMatchObject({ type: 'done', reason: 'interrupted' });
 
     if (done?.type === 'done') {
-      expect(done.messages).toEqual([
+      expect(done.messages).toMatchObject([
         { role: 'assistant', content: 'Let me think', toolCalls: [] },
       ]);
     }
@@ -210,7 +213,11 @@ describe('interrupts', () => {
     });
 
     expect(seen[0]?.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'tool', 'user']);
-    expect(continued.at(-1)).toEqual({ role: 'assistant', content: 'Resuming.', toolCalls: [] });
+    expect(continued.at(-1)).toMatchObject({
+      role: 'assistant',
+      content: 'Resuming.',
+      toolCalls: [],
+    });
     expectValidHistory(continued);
   });
 

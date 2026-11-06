@@ -100,6 +100,7 @@ describe('the wire contract', () => {
         'context_added',
         'reasoning',
         'text_delta',
+        'usage',
         'tool_call_started',
         'turn_end',
         'tool_batch',

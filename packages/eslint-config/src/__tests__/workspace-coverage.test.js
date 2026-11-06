@@ -73,13 +73,56 @@ const isOn = (entry) => {
 
   return severity === 2 || severity === 'error' || severity === 1 || severity === 'warn';
 };
+/** The one module allowed to name the credentials file: its folder in `@sheavly/storage`. */
+const CREDENTIAL_STORE_FILES = /^packages[/\\]storage[/\\]src[/\\]credential-store[/\\]/;
+/** The one workspace allowed to import the credential store. */
+const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
+/**
+ * The only source files that may write a file by hand: the storage primitives every store writes
+ * through, the agent's file tools, the backend's model-call debug log, and the terminal's
+ * developer tooling (its workbook and demo). Anything else goes through `@sheavly/storage`.
+ */
+const FILE_WRITERS = new RegExp(
+  [
+    '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path)[/\\\\]',
+    '^packages[/\\\\]coding[/\\\\]src[/\\\\](files[/\\\\]files\\.helper|write-file[/\\\\]write-file\\.tool)\\.ts$',
+    '^apps[/\\\\]backend[/\\\\]src[/\\\\]harness[/\\\\]model-calls\\.helper\\.ts$',
+    '^apps[/\\\\]terminal[/\\\\]src[/\\\\](demo\\.ts$|workbook[/\\\\](recorder\\.service|store\\.service|check\\.helper)\\.ts$)',
+  ].join('|'),
+);
+
+/** A workspace's TypeScript, tests and fakes included. */
+function typescriptFiles(dir) {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.[cm]?tsx?$/.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}
+
+/**
+ * The files of a workspace's `src/` that have `rule` off and are not among those `allowed`. With
+ * `sourceOnly`, tests and fakes are left out: some rules are for the code that runs, and are off
+ * for the fixtures a test writes into a temp folder.
+ */
+async function filesWithRuleOff(params) {
+  const { dir, rule, allowed, sourceOnly = false } = params;
+  const eslint = new ESLint({ cwd: dir });
+  const off = [];
+  const files = sourceOnly
+    ? sourceFiles(path.join(dir, 'src'))
+    : typescriptFiles(path.join(dir, 'src'));
+
+  for (const file of files) {
+    const { rules } = await eslint.calculateConfigForFile(file);
+
+    if (!isOn(rules[rule])) off.push(path.relative(REPO_ROOT, file));
+  }
+
+  return off.filter((file) => !allowed.test(file));
+}
 
 /** A workspace's TypeScript source outside tests and fakes. */
 function sourceFiles(dir) {
-  return readdirSync(dir, { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && /\.[cm]?ts$/.test(entry.name))
-    .map((entry) => path.join(entry.parentPath, entry.name))
-    .filter((file) => !/[/\\](__tests__|testing)[/\\]/.test(file));
+  return typescriptFiles(dir).filter((file) => !/[/\\](__tests__|testing)[/\\]/.test(file));
 }
 
 const WORKSPACES = workspaceDirs(REPO_ROOT);
@@ -162,6 +205,46 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
         ).toEqual([]);
       },
     );
+
+    // Only the credential store may name the credentials file, and only the backend app may import
+    // the store. Pinned here, so an override that widens an exception (a whole workspace, its
+    // tests) fails this instead of passing quietly.
+    it('keeps the credentials file named only inside the credential store', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-credentials-file',
+          allowed: CREDENTIAL_STORE_FILES,
+        }),
+        `${name} lets files outside the credential store name the credentials file. Go through CredentialStore (apps/backend only) instead of turning \`harness/no-credentials-file\` off.`,
+      ).toEqual([]);
+    });
+
+    it('keeps the key holders imported only by the backend app', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-key-holder-import',
+          allowed: BACKEND_FILES,
+        }),
+        `${name} lets files outside the backend app import the credential store or the profile registry. Only the backend reads a key: ask it over the API, or take the secret as an option.`,
+      ).toEqual([]);
+    });
+
+    // Files are written in a few named places. Pinned here, so an override that widens the
+    // exception (a whole workspace, its tests, one more file) fails this instead of passing
+    // quietly: a new writer is added to `FILE_WRITERS` in review, with a reason.
+    it('keeps hand-rolled file writes to the few modules that are for it', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-direct-file-writes',
+          allowed: FILE_WRITERS,
+          sourceOnly: true,
+        }),
+        `${name} lets files outside the storage primitives write files by hand. Write the user's data through @sheavly/storage (writeJsonFile, DocumentFile, a store), and a project through the agent's file tools; do not turn \`harness/no-direct-file-writes\` off for more files.`,
+      ).toEqual([]);
+    });
 
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};

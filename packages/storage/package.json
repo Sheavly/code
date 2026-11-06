@@ -1,0 +1,60 @@
+{
+  "name": "@sheavly/storage",
+  "version": "0.0.0",
+  "description": "The user's data on disk: the folder layout under ~/.sheavly, file-backed stores for conversations, models, credentials and profiles, and the one atomic JSON write they share.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
+  },
+  "type": "module",
+  "license": "UNLICENSED",
+  "sheavly": {
+    "domain": "generic"
+  },
+  "private": true,
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
+    },
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    },
+    "./*.validator": {
+      "@sheavly/source": "./src/*.validator.ts",
+      "default": "./dist/*.validator.js"
+    },
+    "./serial-queue/*": null,
+    "./jsonl-file/*": null,
+    "./safe-path/*": null
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "dependencies": {
+    "@sheavly/core": "^0.0.0",
+    "@sheavly/protocol": "^0.0.0",
+    "@sheavly/runtime": "^0.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@sheavly/testing": "^0.0.0"
+  }
+}

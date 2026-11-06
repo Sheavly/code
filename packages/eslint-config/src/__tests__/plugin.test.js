@@ -28,15 +28,27 @@ describe('kindOfFile', () => {
     expect(kindOfFile('src/x/fooBar.utils.ts')).toBeNull();
     expect(kindOfFile('src/x/index.ts')).toBeNull();
   });
+
+  it('takes `.tsx` for a component and for a test, and for no other kind', ({ expect }) => {
+    expect(kindOfFile('src/ink/status-row.component.tsx')).toBe('component');
+    expect(kindOfFile('src/ink/__tests__/status-row.component.test.tsx')).toBe('test');
+    expect(kindOfFile('src/ink/status-row.component.ts')).toBeNull();
+    expect(kindOfFile('src/ink/status-row.service.tsx')).toBeNull();
+  });
 });
 
 ruleTester.run('file-kind', fileKind, {
   valid: [
     { code: '', filename: 'src/tools/read-file/read-file.tool.ts' },
     { code: '', filename: 'src/tools/read-file/__tests__/read-file.tool.test.ts' },
+    { code: '', filename: 'src/ink/status-row.component.tsx' },
+    { code: '', filename: 'src/ink/__tests__/status-row.component.test.tsx' },
   ],
   invalid: [
     { code: '', filename: 'src/tools/read-file/readFile.ts', errors: [{ messageId: 'badName' }] },
+    // A view is `.tsx`, and nothing else is.
+    { code: '', filename: 'src/ink/status-row.component.ts', errors: [{ messageId: 'badName' }] },
+    { code: '', filename: 'src/ink/status-row.helper.tsx', errors: [{ messageId: 'badName' }] },
     {
       code: '',
       filename: 'src/tools/read-file/read-file.test.ts',

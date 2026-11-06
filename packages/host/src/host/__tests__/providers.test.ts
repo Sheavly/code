@@ -71,7 +71,7 @@ describe('reasoning items: full tool-call round-trip through runAgent', () => {
   it.each([
     ['openai', { apiKey: 'k', model: 'gpt-6.1-sol' }],
     [
-      'azure',
+      'azure-openai',
       { apiKey: 'k', baseUrl: 'https://res.openai.azure.com/openai/v1', deployment: 'gpt-6.1-sol' },
     ],
   ] as const)('works through the %s adapter', async (kind, adapterConfig) => {

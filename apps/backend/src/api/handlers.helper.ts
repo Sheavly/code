@@ -1,4 +1,5 @@
 import type { Context } from 'hono';
+import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
 import type { RouteBody } from '@sheavly/protocol/api/api.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
@@ -7,27 +8,62 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
-import type { ApiHandlers } from './api.types.js';
+import type { ApiHandlers, ConversationRouteName } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
 import { streamEntries } from './sse.helper.js';
 
-/** The conversation id in a route's path; routes without one (`/conversations`) never read it. */
-export const idOf = (c: Context) => conversationIdSchema.parse(c.req.param('id'));
+/**
+ * The conversation id in a route's path; routes without one (`/conversations`) never read it. An
+ * id that isn't a conversation id's shape (a lowercase UUID) can name no conversation, so it
+ * answers as one nothing has does: `not_found`, not an error of the server's.
+ */
+export function idOf(c: Context): ConversationId {
+  const parsed = conversationIdSchema.safeParse(c.req.param('id'));
 
-/** Each route's handler on `conversations`. */
-export function apiHandlers(conversations: Conversations): ApiHandlers {
+  if (!parsed.success) {
+    throw new ConversationsError({
+      reason: 'not_found',
+      message: `No conversation ${c.req.param('id')}: a conversation id is a lowercase UUID`,
+    });
+  }
+
+  return parsed.data;
+}
+
+/** Each conversation route's handler on `conversations`. */
+export function apiHandlers(
+  conversations: Conversations,
+): Pick<ApiHandlers, ConversationRouteName> {
   return {
     listConversations: ({ c }) => c.json({ conversations: conversations.list() }),
+    queryStoredConversations: async ({ c, body }) =>
+      c.json({
+        conversations: await conversations.listStored({
+          search: body.search,
+          workspace: body.workspace,
+          profile: body.profile,
+        }),
+      }),
+    reopenConversation: async ({ c, id }) => c.json({ id: await conversations.reopen(id) }),
     startConversation: async ({ c, body }) =>
-      c.json({ id: await conversations.start({ messages: body.messages }) }, 201),
-    getConversation: ({ c, id }) => c.json(conversations.details(id)),
+      c.json(
+        {
+          id: await conversations.start({
+            messages: body.messages,
+            workspace: body.workspace,
+            profile: body.profile,
+          }),
+        },
+        201,
+      ),
+    getConversation: async ({ c, id }) => c.json(await conversations.details(id)),
     closeConversation: async ({ c, id }) => {
       await conversations.close(id);
 
       return c.body(null, 204);
     },
-    switchModel: ({ c, id, body }) => {
-      conversations.useModel({ id, name: body.name });
+    switchModel: async ({ c, id, body }) => {
+      await conversations.useModel({ id, modelId: body.id, ...(body.mode && { mode: body.mode }) });
 
       return c.body(null, 204);
     },

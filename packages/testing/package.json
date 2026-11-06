@@ -18,6 +18,7 @@
   "dependencies": {
     "@sheavly/core": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
+    "luxon": "^3.7.2",
     "zod": "^4.6.7"
   },
   "exports": {
@@ -29,5 +30,8 @@
       "@sheavly/source": "./src/*.types.ts",
       "default": "./dist/*.types.js"
     }
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.7.6"
   }
 }

@@ -115,7 +115,7 @@ describe('formatAgentsInstructions', () => {
 });
 
 describe('createAgentsMdHook in the loop', () => {
-  it('sends AGENTS.md as system instructions with every model call, after the host prompt', async () => {
+  it('appends AGENTS.md without changing the host system prompt', async () => {
     const requests: ProviderRequest[] = [];
     const scripted = scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]);
     const messages = await runAgent({
@@ -132,24 +132,24 @@ describe('createAgentsMdHook in the loop', () => {
       hooks: [createAgentsMdHook({ root, cwd: path.join(root, 'packages', 'core', 'src') })],
     });
 
-    const instructions = requests[0]?.instructions ?? '';
+    const instructions = requests[0]?.messages[1]?.content ?? '';
 
-    expect(instructions.startsWith('You are a careful coding agent.\n\nProject instructions')).toBe(
-      true,
-    );
+    expect(requests[0]?.instructions).toBe('You are a careful coding agent.');
+    expect(instructions).toContain('Project instructions');
     expect(instructions).toContain('Use npm.');
     expect(instructions).toContain('Core imports zod only.');
     expect(instructions).not.toContain('OUTSIDE THE PROJECT');
-    // Instructions are not history: nothing was added to the conversation.
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'hi' },
+      { role: 'user', content: instructions },
       { role: 'assistant', content: '', toolCalls: [] },
     ]);
+    expect(messages).toHaveLength(3);
   });
 
   it('re-reads AGENTS.md each turn, so an edit applies on the next model call', async () => {
     const project = await mkdtemp(path.join(tmpdir(), 'agents-md-live-'));
-    const requests: (string | undefined)[] = [];
+    const requests: ProviderRequest[] = [];
     const scripted = scriptedProvider([
       [
         toolCall({ id: '1', name: 'edit_rules', input: {} }),
@@ -162,7 +162,7 @@ describe('createAgentsMdHook in the loop', () => {
     await runAgent({
       provider: {
         stream: (request) => {
-          requests.push(request.instructions);
+          requests.push(request);
 
           return scripted.stream(request);
         },
@@ -183,8 +183,10 @@ describe('createAgentsMdHook in the loop', () => {
       hooks: [createAgentsMdHook({ root: project })],
     });
 
-    expect(requests[0]).toContain('Rule v1');
-    expect(requests[1]).toContain('Rule v2');
+    expect(requests[0]?.messages[1]?.content).toContain('Rule v1');
+    expect(requests[1]?.messages.at(-1)?.content).toContain('Rule v2');
+    expect(requests[1]?.messages.slice(0, 2)).toEqual(requests[0]?.messages);
+    expect(requests.map((request) => request.instructions)).toEqual([undefined, undefined]);
     await rm(project, { recursive: true, force: true });
   });
 });

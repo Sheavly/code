@@ -12,15 +12,17 @@ const harness = createHarness({ provider, title: prompt });
 // harness: { provider, sessions, mainSession, tasks, approvals }
 ```
 
-| Module           | What it holds                                                         |
-| ---------------- | --------------------------------------------------------------------- |
-| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types         |
-| `conversation/`  | `createConversation`: one conversation across prompts, in one session |
-| `conversations/` | `Conversations`: the live conversations a host serves, by id          |
-| `errors/`        | `ConversationsError`: no such conversation, skill or model            |
+| Module           | What it holds                                                               |
+| ---------------- | --------------------------------------------------------------------------- |
+| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types               |
+| `conversation/`  | `createConversation`: one conversation across prompts, in one session       |
+| `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones |
+| `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed  |
 
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
-the history so far, in the same session, idle between prompts until `close`.
+the history so far, in the same session, idle between prompts until `close`. A failed prompt
+keeps the user's message and completed tool work, rather than rolling back history while leaving
+the tool effects on disk.
 
 ```ts
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
@@ -46,6 +48,23 @@ const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
 ```
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
+
+`await conversations.useModel({ id, modelId, mode? })` changes one conversation's selection.
+The app restores that model's remembered mode when omitted. Switches for one conversation are
+serialized; a failed switch rejects its caller but does not block a later one. The main session
+and stored index retain the selected mode. Reopening passes the saved model/mode pair to the app,
+not the profile's more recent preference.
+
+**Keeping conversations.** Give `Conversations` a `store` (`ConversationStore`,
+`@sheavly/core/store/`) and every conversation is kept as it runs: its stream goes to the store
+through the `storage` the host hands `create` (`entries` for `createHarness`, `keepHistory` for
+`createConversation`), its history is written when a prompt starts and when it ends, and an index
+entry says its title, model and whether it is open or closed. `listStored()` lists past
+conversations (`listStored({ search })` those whose title has it, ignoring case), and `reopen(id)` brings one back under its own id, continuing from its history: its
+stream is numbered on from the last stored entry, a tool call that never returned gets a
+placeholder result, and a sub-agent that was running is `interrupted`. If storage fails, the
+conversation takes no more prompts (`storage_failed`) instead of carrying on unrecorded. With no
+store, nothing is kept and everything behaves as before.
 
 ## Docs
 

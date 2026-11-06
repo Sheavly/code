@@ -14,9 +14,13 @@ import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 const registry = createDefaultRegistry();
 const request = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 1000 };
 
+// A provider is added under the model's id, never its display name: the id is what is switched by.
+const SOL = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
+const GPT = '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71';
+
 const providers = new ProviderSwitch()
   .add(
-    'sol',
+    SOL,
     registry.create('openai', {
       apiKey: process.env.OPENAI_API_KEY,
       model: 'gpt-6.1-sol',
@@ -24,8 +28,8 @@ const providers = new ProviderSwitch()
     }),
   )
   .add(
-    'azure',
-    registry.create('azure', {
+    GPT,
+    registry.create('azure-openai', {
       apiKey: process.env.AZURE_OPENAI_API_KEY,
       baseUrl: 'https://<resource>.openai.azure.com/openai/v1',
       deployment: '<your-deployment-name>',
@@ -33,22 +37,29 @@ const providers = new ProviderSwitch()
     }),
   );
 
-providers.use('azure'); // swap at runtime; applies from the next model call
+providers.use(GPT); // swap at runtime; applies from the next model call
 ```
 
 ## Models on Azure
 
-Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two adapters:
+Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two adapters, both in
+`azure/`:
 
 | Model                                                   | Adapter           | `baseUrl`                                            |
 | ------------------------------------------------------- | ----------------- | ---------------------------------------------------- |
-| GPT on Azure OpenAI                                     | `azure`           | `https://<resource>.openai.azure.com/openai/v1`      |
-| Foundry models on `/responses` (DeepSeek V4 Flash, ...) | `azure`           | `https://<resource>.services.ai.azure.com/openai/v1` |
+| GPT on Azure OpenAI                                     | `azure-openai`    | `https://<resource>.openai.azure.com/openai/v1`      |
+| Foundry models on `/responses` (DeepSeek V4 Flash, ...) | `azure-openai`    | `https://<resource>.services.ai.azure.com/openai/v1` |
 | Claude                                                  | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted
-reasoning back takes `reasoning: false`. Claude needs `maxTokens`, and `thinkingBudget` (at least
-1024, under `maxTokens`) turns on extended thinking:
+reasoning back takes `reasoning: false`. Claude needs `maxTokens`: the maximum output tokens per
+reply including thinking, not the context window. An explicit limit must fit the deployment's
+output limit; omit it to use the model-aware default described below.
+`thinkingMode: 'adaptive'` lets supported models choose their own thinking budget, with no
+`thinkingBudget`. Models such as Sonnet 5.5 require adaptive rather than enabled thinking.
+`thinkingMode: 'enabled'` requires `thinkingBudget` (at least 1024, under `maxTokens`);
+`'disabled'` turns thinking off. For existing configurations without a mode, a budget enables
+thinking and no budget leaves thinking unspecified:
 
 ```ts
 registry.create('azure-anthropic', {
@@ -56,7 +67,7 @@ registry.create('azure-anthropic', {
   baseUrl: 'https://<resource>.services.ai.azure.com/anthropic',
   deployment: 'claude-sonnet',
   maxTokens: 16_000,
-  thinkingBudget: 4096,
+  thinkingMode: 'adaptive',
   request,
 });
 ```
@@ -80,6 +91,67 @@ Pass `providers` as the `provider` option of `runAgent`.
 A call that still fails throws a `ModelApiError` (its message names the API) whose `reason` says why (`network`,
 `timeout`, `http` with its `status`), with the original error as `cause` and Node's own reason
 in the message (`UND_ERR_SOCKET: other side closed`), so a saved run says what happened.
+
+## Describing adapters, and checking a model
+
+A UI that sets a model up never imports this package. The backend reads the registry for it:
+
+- `registry.describe()` lists every adapter for a form: its config as JSON Schema, without what the
+  backend supplies (the request policy), with the secret fields marked (`secret: true`), the names
+  of the secrets, and `remoteField`, the field that holds what the provider calls the model
+  (`model`, `deployment`). Fields carry a `title` and `description` for labels and help.
+- `registry.validateDefinition({ kind, definition, host })` says what is wrong with a model's
+  fields before any key exists: the secret is stood in for, `host` supplies the request policy, and
+  the adapter's own schema judges the rest. A key inside a definition is itself a problem, since a
+  model's file holds none. `registry.secretFields(kind)` says which fields are secrets.
+- `registry.check({ kind, config })` asks the model one tiny question through the adapter's own
+  provider and stops at the first thing it says, so the key, the endpoint and the deployment are
+  all tried at once. It never retries, gives up after `responseTimeoutMs`, and ends as `valid`,
+  `invalid` (401/403), `not_found` (404), `rejected` (any other refusal) or `unreachable` (a server
+  failure, the network, a timeout). HTTP 400/422 messages explain known adaptive-thinking and
+  output-limit failures, or point to the settings to check; HTTP 429 says to retry or check quota.
+  These are fixed explanations, never the provider's error text, which can echo what was sent.
+  Aborting `signal` rejects instead; that is not an answer.
+
+What marks a field is in its schema, so an adapter that reuses `apiKeySchema` and
+`requestPolicySchema` is described correctly with nothing more. A field named like a secret that is
+not marked one fails a test for every registered adapter.
+
+`providers.pinned(key)` hands out the provider added under `key` and keeps it there whatever the
+switch is set to, for a run pinned to one model (a sub-agent) while the main session switches. A
+host adds each provider under a model's id; a display name is never a key.
+
+### Model effort modes
+
+The backend selects low, medium, high or extreme independently for each model and conversation.
+`ProviderSwitch.setMode` changes future calls, with the effort captured in `ProviderRequest.mode`
+when the stream begins. `pinned` captures that effort as well as the provider, so a sub-agent is
+not moved by a later switch.
+
+Responses APIs receive `reasoning.effort` (low, medium, high, or xhigh for extreme). The
+Anthropic Messages API receives adaptive thinking and `output_config.effort` (low, medium, high,
+or max for extreme), with no fixed thinking budget. Completed Messages replies are kept as opaque
+replay state, with their original text, thinking and tool-block order and a hash of the request
+prefix. Signed thinking is replayed only when system instructions, tools and preceding messages
+still match. Legacy thinking without that provenance, or thinking after an edited prefix, is
+left out while text and tool calls remain. This also permits recovery from older saved chats
+without replaying invalid signatures. The AGENTS.md and skills hooks append updates to history
+rather than rewriting the system prompt. See
+[preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking).
+This requires a deployment supporting those native effort levels; an unsupported
+setting is reported by the provider, never silently relabelled as another mode. Calls without
+an effort mode retain their configured thinking behavior. See
+[Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
+
+Azure Claude's `maxTokens` defaults to 32768 for the recognized Foundry IDs `claude-sonnet-5-5`,
+`claude-opus-5-5`, `claude-haiku-5-5` and `claude-fable-5-1`, whose documented output limit is 128K
+([model specifications](https://platform.claude.com/docs/en/models/overview)). Unknown or custom
+deployment names retain a conservative 8192 default; the adapter does not guess their capabilities.
+Explicit limits, including those already saved in model files, remain unchanged. To use an
+automatic default for an existing model, remove its explicit `maxTokens` in advanced setup.
+Effort modes do not alter the resolved output limit. The Messages API's `max_tokens` and
+`model_context_window_exceeded` stop reasons are distinct in the harness, so the loop only
+attempts output continuation for the former.
 
 ## Adding a backend
 

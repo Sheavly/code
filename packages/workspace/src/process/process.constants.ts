@@ -1,4 +1,4 @@
-/** Output kept per process; anything past this is dropped (the tail is what callers stream). */
+/** Maximum returned preview size; original output still reaches pipes and output callbacks. */
 export const MAX_OUTPUT_CHARS = 30_000;
 
 /** Env vars that look like secrets are not passed to commands. */

@@ -17,17 +17,29 @@ switches off exactly one, on the files it is for, with a reason.
 | `constants` | literal values, `as const`                               | only literals                | 300       |
 | `utils`     | pure helpers: no I/O, no services                        | code                         | none      |
 | `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                | 300       |
-| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | 300       |
+| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | none      |
 | `service`   | code that owns state                                     | code, at least one class     | 300       |
 | `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
 | `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
 | `routes`    | one group of HTTP routes (a function building a `Hono`)  | code, no classes             | 150       |
 | `errors`    | error classes                                            | code                         | 150       |
+| `component` | one React view (`.tsx`), a function component            | code, no classes             | 150       |
 | `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
-| `test`      | Vitest files in `__tests__/`                             | code                         | 500       |
+| `test`      | Vitest files in `__tests__/` (`.test.tsx` for a view)    | code                         | 500       |
+
+Max lines counts lines of code (blank and comment lines aside), enforced by `max-lines`. `utils` and
+`helper` files have no cap: they are stateless functions that grow with their subject, so a long one
+is split by responsibility only when it does several jobs, not to fit a number. A file with no kind
+(an entry point, the demo) is capped at 300. The limits live in `file-kinds.js`.
 
 - `harness/file-kind`: every module file is named `<name>.<kind>.ts` (kebab-case, known kind);
-  tests only in `__tests__/`, and only tests there.
+  tests only in `__tests__/`, and only tests there. Only a `component` (a React view) is
+  `<name>.component.tsx`, and a test of one may be `.test.tsx`: a kind's extensions are in
+  `file-kinds.js`, and a package never exports a `.tsx` kind (views belong to an app).
+- **React** (`react-hooks/rules-of-hooks`, `react-hooks/exhaustive-deps`, every workspace's
+  source): a hook is called only from a component or another hook, with its dependencies listed.
+  Plain `.ts` tests and fakes are excluded because their lifecycle helpers also use `use*` names;
+  `.tsx` tests remain checked.
 - `harness/kind-contents`: code files export no types and no literal constants; those go in the
   module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` exports a class, a `*.helper.ts`
   none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
@@ -67,6 +79,35 @@ switches off exactly one, on the files it is for, with a reason.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.
+- **Keys** (`harness/no-credentials-file` and `harness/no-key-holder-import`, every file,
+  tests included): the credentials file holds every model's key, so only `CredentialStore`
+  (`@sheavly/storage`) reads it, and only the backend app uses what hands keys out. No other code
+  names `credentials.json` (in any case, with either separator, in a string or a template), and
+  none imports `@sheavly/storage/credential-store/*` or `@sheavly/storage/profile-registry/*`: an
+  open profile of the registry reads and sets keys, so it is the same door. The store refuses a
+  file others can read, never puts a key in an error and queues writes; code that opens the file
+  itself does none of that.
+  The exceptions are `files:` overrides, each in the workspace's `eslint.config.js` with its
+  reason: the credential store's own folder may name the file, and the backend app's one module
+  that holds keys may import the store (the override goes in with the module that first needs
+  it). `workspace-coverage.test.js` reads every source file's resolved config and fails an
+  override that turns a rule off outside those places (the credential store's folder for the
+  file name, `apps/backend` for the import), and fails one that covers a whole workspace, so
+  widening an exception means editing that test, where review sees it.
+- **File writes** (`harness/no-direct-file-writes`, source files; tests and fakes write fixtures
+  into temp folders and are exempt): no import of a function that creates, changes, moves or
+  deletes a file or folder from `node:fs` or `node:fs/promises` (`writeFile`, `appendFile`,
+  `rename`, `rm`, `mkdir`, `cp`, `createWriteStream`, `chmod`, `open`, and the rest, sync forms
+  included), and no whole-module import (`import fs`, `import * as fs`, `import('node:fs')`) that
+  would hide which are used: read functions are imported by name. The user's data is written
+  through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, a store): atomic
+  and private, retried on Windows, one change at a time, and the path checked. A hand-rolled copy
+  of that is how the trust store ended up with a temp name two writes could share. The exceptions
+  are `files:` overrides in the workspace's `eslint.config.js`, each with its reason: the storage
+  primitives themselves, the agent's two file-writing tools (`Workspace` confines them), the
+  backend's model-call debug log, and the terminal's developer tooling (the workbook and the
+  demo's SSE log). `workspace-coverage.test.js` lists those files and fails an override for any
+  other, or for a whole workspace.
 
 ## The rest of the config
 

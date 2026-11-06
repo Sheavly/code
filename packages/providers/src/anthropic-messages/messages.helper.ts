@@ -1,30 +1,45 @@
 import type { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
-import type { StopReason } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { ModelApiError } from '../errors/providers.errors.js';
 import { sendRequest } from '../http/request.helper.js';
-import { readServerSentEvents } from '../http/sse.utils.js';
 import { ANTHROPIC_VERSION, MESSAGES_API } from './messages.constants.js';
-import { createMessagesReader } from './events.utils.js';
 import { toMessagesApiMessages } from './input.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
   MessagesProviderConfig,
 } from './messages.types.js';
-import { messagesEventSchema } from './messages.validator.js';
+import { thinkingFor } from './thinking.utils.js';
+import { messagesPrefix } from './prefix.utils.js';
+import { messagesMaxTokens } from './output-tokens.utils.js';
+import { readMessagesReply } from './messages-stream.helper.js';
 
 /** A Provider for any backend that speaks the Anthropic Messages API. */
 export function createMessagesProvider(config: MessagesProviderConfig): Provider {
-  const { endpoint, maxTokens, thinkingBudget } = config;
-  /** Thinking signatures are only valid for the backend + model that produced them. */
-  const reasoningSource =
-    thinkingBudget === undefined ? undefined : `messages:${endpoint.baseUrl}#${endpoint.model}`;
+  const { endpoint } = config;
+  const maxTokens = messagesMaxTokens({ model: endpoint.model, maxTokens: config.maxTokens });
+  const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, tools, signal }) {
+    async *stream({ instructions, messages, tools, signal, mode }) {
+      // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
+      const reasoningSource =
+        mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
+          ? `messages:${endpoint.baseUrl}#${endpoint.model}`
+          : undefined;
+      const apiTools = tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.inputSchema,
+      }));
+      const apiMessages = toMessagesApiMessages({
+        messages,
+        reasoningSource,
+        instructions,
+        tools: apiTools,
+      });
+
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,
@@ -42,49 +57,28 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: toMessagesApiMessages({ messages, reasoningSource }),
+            messages: apiMessages,
             ...(tools.length > 0 && {
-              tools: tools.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                input_schema: tool.inputSchema,
-              })),
+              tools: apiTools,
             }),
-            ...(thinkingBudget !== undefined && {
-              thinking: { type: 'enabled', budget_tokens: thinkingBudget },
-            }),
+            ...(mode
+              ? {
+                  thinking: { type: 'adaptive' },
+                  output_config: { effort: mode === 'extreme' ? 'max' : mode },
+                }
+              : thinking && { thinking }),
             stream: true,
           }),
         },
       });
-      const reader = createMessagesReader(reasoningSource);
-      let stopReason: StopReason = 'end_turn';
-      let ended = false;
 
-      // `sendRequest` returns only a response that started, so it has a body.
-      for await (const raw of readServerSentEvents(response.body as ReadableStream<Uint8Array>)) {
-        const parsed = messagesEventSchema.safeParse(raw);
-
-        if (!parsed.success) continue; // an event type we don't use
-
-        const step = reader.read(parsed.data);
-
-        if (step.stopReason) stopReason = step.stopReason;
-        if (step.ended) ended = true;
-
-        yield* step.events;
-      }
-
-      // A body cut off mid-reply (dropped connection, proxy timeout) is not a finished turn.
-      if (!ended) {
-        signal.throwIfAborted();
-        throw new ModelApiError({
-          reason: 'cut_off',
-          message: `${MESSAGES_API} stream ended before message_stop`,
-        });
-      }
-
-      yield { type: 'done', stopReason };
+      // sendRequest guarantees a body for a started stream.
+      yield* readMessagesReply({
+        body: response.body as ReadableStream<Uint8Array>,
+        reasoningSource,
+        prefix: messagesPrefix({ instructions, tools: apiTools, messages: apiMessages }),
+        signal,
+      });
     },
   };
 }
@@ -97,6 +91,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
   kind: string;
   description: string;
   configSchema: TSchema;
+  remoteField?: string;
   toEndpoint: (config: z.infer<TSchema>) => MessagesEndpoint;
 }): Adapter<TSchema> {
   const { toEndpoint, ...adapter } = params;
@@ -108,6 +103,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
         endpoint: toEndpoint(config),
         maxTokens: config.maxTokens,
         thinkingBudget: config.thinkingBudget,
+        thinkingMode: config.thinkingMode,
         request: config.request,
         fetch: deps.fetch,
       }),

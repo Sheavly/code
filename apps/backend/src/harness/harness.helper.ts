@@ -11,25 +11,32 @@ import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
-import { MAX_TURNS } from './harness.constants.js';
-import type { TerminalHarness, TerminalHarnessOptions } from './harness.types.js';
+import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
- * What a terminal run includes, chosen here and nowhere else: the file tools, read_skill and
+ * What a backend run includes, chosen here and nowhere else: the file tools, read_skill and
  * run_command, the task tools, sub-agents (with the file tools, read_skill, and the AGENTS.md and
  * skills hooks, not run_command or the `.sheavly` hooks) and message_agent; the AGENTS.md hook,
  * the skills hook (the project's skills, and the user's when `home` is set), then the workspace's
  * `.sheavly/` hooks if it is trusted. The packages provide the pieces and the shared services,
  * never the choice. Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
  */
-export async function createTerminalHarness(
-  options: TerminalHarnessOptions,
-): Promise<TerminalHarness> {
-  const { trustStore, trustWorkspace = false, skipAllowList = false, home, ...coding } = options;
+export async function createBackendHarness(
+  options: BackendHarnessOptions,
+): Promise<BackendHarness> {
+  const {
+    trustStore,
+    trustWorkspace = false,
+    permissions,
+    home,
+    subAgentProvider,
+    ...coding
+  } = options;
   const harness = await createCodingHarness(coding);
-  const { workspace, fileLocks, processes, tasks, approvals, sessions, provider } = harness;
+  const { workspace, fileLocks, fileReads, processes, tasks, approvals, sessions, provider } =
+    harness;
   // A broken `.sheavly` hook stops the run here, with the file and the reason. An untrusted
-  // workspace loads none: `projectTrust` says why, for the terminal to show.
+  // workspace loads none: `projectTrust` says why, for a UI to show.
   const projectHooks = await loadProjectHooks({
     root: workspace.root,
     trust: trustStore,
@@ -39,9 +46,9 @@ export async function createTerminalHarness(
   const skillRoots = { root: workspace.root, home };
   const skills = createSkillsHook(skillRoots);
   const fileTools = [
-    createReadFileTool({ workspace }),
-    createWriteFileTool({ workspace, fileLocks }),
-    createEditFileTool({ workspace, fileLocks }),
+    createReadFileTool({ workspace, fileReads }),
+    createWriteFileTool({ workspace, fileLocks, fileReads }),
+    createEditFileTool({ workspace, fileLocks, fileReads }),
     createReadSkillTool(skillRoots),
   ];
 
@@ -49,16 +56,16 @@ export async function createTerminalHarness(
     ...harness,
     tools: [
       ...fileTools,
-      createRunCommandTool({ workspace, skipAllowList, tasks, approvals, processes }),
+      createRunCommandTool({ workspace, permissions, tasks, approvals, processes }),
       ...createTaskTools(tasks),
       createSubAgentTool({
         sessions,
         tasks,
         provider,
+        ...(subAgentProvider && { selectProvider: subAgentProvider }),
         runAgent: runSession,
         tools: fileTools,
         hooks: [agentsMd, skills],
-        maxTurns: MAX_TURNS,
       }),
       createMessageAgentTool({ sessions }),
     ],

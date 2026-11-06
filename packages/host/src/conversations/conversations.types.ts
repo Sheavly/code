@@ -1,13 +1,20 @@
 import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
+import type { EntryStore } from '@sheavly/core/store/store.types';
+import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { ModelId, ModelMode, ModelSelection } from '@sheavly/protocol/model/model.types';
+import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type {
   ConversationDetails,
+  ConversationId,
   ConversationSummary,
   SendPromptRequest,
 } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
+import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
 /**
  * What a prompt sends once its skills ran: the text the model reads, and what the user typed
@@ -33,12 +40,15 @@ export type ConversationSkills = {
 
 /**
  * What a conversation's run is, as the app that built it says: the workspace, the model in use
- * and the ones it can switch to, workspace trust and the allow list. The host only passes it on.
+ * and the ones it can switch to, and workspace trust (`details`, which stay as they were when the
+ * run was built); and how commands are treated in its workspace now (`permissionMode`, read each
+ * time, since the user can change it while the conversation runs). The host only passes it on.
  */
 export type ConversationRun = {
-  details: () => Omit<ConversationDetails, keyof ConversationSummary>;
-  /** Switches to the model named `name`, from the next model call; false when there is none. */
-  useModel: (name: string) => boolean;
+  details: () => Omit<ConversationDetails, keyof ConversationSummary | 'permissionMode'>;
+  permissionMode: () => Promise<PermissionMode>;
+  /** Switches to the model with this id, from the next model call; false when there is none. */
+  useModel: (id: ModelId, mode?: ModelMode) => boolean | Promise<boolean>;
 };
 
 /** One live conversation the app built: its services, the conversation, and its skills if any. */
@@ -46,23 +56,70 @@ export type LiveConversation = {
   harness: Harness;
   conversation: Conversation;
   skills?: ConversationSkills | undefined;
-  /** What the run is, for `GET /conversations/:id`; without it, the details are unknown. */
-  run?: ConversationRun | undefined;
+  /**
+   * What the run is, for `GET /conversations/:id`, and the model it starts on: every conversation
+   * has one, since a conversation is always on a model and the host records which.
+   */
+  run: ConversationRun;
   /** Releases what the app opened for it (its processes, a workspace); after `close`. */
   dispose?: (() => Promise<void>) | undefined;
 };
 
 /**
- * Builds one conversation, as the app decides it: the provider, tools and hooks, and its skills.
- * `messages` is history to continue from. The host picks none of it.
+ * What a start can say: history to continue from, the folder the conversation works in and the
+ * profile it runs on. Both are for the app to act on (see `CreateConversation`); the host passes
+ * them on and records what the run reports.
  */
-export type CreateConversation = (params: {
+export type StartConversationParams = {
   messages?: Message[] | undefined;
-}) => Promise<LiveConversation>;
+  workspace?: string | undefined;
+  profile?: ProfileId | undefined;
+  /** An explicitly resumed selection, not the profile's last-used preference. */
+  modelSelection?: ModelSelection | undefined;
+};
+
+/**
+ * Builds one conversation, as the app decides it: the provider, tools and hooks, and its skills.
+ * `id` is the conversation's own, made by the host before this runs (and a stored one's when it
+ * is reopened). `messages`, `workspace` and `profile` are what the start asked for, or what a
+ * reopened conversation was kept with: the app decides what an absent one means, and what the run
+ * reports (`ConversationRun.details`) is what the host records. `storage`, when the host keeps
+ * conversations, is what the app builds the conversation on so it is kept (see
+ * `ConversationStorage`). The host picks none of the rest.
+ */
+export type CreateConversation = (
+  params: StartConversationParams & {
+    id: ConversationId;
+    storage?: ConversationStorage | undefined;
+  },
+) => Promise<LiveConversation>;
+
+/**
+ * What an app builds a kept conversation on: its stream goes to `entries` (`createHarness`'s
+ * `entries`), and `keepHistory` is called with the history whenever a prompt starts and ends
+ * (`createConversation`'s `keepHistory`). `resume`, set when a stored conversation is reopened, is
+ * the stored log to carry on from (`createHarness`'s `resume`), and the conversation is then
+ * `resumed`: its session already ran its `sessionStart` hooks.
+ */
+export type ConversationStorage = {
+  entries: EntryStore;
+  keepHistory: (messages: readonly Message[]) => void;
+  resume?: StoredLog | undefined;
+};
 
 /** One prompt's events, and the text and parts it sent. */
 export type SentPrompt = {
   events: AsyncIterable<AgentEvent>;
   text: string;
   parts?: PromptPart[] | undefined;
+};
+
+/** What reopening a stored conversation starts from. */
+export type StoredConversationState = {
+  /** Its index entry as stored. */
+  stored: StoredConversation;
+  /** Its history, with a placeholder for every tool call that never returned. */
+  messages: Message[];
+  /** Its stream, to carry on from. */
+  resume: StoredLog;
 };

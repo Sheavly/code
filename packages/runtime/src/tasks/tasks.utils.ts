@@ -1,10 +1,13 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
-/** One readable block for the model: header line, command, then output (tail only if asked). */
-export function formatTask(params: { task: TaskInfo; outputChars?: number }): string {
-  const { task, outputChars = DEFAULT_TASK_OUTPUT_CHARS } = params;
-  const elapsed = ((task.endedAt ?? Date.now()) - task.startedAt) / 1000;
+/**
+ * One readable block for the model: header line, command, then output (tail only if asked).
+ * `now` is the time a task still running is measured to; a finished one ends at its own `endedAt`.
+ */
+export function formatTask(params: { task: TaskInfo; now: number; outputChars?: number }): string {
+  const { task, now, outputChars = DEFAULT_TASK_OUTPUT_CHARS } = params;
+  const elapsed = ((task.endedAt ?? now) - task.startedAt) / 1000;
   const parts: string[] = [task.status];
 
   if (task.exitCode !== undefined) parts.push(`exit code ${task.exitCode ?? 'unknown'}`);
@@ -24,5 +27,6 @@ export function formatTask(params: { task: TaskInfo; outputChars?: number }): st
 
 /** The message the loop adds to history so the model learns a task finished. */
 export function taskNotification(task: TaskInfo): string {
-  return `Background task finished:\n${formatTask({ task })}`;
+  // Finished, so its elapsed time ends at its own `endedAt`; `now` only matters while it runs.
+  return `Background task finished:\n${formatTask({ task, now: task.endedAt ?? task.startedAt })}`;
 }

@@ -1,6 +1,8 @@
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import type {
+  ConversationRun,
   ConversationSkills,
+  ConversationStorage,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -9,8 +11,7 @@ import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
 import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
-import { MAX_TURNS } from './harness.constants.js';
-import type { TerminalHarness } from './harness.types.js';
+import type { BackendHarness } from './harness.types.js';
 
 /**
  * A workspace's skills as a conversation offers them: the list for a `/` menu, and each prompt
@@ -43,18 +44,21 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
 }
 
 /**
- * One conversation on a terminal harness, as the backend runs it: its tools and hooks, the
- * workspace's skills, at most `maxTurns` turns a prompt, each prompt's `done` waiting for its
+ * One conversation on a backend harness: its tools and hooks, the
+ * workspace's skills, at most `maxTurns` turns a prompt (no limit without it), each prompt's `done` waiting for its
  * background tasks with `waitForTasks`. Closing it stops its background commands. `messages` is
- * history to continue from.
+ * history to continue from, and `run` what the app says the run is, the model it is on included.
  */
-export function terminalConversation(params: {
-  harness: TerminalHarness;
+export function harnessConversation(params: {
+  harness: BackendHarness;
+  run: ConversationRun;
   messages?: Message[] | undefined;
+  /** Where the host keeps this conversation (see `ConversationStorage`); none keeps nothing. */
+  storage?: ConversationStorage | undefined;
   maxTurns?: number;
   waitForTasks?: boolean;
 }): LiveConversation {
-  const { harness, messages, maxTurns = MAX_TURNS, waitForTasks = false } = params;
+  const { harness, run, messages, storage, maxTurns, waitForTasks = false } = params;
 
   return {
     harness,
@@ -63,10 +67,16 @@ export function terminalConversation(params: {
       run: streamAgent,
       tools: harness.tools,
       hooks: harness.hooks,
-      maxTurns,
+      ...(maxTurns !== undefined && { maxTurns }),
       waitForTasks,
       ...(messages && { messages }),
+      ...(storage && {
+        keepHistory: storage.keepHistory,
+        // A reopened conversation's session already ran its `sessionStart` hooks.
+        resumed: storage.resume !== undefined,
+      }),
     }),
     skills: workspaceSkills(harness.skills),
+    run,
   };
 }

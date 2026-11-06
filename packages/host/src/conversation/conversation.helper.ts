@@ -1,3 +1,5 @@
+import { now } from '@sheavly/core/clock/clock.helper';
+import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
@@ -8,7 +10,7 @@ import type { Conversation, ConversationOptions } from './conversation.types.js'
  * `streamAgent`) on the history so far with `keepSession`, so the session goes idle between
  * prompts instead of ending, and the next prompt resumes it. Background tasks outlive a prompt:
  * those that finish meanwhile are reported at the next one. An interrupted prompt leaves history
- * valid to continue from; a failed one leaves history as it was before that prompt.
+ * valid to continue from; a failed one keeps the completed work and the user's prompt too.
  */
 export function createConversation(options: ConversationOptions): Conversation {
   const { harness, run, tools, hooks = [] } = options;
@@ -17,7 +19,7 @@ export function createConversation(options: ConversationOptions): Conversation {
   const closing = new AbortController();
   let messages: Message[] = [...(options.messages ?? [])];
   let running = false;
-  let started = false;
+  let started = options.resumed ?? false;
   /** Set by the first close(): the cleanup every close() call waits for. */
   let closed: Promise<void> | undefined;
 
@@ -48,11 +50,20 @@ export function createConversation(options: ConversationOptions): Conversation {
       role: 'user',
       content: params.text,
       ...(params.parts && { parts: params.parts }),
+      at: now(),
     };
     const events = run({
       provider,
       tools,
-      hooks,
+      hooks: [
+        ...hooks,
+        defineHook({
+          name: 'conversation-history',
+          onError: async (context) => {
+            messages = [...context.messages];
+          },
+        }),
+      ],
       messages: [...messages, user],
       signal,
       tasks,
@@ -67,6 +78,9 @@ export function createConversation(options: ConversationOptions): Conversation {
       if (event.type === 'done') messages = event.messages;
     };
     let finished = false;
+
+    // The user's prompt is kept before the run starts, so a crash mid-run loses nothing they sent.
+    options.keepHistory?.([...messages, user]);
 
     try {
       for (let next = await events.next(); !next.done; next = await events.next()) {
@@ -86,6 +100,8 @@ export function createConversation(options: ConversationOptions): Conversation {
       }
 
       running = false;
+      // Provider failures do not undo tool effects, so their completed work must stay in history.
+      options.keepHistory?.(messages);
     }
   }
 

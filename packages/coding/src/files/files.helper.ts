@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
 
@@ -21,6 +22,15 @@ export async function resolveWritable(params: {
   assertNotGitDir({ relativePath: workspace.relative(real), requested });
 
   return real;
+}
+
+/**
+ * Who a file tool's call is for, as `FileReads` names it: the session making the call, so the main
+ * agent and each sub-agent are told apart. A call with no session (a tool run on its own) is the
+ * only agent there is.
+ */
+export function agentOf(context: ToolContext): string {
+  return context.session?.id ?? 'no-session';
 }
 
 /** The file's current content, or `null` if it doesn't exist yet. */

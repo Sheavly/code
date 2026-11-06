@@ -1,5 +1,5 @@
 ---
-description: .sheavly hooks load, and AGENTS.md reaches the model as its system prompt
+description: .sheavly hooks load, and AGENTS.md reaches the model as instruction context
 workspace: basic
 check:
   {

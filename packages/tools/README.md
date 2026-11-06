@@ -3,6 +3,10 @@
 The generic tools: nothing about files or commands, so any LLM project can include them. A UI
 picks which ones a run gets and builds them on the run's registries.
 
+`createSubAgentTool` optionally accepts `selectProvider`, called when an agent starts, to capture
+the parent's provider and model/mode selection. The child and its descendants retain that snapshot
+when the main conversation later switches. A supplied selection is recorded on the child's session.
+
 ```ts
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';

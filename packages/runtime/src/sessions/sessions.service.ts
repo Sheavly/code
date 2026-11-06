@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { now } from '@sheavly/core/clock/clock.helper';
+import type { StoreError } from '@sheavly/core/errors/store.errors';
+import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
+import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
-import { isOpen, toEntryEvent } from './sessions.utils.js';
+import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
   InboxMessage,
@@ -15,11 +19,13 @@ import type {
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
-import type { EntryFilter } from './sessions.types.js';
+import type { EntryFilter, StoredLog } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -36,10 +42,52 @@ type Listener = (update: SessionUpdate) => void;
 export class SessionRegistry {
   #sessions = new Map<SessionId, SessionInfo>();
   #listeners = new Set<Listener>();
-  #entries = new EntryLog({ lineage: (id) => this.lineage(id) });
+  readonly #entries: EntryLog;
   /** The session each waiting approval belongs to, so its answer lands in the same place. */
   #approvalSessions = new Map<ApprovalId, SessionId>();
   #inboxes = new Inboxes();
+
+  /**
+   * With a `store`, the combined stream is also written to it and only its newest entries stay in
+   * memory (`EntryLog`); without one, behaves as it always has. With `resume` (read from the same
+   * store by `readStoredLog`), it carries on a stored conversation: numbering continues, its
+   * sessions are back, and `restoredMain()` is the main session, idle for the next prompt. A
+   * sub-agent that was still open when the process died is `interrupted`: it is not run again.
+   */
+  constructor(options: { store?: EntryStore; resume?: StoredLog } = {}) {
+    const { store, resume } = options;
+
+    this.#entries = new EntryLog({
+      lineage: (id) => this.lineage(id),
+      ...(store && { store }),
+      ...(resume && { resume }),
+    });
+
+    if (resume) this.#restore(resume.sessions);
+  }
+
+  /**
+   * Reads a stored conversation's entries once, in order, for `new SessionRegistry({ store,
+   * resume })` to carry on from. Throws a `StoreError` when the entries have a gap.
+   */
+  static readStoredLog(store: EntryStore): Promise<StoredLog> {
+    return readStoredLog(store);
+  }
+
+  /** The first failed write to the store, if any: the conversation should stop, not go on unrecorded. */
+  get storageFailure(): StoreError | undefined {
+    return this.#entries.failure;
+  }
+
+  /** Resolves once every entry so far is in the store (or a write has failed). */
+  flushStore(): Promise<void> {
+    return this.#entries.flush();
+  }
+
+  /** How many entries of the combined stream are in memory (the newest few, with a store). */
+  get retainedEntries(): number {
+    return this.#entries.retained;
+  }
 
   /** Starts the main session (depth 1). */
   startMain(params: { title: string; id?: SessionId }): SessionRef {
@@ -48,9 +96,12 @@ export class SessionRegistry {
     return this.#add({ id, rootId: id, depth: 1, title: params.title });
   }
 
-  /** Starts a sub-agent session under `parentId`. Throws if the parent is unknown or ended, or at the depth cap. */
-  startChild(params: { parentId: SessionId; title: string }): SessionRef {
-    const { parentId, title } = params;
+  /**
+   * Starts a sub-agent session under `parentId`, which `startedByCall` (a call in the parent's
+   * history) started. Throws if the parent is unknown or ended, or at the depth cap.
+   */
+  startChild(params: { parentId: SessionId; startedByCall: CallId; title: string }): SessionRef {
+    const { parentId, startedByCall, title } = params;
     const parent = this.#sessions.get(parentId);
 
     if (!parent) {
@@ -83,10 +134,37 @@ export class SessionRegistry {
     return this.#add({
       id: sessionIdSchema.parse(randomUUID()),
       parentId,
+      startedByCall,
       rootId: parent.rootId,
       depth: parent.depth + 1,
       title,
     });
+  }
+
+  /**
+   * Records the model session `id` runs on, at its start and at each switch, and announces it
+   * (`session_model`). It is that session's only: a sub-agent's model never changes the main
+   * session's. Setting the model it already has is not announced again. Throws for an unknown
+   * session, and for one that has ended: its model is the one it ran on.
+   */
+  setModel(params: { id: SessionId; modelId: ModelId; mode?: ModelMode }): void {
+    const { id, modelId, mode } = params;
+    const session = this.#require(id);
+
+    if (!isOpen(session.state)) {
+      throw new SessionError({
+        reason: 'session_ended',
+        sessionId: id,
+        message: `Session ${id} has ended (${session.state}); its model is the one it ran on`,
+      });
+    }
+
+    if (session.modelId === modelId && session.mode === mode) return;
+
+    session.modelId = modelId;
+    if (mode) session.mode = mode;
+    else delete session.mode;
+    this.#emit({ type: 'session_model', session, modelId, ...(mode && { mode }) });
   }
 
   /** A sub-agent's own status report ("editing core package"). Ignored once the session ended. */
@@ -108,7 +186,7 @@ export class SessionRegistry {
     if (!isOpen(session.state)) return;
     session.state = params.state;
     session.lastOutcome = params.state;
-    session.endedAt = Date.now();
+    session.endedAt = now();
     this.#emit({ type: 'session_ended', session });
     this.#inboxes.wake(params.id); // nobody waits on an ended session's inbox
   }
@@ -167,7 +245,7 @@ export class SessionRegistry {
       });
     }
 
-    const message: InboxMessage = { from, content, sentAt: Date.now() };
+    const message: InboxMessage = { from, content, sentAt: now() };
 
     this.#emit({ type: 'session_message', session, message });
     this.#inboxes.add({ id, message });
@@ -199,7 +277,7 @@ export class SessionRegistry {
 
   /** The sessions `id` started directly. */
   children(id: SessionId): SessionInfo[] {
-    return this.list().filter((session) => session.parentId === id);
+    return this.list().filter((session) => 'parentId' in session && session.parentId === id);
   }
 
   /** `id` and every ancestor, up to the main session (last). */
@@ -209,7 +287,7 @@ export class SessionRegistry {
 
     while (current) {
       chain.push(current);
-      current = current.parentId === undefined ? undefined : this.get(current.parentId);
+      current = 'parentId' in current ? this.get(current.parentId) : undefined;
     }
 
     return chain;
@@ -274,9 +352,19 @@ export class SessionRegistry {
    * Calls `listener` for the entries of the combined stream `filter` picks (every session's, one
    * session's, or a session's and its sub-agents'), sub-agents included, in one `seq` order;
    * with `replay`, from the run's start. Each entry is frozen. Returns a function that stops it.
+   * With a store, a replay reaching past the entries in memory is delivered a moment later; if
+   * the store can't give them all, `onError` hears of it and no more is delivered.
    */
-  subscribeEntries(listener: (entry: StreamEntry) => void, filter?: EntryFilter): () => void {
-    return this.#entries.subscribe({ listener, ...(filter && { filter }) });
+  subscribeEntries(
+    listener: (entry: StreamEntry) => void,
+    filter?: EntryFilter,
+    onError?: (error: StoreError) => void,
+  ): () => void {
+    return this.#entries.subscribe({
+      listener,
+      ...(filter && { filter }),
+      ...(onError && { onError }),
+    });
   }
 
   /**
@@ -304,14 +392,55 @@ export class SessionRegistry {
   }
 
   #add(params: SessionRef & { title: string }): SessionRef {
-    const session: SessionInfo = { ...params, state: 'running', startedAt: Date.now() };
+    const session: SessionInfo = { ...params, state: 'running', startedAt: now() };
 
     this.#sessions.set(session.id, session);
     this.#emit({ type: 'session_started', session });
 
-    const { id, parentId, rootId, depth } = session;
+    return refOf(session);
+  }
 
-    return { id, ...(parentId !== undefined && { parentId }), rootId, depth };
+  /**
+   * The main session of a restored conversation: the one a prompt resumes. Undefined for a
+   * registry that was not restored.
+   */
+  restoredMain(): SessionRef | undefined {
+    const main = [...this.#sessions.values()].find((session) => session.depth === 1);
+
+    return main && refOf(main);
+  }
+
+  /**
+   * Puts back the sessions a stored conversation had, as their last update left them. One that
+   * was open when the process ended did not finish: a sub-agent becomes `interrupted` for good,
+   * and the main session goes idle, so the conversation can take its next prompt. The change is
+   * announced like any other, so it is in the stream and in the store.
+   */
+  #restore(sessions: readonly SessionInfo[]): void {
+    for (const session of sessions) this.#sessions.set(session.id, { ...session });
+
+    for (const session of this.#sessions.values()) {
+      if (session.depth === 1) this.#idleRestoredMain(session);
+      else if (isOpen(session.state)) this.#interruptRestoredChild(session);
+    }
+  }
+
+  /** A restored main session takes the next prompt: idle, whether it was closed or cut off. */
+  #idleRestoredMain(session: SessionInfo): void {
+    if (session.state === 'idle') return;
+
+    // A run that was still going did not finish; one that ended keeps how it did.
+    if (session.state === 'running') session.lastOutcome = 'interrupted';
+    session.state = 'idle';
+    delete session.endedAt;
+    this.#emit({ type: 'session_idle', session });
+  }
+
+  #interruptRestoredChild(session: SessionInfo): void {
+    session.state = 'interrupted';
+    session.lastOutcome = 'interrupted';
+    session.endedAt = now();
+    this.#emit({ type: 'session_ended', session });
   }
 
   #require(id: SessionId): SessionInfo {

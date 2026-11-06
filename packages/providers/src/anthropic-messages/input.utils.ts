@@ -1,9 +1,11 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { MessagesApiMessage } from './messages.types.js';
+import { messagesReplaySchema } from './messages.validator.js';
+import { messagesPrefix } from './prefix.utils.js';
 
 // Translation from our Message shape to Messages API messages.
 
 type Block = Record<string, unknown>;
-type MessagesApiMessage = { role: 'user' | 'assistant'; content: Block[] };
 
 /**
  * The history as Messages API messages. Tool results are user content, and runs of the same role
@@ -11,18 +13,25 @@ type MessagesApiMessage = { role: 'user' | 'assistant'; content: Block[] };
  * wants roles to alternate and a turn's tool results together. Empty text is left out (the API
  * rejects an empty text block), and so is a message left with nothing in it.
  *
- * `reasoningSource`: resend thinking blocks produced by this backend + model; others are dropped
- * (another provider's signature would be rejected). Undefined = send none.
+ * Replays completed replies in their original order. Legacy thinking without prefix provenance,
+ * or thinking whose instructions, tools or preceding messages changed, is not replayed.
  */
 export function toMessagesApiMessages(params: {
   messages: Message[];
   reasoningSource: string | undefined;
+  instructions: string | undefined;
+  tools: Block[];
 }): MessagesApiMessage[] {
   const { messages, reasoningSource } = params;
   const joined: MessagesApiMessage[] = [];
 
   for (const message of messages) {
-    const next = toMessage({ message, reasoningSource });
+    const prefix = messagesPrefix({
+      instructions: params.instructions,
+      tools: params.tools,
+      messages: joined,
+    });
+    const next = toMessage({ message, reasoningSource, prefix });
     const last = joined.at(-1);
 
     if (next.content.length === 0) continue;
@@ -34,24 +43,27 @@ export function toMessagesApiMessages(params: {
   return joined;
 }
 
-/** Order within an assistant turn: thinking → text → tool calls, as the API emits them. */
+/** A replay envelope retains block boundaries, including thinking between text and tool calls. */
 function toMessage(params: {
   message: Message;
   reasoningSource: string | undefined;
+  prefix: string;
 }): MessagesApiMessage {
-  const { message, reasoningSource } = params;
+  const { message, reasoningSource, prefix } = params;
   const text = (value: string): Block[] => (value ? [{ type: 'text', text: value }] : []);
 
   switch (message.role) {
     case 'user':
       return { role: 'user', content: text(message.content) };
-    case 'assistant':
+
+    case 'assistant': {
+      const content = replayContent({ message, reasoningSource, prefix });
+
+      if (content) return { role: 'assistant', content };
+
       return {
         role: 'assistant',
         content: [
-          ...(message.reasoning ?? [])
-            .filter((item) => item.source === reasoningSource)
-            .map((item) => item.data as Block),
           ...text(message.content),
           ...message.toolCalls.map((call) => ({
             type: 'tool_use',
@@ -61,6 +73,8 @@ function toMessage(params: {
           })),
         ],
       };
+    }
+
     case 'tool':
       return {
         role: 'user',
@@ -74,6 +88,33 @@ function toMessage(params: {
         ],
       };
   }
+}
+
+function replayContent(params: {
+  message: Extract<Message, { role: 'assistant' }>;
+  reasoningSource: string | undefined;
+  prefix: string;
+}): Block[] | undefined {
+  const { message, reasoningSource, prefix } = params;
+  const replay = message.reasoning?.find((item) => item.source === reasoningSource);
+  const parsed = messagesReplaySchema.safeParse(replay?.data);
+
+  if (!parsed.success) return undefined;
+
+  const { content } = parsed.data;
+  const text = content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
+  const calls = content.flatMap((block) =>
+    block.type === 'tool_use' ? [{ id: block.id, name: block.name, input: block.input }] : [],
+  );
+
+  // A caller may have edited this message while leaving its old opaque replay state attached.
+  if (text !== message.content || JSON.stringify(calls) !== JSON.stringify(message.toolCalls)) {
+    return undefined;
+  }
+
+  return content.filter(
+    (block) => parsed.data.prefix === prefix || block.type === 'text' || block.type === 'tool_use',
+  );
 }
 
 /**

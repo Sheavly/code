@@ -42,6 +42,7 @@ flowchart BT
     protocol["@sheavly/protocol"]
     providers["@sheavly/providers"]
     runtime["@sheavly/runtime"]
+    storage["@sheavly/storage"]
     tools["@sheavly/tools"]
   end
   subgraph group_coding ["coding packages"]
@@ -55,6 +56,7 @@ flowchart BT
   backend --> coding
   backend --> loop
   backend --> providers
+  backend --> storage
   backend --> tools
   client --> protocol
   coding --> host
@@ -64,8 +66,10 @@ flowchart BT
   loop --> runtime
   providers --> core
   runtime --> core
+  storage --> runtime
   terminal --> client
   terminal --> coding
+  terminal --> storage
   tools --> runtime
   workspace --> runtime
 ```
@@ -79,14 +83,14 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                                                                                                                  |
 | `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                                   |
-| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`, `azure-anthropic/`), adapter registry, `ProviderSwitch`                                                                           |
+| `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`: Azure OpenAI and Claude on Azure), adapter registry, `ProviderSwitch`                                                             |
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                                  |
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, `skills/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                           |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                           |
 | `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                     |
 | `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)                          |
-| `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createTerminalHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                     |
+| `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createBackendHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                      |
 | `apps/terminal/`          | `@sheavly/terminal`, the terminal front end on a backend it starts: the chat, the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and their `Renderer`   |
 | `apps/vscode/`            | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                                |
 
@@ -111,7 +115,7 @@ The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSub
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
 and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
-it in one place, `createTerminalHarness` (`apps/backend/src/harness/`), with its settings from
+it in one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from
 env; the terminal and every other UI reach its conversations over HTTP.
 
 ```ts
@@ -250,9 +254,10 @@ What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **pa
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
   inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)).
-- `run_command` runs only allow-listed commands without shell syntax, checks their arguments with
-  the same path rules, asks for approval when one reaches outside or can name a `.env` file, and
-  sets git config that blocks most ways a repo can make git run programs
+- `run_command` runs commands without a shell (a line may chain them with `|`, `&&`, `||` and
+  `;`), asks the user before any command they have not allowed, checks the arguments of every
+  command with the same path rules, asks for approval when one reaches outside or can name a
+  `.env` file, and sets git config that blocks most ways a repo can make git run programs
   ([run_command](../packages/coding/docs/run-command.md)).
 - Commands get the harness's env without the variables whose names look like secrets (`KEY`,
   `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL`). This is a filter on names, not complete scrubbing:
@@ -264,9 +269,9 @@ What runs with the user's full rights, outside those checks:
 - **Allowed commands, and anything they execute.** `npm test` runs the repo's npm scripts, test
   config and test files; those can read, write or send anything the user can. Argument checks
   don't reach inside them. Isolating commands is [#4](https://github.com/Sheavly/code/issues/4).
-- **Any command, with `skipAllowList`.** With it set (`RUN_COMMAND_SKIP_ALLOW_LIST=true` in the
-  demo), `run_command` runs whatever shell command the model writes, with no allow list, argument
-  checks or approvals.
+- **Everything, in a folder set to `allow_all`.** The user can tell a folder to run every command
+  without asking, argument checks and approvals included. It is a choice for one folder, kept in
+  their own folder where the agent can't change it, and a conversation reports it in its details.
 - **Git filter drivers a repo brings.** A filter defined in a cloned repo's `.git/config` and
   named in a committed `.gitattributes` still runs when an allowed `git status` or `git diff`
   does; on git older than 2.42, so does one an edited `.gitattributes` turns on.

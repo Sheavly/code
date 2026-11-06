@@ -16,26 +16,34 @@ cd ~/projects/coding-harness
 npm install
 ```
 
-## 2. Add your API key
+## 2. Set up a profile (models and keys)
 
-Keys are read from environment variables. For local dev, put them in `.env` in the project root.
-`.env` is in `.gitignore`, so it is never committed.
+Your models and keys are yours, kept in `~/.sheavly` (`SHEAVLY_HOME` moves it), never in the
+project and never in a `.env`. A **profile** is a bundle of models, their keys and your
+conversations (work, personal); each is named by a UUID, and the name inside is only a label.
 
-If you don't have a `.env` yet:
+Until the setup screens and routes exist, a profile is a few small files. Make two UUIDs (one for
+the profile, one for the model; `node -e "console.log(crypto.randomUUID())"` prints one) and write:
 
-```bash
-cp .env.example .env
+```text
+~/.sheavly/config.json                        { "defaultProfile": "<profile-id>", "workspaces": {} }
+~/.sheavly/profiles/<profile-id>/profile.json   { "id": "<profile-id>", "name": "Work" }
+~/.sheavly/profiles/<profile-id>/models/<model-id>.json
+    { "id": "<model-id>", "name": "GPT", "adapter": "openai", "model": "gpt-6.1-sol" }
+~/.sheavly/profiles/<profile-id>/credentials.json   { "<model-id>": { "apiKey": "sk-..." } }
 ```
 
-If you already have one, just add this line to it:
+The model file holds everything but the key: its `adapter` (`openai`, `azure-openai` or
+`azure-anthropic`) and that adapter's own fields (`GET /adapters` lists them; for `azure-openai` they
+are `baseUrl` and `deployment`). The key goes only in `credentials.json`, which must be readable by
+you alone (`chmod 600`); the backend refuses to read it otherwise, and never puts a key in an error.
 
-```bash
-OPENAI_API_KEY=sk-...your key...
-```
+Without a profile the backend still starts, and a conversation is refused with `not_set_up` and a
+message saying what to do.
 
-Optional: set `MODEL=...` to use a different model. The default is `gpt-6.1-sol`.
-
-In production, set `OPENAI_API_KEY` as a real environment variable instead of using `.env`.
+Settings that are about how a process runs (`WORKSPACE_ROOT`) stay environment variables;
+`.env.example` lists them. What commands the agent may run is not one: the user decides that per
+folder, and it is kept with their profiles.
 
 ## 3. Run the tests (free, no network)
 
@@ -53,35 +61,28 @@ inputs didn't change (see "Code quality").
 
 The tests use a fake `fetch` and scripted providers, so they never call a real API.
 
-## 4. First real model call (costs money)
+`npm run theme:smoke` prints a local visual preview of the default and colorblind terminal
+themes, including tool results, diffs and status text. It makes no model calls.
 
-### OpenAI (default)
+## 4. First real model call (costs money)
 
 ```bash
 npm run demo -- "Say hello in five words"
 ```
 
-### Azure
-
-Add to `.env` (your endpoint URL without `/responses` and without the `?api-version=` part):
-
-```bash
-ADAPTER=azure
-AZURE_OPENAI_API_KEY=...your azure key...
-AZURE_OPENAI_BASE_URL=https://<resource>.cognitiveservices.azure.com/openai
-AZURE_OPENAI_API_VERSION=2025-04-01-preview
-AZURE_OPENAI_DEPLOYMENT=gpt-6.1-sol
-```
-
-Then run the same command. `AZURE_OPENAI_DEPLOYMENT` must match the deployment name in the Azure portal.
+It runs on the default profile's models (step 2), and starts on the one you used last. For Azure,
+the model file is `{ "id": "<model-id>", "name": "GPT", "adapter": "azure-openai", "baseUrl":
+"https://<resource>.cognitiveservices.azure.com/openai", "deployment": "<name>" }` (the endpoint
+without `/responses` and without `?api-version=`), and `deployment` must match the deployment name in
+the Azure portal. `azure-anthropic` (Claude) is the same with its own fields.
 
 ### What it does
 
-This sends one prompt to OpenAI / `gpt-6.1-sol` through the adapter registry and streams the reply.
-A short prompt costs a fraction of a cent. See `apps/terminal/src/demo.ts`.
+This sends one prompt through the adapter registry to your model and streams the reply. A short
+prompt costs a fraction of a cent. See `apps/terminal/src/demo.ts`.
 
-If the key is missing you'll get a zod error that says `Set OPENAI_API_KEY in .env or your shell`.
-A `Responses API error 401` (or `Anthropic Messages API error 401`) means the key is wrong.
+A conversation with no usable profile is refused with `not_set_up`, and what to do. A
+`Responses API error 401` (or `Anthropic Messages API error 401`) means the key is wrong.
 
 For stored prompts, saved runs and stepping through what happened, use the workbook
 (`npm run workbook -- list`, see [the workbook doc](apps/terminal/docs/workbook.md)).
@@ -93,17 +94,16 @@ Demo settings, as environment variables (see the top of `apps/terminal/src/demo.
   system prompt and latest user message.
 - `SESSIONS_SSE_LOG=<file>`: writes the session server-sent event stream (what a UI would read)
   to a file.
-- `SHEAVLY_TRUST_FILE=<file>`: where trusted workspaces are remembered (default
-  `~/.config/sheavly/trusted-workspaces.json`). The `--trust` flag trusts the workspace's
-  `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
+- `SHEAVLY_HOME=<dir>`: your folder (default `~/.sheavly`); trusted workspaces are remembered in
+  `trusted-workspaces.json` there. The `--trust` flag trusts the workspace's `.sheavly/` hooks:
+  `npm run demo -- --trust "your prompt"`.
 
 ## Using other backends
 
-`ADAPTER=azure` (with its keys) switches the demo and the workbook to Azure. `MODELS` sets up
-several models on Azure at once (GPT, Claude, DeepSeek), each with its own keys, and the chat's
-`/model` switches between them ([several models](apps/backend/docs/harness.md#several-models-on-azure)). Creating providers
-in code, switching between them and adding a backend are in
-[@sheavly/providers](packages/providers/README.md).
+A profile holds as many models as you like, on any of the adapters (OpenAI, Azure OpenAI, Azure
+Anthropic), each with its own key, and the chat's `/model` switches between them
+([models and keys](apps/backend/docs/harness.md#models-and-keys)). Creating providers in code,
+switching between them and adding a backend are in [@sheavly/providers](packages/providers/README.md).
 
 ## Project hooks (`.sheavly/`)
 
@@ -125,6 +125,12 @@ file kinds a package's `exports` makes public (`"./*.types"`), its public API.
 
 `npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd, the
 layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
+
+The shell-write recorder distinguishes concurrent literal `npx prettier --write` operations
+using predicted formatting and verified file hashes, not timing alone. A matching formatter
+write is attributed to that sanctioned command; arbitrary or unrelated writes still fail the
+guard. Prediction does not execute project configuration scripts or plugins. Older records
+without hash evidence are never automatically dismissed.
 
 ### The pipeline (Turborepo)
 

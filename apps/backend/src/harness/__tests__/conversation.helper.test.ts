@@ -3,11 +3,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Conversations } from '@sheavly/host/conversations/conversations.service';
+import { twoModelRun } from '@sheavly/host/testing/run.fake';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { terminalConversation, workspaceSkills } from '../conversation.helper.js';
-import { createTerminalHarness } from '../harness.helper.js';
+import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { harnessConversation, workspaceSkills } from '../conversation.helper.js';
+import { createBackendHarness } from '../harness.helper.js';
+import { askingPermissions } from '../../testing/permissions.fake.js';
 
 const SKILL = '---\nname: review\ndescription: Reviews a change.\n---\nREVIEW STEPS\n';
 
@@ -15,7 +18,7 @@ let base: string;
 let root: string;
 
 beforeEach(async () => {
-  base = await mkdtemp(path.join(tmpdir(), 'terminal-conversation-'));
+  base = await mkdtemp(path.join(tmpdir(), 'harness-conversation-'));
   root = path.join(base, 'project');
   await mkdir(path.join(root, '.agents', 'skills', 'review'), { recursive: true });
   await writeFile(path.join(root, '.agents', 'skills', 'review', 'SKILL.md'), SKILL);
@@ -49,12 +52,12 @@ describe('workspaceSkills', () => {
   });
 });
 
-describe('terminalConversation', () => {
-  it('runs a prompt on the terminal’s tools and the workspace’s skills, through Conversations', async () => {
+describe('harnessConversation', () => {
+  it('runs a prompt on the harness’s tools and the workspace’s skills, through Conversations', async () => {
     const conversations = new Conversations({
       create: async ({ messages }) =>
-        terminalConversation({
-          harness: await createTerminalHarness({
+        harnessConversation({
+          harness: await createBackendHarness({
             // The message the model gets holds the skill's instructions, so any first message.
             provider: scriptedProvider([
               [
@@ -64,10 +67,14 @@ describe('terminalConversation', () => {
             ]),
             title: 'Test',
             workspaceRoot: root,
-            trustStore: new TrustStore({ file: path.join(base, 'trusted.json') }),
+            trustStore: new TrustStore({
+              persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
+            }),
             env: process.env,
+            permissions: askingPermissions(),
           }),
           messages,
+          run: twoModelRun(),
         }),
     });
     const id = await conversations.start();

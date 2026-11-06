@@ -1,10 +1,22 @@
 import { randomUUID } from 'node:crypto';
+import { now } from '@sheavly/core/clock/clock.helper';
+import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
-import type { CreateConversation, LiveConversation, SentPrompt } from './conversations.types.js';
-import { matchesSearch } from './conversations.utils.js';
+import { ConversationKeeper } from './keeper.service.js';
+import { readStoredConversation } from './stored-conversation.helper.js';
+import { ModelChanges } from './model-changes.service.js';
+import type {
+  ConversationStorage,
+  CreateConversation,
+  LiveConversation,
+  SentPrompt,
+  StartConversationParams,
+} from './conversations.types.js';
+import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
   ConversationId,
@@ -13,29 +25,119 @@ import type {
 } from '@sheavly/protocol/server/server.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
+import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
 /**
  * The live conversations a host serves, by id: each built by the app's `create`, with the
  * operations a UI calls on them. No transport: an in-process UI calls these directly, and the
  * HTTP server only turns requests into these calls, so both behave the same.
+ *
+ * Given a `store`, every conversation is kept as it runs (its stream, its history and an index
+ * entry), a past one can be listed (`listStored`) and reopened (`reopen`), and one whose storage
+ * fails is refused its next prompt rather than carried on unrecorded.
  */
 export class Conversations {
   readonly #create: CreateConversation;
+  readonly #store: ConversationStore | undefined;
   readonly #live = new Map<ConversationId, LiveConversation>();
+  /** Each live conversation's keeper, when the host has a store. */
+  readonly #keepers = new Map<ConversationId, ConversationKeeper>();
   /** Each conversation's running prompt's stop switch. */
   readonly #running = new Map<ConversationId, AbortController>();
+  readonly #modelChanges = new ModelChanges();
 
-  constructor(params: { create: CreateConversation }) {
+  constructor(params: { create: CreateConversation; store?: ConversationStore }) {
     this.#create = params.create;
+    this.#store = params.store;
   }
 
-  /** Starts a conversation, empty or continuing `messages`, and returns its id. */
-  async start(params: { messages?: Message[] | undefined } = {}): Promise<ConversationId> {
+  /**
+   * Starts a conversation, empty or continuing `messages`, and returns its id. `workspace` and
+   * `profile` are for the app to act on (see `StartConversationParams`).
+   */
+  async start(params: StartConversationParams = {}): Promise<ConversationId> {
     const id = conversationIdSchema.parse(randomUUID());
+    const keeper = this.#keeperFor(id);
+    const live = await this.#create({
+      id,
+      messages: params.messages,
+      workspace: params.workspace,
+      profile: params.profile,
+      ...(keeper && this.#storageOf({ keeper, id })),
+    });
 
-    this.#live.set(id, await this.#create({ messages: params.messages }));
+    this.#live.set(id, live);
+    this.#begin({ id, keeper });
 
     return id;
+  }
+
+  /**
+   * Brings a stored conversation back to life under its own id, continuing from its history:
+   * its stream carries on from the last stored entry, its sessions are back, and a sub-agent
+   * that was running when the process ended is `interrupted`. A conversation that is already
+   * live is left as it is. `not_found` when the store has no such conversation (or the host
+   * keeps none).
+   */
+  async reopen(id: ConversationId): Promise<ConversationId> {
+    if (this.#live.has(id)) return id;
+
+    if (!this.#store) {
+      throw new ConversationsError({
+        reason: 'not_found',
+        message: `No stored conversation ${id}: this host keeps none`,
+      });
+    }
+
+    const { stored, messages, resume } = await readStoredConversation({ store: this.#store, id });
+    const keeper = this.#keeperFor(id);
+    const storage = this.#storageOf({ keeper, id }).storage;
+    const live = await this.#create({
+      id,
+      messages,
+      // The conversation is reopened where it was kept: the app builds it on the same folder and
+      // profile, whatever it would pick for a new one now.
+      workspace: stored.workspace,
+      profile: stored.profile,
+      modelSelection: { modelId: stored.modelId, mode: stored.mode ?? 'medium' },
+      ...(storage && { storage: { ...storage, resume } }),
+    });
+
+    this.#live.set(id, live);
+    keeper?.begin({ ...stored, status: 'open' });
+    keeper?.keepHistory(messages);
+
+    return id;
+  }
+
+  /**
+   * The stored conversations, oldest first, as the store lists them, except that one marked open
+   * which no live conversation here owns is `interrupted`: the process that kept it ended. With
+   * `search`, only those whose title has it, ignoring case: the index holds no more than that, and
+   * reading every history to search it would make listing as slow as the history is long.
+   * `workspace` and `profile` keep only the conversations of that folder or that profile.
+   */
+  async listStored(
+    params: {
+      search?: string | undefined;
+      workspace?: string | undefined;
+      profile?: string | undefined;
+    } = {},
+  ): Promise<StoredConversation[]> {
+    const { search, workspace, profile } = params;
+    const stored = (await this.#store?.list()) ?? [];
+    const wanted = stored.filter(
+      (each) =>
+        (!search || matchesTitle({ stored: each, search })) &&
+        (workspace === undefined || each.workspace === workspace) &&
+        (profile === undefined || each.profile === profile),
+    );
+
+    return wanted.map((conversation) =>
+      conversation.status === 'open' && !this.#live.has(conversation.id)
+        ? { ...conversation, status: 'interrupted' }
+        : conversation,
+    );
   }
 
   /** The conversation `id`, or a `not_found` error. */
@@ -62,31 +164,48 @@ export class Conversations {
 
   /**
    * What conversation `id`'s run is: its summary, and the workspace, models and trust its app
-   * reports. `not_found` when no conversation has the id, or its app reports nothing.
+   * reports, and the permission mode its workspace has now. `not_found` when no conversation has
+   * the id.
    */
-  details(id: ConversationId): ConversationDetails {
+  async details(id: ConversationId): Promise<ConversationDetails> {
     const { run } = this.get(id);
 
-    if (!run) {
-      throw new ConversationsError({
-        reason: 'not_found',
-        message: `Conversation ${id} has no details: its app reports none`,
-      });
-    }
-
-    return { ...this.#summary(id), ...run.details() };
+    return { ...this.#summary(id), ...run.details(), permissionMode: await run.permissionMode() };
   }
 
-  /** Switches conversation `id` to the model `name` from its next model call, or `unknown_model`. */
-  useModel(params: { id: ConversationId; name: string }): void {
-    const { id, name } = params;
+  /**
+   * Switches conversation `id` to the model `modelId` from its next model call, or throws
+   * `unknown_model`. The main session records it (`session_model`) and a kept conversation's
+   * index follows, so reopening finds the model last used. Only this conversation changes: no
+   * other conversation, and no sub-agent, is on a different model because of it.
+   */
+  async useModel(params: {
+    id: ConversationId;
+    modelId: ModelId;
+    mode?: ModelMode;
+  }): Promise<void> {
+    return this.#modelChanges.run({ id: params.id, change: () => this.#useModel(params) });
+  }
 
-    if (!this.get(id).run?.useModel(name)) {
+  async #useModel(params: {
+    id: ConversationId;
+    modelId: ModelId;
+    mode?: ModelMode;
+  }): Promise<void> {
+    const { id, modelId } = params;
+    const live = this.get(id);
+
+    if (!(await live.run.useModel(modelId, params.mode))) {
       throw new ConversationsError({
         reason: 'unknown_model',
-        message: `No model ${name} in conversation ${id}; its details list the models`,
+        message: `No model with id ${modelId} in conversation ${id}; its details list the models`,
       });
     }
+
+    const mode = live.run.details().model.mode ?? 'medium';
+
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
+    this.#keepers.get(id)?.keepIndex({ modelId, mode });
   }
 
   #summary(id: ConversationId): ConversationSummary {
@@ -102,11 +221,73 @@ export class Conversations {
     };
   }
 
+  /** The keeper of conversation `id`, made on first ask; none when the host keeps nothing. */
+  #keeperFor(id: ConversationId): ConversationKeeper | undefined {
+    if (!this.#store) return undefined;
+
+    const keeper = this.#keepers.get(id) ?? new ConversationKeeper({ store: this.#store, id });
+
+    this.#keepers.set(id, keeper);
+
+    return keeper;
+  }
+
+  /** What the app builds conversation `id` on so it is kept: its stream's store and its history. */
+  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): {
+    storage?: ConversationStorage;
+  } {
+    const { keeper, id } = params;
+
+    if (!keeper || !this.#store) return {};
+
+    return {
+      storage: {
+        entries: this.#store.entries(id),
+        keepHistory: (messages) => keeper.keepHistory(messages),
+      },
+    };
+  }
+
+  /**
+   * Writes the index entry a new conversation starts with, now that its title and model exist, and
+   * records the model on the main session: the first `session_model` of its stream.
+   */
+  #begin(params: { id: ConversationId; keeper: ConversationKeeper | undefined }): void {
+    const { id, keeper } = params;
+    const live = this.get(id);
+    const summary = this.#summary(id);
+    const { model, workspace, profile } = live.run.details();
+    const modelId = model.id;
+    const mode = model.mode ?? 'medium';
+
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
+    keeper?.begin({
+      id,
+      title: summary.title,
+      modelId,
+      mode,
+      workspace,
+      profile,
+      status: 'open',
+      startedAt: summary.startedAt,
+      updatedAt: now(),
+    });
+  }
+
+  /**
+   * The failure that stops conversation `id` taking a prompt: its history, index or stream could
+   * not be stored. Undefined when storage is fine or the host keeps nothing.
+   */
+  #storageFailureOf(id: ConversationId) {
+    return this.#keepers.get(id)?.failure ?? this.get(id).harness.sessions.storageFailure;
+  }
+
   /**
    * Sends the next prompt: runs the skills it mentions or picks (when the conversation has
    * skills), then starts it. Its events are the caller's to iterate; the combined stream has them
    * too. Throws `session_running` while another runs, `unknown_skill` for a picked skill no one
-   * has, before anything starts.
+   * has, and `storage_failed` when the conversation can no longer be kept (it would carry on
+   * unrecorded), before anything starts.
    */
   async send(params: {
     id: ConversationId;
@@ -115,6 +296,16 @@ export class Conversations {
   }): Promise<SentPrompt> {
     const { id, prompt, signal } = params;
     const { conversation, skills } = this.get(id);
+    const failure = this.#storageFailureOf(id);
+
+    if (failure) {
+      throw new ConversationsError({
+        reason: 'storage_failed',
+        message: `Conversation ${id} could not be stored (${failure.message}), so it takes no more prompts rather than carry on unrecorded`,
+        cause: failure,
+      });
+    }
+
     const prepared = skills
       ? await skills.prepare({ prompt, signal })
       : { text: 'text' in prompt ? prompt.text : textOf(prompt.parts) };
@@ -178,14 +369,22 @@ export class Conversations {
     return search ? listed.filter((skill) => matchesSearch({ skill, search })) : listed;
   }
 
-  /** Closes conversation `id`: stops its prompt, tasks and processes. It is gone after. */
+  /**
+   * Closes conversation `id`: stops its prompt, tasks and processes. It is gone after, but a host
+   * with a store keeps it as `closed`, to be listed and reopened.
+   */
   async close(id: ConversationId): Promise<void> {
     const live = this.get(id);
+    const keeper = this.#keepers.get(id);
 
     this.#live.delete(id);
     this.#running.get(id)?.abort();
     await live.conversation.close();
     await live.dispose?.();
+    keeper?.keepIndex({ status: 'closed' });
+    await keeper?.flush();
+    await live.harness.sessions.flushStore();
+    this.#keepers.delete(id);
   }
 
   /** Closes every conversation: for a host shutting down. */

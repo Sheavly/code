@@ -1,3 +1,4 @@
+import { now } from '@sheavly/core/clock/clock.helper';
 import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -5,9 +6,10 @@ import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.helper.js';
+import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {
@@ -62,7 +64,22 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     signal,
   });
 
+  return finishTurn({ context, stopReason, running });
+}
+
+/** Resolves recovery, pending work and completion only after results and afterTurn hooks. */
+async function finishTurn(params: {
+  context: TurnContext;
+  stopReason: TurnStopReason;
+  running: readonly RunningCall[];
+}): Promise<DoneReason | undefined> {
+  const { context, stopReason, running } = params;
+  const { signal, session, options, aborted } = context;
+
   if (signal.aborted) return 'interrupted';
+
+  if (stopReason === 'context_window_exceeded') return 'context_window_exceeded';
+  if (stopReason === 'max_tokens') return continueAfterOutputLimit(context);
 
   if (running.length > 0) return undefined;
 
@@ -88,7 +105,8 @@ function deliverMessages(params: {
 
   for (const message of session.registry.takeMessages(session.ref.id)) {
     events.enqueue({ type: 'message_received', message });
-    messages.push({ role: 'user', content: inboxText(message) });
+    // The message is stamped with when it was sent, not when this turn read it.
+    messages.push({ role: 'user', content: inboxText(message), at: message.sentAt });
   }
 }
 
@@ -102,7 +120,11 @@ function reportFinishedTasks(params: {
 
   for (const task of tasks?.takeUnreported() ?? []) {
     events.enqueue({ type: 'task_completed', task });
-    messages.push({ role: 'user', content: taskNotification(task) });
+    messages.push({
+      role: 'user',
+      content: taskNotification(task),
+      at: task.endedAt ?? now(),
+    });
   }
 }
 

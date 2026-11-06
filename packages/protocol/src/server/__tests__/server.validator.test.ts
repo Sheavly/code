@@ -9,7 +9,35 @@ import {
   startConversationRequestSchema,
   streamQuerySchema,
   switchModelRequestSchema,
+  conversationIdSchema,
 } from '../server.validator.js';
+
+/** A model's id: a lowercase UUID, the only thing a switch is keyed by. */
+const FAST = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
+/** A conversation's id: a lowercase UUID too. */
+const CONVERSATION = '00000000-0000-4000-8000-0000000000ab';
+
+describe('conversationIdSchema', () => {
+  it('takes a lowercase UUID: it names a folder on disk and nothing else may', () => {
+    expect(conversationIdSchema.parse(CONVERSATION)).toBe(CONVERSATION);
+  });
+
+  it('refuses anything that could name another path, or the same folder twice', () => {
+    for (const bad of [
+      '',
+      'c1',
+      'nope',
+      '..',
+      '../config',
+      `${CONVERSATION}/..`,
+      CONVERSATION.toUpperCase(),
+      `${CONVERSATION} `,
+      CONVERSATION.replaceAll('-', ''),
+    ]) {
+      expect(conversationIdSchema.safeParse(bad).success, bad).toBe(false);
+    }
+  });
+});
 
 describe('sendPromptRequestSchema', () => {
   it('takes text from a script, or parts from a UI', () => {
@@ -69,29 +97,49 @@ describe('the other requests', () => {
 
 describe('the responses', () => {
   it('describes a conversation’s run, with the models it can switch to', () => {
-    const model = { name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
+    const model = { id: FAST, name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
     const details = {
-      id: 'c1',
+      id: CONVERSATION,
       title: 'Chat',
       session: 's1',
       running: false,
       startedAt: 1,
       workspace: '/work',
+      profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
       model,
       models: [model],
       projectTrust: 'untrusted',
-      skipAllowList: false,
+      permissionMode: 'ask',
     };
 
     expect(conversationDetailsSchema.parse(details)).toEqual(details);
     expect(conversationDetailsSchema.safeParse({ ...details, projectTrust: 'maybe' }).success).toBe(
       false,
     );
-    expect(switchModelRequestSchema.safeParse({ name: '' }).success).toBe(false);
+    expect(
+      conversationDetailsSchema.safeParse({ ...details, model: { ...model, id: undefined } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('switches models by id: a name is a label, and never switches anything', () => {
+    expect(switchModelRequestSchema.parse({ id: FAST })).toEqual({ id: FAST });
+    expect(switchModelRequestSchema.safeParse({ name: 'fast' }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: 'fast' }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: FAST.toUpperCase() }).success).toBe(false);
+    expect(switchModelRequestSchema.safeParse({ id: FAST, name: 'fast' }).data).toEqual({
+      id: FAST,
+    });
   });
 
   it('lists live conversations with what another UI needs to join one', () => {
-    const summary = { id: 'c1', title: 'Chat', session: 's1', running: true, startedAt: 1 };
+    const summary = {
+      id: CONVERSATION,
+      title: 'Chat',
+      session: 's1',
+      running: true,
+      startedAt: 1,
+    };
 
     expect(conversationsResponseSchema.parse({ conversations: [summary] })).toEqual({
       conversations: [summary],

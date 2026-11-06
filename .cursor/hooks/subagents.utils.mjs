@@ -5,7 +5,7 @@
 // never saw (a crash, a lost event) can't hold them back forever.
 import { chatFamily } from './chat-links.utils.mjs';
 import { ChatLinkError } from './hooks.errors.mjs';
-import { getChatState, listChatStates, updateChatState } from './hooks.utils.mjs';
+import { getChatState, hookNow, listChatStates, updateChatState } from './hooks.utils.mjs';
 
 const SUBAGENT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
@@ -33,7 +33,7 @@ function isOpen(state) {
  * start, or one already ended, is left as it is, so an ended call's real stop time survives.
  */
 export function endToolCall(params) {
-  const { toolCallId, field, now = Date.now() } = params;
+  const { toolCallId, field, now = hookNow() } = params;
 
   if (!ENDED_AT_FIELDS.includes(field)) throw new ChatLinkError(`Unknown end of a call: ${field}`);
   if (!isOpen(getChatState(toolCallId))) return false;
@@ -62,7 +62,7 @@ function lastActivity(params) {
  * tool call's id, the subagent's handle in the hook records.
  */
 export function findOpenSubagents(params) {
-  const { conversationId, now = Date.now() } = params;
+  const { conversationId, now = hookNow() } = params;
   const records = listChatStates();
   const running = [];
   const timedOut = [];

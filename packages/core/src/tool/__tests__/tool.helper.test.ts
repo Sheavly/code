@@ -57,7 +57,7 @@ describe('runTool: artifacts', () => {
     const artifacts = [{ kind: 'table', columns: ['a', 'b'], rows: 2 }];
     const result = await runTool({ tools: [tool(artifacts)], call, signal });
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       role: 'tool',
       toolCallId: '1',
       content: 'Parsed 2 rows',

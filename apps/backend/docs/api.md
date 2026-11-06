@@ -10,21 +10,106 @@ client, built from the same table.
 
 ## Routes
 
-Every route is under `/conversations`, and every request carries `Authorization: Bearer <token>`.
+Every route is under `/conversations`, `/stored-conversations` (the ones kept on disk, live or
+not), or one of the setup roots listed below. Every request carries `Authorization: Bearer <token>`.
 
-| Request                                          | Answer                                                  |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| `GET /conversations`                             | `{ conversations }`: each live one, oldest first        |
-| `POST /conversations`, `{ messages? }`           | `201 { id }`: a new conversation, continuing `messages` |
-| `GET /conversations/:id`                         | its run: workspace, models, trust, the allow list       |
-| `PUT /conversations/:id/model`, `{ name }`       | `204`: one of its models, from the next model call      |
-| `POST /conversations/:id/prompts`                | the prompt's entries as SSE, ending with its `done`     |
-| `QUERY /conversations/:id/stream`                | every entry, as SSE, while the client stays             |
-| `POST /conversations/:id/stop`                   | `204`: the running prompt stops; history stays valid    |
-| `POST /conversations/:id/approvals/:approval`    | `204`: the waiting approval is answered                 |
-| `GET /conversations/:id/messages`                | `{ messages }`: the history, valid to continue from     |
-| `QUERY /conversations/:id/skills`, `{ search? }` | `{ skills }`: what a prompt can run, for a `/` menu     |
-| `DELETE /conversations/:id`                      | `204`: its prompts, tasks and processes stop; it's gone |
+| Request                                                            | Answer                                                                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `GET /conversations`                                               | `{ conversations }`: each live one, oldest first                                                  |
+| `POST /conversations`, `{ messages?, workspace?, profile? }`       | `201 { id }`: a new conversation, continuing `messages`, in `workspace` on `profile`              |
+| `GET /conversations/:id`                                           | its run: workspace, models, trust, the permission mode                                            |
+| `PUT /conversations/:id/model`, `{ id }`                           | `204`: one of its models, by id, from the next model call                                         |
+| `POST /conversations/:id/prompts`                                  | the prompt's entries as SSE, ending with its `done`                                               |
+| `QUERY /conversations/:id/stream`                                  | every entry, as SSE, while the client stays                                                       |
+| `POST /conversations/:id/stop`                                     | `204`: the running prompt stops; history stays valid                                              |
+| `POST /conversations/:id/approvals/:approval`                      | `204`: the waiting approval is answered                                                           |
+| `GET /conversations/:id/messages`                                  | `{ messages }`: the history, valid to continue from                                               |
+| `QUERY /conversations/:id/skills`, `{ search? }`                   | `{ skills }`: what a prompt can run, for a `/` menu                                               |
+| `DELETE /conversations/:id`                                        | `204`: its prompts, tasks and processes stop; it's gone                                           |
+| `QUERY /stored-conversations`, `{ search?, workspace?, profile? }` | `{ conversations }`: every folder's and profile's, or those a title matches or that belong to one |
+| `POST /stored-conversations/:id/reopen`                            | `{ id }`: a kept one is live again, from its history                                              |
+
+### Setting the backend up
+
+A first run has no profile, so `POST /conversations` answers `409 not_set_up` until a profile has a
+model that can be used. A UI sets that up with these routes, and nothing in the user's folder needs
+editing by hand. Every id is a lowercase UUID the client makes (`crypto.randomUUID()`), so a `PUT`
+is safe to repeat; a name is a label for people. A profile is the user's setting (work, personal):
+its models and keys are its own, and a conversation sees only its profile's.
+
+| Request                                                                 | Answer                                                                          |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `GET /setup`                                                            | the home folder, profiles with models, the default and global terminal settings |
+| `PUT /terminal-settings`, `{ reducedMotion?, bell? }`                   | `204`: replaces global terminal preferences                                     |
+| `POST /terminal-settings/migrate`                                       | global preferences after migrating legacy profiles                              |
+| `GET /adapters`                                                         | what each adapter takes, as JSON Schema, with its secrets marked                |
+| `GET /profiles/:profile`                                                | one profile; `ready` says a conversation can start on it                        |
+| `PUT /profiles/:profile`, `{ name }`                                    | `204`: made or renamed                                                          |
+| `DELETE /profiles/:profile`                                             | `204`: gone with its models, keys and conversations                             |
+| `PUT /default-profile`, `{ profile }`                                   | `204`: where nothing else is chosen                                             |
+| `QUERY /workspace-profiles`, `{ workspace }`                            | `{ workspace, profile?, bound }`: what a folder runs on and why                 |
+| `PUT /workspace-profiles`, `{ workspace, profile }`                     | `204`: the folder always runs on this profile                                   |
+| `POST /workspace-profiles/unbind`, `{ workspace }`                      | `204`: the folder runs on the default again                                     |
+| `QUERY /trusted-workspaces`, `{ search? }`                              | `{ workspaces }`: each trusted folder, when, and `trusted`, `changed` or `gone` |
+| `POST /trusted-workspaces`, `{ workspace }`                             | `204`: its `.sheavly/` hooks run as they are now                                |
+| `POST /trusted-workspaces/revoke`, `{ workspace }`                      | `204`: they stop running; also for a folder that is gone                        |
+| `QUERY /permissions`, `{ workspace }`                                   | `{ workspace, mode, allow, builtIn }`: what `run_command` may do in the folder  |
+| `PUT /permissions/mode`, `{ workspace, mode }`                          | `204`: `ask`, `always_ask` or `allow_all`, from the next command of every run   |
+| `POST /permissions/allow`, `{ workspace, entry }`                       | `204`: the command runs without asking in that folder from now on               |
+| `POST /permissions/revoke`, `{ workspace, entry }`                      | `204`: it asks again; one that was not allowed is fine                          |
+| `QUERY /profiles/:profile/models`, `{ search? }`                        | `{ models }`: by name, adapter or provider-side model                           |
+| `GET /profiles/:profile/models/:model`                                  | one model, its key state and whether it is `usable`                             |
+| `PUT /profiles/:profile/models/:model`, `{ name, adapter, definition }` | `204`: checked by its adapter, never with a secret                              |
+| `DELETE /profiles/:profile/models/:model`                               | `204`: the model and its key                                                    |
+| `PUT /profiles/:profile/credentials/:model`, `{ secrets }`              | `204`: write-only, replaces the model's secrets                                 |
+| `DELETE /profiles/:profile/credentials/:model`                          | `204`: forgets the secrets, keeps the model                                     |
+| `POST /profiles/:profile/credentials/:model/check`                      | `{ status }`: one tiny call with the stored key                                 |
+
+- **A key is write-only.** No route answers with one, and no error, log line or stored file other
+  than the profile's credentials holds it. A model's `credential` is `missing`, `set` or
+  `not_needed` (its adapter has no secret): never the value.
+- **Access is handed out only on this machine.** A key, a grant of trust, and a looser permission
+  are what make the backend run something on the caller's say-so. Listening on `127.0.0.1`, `::1`
+  or `localhost` is fine; on any other address, the credential routes (set, forget and check),
+  `POST /trusted-workspaces`, `POST /permissions/allow` and `PUT /permissions/mode` to anything but
+  `always_ask` answer `403 forbidden`, so none crosses a network the backend can't vouch for.
+  Taking access away (forgetting a key, revoking trust or a command, choosing `always_ask`) and
+  looking are never refused. `SERVER_ALLOW_REMOTE_SETUP=true` allows it, which belongs only behind
+  TLS.
+- **A model is checked before it is stored.** Its adapter refuses fields it doesn't have and a
+  key where a model's fields go (`422`, saying which field and never quoting a value).
+- **Usage is reported, and cost is estimated.** `GET /conversations/:id` includes cumulative
+  `usage` across all sessions, restored from the full saved stream on reopen. Each model call
+  produces a `usage` event. Null token counts, unpriced calls and legacy history are explicit.
+  The model API also accepts optional `pricing` metadata: `input`, `output`, `cacheRead` and
+  `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
+  captures configured prices when its providers are built; saved cost estimates are never
+  recalculated on resume. The backend does not fetch prices or claim these are invoices.
+- **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
+- **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
+  in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences
+  and answers `204`. `POST /terminal-settings/migrate` returns the preferences after migrating
+  readable legacy profiles, preserving any existing global choice. Both changes require the
+  usual bearer token; neither grants access or changes a model or credential. Reads never
+  migrate or write. The terminal calls migration when opening an interactive chat or its
+  settings menu, and applies the value to all profiles, including resumed conversations.
+  Both fields are optional booleans; the bell is off by default.
+- **A folder is named by its path**, in the body (a UI knows the path; the config keeps a hash of
+  its real path, so a symlink or a trailing slash is the same folder). It is checked as a
+  conversation's workspace is (see "Several conversations at once"), so a folder that couldn't be
+  worked in can't be bound or trusted; only `revoke` takes a path that no longer exists.
+- **A folder runs on** the profile it is bound to, else the default (`QUERY /workspace-profiles`
+  says which: `bound`). A binding to a profile that was deleted counts as none.
+- **A folder's permissions are the user's, not the repo's.** They are in `permissions/` in the
+  user's folder, shared by every profile, and `run_command` reads them on every command, so
+  `PUT /permissions/mode` and `POST /permissions/allow` apply to the conversations already running
+  in that folder, and `GET /conversations/:id` reports the mode as it is now. `QUERY /permissions`
+  lists the user's own entries (`allow`, which `revoke` can remove) apart from the read-only
+  commands every folder has (`builtIn`, which it cannot). Asking about a folder writes nothing.
+- **Trusting a folder makes its `.sheavly/` hooks run**, which is code from the repo, so it is the
+  user's call and asks the same locality as a key. It trusts the hooks as they are now: a later
+  change to `.sheavly/` makes the entry `changed` and the hooks stop until it is trusted again.
+  The trust is kept outside every repo, so a repo can't trust itself.
 
 Bodies are the protocol's schemas (`@sheavly/protocol/server/`), validated with the same objects a
 client parses with. A prompt is `{ text }` (`/<name>` mentions run skills) or `{ parts }` (exactly
@@ -40,6 +125,32 @@ project skill.
 
 `GET /conversations/:id` is what the backend reports about the run it built (the host knows
 nothing of workspaces or models): a conversation that reports nothing answers `not_found`.
+
+### Several conversations at once
+
+One backend serves any number of conversations, each in its own folder on its own profile, and
+several in one folder. A start says where (`workspace`, `profile`); what it leaves out is decided
+once, then fixed for the conversation's life and kept with it:
+
+- **`workspace`** is an absolute path to an existing folder (symlinks followed; the backend's own
+  folder, `WORKSPACE_ROOT`, when omitted). It is refused (`422 bad_request`) when it is not
+  absolute, not there, not a folder, the root of a file system, the home folder (the agent can
+  change everything inside its workspace), or holds or sits inside the folder where profiles and
+  keys are kept.
+- **`profile`** is a profile's id. Left out, it is the profile the folder is bound to, else the
+  default. An id no profile has is `422 bad_request`, and no profile at all is `409 not_set_up`.
+- **Where it is kept.** Under `profiles/<profile>/workspaces/<folder>/conversations/<id>/`, so a
+  profile's conversations of different folders never mix, and a restart finds every one of them.
+  `GET /conversations/:id` and `QUERY /stored-conversations` say which folder and profile each
+  belongs to, and the stored query filters by either.
+- **Reopening** puts a conversation back in the folder and on the profile it was kept with, not
+  where a new one would go now. A folder deleted since is refused (`422`) and the conversation is
+  kept.
+- **What several share.** The file locks (edits to one file by any of them take turns, whichever
+  profile each runs on). Everything else is its own: models, keys, sessions, history, stream and
+  what the agent has read (an edit needs a read by the same conversation).
+- **What they don't share yet.** Two conversations editing one file can still work from different
+  views of it: the locks keep each write whole, not the two agents agreed.
 
 ## Streams
 
@@ -92,7 +203,7 @@ Every failure is `{ error: { code, message } }` (`ServerError`):
 | 404    | `unknown_approval` | no approval waiting with that id                       |
 | 409    | `session_running`  | a prompt is still running in that conversation         |
 | 422    | `unknown_skill`    | `parts` picked a skill no one has                      |
-| 422    | `unknown_model`    | `PUT /model` named a model the conversation hasn't     |
+| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't       |
 | 500    | `internal`         | the server failed; the message never holds its details |
 
 A prompt that can't start is answered with an error before its stream opens.
@@ -109,4 +220,4 @@ A prompt that can't start is answered with an error before its stream opens.
 The API is built so it can move off localhost later: the bind address is a setting, the token is
 only ever a header, a dropped stream resumes with `Last-Event-ID`, and the routes are web-standard
 `Request`/`Response`. What hosting it for others still needs (TLS, users, a sandbox per
-workspace, keeping conversations across restarts) is still to come.
+workspace) is still to come.

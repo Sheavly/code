@@ -7,8 +7,9 @@ for the background tasks it started before it ends (Ctrl+C stops waiting).
 
 What a run includes and how it's set up are [the backend's settings](../../backend/docs/serve.md#settings),
 passed in the environment to the backend the demo starts: `WORKSPACE_ROOT`, `SHOW_MODEL_CALLS`,
-`RUN_COMMAND_SKIP_ALLOW_LIST`, the model's (`ADAPTER` and its keys, or
-[`MODELS`](../../backend/docs/harness.md#several-models-on-azure)), `SHEAVLY_TRUST_FILE`. The
+`SHEAVLY_HOME` and `SHEAVLY_TRUST_FILE`. The models and keys it runs on
+are in your profile (`~/.sheavly`), not here: see
+[models and keys](../../backend/docs/harness.md#models-and-keys). The
 `--trust` flag trusts the workspace's `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
 The demo's own:
 

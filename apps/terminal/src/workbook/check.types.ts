@@ -24,6 +24,8 @@ export type Observed = {
   reply: string;
   /** Event types, in order. */
   events: readonly string[];
+  /** Hooks that emitted context_added events, in order. */
+  contextHooks: readonly string[];
   /** Tool names, in the order first called. */
   tools: readonly string[];
   outcome: string;

@@ -1,3 +1,4 @@
+import { now } from '../clock/clock.helper.js';
 import type { Tool, ToolRunResult } from './tool.types.js';
 import { validate } from '../validation/validation.validator.js';
 import { withDescription } from './tool.validator.js';
@@ -20,6 +21,7 @@ export async function runTool(params: {
     toolCallId: call.id,
     content,
     isError,
+    at: now(),
   });
 
   const tool = tools.find((t) => t.name === call.name);

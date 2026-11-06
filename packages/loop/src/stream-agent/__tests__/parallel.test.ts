@@ -27,6 +27,51 @@ function timedTool(finished: string[]) {
   });
 }
 
+/** Starts every call before the test releases completions in a chosen order. */
+function gatedTool(ids: string[], finished: string[]) {
+  const started = Promise.withResolvers<undefined>();
+  const gates = new Map(
+    ids.map((id) => [
+      id,
+      {
+        release: Promise.withResolvers<undefined>(),
+        completed: Promise.withResolvers<undefined>(),
+      },
+    ]),
+  );
+  let pending = ids.length;
+  const tool = defineTool({
+    name: 'wait',
+    description: 'Wait for an explicit completion signal',
+    inputSchema: z.object({ id: z.string() }),
+    execute: async ({ input: { id } }) => {
+      const gate = gates.get(id);
+
+      if (!gate) throw new Error(`Unexpected call ${id}`);
+      if (--pending === 0) started.resolve(undefined);
+
+      await gate.release.promise;
+      finished.push(id);
+      gate.completed.resolve(undefined);
+
+      return `done ${id}`;
+    },
+  });
+
+  return {
+    tool,
+    started: started.promise,
+    async finish(id: string) {
+      const gate = gates.get(id);
+
+      if (!gate) throw new Error(`Unexpected completion ${id}`);
+
+      gate.release.resolve(undefined);
+      await gate.completed.promise;
+    },
+  };
+}
+
 const call = (id: string, input: Record<string, unknown>, name = 'wait'): ToolCall => ({
   id: callIdSchema.parse(id),
   name,
@@ -79,14 +124,21 @@ describe('parallel tool calls', () => {
 
   it('returns results to the model matched to their calls, in call order', async () => {
     const finished: string[] = [];
-    const messages = await runAgent({
-      provider: scriptedProvider(parallelTurn([call('slow', { ms: 40 }), call('fast', { ms: 1 })])),
-      tools: [timedTool(finished)],
+    const controlled = gatedTool(['slow', 'fast'], finished);
+    const run = runAgent({
+      provider: scriptedProvider(parallelTurn([call('slow', {}), call('fast', {})])),
+      tools: [controlled.tool],
       messages: [],
     });
 
+    await controlled.started;
+    await controlled.finish('fast');
+    await controlled.finish('slow');
+
+    const messages = await run;
+
     expect(finished).toEqual(['fast', 'slow']); // fast really did finish first
-    expect(messages.slice(1, 3)).toEqual([
+    expect(messages.slice(1, 3)).toMatchObject([
       { role: 'tool', toolCallId: 'slow', content: 'done slow', isError: false },
       { role: 'tool', toolCallId: 'fast', content: 'done fast', isError: false },
     ]);
@@ -95,15 +147,22 @@ describe('parallel tool calls', () => {
   it("renders a faster tool's result after a slower earlier one (call order, not completion order)", async () => {
     const finished: string[] = [];
     const events: AgentEvent[] = [];
+    const controlled = gatedTool(['slow', 'mid', 'fast'], finished);
 
-    await runAgent({
+    const run = runAgent({
       provider: scriptedProvider(
-        parallelTurn([call('slow', { ms: 40 }), call('mid', { ms: 20 }), call('fast', { ms: 1 })]),
+        parallelTurn([call('slow', {}), call('mid', {}), call('fast', {})]),
       ),
-      tools: [timedTool(finished)],
+      tools: [controlled.tool],
       messages: [],
       onEvent: (e) => events.push(e),
     });
+
+    await controlled.started;
+    await controlled.finish('fast');
+    await controlled.finish('mid');
+    await controlled.finish('slow');
+    await run;
 
     expect(finished).toEqual(['fast', 'mid', 'slow']);
     expect(toolResults(events)).toEqual(['slow', 'mid', 'fast']);
@@ -170,9 +229,10 @@ describe('parallel tool calls', () => {
 
     await runAgent({ provider, tools: [quick], messages: [], onEvent: (e) => events.push(e) });
 
-    expect(events.slice(0, 5).map((e) => e.type)).toEqual([
+    expect(events.slice(0, 6).map((e) => e.type)).toEqual([
       'tool_call_started',
       'text_delta', // model output that came after the call...
+      'usage',
       'turn_end', // ...and the end of the model's turn...
       'tool_batch',
       'tool_result', // ...both render before the result, even though it finished first

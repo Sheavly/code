@@ -1,6 +1,5 @@
 import { whenAborted } from '../abort/abort.utils.js';
 import { OrderedQueue } from '../queue/queue.service.js';
-import { DEFAULT_MAX_TURNS } from './stream-agent.constants.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
 import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
@@ -77,8 +76,10 @@ function mainSession(): RunSession {
 /** The loop itself: call the model, run requested tools, feed results back, repeat. */
 async function drive(context: RunContext) {
   const { options, session, events, signal } = context;
-  const { maxTurns = DEFAULT_MAX_TURNS, hooks = [] } = options;
+  const { maxTurns = Infinity, hooks = [] } = options;
   const messages = [...options.messages];
+  const outputRecovery = { attempts: 0 };
+  // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
   let reason: DoneReason = 'max_turns';
 
   // Every event is published to the session's registry as it is released, mid-turn: a session
@@ -103,7 +104,7 @@ async function drive(context: RunContext) {
     }
 
     for (let turn = 1; turn <= maxTurns; turn++) {
-      const ended = await runTurn({ ...context, turn, messages });
+      const ended = await runTurn({ ...context, turn, messages, outputRecovery });
 
       if (ended) {
         reason = ended;

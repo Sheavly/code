@@ -5,6 +5,8 @@ parallel inside the run's hooks, and emits typed events in causal order with a g
 `runAgent` runs it to the end and returns the history; `runSession` is the same for a sub-agent.
 It knows the core contracts and the runtime registries, and nothing about files, workspaces or
 which tools a run has.
+Each attempted model call emits one `usage` event before its `turn_end`, including failed or
+interrupted calls with unknown usage. These statistics are for UIs and are not model history.
 
 ```ts
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';

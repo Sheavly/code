@@ -1,0 +1,367 @@
+import type { Renderer } from '../render/render.service.js';
+import type { RunningTool, Write } from '../render/render.types.js';
+import { defaultPalette } from '../theme/palette.utils.js';
+import type { Palette } from '../theme/theme.types.js';
+import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
+import { changesText } from '../changes/changes-text.utils.js';
+import type { LinkFile } from '../changes/changes.types.js';
+import { failuresText } from '../failures/failures-text.utils.js';
+import { CHAT_HELP, LINE_COLUMNS } from './chat.constants.js';
+import type { ChatConversation, StopResult, TurnOutcome } from './chat.types.js';
+import { listModels, parseChatInput, pickModel, unknownCommand } from './chat.utils.js';
+import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
+
+/**
+ * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
+ * conversation's output comes out through `write`. A line sent while another runs waits its turn
+ * and is shown by `onQueue`, so what was typed is never lost or sent out of order. A UI decides
+ * what a key does (Ctrl+C is `stop`) and what to show; this only does it.
+ *
+ * The chat's commands (`/help`, `/model`, `/exit`) and skills (`/<name>`) are read here, so every
+ * UI that has a text box treats them the same.
+ */
+export class ChatSession {
+  readonly #conversation: ChatConversation;
+  readonly #renderer: Renderer;
+  readonly #mainSession: string;
+  readonly #write: Write;
+  readonly #onQueue: (queue: readonly string[]) => void;
+  readonly #onBusy: (busy: boolean) => void;
+  readonly #onSend: (text: string) => void;
+  readonly #onTurnEnd: (outcome: TurnOutcome) => void;
+  readonly #onReplyComplete: () => void;
+  readonly #linkFile: LinkFile;
+  readonly #onTools: (tools: readonly RunningTool[]) => void;
+  readonly #onUsage: (entry: StreamEntry) => void;
+  readonly #onExit: () => void;
+  readonly #columns: () => number;
+  readonly #palette: Palette;
+  #reportedTools: readonly RunningTool[];
+  #queue: string[] = [];
+  #current: AbortController | undefined;
+  #draining = false;
+  #ended = false;
+  #idle: Promise<void> = Promise.resolve();
+
+  constructor(params: {
+    conversation: ChatConversation;
+    renderer: Renderer;
+    /** The id of the conversation's main session: only its events are shown. */
+    mainSession: string;
+    write: Write;
+    /** Told whenever the lines waiting their turn change. */
+    onQueue?: (queue: readonly string[]) => void;
+    /** Told when the chat starts running lines, and when it has run them all. */
+    onBusy?: (busy: boolean) => void;
+    /** Told when a message starts running (not when it is queued), so a UI can show it. */
+    onSend?: (text: string) => void;
+    /** Told when a message has run to its end, after all its output was written. */
+    onTurnEnd?: (outcome: TurnOutcome) => void;
+    /** After all output, only for a backend-confirmed completed prompt, never errors or stops. */
+    onReplyComplete?: () => void;
+    /** Makes a file path in what `/changes` prints a link; a path as it is if none. */
+    linkFile?: LinkFile;
+    /** Told whenever the set of tools running changes, so a UI can show what it waits on. */
+    onTools?: (tools: readonly RunningTool[]) => void;
+    /** Usage entries from every session, including sub-agents; seq allows replay deduplication. */
+    onUsage?: (entry: StreamEntry) => void;
+    /** Told once, when the user asked to leave. */
+    onExit: () => void;
+    /** The terminal's width now, which a diff is cut to; a plain line terminal has none. */
+    columns?: () => number;
+    /** The colours of what `/changes` and `/errors` print; the default theme's if none. */
+    palette?: Palette;
+  }) {
+    this.#conversation = params.conversation;
+    this.#renderer = params.renderer;
+    this.#reportedTools = params.renderer.running;
+    this.#mainSession = params.mainSession;
+    this.#write = params.write;
+    this.#onQueue = params.onQueue ?? (() => undefined);
+    this.#onBusy = params.onBusy ?? (() => undefined);
+    this.#onSend = params.onSend ?? (() => undefined);
+    this.#onTurnEnd = params.onTurnEnd ?? (() => undefined);
+    this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
+    this.#linkFile = params.linkFile ?? ((path) => path);
+    this.#onTools = params.onTools ?? (() => undefined);
+    this.#onUsage = params.onUsage ?? (() => undefined);
+    this.#onExit = params.onExit;
+    this.#columns = params.columns ?? (() => LINE_COLUMNS);
+    this.#palette = params.palette ?? defaultPalette;
+  }
+
+  /** Whether a line is being run now. */
+  get busy(): boolean {
+    return this.#draining;
+  }
+
+  /** The lines waiting for the running one to finish, oldest first. */
+  get queued(): readonly string[] {
+    return this.#queue;
+  }
+
+  /**
+   * Takes a line the user entered: run now when nothing runs, else after what is running. After
+   * the user has asked to leave, lines are dropped, as they were never going to be sent.
+   */
+  submit(line: string): void {
+    if (this.#ended) return;
+    this.#queue.push(line);
+    this.#onQueue(this.#queue);
+    if (!this.#draining) this.#idle = this.#drain();
+  }
+
+  /** What `/changes <target>` says: the files changed in this chat, or the diffs `target` names. */
+  describeChanges(target?: string): string {
+    return changesText({
+      edits: this.#renderer.changes.edits,
+      target,
+      columns: this.#columns(),
+      palette: this.#palette,
+      linkFile: this.#linkFile,
+    });
+  }
+
+  /** What `/errors <target>` says: the failed steps with more to say, or the one `target` names. */
+  describeFailures(target?: string): string {
+    return failuresText({
+      failures: this.#renderer.failures.failures,
+      target,
+      palette: this.#palette,
+    });
+  }
+
+  /**
+   * The newest collapsed line's whole text, for a key that expands it: a failure's message or a
+   * file change's diff, whichever was printed last; says so when there is neither.
+   */
+  describeLatest(): string {
+    const failure = this.#renderer.failures.failures.at(-1);
+
+    if (failure && this.#renderer.latestExpandable === 'failure') {
+      return this.describeFailures(String(failure.number));
+    }
+
+    const change = this.#renderer.changes.edits.at(-1);
+
+    return this.describeChanges(change && String(change.number));
+  }
+
+  /** Resolves when nothing runs and nothing waits. */
+  idle(): Promise<void> {
+    return this.#idle;
+  }
+
+  /**
+   * Stops the running prompt; its history stays valid and the next line continues from it. Lines
+   * waiting still run after it: stopping a prompt is not leaving.
+   */
+  stop(): StopResult {
+    if (!this.#current) return 'idle';
+    if (this.#current.signal.aborted) return 'stopping';
+    this.#current.abort();
+
+    return 'stopped';
+  }
+
+  /** Drops the lines waiting, which a user who is leaving does not want sent. */
+  dropQueued(): void {
+    this.#queue = [];
+    this.#onQueue(this.#queue);
+  }
+
+  async #drain(): Promise<void> {
+    this.#draining = true;
+    this.#onBusy(true);
+
+    try {
+      for (let line = this.#queue.shift(); line !== undefined; line = this.#queue.shift()) {
+        this.#onQueue(this.#queue);
+        if (!(await this.#handle(line))) break;
+      }
+    } finally {
+      this.#draining = false;
+      this.#onBusy(false);
+    }
+  }
+
+  /** Handles one line; false once the user asked to leave. */
+  async #handle(line: string): Promise<boolean> {
+    const parsed = parseChatInput(line);
+
+    switch (parsed.kind) {
+      case 'exit':
+        this.#ended = true;
+        this.dropQueued();
+        this.#onExit();
+
+        return false;
+      case 'help':
+        this.#print(CHAT_HELP);
+        break;
+      case 'changes':
+        this.#print(this.describeChanges(parsed.target));
+        break;
+      case 'errors':
+        this.#print(this.describeFailures(parsed.target));
+        break;
+      case 'model':
+        await this.#printCommand(() => this.#modelCommand(parsed.name));
+        break;
+      case 'mode':
+        await this.#printCommand(() => this.#modeCommand(parsed.name));
+        break;
+      case 'prompt':
+        await this.#send(parsed.text);
+        break;
+      case 'empty':
+        break;
+    }
+
+    return true;
+  }
+
+  #print(text: string): void {
+    this.#write(`${text}\n`);
+  }
+
+  async #printCommand(run: () => Promise<string>): Promise<void> {
+    try {
+      this.#print(await run());
+    } catch (caughtError) {
+      this.#print(
+        `✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}`,
+      );
+    }
+  }
+
+  /**
+   * Runs one message to its end, printing its entries; a failure is shown, and the chat goes on.
+   * Skills it mentions (`/<name>` anywhere in it) run with it; one it starts with that no skill
+   * has is an unknown command, reported instead of sent.
+   */
+  async #send(text: string): Promise<void> {
+    const current = new AbortController();
+
+    let outcome: TurnOutcome = 'completed';
+    let completed = false;
+
+    this.#current = current;
+    this.#onSend(text);
+
+    try {
+      const known = new Set((await this.#conversation.skills()).map(({ name }) => name));
+      const unknown = unknownCommand({
+        text,
+        unknown: findSkillMentions(text)
+          .map(({ name }) => name)
+          .filter((name) => !known.has(name)),
+      });
+
+      if (unknown) {
+        this.#print(`Unknown command /${unknown}; /help lists them.`);
+        this.#onTurnEnd(outcome);
+
+        return;
+      }
+
+      completed = await this.#showEntries({ text, signal: current.signal });
+    } catch (caughtError) {
+      outcome = 'failed';
+      this.#write(
+        `\n✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
+      );
+    } finally {
+      this.#current = undefined;
+      // A failure or a stop can end the stream without the result of a call that was running.
+      this.#renderer.clearRunning();
+      this.#reportTools();
+    }
+
+    this.#write('\n');
+    if (completed && !current.signal.aborted) this.#onReplyComplete();
+    this.#onTurnEnd(outcome);
+  }
+
+  /** Prints a message's entries as they stream, telling the UI when the running tools change. */
+  async #showEntries(params: { text: string; signal: AbortSignal }): Promise<boolean> {
+    let completed = false;
+
+    for await (const entry of this.#conversation.send(params)) {
+      if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
+      this.#renderer.entry(entry, this.#mainSession);
+      this.#reportTools();
+
+      if (
+        entry.sessionId === this.#mainSession &&
+        entry.kind === 'event' &&
+        entry.event.type === 'done'
+      ) {
+        completed = entry.event.reason === 'completed';
+      }
+    }
+
+    return completed;
+  }
+
+  /** Tells the UI the running tools, when they are not the ones it was last told. */
+  #reportTools(): void {
+    if (this.#renderer.running === this.#reportedTools) return;
+    this.#reportedTools = this.#renderer.running;
+    this.#onTools(this.#reportedTools);
+  }
+
+  /**
+   * `/model` lists the models; `/model <id or name>` switches to one, from the next model call on.
+   * What is typed only finds the model (`pickModel`): the switch is made by its id.
+   */
+  async #modelCommand(typed: string | undefined): Promise<string> {
+    const { model, models } = await this.#conversation.details();
+
+    if (models.length === 0) {
+      return `Only ${model.adapter} / ${model.model} is set up in this profile: add another model to switch.`;
+    }
+
+    if (typed === undefined) return listModels({ choices: models, active: model.id });
+
+    const picked = pickModel({ choices: models, typed });
+
+    if (picked.kind === 'none') return `Unknown model ${typed}; /model lists them.`;
+
+    if (picked.kind === 'ambiguous') {
+      const same = listModels({ choices: picked.choices, active: model.id });
+
+      return `${String(picked.choices.length)} models are called ${typed}; use an id:\n${same}`;
+    }
+
+    const { choice } = picked;
+
+    if (!(await this.#conversation.useModel(choice.id))) {
+      return `Unknown model ${typed}; /model lists them.`;
+    }
+
+    const updated = await this.#conversation.details();
+
+    return `→ ${choice.name}: ${choice.adapter} / ${choice.model} · ${updated.model.mode ?? 'medium'}`;
+  }
+
+  async #modeCommand(typed: string | undefined): Promise<string> {
+    const { model } = await this.#conversation.details();
+
+    if (typed === undefined) {
+      return `${model.name} · ${model.mode ?? 'medium'}\nModes: low, medium, high, extreme`;
+    }
+
+    const mode = modelModeSchema.safeParse(typed.toLowerCase());
+
+    if (!mode.success) return 'Choose a mode: low, medium, high, extreme.';
+
+    if (!(await this.#conversation.useModel(model.id, mode.data))) {
+      return 'The selected model is no longer available.';
+    }
+
+    return `→ ${model.name} · ${mode.data}`;
+  }
+}

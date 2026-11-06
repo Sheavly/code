@@ -1,36 +1,270 @@
 # The chat
 
-One conversation you keep talking to, in the terminal: `npm run dev -w @sheavly/terminal` (from
-source) or `npm run start -w @sheavly/terminal` (built first, then plain Node), or `npm run dev` /
-`npm run start` inside `apps/terminal`. `npm run dev -w @sheavly/terminal -- "first message"`
-starts with that message. It works from the folder you start it in (`.env`, the default
-workspace), and calls the real API, so it costs money. The root has no `dev` or `start`: each UI
-has its own.
+One conversation you keep talking to, in the terminal: `npm run dev:terminal` from the repo root
+(from source), `npm run dev -w @sheavly/terminal`, or `npm run start -w @sheavly/terminal` (built
+first, then plain Node), or `npm run dev` / `npm run start` inside `apps/terminal`.
+`npm run dev:terminal -- "first message"` starts with that message. It works from the folder you
+start it in (the default workspace), and calls the real API, so it costs money. The root has
+`dev:terminal` but no plain `dev` or `start`: each UI has its own.
 
 - Each message continues the same conversation, on the [backend](demo.md#the-backend) the chat
   starts: the model sees the history so far, in one session, idle between messages. The chat is
   a UI like any other: it reaches the conversation only over HTTP, as an editor would.
+- **On a terminal it is a screen**, drawn on the terminal's main screen: what has happened scrolls
+  up into the terminal's own history, so its scrollback, search and text selection keep working,
+  and only the bottom is redrawn (the line being written, a question waiting for you, queued
+  messages, a status line and the editor). The status line says what it is doing (`ready`,
+  `working`, `waiting for you`), the model, the folder's permission mode (`allow all` in red) and
+  how many background tasks run. Without a terminal (piped input, or `SHEAVLY_PLAIN=1`) it reads
+  and writes lines, as it always did.
+- **React and Ink draw the screen.** Completed lines are committed once with Ink's static output;
+  the bounded live footer shows activity, elapsed time and `Ctrl+C to stop` while working.
+  While a tool runs it also names the step and how long that step has run
+  (`⠹ working · 41s · Ctrl+C to stop · ⏺ Run the tests 12s`), counting up with the spinner; with
+  several tools at once it says how many and times the oldest. It follows the loop's
+  `tool_call_started` and `tool_result` events and is cut from the end first, so the stop hint
+  stays. A printed `⏺` line is in the scrollback and is never rewritten: only the footer is live.
+  The classic screen shows no step, and neither does the plain line chat. The editor and approval state machine are shared with the previous renderer, selected with
+  `SHEAVLY_TUI=classic`. `NO_COLOR` removes styling from React's conversation and editor. No alternate
+  screen or mouse capture is used. Static history is not replayed on resize: the terminal owns
+  its reflow, while the footer is laid out again at the new size.
+  The root development command explicitly loads the terminal's JSX config; its backend subprocess
+  resolves its own workspace config rather than inheriting the terminal's `tsx` config path.
+  The hardware caret is committed with the current editor frame, including wide characters and
+  wrapped input, so typing does not leave the cursor on the previous character.
+  Screen rendering follows the output's TTY status even when `CI` is set; piped output remains
+  non-interactive and does not receive screen redraw or caret controls.
+- **Reduced motion is a global user preference.** Run `npm run dev:terminal -- --setup`, choose
+  **Terminal settings** in the profile menu, then **Reduced motion**. No profile needs to exist
+  to configure it. The React working
+  indicator uses a static `●`; prompt and tool times still update once per second, and state
+  changes and `Ctrl+C to stop` remain visible. **Animated** restores the spinner (the default).
+  The setting is `terminal.reducedMotion` in `~/.sheavly/config.json`, saved through the backend
+  API, not an environment variable. It applies to all profiles when a chat opens, including
+  `--resume`. Legacy profile preferences migrate automatically: an existing global choice wins;
+  otherwise reduced motion stays enabled if any readable profile enabled it. The global value
+  is saved before old profile fields are removed, so migration can be retried after a failure.
+  Classic and plain chat are already static; streamed replies still arrive normally.
+  The real terminal adapter suppresses erase-scrollback controls from the classic renderer,
+  including sequences split across writes. A viewport redraw never clears earlier scrollback.
+- **The terminal bell is opt-in and global.** In `--setup`, choose **Terminal settings**, then
+  turn **Terminal bell** on. `terminal.bell` in `~/.sheavly/config.json` defaults to false and
+  applies when the chat opens. It sends BEL directly to the terminal once for a backend-confirmed
+  completed reply, a new approval request, or each tool reaching five seconds. Repeated status
+  updates do not ring again; a finished tool cancels its timer. Errors, interrupted replies and
+  chat commands do not produce a completion bell. Stopping a prompt cancels pending tool alerts,
+  and closing the chat silences it. React and classic screens both support it, independently of
+  reduced motion and `NO_COLOR`; plain mode, piped output, the demo and workbook stay silent.
+  Whether BEL makes a sound, flashes or is ignored depends on your terminal's own bell settings.
+- **Tokens and estimated cost stay in the status line.** React and classic screens show cumulative
+  input/output tokens across the conversation and its sub-agents, updating after each model call.
+  Input includes cache reads and writes; output includes reported reasoning. These are billed-token
+  totals, not a context-window estimate. Resuming restores the full stored usage log, including
+  costs recorded with the rates used then. Older history without usage or a provider that omits
+  counts shows unknown or partial totals (`≥`); unknown or incomplete cost is omitted. Known costs have
+  a `~` estimate marker and are in USD. The backend accepts optional model `pricing` with `input`,
+  `output`, `cacheRead` and `cacheWrite` rates per million tokens, through the model API or its JSON
+  file. Rates are not fetched automatically and the setup form preserves, but does not edit them.
+  At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
+- **A complete approval preview must fit.** If the React footer cannot show the command,
+  concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
+  review it or press `Esc` to skip; a clipped preview never grants permission.
+  Commands, concerns and grant hints render controls and direction overrides as visible escapes,
+  not executable terminal sequences. Literal backslashes are escaped too, so `\n` text is distinct
+  from an actual newline. The original backend request is never modified.
+  Streamed replies, tool-start text, errors and sub-agent labels are also escaped before trusted
+  styling is applied, so a control sequence cannot execute before its approval appears. File-link
+  labels and diff/error text receive the same protection. Backend history and tool arguments stay
+  unchanged; reply newlines, tabs and Markdown still render normally.
+- **The reply is drawn as Markdown, a block at a time.** Emphasis, inline code, headings, links,
+  lists, quotes, tables and fenced code are drawn as styled terminal text, wrapped to the
+  screen's width. A block (a paragraph, a list, a table) is drawn once it is complete, at a
+  blank line, because a later line can change how the ones above it look. Until then its raw text
+  shows in the live area. A fenced code block is the exception: its lines are drawn as they
+  arrive, so a long one doesn't wait for its closing fence, and only the line being written shows
+  raw. Code tagged `ts`, `js`, `json`, `sh`, `python`, `go` or `rust` (and their usual
+  aliases) is coloured: keywords (bold, in the accent colour), strings and numbers (their own
+  roles), and comments (secondary, italic).
+  The colouring reads tokens, not grammar, so it can be wrong on unusual syntax; other languages
+  stay plain. No part of the code is told apart by colour alone. With `NO_COLOR` (React screen)
+  no styling is added, and inline code and strike-through are written out between backticks and
+  `~~`. A table wider than the terminal wraps inside its cells, breaking a word that is longer
+  than its column; when the columns can't fit at all, it shows as its wrapped source. The demo,
+  the workbook and line mode keep the reply as written.
+- **The conversation reads as a conversation.** Each message you send is shown after a `›`, then
+  the reply, with a blank line between it and the steps around it. A step is one
+  dim line (`⏺ Run the tests  $ npm test`) and its result under it (`⎿ ✓ … · 0.3s`, in red when
+  it failed); the loop's bookkeeping (event counts, stop reasons, sub-agent ids) is left out, and
+  an output-limit continuation is a dim activity line, with at most two attempts by default.
+  Exhausted recovery warns that the reply is incomplete; a context-limit warning instead asks
+  you to reduce the conversation or start a new one. Turn limits and stopped runs are also said. The
+  demo and the workbook keep the complete plain log, which their saved runs and checks read.
+- **Colours are roles, and a theme says which colour each one is.** Nothing in the chat asks for
+  "red" or "cyan": it asks for `text.secondary` (what can be skipped: ids, hints, borders),
+  `text.accent` (what marks a place: a step, a link, the chosen option), `status.success`,
+  `status.error`, `status.warning`, `diff.added`, `diff.removed`, `code.string` or `code.number`.
+  A theme is data, one terminal colour per role, in `theme/theme.constants.ts`; the colours are
+  the terminal's own named ones (never hex), so the user's terminal theme still decides how they
+  look. `SHEAVLY_THEME` picks one when the screen starts:
+  - `default`: the colours the chat always had (green, red, yellow, cyan, gray).
+  - `colorblind`: for red-green colour blindness. Success and added are bright blue, error and
+    removed are yellow, warning is magenta, and strings and numbers in code are bright blue and
+    magenta, so no pair that has to be told apart is red against green.
+
+  A name that is no theme stops the chat with the ones there are, instead of picking one for you.
+  Colour is never the only sign: a result carries `✓` or `✗`, a diff line `+` or `-`, a limit `⚠`,
+  and every theme says the same words. `NO_COLOR` still removes all styling, whatever the theme.
+  The theme reaches the working indicator, the status line, the steps, `/changes`, `/errors`,
+  Markdown and the editor's menus; the demo and the workbook log have no colour to choose.
+  Not yet: whether gray reads on a light background, and a theme set from a profile rather than
+  the environment.
+
+- **A file change shows as one collapsed line, and expands when you ask.** Under the result of
+  `write_file` and `edit_file` the chat prints `▸ +2 −1 · /changes 3`: the lines added and
+  removed, and the number of the change. Finished lines live in the terminal's scrollback, which a
+  program can't rewrite, so a diff is never expanded in place: asking prints it again, in full,
+  below. Every change the chat made is kept, numbered from 1 in the order made, and shown with:
+  - `/changes` lists the files changed, each once, with what all its changes came to and which
+    changes they were (`src/a.ts  +12 −3  #1 #3`, `new` for a created file).
+  - `/changes #3` (or `3`) shows that one change; `/changes src/a.ts` (or the end of the path)
+    shows the file's total, from before its first change to after its last; `/changes all` shows
+    every file's total.
+  - Ctrl+O shows the newest collapsed line in full, whatever else is on screen: the latest
+    change's diff, or the latest failure's message if that came after it.
+
+  A diff has two lines of context, a line number, and `+`/`-` in green and red; the stretch
+  between two changes folds into `⋯ N unchanged lines`, and a new file is all `+`. It ends with
+  `… N more changed lines` after 500 rows. A line wider than the screen is cut with `…`, so it
+  never wraps away from its number, and terminal escapes in the file's text are dropped. A
+  rewrite too large to compare shows only how many lines it covers. Only the changes the terminal
+  has seen are kept: a conversation reopened with `--resume` starts with the ones made after it
+  opened. The plain log leaves file changes out; the plain line chat has `/changes` too, as text.
+
+- **A failed step shows its first line, and the rest when you ask.** A tool that failed prints
+  `✗` and the first line of its message, cut at 100 characters. When the message says more (more
+  lines, or a first line that was cut), a collapsed `▸ 12 more lines · /errors 2` goes under it.
+  As with changes, it is shown again below, never expanded in place. `/errors` lists the failures
+  kept, numbered from 1, each with its step and first line; `/errors #2` (or `2`) shows that one's
+  whole message without escape codes. A message over 100 lines shows its first 30 and last 70,
+  where a command says what it ran and what went wrong, and counts the lines between. A failure
+  that is one short line has nothing more to show and keeps no number. The plain log and the plain
+  line chat print failures as before; the line chat has `/errors` too, as text.
+
+- **Links open, and a terminal can jump between your messages.** Two terminal features, both
+  invisible where unsupported:
+  - _Hyperlinks_ (OSC 8). A Markdown link in a reply is a link on its text, without the address
+    printed after it, where the terminal opens them; elsewhere it reads `text (address)`. The
+    file paths of `/changes` (the list and each diff's header) link to the file, a `file://` link
+    under the workspace. Over SSH they stay text, since the link would name a path on the
+    machine the terminal is on. Support is detected from the terminal (iTerm2, kitty, WezTerm,
+    Ghostty, Windows Terminal, VS Code, Alacritty, Warp and others; tmux only if it forwards
+    them; GNU screen never). `SHEAVLY_HYPERLINKS=1` or `0` overrides the detection. With
+    `NO_COLOR` the React screen shows addresses, never hyperlinks, because it strips every
+    escape sequence. A path in a tool step's line is not a link yet.
+  - _Turn markers_ (OSC 133). The message you send is marked as a prompt (`A`, `B`), the row
+    under it as where output starts (`C`), and the first row after the turn closes it with its
+    status (`D;0`, or `D;1` when it failed; a stop is not a failure). Terminals that read them
+    (iTerm2, kitty, WezTerm, Ghostty and others) can jump to the previous or next message and
+    select a turn's output. Ink drops every escape sequence but styling and hyperlinks, so the
+    React screen writes each marker as a private styling code and the stream to the terminal
+    (`restoringMarks`) turns it into the real sequence. The last turn stays open until
+    something is printed after it. There is no setting to turn them off; a terminal that doesn't
+    know them ignores them. A line that is a command (`/help`, `/changes`) is not a turn.
+
+- **A command you haven't allowed asks you.** It shows the command and why it asks, and the offered
+  choices: run it once, allow it for this session when offered, always allow it (kept for this folder, [see permissions](../../backend/docs/api.md)),
+  skip it (the model is told not to retry), or skip and type what to do instead (the model reads
+  it as your direction). `↑↓` or the displayed option numbers choose, `Enter` confirms, `Esc` skips. Nothing is chosen
+  when the question appears, so an `Enter` meant for something else never runs a command; and as
+  soon as you type into the editor, every key is the editor's and the question waits. Several
+  questions wait in order, `+N more waiting` says how many. With a plain line chat there is no one
+  to ask, so such a command is refused and the model told why.
+- **Always allow shows the command being approved.** Its hint lists base-command grants, such
+  as `touch *`, `git diff *`, `npm run test *` or `npx eslint *`, including every entry for a chain.
+  All options, paths and other arguments of that command are allowed. If a backend omits the
+  entries, the choice keeps its generic hint. See the
+  [entry rules](../../../packages/coding/docs/run-command.md#who-decides).
+- **Command-prefix grants can last for this session or this workspace.** When offered, the
+  session choice shows the same proposed prefixes as Always allow but explicitly says they are
+  not saved. npm scripts keep `npm run <script> *`; npx keeps `npx <command> *`, without pinning
+  package versions or distinguishing check/fix modes. `find *`, `sed *` and `node *` include
+  editing and execution options. No separate path, secret-file or package-verification approval
+  follows a command grant. Built-in approvals have the same behavior; `always_ask` always asks.
+- **Older grants now follow command-only semantics too.** A saved sed line range grants `sed *`;
+  a saved Node script grants `node *`; an old ESLint check scope grants `npx eslint *`. The
+  stored file is not rewritten, but the UI shows the effective base-command scope. Different
+  programs, Git/GitHub CLI subcommands and npm scripts still need their own approval.
+- **You can keep typing while it works.** What you send waits its turn and is shown as
+  `⏳ N queued`; it is sent in order when the prompt ends. The editor takes several lines
+  (`Shift+Enter`), keeps your history (`↑` at the top), completes `/` commands and skills with
+  `Tab`, and folds a large paste into one marker.
 - Background commands and sub-agents keep running between messages, and what finished meanwhile
   is reported at the next one.
-- Ctrl+C stops the running message; history stays valid, and the next message continues from it.
-  Pressed again while the message stops, it force-quits (after stopping what the conversation
-  started); at the input line it quits. Either way, lines typed but not yet sent are dropped.
-- `/model` lists the models `MODELS` sets up and `/model <name>` switches to one, from the next
-  model call on, keeping the history ([several models](../../backend/docs/harness.md#several-models-on-azure)).
+- A message has no turn limit: the model keeps working until it is done, so Ctrl+C is how you stop
+  one that goes on (`MAX_TURNS` in the backend's environment sets a cap if you want one).
+- Ctrl+C stops the running message (and skips a question it waits on); history stays valid, and the
+  next message continues from it. With nothing running, Ctrl+C asks to be pressed again to quit,
+  so one stray press never ends the conversation. In the plain line chat, pressed again while the
+  message stops, it force-quits (after stopping what the conversation started); at the input line
+  it quits. Lines waiting are still sent after a stopped message; leaving drops them.
+- `/model` lists the models of your profile, with their ids, and `/model <id or name>` switches to
+  one, from the next model call on, keeping the history
+  ([models and keys](../../backend/docs/harness.md#models-and-keys)). The switch is made by
+  id; a name only finds the model, and one that two models share is refused.
 - `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
   with the message, at the start (`/git submit`), in the middle or at the end
   (`review this, then /git`), including `disable-model-invocation` skills. A message that starts
   with a `/name` no skill has is reported as an unknown command and not sent. Skills that didn't
   load are listed, with why, when the chat starts. Tab after a `/` completes skill names (and,
   at the start of the line, the chat's commands); press it twice to list them.
-- An approval a command asks for is refused at once: the chat doesn't answer approvals, so a
-  command that needs one is skipped, and the model is told why.
-- `/exit`, `/quit` or Ctrl+D ends the conversation: it stops what it started (background
-  commands, sub-agents) and ends the session. `/help` lists this.
+- `/exit`, `/quit` or Ctrl+D (on an empty line) ends the conversation: it stops what it started
+  (background commands, sub-agents) and ends the session. `/help` lists this.
 - Lines are read in order, so lines typed (or piped in) while a message runs are sent after it.
 - Closing the terminal window or `kill` (SIGHUP, SIGTERM) closes the conversation and the
   backend too, so its background commands don't outlive the chat. A `kill -9` can't be caught,
   but the backend still stops: its stdin, a pipe from the chat, closes.
 
-The settings are the demo's ([the demo](demo.md#settings)); a conversation isn't kept across
-restarts.
+The settings are the demo's ([the demo](demo.md#settings)). Conversations are kept by the backend
+across restarts. `npm run dev:terminal -- --resume <conversation-id>` reopens one under its own id,
+with its saved history, workspace and model selection. An optional message after the id is sent
+as the next prompt. A failed prompt keeps completed tool work and the user's message.
+
+## Setup
+
+### Model modes
+
+`/mode` shows the current reasoning effort. `/mode low`, `/mode medium`, `/mode high` and
+`/mode extreme` change it, with the selection shown in the status line. The profile remembers
+the mode for this model, separately from every other model. `/model` switches restore the
+selected model's latest remembered mode, or medium when it has none. Existing conversations
+and sub-agents retain their own selections; new conversations use the profile's latest pair.
+Modes take effect at the next model call, not midway through a response.
+
+On a workspace without a ready profile, the interactive chat opens setup before creating a
+conversation. You can also open it explicitly with `npm run dev:terminal -- --setup`, including
+when a profile already works.
+
+1. Choose an existing profile or create one, such as Personal or Work.
+2. Choose an existing model or add one. For a new model, choose a provider from the backend's
+   installed adapters. The form asks only for required fields, using provider defaults for
+   optional ones. It derives a display name from the model/deployment; use Edit model settings
+   to rename it or change advanced values. Claude's output limit defaults to 8192. Reasoning
+   effort defaults to medium until you select a mode.
+3. Enter the settings and API key. The key is masked, including paste, and sent only to the
+   write-only credential route. Existing keys are never loaded into an input or shown again.
+   For Azure Claude models requiring adaptive thinking, choose **adaptive** under Thinking mode
+   and leave Thinking budget empty. Max tokens is the output limit per reply, not the context
+   window; use a value supported by the deployment, such as 8192.
+4. Choose **Save and start chatting**, or **Test connection** to make a small provider API call.
+   A failed check lets you replace the key or edit the model settings in the same screen.
+
+The chosen profile is bound to this workspace; an existing default for other workspaces is kept.
+The first profile also becomes the default. The selected model is used for the new conversation.
+Reopen `--setup` to add more profiles or models, edit model settings, or replace a key. All writes
+go through the [setup API](../../backend/docs/api.md#setting-the-backend-up), including when the
+terminal connects to an existing backend.
+
+Esc or Ctrl+C cancels setup and stops a backend this terminal started. Settings already saved
+remain available to finish next time. An unconfigured chat with piped input exits with a short
+instruction to run interactive setup first; it never consumes the piped text as a key. A ready
+workspace goes directly to chat, with no setup questions.

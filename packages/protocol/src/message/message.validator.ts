@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { timestampSchema } from '../time/time.validator.js';
 import { skillNameSchema } from '../skill/skill.validator.js';
 
 /**
@@ -6,6 +7,13 @@ import { skillNameSchema } from '../skill/skill.validator.js';
  * session's, task's or approval's id goes; it is still a plain string on the wire.
  */
 export const callIdSchema = z.string().brand<'CallId'>();
+
+/**
+ * When a message was created. Optional on the wire, so a history saved before messages were
+ * timed, or one a caller writes by hand, still reads; the harness stamps every message it makes.
+ * Never sent to a model.
+ */
+const messageTimeSchema = timestampSchema.exactOptional();
 
 /** A tool call the model asked for. */
 export const toolCallSchema = z.object({
@@ -44,20 +52,29 @@ export const messageSchema = z.discriminatedUnion('role', [
     content: z.string(),
     /** What the user typed, when it ran skills: for a UI to show, never sent to the model. */
     parts: z.array(promptPartSchema).exactOptional(),
+    at: messageTimeSchema,
   }),
   z.object({
     role: z.literal('assistant'),
     content: z.string(),
     toolCalls: z.array(toolCallSchema),
     reasoning: z.array(reasoningItemSchema).exactOptional(),
+    at: messageTimeSchema,
   }),
   z.object({
     role: z.literal('tool'),
     toolCallId: callIdSchema,
     content: z.string(),
     isError: z.boolean(),
+    at: messageTimeSchema,
   }),
 ]);
 
 /** Why a turn ended: the model's reason, or `interrupted` if the run's signal aborted. */
-export const turnStopReasonSchema = z.enum(['end_turn', 'tool_use', 'max_tokens', 'interrupted']);
+export const turnStopReasonSchema = z.enum([
+  'end_turn',
+  'tool_use',
+  'max_tokens',
+  'context_window_exceeded',
+  'interrupted',
+]);

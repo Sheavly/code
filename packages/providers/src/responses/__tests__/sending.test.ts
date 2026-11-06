@@ -103,11 +103,11 @@ describe('sending a Responses call', () => {
 
   it('waits at least what the server asks for in retry-after', async () => {
     const { fetch } = scriptedFetch([status(429, { 'retry-after': '0.05' })]);
-    const started = Date.now();
+    const started = performance.now();
 
     await run({ fetch });
 
-    expect(Date.now() - started).toBeGreaterThanOrEqual(45);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(45);
   });
 
   it('reports at once a retry-after too long to wait for, instead of hanging the run', async () => {

@@ -40,6 +40,47 @@ describe('ProcessRunner kill', () => {
 });
 
 describe('ProcessRunner env', () => {
+  it('decodes UTF-8 split across output chunks without corrupting text', async () => {
+    const chunks: string[] = [];
+    const result = await runner.run({
+      file: process.execPath,
+      args: [
+        '-e',
+        "const bytes = Buffer.from('🙂'); process.stdout.write(bytes.subarray(0, 2)); setTimeout(() => process.stdout.write(bytes.subarray(2)), 20)",
+      ],
+      cwd: process.cwd(),
+      shell: false,
+      signal,
+      onOutput: (chunk) => chunks.push(chunk),
+    });
+
+    expect(result.output).toBe('🙂');
+    expect(chunks.join('')).toBe('🙂');
+  });
+
+  it('caps large returned output but still streams every byte to the callback', async () => {
+    let streamed = 0;
+    const result = await runner.run({
+      file: process.execPath,
+      args: [
+        '-e',
+        "process.stdout.write('FIRST\\n' + ('x'.repeat(2000) + '\\n').repeat(1000) + 'FINAL')",
+      ],
+      cwd: process.cwd(),
+      shell: false,
+      signal,
+      onOutput: (chunk) => {
+        streamed += chunk.length;
+      },
+    });
+
+    expect(streamed).toBeGreaterThan(2_000_000);
+    expect(result.output.length).toBeLessThanOrEqual(30_000);
+    expect(result.output.startsWith('FIRST\n')).toBe(true);
+    expect(result.output.endsWith('FINAL')).toBe(true);
+    expect(result.output).toContain('lines omitted');
+  });
+
   it('starts from the environment it was given, without what looks like a secret', async () => {
     runner = new ProcessRunner({
       env: { PATH: process.env.PATH, HARNESS_TEST_API_KEY: 'hunter2', HARNESS_TEST_PLAIN: 'kept' },

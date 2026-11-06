@@ -2,7 +2,7 @@ import path from 'node:path';
 import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { baseConfig } from '../base.js';
-import { FILE_KIND_POLICIES } from '../file-kinds.js';
+import { extensionsOf, FILE_KIND_POLICIES } from '../file-kinds.js';
 
 // The line limits as ESLint actually applies them, not just as file-kinds.js declares them: a
 // later block in base.js could otherwise put a cap back on a kind that has none.
@@ -27,12 +27,25 @@ describe('line limits', () => {
     expect(await maxLinesFor('packages/core/src/hook/hook.utils.ts')).toBeUndefined();
   });
 
+  it('puts no cap on helper files either', async () => {
+    expect(FILE_KIND_POLICIES.helper.maxLines).toBeNull();
+    expect(await maxLinesFor('src/workbook/check.helper.ts')).toBeUndefined();
+  });
+
   it.each(Object.entries(FILE_KIND_POLICIES).filter(([, policy]) => policy.maxLines !== null))(
     'caps %s files at their policy',
     async (kind, policy) => {
-      const file = kind === 'test' ? `src/x/__tests__/x.${kind}.ts` : `src/x/x.${kind}.ts`;
+      const [extension] = extensionsOf(kind);
+      const file =
+        kind === 'test' ? `src/x/__tests__/x.${kind}.${extension}` : `src/x/x.${kind}.${extension}`;
 
       expect(await maxLinesFor(file)).toBe(policy.maxLines);
     },
   );
+
+  it('caps a component test (.tsx) like any test', async () => {
+    expect(await maxLinesFor('src/x/__tests__/x.component.test.tsx')).toBe(
+      FILE_KIND_POLICIES.test.maxLines,
+    );
+  });
 });

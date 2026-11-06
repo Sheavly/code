@@ -1,21 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import {
-  DEFAULT_ADAPTER,
-  DEFAULT_MODEL,
-  MAX_TURNS,
-  REQUEST,
-  SERVER,
-} from '../harness.constants.js';
-import {
-  parseProviderEnv,
-  parseRequestEnv,
-  parseRunEnv,
-  parseServerEnv,
-} from '../settings.validator.js';
+import { REQUEST, SERVER } from '../harness.constants.js';
+import { parseRequestEnv, parseRunEnv, parseServerEnv } from '../settings.validator.js';
 
 describe('parseServerEnv', () => {
   it('listens on localhost by default, and on a free port with SERVER_PORT=0', () => {
-    expect(parseServerEnv({})).toEqual({ host: SERVER.host, port: SERVER.port, token: undefined });
+    expect(parseServerEnv({})).toEqual({
+      host: SERVER.host,
+      port: SERVER.port,
+      token: undefined,
+      remoteSetupAllowed: true,
+    });
     expect(parseServerEnv({ SERVER_PORT: '0' }).port).toBe(0);
   });
 
@@ -23,12 +17,40 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ SERVER_TOKEN: 'short' })).toThrow('at least 32');
     expect(() => parseServerEnv({ SERVER_PORT: '70000' })).toThrow();
   });
+
+  it('takes setup that hands out access where only this machine can reach, and nowhere else unless opted in', () => {
+    const takes = (env: Record<string, string>) => parseServerEnv(env).remoteSetupAllowed;
+
+    for (const host of ['127.0.0.1', '127.1.2.3', 'localhost', '::1']) {
+      expect(takes({ SERVER_HOST: host }), host).toBe(true);
+    }
+
+    // Every interface, or a LAN address, or a name: a key must not travel there.
+    for (const host of ['0.0.0.0', '::', '192.168.1.5', 'example.com', '127.0.0.1.evil.com']) {
+      expect(takes({ SERVER_HOST: host }), host).toBe(false);
+    }
+  });
+
+  it('lets a remote host take setup that hands out access only on the exact word "true"', () => {
+    const env = { SERVER_HOST: '0.0.0.0' };
+
+    expect(parseServerEnv({ ...env, SERVER_ALLOW_REMOTE_SETUP: 'true' }).remoteSetupAllowed).toBe(
+      true,
+    );
+
+    for (const word of ['TRUE', '1', 'yes', 'false', '']) {
+      expect(
+        parseServerEnv({ ...env, SERVER_ALLOW_REMOTE_SETUP: word }).remoteSetupAllowed,
+        word,
+      ).toBe(false);
+    }
+  });
 });
 
 describe('parseRunEnv', () => {
   it('reads the run limits and files, with every switch off unless exactly "true"', () => {
     expect(parseRunEnv({})).toEqual({
-      maxTurns: MAX_TURNS,
+      maxTurns: undefined,
       waitForTasks: false,
       modelCallsFile: undefined,
       exitWithParent: false,
@@ -46,51 +68,13 @@ describe('parseRunEnv', () => {
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
     });
+    expect(parseRunEnv({ MAX_TURNS: '' }).maxTurns).toBeUndefined();
     expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
   });
 });
 
-describe('parseProviderEnv', () => {
-  it("defaults to the hosts' adapter and model", () => {
-    expect(parseProviderEnv({ OPENAI_API_KEY: 'sk-1' })).toEqual({
-      ADAPTER: DEFAULT_ADAPTER,
-      OPENAI_API_KEY: 'sk-1',
-      MODEL: DEFAULT_MODEL,
-    });
-  });
-
-  it('reads the azure settings, treating an empty api version as not set', () => {
-    expect(
-      parseProviderEnv({
-        ADAPTER: 'azure',
-        AZURE_OPENAI_API_KEY: 'az-1',
-        AZURE_OPENAI_BASE_URL: 'https://res.openai.azure.com/openai/v1',
-        AZURE_OPENAI_API_VERSION: '',
-      }),
-    ).toEqual({
-      ADAPTER: 'azure',
-      AZURE_OPENAI_API_KEY: 'az-1',
-      AZURE_OPENAI_BASE_URL: 'https://res.openai.azure.com/openai/v1',
-      AZURE_OPENAI_DEPLOYMENT: DEFAULT_MODEL,
-      AZURE_OPENAI_API_VERSION: undefined,
-    });
-  });
-
-  it('rejects a missing key, and names the key to set when it is empty', () => {
-    expect(() => parseProviderEnv({})).toThrow('OPENAI_API_KEY');
-    expect(() => parseProviderEnv({ ADAPTER: 'azure', AZURE_OPENAI_API_KEY: 'k' })).toThrow(
-      'AZURE_OPENAI_BASE_URL',
-    );
-    expect(() => parseProviderEnv({ OPENAI_API_KEY: '' })).toThrow('Set OPENAI_API_KEY');
-  });
-
-  it('rejects an adapter it does not know', () => {
-    expect(() => parseProviderEnv({ ADAPTER: 'astra', OPENAI_API_KEY: 'sk-1' })).toThrow();
-  });
-});
-
 describe('parseRequestEnv', () => {
-  it("defaults to the terminal's policy, and reads each setting from env", () => {
+  it("defaults to the backend's policy, and reads each setting from env", () => {
     expect(parseRequestEnv({})).toEqual(REQUEST);
     expect(
       parseRequestEnv({

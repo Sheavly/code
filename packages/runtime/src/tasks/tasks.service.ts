@@ -4,11 +4,13 @@
  * model and UI at turn boundaries, through its one ordered event queue.
  */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
+import { now } from '@sheavly/core/clock/clock.helper';
 import type { StartTask, TaskObserver, TaskResult } from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { OutputBuffer } from '../output/output.service.js';
 
 type Entry = {
   info: TaskInfo;
@@ -36,13 +38,15 @@ export class TaskRegistry {
       command,
       description,
       status: 'running',
-      startedAt: Date.now(),
+      startedAt: now(),
       output: '',
     };
     const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false, sessionId };
+    const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
 
     const onOutput = (chunk: string) => {
-      info.output = (info.output + chunk).slice(-MAX_TASK_OUTPUT_CHARS);
+      output.push(chunk);
+      info.output = output.text;
     };
 
     entry.settled = run({ signal: controller.signal, onOutput }).then(
@@ -137,7 +141,7 @@ export class TaskRegistry {
     const { info } = entry;
 
     info.status = entry.controller.signal.aborted ? 'cancelled' : status;
-    info.endedAt = Date.now();
+    info.endedAt = now();
     if ('exitCode' in result) info.exitCode = result.exitCode;
     if (result.error) info.error = result.error;
 

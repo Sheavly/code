@@ -6,16 +6,22 @@
 // missed: the agent is told to teach the guard, and the stop hook holds it to that. Several chats
 // can share the checkout, so a file another chat edited while the command ran is left out
 // (chat-files.utils.mjs).
-import { editedFilesFields, filesOtherChatsEdited } from './chat-files.utils.mjs';
+import {
+  editedFilesFields,
+  filesEditedWithToolsSince,
+  filesOtherChatsEdited,
+} from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
 import {
   getChatState,
+  hookNow,
   PROJECT_ROOT,
   readHookInput,
   respond,
   updateChatState,
 } from './hooks.utils.mjs';
 import { changedFiles, isSanctionedWriter, snapshotProject } from './shell-writes.utils.mjs';
+import { verifiedFormatterWrite, withoutFormatterWrites } from './formatter-attribution.utils.mjs';
 
 /** The Shell tool's input: an object, or the same as a JSON string. */
 function readToolInput(toolInput) {
@@ -50,30 +56,90 @@ const command = typeof toolInput.command === 'string' ? toolInput.command : '';
 // A subagent's shell writes are checked by the chat that started it (chat-links.utils.mjs).
 linkFromToolCall(input);
 const state = conversationId ? getChatState(conversationId) : null;
-const { [command]: before, ...otherSnapshots } = state?.shellSnapshots ?? {};
+const before = state?.shellSnapshots?.[command];
 const after = before ? snapshotProject(PROJECT_ROOT) : null;
-// A file another chat edited while the command ran is that chat's change, not the command's. A
+// Read after the snapshot: an edit hook running together with the command records its edit in
+// this state, and writing back an older copy would lose it.
+const latest = conversationId ? getChatState(conversationId) : null;
+// A file another chat edited while the command ran is that chat's change, not the command's, and
+// neither is one this chat edited with the edit tools: tool calls sent together run together. A
 // snapshot from before snapshots were timed can't be told apart: all of its changes count.
 const othersEdited = before?.takenAt
   ? filesOtherChatsEdited({ exclude: [conversationId], since: before.takenAt })
   : new Set();
-const files = after
-  ? changedFiles({ before, after }).filter((file) => !othersEdited.has(file))
+const toolEdited = filesEditedWithToolsSince({ state: latest, since: before?.takenAt });
+const changed = after
+  ? changedFiles({ before, after }).filter(
+      (file) => !othersEdited.has(file) && !toolEdited.has(file),
+    )
   : [];
+const endedAt = hookNow();
+const writeHashes = Object.fromEntries(
+  changed.map((file) => [
+    file,
+    {
+      before: before.files[file] ?? null,
+      after: after.files[file] ?? null,
+    },
+  ]),
+);
+const observed = { command, files: changed, at: before?.takenAt, endedAt, writeHashes };
+const writes = latest?.verifiedFormatterWrites ?? [];
+const [remaining] = withoutFormatterWrites({ commands: [observed], writes });
+const files = remaining?.files ?? [];
 
-if (conversationId && before) updateChatState({ conversationId, shellSnapshots: otherSnapshots });
+if (conversationId && before) {
+  const otherSnapshots = { ...latest?.shellSnapshots };
+
+  delete otherSnapshots[command];
+
+  updateChatState({ conversationId, shellSnapshots: otherSnapshots });
+}
 
 if (files.length === 0 || isSanctionedWriter(command)) {
-  if (files.length > 0) updateChatState({ conversationId, ...editedFilesFields({ state, files }) });
+  if (files.length > 0) {
+    updateChatState({ conversationId, ...editedFilesFields({ state: latest, files }) });
+  }
+
+  const verified =
+    before && after
+      ? verifiedFormatterWrite({
+          command,
+          before,
+          after,
+          projectRoot: PROJECT_ROOT,
+          endedAt,
+        })
+      : undefined;
+
+  if (verified && isSanctionedWriter(command)) {
+    // Verification reads files. Re-read state afterwards so a concurrent after-hook's newly
+    // recorded finding or formatter evidence is not overwritten by an older copy.
+    const current = getChatState(conversationId);
+    const verifiedFormatterWrites = [...(current?.verifiedFormatterWrites ?? []), verified];
+
+    updateChatState({
+      conversationId,
+      verifiedFormatterWrites,
+      unguardedCommands: withoutFormatterWrites({
+        commands: current?.unguardedCommands ?? [],
+        writes: verifiedFormatterWrites,
+      }),
+    });
+  }
+
   respond({});
 } else {
-  const unguarded = (state?.unguardedCommands ?? []).filter((entry) => entry.command !== command);
+  const unguarded = (latest?.unguardedCommands ?? []).filter((entry) => entry.command !== command);
   const cwd = input.cwd || toolInput.cwd || PROJECT_ROOT;
 
   updateChatState({
     conversationId,
-    ...editedFilesFields({ state, files }),
-    unguardedCommands: [...unguarded, { command, cwd, files, at: before.takenAt }],
+    ...editedFilesFields({ state: latest, files }),
+    unguardedCommands: [
+      ...unguarded,
+      { command, cwd, files, at: before.takenAt, endedAt, writeHashes },
+    ],
   });
   respond({ additional_context: workaroundNote({ command, files }) });
 }

@@ -1,14 +1,8 @@
-import { RuleTester } from 'eslint';
-import tseslint from 'typescript-eslint';
-import { afterAll, describe, it } from 'vitest';
 import { harnessPlugin } from '../plugin.js';
-
-RuleTester.afterAll = afterAll;
-RuleTester.describe = describe;
-RuleTester.it = it;
+import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
 // The guard rules: fail loudly (no silent catch, no raw Error), branded ids, sound "is inside".
-const ruleTester = new RuleTester({ languageOptions: { parser: tseslint.parser } });
+const ruleTester = typescriptRuleTester();
 
 ruleTester.run('no-silent-catch', harnessPlugin.rules['no-silent-catch'], {
   valid: [
@@ -117,4 +111,99 @@ ruleTester.run('no-dotdot-prefix', harnessPlugin.rules['no-dotdot-prefix'], {
     "const inside = !relative.startsWith('..');",
     "if (relative.startsWith('..') || path.isAbsolute(relative)) throw failure;",
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
+ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
+  valid: [
+    "import { now } from '@sheavly/core/clock/clock.helper'; const startedAt = now();",
+    "import { DateTime } from 'luxon'; const label = DateTime.fromMillis(at).toFormat('HH:mm');",
+    "import { DateTime } from 'luxon'; const noon = DateTime.utc(2026, 11, 2, 12).toMillis();",
+    'const started = performance.now();', // a monotonic timer, not a date
+    'const later = new Dates();', // some other class
+    'const schema = z.number().int();',
+  ],
+  invalid: [
+    { code: 'const startedAt = Date.now();', messageId: 'm0' },
+    { code: 'const elapsed = Date.now() - startedAt;', messageId: 'm0' },
+    { code: 'const at = new Date(ms);', messageId: 'm1' },
+    { code: 'const at = Date.UTC(2026, 10, 2);', messageId: 'm2' },
+    { code: 'const at = Date.parse(text);', messageId: 'm2' },
+    // ISO 8601 in any form: writing it, reading it, or taking it in a schema.
+    { code: 'const at = new Date(ms).toISOString();', errors: ['m3', 'm1'] },
+    { code: "const at = DateTime.fromISO('2026-11-02');", messageId: 'm3' },
+    { code: 'const day = DateTime.now().toISODate();', messageId: 'm3' },
+    { code: 'const iso = DateTime.now().toISO();', messageId: 'm3' },
+    { code: 'const time = z.iso.datetime();', errors: ['m4'] },
+  ].map(({ code, messageId, errors }) => ({
+    code,
+    errors: (errors ?? [messageId]).map((id) => ({ messageId: id })),
+  })),
+});
+
+// The credentials file holds every model's key: only `CredentialStore` reads it, and only the
+// backend uses the store.
+ruleTester.run('no-credentials-file', harnessPlugin.rules['no-credentials-file'], {
+  valid: [
+    // Other files, and the names that only look like it.
+    "const file = path.join(root, 'config.json');",
+    "const file = path.join(profile, 'models', `${id}.json`);",
+    "const file = 'credentials.jsonl';",
+    "const file = 'my-credentials.json';",
+    "const file = 'credentials.json.bak';",
+    "const folder = 'credentials';",
+    // A sentence that mentions the name is not a path.
+    "const message = 'Do not commit credentials.json';",
+    "throw new Failure({ reason: 'it is not the credentials.json you meant' });",
+    // Nothing to read in a name that isn't spelled out.
+    'const file = path.join(profile, CREDENTIALS_FILE);',
+  ],
+  invalid: [
+    // The file, however it is written.
+    "const file = path.join(profile, 'credentials.json');",
+    "const file = 'credentials.json';",
+    "const file = './credentials.json';",
+    "const file = '/home/u/.sheavly/profiles/p/credentials.json';",
+    "const file = 'C:\\\\Users\\\\u\\\\.sheavly\\\\profiles\\\\p\\\\credentials.json';",
+    // macOS and Windows ignore case, so these are the same file.
+    "const file = 'Credentials.JSON';",
+    "const file = path.join(profile, 'CREDENTIALS.json');",
+    // A template literal, with the folder before it.
+    'const file = `${profile}/credentials.json`;',
+    'const file = `${profile}\\\\credentials.json`;',
+    'const file = `credentials.json`;',
+    // Read from the usual places.
+    "const text = await readFile(path.join(dir, 'credentials.json'), 'utf8');",
+    "const text = readFileSync('credentials.json');",
+    'await exec(`cat ${dir}/credentials.json`);',
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
+ruleTester.run('no-key-holder-import', harnessPlugin.rules['no-key-holder-import'], {
+  valid: [
+    "import { ModelStore } from '@sheavly/storage/model-store/model-store.service';",
+    "import { ConfigStore } from '@sheavly/storage/config-store/config-store.service';",
+    "import { ProfileStore } from '@sheavly/storage/profile-store/profile-store.service';",
+    "import { readJsonFile } from '@sheavly/storage/json-file/json-file.helper';",
+    // Another package's module that happens to be named alike.
+    "import { CredentialStore } from './credential-store.service.js';",
+    "import { x } from '@sheavly/core/credential-store/x.helper';",
+    "import { x } from '@sheavly/core/profile-registry/x.helper';",
+    "import { x } from '@sheavly/storage-extras/credential-store/x.service';",
+    "import { x } from '@sheavly/storage/profile-registry-extras/x.service';",
+  ],
+  invalid: [
+    // The credential store, whatever file kind of it is imported.
+    "import { CredentialStore } from '@sheavly/storage/credential-store/credential-store.service';",
+    "import type { Secrets } from '@sheavly/storage/credential-store/credential-store.types';",
+    "import { credentialsFileSchema } from '@sheavly/storage/credential-store/credential-store.validator';",
+    "const { CredentialStore } = await import('@sheavly/storage/credential-store/credential-store.service');",
+    // The profile registry hands out the same keys through an open profile: the same door.
+    "import { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';",
+    "import type { OpenProfile } from '@sheavly/storage/profile-registry/profile-registry.types';",
+    "const { ProfileRegistry } = await import('@sheavly/storage/profile-registry/profile-registry.service');",
+  ].map((code) => ({
+    code,
+    languageOptions: { sourceType: 'module', ecmaVersion: 'latest' },
+    errors: [{ messageId: 'm0' }],
+  })),
 });

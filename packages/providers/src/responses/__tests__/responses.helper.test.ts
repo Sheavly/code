@@ -16,6 +16,43 @@ const provider = (fetch: typeof globalThis.fetch) =>
   });
 
 describe('createResponsesProvider', () => {
+  it('reports cached input as a subset, including usage on an incomplete reply', async () => {
+    const { fetch } = fakeFetch([
+      {
+        type: 'response.incomplete',
+        response: {
+          incomplete_details: { reason: 'max_output_tokens' },
+          usage: {
+            input_tokens: 100,
+            output_tokens: 20,
+            input_tokens_details: { cached_tokens: 60 },
+          },
+        },
+      },
+    ]);
+
+    expect((await collect(provider(fetch).stream(request()))).at(-1)).toEqual({
+      type: 'done',
+      stopReason: 'max_tokens',
+      usage: {
+        tokens: {
+          inputTokens: 100,
+          outputTokens: 20,
+          cacheReadTokens: 60,
+          cacheWriteTokens: 0,
+        },
+      },
+    });
+  });
+  it.each(['low', 'medium', 'high', 'extreme'] as const)(
+    'sends %s as native reasoning effort',
+    async (mode) => {
+      const { fetch, requests } = fakeFetch([]);
+
+      await collect(provider(fetch).stream({ ...request(), mode }));
+      expect(requests[0]?.body.reasoning).toEqual({ effort: mode === 'extreme' ? 'xhigh' : mode });
+    },
+  );
   it('streams text deltas and ends the turn', async () => {
     const { fetch } = fakeFetch([
       { type: 'response.output_text.delta', delta: 'Hel' },

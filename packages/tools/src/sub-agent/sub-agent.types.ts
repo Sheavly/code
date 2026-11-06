@@ -5,6 +5,7 @@ import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { ModelSelection } from '@sheavly/protocol/model/model.types';
 
 /**
  * Runs one nested agent loop to its end. The host passes the loop's `runSession` here (tools
@@ -30,6 +31,8 @@ export type SubAgentOptions = {
   /** The parent's background tasks: each sub-agent runs as one, so the parent can wait or cancel. */
   tasks: TaskRegistry;
   provider: Provider;
+  /** Captures the parent's model and effort when starting; descendants keep that snapshot. */
+  selectProvider?: () => { provider: Provider; selection?: ModelSelection };
   /** Runs a sub-agent's loop: the loop's `runSession`. */
   runAgent: RunNestedAgent;
   /** The tools sub-agents get. `report_status` (and `start_agent`, below the depth cap) are added. */

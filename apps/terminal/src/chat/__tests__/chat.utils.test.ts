@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import type { Skill } from '@sheavly/workspace/skills/skills.types';
-import { completeChatLine, listModels, parseChatInput, unknownCommand } from '../chat.utils.js';
+import {
+  completeChatLine,
+  listModels,
+  parseChatInput,
+  pickModel,
+  unknownCommand,
+} from '../chat.utils.js';
 
 describe('parseChatInput', () => {
   it('sends a line as a prompt, trimmed, and ignores a blank one', () => {
@@ -17,6 +24,20 @@ describe('parseChatInput', () => {
       kind: 'prompt',
       text: 'then /git submit',
     });
+  });
+
+  it('reads /changes with or without what to show, a path with spaces included', () => {
+    expect(parseChatInput('/changes')).toEqual({ kind: 'changes', target: undefined });
+    expect(parseChatInput('/changes #3')).toEqual({ kind: 'changes', target: '#3' });
+    expect(parseChatInput(' /changes  my docs/a.md ')).toEqual({
+      kind: 'changes',
+      target: 'my docs/a.md',
+    });
+  });
+
+  it('reads /errors with or without which failure to show', () => {
+    expect(parseChatInput('/errors')).toEqual({ kind: 'errors', target: undefined });
+    expect(parseChatInput(' /errors  #2 ')).toEqual({ kind: 'errors', target: '#2' });
   });
 
   it('reads /model with or without a name, and not with more than one', () => {
@@ -36,16 +57,60 @@ describe('unknownCommand', () => {
   });
 });
 
-describe('listModels', () => {
-  it('lists each model with its backend, marking the active one', () => {
-    const choices = [
-      { name: 'gpt', adapter: 'azure', model: 'gpt-6.1-sol' },
-      { name: 'claude', adapter: 'azure-anthropic', model: 'claude-sonnet' },
-    ];
+const GPT = modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30');
+const CLAUDE = modelIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71');
+const OTHER_GPT = modelIdSchema.parse('c1e8a3d4-7b25-4e69-8f10-2a6d9b4c7e53');
+const choices = [
+  { id: GPT, name: 'gpt', adapter: 'azure-openai', model: 'gpt-6.1-sol' },
+  { id: CLAUDE, name: 'claude', adapter: 'azure-anthropic', model: 'claude-sonnet' },
+];
 
-    expect(listModels({ choices, active: 'claude' })).toBe(
-      '○ gpt: azure / gpt-6.1-sol\n● claude: azure-anthropic / claude-sonnet',
+describe('listModels', () => {
+  it('lists each model with its backend and id, marking the active one by its id', () => {
+    expect(listModels({ choices, active: CLAUDE })).toBe(
+      `○ gpt: azure-openai / gpt-6.1-sol (${GPT})\n● claude: azure-anthropic / claude-sonnet (${CLAUDE})`,
     );
+  });
+
+  it('marks nothing for a name that is only a label, and both of two models called alike', () => {
+    const twins = [...choices, { ...choices[0]!, id: OTHER_GPT }];
+
+    expect(listModels({ choices: twins, active: OTHER_GPT }).split('\n')).toEqual([
+      expect.stringContaining('○ gpt'),
+      expect.stringContaining('○ claude'),
+      expect.stringContaining('● gpt'),
+    ]);
+  });
+});
+
+describe('pickModel', () => {
+  it('finds a model by its id', () => {
+    expect(pickModel({ choices, typed: CLAUDE })).toEqual({ kind: 'found', choice: choices[1] });
+  });
+
+  it('finds a model by a label only one model has, and the switch is then made by its id', () => {
+    const picked = pickModel({ choices, typed: 'gpt' });
+
+    expect(picked).toEqual({ kind: 'found', choice: choices[0] });
+    expect(picked.kind === 'found' && picked.choice.id).toBe(GPT);
+  });
+
+  it('refuses to guess between models that share a label, and takes the id of one', () => {
+    const twins = [...choices, { ...choices[0]!, id: OTHER_GPT }];
+
+    expect(pickModel({ choices: twins, typed: 'gpt' })).toEqual({
+      kind: 'ambiguous',
+      choices: [twins[0], twins[2]],
+    });
+    expect(pickModel({ choices: twins, typed: OTHER_GPT })).toEqual({
+      kind: 'found',
+      choice: twins[2],
+    });
+  });
+
+  it('finds nothing for what is neither an id nor a label', () => {
+    expect(pickModel({ choices, typed: 'huge' })).toEqual({ kind: 'none' });
+    expect(pickModel({ choices, typed: GPT.toUpperCase() })).toEqual({ kind: 'none' });
   });
 });
 
@@ -60,7 +125,18 @@ describe('completeChatLine', () => {
 
   it('completes / at the start to the chat commands and every skill', () => {
     expect(completeChatLine({ before: '/', skills })).toEqual([
-      ['/exit', '/help', '/model', '/quit', '/git', '/help-docs', '/review'],
+      [
+        '/changes',
+        '/errors',
+        '/exit',
+        '/help',
+        '/model',
+        '/mode',
+        '/quit',
+        '/git',
+        '/help-docs',
+        '/review',
+      ],
       '/',
     ]);
     expect(completeChatLine({ before: '/he', skills })).toEqual([['/help', '/help-docs'], '/he']);

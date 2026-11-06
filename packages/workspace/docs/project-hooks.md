@@ -38,7 +38,7 @@ export default {
   (`hooks: [...hostHooks, ...projectHooks.hooks]`), so yours wrap the project's.
 - **Only in a trusted workspace.** Hook files are code from the repo, so the harness loads none
   until you trust the workspace: run the demo once with `--trust`. It's remembered (outside the
-  repo, in `~/.config/sheavly/trusted-workspaces.json`, or `SHEAVLY_TRUST_FILE`) until anything in
+  repo, in `~/.sheavly/trusted-workspaces.json`, or under `SHEAVLY_HOME`) until anything in
   `.sheavly/` changes; then the hooks are skipped again until you review and trust it again. A
   hook may import only files inside `.sheavly/` and Node built-ins, since nothing else is covered
   by that trust. See [Workspace trust](#workspace-trust), below.
@@ -70,17 +70,22 @@ once loaded ([trust model](../../../docs/overview.md#trust-model)). So
 ([#3](https://github.com/Sheavly/code/issues/3)); otherwise none of their files is
 even imported.
 
-- `TrustStore` (`@sheavly/workspace/trust/`) keeps the trusted workspaces in one file outside every
-  repo, so a repo can't trust itself: `trustStoreFromEnv(process.env)` (called by the app) picks `SHEAVLY_TRUST_FILE`, else
-  `$XDG_CONFIG_HOME/sheavly/trusted-workspaces.json` (default `~/.config/sheavly/`).
+- `TrustStore` (`@sheavly/workspace/trust/`) keeps the trusted workspaces in one document outside
+  every repo, so a repo can't trust itself. It decides what is trusted and not where the document
+  lives: the host passes a `TrustPersistence` (`load`, `update`, and the `file` it is in), and the
+  store refuses one whose `file` is inside the workspace. The backend gives it a `DocumentFile`
+  from `@sheavly/storage` at `trusted-workspaces.json` in the user's folder (`trustStoreFor`:
+  `~/.sheavly`, or `SHEAVLY_HOME`). This package
+  reads and writes no file of the user's own; a store it cannot read is an error, never "nothing
+  trusted".
 - Each entry is the workspace's real path and a fingerprint (SHA-256) of every file in its
   `.sheavly/` folder when it was trusted. Any later added, removed or edited file there makes it
   `changed`, so new hook code never runs on an old "yes".
 - `trust` in the result is `trusted` (hooks loaded), `untrusted` (never trusted), `changed`
   (trusted, but `.sheavly/` changed since) or `no_hooks` (no `hooks.json`; nothing to trust).
 - The harness never asks. A host shows `harness.projectTrust` its own way, and trusts the
-  workspace when the user says so: `createTerminalHarness({ trustWorkspace: true })`, which is the demo's
-  `--trust`. The workbook trusts a fresh copy of its committed fixture, and takes `--trust` for a kept or
+  workspace when the user says so: `createBackendHarness({ trustWorkspace: true })`, which is the
+  backend's `--trust`. The terminal's workbook trusts a fresh copy of its committed fixture, and takes `--trust` for a kept or
   continued workspace. Both print `projectTrustNotice` (`apps/terminal/src/render/render.utils.ts`) when hooks were skipped.
 - A store that can't be read, parsed or written throws a `TrustStoreError` naming the file; it
   is never read as "nothing trusted".

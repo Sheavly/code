@@ -155,7 +155,11 @@ describe('message_agent: steering a running sub-agent', () => {
   it('wakes a sub-agent waiting idle on its own tasks, so it acts on the message', async () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, title: 'Idle' });
+    const child = sessions.startChild({
+      parentId: main.id,
+      startedByCall: callIdSchema.parse('start'),
+      title: 'Idle',
+    });
     const childTasks = new TaskRegistry();
     const taskDone = gate();
     const { provider, seen } = gatedProvider({
@@ -230,8 +234,9 @@ describe('message_agent: steering a running sub-agent', () => {
   it('refuses to message a session the caller did not start', async () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Main' });
-    const a = sessions.startChild({ parentId: main.id, title: 'A' });
-    const b = sessions.startChild({ parentId: main.id, title: 'B' });
+    const startedByCall = callIdSchema.parse('start');
+    const a = sessions.startChild({ parentId: main.id, startedByCall, title: 'A' });
+    const b = sessions.startChild({ parentId: main.id, startedByCall, title: 'B' });
     const tool = createMessageAgentTool({ sessions });
     const signal = new AbortController().signal;
 

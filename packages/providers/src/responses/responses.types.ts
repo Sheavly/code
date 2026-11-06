@@ -3,6 +3,7 @@ import type { StopReason, StreamEvent } from '@sheavly/core/message/message.type
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
 import type { responsesEventSchema } from './responses.validator.js';
+import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 
 /**
  * Where and how to reach one backend that speaks the OpenAI Responses API. Backends differ only
@@ -40,7 +41,12 @@ export type ResponsesEvent = z.infer<typeof responsesEventSchema>;
  * What one Responses API event means for us: something to yield, a new stop reason, or both.
  * `ended`: a terminal event (`response.completed` / `response.incomplete`) finished the turn.
  */
-export type EventStep = { event?: StreamEvent; stopReason?: StopReason; ended?: true };
+export type EventStep = {
+  event?: StreamEvent;
+  stopReason?: StopReason;
+  ended?: true;
+  usage?: TokenUsage;
+};
 
 /** The function call fields we read from a `function_call` output item; the id is branded once parsed. */
 export type FunctionCallItem = { call_id: CallId; name: string; arguments: string };

@@ -3,6 +3,7 @@ import type {
   ToolCall,
   TurnStopReason,
 } from '@sheavly/protocol/message/message.types';
+import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 
 // --- What a provider streams back ---
 
@@ -13,4 +14,4 @@ export type StreamEvent =
   | { type: 'text_delta'; text: string }
   | { type: 'tool_call'; call: ToolCall }
   | { type: 'reasoning'; item: ReasoningItem }
-  | { type: 'done'; stopReason: StopReason };
+  | { type: 'done'; stopReason: StopReason; usage?: ModelUsage };

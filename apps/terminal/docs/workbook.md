@@ -12,7 +12,7 @@ npm run workbook -- continue "now add tests"   # follow up on the last run, with
 npm run workbook -- diff 0003 0007             # compare two runs
 ```
 
-Runs use the real model, with the same settings as the demo (`ADAPTER`, keys, `.env`).
+Runs use the real model, on your profile's models, like the demo.
 
 ## Layout
 
@@ -38,7 +38,7 @@ A prompt is a markdown file. Optional front matter sets how it runs:
 ---
 description: write_file + edit_file, then read both back
 workspace: basic # a fixture folder name in workspaces/ to copy for each run (default: an empty folder)
-maxTurns: 20 # model calls per session (default 20)
+maxTurns: 20 # model calls per session (default: no limit)
 ---
 
 Create src/math.ts exporting a function add(a: number, b: number) …
@@ -92,6 +92,9 @@ check:
 - **`expect` / `forbid`**: `transcript` (what was printed) and `reply` (the final answer) take
   substrings, or regexes written `/…/flags`. `events` (types such as `context_added`) and `tools`
   (names such as `read_file`) take names. `expect.outcome` is `completed`, `failed`, ….
+- **`contextHooks`** takes hook names from structured `context_added` events. For example,
+  `forbid: { "contextHooks": ["house-rules"] }` rejects that project hook without rejecting
+  built-in AGENTS.md or skills context. Trusted steps can require the same hook through `expect`.
 - **`steps`**, for a check that needs several runs, replace the top-level `expect` / `forbid`:
   - `{ "run": { "keep": true, "trust": true, "text": "…" }, "expect": …, "forbid": … }` is a run, with
     the same flags as the command line;
@@ -105,6 +108,11 @@ A failed check is retried once, since real models aren't fully repeatable. The r
 check that passed only on its retry (`~`), and lists every run it made for `show` and `step`.
 Each attempt uses a throwaway trust file, never your `~/.config`; each run's backend reads it. The command exits 1 when a
 check fails.
+
+Workbook checks use the plain log renderer, not the interactive chat screen. They cannot verify
+React layout, editing, approval key handling or terminal resize behavior. Those are covered by
+the terminal app's component and interaction tests, with PTY checks for native scrollback;
+adding their paths to a prompt's `areas` would select a model run without exercising that UI.
 
 ## What a run saves
 

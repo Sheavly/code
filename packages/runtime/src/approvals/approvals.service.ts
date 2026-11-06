@@ -18,12 +18,13 @@ import {
   approvalResponseSchema,
 } from '@sheavly/protocol/approval/approval.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { AllowEntry } from '@sheavly/protocol/permission/permission.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };
 
-const OPTIONS: readonly ApprovalOption[] = ['approve', 'skip', 'skip_with_message'];
+const DEFAULT_OPTIONS: readonly ApprovalOption[] = ['approve', 'skip', 'skip_with_message'];
 
 export class ApprovalRegistry {
   #pending = new Map<ApprovalId, Pending>();
@@ -42,7 +43,9 @@ export class ApprovalRegistry {
 
   /**
    * Announces a request and waits for its answer. Rejects if `signal` aborts first (and tells
-   * subscribers it was cancelled), or right away if no one is listening.
+   * subscribers it was cancelled), or right away if no one is listening. `options` is what the
+   * user may answer (run, skip, skip with a message unless the caller offers more); `respond`
+   * refuses any other.
    */
   request(params: {
     callId: CallId;
@@ -50,9 +53,12 @@ export class ApprovalRegistry {
     tool: string;
     command: string;
     concerns: ApprovalConcern[];
+    options?: readonly ApprovalOption[];
+    /** What `always_allow` would keep, when `options` offers it (see `ApprovalRequest.keeps`). */
+    keeps?: readonly AllowEntry[];
     signal: AbortSignal;
   }): Promise<ApprovalResponse> {
-    const { signal, sessionId, ...rest } = params;
+    const { signal, sessionId, options = DEFAULT_OPTIONS, ...rest } = params;
 
     if (!this.listening) {
       return Promise.reject(
@@ -69,7 +75,7 @@ export class ApprovalRegistry {
       id: approvalIdSchema.parse(`a${this.#nextId++}`),
       ...rest,
       ...(sessionId !== undefined && { sessionId }),
-      options: OPTIONS,
+      options,
     };
 
     return new Promise<ApprovalResponse>((resolve, reject) => {
@@ -122,6 +128,13 @@ export class ApprovalRegistry {
     }
 
     const response = approvalResponseSchema.parse(params.response);
+
+    if (!pending.request.options.includes(response.decision)) {
+      throw new ApprovalRequestError({
+        reason: 'not_offered',
+        message: `${response.decision} is not one of the options offered for approval ${id}: ${pending.request.options.join(', ')}`,
+      });
+    }
 
     this.#pending.delete(id);
     pending.resolve(response);

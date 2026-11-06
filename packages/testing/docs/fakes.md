@@ -40,6 +40,21 @@ a real backend; a provider fake for anything above it.
 - `until(check)` polls until `check()` is true. Background tasks and sub-agents finish on their
   own schedule, so a test waits on the state it expects, never on a fixed delay.
 
+## Keeping time
+
+Code reads the time through `now()` (`@sheavly/core/clock/clock.helper`), which reads Luxon's
+clock. `useFixedClock(start?)` freezes it for each test of the file and gives back
+`advance(ms)`, so a test asserts the exact `startedAt`, `sentAt` or `at` it expects and never
+waits for time to pass.
+
+## Keeping conversations
+
+`MemoryConversationStore` is a `ConversationStore` in memory, with a real store's rules: entries
+in `seq` order with no gaps, one index entry per conversation, the conversation's history and one
+history for each of its sub-agents (kept apart from each other), a `StoreError` on failure.
+`failWith(error)` makes every following write reject, as a full disk does, for a test of what a
+host does when storage fails.
+
 ## Not here
 
 A package's fakes for its own services stay in its `src/testing/`, exported as `./testing/*`

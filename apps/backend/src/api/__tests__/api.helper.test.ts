@@ -4,9 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { API_ROUTES } from '@sheavly/protocol/api/api.constants';
 import { createClient } from '@sheavly/client/client/client.helper';
 import { readEntries } from '@sheavly/client/client/entries.helper';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { reply, testApi } from '../../testing/api.fake.js';
 import { TEST_TOKEN } from '../../testing/testing.constants.js';
 import { honoPath } from '../api.utils.js';
+
+/** A well-formed id that no conversation's models have. */
+const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
 describe('the API’s guards', () => {
   it('refuses a request without the token, or with a wrong one, before any route runs', async () => {
@@ -75,11 +79,23 @@ describe('the API’s guards', () => {
     expect(both.status).toBe(400);
     expect(await both.json()).toMatchObject({ error: { code: 'bad_request' } });
 
-    const missing = await request('/conversations/nope/messages');
+    const missing = await request('/conversations/00000000-0000-4000-8000-0000000000ff/messages');
 
     expect(missing.status).toBe(404);
     expect(await missing.json()).toMatchObject({ error: { code: 'not_found' } });
     expect((await request('/nowhere')).status).toBe(404);
+  });
+
+  it('answers an id that cannot be a conversation’s as not found, never as a server failure', async () => {
+    const { request } = testApi({});
+
+    // Not a lowercase UUID: nothing could have that id, and none of these may reach a path.
+    for (const bad of ['nope', '..', 'C1', '0000', '00000000-0000-4000-8000-0000000000FF']) {
+      const response = await request(`/conversations/${bad}/messages`);
+
+      expect(response.status, bad).toBe(404);
+      expect(await response.json(), bad).toMatchObject({ error: { code: 'not_found' } });
+    }
   });
 
   it('refuses a picked skill no one has with unknown_skill, and searches the skills', async () => {
@@ -236,7 +252,9 @@ describe('over real HTTP, with the client UIs use', () => {
     const client = createClient({ url, token: TEST_TOKEN });
     const { id } = await client.call('startConversation', { body: {} });
 
-    await expect(client.send('switchModel', { id, body: { name: 'huge' } })).rejects.toMatchObject({
+    await expect(
+      client.send('switchModel', { id, body: { id: modelIdSchema.parse(UNKNOWN_ID) } }),
+    ).rejects.toMatchObject({
       name: 'RefusedError',
       status: 422,
       code: 'unknown_model',

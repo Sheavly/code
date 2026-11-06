@@ -1,18 +1,6 @@
 /**
- * Allow list for run_command.
- *
- * Each entry is a command written as words:
- *   "git status"   allows exactly `git status`
- *   "git diff *"   allows `git diff` followed by any arguments
+ * Automatic metadata commands in ask mode. Content readers and Git require an explicit grant:
+ * their options can expose arbitrary files or run programs. Path-qualified executables never
+ * inherit these automatic grants. Explicit user grants still cover the chosen base command.
  */
-export const DEFAULT_ALLOW_LIST = [
-  'ls *',
-  'pwd',
-  'git status *',
-  'git diff *',
-  'git log *',
-  'npm test *',
-  'npm run typecheck',
-  'npx vitest run *',
-  'npx tsc --noEmit',
-];
+export const BUILT_IN_ALLOW = ['ls *', 'pwd', 'stat *'] as const;

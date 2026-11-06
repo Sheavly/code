@@ -1,6 +1,8 @@
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
+import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
@@ -17,6 +19,13 @@ export type HarnessOptions = {
   /** Pass registries in when a tool needs them before the harness exists (default: new ones). */
   tasks?: TaskRegistry;
   approvals?: ApprovalRegistry;
+  /** Where the run's combined stream is kept; without it, only in memory (`SessionRegistry`). */
+  entries?: EntryStore | undefined;
+  /**
+   * The stored log of a conversation being reopened (`readStoredLog`): the run carries on from it,
+   * and its main session is the one that was stored, idle for the next prompt.
+   */
+  resume?: StoredLog | undefined;
 };
 
 /**

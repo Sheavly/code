@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { DEFAULT_ADAPTER, DEFAULT_MODEL, MAX_TURNS, REQUEST, SERVER } from './harness.constants.js';
+import { REQUEST, SERVER } from './harness.constants.js';
 
-/** An empty line in `.env` (`AZURE_OPENAI_API_VERSION=`) means "not set". */
+/** An empty setting (`SERVER_HOST=`) means "not set". */
 const optionalSetting = z
   .string()
   .optional()
@@ -22,7 +22,7 @@ const count = (fallback: number) =>
     .pipe(z.number().int().min(0));
 
 /**
- * How the terminal sends a model call: `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
+ * How the backend sends a model call: `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES` and
  * `MODEL_RETRY_DELAY_MS`, each defaulting to `REQUEST`.
  */
 const requestEnvSchema = z.object({
@@ -45,30 +45,6 @@ export function parseRequestEnv(env: Record<string, string | undefined>) {
 }
 
 /**
- * The model backend settings a host reads from the environment: `ADAPTER` picks "openai" (the
- * default) or "azure", each with its own keys. Each missing key names what to set.
- */
-const providerEnvSchema = z.discriminatedUnion('ADAPTER', [
-  z.object({
-    ADAPTER: z.literal('openai'),
-    OPENAI_API_KEY: z.string().min(1, 'Set OPENAI_API_KEY'),
-    MODEL: z.string().default(DEFAULT_MODEL),
-  }),
-  z.object({
-    ADAPTER: z.literal('azure'),
-    AZURE_OPENAI_API_KEY: z.string().min(1, 'Set AZURE_OPENAI_API_KEY'),
-    AZURE_OPENAI_BASE_URL: z.string().min(1, 'Set AZURE_OPENAI_BASE_URL'),
-    AZURE_OPENAI_DEPLOYMENT: z.string().default(DEFAULT_MODEL),
-    AZURE_OPENAI_API_VERSION: optionalSetting,
-  }),
-]);
-
-/** The settings from `env`, with `ADAPTER` defaulting to the hosts' default backend. */
-export function parseProviderEnv(env: Record<string, string | undefined>) {
-  return providerEnvSchema.parse({ ...env, ADAPTER: env.ADAPTER ?? DEFAULT_ADAPTER });
-}
-
-/**
  * What `npm run serve` reads from the environment: where to listen and the token every request
  * must carry. It listens on 127.0.0.1 unless `SERVER_HOST` says otherwise (the server runs
  * commands for whoever reaches it), and generates a token when `SERVER_TOKEN` is unset.
@@ -80,23 +56,50 @@ const serverEnvSchema = z.object({
   SERVER_TOKEN: optionalSetting.pipe(
     z.string().min(32, 'Set SERVER_TOKEN to at least 32 characters, or leave it unset').optional(),
   ),
+  /**
+   * Only the exact string "true" lets the setup routes that hand out access (a model's key, a
+   * workspace's trust) work over a network (put TLS in front).
+   */
+  SERVER_ALLOW_REMOTE_SETUP: optionalSetting,
 });
+
+/**
+ * Whether `host` (a bind address) only this machine can reach: `localhost`, `::1` or any
+ * `127.x.x.x`. `0.0.0.0` and `::` listen on every interface, so they are not.
+ */
+function isLoopbackHost(host: string): boolean {
+  return host === 'localhost' || host === '::1' || /^127(\.\d{1,3}){3}$/.test(host);
+}
 
 /** The server settings from `env`. */
 export function parseServerEnv(env: Record<string, string | undefined>) {
   const parsed = serverEnvSchema.parse(env);
 
-  return { host: parsed.SERVER_HOST, port: parsed.SERVER_PORT, token: parsed.SERVER_TOKEN };
+  return {
+    host: parsed.SERVER_HOST,
+    port: parsed.SERVER_PORT,
+    token: parsed.SERVER_TOKEN,
+    /**
+     * Whether the setup routes that hand out access (a model's key, a workspace's trust) may work:
+     * on this machine, or opted into for a remote one.
+     */
+    remoteSetupAllowed:
+      isLoopbackHost(parsed.SERVER_HOST) || parsed.SERVER_ALLOW_REMOTE_SETUP === 'true',
+  };
 }
 
 /**
- * How the backend runs each conversation, from its environment: `MAX_TURNS`, `WAIT_FOR_TASKS`
- * (a prompt's `done` waits for its background tasks, as a one-shot run wants), `MODEL_CALLS_FILE`
- * (each model call's full request appended there, one JSON line each) and `SERVER_EXIT_WITH_PARENT`
- * (stop when stdin closes: the UI that started it is gone).
+ * How the backend runs each conversation, from its environment: `MAX_TURNS` (no limit unless
+ * set), `WAIT_FOR_TASKS` (a prompt's `done` waits for its background tasks, as a one-shot run
+ * wants), `MODEL_CALLS_FILE` (each model call's full request appended there, one JSON line each)
+ * and `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone).
  */
 const runEnvSchema = z.object({
-  MAX_TURNS: count(MAX_TURNS).pipe(z.number().min(1)),
+  MAX_TURNS: z
+    .string()
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
+    .pipe(z.number().int().min(1).optional()),
   WAIT_FOR_TASKS: optionalSetting,
   MODEL_CALLS_FILE: optionalSetting,
   SERVER_EXIT_WITH_PARENT: optionalSetting,
@@ -115,8 +118,8 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
 }
 
 /**
- * What both terminal CLIs (the demo and the chat) read from their command line and environment:
- * `--trust`, the prompt (the other arguments, or empty), and the settings that shape a run.
+ * What the backend reads from its command line and environment: `--trust`, and the settings that
+ * shape a run.
  */
 export function parseCliSettings(params: {
   env: Record<string, string | undefined>;
@@ -127,10 +130,8 @@ export function parseCliSettings(params: {
   return {
     /** `--trust`: trust this workspace's `.sheavly/` hooks (remembered until `.sheavly/` changes). */
     trustWorkspace: args.includes('--trust'),
-    prompt: args.filter((arg) => arg !== '--trust').join(' '),
     workspaceRoot: optionalSetting.pipe(z.string().min(1).optional()).parse(env.WORKSPACE_ROOT),
     /** Only the exact string "true" turns these on. */
-    skipAllowList: env.RUN_COMMAND_SKIP_ALLOW_LIST === 'true',
     showModelCalls: env.SHOW_MODEL_CALLS === 'true',
   };
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -44,13 +45,27 @@ export function createSubAgentTool(options: SubAgentOptions) {
       }
 
       // Throws for an unknown or ended parent, and at the depth cap: no session floats free.
-      const child = sessions.startChild({ parentId: context.session.id, title });
+      const child = sessions.startChild({
+        parentId: context.session.id,
+        startedByCall: context.callId,
+        title,
+      });
+      const selected = options.selectProvider?.() ?? { provider: options.provider };
+
+      if (selected.selection) sessions.setModel({ id: child.id, ...selected.selection });
+
+      const childOptions = {
+        ...options,
+        provider: selected.provider,
+        selectProvider: () => selected,
+      };
       const started = tasks.start({
         command: `sub-agent: ${title}`,
         description: context.description,
         callId: context.callId,
         sessionId: context.session.id,
-        run: ({ signal, onOutput }) => runChild({ options, child, task, signal, onOutput }),
+        run: ({ signal, onOutput }) =>
+          runChild({ options: childOptions, child, task, signal, onOutput }),
       });
 
       return (
@@ -102,7 +117,7 @@ async function runChild(params: {
       ],
       hooks,
       instructions: subAgentInstructions({ rules: SUB_AGENT_INSTRUCTIONS, extra: instructions }),
-      messages: [{ role: 'user', content: task }],
+      messages: [{ role: 'user', content: task, at: now() }],
       signal,
       tasks: childTasks,
       waitForTasks: true,

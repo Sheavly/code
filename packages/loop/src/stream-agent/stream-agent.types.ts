@@ -17,7 +17,10 @@ export type AgentOptions = {
   provider: Provider;
   tools: Tool[];
   messages: Message[];
+  /** Model calls before the run stops with `max_turns`. Without it a run goes on until it is done or stopped. */
   maxTurns?: number;
+  /** Extra calls after output truncation, at most two by default. Set to zero to stop immediately. */
+  maxOutputContinuations?: number;
   /** The host's system instructions, sent with every model call (hooks may add more). */
   instructions?: string;
   signal?: AbortSignal;
@@ -69,6 +72,8 @@ export type RunContext = {
 
 export type TurnContext = RunContext & {
   turn: number;
+  /** Counts output-limit recoveries across the whole run, including tool turns. */
+  outputRecovery: { attempts: number };
   /** The run's history; the turn appends to it. */
   messages: Message[];
 };

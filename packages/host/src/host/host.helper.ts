@@ -21,8 +21,11 @@ export function createHarness(options: HarnessOptions): Harness {
         },
       }
     : options.provider;
-  const sessions = new SessionRegistry();
-  const mainSession = sessions.startMain({ title: title.slice(0, 60) });
+  const sessions = new SessionRegistry({
+    ...(options.entries && { store: options.entries }),
+    ...(options.resume && { resume: options.resume }),
+  });
+  const mainSession = sessions.restoredMain() ?? sessions.startMain({ title: title.slice(0, 60) });
   const approvals = options.approvals ?? new ApprovalRegistry();
   const tasks = options.tasks ?? new TaskRegistry();
 

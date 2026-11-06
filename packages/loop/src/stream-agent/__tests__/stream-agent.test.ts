@@ -21,6 +21,15 @@ const getWeather = defineTool({
   execute: async ({ input: { city } }) => `Sunny in ${city}`,
 });
 
+// A model turn that asks for a tool, so the run needs another turn.
+const loopForever: StreamEvent[] = [
+  {
+    type: 'tool_call',
+    call: { id: callId, name: 'get_weather', input: { description: 'again', city: 'X' } },
+  },
+  { type: 'done', stopReason: 'tool_use' },
+];
+
 describe('runAgent', () => {
   it("fails at once, calling no model, for a session its registry doesn't know", async () => {
     let modelCalls = 0;
@@ -33,7 +42,7 @@ describe('runAgent', () => {
       },
     };
     const stray = sessionIdSchema.parse('stray');
-    const ref = { id: stray, rootId: stray, depth: 1 };
+    const ref = { id: stray, rootId: stray, depth: 1 as const };
 
     await expect(
       runAgent({
@@ -60,7 +69,7 @@ describe('runAgent', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'hi' },
       { role: 'assistant', content: 'Hello', toolCalls: [] },
     ]);
@@ -91,7 +100,7 @@ describe('runAgent', () => {
       onEvent: (e) => events.push(e),
     });
 
-    expect(messages).toEqual([
+    expect(messages).toMatchObject([
       { role: 'user', content: 'Weather in Stockholm?' },
       { role: 'assistant', content: '', toolCalls: [call] },
       { role: 'tool', toolCallId: '1', content: 'Sunny in Stockholm', isError: false },
@@ -99,10 +108,12 @@ describe('runAgent', () => {
     ]);
     expect(events.map((e) => e.type)).toEqual([
       'tool_call_started',
+      'usage',
       'turn_end',
       'tool_batch',
       'tool_result',
       'text_delta',
+      'usage',
       'turn_end',
       'done',
     ]);
@@ -134,13 +145,6 @@ describe('runAgent', () => {
   });
 
   it('stops at maxTurns', async () => {
-    const loopForever: StreamEvent[] = [
-      {
-        type: 'tool_call',
-        call: { id: callId, name: 'get_weather', input: { description: 'again', city: 'X' } },
-      },
-      { type: 'done', stopReason: 'tool_use' },
-    ];
     const provider = scriptedProvider([loopForever, loopForever, loopForever]);
 
     const messages = await runAgent({
@@ -152,6 +156,21 @@ describe('runAgent', () => {
 
     // user + 2 × (assistant + tool)
     expect(messages).toHaveLength(5);
+  });
+
+  it('sets no turn limit unless asked: a run past the old default of 20 completes', async () => {
+    const finish: StreamEvent[] = [{ type: 'done', stopReason: 'end_turn' }];
+    const provider = scriptedProvider([...Array.from({ length: 30 }, () => loopForever), finish]);
+    const events: AgentEvent[] = [];
+
+    await runAgent({
+      provider,
+      tools: [getWeather],
+      messages: [{ role: 'user', content: '?' }],
+      onEvent: (e) => events.push(e),
+    });
+
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
 
   it("puts a tool's artifacts on tool_result unchanged, never in the model's history", async () => {
@@ -173,7 +192,7 @@ describe('runAgent', () => {
 
     expect(events.find((e) => e.type === 'tool_result')).toMatchObject({ artifacts });
     expect(JSON.stringify(messages)).not.toContain('columns');
-    expect(messages[2]).toEqual({
+    expect(messages[2]).toMatchObject({
       role: 'tool',
       toolCallId: '1',
       content: 'Parsed 1 row',

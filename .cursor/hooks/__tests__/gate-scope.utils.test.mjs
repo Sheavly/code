@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { writeFiles } from '../../../packages/eslint-config/src/testing/workspace.fake.js';
 import {
   gateScope,
+  scopedCloneReport,
   scopedFiles,
   scopedReport,
   scopedTurboReport,
@@ -124,6 +125,52 @@ describe('scopedReport', () => {
     expect(scopedReport({ output: 'packages/server/src/a.ts', scope, root })).toBeNull();
     expect(scopedReport({ output: crash, scope, root })).toBe(crash);
     expect(scopedReport({ output: '', scope, root })).toContain('failed without printing why');
+  });
+});
+
+describe('scopedCloneReport', () => {
+  const root = '/repo';
+  const scope = {
+    files: new Set(),
+    names: ['@sheavly/core'],
+    dirs: ['packages/core'],
+    root: false,
+    everyWorkspace: ['@sheavly/core', 'packages/core', '@sheavly/runtime', 'packages/runtime'],
+  };
+  const summary = [
+    '┌────────────┬────────────────┐',
+    '│ Format     │ Files analyzed │',
+    'Found 1 clones.',
+    'Using config from .jscpd.json',
+    'ERROR: jscpd found too many duplicates (0.0%) over threshold (0.0%)',
+  ];
+  const clone = (file) => [
+    'Clone found (typescript)',
+    ` - ${file} [1:1 - 9:2] (9 lines, 53 tokens)`,
+    `   ${file} [20:1 - 28:2]`,
+  ];
+
+  it("is null when every clone is in another chat's files, whatever the summary says", () => {
+    const output = [...clone('packages/runtime/src/a.test.ts'), ...summary].join('\n');
+
+    expect(scopedCloneReport({ output, scope, root })).toBeNull();
+  });
+
+  it("keeps the clones with a file in the chat's scope, without the summary or colors", () => {
+    const mine = clone('packages/core/src/b.ts');
+    const output = [
+      ...clone('packages/runtime/src/a.test.ts'),
+      ...mine.map((line) => `\u001B[1m${line}\u001B[22m`),
+      ...summary,
+    ].join('\n');
+
+    expect(scopedCloneReport({ output, scope, root })).toBe(mine.join('\n'));
+  });
+
+  it('keeps a report with no clone in it whole, so a jscpd that failed to run is said', () => {
+    const crash = ['Error: Cannot find module', '    at /usr/lib/node/x.js:1:1'].join('\n');
+
+    expect(scopedCloneReport({ output: crash, scope, root })).toBe(crash);
   });
 });
 

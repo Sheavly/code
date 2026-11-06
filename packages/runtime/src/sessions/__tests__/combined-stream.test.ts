@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '../sessions.service.js';
 import { TaskRegistry } from '../../tasks/tasks.service.js';
-import { startDeepestSession } from '../../testing/sessions.fake.js';
+import { STARTED_BY, startDeepestSession } from '../../testing/sessions.fake.js';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
@@ -14,6 +14,18 @@ const describeEntry = (entry: StreamEntry, names: Record<string, string>) =>
     entry.kind === 'event' ? `event:${entry.event.type}` : `update:${entry.update.type}`
   }`;
 
+/** Starts a main session with one sub-agent under it, before anyone listens. */
+function startMainWithChild(sessions: SessionRegistry) {
+  const main = sessions.startMain({ title: 'Main' });
+  const child = sessions.startChild({
+    parentId: main.id,
+    startedByCall: STARTED_BY,
+    title: 'Child',
+  });
+
+  return { main, child };
+}
+
 describe("SessionRegistry's combined stream", () => {
   it('orders every session’s updates and published events in one seq with no gaps', () => {
     const sessions = new SessionRegistry();
@@ -22,7 +34,11 @@ describe("SessionRegistry's combined stream", () => {
     sessions.subscribeEntries((entry) => entries.push(entry));
 
     const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+    const child = sessions.startChild({
+      parentId: main.id,
+      startedByCall: STARTED_BY,
+      title: 'Child',
+    });
 
     sessions.publish({ sessionId: main.id, event: { seq: 0, type: 'text_delta', text: 'a' } });
     sessions.publish({ sessionId: child.id, event: { seq: 0, type: 'text_delta', text: 'b' } });
@@ -52,6 +68,7 @@ describe("SessionRegistry's combined stream", () => {
     expect(entries).toEqual([
       {
         seq: 1, // the main session's start was entry 0
+        at: expect.any(Number) as number,
         sessionId: main.id,
         kind: 'event',
         event: { seq: 7, type: 'text_delta', text: 'a' },
@@ -84,6 +101,7 @@ describe("SessionRegistry's combined stream", () => {
     for (const entries of [live, replayed]) {
       expect(entries.at(-1)).toEqual({
         seq: 1,
+        at: expect.any(Number) as number,
         sessionId: main.id,
         kind: 'event',
         event: { seq: 0, type: 'done', reason: 'completed', session: main },
@@ -93,8 +111,7 @@ describe("SessionRegistry's combined stream", () => {
 
   it('files each approval and its answer under the session whose tool asked', () => {
     const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+    const { main, child } = startMainWithChild(sessions);
     const entries: StreamEntry[] = [];
     const request = (id: string, sessionId?: SessionId) => ({
       type: 'approval_requested' as const,
@@ -132,8 +149,7 @@ describe("SessionRegistry's combined stream", () => {
 
   it('files each task under the session that started it, or main when none did', () => {
     const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, title: 'Child' });
+    const { main, child } = startMainWithChild(sessions);
     const tasks = new TaskRegistry();
     const entries: StreamEntry[] = [];
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SessionRegistry } from '../sessions.service.js';
+import { STARTED_BY } from '../../testing/sessions.fake.js';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 
 /** A main session, and every update it makes from now on as `type:state:lastOutcome`. */
@@ -54,9 +55,9 @@ describe('a session between prompts', () => {
 
     expect(sessions.get(main.id)?.status).toBeUndefined();
     expect(sessions.takeMessages(main.id).map((m) => m.content)).toEqual(['next time']);
-    expect(() => sessions.startChild({ parentId: main.id, title: 'Late' })).toThrow(
-      'is idle between prompts',
-    );
+    expect(() =>
+      sessions.startChild({ parentId: main.id, startedByCall: STARTED_BY, title: 'Late' }),
+    ).toThrow('is idle between prompts');
   });
 
   it('ignores idle for a session that is not running', () => {

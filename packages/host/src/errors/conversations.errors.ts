@@ -1,9 +1,12 @@
 /**
  * Why a call on the live conversations failed, for a transport to map to its own errors (the
- * server's codes): no conversation has that id, a skill a prompt picked doesn't exist, or a model
- * to switch to isn't one the conversation has.
+ * server's codes): no conversation has that id, a skill a prompt picked doesn't exist, a model to
+ * switch to isn't one the conversation has, its storage failed (the conversation is refused
+ * rather than carried on unrecorded), or nothing is set up to start one on (no profile with a
+ * model yet: a UI onboards the user first).
  */
-type ConversationFailure = 'not_found' | 'unknown_skill' | 'unknown_model';
+type ConversationFailure =
+  'not_found' | 'unknown_skill' | 'unknown_model' | 'storage_failed' | 'not_set_up';
 
 export class ConversationsError extends Error {
   override name = 'ConversationsError';

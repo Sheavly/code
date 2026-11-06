@@ -7,11 +7,14 @@
  *   `as const` values; `code`: functions, classes and computed values, but no exported types
  *   or literal constants (those go in the module's types/constants file).
  * - `maxLines`: lines of code (blank and comment lines aside) before a file is doing more than
- *   one job. `null` = no limit (pure helpers grow with their subject).
+ *   one job. `null` = no limit (utils and helpers are stateless functions that grow with their
+ *   subject).
  * - `classes` (optional): `required` (it exports at least one class) or `forbidden` (it exports
  *   none). Left out, a kind may export classes or not.
  * - `schemas` (optional): `allowed` means it may export zod schemas. Only validators may; a
  *   schema anywhere else stays unexported, or moves to the module's `*.validator.ts`.
+ * - `extensions` (optional): the file extensions the kind may have, `['ts']` when left out. Only
+ *   `component` (`.tsx`, a React view) and `test` (a component's test may be `.tsx`) differ.
  */
 const LINES = { THIN: 150, DEFAULT: 300, TEST: 500, UNLIMITED: null };
 
@@ -28,7 +31,7 @@ export const FILE_KIND_POLICIES = {
    */
   validator: { exports: 'code', maxLines: LINES.DEFAULT, schemas: 'allowed' },
   /** Stateless functions that may do I/O or call services. Functions only, no classes. */
-  helper: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'forbidden' },
+  helper: { exports: 'code', maxLines: LINES.UNLIMITED, classes: 'forbidden' },
   /** Code that owns state: it exports a class. */
   service: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'required' },
   /** Error classes. */
@@ -43,10 +46,16 @@ export const FILE_KIND_POLICIES = {
    * a request into a call and the result into a response, and logic lives in the services.
    */
   routes: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden' },
+  /**
+   * One React view: a function component (Ink, in the terminal app). Its props type lives in the
+   * module's `*.types.ts`, like any type. Thin: a view draws what it is given, and what to show,
+   * and when, is decided in the code it calls.
+   */
+  component: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden', extensions: ['tsx'] },
   /** Test-only fakes, in a `testing/` folder. */
   fake: { exports: 'code', maxLines: LINES.DEFAULT },
   /** Vitest files, in a `__tests__` folder beside the module they test. */
-  test: { exports: 'code', maxLines: LINES.TEST },
+  test: { exports: 'code', maxLines: LINES.TEST, extensions: ['ts', 'tsx'] },
 };
 
 export const FILE_KINDS = Object.keys(FILE_KIND_POLICIES);
@@ -58,11 +67,24 @@ export const TEST_FOLDER = '__tests__';
 export const DEFAULT_MAX_LINES = LINES.DEFAULT;
 
 const KEBAB = '[a-z0-9]+(?:-[a-z0-9]+)*';
-const KIND_IN_NAME = new RegExp(`^${KEBAB}(?:\\.${KEBAB})*\\.(${KEBAB})\\.ts$`);
+const KIND_IN_NAME = new RegExp(`^${KEBAB}(?:\\.${KEBAB})*\\.(${KEBAB})\\.(tsx?)$`);
 
-/** The kind in a file name (`tasks.service.ts` → `service`), or null when it names none. */
+/** The extensions (without the dot) files of `kind` may have. */
+export function extensionsOf(kind) {
+  return FILE_KIND_POLICIES[kind].extensions ?? ['ts'];
+}
+
+/** The ESLint globs of one kind's files, one for each extension the kind allows. */
+export function globsOfKind(kind) {
+  return extensionsOf(kind).map((extension) => `**/*.${kind}.${extension}`);
+}
+
+/**
+ * The kind in a file name (`tasks.service.ts` → `service`), or null when it names none or has an
+ * extension the kind doesn't allow (`tasks.service.tsx`).
+ */
 export function kindOfFile(fileName) {
-  const kind = KIND_IN_NAME.exec(fileName.split(/[\\/]/).at(-1))?.[1];
+  const [, kind, extension] = KIND_IN_NAME.exec(fileName.split(/[\\/]/).at(-1)) ?? [];
 
-  return kind && FILE_KINDS.includes(kind) ? kind : null;
+  return kind && FILE_KINDS.includes(kind) && extensionsOf(kind).includes(extension) ? kind : null;
 }

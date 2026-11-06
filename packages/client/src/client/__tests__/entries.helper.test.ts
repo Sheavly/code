@@ -3,6 +3,7 @@ import { readEntries } from '../entries.helper.js';
 
 const entry = (seq: number) => ({
   seq,
+  at: 1_700_000_000_000,
   sessionId: 'main',
   kind: 'task',
   update: {

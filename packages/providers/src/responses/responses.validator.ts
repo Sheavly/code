@@ -16,16 +16,28 @@ const reasoningOutputItemSchema = z.looseObject({
   encrypted_content: z.string().min(1),
 });
 
+const usageSchema = z.object({
+  input_tokens: z.number().int().nonnegative(),
+  output_tokens: z.number().int().nonnegative(),
+  input_tokens_details: z.object({ cached_tokens: z.number().int().nonnegative() }).nullish(),
+});
+
 export const responsesEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('response.output_text.delta'), delta: z.string() }),
   z.object({
     type: z.literal('response.output_item.done'),
     item: z.discriminatedUnion('type', [functionCallItemSchema, reasoningOutputItemSchema]),
   }),
-  z.object({ type: z.literal('response.completed') }),
+  z.object({
+    type: z.literal('response.completed'),
+    response: z.object({ usage: usageSchema.nullish() }).optional(),
+  }),
   z.object({
     type: z.literal('response.incomplete'),
-    response: z.object({ incomplete_details: z.object({ reason: z.string() }).nullish() }),
+    response: z.object({
+      incomplete_details: z.object({ reason: z.string() }).nullish(),
+      usage: usageSchema.nullish(),
+    }),
   }),
   z.object({
     type: z.literal('response.failed'),

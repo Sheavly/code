@@ -5,7 +5,7 @@
 // conversation, to the call that chat last ran under. Without either, the subagent counts as
 // running only until its idle timeout, after which the parent's checks run and name it once.
 import path from 'node:path';
-import { getChatState, readHookInput, respond, updateChatState } from './hooks.utils.mjs';
+import { getChatState, hookNow, readHookInput, respond, updateChatState } from './hooks.utils.mjs';
 import { endToolCall } from './subagents.utils.mjs';
 
 function toolCallOfTranscript(transcriptPath) {
@@ -21,7 +21,7 @@ const toolCallId = input.subagent_id ?? input.tool_call_id;
 
 if (typeof toolCallId === 'string' && getChatState(toolCallId)) {
   // Unconditional: a subagent continuing on a follow-up stops again, later.
-  updateChatState({ conversationId: toolCallId, subagentStoppedAt: Date.now() });
+  updateChatState({ conversationId: toolCallId, subagentStoppedAt: hookNow() });
 } else {
   const linkedToolCallId = toolCallOfTranscript(input.agent_transcript_path);
 

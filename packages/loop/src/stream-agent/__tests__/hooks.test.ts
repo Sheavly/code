@@ -193,12 +193,14 @@ describe('hooks in the loop', () => {
       ],
     });
 
-    expect(messages).toContainEqual({
-      role: 'tool',
-      toolCallId: '1',
-      content: 'pong (audited)',
-      isError: false,
-    });
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        role: 'tool',
+        toolCallId: '1',
+        content: 'pong (audited)',
+        isError: false,
+      }),
+    );
   });
 
   it('calls onError when the provider fails, and the error still reaches the caller', async () => {

@@ -15,13 +15,24 @@ the next `git status` run any program, outside every check `run_command` makes.
 | Tool         | What it does                                                                               |
 | ------------ | ------------------------------------------------------------------------------------------ |
 | `read_file`  | Returns a UTF-8 file, or lines `startLine`–`endLine`; at most 1,000 lines per call (below) |
-| `write_file` | Creates or overwrites a file with `content`; creates missing folders                       |
-| `edit_file`  | Replaces `oldText` with `newText` in an existing file                                      |
+| `write_file` | Creates a new file with `content`, and its missing folders; refuses one that exists        |
+| `edit_file`  | Replaces `oldText` with `newText` in an existing file the agent has read                   |
+
+`write_file` only creates. A path that already holds a file is refused with a message pointing to
+`edit_file`, checked under the file's lock so two agents creating one path can't both win. To
+replace a whole existing file, `edit_file` with the whole old text as `oldText`.
 
 `edit_file` needs `oldText` to match exactly and occur once. If it occurs more often, the edit is
 refused unless `replaceAll` is set, so an ambiguous edit can't change the wrong place. Errors
 tell the model how to fix the call (read the file first, add surrounding lines, or use
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
+
+**Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
+created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are
+kept per agent (a `FileReads` from `@sheavly/workspace/file-reads/`, one per harness), by real
+path: the main agent and each sub-agent must read for themselves, and a symlink and its target are
+one file. It does not stop a file changing after it was read; the exact-text match does that, so an
+edit to text that has since changed fails. A reopened conversation starts with nothing read.
 
 Tool calls in a turn run in parallel, so `write_file` and `edit_file` share a per-file lock
 (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the file's real path (a symlink and its

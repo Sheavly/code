@@ -1,5 +1,6 @@
 import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
+import { DateTime } from 'luxon';
 import type { WorkbookStore } from './store.service.js';
 import { describeEvent, diffResults, mergeTextDeltas, toolsUsed } from './workbook.utils.js';
 import { WorkbookNotFoundError } from '../errors/workbook.errors.js';
@@ -57,7 +58,9 @@ export async function showRun(params: {
   write(`  text       ${meta.text}\n`);
   write(`  model      ${meta.adapter} / ${meta.model}\n`);
   write(`  workspace  ${meta.workspace}\n`);
-  write(`  started    ${meta.startedAt}${meta.gitCommit ? ` · commit ${meta.gitCommit}` : ''}\n`);
+  write(
+    `  started    ${DateTime.fromMillis(meta.startedAt).toFormat('yyyy-LL-dd HH:mm:ss')}${meta.gitCommit ? ` · commit ${meta.gitCommit}` : ''}\n`,
+  );
 
   if (result) {
     write(`  outcome    ${result.outcome}${result.error ? ` · ${result.error}` : ''}\n`);

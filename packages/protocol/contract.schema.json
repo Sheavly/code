@@ -1,6 +1,71 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$defs": {
+    "TokenUsage": {
+      "type": "object",
+      "properties": {
+        "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      },
+      "required": ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"]
+    },
+    "ModelUsage": {
+      "type": "object",
+      "properties": {
+        "tokens": { "anyOf": [{ "$ref": "#/$defs/TokenUsage" }, { "type": "null" }] },
+        "modelId": { "$ref": "#/$defs/ModelId" },
+        "estimatedCostUsd": { "type": "number", "minimum": 0 }
+      },
+      "required": ["tokens"]
+    },
+    "ModelPricing": {
+      "type": "object",
+      "properties": {
+        "input": { "type": "number", "minimum": 0 },
+        "output": { "type": "number", "minimum": 0 },
+        "cacheRead": { "type": "number", "minimum": 0 },
+        "cacheWrite": { "type": "number", "minimum": 0 }
+      },
+      "required": ["input", "output", "cacheRead", "cacheWrite"]
+    },
+    "UsageTotals": {
+      "type": "object",
+      "properties": {
+        "throughSeq": { "type": "integer", "minimum": -1, "maximum": 9007199254740991 },
+        "calls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "estimatedCostUsd": { "type": "number", "minimum": 0 },
+        "missingUsageCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "unpricedCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "incomplete": { "type": "boolean" }
+      },
+      "required": [
+        "throughSeq",
+        "calls",
+        "inputTokens",
+        "outputTokens",
+        "cacheReadTokens",
+        "cacheWriteTokens",
+        "estimatedCostUsd",
+        "missingUsageCalls",
+        "unpricedCalls",
+        "incomplete"
+      ]
+    },
+    "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+    "ModelSelection": {
+      "type": "object",
+      "properties": {
+        "modelId": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
+      },
+      "required": ["modelId", "mode"]
+    },
     "AgentEvent": {
       "allOf": [
         {
@@ -13,6 +78,14 @@
     },
     "AgentEventBody": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "usage" },
+            "usage": { "$ref": "#/$defs/ModelUsage" }
+          },
+          "required": ["type", "usage"]
+        },
         {
           "type": "object",
           "properties": {
@@ -111,6 +184,15 @@
         {
           "type": "object",
           "properties": {
+            "type": { "type": "string", "const": "output_continuation" },
+            "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+            "maxAttempts": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["type", "attempt", "maxAttempts"]
+        },
+        {
+          "type": "object",
+          "properties": {
             "type": { "type": "string", "const": "hook_failed" },
             "hook": { "type": "string" },
             "handler": { "type": "string" },
@@ -132,6 +214,15 @@
     },
     "EntryEvent": {
       "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "usage" },
+            "usage": { "$ref": "#/$defs/ModelUsage" }
+          },
+          "required": ["seq", "type", "usage"]
+        },
         {
           "type": "object",
           "properties": {
@@ -241,6 +332,16 @@
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "output_continuation" },
+            "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+            "maxAttempts": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["seq", "type", "attempt", "maxAttempts"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "type": { "type": "string", "const": "hook_failed" },
             "hook": { "type": "string" },
             "handler": { "type": "string" },
@@ -265,7 +366,10 @@
       "properties": { "call": { "$ref": "#/$defs/ToolCall" }, "description": { "type": "string" } },
       "required": ["call", "description"]
     },
-    "DoneReason": { "type": "string", "enum": ["completed", "interrupted", "max_turns"] },
+    "DoneReason": {
+      "type": "string",
+      "enum": ["completed", "interrupted", "max_turns", "max_tokens", "context_window_exceeded"]
+    },
     "ToolArtifact": {
       "type": "object",
       "properties": { "kind": { "type": "string" } },
@@ -279,7 +383,8 @@
           "properties": {
             "role": { "type": "string", "const": "user" },
             "content": { "type": "string" },
-            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } }
+            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "content"]
         },
@@ -289,7 +394,8 @@
             "role": { "type": "string", "const": "assistant" },
             "content": { "type": "string" },
             "toolCalls": { "type": "array", "items": { "$ref": "#/$defs/ToolCall" } },
-            "reasoning": { "type": "array", "items": { "$ref": "#/$defs/ReasoningItem" } }
+            "reasoning": { "type": "array", "items": { "$ref": "#/$defs/ReasoningItem" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "content", "toolCalls"]
         },
@@ -299,7 +405,8 @@
             "role": { "type": "string", "const": "tool" },
             "toolCallId": { "$ref": "#/$defs/CallId" },
             "content": { "type": "string" },
-            "isError": { "type": "boolean" }
+            "isError": { "type": "boolean" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "toolCallId", "content", "isError"]
         }
@@ -341,38 +448,106 @@
     },
     "TurnStopReason": {
       "type": "string",
-      "enum": ["end_turn", "tool_use", "max_tokens", "interrupted"]
+      "enum": ["end_turn", "tool_use", "max_tokens", "context_window_exceeded", "interrupted"]
     },
     "SessionRef": {
-      "type": "object",
-      "properties": {
-        "id": { "$ref": "#/$defs/SessionId" },
-        "parentId": { "$ref": "#/$defs/SessionId" },
-        "rootId": { "$ref": "#/$defs/SessionId" },
-        "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
-      },
-      "required": ["id", "rootId", "depth"]
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": { "$ref": "#/$defs/SessionId" },
+            "rootId": { "$ref": "#/$defs/SessionId" },
+            "depth": { "type": "number", "const": 1 }
+          },
+          "required": ["id", "rootId", "depth"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": { "$ref": "#/$defs/SessionId" },
+            "parentId": { "$ref": "#/$defs/SessionId" },
+            "startedByCall": { "$ref": "#/$defs/CallId" },
+            "rootId": { "$ref": "#/$defs/SessionId" },
+            "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 }
+          },
+          "required": ["id", "parentId", "startedByCall", "rootId", "depth"]
+        }
+      ]
     },
     "SessionState": {
       "type": "string",
-      "enum": ["running", "idle", "completed", "interrupted", "max_turns", "failed"]
+      "enum": [
+        "running",
+        "idle",
+        "completed",
+        "interrupted",
+        "max_turns",
+        "max_tokens",
+        "context_window_exceeded",
+        "failed"
+      ]
     },
-    "RunOutcome": { "type": "string", "enum": ["completed", "interrupted", "max_turns", "failed"] },
+    "RunOutcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "interrupted",
+        "max_turns",
+        "max_tokens",
+        "context_window_exceeded",
+        "failed"
+      ]
+    },
     "SessionInfo": {
-      "type": "object",
-      "properties": {
-        "id": { "$ref": "#/$defs/SessionId" },
-        "parentId": { "$ref": "#/$defs/SessionId" },
-        "rootId": { "$ref": "#/$defs/SessionId" },
-        "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-        "title": { "type": "string" },
-        "status": { "type": "string" },
-        "state": { "$ref": "#/$defs/SessionState" },
-        "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
-        "startedAt": { "type": "number" },
-        "endedAt": { "type": "number" }
-      },
-      "required": ["id", "rootId", "depth", "title", "state", "startedAt"]
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "id": { "$ref": "#/$defs/SessionId" },
+            "rootId": { "$ref": "#/$defs/SessionId" },
+            "depth": { "type": "number", "const": 1 },
+            "title": { "type": "string" },
+            "status": { "type": "string" },
+            "state": { "$ref": "#/$defs/SessionState" },
+            "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
+            "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
+          },
+          "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": { "$ref": "#/$defs/SessionId" },
+            "parentId": { "$ref": "#/$defs/SessionId" },
+            "startedByCall": { "$ref": "#/$defs/CallId" },
+            "rootId": { "$ref": "#/$defs/SessionId" },
+            "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+            "title": { "type": "string" },
+            "status": { "type": "string" },
+            "state": { "$ref": "#/$defs/SessionState" },
+            "lastOutcome": { "$ref": "#/$defs/RunOutcome" },
+            "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
+          },
+          "required": [
+            "id",
+            "parentId",
+            "startedByCall",
+            "rootId",
+            "depth",
+            "title",
+            "state",
+            "startedAt"
+          ]
+        }
+      ]
     },
     "InboxMessage": {
       "type": "object",
@@ -381,7 +556,7 @@
           "anyOf": [{ "type": "string", "const": "user" }, { "$ref": "#/$defs/SessionId" }]
         },
         "content": { "type": "string" },
-        "sentAt": { "type": "number" }
+        "sentAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["from", "content", "sentAt"]
     },
@@ -431,6 +606,16 @@
         {
           "type": "object",
           "properties": {
+            "type": { "type": "string", "const": "session_model" },
+            "session": { "$ref": "#/$defs/SessionInfo" },
+            "modelId": { "$ref": "#/$defs/ModelId" },
+            "mode": { "$ref": "#/$defs/ModelMode" }
+          },
+          "required": ["type", "session", "modelId"]
+        },
+        {
+          "type": "object",
+          "properties": {
             "type": { "type": "string", "const": "session_ended" },
             "session": { "$ref": "#/$defs/SessionInfo" }
           },
@@ -445,40 +630,44 @@
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "event" },
             "event": { "$ref": "#/$defs/EntryEvent" }
           },
-          "required": ["seq", "sessionId", "kind", "event"]
+          "required": ["seq", "sessionId", "at", "kind", "event"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "update" },
             "update": { "$ref": "#/$defs/SessionUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "approval" },
             "update": { "$ref": "#/$defs/ApprovalUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         },
         {
           "type": "object",
           "properties": {
             "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "sessionId": { "$ref": "#/$defs/SessionId" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "kind": { "type": "string", "const": "task" },
             "update": { "$ref": "#/$defs/TaskUpdate" }
           },
-          "required": ["seq", "sessionId", "kind", "update"]
+          "required": ["seq", "sessionId", "at", "kind", "update"]
         }
       ]
     },
@@ -491,8 +680,8 @@
         "command": { "type": "string" },
         "description": { "type": "string" },
         "status": { "$ref": "#/$defs/TaskStatus" },
-        "startedAt": { "type": "number" },
-        "endedAt": { "type": "number" },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "exitCode": {
           "anyOf": [
             { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
@@ -529,7 +718,10 @@
       "properties": { "argument": { "type": "string" }, "reason": { "type": "string" } },
       "required": ["argument", "reason"]
     },
-    "ApprovalOption": { "type": "string", "enum": ["approve", "skip", "skip_with_message"] },
+    "ApprovalOption": {
+      "type": "string",
+      "enum": ["approve", "allow_session", "always_allow", "skip", "skip_with_message"]
+    },
     "ApprovalRequest": {
       "type": "object",
       "properties": {
@@ -543,7 +735,8 @@
           "readOnly": true,
           "type": "array",
           "items": { "$ref": "#/$defs/ApprovalOption" }
-        }
+        },
+        "keeps": { "readOnly": true, "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } }
       },
       "required": ["id", "callId", "tool", "command", "concerns", "options"]
     },
@@ -552,6 +745,16 @@
         {
           "type": "object",
           "properties": { "decision": { "type": "string", "const": "approve" } },
+          "required": ["decision"]
+        },
+        {
+          "type": "object",
+          "properties": { "decision": { "type": "string", "const": "allow_session" } },
+          "required": ["decision"]
+        },
+        {
+          "type": "object",
+          "properties": { "decision": { "type": "string", "const": "always_allow" } },
           "required": ["decision"]
         },
         {
@@ -612,21 +815,25 @@
     },
     "StartConversationRequest": {
       "type": "object",
-      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } }
+      "properties": {
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } },
+        "workspace": { "type": "string", "minLength": 1 },
+        "profile": { "$ref": "#/$defs/ModelId" }
+      }
     },
     "StartConversationResponse": {
       "type": "object",
-      "properties": { "id": { "$ref": "#/$defs/ConversationId" } },
+      "properties": { "id": { "$ref": "#/$defs/ModelId" } },
       "required": ["id"]
     },
     "ConversationSummary": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "#/$defs/ConversationId" },
+        "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
-        "startedAt": { "type": "number" }
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["id", "title", "session", "running", "startedAt"]
     },
@@ -640,28 +847,32 @@
     "ModelChoice": {
       "type": "object",
       "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string" },
-        "adapter": { "type": "string" },
-        "model": { "type": "string" }
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "model": { "type": "string" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
       },
-      "required": ["name", "adapter", "model"]
+      "required": ["id", "name", "adapter", "model"]
     },
     "ConversationDetails": {
       "type": "object",
       "properties": {
-        "id": { "$ref": "#/$defs/ConversationId" },
+        "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "session": { "$ref": "#/$defs/SessionId" },
         "running": { "type": "boolean" },
-        "startedAt": { "type": "number" },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "usage": { "$ref": "#/$defs/UsageTotals" },
         "workspace": { "type": "string" },
+        "profile": { "$ref": "#/$defs/ModelId" },
         "model": { "$ref": "#/$defs/ModelChoice" },
         "models": { "type": "array", "items": { "$ref": "#/$defs/ModelChoice" } },
         "projectTrust": {
           "type": "string",
           "enum": ["trusted", "untrusted", "changed", "no_hooks"]
         },
-        "skipAllowList": { "type": "boolean" }
+        "permissionMode": { "$ref": "#/$defs/PermissionMode" }
       },
       "required": [
         "id",
@@ -670,16 +881,20 @@
         "running",
         "startedAt",
         "workspace",
+        "profile",
         "model",
         "models",
         "projectTrust",
-        "skipAllowList"
+        "permissionMode"
       ]
     },
     "SwitchModelRequest": {
       "type": "object",
-      "properties": { "name": { "type": "string", "minLength": 1 } },
-      "required": ["name"]
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" }
+      },
+      "required": ["id"]
     },
     "SendPromptRequest": {
       "oneOf": [
@@ -735,6 +950,9 @@
         "unknown_skill",
         "unknown_approval",
         "unknown_model",
+        "storage_failed",
+        "not_set_up",
+        "forbidden",
         "internal"
       ]
     },
@@ -756,6 +974,305 @@
     "CallId": { "type": "string" },
     "TaskId": { "type": "string" },
     "ApprovalId": { "type": "string" },
-    "ConversationId": { "type": "string" }
+    "ConversationId": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        { "pattern": "^[0-9a-f-]{36}$" }
+      ]
+    },
+    "StoredConversation": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "title": { "type": "string" },
+        "modelId": { "$ref": "#/$defs/ModelId" },
+        "mode": { "$ref": "#/$defs/ModelMode" },
+        "workspace": { "type": "string" },
+        "profile": { "$ref": "#/$defs/ModelId" },
+        "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "updatedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      },
+      "required": [
+        "id",
+        "title",
+        "modelId",
+        "workspace",
+        "profile",
+        "status",
+        "startedAt",
+        "updatedAt"
+      ]
+    },
+    "StoredConversationsQuery": {
+      "type": "object",
+      "properties": {
+        "search": { "type": "string", "minLength": 1 },
+        "workspace": { "type": "string", "minLength": 1 },
+        "profile": { "$ref": "#/$defs/ModelId" }
+      }
+    },
+    "StoredConversationsResponse": {
+      "type": "object",
+      "properties": {
+        "conversations": { "type": "array", "items": { "$ref": "#/$defs/StoredConversation" } }
+      },
+      "required": ["conversations"]
+    },
+    "ModelId": {
+      "type": "string",
+      "allOf": [
+        {
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        { "pattern": "^[0-9a-f-]{36}$" }
+      ]
+    },
+    "AdapterKind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "ModelFile": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "pricing": { "$ref": "#/$defs/ModelPricing" }
+      },
+      "required": ["id", "name", "adapter"],
+      "additionalProperties": {}
+    },
+    "Model": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "definition": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        }
+      },
+      "required": ["id", "name", "adapter", "definition"]
+    },
+    "AdapterDescription": {
+      "type": "object",
+      "properties": {
+        "kind": { "$ref": "#/$defs/AdapterKind" },
+        "description": { "type": "string" },
+        "config": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        },
+        "secrets": { "type": "array", "items": { "type": "string" } },
+        "remoteField": { "type": "string", "minLength": 1 }
+      },
+      "required": ["kind", "description", "config", "secrets"]
+    },
+    "KeyCheck": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "status": { "type": "string", "const": "valid" } },
+          "required": ["status"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["invalid", "not_found", "rejected", "unreachable"]
+            },
+            "message": { "type": "string" }
+          },
+          "required": ["status", "message"]
+        }
+      ]
+    },
+    "CredentialState": { "type": "string", "enum": ["not_needed", "missing", "set"] },
+    "SetupModel": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "definition": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        },
+        "credential": { "$ref": "#/$defs/CredentialState" },
+        "usable": { "type": "boolean" }
+      },
+      "required": ["id", "name", "adapter", "definition", "credential", "usable"]
+    },
+    "ProfileSetup": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/ModelId" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "terminal": { "$ref": "#/$defs/TerminalSettings" },
+        "lastModelSelection": { "$ref": "#/$defs/ModelSelection" },
+        "modelModes": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/ModelId" },
+          "additionalProperties": { "$ref": "#/$defs/ModelMode" }
+        },
+        "models": { "type": "array", "items": { "$ref": "#/$defs/SetupModel" } },
+        "ready": { "type": "boolean" }
+      },
+      "required": ["id", "name", "models", "ready"]
+    },
+    "Setup": {
+      "type": "object",
+      "properties": {
+        "home": { "type": "string" },
+        "terminal": { "$ref": "#/$defs/TerminalSettings" },
+        "defaultProfile": { "$ref": "#/$defs/ModelId" },
+        "profiles": { "type": "array", "items": { "$ref": "#/$defs/ProfileSetup" } },
+        "problems": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["home", "profiles", "problems"]
+    },
+    "TerminalSettings": {
+      "type": "object",
+      "properties": { "reducedMotion": { "type": "boolean" }, "bell": { "type": "boolean" } }
+    },
+    "AdaptersResponse": {
+      "type": "object",
+      "properties": {
+        "adapters": { "type": "array", "items": { "$ref": "#/$defs/AdapterDescription" } }
+      },
+      "required": ["adapters"]
+    },
+    "ModelsQuery": {
+      "type": "object",
+      "properties": { "search": { "type": "string", "minLength": 1 } }
+    },
+    "ModelsResponse": {
+      "type": "object",
+      "properties": { "models": { "type": "array", "items": { "$ref": "#/$defs/SetupModel" } } },
+      "required": ["models"]
+    },
+    "PutProfileRequest": {
+      "type": "object",
+      "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } },
+      "required": ["name"]
+    },
+    "PutModelRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "definition": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        }
+      },
+      "required": ["name", "adapter", "definition"]
+    },
+    "PutCredentialRequest": {
+      "type": "object",
+      "properties": {
+        "secrets": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "required": ["secrets"]
+    },
+    "SetDefaultProfileRequest": {
+      "type": "object",
+      "properties": { "profile": { "$ref": "#/$defs/ModelId" } },
+      "required": ["profile"]
+    },
+    "WorkspaceRequest": {
+      "type": "object",
+      "properties": { "workspace": { "type": "string", "minLength": 1 } },
+      "required": ["workspace"]
+    },
+    "BindWorkspaceRequest": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "profile": { "$ref": "#/$defs/ModelId" }
+      },
+      "required": ["workspace", "profile"]
+    },
+    "WorkspaceProfile": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string" },
+        "profile": { "$ref": "#/$defs/ModelId" },
+        "bound": { "type": "boolean" }
+      },
+      "required": ["workspace", "bound"]
+    },
+    "TrustedWorkspace": {
+      "type": "object",
+      "properties": {
+        "root": { "type": "string" },
+        "trustedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "state": { "type": "string", "enum": ["trusted", "changed", "gone"] }
+      },
+      "required": ["root", "trustedAt", "state"]
+    },
+    "TrustedWorkspacesQuery": {
+      "type": "object",
+      "properties": { "search": { "type": "string", "minLength": 1 } }
+    },
+    "TrustedWorkspacesResponse": {
+      "type": "object",
+      "properties": {
+        "workspaces": { "type": "array", "items": { "$ref": "#/$defs/TrustedWorkspace" } }
+      },
+      "required": ["workspaces"]
+    },
+    "PermissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] },
+    "AllowEntry": {
+      "anyOf": [
+        { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+        { "type": "string", "pattern": "^exact:\\[" }
+      ]
+    },
+    "SetPermissionModeRequest": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "mode": { "$ref": "#/$defs/PermissionMode" }
+      },
+      "required": ["workspace", "mode"]
+    },
+    "AllowEntryRequest": {
+      "type": "object",
+      "properties": {
+        "workspace": { "type": "string", "minLength": 1 },
+        "entry": { "$ref": "#/$defs/AllowEntry" }
+      },
+      "required": ["workspace", "entry"]
+    },
+    "WorkspacePermissions": {
+      "type": "object",
+      "properties": {
+        "mode": { "$ref": "#/$defs/PermissionMode" },
+        "allow": { "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } },
+        "workspace": { "type": "string" },
+        "builtIn": { "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } }
+      },
+      "required": ["mode", "allow", "workspace", "builtIn"]
+    }
   }
 }

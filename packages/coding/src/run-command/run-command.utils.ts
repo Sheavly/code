@@ -1,12 +1,14 @@
 import { MAX_OUTPUT_CHARS } from '@sheavly/workspace/process/process.constants';
-import type { ProcessResult } from '@sheavly/workspace/process/process.types';
-import { isAllowed, parseCommand } from './allow-list.utils.js';
+import type {
+  ProcessResult,
+  ScriptParams,
+  ScriptStep,
+} from '@sheavly/workspace/process/process.types';
 import {
   DIFF_SUBCOMMANDS,
   NO_DIFF_PROGRAM_FLAGS,
   SAFE_GIT_CONFIG,
 } from './run-command.constants.js';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 
 /**
  * The env that keeps a repo's config from making git run programs: `SAFE_GIT_CONFIG` as
@@ -41,29 +43,17 @@ export function safeGitArgs(params: { file: string; args: readonly string[] }): 
   return [subcommand, ...NO_DIFF_PROGRAM_FLAGS, ...rest];
 }
 
-/** Parses and checks a command against the allow list; returns argv or throws a clear reason. */
-export function checkAllowed(params: {
-  command: string;
-  allowList: readonly string[];
-}): [string, ...string[]] {
-  const { command, allowList } = params;
-  const parsed = parseCommand(command);
+/** Git driver protections do not change approval or filter file operands of approved commands. */
+export function safeSteps(steps: ScriptParams['steps']): ScriptParams['steps'] {
+  const [first, ...rest] = steps.map(({ argv: [file, ...args], joinedBy }): ScriptStep => {
+    const safe = safeGitArgs({ file, args });
+    const argv: [string, ...string[]] = [file, ...safe];
 
-  if (!parsed.ok) {
-    throw new ToolCallError({
-      reason: 'forbidden',
-      message: `Command rejected (${parsed.reason}): ${command}`,
-    });
-  }
+    return joinedBy ? { argv, joinedBy } : { argv };
+  });
 
-  if (!isAllowed({ argv: parsed.argv, allowList })) {
-    throw new ToolCallError({
-      reason: 'forbidden',
-      message: `Command not in allow list: ${command}\nAllowed: ${allowList.join(', ')}`,
-    });
-  }
-
-  return parsed.argv as [string, ...string[]];
+  // `steps` is never empty, so neither is the result.
+  return [first ?? steps[0], ...rest];
 }
 
 /** The tool result for a finished foreground command. */

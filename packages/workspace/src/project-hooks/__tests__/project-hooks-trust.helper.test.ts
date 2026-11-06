@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { TrustStore } from '../../trust/trust.service.js';
+import { memoryTrust } from '../../testing/trust.fake.js';
 import { loadProjectHooks } from '../project-hooks.helper.js';
 
 // A hook whose file, when imported at all, leaves a mark: proves an untrusted workspace's hook
@@ -21,7 +22,7 @@ beforeEach(async () => {
   base = await mkdtemp(path.join(tmpdir(), 'project-trust-'));
   root = path.join(base, 'project');
   mark = path.join(base, 'imported.txt');
-  trust = new TrustStore({ file: path.join(base, 'trusted.json') });
+  trust = new TrustStore({ persistence: memoryTrust({ file: path.join(base, 'trusted.json') }) });
 
   await mkdir(path.join(root, '.sheavly', 'hooks'), { recursive: true });
   await writeFile(path.join(root, 'package.json'), '{"type":"module"}');

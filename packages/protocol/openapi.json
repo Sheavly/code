@@ -57,7 +57,7 @@
     "/conversations/{id}": {
       "get": {
         "operationId": "getConversation",
-        "summary": "What the run is: workspace, models, trust, the allow list",
+        "summary": "What the run is: workspace, models, trust, the permission mode",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
@@ -285,10 +285,739 @@
           }
         }
       }
+    },
+    "/stored-conversations": {
+      "query": {
+        "operationId": "queryStoredConversations",
+        "summary": "The kept conversations, oldest first, live or not; those a title search matches",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/StoredConversationsQuery" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StoredConversationsResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/stored-conversations/{id}/reopen": {
+      "post": {
+        "operationId": "reopenConversation",
+        "summary": "Bring a kept conversation back under its own id, continuing from its history",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StartConversationResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/setup": {
+      "get": {
+        "operationId": "getSetup",
+        "summary": "Where the user’s data is, the profiles with their models, and which is the default",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Setup" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/adapters": {
+      "get": {
+        "operationId": "listAdapters",
+        "summary": "What each adapter needs, for a form that adds a model",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AdaptersResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/terminal-settings": {
+      "put": {
+        "operationId": "setTerminalSettings",
+        "summary": "Replace user-wide terminal preferences, shared by every profile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TerminalSettings" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/terminal-settings/migrate": {
+      "post": {
+        "operationId": "migrateTerminalSettings",
+        "summary": "Move legacy profile terminal preferences into global config and return them",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TerminalSettings" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}": {
+      "get": {
+        "operationId": "getProfile",
+        "summary": "A profile with its models, whether their keys are set and whether it is ready",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ProfileSetup" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putProfile",
+        "summary": "Make a profile under this id, or rename it",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutProfileRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProfile",
+        "summary": "Delete a profile with its models, keys and conversations",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/models": {
+      "query": {
+        "operationId": "queryModels",
+        "summary": "A profile’s models with key state, or those a name, adapter or model search matches",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ModelsQuery" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ModelsResponse" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/models/{model}": {
+      "get": {
+        "operationId": "getModel",
+        "summary": "One model of a profile, with whether its key is set and whether it is usable",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SetupModel" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putModel",
+        "summary": "Add a model to a profile, or replace it; checked by its adapter, never with a secret",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/PutModelRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteModel",
+        "summary": "Remove a model and its key",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/credentials/{model}": {
+      "put": {
+        "operationId": "putCredential",
+        "summary": "Set a model’s secrets, write-only; refused unless the backend listens on loopback",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PutCredentialRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCredential",
+        "summary": "Forget a model’s secrets, keeping the model",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/profiles/{profile}/credentials/{model}/check": {
+      "post": {
+        "operationId": "checkCredential",
+        "summary": "Try the model with its stored key: one tiny call, answered with a fixed message",
+        "parameters": [
+          { "name": "profile", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "model", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/KeyCheck" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/default-profile": {
+      "put": {
+        "operationId": "setDefaultProfile",
+        "summary": "The profile conversations use where nothing else is chosen",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetDefaultProfileRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/workspace-profiles": {
+      "query": {
+        "operationId": "queryWorkspaceProfile",
+        "summary": "The profile a folder runs on, and whether it was chosen for the folder or is the default",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceProfile" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "bindWorkspace",
+        "summary": "Always run a folder on this profile, whatever the default is",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BindWorkspaceRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/workspace-profiles/unbind": {
+      "post": {
+        "operationId": "unbindWorkspace",
+        "summary": "Run a folder on the default profile again",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/trusted-workspaces": {
+      "query": {
+        "operationId": "queryTrustedWorkspaces",
+        "summary": "The workspaces trusted to run their .sheavly hooks, or those a path search matches",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TrustedWorkspacesQuery" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TrustedWorkspacesResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "trustWorkspace",
+        "summary": "Trust a folder’s .sheavly hooks as they are now; refused unless the backend is local",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/trusted-workspaces/revoke": {
+      "post": {
+        "operationId": "revokeWorkspace",
+        "summary": "Stop trusting a folder, also one that no longer exists",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions": {
+      "query": {
+        "operationId": "queryPermissions",
+        "summary": "The mode a folder is in and the commands the user allowed there, and the built-in ones",
+        "parameters": [
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/WorkspaceRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WorkspacePermissions" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/mode": {
+      "put": {
+        "operationId": "setPermissionMode",
+        "summary": "How commands are treated in a folder from now on; a looser mode needs a local backend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SetPermissionModeRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/allow": {
+      "post": {
+        "operationId": "allowCommand",
+        "summary": "Allow a command in a folder for good; refused unless the backend is local",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AllowEntryRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
+    "/permissions/revoke": {
+      "post": {
+        "operationId": "revokeCommand",
+        "summary": "Stop allowing a command in a folder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AllowEntryRequest" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "TokenUsage": {
+        "type": "object",
+        "properties": {
+          "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"]
+      },
+      "ModelUsage": {
+        "type": "object",
+        "properties": {
+          "tokens": {
+            "anyOf": [{ "$ref": "#/components/schemas/TokenUsage" }, { "type": "null" }]
+          },
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "estimatedCostUsd": { "type": "number", "minimum": 0 }
+        },
+        "required": ["tokens"]
+      },
+      "ModelPricing": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "number", "minimum": 0 },
+          "output": { "type": "number", "minimum": 0 },
+          "cacheRead": { "type": "number", "minimum": 0 },
+          "cacheWrite": { "type": "number", "minimum": 0 }
+        },
+        "required": ["input", "output", "cacheRead", "cacheWrite"]
+      },
+      "UsageTotals": {
+        "type": "object",
+        "properties": {
+          "throughSeq": { "type": "integer", "minimum": -1, "maximum": 9007199254740991 },
+          "calls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "inputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "outputTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheReadTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "cacheWriteTokens": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "estimatedCostUsd": { "type": "number", "minimum": 0 },
+          "missingUsageCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "unpricedCalls": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "incomplete": { "type": "boolean" }
+        },
+        "required": [
+          "throughSeq",
+          "calls",
+          "inputTokens",
+          "outputTokens",
+          "cacheReadTokens",
+          "cacheWriteTokens",
+          "estimatedCostUsd",
+          "missingUsageCalls",
+          "unpricedCalls",
+          "incomplete"
+        ]
+      },
+      "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+      "ModelSelection": {
+        "type": "object",
+        "properties": {
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
+        },
+        "required": ["modelId", "mode"]
+      },
       "AgentEvent": {
         "allOf": [
           {
@@ -303,6 +1032,14 @@
       },
       "AgentEventBody": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "usage" },
+              "usage": { "$ref": "#/components/schemas/ModelUsage" }
+            },
+            "required": ["type", "usage"]
+          },
           {
             "type": "object",
             "properties": {
@@ -404,6 +1141,19 @@
           {
             "type": "object",
             "properties": {
+              "type": { "type": "string", "const": "output_continuation" },
+              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "maxAttempts": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["type", "attempt", "maxAttempts"]
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": { "type": "string", "const": "hook_failed" },
               "hook": { "type": "string" },
               "handler": { "type": "string" },
@@ -425,6 +1175,15 @@
       },
       "EntryEvent": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "usage" },
+              "usage": { "$ref": "#/components/schemas/ModelUsage" }
+            },
+            "required": ["seq", "type", "usage"]
+          },
           {
             "type": "object",
             "properties": {
@@ -537,6 +1296,20 @@
             "type": "object",
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "output_continuation" },
+              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "maxAttempts": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": ["seq", "type", "attempt", "maxAttempts"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "type": { "type": "string", "const": "hook_failed" },
               "hook": { "type": "string" },
               "handler": { "type": "string" },
@@ -564,7 +1337,10 @@
         },
         "required": ["call", "description"]
       },
-      "DoneReason": { "type": "string", "enum": ["completed", "interrupted", "max_turns"] },
+      "DoneReason": {
+        "type": "string",
+        "enum": ["completed", "interrupted", "max_turns", "max_tokens", "context_window_exceeded"]
+      },
       "ToolArtifact": {
         "type": "object",
         "properties": { "kind": { "type": "string" } },
@@ -578,7 +1354,8 @@
             "properties": {
               "role": { "type": "string", "const": "user" },
               "content": { "type": "string" },
-              "parts": { "type": "array", "items": { "$ref": "#/components/schemas/PromptPart" } }
+              "parts": { "type": "array", "items": { "$ref": "#/components/schemas/PromptPart" } },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["role", "content"]
           },
@@ -594,7 +1371,8 @@
               "reasoning": {
                 "type": "array",
                 "items": { "$ref": "#/components/schemas/ReasoningItem" }
-              }
+              },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["role", "content", "toolCalls"]
           },
@@ -604,7 +1382,8 @@
               "role": { "type": "string", "const": "tool" },
               "toolCallId": { "$ref": "#/components/schemas/CallId" },
               "content": { "type": "string" },
-              "isError": { "type": "boolean" }
+              "isError": { "type": "boolean" },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["role", "toolCallId", "content", "isError"]
           }
@@ -646,41 +1425,106 @@
       },
       "TurnStopReason": {
         "type": "string",
-        "enum": ["end_turn", "tool_use", "max_tokens", "interrupted"]
+        "enum": ["end_turn", "tool_use", "max_tokens", "context_window_exceeded", "interrupted"]
       },
       "SessionRef": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/SessionId" },
-          "parentId": { "$ref": "#/components/schemas/SessionId" },
-          "rootId": { "$ref": "#/components/schemas/SessionId" },
-          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
-        },
-        "required": ["id", "rootId", "depth"]
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "number", "const": 1 }
+            },
+            "required": ["id", "rootId", "depth"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "parentId": { "$ref": "#/components/schemas/SessionId" },
+              "startedByCall": { "$ref": "#/components/schemas/CallId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 }
+            },
+            "required": ["id", "parentId", "startedByCall", "rootId", "depth"]
+          }
+        ]
       },
       "SessionState": {
         "type": "string",
-        "enum": ["running", "idle", "completed", "interrupted", "max_turns", "failed"]
+        "enum": [
+          "running",
+          "idle",
+          "completed",
+          "interrupted",
+          "max_turns",
+          "max_tokens",
+          "context_window_exceeded",
+          "failed"
+        ]
       },
       "RunOutcome": {
         "type": "string",
-        "enum": ["completed", "interrupted", "max_turns", "failed"]
+        "enum": [
+          "completed",
+          "interrupted",
+          "max_turns",
+          "max_tokens",
+          "context_window_exceeded",
+          "failed"
+        ]
       },
       "SessionInfo": {
-        "type": "object",
-        "properties": {
-          "id": { "$ref": "#/components/schemas/SessionId" },
-          "parentId": { "$ref": "#/components/schemas/SessionId" },
-          "rootId": { "$ref": "#/components/schemas/SessionId" },
-          "depth": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-          "title": { "type": "string" },
-          "status": { "type": "string" },
-          "state": { "$ref": "#/components/schemas/SessionState" },
-          "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
-          "startedAt": { "type": "number" },
-          "endedAt": { "type": "number" }
-        },
-        "required": ["id", "rootId", "depth", "title", "state", "startedAt"]
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "number", "const": 1 },
+              "title": { "type": "string" },
+              "status": { "type": "string" },
+              "state": { "$ref": "#/components/schemas/SessionState" },
+              "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+              "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
+            },
+            "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "#/components/schemas/SessionId" },
+              "parentId": { "$ref": "#/components/schemas/SessionId" },
+              "startedByCall": { "$ref": "#/components/schemas/CallId" },
+              "rootId": { "$ref": "#/components/schemas/SessionId" },
+              "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+              "title": { "type": "string" },
+              "status": { "type": "string" },
+              "state": { "$ref": "#/components/schemas/SessionState" },
+              "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+              "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
+            },
+            "required": [
+              "id",
+              "parentId",
+              "startedByCall",
+              "rootId",
+              "depth",
+              "title",
+              "state",
+              "startedAt"
+            ]
+          }
+        ]
       },
       "InboxMessage": {
         "type": "object",
@@ -692,7 +1536,7 @@
             ]
           },
           "content": { "type": "string" },
-          "sentAt": { "type": "number" }
+          "sentAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
         },
         "required": ["from", "content", "sentAt"]
       },
@@ -742,6 +1586,16 @@
           {
             "type": "object",
             "properties": {
+              "type": { "type": "string", "const": "session_model" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" },
+              "modelId": { "$ref": "#/components/schemas/ModelId" },
+              "mode": { "$ref": "#/components/schemas/ModelMode" }
+            },
+            "required": ["type", "session", "modelId"]
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": { "type": "string", "const": "session_ended" },
               "session": { "$ref": "#/components/schemas/SessionInfo" }
             },
@@ -756,40 +1610,44 @@
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "kind": { "type": "string", "const": "event" },
               "event": { "$ref": "#/components/schemas/EntryEvent" }
             },
-            "required": ["seq", "sessionId", "kind", "event"]
+            "required": ["seq", "sessionId", "at", "kind", "event"]
           },
           {
             "type": "object",
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "kind": { "type": "string", "const": "update" },
               "update": { "$ref": "#/components/schemas/SessionUpdate" }
             },
-            "required": ["seq", "sessionId", "kind", "update"]
+            "required": ["seq", "sessionId", "at", "kind", "update"]
           },
           {
             "type": "object",
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "kind": { "type": "string", "const": "approval" },
               "update": { "$ref": "#/components/schemas/ApprovalUpdate" }
             },
-            "required": ["seq", "sessionId", "kind", "update"]
+            "required": ["seq", "sessionId", "at", "kind", "update"]
           },
           {
             "type": "object",
             "properties": {
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "sessionId": { "$ref": "#/components/schemas/SessionId" },
+              "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "kind": { "type": "string", "const": "task" },
               "update": { "$ref": "#/components/schemas/TaskUpdate" }
             },
-            "required": ["seq", "sessionId", "kind", "update"]
+            "required": ["seq", "sessionId", "at", "kind", "update"]
           }
         ]
       },
@@ -802,8 +1660,8 @@
           "command": { "type": "string" },
           "description": { "type": "string" },
           "status": { "$ref": "#/components/schemas/TaskStatus" },
-          "startedAt": { "type": "number" },
-          "endedAt": { "type": "number" },
+          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "exitCode": {
             "anyOf": [
               { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
@@ -840,7 +1698,10 @@
         "properties": { "argument": { "type": "string" }, "reason": { "type": "string" } },
         "required": ["argument", "reason"]
       },
-      "ApprovalOption": { "type": "string", "enum": ["approve", "skip", "skip_with_message"] },
+      "ApprovalOption": {
+        "type": "string",
+        "enum": ["approve", "allow_session", "always_allow", "skip", "skip_with_message"]
+      },
       "ApprovalRequest": {
         "type": "object",
         "properties": {
@@ -857,6 +1718,11 @@
             "readOnly": true,
             "type": "array",
             "items": { "$ref": "#/components/schemas/ApprovalOption" }
+          },
+          "keeps": {
+            "readOnly": true,
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AllowEntry" }
           }
         },
         "required": ["id", "callId", "tool", "command", "concerns", "options"]
@@ -866,6 +1732,16 @@
           {
             "type": "object",
             "properties": { "decision": { "type": "string", "const": "approve" } },
+            "required": ["decision"]
+          },
+          {
+            "type": "object",
+            "properties": { "decision": { "type": "string", "const": "allow_session" } },
+            "required": ["decision"]
+          },
+          {
+            "type": "object",
+            "properties": { "decision": { "type": "string", "const": "always_allow" } },
             "required": ["decision"]
           },
           {
@@ -927,22 +1803,24 @@
       "StartConversationRequest": {
         "type": "object",
         "properties": {
-          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } }
+          "messages": { "type": "array", "items": { "$ref": "#/components/schemas/Message" } },
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
         }
       },
       "StartConversationResponse": {
         "type": "object",
-        "properties": { "id": { "$ref": "#/components/schemas/ConversationId" } },
+        "properties": { "id": { "$ref": "#/components/schemas/ModelId" } },
         "required": ["id"]
       },
       "ConversationSummary": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "session": { "$ref": "#/components/schemas/SessionId" },
           "running": { "type": "boolean" },
-          "startedAt": { "type": "number" }
+          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
         },
         "required": ["id", "title", "session", "running", "startedAt"]
       },
@@ -959,28 +1837,32 @@
       "ModelChoice": {
         "type": "object",
         "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string" },
-          "adapter": { "type": "string" },
-          "model": { "type": "string" }
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "model": { "type": "string" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
         },
-        "required": ["name", "adapter", "model"]
+        "required": ["id", "name", "adapter", "model"]
       },
       "ConversationDetails": {
         "type": "object",
         "properties": {
-          "id": { "$ref": "#/components/schemas/ConversationId" },
+          "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "session": { "$ref": "#/components/schemas/SessionId" },
           "running": { "type": "boolean" },
-          "startedAt": { "type": "number" },
+          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "usage": { "$ref": "#/components/schemas/UsageTotals" },
           "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
           "model": { "$ref": "#/components/schemas/ModelChoice" },
           "models": { "type": "array", "items": { "$ref": "#/components/schemas/ModelChoice" } },
           "projectTrust": {
             "type": "string",
             "enum": ["trusted", "untrusted", "changed", "no_hooks"]
           },
-          "skipAllowList": { "type": "boolean" }
+          "permissionMode": { "$ref": "#/components/schemas/PermissionMode" }
         },
         "required": [
           "id",
@@ -989,16 +1871,20 @@
           "running",
           "startedAt",
           "workspace",
+          "profile",
           "model",
           "models",
           "projectTrust",
-          "skipAllowList"
+          "permissionMode"
         ]
       },
       "SwitchModelRequest": {
         "type": "object",
-        "properties": { "name": { "type": "string", "minLength": 1 } },
-        "required": ["name"]
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
+        },
+        "required": ["id"]
       },
       "SendPromptRequest": {
         "oneOf": [
@@ -1062,6 +1948,9 @@
           "unknown_skill",
           "unknown_approval",
           "unknown_model",
+          "storage_failed",
+          "not_set_up",
+          "forbidden",
           "internal"
         ]
       },
@@ -1083,7 +1972,317 @@
       "CallId": { "type": "string" },
       "TaskId": { "type": "string" },
       "ApprovalId": { "type": "string" },
-      "ConversationId": { "type": "string" }
+      "ConversationId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "pattern": "^[0-9a-f-]{36}$" }
+        ]
+      },
+      "StoredConversation": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "title": { "type": "string" },
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" },
+          "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
+          "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
+          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "updatedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": [
+          "id",
+          "title",
+          "modelId",
+          "workspace",
+          "profile",
+          "status",
+          "startedAt",
+          "updatedAt"
+        ]
+      },
+      "StoredConversationsQuery": {
+        "type": "object",
+        "properties": {
+          "search": { "type": "string", "minLength": 1 },
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
+        }
+      },
+      "StoredConversationsResponse": {
+        "type": "object",
+        "properties": {
+          "conversations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/StoredConversation" }
+          }
+        },
+        "required": ["conversations"]
+      },
+      "ModelId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          { "pattern": "^[0-9a-f-]{36}$" }
+        ]
+      },
+      "AdapterKind": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9-]*$"
+      },
+      "ModelFile": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" }
+        },
+        "required": ["id", "name", "adapter"],
+        "additionalProperties": {}
+      },
+      "Model": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "definition": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          }
+        },
+        "required": ["id", "name", "adapter", "definition"]
+      },
+      "AdapterDescription": {
+        "type": "object",
+        "properties": {
+          "kind": { "$ref": "#/components/schemas/AdapterKind" },
+          "description": { "type": "string" },
+          "config": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          },
+          "secrets": { "type": "array", "items": { "type": "string" } },
+          "remoteField": { "type": "string", "minLength": 1 }
+        },
+        "required": ["kind", "description", "config", "secrets"]
+      },
+      "KeyCheck": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": { "status": { "type": "string", "const": "valid" } },
+            "required": ["status"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["invalid", "not_found", "rejected", "unreachable"]
+              },
+              "message": { "type": "string" }
+            },
+            "required": ["status", "message"]
+          }
+        ]
+      },
+      "CredentialState": { "type": "string", "enum": ["not_needed", "missing", "set"] },
+      "SetupModel": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "definition": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          },
+          "credential": { "$ref": "#/components/schemas/CredentialState" },
+          "usable": { "type": "boolean" }
+        },
+        "required": ["id", "name", "adapter", "definition", "credential", "usable"]
+      },
+      "ProfileSetup": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/ModelId" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "terminal": { "$ref": "#/components/schemas/TerminalSettings" },
+          "lastModelSelection": { "$ref": "#/components/schemas/ModelSelection" },
+          "modelModes": {
+            "type": "object",
+            "propertyNames": { "$ref": "#/components/schemas/ModelId" },
+            "additionalProperties": { "$ref": "#/components/schemas/ModelMode" }
+          },
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } },
+          "ready": { "type": "boolean" }
+        },
+        "required": ["id", "name", "models", "ready"]
+      },
+      "Setup": {
+        "type": "object",
+        "properties": {
+          "home": { "type": "string" },
+          "terminal": { "$ref": "#/components/schemas/TerminalSettings" },
+          "defaultProfile": { "$ref": "#/components/schemas/ModelId" },
+          "profiles": { "type": "array", "items": { "$ref": "#/components/schemas/ProfileSetup" } },
+          "problems": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["home", "profiles", "problems"]
+      },
+      "TerminalSettings": {
+        "type": "object",
+        "properties": { "reducedMotion": { "type": "boolean" }, "bell": { "type": "boolean" } }
+      },
+      "AdaptersResponse": {
+        "type": "object",
+        "properties": {
+          "adapters": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AdapterDescription" }
+          }
+        },
+        "required": ["adapters"]
+      },
+      "ModelsQuery": {
+        "type": "object",
+        "properties": { "search": { "type": "string", "minLength": 1 } }
+      },
+      "ModelsResponse": {
+        "type": "object",
+        "properties": {
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } }
+        },
+        "required": ["models"]
+      },
+      "PutProfileRequest": {
+        "type": "object",
+        "properties": { "name": { "type": "string", "minLength": 1, "maxLength": 80 } },
+        "required": ["name"]
+      },
+      "PutModelRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "definition": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          }
+        },
+        "required": ["name", "adapter", "definition"]
+      },
+      "PutCredentialRequest": {
+        "type": "object",
+        "properties": {
+          "secrets": {
+            "type": "object",
+            "propertyNames": { "type": "string", "minLength": 1 },
+            "additionalProperties": { "type": "string", "minLength": 1 }
+          }
+        },
+        "required": ["secrets"]
+      },
+      "SetDefaultProfileRequest": {
+        "type": "object",
+        "properties": { "profile": { "$ref": "#/components/schemas/ModelId" } },
+        "required": ["profile"]
+      },
+      "WorkspaceRequest": {
+        "type": "object",
+        "properties": { "workspace": { "type": "string", "minLength": 1 } },
+        "required": ["workspace"]
+      },
+      "BindWorkspaceRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "profile": { "$ref": "#/components/schemas/ModelId" }
+        },
+        "required": ["workspace", "profile"]
+      },
+      "WorkspaceProfile": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string" },
+          "profile": { "$ref": "#/components/schemas/ModelId" },
+          "bound": { "type": "boolean" }
+        },
+        "required": ["workspace", "bound"]
+      },
+      "TrustedWorkspace": {
+        "type": "object",
+        "properties": {
+          "root": { "type": "string" },
+          "trustedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "state": { "type": "string", "enum": ["trusted", "changed", "gone"] }
+        },
+        "required": ["root", "trustedAt", "state"]
+      },
+      "TrustedWorkspacesQuery": {
+        "type": "object",
+        "properties": { "search": { "type": "string", "minLength": 1 } }
+      },
+      "TrustedWorkspacesResponse": {
+        "type": "object",
+        "properties": {
+          "workspaces": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TrustedWorkspace" }
+          }
+        },
+        "required": ["workspaces"]
+      },
+      "PermissionMode": { "type": "string", "enum": ["ask", "always_ask", "allow_all"] },
+      "AllowEntry": {
+        "anyOf": [
+          { "type": "string", "maxLength": 500, "pattern": "^\\S+( \\S+)*$" },
+          { "type": "string", "pattern": "^exact:\\[" }
+        ]
+      },
+      "SetPermissionModeRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "mode": { "$ref": "#/components/schemas/PermissionMode" }
+        },
+        "required": ["workspace", "mode"]
+      },
+      "AllowEntryRequest": {
+        "type": "object",
+        "properties": {
+          "workspace": { "type": "string", "minLength": 1 },
+          "entry": { "$ref": "#/components/schemas/AllowEntry" }
+        },
+        "required": ["workspace", "entry"]
+      },
+      "WorkspacePermissions": {
+        "type": "object",
+        "properties": {
+          "mode": { "$ref": "#/components/schemas/PermissionMode" },
+          "allow": { "type": "array", "items": { "$ref": "#/components/schemas/AllowEntry" } },
+          "workspace": { "type": "string" },
+          "builtIn": { "type": "array", "items": { "$ref": "#/components/schemas/AllowEntry" } }
+        },
+        "required": ["mode", "allow", "workspace", "builtIn"]
+      }
     },
     "securitySchemes": { "bearer": { "type": "http", "scheme": "bearer" } }
   },

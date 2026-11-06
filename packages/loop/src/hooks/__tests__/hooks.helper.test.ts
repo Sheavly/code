@@ -77,7 +77,7 @@ describe('runToolCall', () => {
   it('runs the tool directly when no hook wraps tool calls', async () => {
     const { message } = await runToolCall({ hooks: [], tools: [echo], call, signal });
 
-    expect(message).toEqual({
+    expect(message).toMatchObject({
       role: 'tool',
       toolCallId: 'c1',
       content: '{"text":"hi"}',
@@ -158,7 +158,7 @@ describe('runToolCall', () => {
     const { message } = await runToolCall({ hooks: [broken], tools: [echo], call, signal });
 
     expect(description).toBe('echoing');
-    expect(message).toEqual({
+    expect(message).toMatchObject({
       role: 'tool',
       toolCallId: 'c1',
       content: 'Hook broken failed: boom',
@@ -191,7 +191,7 @@ describe('runToolCall', () => {
     const dropped = await runToolCall({ hooks: [drop], tools: [parser], call, signal });
 
     expect(seen).toEqual(artifacts);
-    expect(kept).toEqual({
+    expect(kept).toMatchObject({
       message: { role: 'tool', toolCallId: 'c1', content: 'Parsed 1 row', isError: false },
       artifacts,
     });

@@ -55,3 +55,66 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
   what the user typed, for a UI to show the skills as chips. Providers send only `content`.
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
+
+## Approval permissions
+
+`ApprovalRequest.options` names the decisions a UI may offer. When it includes `allow_session` or `always_allow`,
+the optional `keeps` array carries the exact allow-list entries the choice would save, such as
+`touch *`, `git diff *`, `npm run test *` or `npx eslint *`. Each entry uses `allowEntrySchema`. A UI displays those
+entries rather than guessing their scope from `command`; requests without `keeps` remain valid.
+`{ decision: 'allow_session' }` grants those entries for the current conversation without persistence;
+`{ decision: 'always_allow' }` saves them for the workspace. The caller owns applying the grant;
+the registry refuses decisions that were not offered. A grant covers every option, path and
+other argument of its base command, including secret files, outside-workspace access, editing,
+execution overrides and npx downloads. Built-in approvals follow the same rule. Different base
+commands in a chain are checked independently. `always_ask` ignores every grant.
+
+Older path-specific entries, `read:`, `tool:` and `script:` scopes, and `exact:` JSON argument
+arrays remain readable for compatibility, but their effective scope is now their base command.
+For example, `read:sed *` grants `sed *` and `tool:npx eslint check *` grants `npx eslint *`.
+The stored strings need not be rewritten. A JSON array can still preserve a command identity
+such as an npm script name containing spaces; it does not impose exact argument matching.
+
+## Run limits
+
+`turn_end.stopReason` distinguishes `max_tokens` (output, including thinking) from
+`context_window_exceeded` (the conversation no longer fits). A bounded output recovery emits
+`output_continuation` with `attempt` and `maxAttempts`. A run that cannot finish because of either
+limit ends with that reason in `done`, session state and `lastOutcome`, never `completed`.
+
+## Models
+
+`ModelMode` is `low`, `medium`, `high` or `extreme`. `ModelSelection` pairs `modelId` with `mode`.
+A profile keeps `lastModelSelection` and `modelModes`, keyed by model UUID; absent per-model
+preferences start on medium. `PUT /conversations/:id/model` accepts optional `mode`: supplying it
+sets and remembers effort for that model; omitting it restores that model's last-used effort.
+The active model choice, session updates and stored conversation index carry the mode too.
+Modes do not change context size, tool permissions or the output-token limit.
+
+`model/` is how a model is described to a UI and stored, with no code that talks to a provider:
+
+- A model has an **id**, a lowercase UUID that is the stem of its file (`models/<id>.json`) and
+  what a request, a credential and the model switch call it by. A UUID can't name another path, so
+  nothing else is accepted as a file name, and the file's own `id` must be its name: a copy or a
+  rename by hand is refused, not served under another id.
+- It has a **name** for people (`Astra 6`), free text, required because the file name says nothing.
+  It is only a label: it is never sent to a provider and nothing is keyed by it, so two models can
+  share one, and a UI shows whatever it likes. A model is picked, switched to and stored (a
+  conversation's `modelId`) by its id on every route and in every file; where a person types a
+  name, the client finds the model by it and sends the id, and asks which when it finds two.
+- What the **provider calls the model** is a different thing, one of the adapter's own fields
+  (`model` for OpenAI, `deployment` for Azure). `AdapterDescription.remoteField` says which, for an
+  adapter that has one, so a UI can show both ("Astra 6", gpt-5) without knowing each adapter's
+  vocabulary.
+- A model's file (`ModelFile`) is `{ id, name, adapter, ...the adapter's own fields }`: flat, so it
+  reads and edits by hand, and complete, so it says what it is whatever it is called. `toModel`
+  reads it once into a `Model` (`id`, `name`, `adapter`, `definition`), and `toModelFile` writes
+  one back. The file never holds a secret: a key lives with the profile's credentials.
+- `AdapterDescription` is what `GET /adapters` says about an adapter: its kind, a description,
+  the fields a model of it takes as JSON Schema (a field a person must keep secret carries
+  `secret: true`), and the names of the secret fields. A UI builds its form from it, and needs no
+  provider code to do so.
+- `KeyCheck` is how a check of a model's key ended: `valid`, or `invalid` (the key was refused),
+  `not_found` (the endpoint or deployment doesn't exist), `rejected` (the provider answered but
+  refused the request) or `unreachable`, with a fixed message, never the provider's own text, so a
+  key can't come back in it.

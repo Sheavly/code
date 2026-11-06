@@ -1,8 +1,6 @@
-// What the terminal app picks for a run. The packages have no defaults of their own: the UI says
-// which backend and model a run uses, how long it may go on, and where trust is remembered.
-
-/** Model calls per session (main and each sub-agent): room for multi-step sub-agent work. */
-export const MAX_TURNS = 20;
+// What the backend picks for a run. The packages have no defaults of their own: the backend says
+// how a model call is sent. Which model it uses is the user's, in their profile. A run has no
+// turn limit unless `MAX_TURNS` sets one.
 
 /**
  * How a model call is sent, unless the environment says otherwise: wait a minute for the response
@@ -10,19 +8,6 @@ export const MAX_TURNS = 20;
  * streamed, 1s then 2s apart. A provider that stalls costs a minute, not Node's five.
  */
 export const REQUEST = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 1000 } as const;
-
-/** The backend and model when the environment names none. */
-export const DEFAULT_ADAPTER = 'openai';
-export const DEFAULT_MODEL = 'gpt-6.1-sol';
-
-/**
- * The most tokens one Claude reply may use (thinking included) when its `<NAME>_MAX_TOKENS` is
- * unset: the Messages API requires a limit, and this leaves room for a long file edit.
- */
-export const CLAUDE_MAX_TOKENS = 16_000;
-
-/** The trust store's file under the user's config folder (`$XDG_CONFIG_HOME` or `~/.config`). */
-export const TRUST_STORE_PATH = ['sheavly', 'trusted-workspaces.json'];
 
 /**
  * Where `npm run serve` listens when the environment says nothing: this machine only (the server

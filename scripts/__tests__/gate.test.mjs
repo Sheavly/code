@@ -35,7 +35,12 @@ describe('the quality gate', () => {
       encoding: 'utf8',
     })
       .split('\n')
-      .filter((file) => /\/__tests__\/[^/]+\.test\.[cm]?[jt]s$/.test(file));
+      // Git's index includes unstaged deletions; only existing tests can contain manifest checks.
+      .filter(
+        (file) =>
+          /\/__tests__\/[^/]+\.test\.[cm]?[jt]s$/.test(file) &&
+          existsSync(path.join(REPO_ROOT, file)),
+      );
     const manifestOnly = tests.filter((file) => {
       const source = read(file);
 

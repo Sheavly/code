@@ -1,29 +1,46 @@
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { parseToolArguments } from '../http/json.utils.js';
-import type { MessagesEvent, MessagesStep, StreamingBlock } from './messages.types.js';
+import type {
+  MessagesEvent,
+  MessagesReplay,
+  MessagesStep,
+  StreamingBlock,
+} from './messages.types.js';
 
 /** The API's stop reasons we treat as more than an ended turn; any other ends it normally. */
 const STOP_REASONS: Record<string, StopReason> = {
   tool_use: 'tool_use',
   max_tokens: 'max_tokens',
-  model_context_window_exceeded: 'max_tokens',
+  model_context_window_exceeded: 'context_window_exceeded',
 };
 
 /**
  * Reads one reply's Messages API events, block by block. Text streams as it arrives; a tool call
- * is yielded once its block ends, with its arguments joined and parsed; a thinking block too, as a
- * reasoning item tagged `reasoningSource` (undefined = thinking is off, so none is kept).
+ * is yielded once its block ends. A completed reply keeps the original block order and request
+ * prefix as opaque replay state (undefined source = thinking is off, so none is kept).
  */
-export function createMessagesReader(reasoningSource: string | undefined) {
+export function createMessagesReader(params: {
+  reasoningSource: string | undefined;
+  prefix: string;
+}) {
+  const { reasoningSource, prefix } = params;
   const blocks = new Map<number, StreamingBlock>();
+  const content: MessagesReplay['content'] = [];
 
   const read = (event: MessagesEvent): MessagesStep => {
     switch (event.type) {
+      case 'message_start':
+        return { events: [] };
       case 'content_block_start':
         blocks.set(event.index, startBlock(event.content_block));
 
-        return { events: [] };
+        return {
+          events:
+            event.content_block.type === 'text' && event.content_block.text
+              ? [{ type: 'text_delta', text: event.content_block.text }]
+              : [],
+        };
       case 'content_block_delta':
         return { events: applyDelta({ block: blocks.get(event.index), delta: event.delta }) };
 
@@ -32,7 +49,23 @@ export function createMessagesReader(reasoningSource: string | undefined) {
 
         blocks.delete(event.index);
 
-        return { events: block ? finishBlock({ block, reasoningSource }) : [] };
+        if (!block) return { events: [] };
+
+        const finished = finishBlock(block);
+
+        content.push(finished);
+
+        return {
+          events:
+            finished.type === 'tool_use'
+              ? [
+                  {
+                    type: 'tool_call',
+                    call: { id: finished.id, name: finished.name, input: finished.input },
+                  },
+                ]
+              : [],
+        };
       }
 
       case 'message_delta': {
@@ -42,7 +75,27 @@ export function createMessagesReader(reasoningSource: string | undefined) {
       }
 
       case 'message_stop':
-        return { events: [], ended: true };
+        if (blocks.size > 0) {
+          throw new ModelApiError({
+            reason: 'cut_off',
+            message: 'Messages reply ended with unfinished content blocks',
+          });
+        }
+
+        return {
+          events: reasoningSource
+            ? [
+                {
+                  type: 'reasoning',
+                  item: {
+                    source: reasoningSource,
+                    data: { type: 'messages-replay', prefix, content },
+                  },
+                },
+              ]
+            : [],
+          ended: true,
+        };
       case 'error':
         throw new ModelApiError({
           reason: 'stream_error',
@@ -60,11 +113,11 @@ type Delta = Extract<MessagesEvent, { type: 'content_block_delta' }>['delta'];
 function startBlock(start: BlockStart): StreamingBlock {
   switch (start.type) {
     case 'text':
-      return { type: 'text' };
+      return { type: 'text', text: start.text };
     case 'tool_use':
       return { type: 'tool_use', id: start.id, name: start.name, json: '' };
     case 'thinking':
-      return { type: 'thinking', thinking: '', signature: '' };
+      return { type: 'thinking', thinking: start.thinking, signature: start.signature };
     case 'redacted_thinking':
       return { type: 'redacted_thinking', data: start.data };
   }
@@ -74,7 +127,11 @@ function startBlock(start: BlockStart): StreamingBlock {
 function applyDelta(params: { block: StreamingBlock | undefined; delta: Delta }): StreamEvent[] {
   const { block, delta } = params;
 
-  if (delta.type === 'text_delta') return [{ type: 'text_delta', text: delta.text }];
+  if (block?.type === 'text' && delta.type === 'text_delta') {
+    block.text += delta.text;
+
+    return [{ type: 'text_delta', text: delta.text }];
+  }
 
   if (block?.type === 'tool_use' && delta.type === 'input_json_delta') {
     block.json += delta.partial_json;
@@ -91,28 +148,21 @@ function applyDelta(params: { block: StreamingBlock | undefined; delta: Delta })
   return [];
 }
 
-function finishBlock(params: {
-  block: StreamingBlock;
-  reasoningSource: string | undefined;
-}): StreamEvent[] {
-  const { block, reasoningSource } = params;
-
-  switch (block.type) {
-    case 'text':
-      return [];
-    case 'tool_use':
-      return [
-        {
-          type: 'tool_call',
-          // A call without arguments streams none: that is an empty object, not invalid JSON.
-          call: { id: block.id, name: block.name, input: parseToolArguments(block.json || '{}') },
-        },
-      ];
-    case 'thinking':
-    case 'redacted_thinking':
-      // Resent verbatim on later turns, so it is kept as the API's own block.
-      return reasoningSource
-        ? [{ type: 'reasoning', item: { source: reasoningSource, data: block } }]
-        : [];
+function finishBlock(block: StreamingBlock): MessagesReplay['content'][number] {
+  if (block.type === 'thinking' && !block.signature) {
+    throw new ModelApiError({
+      reason: 'bad_payload',
+      message: 'Messages thinking block ended without its signature',
+    });
   }
+
+  if (block.type !== 'tool_use') return block;
+
+  // A call without arguments streams none: that is an empty object, not invalid JSON.
+  return {
+    type: 'tool_use',
+    id: block.id,
+    name: block.name,
+    input: parseToolArguments(block.json || '{}'),
+  };
 }

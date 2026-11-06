@@ -9,6 +9,7 @@ import { approveEverything } from '@sheavly/runtime/testing/approvals.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
+import { testPermissions } from '../../testing/permissions.fake.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
@@ -66,6 +67,7 @@ const run = (command: string) =>
       createRunCommandTool({
         processes: testProcesses(),
         workspace: temp.workspace,
+        permissions: testPermissions(),
         approvals: approveAll(),
       }),
     ],
@@ -109,7 +111,11 @@ describe('run_command in a repo without commits', () => {
     execFileSync('git', ['init', '-q'], { cwd: fresh.root });
     execFileSync('git', ['add', 'b.txt'], { cwd: fresh.root });
 
-    const tool = createRunCommandTool({ processes: testProcesses(), workspace: fresh.workspace });
+    const tool = createRunCommandTool({
+      processes: testProcesses(),
+      workspace: fresh.workspace,
+      permissions: testPermissions({ allow: ['git status *', 'git diff *'] }),
+    });
 
     for (const command of ['git status -sb', 'git diff --stat --cached']) {
       const result = await runTool({

@@ -10,7 +10,7 @@
 //   what is public is what is documented; a module in only one of them fails.
 // - It ships what `exports` points at: `files` holds `dist` and `docs`, never `src`, and
 //   `prepack` builds it.
-import { FILE_KINDS } from './file-kinds.js';
+import { extensionsOf, FILE_KINDS } from './file-kinds.js';
 
 const TESTING_EXPORT = './testing/*';
 const TESTING_TARGET = { '@sheavly/source': './src/testing/*.ts' };
@@ -71,7 +71,9 @@ function closeCommand(params) {
 function kindEntryProblem(params) {
   const { name, entry, key, target } = params;
   const kind = /^\.\/\*\.([a-z]+)$/.exec(key)?.[1];
-  const known = kind && FILE_KINDS.includes(kind) && kind !== 'test';
+  // A package exports plain `.ts` kinds: a React view (`component`) belongs to an app.
+  const known =
+    kind && FILE_KINDS.includes(kind) && kind !== 'test' && extensionsOf(kind).join() === 'ts';
 
   if (!known) {
     const fileKind = /\.([a-z]+)$/.exec(key)?.[1] ?? '<kind>';

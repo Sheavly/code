@@ -1,12 +1,27 @@
 import { createClient } from '@sheavly/client/client/client.helper';
+import { readEntries } from '@sheavly/client/client/entries.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
+import type {
+  ApprovalId,
+  ApprovalResponse,
+  ApprovalUpdate,
+} from '@sheavly/protocol/approval/approval.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { Backend } from './client.types.js';
 
 type Client = ReturnType<typeof createClient>;
+
+function clientFor(backend: Backend): Client {
+  return createClient({
+    url: backend.url,
+    token: backend.token,
+    ...(backend.fetch && { fetch: backend.fetch }),
+  });
+}
 
 /**
  * One conversation on a backend, as the terminal drives it: started (or continued from saved
@@ -29,14 +44,24 @@ export class RemoteConversation {
   static async open(params: {
     backend: Backend;
     messages?: Message[];
+    workspace?: string;
   }): Promise<RemoteConversation> {
-    const { backend, messages } = params;
-    const client = createClient({
-      url: backend.url,
-      token: backend.token,
-      ...(backend.fetch && { fetch: backend.fetch }),
+    const { backend, messages, workspace } = params;
+    const client = clientFor(backend);
+    const { id } = await client.call('startConversation', {
+      body: { ...(messages && { messages }), ...(workspace && { workspace }) },
     });
-    const { id } = await client.call('startConversation', { body: messages ? { messages } : {} });
+
+    return new RemoteConversation(client, id);
+  }
+
+  /** Reopens a saved conversation under its original id, history, workspace and model selection. */
+  static async reopen(params: {
+    backend: Backend;
+    id: ConversationId;
+  }): Promise<RemoteConversation> {
+    const client = clientFor(params.backend);
+    const { id } = await client.call('reopenConversation', { id: params.id });
 
     return new RemoteConversation(client, id);
   }
@@ -62,12 +87,15 @@ export class RemoteConversation {
     return (await this.#client.call('getMessages', { id: this.id })).messages;
   }
 
-  /** Switches to model `name`, from the next model call; false when the conversation hasn't it. */
-  async useModel(name: string): Promise<boolean> {
+  /** Switches to the model with this id, from the next model call; false when the conversation hasn't it. */
+  async useModel(modelId: ModelId, mode?: ModelMode): Promise<boolean> {
     try {
-      await this.#client.send('switchModel', { id: this.id, body: { name } });
+      await this.#client.send('switchModel', {
+        id: this.id,
+        body: { id: modelId, ...(mode && { mode }) },
+      });
     } catch (caughtError) {
-      // Only "no such model" is the user's to fix with another name; anything else is a failure.
+      // Only "no such model" is the user's to fix with another model; anything else is a failure.
       if (caughtError instanceof RefusedError && caughtError.code === 'unknown_model') {
         return false;
       }
@@ -107,6 +135,52 @@ export class RemoteConversation {
    */
   rawStream(signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
     return this.#client.open('streamConversation', { id: this.id, body: { replay: true }, signal });
+  }
+
+  /**
+   * Answers the conversation's approvals: while the returned `ended` runs, a command that needs
+   * one waits for the user instead of being refused at once, and `onUpdate` hears each approval
+   * asked, and each one answered or given up on (by this UI, another, or an interrupt).
+   *
+   * Resolves once the backend has accepted the stream, which is when it counts: an approval asked
+   * before that is refused on the spot, so send the first prompt only after this resolves. `ended`
+   * resolves when `signal` aborts or the stream ends, and rejects on any other failure.
+   */
+  async watchApprovals(params: {
+    onUpdate: (update: ApprovalUpdate) => void;
+    /** Usage from every session also arrives between prompts, while background agents finish. */
+    onUsage?: (entry: StreamEntry) => void;
+    signal: AbortSignal;
+  }): Promise<{ ended: Promise<void> }> {
+    const { onUpdate, signal } = params;
+    const body = await this.#client.open('streamConversation', {
+      id: this.id,
+      body: { approvals: true },
+      signal,
+    });
+
+    const follow = async (): Promise<void> => {
+      try {
+        for await (const { entry } of readEntries(body)) {
+          if (entry.kind === 'event' && entry.event.type === 'usage') params.onUsage?.(entry);
+          if (entry.kind === 'approval') onUpdate(entry.update);
+        }
+      } catch (caughtError) {
+        // Stopping the watch is how it ends; anything else is a real failure.
+        if (!signal.aborted) throw caughtError;
+      }
+    };
+
+    return { ended: follow() };
+  }
+
+  /** Answers a waiting approval. `unknown_approval` when it is gone: someone answered first. */
+  answerApproval(params: { approval: ApprovalId; response: ApprovalResponse }): Promise<void> {
+    return this.#client.send('answerApproval', {
+      id: this.id,
+      approval: params.approval,
+      body: { response: params.response },
+    });
   }
 
   /** Closes it on the backend: its prompts, background tasks and processes stop. */

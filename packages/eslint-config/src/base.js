@@ -8,23 +8,27 @@ import path from 'node:path';
 import js from '@eslint/js';
 import stylistic from '@stylistic/eslint-plugin';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import sonarjs from 'eslint-plugin-sonarjs';
 import unicorn from 'eslint-plugin-unicorn';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import { DEFAULT_MAX_LINES, FILE_KIND_POLICIES, TEST_FOLDER } from './file-kinds.js';
+import { DEFAULT_MAX_LINES, FILE_KIND_POLICIES, globsOfKind, TEST_FOLDER } from './file-kinds.js';
 import { harnessPlugin } from './plugin.js';
 import { READABILITY_RULES } from './readability.js';
 import { TYPESCRIPT_RULES } from './typescript.js';
 
-const TYPED_FILES = ['**/*.ts'];
+const TYPED_FILES = ['**/*.ts', '**/*.tsx'];
 const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];
 
-const TEST_FILES = [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'];
+const TEST_FILES = [`**/${TEST_FOLDER}/**/*.{ts,tsx}`, 'src/testing/**/*.{ts,tsx}'];
 
-/** Where the conventions and structure rules apply: a workspace's own TypeScript source. */
-const SOURCE_FILES = ['src/**/*.ts'];
+/**
+ * Where the conventions and structure rules apply: a workspace's own TypeScript source, `.tsx`
+ * (a React view, its kind `component`) included.
+ */
+const SOURCE_FILES = ['src/**/*.{ts,tsx}'];
 /** Files outside any tsconfig (root configs) that still get type info, from a default project. */
 const DEFAULT_PROJECT_FILES = ['*.ts', '*.js', '*.mjs'];
 
@@ -47,7 +51,7 @@ function maxLines(max) {
 // Large files are where structure gets lost; split by responsibility before adding more.
 // One block per kind, read off FILE_KIND_POLICIES, so a new kind brings its own limit.
 const maxLinesPerKind = Object.entries(FILE_KIND_POLICIES).map(([kind, policy]) => ({
-  files: [`**/*.${kind}.ts`],
+  files: globsOfKind(kind),
   rules: { 'max-lines': maxLines(policy.maxLines) },
 }));
 
@@ -92,7 +96,19 @@ export function baseConfig(params) {
         'harness/no-raw-error': 'error',
         // "Is inside" checks that a folder named `..x/` can't fool.
         'harness/no-dotdot-prefix': 'error',
+        // One clock (`now()`, through Luxon), so time can be fixed in a test.
+        'harness/no-direct-clock': 'error',
+        // Keys are read through `CredentialStore`, and only by the backend: nothing else names
+        // the credentials file or imports the store. An exception is a `files:` override.
+        'harness/no-credentials-file': 'error',
+        'harness/no-key-holder-import': 'error',
       },
+    },
+    // --- Files are written through storage (or a tool, on the agent's project): not in tests ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-direct-file-writes': 'error' },
     },
 
     // --- TypeScript: strict + stylistic, type-aware ---
@@ -128,6 +144,15 @@ export function baseConfig(params) {
         // Imports follow the layout's graph; tests are checked too.
         'harness/imports': 'error',
       },
+    },
+
+    // --- React: a hook is called only from a component or another hook, with its dependencies ---
+    {
+      files: SOURCE_FILES,
+      // Plain test lifecycle helpers named use* are not React hooks; JSX tests remain checked.
+      ignores: [`**/${TEST_FOLDER}/**/*.ts`, 'src/testing/**/*.ts'],
+      plugins: { 'react-hooks': reactHooks },
+      rules: { 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'error' },
     },
 
     // --- Backend only: no terminal I/O outside an app ---

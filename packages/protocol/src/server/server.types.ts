@@ -21,7 +21,7 @@ export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
 /** A model a conversation can use. */
 export type ModelChoice = z.infer<typeof modelChoiceSchema>;
 
-/** What a conversation's run is: workspace, model and the choices, trust, the allow list. */
+/** What a conversation's run is: workspace, model and the choices, trust, the permission mode. */
 export type ConversationDetails = z.infer<typeof conversationDetailsSchema>;
 
 /** What the user typed: `text` (`/<name>` mentions run skills) or `parts` (exactly those skills). */

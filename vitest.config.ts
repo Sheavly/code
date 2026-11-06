@@ -17,11 +17,11 @@ export default defineConfig(({ mode }) => ({
     // From the root it runs the scripts' and the hooks' tests; `npm test` runs all workspaces
     // through turbo. The watcher adds the workspaces' tests, so one process watches all.
     include: [
-      'src/**/__tests__/**/*.test.{ts,js}',
+      'src/**/__tests__/**/*.test.{ts,tsx,js}',
       'scripts/__tests__/*.test.mjs',
       '.cursor/hooks/__tests__/*.test.mjs',
       ...(mode === ALL_WORKSPACES_MODE
-        ? ['{packages,apps}/*/src/**/__tests__/**/*.test.{ts,js}']
+        ? ['{packages,apps}/*/src/**/__tests__/**/*.test.{ts,tsx,js}']
         : []),
     ],
     environment: 'node',

@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { checkSchema, runSourcesSchema } from '../check.validator.js';
 
 describe('checkSchema', () => {
+  it('accepts hook-specific context assertions and rejects empty hook names', () => {
+    expect(
+      checkSchema.safeParse({
+        areas: ['src/x'],
+        expect: { contextHooks: ['house-rules'] },
+        forbid: { contextHooks: ['untrusted'] },
+      }).success,
+    ).toBe(true);
+    expect(
+      checkSchema.safeParse({ areas: ['src/x'], forbid: { contextHooks: [''] } }).success,
+    ).toBe(false);
+  });
+
   it('rejects a check with no expectations, or with steps and top-level ones at once', () => {
     expect(checkSchema.safeParse({ areas: ['src/x'] }).success).toBe(false);
     expect(

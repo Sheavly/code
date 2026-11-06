@@ -1,18 +1,33 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
+import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { messageSchema, promptPartSchema } from '../message/message.validator.js';
+import { adapterKindSchema, modelIdSchema, modelModeSchema } from '../model/model.validator.js';
+import { permissionModeSchema } from '../permission/permission.validator.js';
+import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
+import { timestampSchema } from '../time/time.validator.js';
+import { usageTotalsSchema } from '../usage/usage.validator.js';
 
 /**
- * A conversation's id on a server. Branded, so it can't be passed where a session's id goes
- * (a conversation has one main session, but they aren't the same); a plain string on the wire.
+ * A conversation's id on a server: a UUID in lowercase, which names its folder on disk and is
+ * what every route calls it by (see `lowercaseUuidSchema` for why that shape). Branded, so it can't
+ * be passed where a session's id goes (a conversation has one main session, but they aren't the
+ * same); a plain string on the wire.
  */
-export const conversationIdSchema = z.string().brand<'ConversationId'>();
+export const conversationIdSchema = lowercaseUuidSchema.brand<'ConversationId'>();
 
-/** `POST /conversations`: start one, empty or continuing saved history. */
+/**
+ * `POST /conversations`: start one, empty or continuing saved history. `workspace` is the folder
+ * the agent works in (an absolute path to an existing folder; the backend's own when omitted) and
+ * `profile` the models and keys it runs on (the profile its workspace is bound to when omitted,
+ * else the default). Both are fixed for the conversation's life and kept with it.
+ */
 export const startConversationRequestSchema = z.object({
   messages: z.array(messageSchema).exactOptional(),
+  workspace: z.string().min(1).exactOptional(),
+  profile: profileIdSchema.exactOptional(),
 });
 
 export const startConversationResponseSchema = z.object({ id: conversationIdSchema });
@@ -27,8 +42,8 @@ export const conversationSummarySchema = z.object({
   title: z.string(),
   session: sessionIdSchema,
   running: z.boolean(),
-  /** When it started (ms since the epoch). */
-  startedAt: z.number(),
+  /** When it started. */
+  startedAt: timestampSchema,
 });
 
 /** `GET /conversations`: every live conversation, oldest first. */
@@ -36,29 +51,47 @@ export const conversationsResponseSchema = z.object({
   conversations: z.array(conversationSummarySchema),
 });
 
-/** A model a conversation can use: the name a UI switches with, its backend and deployment. */
+/**
+ * A model a conversation can use. `id` is what names it, in a switch and everywhere else; `name`
+ * is the label a UI shows (two models may share one), `adapter` its backend, `model` what that
+ * backend calls it (the model or the deployment).
+ */
 export const modelChoiceSchema = z.object({
+  id: modelIdSchema,
   name: z.string(),
-  adapter: z.string(),
+  adapter: adapterKindSchema,
   model: z.string(),
+  /** Older clients may omit it; the backend uses medium when no mode was selected. */
+  mode: modelModeSchema.exactOptional(),
 });
 
 /**
  * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
  * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
- * whether the workspace's `.sheavly/` hooks run, and why not; `skipAllowList`, whether any shell
- * command can run.
+ * whether the workspace's `.sheavly/` hooks run, and why not; `permissionMode`, how
+ * `run_command` treats commands in this workspace right now (it can change while the
+ * conversation runs, and applies to every conversation in the workspace).
  */
 export const conversationDetailsSchema = conversationSummarySchema.extend({
+  usage: usageTotalsSchema.exactOptional(),
   workspace: z.string(),
+  /** The profile whose models and keys it runs on: fixed for the conversation's life. */
+  profile: profileIdSchema,
   model: modelChoiceSchema,
   models: z.array(modelChoiceSchema),
   projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
-  skipAllowList: z.boolean(),
+  permissionMode: permissionModeSchema,
 });
 
-/** `PUT /conversations/:id/model`: switch to one of `models`, from the next model call on. */
-export const switchModelRequestSchema = z.object({ name: z.string().min(1) });
+/**
+ * `PUT /conversations/:id/model`: switch to the one of `models` with this `id`, from the next
+ * model call on. A name is a label and never switches anything.
+ */
+export const switchModelRequestSchema = z.object({
+  id: modelIdSchema,
+  /** Omitted: restore the mode last used with this model in the profile. */
+  mode: modelModeSchema.exactOptional(),
+});
 
 /**
  * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in
@@ -110,6 +143,11 @@ export const serverErrorCodeSchema = z.enum([
   'unknown_skill',
   'unknown_approval',
   'unknown_model',
+  'storage_failed',
+  /** No profile with a usable model yet: a UI onboards the user (profiles, models, keys) first. */
+  'not_set_up',
+  /** The backend refuses this here: a key may not be written over a network it is not safe on. */
+  'forbidden',
   'internal',
 ]);
 

@@ -22,18 +22,24 @@ harness.approvals.respond({ id: request.id, response: { decision: 'approve' } })
 | `approval_resolved`  | `id` and the `response`, once it's answered                                         |
 | `approval_cancelled` | `id`: the waiting call was interrupted (its `signal` aborted) before an answer came |
 
-`concerns` is `{ argument, reason }[]`; `options` is `['approve', 'skip', 'skip_with_message']`.
+`concerns` is `{ argument, reason }[]`; `options` defaults to
+`['approve', 'skip', 'skip_with_message']`, or the caller supplies the offered options.
+When offering `always_allow`, a caller can supply `keeps`, the exact allow-list entries the
+choice would save. The registry carries these in both the request update and `pending()`, so
+a UI can show what the user is agreeing to. The caller owns saving the entries.
 The tool waits (the run's other tools and the model stream carry on) until `respond` is called
 with one of:
 
 - `{ decision: 'approve' }`: the command runs as asked.
+- `{ decision: 'always_allow' }`, if offered: the caller saves the entries and runs the command.
 - `{ decision: 'skip' }`: the command doesn't run; the model gets an error result naming the
   arguments.
 - `{ decision: 'skip_with_message', message }`: the command doesn't run, and the message is added
   to that result ("Instead, the user says: …"), so it steers the model's next step.
 
-`respond` validates the answer with zod and throws for a malformed one or an id that isn't
-waiting (an `ApprovalRequestError`); `pending()` lists open requests for a UI that connects late.
+`respond` validates the answer with zod and throws for a malformed one, a decision not offered,
+or an id that isn't waiting (an `ApprovalRequestError`); `pending()` lists open requests for a UI
+that connects late.
 With no subscriber (a headless run, the demo, the workbook) those commands are refused right away
 instead of waiting. A refused or skipped command fails the tool call with a `CommandRefusedError`
 (`reason: 'needs_approval' | 'skipped'`), whose message is what the model reads.

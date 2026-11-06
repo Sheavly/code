@@ -1,0 +1,123 @@
+import { randomUUID } from 'node:crypto';
+import { RefusedError } from '@sheavly/client/errors/client.errors';
+import type { ModelId } from '@sheavly/protocol/model/model.types';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
+import type { AnswerOf } from '@sheavly/client/client/client.types';
+import { SetupError } from '../errors/setup.errors.js';
+import { askDefinition, askSecrets } from './form.helper.js';
+import type { ModelSetup, SetupClient, SetupUi } from './setup.types.js';
+import { fieldText, modelActions } from './setup.utils.js';
+
+/** Adds or repairs a model, and lets the user explicitly test its connection before continuing. */
+export async function configureModel(params: {
+  client: SetupClient;
+  ui: SetupUi;
+  profile: ProfileId;
+  existing?: AnswerOf<'getModel'>;
+}): Promise<ModelId> {
+  const { client, ui, profile, existing } = params;
+  const { adapters } = await client.call('listAdapters', { signal: ui.signal });
+
+  if (adapters.length === 0) throw new SetupError('This backend has no model providers available.');
+
+  const kind =
+    existing?.adapter ??
+    (await ui.choose({
+      title: 'Choose a provider',
+      items: adapters.map(({ kind: value, description }) => ({ value, label: value, description })),
+    }));
+  const adapter = adapters.find((item) => item.kind === kind);
+
+  if (!adapter) throw new SetupError(`Provider ${kind} is unavailable on this backend.`);
+
+  const model = existing?.id ?? modelIdSchema.parse(randomUUID());
+  const target = { client, ui, profile, model, adapter };
+
+  if (!existing) {
+    await saveDefinition({ ...target, previous: undefined });
+    await saveSecrets(target);
+  }
+
+  return finishModel(target);
+}
+
+async function saveDefinition(
+  params: ModelSetup & {
+    previous: AnswerOf<'getModel'> | undefined;
+  },
+): Promise<void> {
+  const { client, ui, profile, model, adapter, previous } = params;
+  const name = previous
+    ? await ui.text({
+        title: 'Model display name',
+        description: 'A label for you. The provider model or deployment is entered separately.',
+        initial: previous?.name ?? '',
+        validate: (value) =>
+          value.length > 0 && value.length <= 80 ? undefined : 'Use 1 to 80 characters.',
+      })
+    : undefined;
+  let definition = previous?.definition ?? {};
+
+  while (true) {
+    definition = await askDefinition({
+      adapter,
+      ui,
+      previous: definition,
+      advanced: previous !== undefined,
+    });
+
+    try {
+      await client.send('putModel', {
+        profile,
+        model,
+        body: {
+          name:
+            name ?? (fieldText(definition[adapter.remoteField ?? '']) || adapter.kind).slice(0, 80),
+          adapter: adapter.kind,
+          definition,
+          ...(previous?.pricing && { pricing: previous.pricing }),
+        },
+        signal: ui.signal,
+      });
+
+      return;
+    } catch (caughtError) {
+      if (!(caughtError instanceof RefusedError) || caughtError.status !== 422) throw caughtError;
+      // Cross-field constraints belong to the adapter, which returns a value-free explanation.
+      ui.notice(caughtError.message);
+    }
+  }
+}
+
+async function saveSecrets(params: ModelSetup): Promise<void> {
+  const { client, ui, profile, model, adapter } = params;
+
+  if (adapter.secrets.length === 0) return;
+
+  const secrets = await askSecrets({ adapter, ui });
+
+  await client.send('putCredential', { profile, model, body: { secrets }, signal: ui.signal });
+}
+
+async function finishModel(params: ModelSetup): Promise<ModelId> {
+  const { client, ui, profile, model, adapter } = params;
+
+  while (true) {
+    const current = await client.call('getModel', { profile, model, signal: ui.signal });
+    const items = modelActions({ usable: current.usable, hasSecrets: adapter.secrets.length > 0 });
+
+    const action = await ui.choose({ title: `${current.name} · ${current.credential}`, items });
+
+    if (action === 'start') return model;
+    if (action === 'key') await saveSecrets(params);
+    if (action === 'edit') await saveDefinition({ ...params, previous: current });
+
+    if (action === 'check') {
+      ui.notice('Checking the connection…');
+      const result = await client.call('checkCredential', { profile, model, signal: ui.signal });
+
+      ui.notice(result.status === 'valid' ? 'Connection successful.' : result.message);
+    }
+  }
+}

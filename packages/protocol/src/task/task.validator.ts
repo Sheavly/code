@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
+import { timestampSchema } from '../time/time.validator.js';
 
 export const taskStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled']);
 
@@ -17,8 +18,8 @@ export const taskInfoSchema = z.object({
   command: z.string(),
   description: z.string(),
   status: taskStatusSchema,
-  startedAt: z.number(),
-  endedAt: z.number().exactOptional(),
+  startedAt: timestampSchema,
+  endedAt: timestampSchema.exactOptional(),
   exitCode: z.number().int().nullable().exactOptional(),
   /** Combined stdout/stderr so far (the most recent part, if it was long). */
   output: z.string(),

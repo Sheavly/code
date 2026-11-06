@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
-import type { messagesEventSchema } from './messages.validator.js';
+import type { messagesEventSchema, messagesReplaySchema } from './messages.validator.js';
 
 /**
  * Where and how to reach one backend that speaks the Anthropic Messages API. Backends differ only
@@ -16,33 +16,41 @@ export type MessagesEndpoint = {
   headers: Record<string, string>;
 };
 
+export type MessagesThinkingMode = 'adaptive' | 'enabled' | 'disabled';
+
 export type MessagesProviderConfig = {
   endpoint: MessagesEndpoint;
-  /** The most tokens one reply may use (the API requires it), thinking included. */
-  maxTokens: number;
+  /** The most tokens one reply may use, thinking included. Omit for a model-aware default. */
+  maxTokens?: number | undefined;
   /**
    * Extended thinking: how many of `maxTokens` the model may think with (at least 1024). Its
    * signed thinking blocks are kept and resent on later turns, so it keeps its chain of thought
-   * across tool calls. Undefined = no thinking.
+   * across tool calls. Used only for enabled thinking; adaptive thinking takes no budget.
    */
   thinkingBudget?: number | undefined;
+  /** Omitted: a budget enables thinking, otherwise the request leaves thinking unspecified. */
+  thinkingMode?: MessagesThinkingMode | undefined;
   request: RequestPolicy;
   fetch: typeof fetch;
 };
 
 /** The config every Messages adapter's schema must produce, besides its own fields. */
 export type MessagesAdapterConfig = {
-  maxTokens: number;
+  maxTokens?: number | undefined;
   thinkingBudget?: number | undefined;
+  thinkingMode?: MessagesThinkingMode | undefined;
   request: RequestPolicy;
 };
 
 /** A streamed Messages API event we use (everything else is skipped). */
 export type MessagesEvent = z.infer<typeof messagesEventSchema>;
 
+export type MessagesReplay = z.infer<typeof messagesReplaySchema>;
+export type MessagesApiMessage = { role: 'user' | 'assistant'; content: Record<string, unknown>[] };
+
 /** One content block of the reply, as it streams in, by its `index`. */
 export type StreamingBlock =
-  | { type: 'text' }
+  | { type: 'text'; text: string }
   | { type: 'tool_use'; id: CallId; name: string; json: string }
   | { type: 'thinking'; thinking: string; signature: string }
   | { type: 'redacted_thinking'; data: string };

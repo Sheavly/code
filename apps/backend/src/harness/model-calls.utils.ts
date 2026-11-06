@@ -28,11 +28,12 @@ export function describeModelCall(request: ProviderRequest): string {
 }
 
 /**
- * One model call as a line of `model-calls.jsonl`: when it was sent and everything the model got,
- * with the tools by name. The signal can't be serialized and isn't what the model was sent.
+ * One model call as a line of `model-calls.jsonl`: when it was sent (`at`, epoch milliseconds, as
+ * every timestamp is) and everything the model got, with the tools by name. The signal can't be
+ * serialized and isn't what the model was sent.
  */
-export function modelCallLine(params: { request: ProviderRequest; at: Date }): string {
+export function modelCallLine(params: { request: ProviderRequest; at: number }): string {
   const { signal: _signal, ...sent } = params.request;
 
-  return `${JSON.stringify({ at: params.at.toISOString(), ...sent, tools: sent.tools.map((tool) => tool.name) })}\n`;
+  return `${JSON.stringify({ at: params.at, ...sent, tools: sent.tools.map((tool) => tool.name) })}\n`;
 }

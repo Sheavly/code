@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@sheavly/protocol": "^0.0.0",
+    "luxon": "^3.7.2",
     "zod": "^4.6.7"
   },
   "scripts": {
@@ -44,5 +45,8 @@
   "files": [
     "dist",
     "docs"
-  ]
+  ],
+  "devDependencies": {
+    "@types/luxon": "^3.7.6"
+  }
 }

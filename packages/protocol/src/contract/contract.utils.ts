@@ -51,6 +51,48 @@ import {
   switchModelRequestSchema,
 } from '../server/server.validator.js';
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
+import {
+  adaptersResponseSchema,
+  bindWorkspaceRequestSchema,
+  credentialStateSchema,
+  modelsQuerySchema,
+  modelsResponseSchema,
+  profileSetupSchema,
+  putCredentialRequestSchema,
+  putModelRequestSchema,
+  putProfileRequestSchema,
+  setDefaultProfileRequestSchema,
+  setupModelSchema,
+  setupSchema,
+  trustedWorkspaceSchema,
+  trustedWorkspacesQuerySchema,
+  trustedWorkspacesResponseSchema,
+  workspaceProfileSchema,
+  workspaceRequestSchema,
+} from '../setup/setup.validator.js';
+import {
+  storedConversationSchema,
+  storedConversationsQuerySchema,
+  storedConversationsResponseSchema,
+} from '../store/store.validator.js';
+import {
+  adapterDescriptionSchema,
+  adapterKindSchema,
+  keyCheckSchema,
+  modelFileSchema,
+  modelIdSchema,
+  modelSchema,
+  modelPricingSchema,
+  modelModeSchema,
+  modelSelectionSchema,
+} from '../model/model.validator.js';
+import {
+  allowEntryRequestSchema,
+  allowEntrySchema,
+  permissionModeSchema,
+  setPermissionModeRequestSchema,
+  workspacePermissionsSchema,
+} from '../permission/permission.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
 import {
   taskIdSchema,
@@ -59,12 +101,20 @@ import {
   taskUpdateSchema,
 } from '../task/task.validator.js';
 import type { ContractJsonSchema } from './contract.types.js';
+import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
+import { modelUsageSchema, tokenUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
 
 const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
 
 /** Every schema of the contract, by the name its TypeScript type has. */
 function contractSchemas(): Record<string, z.ZodType> {
   return {
+    TokenUsage: tokenUsageSchema,
+    ModelUsage: modelUsageSchema,
+    ModelPricing: modelPricingSchema,
+    UsageTotals: usageTotalsSchema,
+    ModelMode: modelModeSchema,
+    ModelSelection: modelSelectionSchema,
     AgentEvent: agentEventSchema,
     AgentEventBody: agentEventBodySchema,
     EntryEvent: entryEventSchema,
@@ -114,6 +164,38 @@ function contractSchemas(): Record<string, z.ZodType> {
     TaskId: taskIdSchema,
     ApprovalId: approvalIdSchema,
     ConversationId: conversationIdSchema,
+    StoredConversation: storedConversationSchema,
+    StoredConversationsQuery: storedConversationsQuerySchema,
+    StoredConversationsResponse: storedConversationsResponseSchema,
+    ModelId: modelIdSchema,
+    AdapterKind: adapterKindSchema,
+    ModelFile: modelFileSchema,
+    Model: modelSchema,
+    AdapterDescription: adapterDescriptionSchema,
+    KeyCheck: keyCheckSchema,
+    CredentialState: credentialStateSchema,
+    SetupModel: setupModelSchema,
+    ProfileSetup: profileSetupSchema,
+    Setup: setupSchema,
+    TerminalSettings: terminalSettingsSchema,
+    AdaptersResponse: adaptersResponseSchema,
+    ModelsQuery: modelsQuerySchema,
+    ModelsResponse: modelsResponseSchema,
+    PutProfileRequest: putProfileRequestSchema,
+    PutModelRequest: putModelRequestSchema,
+    PutCredentialRequest: putCredentialRequestSchema,
+    SetDefaultProfileRequest: setDefaultProfileRequestSchema,
+    WorkspaceRequest: workspaceRequestSchema,
+    BindWorkspaceRequest: bindWorkspaceRequestSchema,
+    WorkspaceProfile: workspaceProfileSchema,
+    TrustedWorkspace: trustedWorkspaceSchema,
+    TrustedWorkspacesQuery: trustedWorkspacesQuerySchema,
+    TrustedWorkspacesResponse: trustedWorkspacesResponseSchema,
+    PermissionMode: permissionModeSchema,
+    AllowEntry: allowEntrySchema,
+    SetPermissionModeRequest: setPermissionModeRequestSchema,
+    AllowEntryRequest: allowEntryRequestSchema,
+    WorkspacePermissions: workspacePermissionsSchema,
   };
 }
 
