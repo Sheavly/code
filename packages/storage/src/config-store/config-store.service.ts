@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
+import type { TerminalSettings } from '@sheavly/protocol/terminal-settings/terminal-settings.types';
 import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { SerialQueue } from '../serial-queue/serial-queue.service.js';
@@ -10,7 +11,7 @@ import { configFileSchema } from './config-store.validator.js';
 /**
  * The user's `config.json`, directly under the root (`~/.sheavly`): the default profile, and the
  * profile each workspace uses (by its `workspaceKey`; one not bound uses the default). It holds
- * ids only, never a name or a path, and no secret.
+ * ids and user-wide terminal preferences, never a name, path or secret.
  *
  * Every change reads the file and writes it back whole, one after the other, so two at once never
  * erase each other. A file that cannot be read stops a change instead of being replaced.
@@ -34,6 +35,24 @@ export class ConfigStore {
   /** Makes `profile` the default for workspaces not bound to one. */
   async setDefaultProfile(profile: ProfileId): Promise<void> {
     await this.#change((config) => ({ ...config, defaultProfile: profile }));
+  }
+
+  /** Replaces user-wide terminal preferences without changing profile bindings. */
+  async setTerminalSettings(terminal: TerminalSettings): Promise<void> {
+    await this.#change((config) => ({ ...config, terminal }));
+  }
+
+  /** Migration must not overwrite a global choice, including false or an empty settings object. */
+  async initializeTerminalSettings(terminal: TerminalSettings): Promise<TerminalSettings> {
+    return this.#writes.run(async () => {
+      const config = await this.read();
+
+      if (config.terminal !== undefined) return config.terminal;
+
+      await writeJsonFile({ file: this.#file, value: { ...config, terminal } });
+
+      return terminal;
+    });
   }
 
   /** Binds the workspace with this key to `profile`, replacing a binding it had. */
@@ -72,7 +91,8 @@ export class ConfigStore {
    * profile calls it; the profile may be named in neither, which is fine.
    */
   async forgetProfile(profile: ProfileId): Promise<void> {
-    await this.#change(({ defaultProfile, workspaces }) => ({
+    await this.#change(({ defaultProfile, workspaces, ...settings }) => ({
+      ...settings,
       ...(defaultProfile !== undefined && defaultProfile !== profile && { defaultProfile }),
       workspaces: Object.fromEntries(
         Object.entries(workspaces).filter(([, bound]) => bound !== profile),

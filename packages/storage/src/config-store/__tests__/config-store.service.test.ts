@@ -26,6 +26,30 @@ afterEach(async () => {
 });
 
 describe('ConfigStore', () => {
+  it('keeps global terminal settings and bindings through concurrent changes and profile deletion', async () => {
+    await Promise.all([
+      store.setTerminalSettings({ reducedMotion: true }),
+      store.setDefaultProfile(WORK),
+      store.bindWorkspace({ key: app, profile: HOME }),
+    ]);
+    expect(await store.read()).toEqual({
+      terminal: { reducedMotion: true },
+      defaultProfile: WORK,
+      workspaces: { [app]: HOME },
+    });
+    await store.forgetProfile(WORK);
+    await store.unbindWorkspace(app);
+    expect(await store.read()).toEqual({ terminal: { reducedMotion: true }, workspaces: {} });
+  });
+
+  it('never lets migration overwrite a queued explicit global choice', async () => {
+    await Promise.all([
+      store.setTerminalSettings({ reducedMotion: false }),
+      store.initializeTerminalSettings({ reducedMotion: true }),
+    ]);
+    expect((await store.read()).terminal).toEqual({ reducedMotion: false });
+  });
+
   it('starts with no default profile and no bindings, and resolves nothing', async () => {
     expect(await store.read()).toEqual({ workspaces: {} });
     expect(await store.profileFor(app)).toBeUndefined();

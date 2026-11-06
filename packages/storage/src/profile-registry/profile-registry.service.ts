@@ -1,5 +1,6 @@
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
+import type { TerminalSettings } from '@sheavly/protocol/terminal-settings/terminal-settings.types';
 import { ConfigStore } from '../config-store/config-store.service.js';
 import type { Config } from '../config-store/config-store.types.js';
 import type { ProfileListing } from '../profile-store/profile-store.types.js';
@@ -20,7 +21,7 @@ export class ProfileRegistry {
   readonly #profiles: ProfileStore;
   readonly #config: ConfigStore;
   readonly #open = new Map<ProfileId, OpenProfile>();
-  /** Every change to a `profile.json` reads it and writes it back, so they go one at a time. */
+  /** Profile writes and deletion go one at a time, so migration cannot recreate a deleted profile. */
   readonly #profileWrites = new SerialQueue();
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
@@ -40,18 +41,17 @@ export class ProfileRegistry {
   }
 
   /**
-   * Makes a profile, or renames the one with this id. The model it last chose is kept: a rename
-   * changes the name and nothing else.
+   * Makes or renames a profile, preserving remembered model choices and legacy preferences
+   * that have not been migrated yet.
    */
   async put(params: { id: ProfileId; name: string }): Promise<void> {
     await this.#profileWrites.run(async () => {
       const existing = await this.#profiles.get(params.id);
 
       await this.#profiles.put({
+        ...existing,
         id: params.id,
         name: params.name,
-        ...(existing?.lastModelSelection && { lastModelSelection: existing.lastModelSelection }),
-        ...(existing?.modelModes && { modelModes: existing.modelModes }),
       });
     });
   }
@@ -89,9 +89,11 @@ export class ProfileRegistry {
    * finishes the job. The other way round could leave the config naming a profile that is gone.
    */
   async delete(id: ProfileId): Promise<void> {
-    await this.#config.forgetProfile(id);
-    await this.#profiles.remove(id);
-    this.#open.delete(id);
+    await this.#profileWrites.run(async () => {
+      await this.#config.forgetProfile(id);
+      await this.#profiles.remove(id);
+      this.#open.delete(id);
+    });
   }
 
   /**
@@ -115,6 +117,31 @@ export class ProfileRegistry {
   /** The config as stored: the default profile and each workspace's binding. */
   async config(): Promise<Config> {
     return this.#config.read();
+  }
+
+  async setTerminalSettings(terminal: TerminalSettings): Promise<void> {
+    await this.#config.setTerminalSettings(terminal);
+  }
+
+  /** Saves global preferences before removing legacy ones, so an interrupted migration is retryable. */
+  async migrateTerminalSettings(): Promise<TerminalSettings> {
+    return this.#profileWrites.run(async () => {
+      const { profiles } = await this.#profiles.list();
+      const legacy = profiles.filter(({ terminal }) => terminal !== undefined);
+
+      if (legacy.length === 0) return (await this.#config.read()).terminal ?? {};
+
+      // Any enabled legacy preference wins unless the user has already made a global choice.
+      const terminal = await this.#config.initializeTerminalSettings({
+        reducedMotion: legacy.some((profile) => profile.terminal?.reducedMotion === true),
+      });
+
+      for (const { terminal: _legacy, ...profile } of legacy) {
+        await this.#profiles.put(profile);
+      }
+
+      return terminal;
+    });
   }
 
   /** Makes profile `id` the default for workspaces not bound to one; it must exist. */

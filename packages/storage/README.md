@@ -17,7 +17,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `json-file/`          | `readJsonFile` and `writeJsonFile`: a typed read, and an atomic, private write that works on Windows      |
 | `model-store/`        | `ModelStore`: a profile's models, one `<model-id>.json` each; a bad file is reported, the rest load       |
 | `credential-store/`   | `CredentialStore`: a profile's keys in one private file; never in an error, never read if open to others  |
-| `config-store/`       | `ConfigStore`: the default profile and each workspace's; `workspaceKey`, a folder name from a real path   |
+| `config-store/`       | `ConfigStore`: profile bindings and global terminal preferences; `workspaceKey` hashes a real path        |
 | `permission-store/`   | `PermissionStore`: what `run_command` may do in each workspace, a file each under `permissions/`          |
 | `conversation-store/` | `FileConversationStore`: a workspace's conversations, a folder each with its stream, history and index    |
 | `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |

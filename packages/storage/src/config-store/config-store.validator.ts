@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
+import { terminalSettingsSchema } from '@sheavly/protocol/terminal-settings/terminal-settings.validator';
 
 /**
  * A workspace's key in the config: what its folder under a profile is named. A hash of the real
@@ -13,6 +14,7 @@ export const workspaceKeySchema = z.string().regex(/^[0-9a-f]{64}$/, 'Use a work
  * in step with the profiles, so config never points at one that is gone.
  */
 export const configFileSchema = z.object({
+  terminal: terminalSettingsSchema.exactOptional(),
   defaultProfile: profileIdSchema.exactOptional(),
   workspaces: z.record(workspaceKeySchema, profileIdSchema).default({}),
 });

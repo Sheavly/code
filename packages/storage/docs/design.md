@@ -11,7 +11,7 @@ replaced is decided once.
 
 ```text
 ~/.sheavly/
-  config.json                            # the default profile; workspace → profile bindings
+  config.json                            # profile bindings and global terminal preferences
   trusted-workspaces.json                # shared: trust is about a repo, not a provider
   permissions/<workspace-key>.json       # shared: what run_command may do in a folder
   profiles/<profile-id>/
@@ -34,6 +34,19 @@ mode, or medium for a new model. Renames preserve both preferences, and profiles
 Legacy `lastModelId` is read as a medium-mode selection; the next profile write saves the new
 structure. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
 take another conversation's latest preferences. A legacy index without a mode resumes on medium.
+
+Terminal preferences live in `config.json` under `terminal`: `reducedMotion` and `bell` are
+optional booleans. Missing preferences mean animated activity and no terminal bell.
+`ConfigStore.setTerminalSettings` replaces them through the same write queue as profile bindings.
+Renaming, switching or deleting a profile does not change them. Missing preferences keep the
+animated default.
+
+`ProfileRegistry.migrateTerminalSettings` moves legacy profile preferences to this global setting.
+An existing global value wins, including `false` and an empty preferences object; otherwise any
+readable profile with reduced motion enabled makes the global value true. It saves the config
+before removing legacy fields, preserving model choices. A failed cleanup can be retried without
+overwriting a global choice made since. Profiles that cannot be read remain untouched and are
+reported by the normal listing. A fresh install with no legacy settings writes nothing.
 
 - **A missing file is "nothing stored"; anything else wrong with a file is an error** that names
   it (`StorageFileError`). A store never starts from empty over a file it can't read: that would
@@ -74,6 +87,11 @@ something that works on the system the code was written on and fails on another:
   nothing hidden.
 
 ## The model store
+
+A model may include `pricing` alongside its identity, with `input`, `output`, `cacheRead` and
+`cacheWrite` in USD per million tokens. It is envelope metadata, not an adapter definition or a
+secret. Usage and cost estimates are stored as stream entries, so reopening a conversation uses
+its recorded costs rather than recalculating them with newer rates.
 
 `ModelStore` is a profile's `models/` folder, one `<model-id>.json` each, flat so a person can
 read and edit it. It is the pattern a store of hand-editable files follows:
