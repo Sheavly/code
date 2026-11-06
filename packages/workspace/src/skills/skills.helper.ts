@@ -17,6 +17,7 @@ import type {
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
 import { Workspace } from '../workspace/workspace.service.js';
+import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';
 
 /**
  * A skill file or folder that couldn't be read (no permission, a SKILL.md that is a folder or
@@ -182,19 +183,19 @@ export async function findSkills(
 
 /**
  * The built-in skills hook: before every turn, lists the skills the model may use (name and
- * description) as system instructions, read fresh so a skill added or edited applies on the next
- * model call. Bodies are never sent: the model reads one when it fits (`read_skill`).
+ * description), appending changes to history without rewriting the signed conversation prefix.
+ * Bodies are never sent: the model reads one when it fits (`read_skill`).
  */
 export function createSkillsHook(options: SkillsHookOptions): Hook {
   const { root, home, maxChars = MAX_SKILLS_CHARS } = options;
 
   return defineHook({
     name: 'skills',
-    beforeTurn: async ({ signal, addInstructions }) => {
-      const { skills } = await findSkills({ root, home, signal });
+    beforeTurn: async (context) => {
+      const { skills } = await findSkills({ root, home, signal: context.signal });
       const instructions = formatSkillsInstructions({ skills, maxChars });
 
-      if (instructions) addInstructions(instructions);
+      appendInstructionContext({ context, name: 'skills', instructions });
     },
   });
 }

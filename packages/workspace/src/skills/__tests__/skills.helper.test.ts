@@ -194,7 +194,7 @@ describe('createSkillsHook in the loop', () => {
       hooks: [createSkillsHook({ root, home })],
     });
 
-    const instructions = requests[0]?.instructions ?? '';
+    const instructions = requests[0]?.messages[1]?.content ?? '';
 
     expect(instructions).toContain('- review: Project sheavly review.');
     expect(instructions).toContain('- notes: User notes.');

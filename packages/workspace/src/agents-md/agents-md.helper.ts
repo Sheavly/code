@@ -5,6 +5,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import { AGENTS_FILE, MAX_AGENTS_CHARS } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';
 import { agentsDirs, formatAgentsInstructions } from './agents-md.utils.js';
+import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';
 
 /**
  * Finds the AGENTS.md files that apply at `cwd`: one per folder from `root` down to `cwd`,
@@ -37,19 +38,19 @@ export async function findAgentsFiles(params: {
 
 /**
  * The built-in AGENTS.md hook: before every turn, reads the AGENTS.md files from the project
- * root down to the working directory and adds them as system instructions. Read fresh each turn,
- * so edits (including the agent's own) apply on the next model call, and history stays clean.
+ * root down to the working directory. Changes are appended to history, so edits apply on the
+ * next model call without invalidating earlier signed thinking blocks.
  */
 export function createAgentsMdHook(options: AgentsMdHookOptions): Hook {
   const { root, cwd = root, maxChars = MAX_AGENTS_CHARS } = options;
 
   return defineHook({
     name: 'agents-md',
-    beforeTurn: async ({ signal, addInstructions }) => {
-      const files = await findAgentsFiles({ root, cwd, signal });
+    beforeTurn: async (context) => {
+      const files = await findAgentsFiles({ root, cwd, signal: context.signal });
       const instructions = formatAgentsInstructions({ files, maxChars });
 
-      if (instructions) addInstructions(instructions);
+      appendInstructionContext({ context, name: 'agents-md', instructions });
     },
   });
 }
