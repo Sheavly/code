@@ -16,6 +16,7 @@ import type {
 } from './messages.types.js';
 import { messagesEventSchema } from './messages.validator.js';
 import { thinkingFor } from './thinking.utils.js';
+import { messagesPrefix } from './prefix.utils.js';
 
 /** A Provider for any backend that speaks the Anthropic Messages API. */
 export function createMessagesProvider(config: MessagesProviderConfig): Provider {
@@ -29,6 +30,17 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
           ? `messages:${endpoint.baseUrl}#${endpoint.model}`
           : undefined;
+      const apiTools = tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.inputSchema,
+      }));
+      const apiMessages = toMessagesApiMessages({
+        messages,
+        reasoningSource,
+        instructions,
+        tools: apiTools,
+      });
 
       const response = await sendRequest({
         api: MESSAGES_API,
@@ -47,13 +59,9 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: toMessagesApiMessages({ messages, reasoningSource }),
+            messages: apiMessages,
             ...(tools.length > 0 && {
-              tools: tools.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                input_schema: tool.inputSchema,
-              })),
+              tools: apiTools,
             }),
             ...(mode
               ? {
@@ -65,7 +73,10 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
           }),
         },
       });
-      const reader = createMessagesReader(reasoningSource);
+      const reader = createMessagesReader({
+        reasoningSource,
+        prefix: messagesPrefix({ instructions, tools: apiTools, messages: apiMessages }),
+      });
       let stopReason: StopReason = 'end_turn';
       let ended = false;
 

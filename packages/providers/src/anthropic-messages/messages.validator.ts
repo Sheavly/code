@@ -5,11 +5,28 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 // to parse and is skipped.
 
 const contentBlockSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('text') }),
+  z.object({ type: z.literal('text'), text: z.string().default('') }),
   z.object({ type: z.literal('tool_use'), id: callIdSchema, name: z.string() }),
-  z.object({ type: z.literal('thinking') }),
+  z.object({
+    type: z.literal('thinking'),
+    thinking: z.string().default(''),
+    signature: z.string().default(''),
+  }),
   z.object({ type: z.literal('redacted_thinking'), data: z.string() }),
 ]);
+
+const replayBlockSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({ type: z.literal('tool_use'), id: callIdSchema, name: z.string(), input: z.unknown() }),
+  z.object({ type: z.literal('thinking'), thinking: z.string(), signature: z.string() }),
+  z.object({ type: z.literal('redacted_thinking'), data: z.string() }),
+]);
+
+export const messagesReplaySchema = z.object({
+  type: z.literal('messages-replay'),
+  prefix: z.string(),
+  content: z.array(replayBlockSchema),
+});
 
 const deltaSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text_delta'), text: z.string() }),

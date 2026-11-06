@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
-import type { messagesEventSchema } from './messages.validator.js';
+import type { messagesEventSchema, messagesReplaySchema } from './messages.validator.js';
 
 /**
  * Where and how to reach one backend that speaks the Anthropic Messages API. Backends differ only
@@ -45,9 +45,12 @@ export type MessagesAdapterConfig = {
 /** A streamed Messages API event we use (everything else is skipped). */
 export type MessagesEvent = z.infer<typeof messagesEventSchema>;
 
+export type MessagesReplay = z.infer<typeof messagesReplaySchema>;
+export type MessagesApiMessage = { role: 'user' | 'assistant'; content: Record<string, unknown>[] };
+
 /** One content block of the reply, as it streams in, by its `index`. */
 export type StreamingBlock =
-  | { type: 'text' }
+  | { type: 'text'; text: string }
   | { type: 'tool_use'; id: CallId; name: string; json: string }
   | { type: 'thinking'; thinking: string; signature: string }
   | { type: 'redacted_thinking'; data: string };

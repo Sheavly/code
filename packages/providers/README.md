@@ -29,6 +29,10 @@ const provider = createDefaultRegistry().create('openai', {
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
 
+Messages replies preserve their original content-block order and request-prefix provenance.
+Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
+is omitted without losing text or tool calls. See [Model effort modes](docs/backends.md#model-effort-modes).
+
 Azure Claude supports `thinkingMode: 'adaptive'`, budgeted `'enabled'` thinking, and `'disabled'`.
 Adaptive thinking takes no fixed budget; `maxTokens` limits output per reply, not the context
 window. The registry's connection check gives fixed, actionable explanations for common thinking,

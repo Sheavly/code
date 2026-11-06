@@ -129,8 +129,15 @@ not moved by a later switch.
 
 Responses APIs receive `reasoning.effort` (low, medium, high, or xhigh for extreme). The
 Anthropic Messages API receives adaptive thinking and `output_config.effort` (low, medium, high,
-or max for extreme), with no fixed thinking budget. Signed thinking is preserved on follow-up
-tool calls. This requires a deployment supporting those native effort levels; an unsupported
+or max for extreme), with no fixed thinking budget. Completed Messages replies are kept as opaque
+replay state, with their original text, thinking and tool-block order and a hash of the request
+prefix. Signed thinking is replayed only when system instructions, tools and preceding messages
+still match. Legacy thinking without that provenance, or thinking after an edited prefix, is
+left out while text and tool calls remain. This also permits recovery from older saved chats
+without replaying invalid signatures. The AGENTS.md and skills hooks append updates to history
+rather than rewriting the system prompt. See
+[preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking).
+This requires a deployment supporting those native effort levels; an unsupported
 setting is reported by the provider, never silently relabelled as another mode. Calls without
 an effort mode retain their configured thinking behavior. See
 [Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
