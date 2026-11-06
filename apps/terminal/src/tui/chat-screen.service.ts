@@ -1,32 +1,18 @@
-import {
-  CombinedAutocompleteProvider,
-  Container,
-  Editor,
-  matchesKey,
-  Spacer,
-  Text,
-  type EditorTheme,
-  type SelectListTheme,
-  type TUI,
-} from '@earendil-works/pi-tui';
+import { matchesKey, type Editor, type TUI } from '@earendil-works/pi-tui';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { CHAT_COMMANDS } from '../chat/chat.constants.js';
-import { cyan, cyanBold, gray } from '../render/style.utils.js';
+import { MarkdownStream } from '../markdown/markdown-stream.service.js';
+import { renderMarkdown } from '../markdown/render-markdown.utils.js';
+import type { ReplySink } from '../render/render.types.js';
+import { gray } from '../render/style.utils.js';
+import type { ChatView } from './chat-view.types.js';
+import { createClassicView } from './classic-view.helper.js';
 import { ApprovalPrompt } from './approval-prompt.service.js';
 import { QUIT_WINDOW_MS } from './tui.constants.js';
 import { LineBuffer } from './line-buffer.service.js';
 import type { ApprovalAnswer, ApprovalOutcome, StatusInfo } from './tui.types.js';
-import { approvalText, echoText, queueText, statusText } from './view.utils.js';
-
-const selectTheme: SelectListTheme = {
-  selectedPrefix: cyan,
-  selectedText: cyanBold,
-  description: gray,
-  scrollInfo: gray,
-  noMatch: gray,
-};
-const editorTheme: EditorTheme = { borderColor: gray, selectList: selectTheme };
+import { approvalText, echoText, queueText } from './view.utils.js';
 
 /** Keys the screen reads before the editor does. `undefined` leaves the key to the editor. */
 type KeyResult = { consume: true } | undefined;
@@ -45,14 +31,12 @@ type KeyResult = { consume: true } | undefined;
  * line is never swallowed by a question.
  */
 export class ChatScreen {
-  readonly #tui: TUI;
-  readonly #history = new Container();
-  readonly #live = new Text('', 0, 0);
-  readonly #approval = new Text('', 0, 0);
-  readonly #queue = new Text('', 0, 0);
-  readonly #status = new Text('', 0, 0);
+  readonly #view: ChatView;
   readonly #editor: Editor;
   readonly #lines = new LineBuffer();
+  readonly #markdown = new MarkdownStream((markdown) =>
+    renderMarkdown({ markdown, width: this.#view.columns }),
+  );
   readonly #prompt = new ApprovalPrompt();
   readonly #callbacks: {
     onSubmit: (line: string) => void;
@@ -63,40 +47,27 @@ export class ChatScreen {
   #info: StatusInfo;
   #quitArmedAt = 0;
 
-  constructor(params: {
-    tui: TUI;
-    status: StatusInfo;
-    /** Skill names offered after a `/`, read when the user types. */
-    commands: { name: string; description?: string }[];
-    cwd: string;
-    onSubmit: (line: string) => void;
-    /** Ctrl+C or Esc while a prompt runs. */
-    onStop: () => 'stopped' | 'stopping' | 'idle';
-    onAnswer: (answer: ApprovalAnswer) => void;
-    onQuit: () => void;
-  }) {
-    const { tui, status, commands, cwd, ...callbacks } = params;
+  constructor(
+    params: ({ tui: TUI; view?: never } | { view: ChatView; tui?: never }) & {
+      status: StatusInfo;
+      /** Skill names offered after a `/`, read when the user types. */
+      commands: { name: string; description?: string }[];
+      cwd: string;
+      onSubmit: (line: string) => void;
+      /** Ctrl+C or Esc while a prompt runs. */
+      onStop: () => 'stopped' | 'stopping' | 'idle';
+      onAnswer: (answer: ApprovalAnswer) => void;
+      onQuit: () => void;
+    },
+  ) {
+    const { status, commands, cwd, onSubmit, onStop, onAnswer, onQuit } = params;
 
-    this.#tui = tui;
+    this.#view = params.view ?? createClassicView({ tui: params.tui, commands, cwd });
     this.#info = status;
-    this.#callbacks = callbacks;
-    this.#editor = new Editor(tui, editorTheme);
-    this.#editor.setAutocompleteProvider(new CombinedAutocompleteProvider(commands, cwd));
+    this.#callbacks = { onSubmit, onStop, onAnswer, onQuit };
+    this.#editor = this.#view.editor;
     this.#editor.onSubmit = (text) => this.#submit(text);
-
-    for (const child of [
-      this.#history,
-      this.#live,
-      this.#approval,
-      this.#queue,
-      this.#status,
-      this.#editor,
-    ]) {
-      tui.addChild(child);
-    }
-
-    tui.setFocus(this.#editor);
-    tui.addInputListener((data) => this.#key(data));
+    this.#view.addInputListener((data) => this.#key(data));
     this.#refresh();
   }
 
@@ -105,27 +76,38 @@ export class ChatScreen {
 
   /** Starts drawing and reading keys. */
   start(): void {
-    this.#tui.start();
+    this.#view.start();
   }
 
   /** Stops, leaving the terminal as it was; the conversation stays in its scrollback. */
   stop(): void {
     this.#flushTail();
-    this.#tui.stop();
+    this.#view.stop();
   }
 
-  /** Where text for the conversation goes: the `Renderer`'s and the session's `write`. */
+  /**
+   * Where text for the conversation goes: the `Renderer`'s and the session's `write`. A reply in
+   * progress ends first, so what is written here comes after all of it.
+   */
   readonly write = (text: string): void => {
-    for (const line of this.#lines.push(text)) this.#print(line);
-    this.#live.setText(this.#lines.tail);
-    this.#tui.requestRender();
+    this.#endReply();
+    this.#show(text);
+  };
+
+  /**
+   * Where the model's reply goes, drawn as Markdown a block at a time: the `Renderer`'s `reply`.
+   * The block being written shows as plain text until it is complete.
+   */
+  readonly reply: ReplySink = {
+    write: (text) => this.#show(this.#markdown.push(text)),
+    end: () => this.#endReply(),
   };
 
   /** Shows a line the screen itself says (a notice), apart from the conversation's text. */
   notice(text: string): void {
     this.#flushTail();
     this.#print(gray(text));
-    this.#tui.requestRender();
+    this.#view.requestRender();
   }
 
   /** Shows a message the user sent, set apart from the reply that follows it. */
@@ -133,7 +115,7 @@ export class ChatScreen {
     this.#flushTail();
 
     for (const line of echoText(text).split('\n')) this.#print(line);
-    this.#tui.requestRender();
+    this.#view.requestRender();
   }
 
   /** Changes what the status line says. */
@@ -144,8 +126,8 @@ export class ChatScreen {
 
   /** Shows the lines waiting for the running one to finish. */
   setQueue(queue: readonly string[]): void {
-    this.#queue.setText(queueText(queue));
-    this.#tui.requestRender();
+    this.#view.setQueue(queueText(queue));
+    this.#view.requestRender();
   }
 
   /** An approval was asked: it waits for the user's answer, behind any already waiting. */
@@ -165,24 +147,34 @@ export class ChatScreen {
     return this.#prompt.current !== undefined;
   }
 
-  /** A `Text` draws nothing for a blank line, which would swallow every paragraph break. */
   #print(line: string): void {
-    this.#history.addChild(line.trim() === '' ? new Spacer(1) : new Text(line, 0, 0));
+    this.#view.print(line);
+  }
+
+  /** Prints the lines `text` finishes; the unfinished ones stay in the live area. */
+  #show(text: string): void {
+    for (const line of this.#lines.push(text)) this.#print(line);
+    this.#view.setLive(this.#lines.tail + this.#markdown.pending);
+    this.#view.requestRender();
+  }
+
+  #endReply(): void {
+    this.#show(this.#markdown.flush());
   }
 
   #flushTail(): void {
+    this.#endReply();
+
     const tail = this.#lines.flush();
 
     if (tail !== undefined) this.#print(tail);
-    this.#live.setText('');
+    this.#view.setLive('');
   }
 
   #refresh(): void {
-    this.#approval.setText(approvalText(this.#prompt));
-    this.#status.setText(
-      statusText({ ...this.#info, state: this.asking ? 'waiting' : this.#info.state }),
-    );
-    this.#tui.requestRender();
+    this.#view.setApproval(approvalText(this.#prompt));
+    this.#view.setStatus({ ...this.#info, state: this.asking ? 'waiting' : this.#info.state });
+    this.#view.requestRender();
   }
 
   /** What Enter in the editor does: send the line, or, while a message is asked for, answer with it. */
@@ -249,6 +241,8 @@ export class ChatScreen {
   }
 
   #confirm(): void {
+    if (this.#view.canConfirm === false) return;
+
     const outcome = this.#prompt.confirm();
 
     if (outcome.kind === 'needs_message') this.#editor.setText('');

@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { PassThrough } from 'node:stream';
+import { createElement } from 'react';
+import { renderToString } from 'ink';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { stripTerminalSequences, TuiMainScreen } from '@earendil-works/pi-tui';
 import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
@@ -6,6 +9,8 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { fakeTerminal } from '../../testing/terminal.fake.js';
 import { ChatScreen } from '../chat-screen.service.js';
 import type { ApprovalAnswer } from '../tui.types.js';
+import { ReactView } from '../../react-screen/react-view.service.js';
+import { ReactScreen } from '../../react-screen/react-screen.component.js';
 
 const ALL: ApprovalOption[] = ['approve', 'always_allow', 'skip', 'skip_with_message'];
 const ENTER = '\r';
@@ -23,7 +28,7 @@ const request = (id: string): ApprovalRequest => ({
   options: ALL,
 });
 
-function open() {
+function openScreen(renderer: 'classic' | 'react') {
   const terminal = fakeTerminal();
   const tui = new TuiMainScreen(terminal);
   const sent: string[] = [];
@@ -31,8 +36,18 @@ function open() {
   let quit = 0;
   let stopResult: 'stopped' | 'stopping' | 'idle' = 'idle';
   let stops = 0;
+  const view =
+    renderer === 'react'
+      ? new ReactView({
+          terminal,
+          stdout: new PassThrough(),
+          status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
+          commands: ChatScreen.commands,
+          cwd: process.cwd(),
+        })
+      : undefined;
   const screen = new ChatScreen({
-    tui,
+    ...(view ? { view } : { tui }),
     status: { state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 },
     commands: ChatScreen.commands,
     cwd: process.cwd(),
@@ -47,6 +62,7 @@ function open() {
   });
 
   screen.start();
+  onTestFinished(() => screen.stop());
 
   return {
     screen,
@@ -58,10 +74,12 @@ function open() {
     running: (result: 'stopped' | 'stopping' | 'idle') => (stopResult = result),
     /** What the screen shows now, as text: the lines of every part, without styling. */
     text: () =>
-      tui
-        .render(80)
-        .map((line) => stripTerminalSequences(line).trimEnd())
-        .join('\n'),
+      view
+        ? stripTerminalSequences(renderToString(createElement(ReactScreen, view.snapshot)))
+        : tui
+            .render(80)
+            .map((line) => stripTerminalSequences(line).trimEnd())
+            .join('\n'),
     type: async (data: string) => {
       terminal.type(data);
       await new Promise((resolve) => setTimeout(resolve, 5));
@@ -69,7 +87,9 @@ function open() {
   };
 }
 
-describe('ChatScreen', () => {
+describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
+  const open = () => openScreen(renderer);
+
   it('shows the conversation’s text as lines, and the line being written under them', async () => {
     const { screen, text } = open();
 
@@ -86,6 +106,48 @@ describe('ChatScreen', () => {
 
     screen.write('one\n\ntwo\n');
     expect(text()).toContain('one\n\ntwo');
+  });
+
+  it('draws a reply’s Markdown once its block is complete, and its raw text until then', () => {
+    const { screen, text } = open();
+
+    screen.reply.write('Some **bold** words');
+    expect(text()).toContain('Some **bold** words');
+
+    screen.reply.write('\n\n');
+    expect(text()).toContain('Some bold words');
+    expect(text()).not.toContain('**');
+  });
+
+  it('draws a reply’s table as a grid only when the table is complete', () => {
+    const { screen, text } = open();
+
+    screen.reply.write('| a | b |\n|---|---|\n| 1 | 2 |\n');
+    expect(text()).toContain('|---|---|');
+
+    screen.reply.write('\n');
+    expect(text()).toContain('│ 1 │ 2 │');
+    expect(text()).not.toContain('|---|');
+  });
+
+  it('draws what is left of a reply when it ends, or when something else is written', () => {
+    const { screen, text } = open();
+
+    screen.reply.write('first **one**\n');
+    screen.reply.end();
+    expect(text()).toContain('first one');
+
+    screen.reply.write('then **two**');
+    screen.write('\n\n⏺ a step\n');
+    expect(text()).toContain('then two\n\n⏺ a step');
+  });
+
+  it('draws a reply left open when the screen stops', () => {
+    const { screen, text } = open();
+
+    screen.reply.write('unfinished `code`');
+    screen.stop();
+    expect(text()).toContain('unfinished code');
   });
 
   it('shows a message the user sent, set apart by blank lines', () => {
@@ -122,7 +184,8 @@ describe('ChatScreen', () => {
     screen.setStatus({ state: 'working', model: 'Deep', mode: 'always_ask' });
 
     expect(text()).toContain('2 queued: "one", "two"');
-    expect(text()).toContain('● working · Deep · mode: always_ask');
+    expect(text()).toContain('working');
+    expect(text()).toContain('Deep · mode: always_ask');
   });
 
   describe('an approval', () => {

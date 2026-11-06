@@ -6,6 +6,8 @@ import { ChatSession } from '../chat/chat-session.service.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
 import { chatLook } from '../render/chat-look.utils.js';
 import { Renderer } from '../render/render.service.js';
+import { ReactView } from '../react-screen/react-view.service.js';
+import { createClassicView } from './classic-view.helper.js';
 import { ChatScreen } from './chat-screen.service.js';
 import type { ApprovalAnswer, ScreenChat } from './tui.types.js';
 
@@ -26,24 +28,37 @@ export async function startScreenChat(params: {
 }): Promise<ScreenChat> {
   const { conversation, details, firstPrompt } = params;
   const watching = new AbortController();
-  const tui = new TuiMainScreen(new ProcessTerminal());
-  const screen: ChatScreen = new ChatScreen({
-    tui,
-    status: {
-      state: 'ready',
-      model: details.model.name,
-      modelMode: details.model.mode ?? 'medium',
-      mode: details.permissionMode,
-      tasks: 0,
-    },
+  const status = {
+    state: 'ready' as const,
+    model: details.model.name,
+    modelMode: details.model.mode ?? 'medium',
+    mode: details.permissionMode,
+    tasks: 0,
+  };
+  const editorOptions = {
     commands: [...ChatScreen.commands, ...params.skills],
     cwd: details.workspace,
+  };
+  const terminal = new ProcessTerminal();
+  const view =
+    process.env.SHEAVLY_TUI === 'classic'
+      ? createClassicView({ ...editorOptions, tui: new TuiMainScreen(terminal) })
+      : new ReactView({ ...editorOptions, terminal, status });
+  const screen: ChatScreen = new ChatScreen({
+    view,
+    status,
+    ...editorOptions,
     onSubmit: (line) => session.submit(line),
     onStop: () => session.stop(),
     onAnswer: (answer) => void answerApproval({ conversation, screen, answer }),
     onQuit: () => leave(),
   });
-  const renderer = new Renderer(screen.write, () => conversation.runningTasks, chatLook);
+  const renderer = new Renderer(
+    screen.write,
+    () => conversation.runningTasks,
+    chatLook,
+    screen.reply,
+  );
   let leave: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => (leave = resolve));
   const session: ChatSession = new ChatSession({
@@ -83,7 +98,7 @@ export async function startScreenChat(params: {
   if (firstPrompt) session.submit(firstPrompt);
 
   return {
-    finished,
+    finished: view instanceof ReactView ? Promise.race([finished, view.finished]) : finished,
     stop: async () => {
       watching.abort();
       session.dropQueued();
