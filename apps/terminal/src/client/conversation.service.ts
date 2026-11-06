@@ -15,6 +15,14 @@ import type { Backend } from './client.types.js';
 
 type Client = ReturnType<typeof createClient>;
 
+function clientFor(backend: Backend): Client {
+  return createClient({
+    url: backend.url,
+    token: backend.token,
+    ...(backend.fetch && { fetch: backend.fetch }),
+  });
+}
+
 /**
  * One conversation on a backend, as the terminal drives it: started (or continued from saved
  * `messages`) on `open`, then prompts sent and their entries read, over HTTP only, through the
@@ -39,14 +47,21 @@ export class RemoteConversation {
     workspace?: string;
   }): Promise<RemoteConversation> {
     const { backend, messages, workspace } = params;
-    const client = createClient({
-      url: backend.url,
-      token: backend.token,
-      ...(backend.fetch && { fetch: backend.fetch }),
-    });
+    const client = clientFor(backend);
     const { id } = await client.call('startConversation', {
       body: { ...(messages && { messages }), ...(workspace && { workspace }) },
     });
+
+    return new RemoteConversation(client, id);
+  }
+
+  /** Reopens a saved conversation under its original id, history, workspace and model selection. */
+  static async reopen(params: {
+    backend: Backend;
+    id: ConversationId;
+  }): Promise<RemoteConversation> {
+    const client = clientFor(params.backend);
+    const { id } = await client.call('reopenConversation', { id: params.id });
 
     return new RemoteConversation(client, id);
   }

@@ -16,6 +16,22 @@ const env = {
 };
 
 describe('connectBackend', () => {
+  it('starts with the backend config even when the terminal passes a relative tsx config', async () => {
+    const terminalEnv = { ...env, TSX_TSCONFIG_PATH: 'apps/terminal/tsconfig.json' };
+    let output = '';
+    const backend = await connectBackend({
+      env: terminalEnv,
+      onOutput: (text) => (output += text),
+    });
+
+    try {
+      expect(output).toContain('→ listening on');
+      expect(terminalEnv.TSX_TSCONFIG_PATH).toBe('apps/terminal/tsconfig.json');
+    } finally {
+      await backend.stop();
+    }
+  }, 30_000);
+
   it('starts a backend through npm, on a free port with its own token, and stops it', async () => {
     let output = '';
     const backend = await connectBackend({ env, onOutput: (text) => (output += text) });

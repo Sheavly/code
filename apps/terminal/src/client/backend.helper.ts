@@ -28,19 +28,24 @@ export async function connectBackend(options: BackendOptions): Promise<Backend> 
 async function startBackend(options: BackendOptions): Promise<Backend> {
   const { env, args = [], onOutput } = options;
   const token = randomBytes(32).toString('base64url');
+  const childEnv: NodeJS.ProcessEnv = {
+    ...env,
+    SERVER_HOST: '127.0.0.1',
+    SERVER_PORT: '0',
+    SERVER_TOKEN: token,
+    SERVER_EXIT_WITH_PARENT: 'true',
+  };
+
+  // tsx exports its config path to children. The backend must load its own workspace config.
+  delete childEnv.TSX_TSCONFIG_PATH;
+
   // Through npm, by package name: the backend is a workspace npm knows, not a path into another
   // app. npm runs from this process's folder (the user's), so the backend's INIT_CWD is too.
   // Its own process group, so the Ctrl+C that stops a prompt here never reaches it; its stdin is
   // a pipe it holds open, so when this process exits, even killed, the backend stops too.
   const child = spawn('npm', npmArgs({ env, args }), {
     cwd: process.cwd(),
-    env: {
-      ...env,
-      SERVER_HOST: '127.0.0.1',
-      SERVER_PORT: '0',
-      SERVER_TOKEN: token,
-      SERVER_EXIT_WITH_PARENT: 'true',
-    },
+    env: childEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: true,
   });

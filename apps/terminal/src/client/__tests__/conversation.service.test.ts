@@ -77,6 +77,22 @@ async function sent(conversation: RemoteConversation, signal?: AbortSignal) {
 }
 
 describe('RemoteConversation', () => {
+  it('reopens a saved conversation without creating a new one', async () => {
+    const server = fakeServer({ reopenConversation: () => ({ id: ID }) });
+    const conversation = await RemoteConversation.reopen({
+      backend: {
+        url: 'http://backend.test',
+        token: 't',
+        stop: async () => undefined,
+        fetch: server.fetch,
+      },
+      id: ID,
+    });
+
+    expect(conversation.id).toBe(ID);
+    expect(server.calls.map((call) => call.name)).toEqual(['reopenConversation']);
+    expect(server.calls[0]?.call).toEqual({ params: { id: ID } });
+  });
   it('starts a conversation, sends a prompt and reads its entries, then the history', async () => {
     const { conversation, server } = await open({
       sendPrompt: () => entries(text(0, 'hello'), done(1, 'completed')),
