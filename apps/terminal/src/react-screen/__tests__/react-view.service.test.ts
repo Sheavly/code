@@ -42,6 +42,38 @@ function screenOver(params: { view: ReactView; onAnswer?: () => void }): ChatScr
 }
 
 describe('ReactView', () => {
+  it.each([false, true])('uses output TTY status in CI: %s', async (interactive) => {
+    vi.stubEnv('CI', 'true');
+
+    const { view, stdout } = open(24, interactive);
+    let output = '';
+
+    stdout.setEncoding('utf8');
+    stdout.on('data', (chunk: string) => (output += chunk));
+
+    try {
+      view.start();
+      await vi.waitFor(() => expect(view.snapshot.editor.cursor).toBeDefined());
+
+      if (interactive) {
+        await vi.waitFor(() => expect(stripVTControlCharacters(output)).toContain('ready'));
+        expect(output).toContain('\u001b[?25h');
+
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(output).toBe('');
+      view.stop();
+      expect(stripVTControlCharacters(output)).toContain('ready');
+      expect(output).not.toContain('\u001b[?25h');
+      expect(output).not.toContain('\u001b[2K');
+    } finally {
+      view.stop();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('draws usage totals without hiding the stop hint at narrow widths', async () => {
     const { view, stdout } = open(24, true, 40, true);
     let output = '';

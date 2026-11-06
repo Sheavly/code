@@ -52,6 +52,8 @@ export class ReactView implements ChatView {
     try {
       this.#instance = render(createElement(ReactScreen, this.snapshot), {
         stdout: this.#stdout,
+        // The chat selects screen mode by TTY, not CI; Ink must keep its live footer drawing.
+        interactive: 'isTTY' in this.#stdout && this.#stdout.isTTY === true,
         exitOnCtrlC: false,
         // All chat output is routed through the view; no global console patch is needed.
         patchConsole: false,

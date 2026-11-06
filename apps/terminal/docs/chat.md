@@ -32,6 +32,8 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   resolves its own workspace config rather than inheriting the terminal's `tsx` config path.
   The hardware caret is committed with the current editor frame, including wide characters and
   wrapped input, so typing does not leave the cursor on the previous character.
+  Screen rendering follows the output's TTY status even when `CI` is set; piped output remains
+  non-interactive and does not receive screen redraw or caret controls.
 - **Reduced motion is a global user preference.** Run `npm run dev:terminal -- --setup`, choose
   **Terminal settings** in the profile menu, then **Reduced motion**. No profile needs to exist
   to configure it. The React working
