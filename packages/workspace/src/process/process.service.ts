@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { ProcessInterruptedError, ProcessKillError } from '../errors/process.errors.js';
 import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import { MAX_OUTPUT_CHARS, SECRET_ENV } from './process.constants.js';
+import { OutputBuffer } from '@sheavly/runtime/output/output.service';
 import { connectStreams } from './process-streams.helper.js';
 import { runScript } from './script.helper.js';
 import type { Environment } from '@sheavly/core/environment/environment.types';
@@ -97,12 +98,10 @@ export class ProcessRunner {
 
       if (child.pid) this.#track(child.pid);
 
-      let output = '';
+      const output = new OutputBuffer({ maxChars: MAX_OUTPUT_CHARS });
       let timedOut = false;
-      const append = (chunk: Buffer) => {
-        const text = chunk.toString();
-
-        if (output.length < MAX_OUTPUT_CHARS) output += text;
+      const append = (text: string) => {
+        output.push(text);
         options.onOutput?.(text);
       };
 
@@ -147,7 +146,7 @@ export class ProcessRunner {
       });
       child.on('close', (exitCode) => {
         cleanup();
-        resolve({ exitCode, output, timedOut });
+        resolve({ exitCode, output: output.text, timedOut });
       });
     });
   }

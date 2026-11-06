@@ -16,12 +16,13 @@ export function connectStreams(params: {
   child: ChildProcess;
   input?: Readable | undefined;
   stdoutTo?: Writable | undefined;
-  onChunk: (chunk: Buffer) => void;
+  onChunk: (chunk: string) => void;
   onReaderGone: () => void;
 }): { disconnect: () => void } {
   const { child, input, stdoutTo, onChunk, onReaderGone } = params;
 
-  child.stderr?.on('data', onChunk);
+  // Each captured stream has its own decoder; a pipe remains byte-for-byte unchanged.
+  child.stderr?.setEncoding('utf8').on('data', onChunk);
 
   if (stdoutTo) {
     child.stdout?.pipe(stdoutTo);
@@ -29,7 +30,7 @@ export function connectStreams(params: {
       if (!stdoutTo.writableFinished) onReaderGone();
     });
   } else {
-    child.stdout?.on('data', onChunk);
+    child.stdout?.setEncoding('utf8').on('data', onChunk);
   }
 
   if (input && child.stdin) {

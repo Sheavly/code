@@ -163,9 +163,8 @@ describe('runScript limits', () => {
       },
     });
 
-    // Kept like `run` keeps it: chunks after the limit is reached are dropped, so the result is
-    // bounded by the limit plus one chunk, far under what was written.
-    expect(result.output.length).toBeLessThan(100_000);
+    expect(result.output.length).toBeLessThanOrEqual(30_000);
+    expect(result.output).toContain('lines omitted');
     expect(seen.join('').length).toBe(100_000);
   });
 });

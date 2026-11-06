@@ -3,6 +3,8 @@
 A project on disk, for coding UIs: path confinement to the workspace root, the process runner,
 per-file locks, workspace trust, the project's `.sheavly/` hooks and the AGENTS.md hook. Only
 coding packages and coding UIs depend on it.
+Process results retain bounded first/last output lines, with shortened oversized lines and a
+30,000-character limit. Original output still reaches pipeline readers and output callbacks.
 
 ```ts
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';

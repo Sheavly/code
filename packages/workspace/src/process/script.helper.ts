@@ -1,5 +1,6 @@
 import { PassThrough } from 'node:stream';
 import { MAX_OUTPUT_CHARS } from './process.constants.js';
+import { OutputBuffer } from '@sheavly/runtime/output/output.service';
 import type {
   Connector,
   ProcessParams,
@@ -98,8 +99,8 @@ async function runPipeline(params: {
  * Runs `steps` the way a shell runs a line of commands, without a shell: `a | b` feeds a's
  * output to b while both run, `a && b` runs b if a succeeded, `a || b` if it failed, `a ; b`
  * either way. The result is the last pipeline's exit code and the output of every command in the
- * order it arrived (kept like `run` keeps it: once `MAX_OUTPUT_CHARS` are held, later chunks are
- * dropped from the result but still streamed to `onOutput`). `timeoutMs` covers the whole script:
+ * order it arrived. The result keeps bounded first/last lines, while every original chunk still
+ * streams to `onOutput` and pipes. `timeoutMs` covers the whole script:
  * past it the running commands are killed, nothing more starts, and the result says it timed out.
  * A command that cannot start, or aborting `signal`, throws what `run` throws, after every
  * command of that pipeline has stopped.
@@ -112,7 +113,7 @@ export async function runScript(params: {
   const { steps, timeoutMs, onOutput, ...rest } = script;
   const deadline = timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs);
   const signal = deadline ? AbortSignal.any([rest.signal, deadline]) : rest.signal;
-  let output = '';
+  const output = new OutputBuffer({ maxChars: MAX_OUTPUT_CHARS });
   let exitCode: number | null = null;
   let connector: ListConnector = ';';
 
@@ -120,7 +121,7 @@ export async function runScript(params: {
     ...rest,
     signal,
     onOutput: (chunk) => {
-      if (output.length < MAX_OUTPUT_CHARS) output += chunk;
+      output.push(chunk);
       onOutput?.(chunk);
     },
   };
@@ -132,5 +133,9 @@ export async function runScript(params: {
     connector = next;
   }
 
-  return { exitCode, output, timedOut: Boolean(deadline?.aborted && !rest.signal.aborted) };
+  return {
+    exitCode,
+    output: output.text,
+    timedOut: Boolean(deadline?.aborted && !rest.signal.aborted),
+  };
 }
