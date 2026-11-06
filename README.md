@@ -126,6 +126,12 @@ file kinds a package's `exports` makes public (`"./*.types"`), its public API.
 `npm run check` is the quality gate: typecheck, ESLint, `prettier --check`, knip, jscpd, the
 layout check and the tests. The `Check` workflow (`.github/workflows/check.yml`) runs it on every PR.
 
+The shell-write recorder distinguishes concurrent literal `npx prettier --write` operations
+using predicted formatting and verified file hashes, not timing alone. A matching formatter
+write is attributed to that sanctioned command; arbitrary or unrelated writes still fail the
+guard. Prediction does not execute project configuration scripts or plugins. Older records
+without hash evidence are never automatically dismissed.
+
 ### The pipeline (Turborepo)
 
 `npm run check` runs every task in `turbo.json`, along the dependency graph npm workspaces define:

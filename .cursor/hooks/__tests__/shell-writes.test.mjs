@@ -1,5 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -7,21 +16,32 @@ import { DENIED_CASES } from '../shell-guard-cases.utils.mjs';
 import { shellGuardFailure } from '../shell-guard-stop.utils.mjs';
 import { changedFiles, isSanctionedWriter, snapshotProject } from '../shell-writes.utils.mjs';
 import { runEditHook, runHook } from './run-hook.utils.mjs';
+import { verifiedFormatterWrite, withoutFormatterWrites } from '../formatter-attribution.utils.mjs';
 
 let repo = '';
 let stateDir = '';
 
 const readState = () => JSON.parse(readFileSync(path.join(stateDir, 'c1.json'), 'utf8'));
 
+const beforeShell = (command) =>
+  runHook({
+    script: 'guard-shell-commands.mjs',
+    cwd: repo,
+    stateDir,
+    input: { conversation_id: 'c1', command, cwd: repo },
+  });
+const afterShell = (command) =>
+  runHook({
+    script: 'record-shell-writes.mjs',
+    cwd: repo,
+    stateDir,
+    input: { conversation_id: 'c1', tool_input: { command }, cwd: repo },
+  });
+
 /** Runs `command` the way Cursor does: the guard, then (if allowed) `write`, then the after-hook. */
 function runShell(params) {
   const { command, write, during } = params;
-  const decision = runHook({
-    script: 'guard-shell-commands.mjs',
-    cwd: repo,
-    input: { conversation_id: 'c1', command, cwd: repo },
-    stateDir,
-  });
+  const decision = beforeShell(command);
 
   if (decision.permission !== 'allow') return { decision };
   write?.();
@@ -30,12 +50,7 @@ function runShell(params) {
 
   return {
     decision,
-    after: runHook({
-      script: 'record-shell-writes.mjs',
-      cwd: repo,
-      input: { conversation_id: 'c1', tool_input: { command }, cwd: repo },
-      stateDir,
-    }),
+    after: afterShell(command),
   };
 }
 
@@ -178,7 +193,14 @@ describe('a shell workaround', () => {
     expect(state.editedProjectSource).toBe(true);
     expect(Object.keys(state.editedFiles)).toEqual(['a.ts']);
     expect(state.unguardedCommands).toEqual([
-      { command, cwd: repo, files: ['a.ts'], at: expect.any(Number), endedAt: expect.any(Number) },
+      {
+        command,
+        cwd: repo,
+        files: ['a.ts'],
+        at: expect.any(Number),
+        endedAt: expect.any(Number),
+        writeHashes: { 'a.ts': { before: null, after: expect.any(String) } },
+      },
     ]);
     expect(state.shellSnapshots).toEqual({});
 
@@ -335,5 +357,173 @@ fs.writeFileSync(file, text.replaceAll('  ', ' '));
     expect(readState().unguardedCommands).toEqual([
       expect.objectContaining({ command, files: ['b.ts'] }),
     ]);
+  });
+});
+
+describe('verified concurrent formatting', () => {
+  const observer = 'python3 /tmp/read-only-smoke.py';
+  const formatter = 'npx prettier --write a.ts';
+  const source = (value, formatted = false) =>
+    `export const${formatted ? ' ' : '  '}a = ${value};\n`;
+  const put = (value, formatted = false) =>
+    writeFileSync(path.join(repo, 'a.ts'), source(value, formatted));
+
+  it('credits only the formatter when its predicted write finishes during a read-only command', async () => {
+    put(2);
+    expect(beforeShell(observer).permission).toBe('allow');
+    expect(beforeShell(formatter).permission).toBe('allow');
+    put(2, true);
+
+    expect(afterShell(formatter)).toEqual({});
+    expect(afterShell(observer)).toEqual({});
+    expect(readState().verifiedFormatterWrites).toHaveLength(1);
+    expect(readState().unguardedCommands).toEqual([]);
+    expect(await shellGuardFailure({ state: readState(), projectRoot: repo })).toBeNull();
+  });
+
+  it('corrects a new attribution when the formatter after-hook runs last', async () => {
+    put(2);
+    beforeShell(formatter);
+    beforeShell(observer);
+    put(2, true);
+
+    expect(afterShell(observer).additional_context).toContain('a.ts');
+    expect(afterShell(formatter)).toEqual({});
+    expect(readState().unguardedCommands).toEqual([]);
+    expect(await shellGuardFailure({ state: readState(), projectRoot: repo })).toBeNull();
+  });
+
+  it('does not excuse arbitrary code changes during the formatter window', async () => {
+    put(2);
+    beforeShell(observer);
+    beforeShell(formatter);
+    put(3, true);
+    afterShell(formatter);
+
+    expect(afterShell(observer).additional_context).toContain('a.ts');
+    expect(await shellGuardFailure({ state: readState(), projectRoot: repo })).not.toBeNull();
+  });
+
+  it('does not excuse a write made before the formatter took its own snapshot', () => {
+    put(2);
+    beforeShell(observer);
+    put(3);
+    beforeShell(formatter);
+    put(3, true);
+    afterShell(formatter);
+
+    expect(afterShell(observer).additional_context).toContain('a.ts');
+    expect(readState().unguardedCommands).toHaveLength(1);
+  });
+
+  it('does not excuse a later change after verified formatting', () => {
+    put(2);
+    beforeShell(observer);
+    beforeShell(formatter);
+    put(2, true);
+    afterShell(formatter);
+    put(3, true);
+
+    expect(afterShell(observer).additional_context).toContain('a.ts');
+  });
+
+  it('keeps unrelated writes by the overlapping command', () => {
+    put(2);
+    beforeShell(observer);
+    beforeShell(formatter);
+    put(2, true);
+    afterShell(formatter);
+    writeFileSync(path.join(repo, 'b.ts'), 'unverified');
+
+    expect(afterShell(observer).additional_context).toContain('b.ts');
+    expect(readState().unguardedCommands[0].files).toEqual(['b.ts']);
+  });
+
+  it('never clears legacy records without hash evidence', () => {
+    const entry = { command: observer, files: ['a.ts'], at: 1, endedAt: 4 };
+
+    expect(
+      withoutFormatterWrites({
+        commands: [entry],
+        writes: [
+          {
+            command: formatter,
+            at: 2,
+            endedAt: 3,
+            files: { 'a.ts': { before: 'old', after: 'new' } },
+          },
+        ],
+      }),
+    ).toEqual([entry]);
+  });
+
+  it('never credits formatting across a changed HEAD', () => {
+    expect(
+      verifiedFormatterWrite({
+        command: formatter,
+        projectRoot: repo,
+        endedAt: 3,
+        before: { head: 'old', takenAt: 1, files: {}, formattedFiles: {} },
+        after: { head: 'new', files: {} },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not execute project configuration scripts or formatter plugins in prediction', () => {
+    put(2);
+    const marker = path.join(repo, 'config-executed');
+    const code = `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'ran'); module.exports = {};`;
+
+    writeFileSync(path.join(repo, '.prettierrc.cjs'), code);
+    writeFileSync(path.join(repo, 'plugin.cjs'), code);
+    writeFileSync(
+      path.join(repo, '.prettierrc.json'),
+      JSON.stringify({ plugins: ['./plugin.cjs'] }),
+    );
+    expect(beforeShell(formatter).permission).toBe('allow');
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('gives no prediction credit to unsupported command options or outside symlinks', () => {
+    put(2);
+    const outside = path.join(stateDir, 'outside.ts');
+    const linked = path.join(repo, 'linked.ts');
+
+    writeFileSync(outside, source(2));
+    symlinkSync(outside, linked);
+    const commands = [
+      'npx prettier --write --config config.cjs a.ts',
+      'npx prettier --write linked.ts',
+    ];
+
+    for (const command of commands) {
+      expect(beforeShell(command).permission).toBe('allow');
+      expect(readState().shellSnapshots[command].formattedFiles).toBeUndefined();
+    }
+  });
+
+  it('keeps incomplete or malformed attribution evidence fail-closed', () => {
+    const entry = {
+      command: observer,
+      files: ['a.ts'],
+      at: 1,
+      endedAt: 4,
+      writeHashes: { 'a.ts': { before: 'old', after: 'new' } },
+    };
+
+    expect(
+      withoutFormatterWrites({
+        commands: [entry],
+        writes: [{ command: formatter, at: 2, files: { 'a.ts': { before: 'old', after: 'new' } } }],
+      }),
+    ).toEqual([entry]);
+    const missing = { ...entry, writeHashes: { 'a.ts': {} } };
+
+    expect(
+      withoutFormatterWrites({
+        commands: [missing],
+        writes: [{ command: formatter, at: 2, endedAt: 3, files: { 'a.ts': {} } }],
+      }),
+    ).toEqual([missing]);
   });
 });

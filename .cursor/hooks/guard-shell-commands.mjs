@@ -12,16 +12,29 @@ import {
 } from './hooks.utils.mjs';
 import { findShellViolation } from './shell-guard.utils.mjs';
 import { snapshotProject } from './shell-writes.utils.mjs';
+import { predictFormatterChanges } from './formatter-attribution.utils.mjs';
 
 /** Keeps the project's state before `command` runs, keyed by the command (its after-hook's key). */
-function rememberSnapshot(params) {
+async function rememberSnapshot(params) {
   const { conversationId, command } = params;
   const snapshot = snapshotProject(PROJECT_ROOT);
 
   if (!conversationId || !snapshot) return;
+  const formattedFiles = await predictFormatterChanges({
+    command,
+    cwd: params.cwd,
+    projectRoot: PROJECT_ROOT,
+    before: snapshot,
+  });
   const shellSnapshots = getChatState(conversationId)?.shellSnapshots ?? {};
 
-  updateChatState({ conversationId, shellSnapshots: { ...shellSnapshots, [command]: snapshot } });
+  updateChatState({
+    conversationId,
+    shellSnapshots: {
+      ...shellSnapshots,
+      [command]: { ...snapshot, ...(Object.keys(formattedFiles).length > 0 && { formattedFiles }) },
+    },
+  });
 }
 
 await runGuard({
@@ -36,7 +49,11 @@ await runGuard({
     });
 
     if (violation) return { permission: 'deny', ...violation };
-    rememberSnapshot({ conversationId: input.conversation_id, command });
+    await rememberSnapshot({
+      conversationId: input.conversation_id,
+      command,
+      cwd: input.cwd || PROJECT_ROOT,
+    });
 
     return { permission: 'allow' };
   },
