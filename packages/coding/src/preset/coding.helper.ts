@@ -3,6 +3,8 @@ import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
+import { composeInstructions } from '@sheavly/host/instructions/instructions.helper';
+import { CODING_INSTRUCTIONS } from '../instructions/coding-instructions.constants.js';
 import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
 
 /**
@@ -16,7 +18,13 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
   const workspace = await Workspace.open(workspaceRoot);
 
   return {
-    ...createHarness(harnessOptions),
+    ...createHarness({
+      ...harnessOptions,
+      instructions: composeInstructions({
+        baseInstructions: CODING_INSTRUCTIONS,
+        instructions: harnessOptions.instructions,
+      }),
+    }),
     workspace,
     fileLocks,
     fileReads: new FileReads(),
