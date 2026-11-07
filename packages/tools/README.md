@@ -6,6 +6,10 @@ picks which ones a run gets and builds them on the run's registries.
 `createSubAgentTool` optionally accepts `selectProvider`, called when an agent starts, to capture
 the parent's provider and model/mode selection. The child and its descendants retain that snapshot
 when the main conversation later switches. A supplied selection is recorded on the child's session.
+Pass `baseInstructions` to share host guidance before the child role. Child `instructions` remain
+extras after that role; the factory neither imports host prompt text nor copies parent history.
+The compact child role covers assignment scope, status reporting, parent steering and a useful
+handoff. Shared guidance is injected once rather than repeated in that role.
 
 ```ts
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';

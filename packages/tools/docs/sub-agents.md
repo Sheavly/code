@@ -15,7 +15,11 @@ sub-agent on one task, `{ title, task }`.
   refuses a fourth level regardless.
 - **The parent chooses.** `options.tools` and `options.hooks` are what sub-agents get; the
   parent's own hooks are not inherited unless listed. Each sub-agent runs its own `sessionStart`.
-  `options.instructions` are added after the built-in sub-agent rules.
+  `options.baseInstructions` supplies shared guidance before the child role;
+  `options.instructions` adds child extras after it. Outer whitespace is trimmed, blank sections
+  are skipped, and sections are joined with one blank line. The same
+  composition is passed to descendants. Neither option implicitly copies parent history or
+  conversation overrides. The backend supplies its shared generic and coding text explicitly.
 - **Its own context.** A sub-agent sees only its task, not the parent's conversation.
 - The loop's `runSession` is passed in as `options.runAgent`: tools can't import the loop.
 - `start_agent`, `report_status` and `message_agent` only work inside a session: called without

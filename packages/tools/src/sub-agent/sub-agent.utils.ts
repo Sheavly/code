@@ -9,12 +9,16 @@ export function finalReply(messages: Message[]): string {
   return '(the sub-agent finished without a reply)';
 }
 
-/** The system instructions a sub-agent gets: the built-in rules, then the parent's extras. */
+/** Shared base, child role, then child extras. Blank sections are skipped. */
 export function subAgentInstructions(params: {
   rules: string;
+  base?: string | undefined;
   extra?: string | undefined;
 }): string {
-  const { rules, extra } = params;
+  const { rules, base = '', extra = '' } = params;
 
-  return extra?.trim() ? `${rules}\n\n${extra.trim()}` : rules;
+  return [base, rules, extra]
+    .map((section) => section.trim())
+    .filter(Boolean)
+    .join('\n\n');
 }

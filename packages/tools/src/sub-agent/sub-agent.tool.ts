@@ -116,7 +116,11 @@ async function runChild(params: {
           : []),
       ],
       hooks,
-      instructions: subAgentInstructions({ rules: SUB_AGENT_INSTRUCTIONS, extra: instructions }),
+      instructions: subAgentInstructions({
+        base: options.baseInstructions,
+        rules: SUB_AGENT_INSTRUCTIONS,
+        extra: instructions,
+      }),
       messages: [{ role: 'user', content: task, at: now() }],
       signal,
       tasks: childTasks,

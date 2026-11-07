@@ -39,6 +39,8 @@ export type SubAgentOptions = {
   tools: Tool[];
   /** The hooks sub-agents get; the parent's own hooks are not inherited unless listed here. */
   hooks?: Hook[];
+  /** Shared guidance before the child role. The host chooses it; parent history is not copied. */
+  baseInstructions?: string;
   /** Extra system instructions for sub-agents, after the built-in sub-agent rules. */
   instructions?: string;
   maxTurns?: number;
