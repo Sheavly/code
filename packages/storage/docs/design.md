@@ -88,6 +88,11 @@ something that works on the system the code was written on and fails on another:
 
 ## The model store
 
+Optional `identity: { model, family? }` records the model chosen in setup, independently of its
+display label and hosting deployment. It belongs in the file's envelope, like pricing, and never
+enters the adapter definition. Existing files without it read unchanged; there is no implicit
+identity inference or migration. The choice does not certify which weights a cloud deployment serves.
+
 A model may include `pricing` alongside its identity, with `input`, `output`, `cacheRead` and
 `cacheWrite` in USD per million tokens. It is envelope metadata, not an adapter definition or a
 secret. Usage and cost estimates are stored as stream entries, so reopening a conversation uses
