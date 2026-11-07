@@ -9,6 +9,7 @@ export async function askDefinition(params: {
   ui: SetupUi;
   previous: Record<string, unknown>;
   advanced?: boolean;
+  fixed?: Record<string, unknown>;
 }): Promise<Record<string, unknown>> {
   const { adapter, ui, previous } = params;
   const form = parseAdapterForm(adapter);
@@ -17,10 +18,16 @@ export async function askDefinition(params: {
   for (const [name, field] of Object.entries(form.properties)) {
     if (field.secret || adapter.secrets.includes(name)) continue;
 
-    if (!params.advanced && !form.required.includes(name)) {
-      const value = previous[name] ?? field.default;
+    if (params.fixed && Object.hasOwn(params.fixed, name)) {
+      definition[name] = params.fixed[name];
+      continue;
+    }
 
-      if (value !== undefined) definition[name] = value;
+    const previousValue = Object.hasOwn(previous, name) ? previous[name] : undefined;
+    const initial = previousValue ?? field.default;
+
+    if (!params.advanced && !form.required.includes(name)) {
+      if (initial !== undefined) definition[name] = initial;
       continue;
     }
 
@@ -28,7 +35,7 @@ export async function askDefinition(params: {
       name,
       field,
       required: form.required.includes(name),
-      initial: previous[name] ?? field.default,
+      initial,
       ui,
     });
 

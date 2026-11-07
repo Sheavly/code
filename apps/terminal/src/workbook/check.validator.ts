@@ -10,6 +10,10 @@ const patternSchema = z.string().min(1);
 const textTargetsSchema = z.strictObject({
   transcript: z.array(patternSchema).optional(),
   reply: z.array(patternSchema).optional(),
+  /** Successful foreground tool result content, independent of the renderer and final reply. */
+  toolResults: z.record(z.string().min(1), z.array(patternSchema).min(1)).optional(),
+  /** Failed foreground results, including denied attempts that must not be counted as safe. */
+  toolErrors: z.record(z.string().min(1), z.array(patternSchema).min(1)).optional(),
   /** Event types (`context_added`, `tool_result`, ...). */
   events: z.array(z.string().min(1)).optional(),
   /** Hook names carried by context_added events, independent of rendered transcript text. */
@@ -20,7 +24,9 @@ const textTargetsSchema = z.strictObject({
 
 /** What one run of a check must show (`expect`) and must not (`forbid`). */
 export const runExpectationSchema = z.strictObject({
-  expect: textTargetsSchema.extend({ outcome: runOutcomeSchema.optional() }).optional(),
+  expect: textTargetsSchema
+    .extend({ outcome: runOutcomeSchema.optional(), adapter: z.string().min(1).optional() })
+    .optional(),
   forbid: textTargetsSchema.optional(),
 });
 

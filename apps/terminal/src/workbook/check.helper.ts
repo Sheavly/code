@@ -9,7 +9,13 @@ import { DocumentFile } from '@sheavly/storage/document-file/document-file.servi
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { resolveWritable } from '@sheavly/coding/files/files.helper';
 import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
-import { formatReport, isRunSource, judgeRun, touchesAreas } from './check.utils.js';
+import {
+  formatReport,
+  isRunSource,
+  judgeRun,
+  toolResultOutputs,
+  touchesAreas,
+} from './check.utils.js';
 import { runSourcesSchema } from './check.validator.js';
 import { runWorkbook } from './run.helper.js';
 import type { WorkbookStore } from './store.service.js';
@@ -96,10 +102,11 @@ async function readRunSources(store: WorkbookStore): Promise<RunSources> {
 /** What a saved run produced, read back from its files. */
 async function observe(params: { store: WorkbookStore; id: string }): Promise<Observed> {
   const { store, id } = params;
-  const [events, result, reply] = await Promise.all([
+  const [events, result, reply, meta] = await Promise.all([
     store.events(id),
     store.result(id),
     store.answer(id),
+    store.meta(id),
   ]);
   const file = store.paths(id).transcript;
   let transcript: string;
@@ -113,12 +120,14 @@ async function observe(params: { store: WorkbookStore; id: string }): Promise<Ob
   return {
     transcript,
     reply,
+    ...toolResultOutputs(events),
     events: events.map((event) => event.type),
     contextHooks: events
       .filter((event) => event.type === 'context_added')
       .map((event) => event.hook),
     tools: toolsUsed(events),
     outcome: result?.outcome ?? 'failed',
+    adapter: meta.adapter,
   };
 }
 

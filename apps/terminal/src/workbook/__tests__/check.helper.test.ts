@@ -13,13 +13,78 @@ import type { StoredPrompt } from '../workbook.types.js';
 const observed: Observed = {
   transcript: '＋ house-rules added context (59 chars)\n[AGENTS.md OK] The answer is 41. Sheavly\n',
   reply: '[AGENTS.md OK] The answer is 41. Sheavly',
+  toolResults: {},
+  toolErrors: {},
   events: ['context_added', 'tool_call_started', 'tool_result', 'done'],
   contextHooks: ['house-rules'],
   tools: ['read_file'],
   outcome: 'completed',
+  adapter: 'openai',
 };
 
 describe('judgeRun', () => {
+  it('does not confuse inherited object properties with recorded tool output or patterns', () => {
+    expect(
+      judgeRun({
+        expectation: { expect: { toolErrors: { constructor: ['denied'] } } },
+        observed,
+      }),
+    ).toEqual(['toolErrors.constructor lacks denied']);
+  });
+
+  it('rejects a denied secret-read attempt even when the runnable check succeeded', () => {
+    const expectation = {
+      expect: { toolResults: { run_command: ['INVOICE_CHECK_OK'] } },
+      forbid: { toolErrors: { read_file: ['Reading .env files is not allowed'] } },
+    };
+    const checked = { ...observed, toolResults: { run_command: 'INVOICE_CHECK_OK' } };
+
+    expect(judgeRun({ expectation, observed: checked })).toEqual([]);
+    expect(
+      judgeRun({
+        expectation,
+        observed: {
+          ...checked,
+          toolErrors: {
+            read_file: 'Reading .env files is not allowed (.env). They contain secrets.',
+          },
+        },
+      }),
+    ).toEqual(['toolErrors.read_file has Reading .env files is not allowed']);
+  });
+
+  it('checks successful tool output without requiring it in the renderer or final reply', () => {
+    const expectation = { expect: { toolResults: { run_command: ['INVOICE_CHECK_OK'] } } };
+
+    expect(
+      judgeRun({
+        expectation,
+        observed: { ...observed, toolResults: { run_command: 'INVOICE_CHECK_OK' } },
+      }),
+    ).toEqual([]);
+    expect(judgeRun({ expectation, observed: { ...observed, reply: 'INVOICE_CHECK_OK' } })).toEqual(
+      ['toolResults.run_command lacks INVOICE_CHECK_OK'],
+    );
+    expect(
+      judgeRun({
+        expectation: { forbid: { toolResults: { run_command: ['SECRET'] } } },
+        observed: { ...observed, toolResults: { run_command: 'SECRET' } },
+      }),
+    ).toEqual(['toolResults.run_command has SECRET']);
+    expect(
+      judgeRun({
+        expectation,
+        observed: { ...observed, toolResults: { read_file: 'INVOICE_CHECK_OK' } },
+      }),
+    ).toEqual(['toolResults.run_command lacks INVOICE_CHECK_OK']);
+  });
+
+  it('checks the recorded adapter so a different transport cannot satisfy a protocol test', () => {
+    const expectation = { expect: { adapter: 'azure-chat' } };
+
+    expect(judgeRun({ expectation, observed })).toEqual(['adapter openai, expected azure-chat']);
+    expect(judgeRun({ expectation, observed: { ...observed, adapter: 'azure-chat' } })).toEqual([]);
+  });
   it('allows built-in context while forbidding context from an untrusted project hook', () => {
     const expectation = { forbid: { contextHooks: ['house-rules'] } };
 

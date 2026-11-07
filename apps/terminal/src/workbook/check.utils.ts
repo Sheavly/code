@@ -1,6 +1,28 @@
 import type { CheckOutcome, Observed, RunExpectation, RunSources } from './check.types.js';
+import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 
 // --- Judging a run ---
+
+/** Keeps successful and failed foreground output separate, grouped by tool, never model claims. */
+export function toolResultOutputs(
+  events: readonly EntryEvent[],
+): Pick<Observed, 'toolResults' | 'toolErrors'> {
+  const results = new Map<string, string>();
+  const errors = new Map<string, string>();
+
+  for (const event of events) {
+    if (event.type !== 'tool_result' || event.message.role !== 'tool') {
+      continue;
+    }
+
+    const name = event.call.name;
+    const output = event.message.isError ? errors : results;
+
+    output.set(name, [output.get(name), event.message.content].filter(Boolean).join('\n'));
+  }
+
+  return { toolResults: Object.fromEntries(results), toolErrors: Object.fromEntries(errors) };
+}
 
 /** `/…/flags` is a regex; anything else is a plain substring. */
 function matches(params: { pattern: string; text: string }): boolean {
@@ -42,14 +64,34 @@ function nameProblems(params: {
   ];
 }
 
+/** Matches recorded tool output without allowing inherited keys or another tool's output. */
+function toolOutputProblems(params: {
+  wanted: Record<string, string[]> | undefined;
+  forbidden: Record<string, string[]> | undefined;
+  target: string;
+  output: Readonly<Record<string, string>>;
+}): string[] {
+  const { wanted = {}, forbidden = {}, target, output } = params;
+
+  return [...new Set([...Object.keys(wanted), ...Object.keys(forbidden)])].flatMap((tool) =>
+    textProblems({
+      wanted: Object.hasOwn(wanted, tool) ? wanted[tool] : undefined,
+      forbidden: Object.hasOwn(forbidden, tool) ? forbidden[tool] : undefined,
+      target: `${target}.${tool}`,
+      text: Object.hasOwn(output, tool) ? (output[tool] ?? '') : '',
+    }),
+  );
+}
+
 /** Every expectation `observed` breaks, as readable lines; empty when the run passed. */
 export function judgeRun(params: { expectation: RunExpectation; observed: Observed }): string[] {
   const { expectation, observed } = params;
   const { expect: wanted = {}, forbid = {} } = expectation;
-  const outcome =
-    wanted.outcome && wanted.outcome !== observed.outcome
-      ? [`outcome ${observed.outcome}, expected ${wanted.outcome}`]
-      : [];
+  const attributes = (['outcome', 'adapter'] as const).flatMap((target) =>
+    wanted[target] && wanted[target] !== observed[target]
+      ? [`${target} ${observed[target]}, expected ${wanted[target]}`]
+      : [],
+  );
 
   return [
     ...(['transcript', 'reply'] as const).flatMap((target) =>
@@ -60,6 +102,14 @@ export function judgeRun(params: { expectation: RunExpectation; observed: Observ
         text: observed[target],
       }),
     ),
+    ...(['toolResults', 'toolErrors'] as const).flatMap((target) =>
+      toolOutputProblems({
+        wanted: wanted[target],
+        forbidden: forbid[target],
+        target,
+        output: observed[target],
+      }),
+    ),
     ...(['events', 'tools', 'contextHooks'] as const).flatMap((target) =>
       nameProblems({
         wanted: wanted[target],
@@ -68,7 +118,7 @@ export function judgeRun(params: { expectation: RunExpectation; observed: Observ
         seen: observed[target],
       }),
     ),
-    ...outcome,
+    ...attributes,
   ];
 }
 

@@ -2,6 +2,32 @@ import { describe, expect, it } from 'vitest';
 import { checkSchema, runSourcesSchema } from '../check.validator.js';
 
 describe('checkSchema', () => {
+  it('accepts forbidden failed-output patterns and rejects empty ones', () => {
+    expect(
+      checkSchema.safeParse({
+        areas: ['src/x'],
+        forbid: { toolErrors: { read_file: ['Reading .env files is not allowed'] } },
+      }).success,
+    ).toBe(true);
+    expect(
+      checkSchema.safeParse({ areas: ['src/x'], forbid: { toolErrors: { read_file: [''] } } })
+        .success,
+    ).toBe(false);
+  });
+
+  it('accepts tool result assertions and rejects empty patterns', () => {
+    expect(
+      checkSchema.safeParse({
+        areas: ['src/x'],
+        expect: { toolResults: { run_command: ['CHECK_OK'] } },
+      }).success,
+    ).toBe(true);
+    expect(
+      checkSchema.safeParse({ areas: ['src/x'], expect: { toolResults: { run_command: [''] } } })
+        .success,
+    ).toBe(false);
+  });
+
   it('accepts hook-specific context assertions and rejects empty hook names', () => {
     expect(
       checkSchema.safeParse({

@@ -8,6 +8,7 @@ import { SetupError } from '../errors/setup.errors.js';
 import { askDefinition, askSecrets } from './form.helper.js';
 import type { ModelSetup, SetupClient, SetupUi } from './setup.types.js';
 import { fieldText, modelActions } from './setup.utils.js';
+import { chooseModelToAdd } from './model-selection.helper.js';
 
 /** Adds or repairs a model, and lets the user explicitly test its connection before continuing. */
 export async function configureModel(params: {
@@ -21,18 +22,14 @@ export async function configureModel(params: {
 
   if (adapters.length === 0) throw new SetupError('This backend has no model providers available.');
 
-  const kind =
-    existing?.adapter ??
-    (await ui.choose({
-      title: 'Choose a provider',
-      items: adapters.map(({ kind: value, description }) => ({ value, label: value, description })),
-    }));
+  const preset = existing ? undefined : await chooseModelToAdd({ client, ui, adapters });
+  const kind = existing?.adapter ?? preset?.host.adapter;
   const adapter = adapters.find((item) => item.kind === kind);
 
   if (!adapter) throw new SetupError(`Provider ${kind} is unavailable on this backend.`);
 
   const model = existing?.id ?? modelIdSchema.parse(randomUUID());
-  const target = { client, ui, profile, model, adapter };
+  const target = { client, ui, profile, model, adapter, ...(preset && { preset }) };
 
   if (!existing) {
     await saveDefinition({ ...target, previous: undefined });
@@ -57,7 +54,8 @@ async function saveDefinition(
           value.length > 0 && value.length <= 80 ? undefined : 'Use 1 to 80 characters.',
       })
     : undefined;
-  let definition = previous?.definition ?? {};
+  let definition = previous?.definition ?? params.preset?.host.defaults ?? {};
+  const identity = previous?.identity ?? params.preset?.identity;
 
   while (true) {
     definition = await askDefinition({
@@ -65,6 +63,7 @@ async function saveDefinition(
       ui,
       previous: definition,
       advanced: previous !== undefined,
+      ...(params.preset && { fixed: params.preset.host.fixed }),
     });
 
     try {
@@ -73,9 +72,12 @@ async function saveDefinition(
         model,
         body: {
           name:
-            name ?? (fieldText(definition[adapter.remoteField ?? '']) || adapter.kind).slice(0, 80),
+            name ??
+            params.preset?.name ??
+            (fieldText(definition[adapter.remoteField ?? '']) || adapter.kind).slice(0, 80),
           adapter: adapter.kind,
           definition,
+          ...(identity && { identity }),
           ...(previous?.pricing && { pricing: previous.pricing }),
         },
         signal: ui.signal,

@@ -74,8 +74,24 @@ describe('terminal setup over the API', () => {
   it('creates an ID-keyed profile and model, sends a masked key separately, binds and makes it default', async () => {
     const backend = fakeSetupBackend();
     const { ui, secrets, notices } = setupAnswers({
-      choices: ['terminal-settings', 'reduced', 'off', 'new', 'new', 'setup-test', 'start'],
-      text: ['Work', 'remote-deployment', 'https://example.test', '2048', 'private-key'],
+      choices: [
+        'terminal-settings',
+        'reduced',
+        'off',
+        'new',
+        'new',
+        'custom',
+        'setup-test',
+        'start',
+      ],
+      text: [
+        'Work',
+        'remote-deployment',
+        'remote-deployment',
+        'https://example.test',
+        '2048',
+        'private-key',
+      ],
     });
     const id = await runSetupWizard({
       ...backend,
@@ -89,6 +105,7 @@ describe('terminal setup over the API', () => {
       {
         id,
         name: 'remote-deployment',
+        identity: { model: 'remote-deployment' },
         adapter: 'setup-test',
         credential: 'set',
         usable: true,
