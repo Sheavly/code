@@ -21,6 +21,8 @@ Prompts call the real model API and cost money (a fraction of a cent for a short
 They run on the models and keys in your profile (`~/.sheavly`, see
 [models and keys](../backend/docs/harness.md#models-and-keys)); the other settings come from the
 environment and go to the backend it starts ([the backend's settings](../backend/docs/serve.md#settings)).
+`WEB_FETCH=false` disables public web reading for the main agent and sub-agents. It is enabled
+by default and validated by the backend; when connecting to an existing backend, use its setting.
 
 | Folder          | What it holds                                                                                            |
 | --------------- | -------------------------------------------------------------------------------------------------------- |
