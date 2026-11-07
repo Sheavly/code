@@ -150,6 +150,12 @@ describe('createBackendHarness: what a backend run includes', () => {
     );
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
     expect(sub?.tools.map((tool) => tool.name)).toContain('web_fetch');
+    const main = requests.find((request) => request.messages[0]?.content === 'go');
+
+    expect(main?.instructions).toBeTruthy();
+    expect(sub?.instructions?.startsWith(`${main?.instructions}\n\n# Sub-agent role\n`)).toBe(true);
+    expect(sub?.instructions?.split(main?.instructions ?? '')).toHaveLength(2);
+    expect(sub?.messages.some((message) => message.content === 'go')).toBe(false);
   });
 
   it('can omit web_fetch from both the main run and its sub-agents', async () => {
