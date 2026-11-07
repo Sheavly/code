@@ -275,3 +275,11 @@ conversation overrides, tool guards and project-context hooks are unchanged. No 
 overlay, new read-only mode or further comparison suite was added. Historical measurements and
 outcomes above refer to their exact earlier prompts, not this new wording. This pragmatic scope
 decision does not retroactively establish complete all-target acceptance.
+
+The final implemented default passed one separately approved bounded Sonnet smoke case as
+`0639-minimal-default-smoke`: four generation calls, the 109-word default supplied by the
+harness without a conversation override, and an exit-zero `node check.mjs` result. Only the
+discount operator changed; checker and project instructions were preserved. Reported usage was
+11,638 input and 551 output tokens, with no cache reads/writes, giving an estimated global
+pre-tax token charge of USD 0.028786. Reservations were USD 0.24192 within the USD 1 cap.
+There was one attempt and no retries, extra comparisons or new model-family conditions.

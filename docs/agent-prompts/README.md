@@ -13,6 +13,8 @@ text, not the new default. No universal performance or safety claim is made from
 All six target models are configured. Broader comparisons, unresolved GPT measurements and
 provider-pricing/output-control gaps are deferred, not silently marked complete. No family
 overlay, new planning mode or expanded evaluation suite is part of the minimal implementation.
+One final bounded Sonnet smoke case passed with the implemented default and no conversation
+override; its result and limits are recorded in [results](results.md#minimal-default-decision).
 
 The branch also implements [model-first setup](../../apps/terminal/docs/chat.md#model-first-setup).
 Its app-owned catalogue separates chosen model identity from hosting routes and credentials;
