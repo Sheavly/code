@@ -42,14 +42,15 @@ providers.use(GPT); // swap at runtime; applies from the next model call
 
 ## Models on Azure
 
-Every model deployed on Azure (Azure OpenAI or Azure AI Foundry) is one of two adapters, both in
+Every model deployed on Azure uses the adapter for its endpoint's protocol, all in
 `azure/`:
 
-| Model                                                   | Adapter           | `baseUrl`                                            |
-| ------------------------------------------------------- | ----------------- | ---------------------------------------------------- |
-| GPT on Azure OpenAI                                     | `azure-openai`    | `https://<resource>.openai.azure.com/openai/v1`      |
-| Foundry models on `/responses` (DeepSeek V4 Flash, ...) | `azure-openai`    | `https://<resource>.services.ai.azure.com/openai/v1` |
-| Claude                                                  | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
+| Model                                                            | Adapter           | `baseUrl`                                            |
+| ---------------------------------------------------------------- | ----------------- | ---------------------------------------------------- |
+| GPT on Azure OpenAI                                              | `azure-openai`    | `https://<resource>.openai.azure.com/openai/v1`      |
+| Foundry models on `/responses`                                   | `azure-openai`    | `https://<resource>.services.ai.azure.com/openai/v1` |
+| Foundry models on `/models/chat/completions`, including DeepSeek | `azure-chat`      | `https://<resource>.services.ai.azure.com/models`    |
+| Claude                                                           | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted
 reasoning back takes `reasoning: false`. Claude needs `maxTokens`: the maximum output tokens per
@@ -73,6 +74,30 @@ registry.create('azure-anthropic', {
 ```
 
 Pass `providers` as the `provider` option of `runAgent`.
+
+### Chat Completions on Foundry
+
+`azure-chat` accepts the portal's full `/models/chat/completions?api-version=...` URL or its
+base `/models` URL. It preserves the embedded API version unless explicitly overridden, and
+never appends `/responses` to a Chat endpoint. The Responses adapter rejects Chat endpoint URLs
+before sending a request, with a message naming the appropriate protocol.
+
+Chat requests use native `messages`, nested function tools and streamed deltas. `maxTokens`
+defaults to 8192 and bounds total reply output. `replayReasoning: true` preserves plain
+`reasoning_content` for models such as DeepSeek, under full endpoint/model provenance; encrypted
+Responses reasoning and Claude signatures are never forwarded. The app's DeepSeek setup preset
+enables this. Other Chat models can leave replay disabled.
+
+Optional `thinkingMode` sends a model-specific enabled/disabled setting through Foundry's
+extra-parameter pass-through. Leave it unspecified for the deployment default. Disabled thinking
+omits a conflicting effort parameter. Native effort values are sent without guessing the model
+family; unsupported settings must be checked against the deployment's own documentation.
+
+The reader accepts Azure's nullable optional tool/usage fields. A finish reason is required;
+truncated replies never release partial tool arguments. Complete tool calls are assembled by
+index, with valid IDs, and final usage includes reported cache reads. No reply-state service is
+shared between calls. These behaviors have fake-stream coverage; a live DeepSeek connection and
+two-call tool round trip were also tested with 512-token output limits.
 
 ## Sending a call: timeouts and retries
 

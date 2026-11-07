@@ -31,6 +31,7 @@ describe('AdapterRegistry.describe', () => {
     expect(described.map((adapter) => adapter.kind)).toEqual([
       'openai',
       'azure-openai',
+      'azure-chat',
       'azure-anthropic',
     ]);
   });
