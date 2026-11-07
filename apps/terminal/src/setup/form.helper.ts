@@ -23,8 +23,7 @@ export async function askDefinition(params: {
       continue;
     }
 
-    const previousValue = Object.hasOwn(previous, name) ? previous[name] : undefined;
-    const initial = previousValue ?? field.default;
+    const initial = initialFieldValue({ previous, name, field });
 
     if (!params.advanced && !form.required.includes(name)) {
       if (initial !== undefined) definition[name] = initial;
@@ -43,6 +42,19 @@ export async function askDefinition(params: {
   }
 
   return definition;
+}
+
+/** Prototype members are not saved settings; only own values can replace provider defaults. */
+function initialFieldValue(params: {
+  previous: Record<string, unknown>;
+  name: string;
+  field: SetupField;
+}): unknown {
+  const { previous, name, field } = params;
+
+  if (!Object.hasOwn(previous, name)) return field.default;
+
+  return previous[name] ?? field.default;
 }
 
 async function askField(params: {
