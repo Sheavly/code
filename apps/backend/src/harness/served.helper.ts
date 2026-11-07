@@ -82,6 +82,7 @@ export async function servedConversation(params: {
     trustStore,
     env,
     trustWorkspace: settings.trustWorkspace,
+    webFetch: settings.webFetch ? {} : false,
     home: homedir(),
     onModelCall,
     ...(storage && { entries: storage.entries, resume: storage.resume }),

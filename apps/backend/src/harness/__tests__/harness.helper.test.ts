@@ -99,6 +99,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'write_file',
       'edit_file',
       'read_skill',
+      'web_fetch',
       'run_command',
       'task_status',
       'cancel_task',
@@ -148,6 +149,37 @@ describe('createBackendHarness: what a backend run includes', () => {
       '- review: REVIEW SKILL',
     );
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
+    expect(sub?.tools.map((tool) => tool.name)).toContain('web_fetch');
+  });
+
+  it('can omit web_fetch from both the main run and its sub-agents', async () => {
+    const requests: ProviderRequest[] = [];
+    const harness = await createBackendHarness({
+      provider: routedProvider({ go: [startHelper, say('done')], help: [say('helped')] }),
+      title: 'go',
+      workspaceRoot: root,
+      trustStore,
+      env: {},
+      permissions: askingPermissions(),
+      webFetch: false,
+      onModelCall: (request) => requests.push(request),
+    });
+    const conversation = createConversation({
+      harness,
+      run: streamAgent,
+      tools: harness.tools,
+      waitForTasks: true,
+    });
+
+    for await (const _event of conversation.send('go'));
+    await conversation.close();
+
+    expect(harness.tools.map((tool) => tool.name)).not.toContain('web_fetch');
+    expect(
+      requests
+        .find((request) => request.messages[0]?.content === 'help')
+        ?.tools.map((tool) => tool.name),
+    ).not.toContain('web_fetch');
   });
 
   describe('file locks', () => {

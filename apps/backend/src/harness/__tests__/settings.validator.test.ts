@@ -54,6 +54,7 @@ describe('parseRunEnv', () => {
       waitForTasks: false,
       modelCallsFile: undefined,
       exitWithParent: false,
+      webFetch: true,
     });
     expect(
       parseRunEnv({
@@ -67,9 +68,20 @@ describe('parseRunEnv', () => {
       waitForTasks: true,
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
+      webFetch: true,
     });
     expect(parseRunEnv({ MAX_TURNS: '' }).maxTurns).toBeUndefined();
     expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
+  });
+
+  it('enables web_fetch by default and validates an explicit switch', () => {
+    expect(parseRunEnv({ WEB_FETCH: '' }).webFetch).toBe(true);
+    expect(parseRunEnv({ WEB_FETCH: 'true' }).webFetch).toBe(true);
+    expect(parseRunEnv({ WEB_FETCH: 'false' }).webFetch).toBe(false);
+
+    for (const value of ['1', 'yes', 'FALSE']) {
+      expect(() => parseRunEnv({ WEB_FETCH: value })).toThrow();
+    }
   });
 });
 

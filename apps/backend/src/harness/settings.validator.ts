@@ -103,6 +103,7 @@ const runEnvSchema = z.object({
   WAIT_FOR_TASKS: optionalSetting,
   MODEL_CALLS_FILE: optionalSetting,
   SERVER_EXIT_WITH_PARENT: optionalSetting,
+  WEB_FETCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
 });
 
 /** The run settings from `env`. Only the exact string "true" turns a switch on. */
@@ -114,6 +115,7 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
     waitForTasks: parsed.WAIT_FOR_TASKS === 'true',
     modelCallsFile: parsed.MODEL_CALLS_FILE,
     exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
+    webFetch: parsed.WEB_FETCH === 'true',
   };
 }
 
