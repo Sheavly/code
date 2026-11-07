@@ -10,8 +10,10 @@ when the main conversation later switches. A supplied selection is recorded on t
 ```ts
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 
 const tools = [
+  createWebFetchTool(),
   ...createTaskTools(harness.tasks),
   createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools: [] }),
 ];
@@ -21,8 +23,10 @@ const tools = [
 | ------------ | ------------------------------------------------------------------------------ |
 | `tasks/`     | `task_status`, `cancel_task`: check on and stop background tasks               |
 | `sub-agent/` | `start_agent`, `report_status`, `message_agent`: sub-agents, and steering them |
+| `web-fetch/` | `web_fetch`: bounded public HTTP(S) reading, HTML as Markdown, no credentials  |
 
 ## Docs
 
 - [Sub-agents](docs/sub-agents.md): starting them, what they get, status reporting.
 - [The task tools](docs/tasks.md): checking on and stopping background work.
+- [Web fetch](docs/web-fetch.md): limits, content types, address and domain rules, cancellation.
