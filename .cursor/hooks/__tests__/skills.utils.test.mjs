@@ -105,6 +105,7 @@ describe('skill metadata', () => {
     ['packages/protocol/src/event/event.validator.ts', 'working-in-sheavly-harness'],
     ['apps/terminal/src/workbook/run.helper.ts', 'working-in-sheavly-harness'],
     ['.github/pull_request_template.md', 'git'],
+    ['docs/agent-prompts/research.md', 'adding-models'],
   ])('names the skill that governs %s', (relative, name) => {
     expect(findGoverningSkills({ root: ROOT, relative }).map((found) => found.name)).toContain(
       name,

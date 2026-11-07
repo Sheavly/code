@@ -123,6 +123,7 @@ const harness = createHarness({ provider, title: prompt });
 
 for await (const event of streamAgent({
   provider: harness.provider,
+  instructions: harness.instructions,
   tools: [extractTool, ...createTaskTools(harness.tasks)],
   hooks: [],
   messages: [{ role: 'user', content: prompt }],
@@ -208,16 +209,21 @@ other workspace packages out.
 A provider (`packages/core/src/provider/`) is one method, `stream(request)`, returning
 `StreamEvent`s. Every model call gets a fresh `ProviderRequest`:
 
-| Field          | What it is                                                                                                                                                |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added (e.g. AGENTS.md), joined with blank lines |
-| `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                                      |
-| `tools`        | The tool definitions (name, description, JSON schema)                                                                                                     |
-| `signal`       | Aborts the call                                                                                                                                           |
+| Field          | What it is                                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added, joined with blank lines |
+| `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                     |
+| `tools`        | The tool definitions (name, description, JSON schema)                                                                                    |
+| `signal`       | Aborts the call                                                                                                                          |
 
-`instructions` are rebuilt each turn and never stored in `messages`, so they can change between
-turns (an edited AGENTS.md) without touching history. The Responses client sends them as the
-API's `instructions` field.
+The host composes stable generic instructions, optional coding guidance and host extras.
+Conversations use them by default; an explicit conversation string remains a complete override.
+Children receive explicitly injected shared text before their role. All models use the same text.
+See [instruction composition](../packages/host/docs/harness.md#instruction-composition).
+
+Before-turn system additions are rebuilt each turn and never stored in `messages`. Changed
+AGENTS.md and skills instead append deduplicated context to history, preserving signed-thinking
+prefixes. The Responses client sends system text as the API's `instructions` field.
 
 ## One run
 
