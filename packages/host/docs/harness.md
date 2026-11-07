@@ -24,6 +24,7 @@ const harness = createHarness({ provider, title: prompt });
 
 for await (const event of streamAgent({
   provider: harness.provider,
+  instructions: harness.instructions,
   tools: [extractTool, ...createTaskTools(harness.tasks)],
   hooks: [],
   messages: [{ role: 'user', content: prompt }],
@@ -36,6 +37,28 @@ for await (const event of streamAgent({
 Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists. Either
 way, `createHarness` puts their updates in the sessions' combined stream (`kind: 'approval'` and
 `kind: 'task'`), so a UI following the stream sees them without asking.
+
+## Instruction composition
+
+`createHarness` returns stable `instructions` assembled by `composeInstructions`:
+generic core, then host extras. Set `baseInstructions` to replace just the generic core;
+omission uses the default and an empty string omits it. Blank sections are skipped, outer
+whitespace is trimmed, and sections are joined with one blank line.
+
+`createCodingHarness` inserts coding guidance between the core and host extras, even when the
+core is replaced. Generic hosts receive no coding section and require no workspace.
+`createConversation` uses the harness text unless its own `instructions` is explicitly supplied.
+That existing option is a complete override, not an extension; an empty override remains empty.
+Direct `streamAgent` or `runAgent` callers pass the returned string explicitly.
+
+The backend passes its composed shared text to the child factory; the child adds its role,
+then any child-specific extras. Other hosts explicitly choose what children receive. Parent
+conversation overrides and history are not implicitly inherited. All models use the same text,
+including unknown families and pinned children; switching providers does not rebuild it.
+
+Before-turn instruction additions follow static text through the loop. AGENTS.md and skills
+remain deduplicated append-only conversation context, preserving signed-thinking prefixes.
+Replacing prose never changes tools, permission checks or project hooks.
 
 ## A conversation across prompts
 

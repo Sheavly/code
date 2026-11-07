@@ -246,7 +246,7 @@ describe('start_agent', () => {
 
     await run('Main');
 
-    expect(instructions).toMatch(/^You are a sub-agent/);
+    expect(instructions).toMatch(/^# Sub-agent role/);
     expect(instructions).toContain('report_status');
   });
 

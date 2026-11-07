@@ -14,6 +14,10 @@ export type HarnessOptions = {
   provider: Provider;
   /** Title of the main session (e.g. the prompt). */
   title: string;
+  /** Host extras after the generic core (and the coding section when using the coding preset). */
+  instructions?: string | undefined;
+  /** Replaces only the generic core. Omission uses the default; an empty string omits it. */
+  baseInstructions?: string | undefined;
   /** Sees every model call (main session and sub-agents) before it is made. */
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
   /** Pass registries in when a tool needs them before the harness exists (default: new ones). */
@@ -34,6 +38,8 @@ export type HarnessOptions = {
  */
 export type Harness = {
   provider: Provider;
+  /** Stable composed text for direct runs and, by default, conversations. */
+  instructions: string;
   sessions: SessionRegistry;
   mainSession: SessionRef;
   tasks: TaskRegistry;

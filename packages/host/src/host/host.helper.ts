@@ -3,6 +3,7 @@ import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Harness, HarnessOptions } from './host.types.js';
+import { composeInstructions } from '../instructions/instructions.helper.js';
 
 /**
  * The services one run shares, for any LLM project: the provider the UI picked (seen by
@@ -36,6 +37,7 @@ export function createHarness(options: HarnessOptions): Harness {
 
   return {
     provider,
+    instructions: composeInstructions(options),
     sessions,
     mainSession,
     tasks,
