@@ -13,6 +13,12 @@ export const modelModeSchema = z.enum(['low', 'medium', 'high', 'extreme']);
 
 export const modelSelectionSchema = z.object({ modelId: modelIdSchema, mode: modelModeSchema });
 
+/** The chosen model, independent of the profile UUID, hosting adapter and deployment name. */
+export const modelIdentitySchema = z.object({
+  model: z.string().min(1).max(200),
+  family: z.string().min(1).max(80).exactOptional(),
+});
+
 /** An adapter's kind (`openai`, `azure-openai`, `azure-anthropic`): lowercase words joined by dashes. */
 export const adapterKindSchema = z
   .string()
@@ -44,6 +50,7 @@ export const modelFileSchema = z.looseObject({
   name: modelNameSchema,
   adapter: adapterKindSchema,
   pricing: modelPricingSchema.exactOptional(),
+  identity: modelIdentitySchema.exactOptional(),
 });
 
 /** A model as the API lists it: its file read once. */
@@ -52,6 +59,7 @@ export const modelSchema = z.object({
   name: modelNameSchema,
   adapter: adapterKindSchema,
   pricing: modelPricingSchema.exactOptional(),
+  identity: modelIdentitySchema.exactOptional(),
   /** The adapter's own fields, as the file holds them. */
   definition: z.record(z.string(), z.unknown()),
 });

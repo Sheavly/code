@@ -53,6 +53,9 @@ import {
 import { skillInfoSchema, skillNameSchema, skillScopeSchema } from '../skill/skill.validator.js';
 import {
   adaptersResponseSchema,
+  modelOfferingSchema,
+  modelHostingSchema,
+  modelCatalogResponseSchema,
   bindWorkspaceRequestSchema,
   credentialStateSchema,
   modelsQuerySchema,
@@ -85,6 +88,7 @@ import {
   modelPricingSchema,
   modelModeSchema,
   modelSelectionSchema,
+  modelIdentitySchema,
 } from '../model/model.validator.js';
 import {
   allowEntryRequestSchema,
@@ -115,6 +119,10 @@ function contractSchemas(): Record<string, z.ZodType> {
     UsageTotals: usageTotalsSchema,
     ModelMode: modelModeSchema,
     ModelSelection: modelSelectionSchema,
+    ModelIdentity: modelIdentitySchema,
+    ModelOffering: modelOfferingSchema,
+    ModelHosting: modelHostingSchema,
+    ModelCatalogResponse: modelCatalogResponseSchema,
     AgentEvent: agentEventSchema,
     AgentEventBody: agentEventBodySchema,
     EntryEvent: entryEventSchema,

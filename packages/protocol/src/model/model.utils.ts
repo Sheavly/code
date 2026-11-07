@@ -1,26 +1,36 @@
 import type { Model, ModelFile } from './model.types.js';
 
 /**
- * A model file read once into the model every other part of the system holds: its id, name and
- * adapter, and everything past those, the adapter's own definition.
+ * Splits the file's identity and pricing metadata from the adapter's own definition, so no
+ * hosting backend receives envelope fields as configuration.
  */
 export function toModel(file: ModelFile): Model {
-  const { id, name, adapter, pricing, ...definition } = file;
+  const { id, name, adapter, pricing, identity, ...definition } = file;
 
-  return { id, name, adapter, definition, ...(pricing && { pricing }) };
+  return {
+    id,
+    name,
+    adapter,
+    definition,
+    ...(pricing && { pricing }),
+    ...(identity && { identity }),
+  };
 }
 
 /**
  * A model as its file holds it: the inverse of `toModel`. The envelope comes last, so a
- * definition can't overwrite the model's own id, name or adapter.
+ * definition can't overwrite the model's own id, name or adapter, or supply optional metadata.
  */
 export function toModelFile(model: Model): ModelFile {
+  const { identity: _identity, pricing: _pricing, ...definition } = model.definition;
+
   return {
-    ...model.definition,
+    ...definition,
     id: model.id,
     name: model.name,
     adapter: model.adapter,
     ...(model.pricing && { pricing: model.pricing }),
+    ...(model.identity && { identity: model.identity }),
   };
 }
 

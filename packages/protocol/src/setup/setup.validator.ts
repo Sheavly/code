@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { modelSchema, adapterDescriptionSchema } from '../model/model.validator.js';
+import {
+  modelSchema,
+  adapterDescriptionSchema,
+  modelIdentitySchema,
+  adapterKindSchema,
+} from '../model/model.validator.js';
 import { profileIdSchema, profileSchema } from '../profile/profile.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
@@ -41,6 +46,23 @@ export const setupSchema = z.object({
 
 /** `GET /adapters`: what each adapter needs, for a UI to build its model form from. */
 export const adaptersResponseSchema = z.object({ adapters: z.array(adapterDescriptionSchema) });
+
+/** A currently supported way to host a model. Fixed fields are not questions for the user. */
+export const modelHostingSchema = z.object({
+  adapter: adapterKindSchema,
+  name: z.string().min(1),
+  defaults: z.record(z.string(), z.unknown()),
+  fixed: z.record(z.string(), z.unknown()),
+});
+
+/** The backend's model-first setup choices, not an inventory of deployed cloud models. */
+export const modelOfferingSchema = z.object({
+  name: z.string().min(1),
+  identity: modelIdentitySchema,
+  hosts: z.array(modelHostingSchema).min(1),
+});
+
+export const modelCatalogResponseSchema = z.object({ models: z.array(modelOfferingSchema) });
 
 /**
  * `QUERY /profiles/{profile}/models`: which of a profile's models to list. Nothing: every one.
