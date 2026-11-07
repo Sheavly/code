@@ -18,6 +18,7 @@ routes, streams and errors are in [the API](api.md).
 | `WORKSPACE_ROOT`            | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                       |
 | `MAX_TURNS`                 | no limit      | Model calls a prompt may make, per session                                                                                              |
 | `WAIT_FOR_TASKS`            | off           | `true`: a prompt's `done` waits for its background tasks                                                                                |
+| `WEB_FETCH`                 | `true`        | `false`: omit public web reading from main and sub-agents; only `true` and `false` are accepted                                         |
 | `MODEL_CALLS_FILE`          | none          | Appends each model call's full request there, one JSON line each                                                                        |
 | `SHOW_MODEL_CALLS`          | off           | `true`: prints each model call (task, tools, system prompt) as sent                                                                     |
 | `SHEAVLY_HOME`              | `~/.sheavly`  | The user's folder: profiles, models, keys, conversations and trusted workspaces                                                         |

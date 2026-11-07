@@ -14,6 +14,7 @@ locks and process runner), then composes:
 | -------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `read_file`, `write_file`, `edit_file` | `@sheavly/coding`    | A coding agent works on files; all three share the run's `FileLocks` and `FileReads` (an edit needs a read first) |
 | `read_skill`                           | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                              |
+| `web_fetch`                            | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`  |
 | `run_command`                          | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                   |
 | `task_status`, `cancel_task`           | `@sheavly/tools`     | Background commands and sub-agents                                                                                |
 | `start_agent`, `message_agent`         | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command`                              |
@@ -23,6 +24,9 @@ locks and process runner), then composes:
 
 Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
 task, and commands are where the trust model has the most to lose.
+The backend explicitly passes `web_fetch` to sub-agents when enabled. The same tool instance
+shares the host's limits and domain policy, but each call has its own request and cancellation.
+See [web fetch](../../../packages/tools/docs/web-fetch.md) for address rules and defaults.
 
 AGENTS.md and skill-list updates are appended as instruction context, not substituted into the
 system prompt. Earlier messages remain unchanged, keeping Claude's signed reasoning valid.

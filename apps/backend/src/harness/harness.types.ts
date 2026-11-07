@@ -14,6 +14,7 @@ import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 
 /** What the backend's command line and environment set for a run. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
@@ -31,6 +32,8 @@ export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
 export type BackendHarnessOptions = {
   provider: Provider;
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
+  /** Public web reading, default on; false omits it for the main run and every sub-agent. */
+  webFetch?: false | Parameters<typeof createWebFetchTool>[0];
   title: string;
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;
