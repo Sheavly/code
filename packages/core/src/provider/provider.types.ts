@@ -25,4 +25,10 @@ export type ProviderRequest = {
 
 export type Provider = {
   stream(request: ProviderRequest): AsyncIterable<StreamEvent>;
+  /**
+   * The size of the model's context in tokens, when the provider knows it. The loop reads it
+   * before each model call, so a provider that can change model (a switch) answers for the one
+   * its next call goes to.
+   */
+  readonly contextWindow?: number | undefined;
 };

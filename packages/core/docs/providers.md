@@ -17,3 +17,9 @@ A provider (`packages/core/src/provider/`) is one method, `stream(request)`, ret
 `instructions` are rebuilt each turn and never stored in `messages`, so they can change between
 turns (an edited AGENTS.md) without touching history. The Responses client sends them as the
 API's `instructions` field.
+
+## The context window
+
+A provider may expose `contextWindow`, the size of its model's context in tokens. The loop reads
+it before each model call, so a provider that can change model answers for the one its next call
+goes to. A provider that doesn't know it leaves it out, and the run goes on without it.
