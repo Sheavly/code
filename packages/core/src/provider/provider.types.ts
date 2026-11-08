@@ -19,6 +19,13 @@ export type ProviderRequest = {
   /** Effort for this call, captured when it starts; a later switch never changes an active stream. */
   mode?: ModelMode | undefined;
   messages: Message[];
+  /**
+   * One short line for the model that changes every call (how full its context is). It is not
+   * history: an adapter sends it after the history, as a last user message, and keeps it out of
+   * anything it hashes, caches or replays, so the stable prefix and signed thinking are
+   * unaffected. Never stored in `messages`.
+   */
+  notice?: string | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };
