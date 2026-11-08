@@ -44,6 +44,18 @@ describe('pricedProvider', () => {
     expect(events.at(-1)).toMatchObject({ usage: { modelId: model.id, estimatedCostUsd: 1.95 } });
   });
 
+  it('keeps the context window of the provider it wraps', () => {
+    const model = modelSchema.parse({
+      id: '00000000-0000-4000-8000-000000000004',
+      name: 'Windowed',
+      adapter: 'openai',
+      definition: {},
+    });
+    const inner = { ...scriptedProvider([]), contextWindow: 123_000 };
+
+    expect(pricedProvider({ model, provider: inner }).contextWindow).toBe(123_000);
+  });
+
   it('does not invent usage or a zero price when a provider reports nothing', async () => {
     const model = modelSchema.parse({
       id: '00000000-0000-4000-8000-000000000002',

@@ -29,5 +29,9 @@ export function pricedProvider(params: { provider: Provider; model: Model }): Pr
         yield { ...event, usage };
       }
     },
+    // A wrapper keeps what it does not change, whatever order it is stacked in.
+    get contextWindow() {
+      return provider.contextWindow;
+    },
   };
 }
