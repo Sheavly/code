@@ -34,6 +34,7 @@ export type ConversationOptions = {
   run: RunPrompt;
   tools: Tool[];
   hooks?: Hook[];
+  /** Complete override of harness instructions; an empty string intentionally omits them. */
   instructions?: string;
   maxTurns?: number;
   /** Wait for background tasks before a prompt's run ends (default: no, they're reported next). */

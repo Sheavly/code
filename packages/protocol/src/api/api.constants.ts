@@ -15,6 +15,7 @@ import { streamEntrySchema } from '../stream/stream.validator.js';
 import { keyCheckSchema } from '../model/model.validator.js';
 import {
   adaptersResponseSchema,
+  modelCatalogResponseSchema,
   modelsQuerySchema,
   modelsResponseSchema,
   profileSetupSchema,
@@ -164,6 +165,13 @@ export const API_ROUTES = {
     path: '/adapters',
     summary: 'What each adapter needs, for a form that adds a model',
     response: { status: 200, schema: adaptersResponseSchema },
+  },
+  listModelCatalog: {
+    effect: 'read',
+    method: 'get',
+    path: '/setup/models',
+    summary: 'Models available to add and their supported hosting routes',
+    response: { status: 200, schema: modelCatalogResponseSchema },
   },
   setTerminalSettings: {
     effect: 'change',

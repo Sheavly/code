@@ -13,6 +13,7 @@ import type { RequestSettings } from './profiles.types.js';
 import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { matchesModel } from './setup.utils.js';
 import { profileView, secretsOf } from './setup-view.helper.js';
+import { setupModelCatalog, assertModelHosting } from './model-catalog.helper.js';
 
 type ProfileView = Setup['profiles'][number];
 type ModelView = ProfileView['models'][number];
@@ -59,6 +60,10 @@ export class ProfileSetup {
   /** What each adapter needs, for the form that adds a model. */
   adapters(): AdapterDescription[] {
     return this.#adapters.describe();
+  }
+
+  modelCatalog() {
+    return setupModelCatalog(this.adapters());
   }
 
   /** The user's folder, the profiles with their models, and the default; see `Setup`. */
@@ -152,6 +157,7 @@ export class ProfileSetup {
     const open = await orNotFound(() => this.#registry.open(profile));
 
     this.#assertDefinition(model);
+    assertModelHosting({ model, adapters: this.adapters() });
     await open.putModel({ id, ...model });
   }
 

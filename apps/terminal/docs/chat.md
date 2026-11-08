@@ -1,5 +1,27 @@
 # The chat
 
+## Model-first setup
+
+Run `npm run dev:terminal -- --setup`, choose a profile, then **Add a model**:
+
+1. **What model do you want to add?** Select a backend-provided model, or **Custom model** and
+   enter its name/identifier.
+2. **How do you want to host it?** Select a compatible, registered hosting route. GPT models offer
+   Azure and OpenAI; Claude and DeepSeek Flash currently offer Azure. Bedrock and other native
+   providers are not advertised as working routes without their adapters.
+3. Enter that route's connection details and masked key. Azure deployment names may differ from
+   the chosen model. Native model IDs are filled in without asking the same question again.
+4. Save and start chatting, or explicitly test the connection (a small paid API call).
+
+The selected identity is stored as model metadata, separate from hosting settings and credentials.
+It records the user's selection, not a verified cloud deployment inventory. DeepSeek's Azure
+preset uses Chat Completions and enables plain-reasoning replay, not encrypted Responses items.
+Its portal Chat endpoint is accepted directly. Thinking mode is a separate advanced option,
+left at the deployment default unless explicitly selected. Advanced settings
+remain editable. Existing model definitions without identity continue to work unchanged.
+
+## Running a conversation
+
 One conversation you keep talking to, in the terminal: `npm run dev:terminal` from the repo root
 (from source), `npm run dev -w @sheavly/terminal`, or `npm run start -w @sheavly/terminal` (built
 first, then plain Node), or `npm run dev` / `npm run start` inside `apps/terminal`.

@@ -31,6 +31,12 @@ other workspace packages out.
 
 ## What a server accepts and answers
 
+Model-first setup uses `GET /setup/models` (`ModelCatalogResponse`): backend-provided model
+identities and their supported hosting routes, with editable defaults and fixed native-model
+fields. The model contract accepts optional `identity: { model, family? }` independently of the
+profile UUID, adapter definition and credential. Models without that metadata remain valid.
+The protocol defines shapes, not a model catalogue or a choice of provider for a run.
+
 `server/` holds the requests and responses of the harness's HTTP API (the backend's routes, and
 `@sheavly/client`'s client for them), so both validate with the same schemas; `api/` lists the
 routes themselves (`API_ROUTES`), each with its method, path and these schemas:

@@ -1,0 +1,7 @@
+{
+  "status": "failed",
+  "reason": "region_mismatch",
+  "selectedRegion": "us-east-1",
+  "requiredRegion": "eu-north-1",
+  "authenticationValidated": true
+}

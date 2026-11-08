@@ -15,6 +15,7 @@ import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
+import type { HarnessOptions } from '@sheavly/host/host/host.types';
 
 /** What the backend's command line and environment set for a run. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
@@ -29,7 +30,7 @@ export type ServedSettings = CliSettings & ReturnType<typeof parseRunEnv>;
 export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
 
 /** What the backend decides about a run. */
-export type BackendHarnessOptions = {
+export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseInstructions'> & {
   provider: Provider;
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   /** Public web reading, default on; false omits it for the main run and every sub-agent. */

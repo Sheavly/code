@@ -8,3 +8,6 @@ coverage/
 
 # Turborepo cache and logs
 .turbo/
+
+# Scratch notes and exports
+tmp/

@@ -66,6 +66,7 @@ export async function createBackendHarness(
         sessions,
         tasks,
         provider,
+        baseInstructions: harness.instructions,
         ...(subAgentProvider && { selectProvider: subAgentProvider }),
         runAgent: runSession,
         tools: [...fileTools, ...webTools],

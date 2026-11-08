@@ -15,22 +15,28 @@ const provider = createDefaultRegistry().create('openai', {
 });
 ```
 
-| Module                | What it holds                                                                                               |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `registry/`           | `AdapterRegistry` (kind + config → `Provider`), `describe`, `validateDefinition`, `check`                   |
-| `switch/`             | `ProviderSwitch`: swap the active provider between turns, or pin a run to one                               |
-| `http/`               | What every protocol shares: `sendRequest` (timeouts, retries), the SSE reader, config schemas               |
-| `responses/`          | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter`                          |
-| `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`                          |
-| `openai/`             | Backend: config → Responses endpoint (Bearer key)                                                           |
-| `azure/`              | Backends on Azure: `openai.adapter` (Responses: GPT, DeepSeek, ...), `anthropic.adapter` (Messages: Claude) |
-| `errors/`             | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                                      |
-| `testing/`            | Fakes for tests: Responses API items, a model call                                                          |
+| Module                | What it holds                                                                                                   |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `registry/`           | `AdapterRegistry` (kind + config → `Provider`), `describe`, `validateDefinition`, `check`                       |
+| `switch/`             | `ProviderSwitch`: swap the active provider between turns, or pin a run to one                                   |
+| `http/`               | What every protocol shares: `sendRequest` (timeouts, retries), the SSE reader, config schemas                   |
+| `responses/`          | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter`                              |
+| `chat-completions/`   | Native Chat Completions: `createChatCompletionsProvider`, `defineChatCompletionsAdapter`, `readChatReply`       |
+| `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`                              |
+| `openai/`             | Backend: config → Responses endpoint (Bearer key)                                                               |
+| `azure/`              | Azure backends: `openai.adapter` (Responses), `chat.adapter` (Chat Completions), `anthropic.adapter` (Messages) |
+| `errors/`             | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                                          |
+| `testing/`            | Fakes for tests: Responses API items, a model call                                                              |
 
 The caller chooses the backend and the model: adapters validate config but have no default model.
 Messages and Responses providers attach reported token usage to the final `done` event. Messages
 usage deltas are cumulative; its cache tokens are added to ordinary input. Responses cached input
 is already part of its input total, so it is not counted twice. No provider guesses prices.
+
+Chat Completions uses its own nested function tools, streamed deltas and `finish_reason` markers.
+It bounds replies with `maxTokens`, reports final token usage, and optionally replays plain
+`reasoning_content` under endpoint/model provenance. Truncated replies never release incomplete
+tool calls. `chat-reply/` is internal and closed in package exports.
 
 Messages replies preserve their original content-block order and request-prefix provenance.
 Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking

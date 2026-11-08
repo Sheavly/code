@@ -43,6 +43,7 @@ its models and keys are its own, and a conversation sees only its profile's.
 | `PUT /terminal-settings`, `{ reducedMotion?, bell? }`                   | `204`: replaces global terminal preferences                                     |
 | `POST /terminal-settings/migrate`                                       | global preferences after migrating legacy profiles                              |
 | `GET /adapters`                                                         | what each adapter takes, as JSON Schema, with its secrets marked                |
+| `GET /setup/models`                                                     | model-first catalogue choices and their supported hosting routes                |
 | `GET /profiles/:profile`                                                | one profile; `ready` says a conversation can start on it                        |
 | `PUT /profiles/:profile`, `{ name }`                                    | `204`: made or renamed                                                          |
 | `DELETE /profiles/:profile`                                             | `204`: gone with its models, keys and conversations                             |
@@ -78,6 +79,20 @@ its models and keys are its own, and a conversation sees only its profile's.
   TLS.
 - **A model is checked before it is stored.** Its adapter refuses fields it doesn't have and a
   key where a model's fields go (`422`, saying which field and never quoting a value).
+- **Setup is model-first.** `GET /setup/models` returns `{ models }`, each with a display name,
+  `identity` and supported `hosts`. A host names its registered adapter, editable defaults and
+  fixed native-model fields. The app owns these suggestions; the provider registry has no model
+  defaults. Routes are filtered by available adapters. Custom models can still use any registered
+  adapter through the existing schema-based forms.
+- **Azure routing follows the endpoint protocol.** The DeepSeek preset uses `azure-chat` for
+  `/models/chat/completions` with plain-reasoning replay enabled. GPT Responses routes remain
+  `azure-openai`, and Claude Messages routes remain `azure-anthropic`. Selecting a model does
+  not make a Chat endpoint speak Responses.
+- **Identity is separate from hosting.** The model API accepts optional `identity: { model,
+family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept outside adapter
+  fields on disk and on reads. Known catalogue models reject incompatible adapters and mismatched
+  native model IDs; Azure deployment names remain configurable. This is chosen identity, not a
+  verified cloud inventory. Legacy models without it remain valid, with no migration.
 - **Usage is reported, and cost is estimated.** `GET /conversations/:id` includes cumulative
   `usage` across all sessions, restored from the full saved stream on reopen. Each model call
   produces a `usage` event. Null token counts, unpriced calls and legacy history are explicit.

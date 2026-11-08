@@ -9,15 +9,16 @@ composes it on these services. No UI, no project on disk.
 import { createHarness } from '@sheavly/host/host/host.helper';
 
 const harness = createHarness({ provider, title: prompt });
-// harness: { provider, sessions, mainSession, tasks, approvals }
+// harness: { provider, instructions, sessions, mainSession, tasks, approvals }
 ```
 
-| Module           | What it holds                                                               |
-| ---------------- | --------------------------------------------------------------------------- |
-| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types               |
-| `conversation/`  | `createConversation`: one conversation across prompts, in one session       |
-| `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones |
-| `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed  |
+| Module           | What it holds                                                                |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types                |
+| `instructions/`  | `composeInstructions`: generic defaults or explicit replacement, then extras |
+| `conversation/`  | `createConversation`: one conversation across prompts, in one session        |
+| `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones  |
+| `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed   |
 
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`. A failed prompt
@@ -48,6 +49,14 @@ const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
 ```
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
+
+The harness composes stable domain-neutral instructions. `instructions` in `HarnessOptions`
+adds host extras; `baseInstructions` replaces only the generic core (an empty string omits it).
+The default is deliberately small: task scope, approval/data boundaries and concise, truthful
+communication. It contains no coding recipes or model-specific overlays.
+Conversations use `harness.instructions` by default. An explicit conversation `instructions`
+string remains a complete override, including an empty string. Direct loop callers pass
+`instructions: harness.instructions` themselves. See [instruction composition](docs/harness.md#instruction-composition).
 
 `await conversations.useModel({ id, modelId, mode? })` changes one conversation's selection.
 The app restores that model's remembered mode when omitted. Switches for one conversation are

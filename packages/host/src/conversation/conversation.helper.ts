@@ -71,7 +71,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       keepSession: true,
       resumed: params.resumed,
       ...(options.waitForTasks !== undefined && { waitForTasks: options.waitForTasks }),
-      ...(options.instructions !== undefined && { instructions: options.instructions }),
+      instructions: options.instructions ?? harness.instructions,
       ...(options.maxTurns !== undefined && { maxTurns: options.maxTurns }),
     })[Symbol.asyncIterator]();
     const record = (event: AgentEvent) => {

@@ -49,6 +49,7 @@ export type SetupRouteName =
   | 'setTerminalSettings'
   | 'migrateTerminalSettings'
   | 'listAdapters'
+  | 'listModelCatalog'
   | 'getProfile'
   | 'putProfile'
   | 'deleteProfile'

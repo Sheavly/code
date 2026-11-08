@@ -13,9 +13,26 @@ npm run workbook -- list                                           # stored prom
 ```
 
 The chat guides an unconfigured workspace through setup before opening its first conversation:
-choose a profile and provider, enter model settings and a masked key, then start chatting. No
+choose a profile, the model to add, then a supported hosting provider. Enter connection settings
+and a masked key, then start chatting. No
 config files need editing. `--setup` opens the same UI again for another model or profile, or to
 replace a key. Setup uses the backend API; a connection check is an explicit choice.
+
+The backend supplies the model catalogue: Sol, Astra, Luna, Opus, Sonnet and DeepSeek Flash,
+with only implemented compatible hosting routes. **Custom model** accepts another model identity
+and any registered adapter. Azure asks for a deployment name separately; native model IDs are
+already chosen. Existing models and keys need no migration. See [model setup](docs/chat.md#model-first-setup).
+
+To extend the picker, update the [backend's model catalogue](../backend/src/profiles/model-catalog.constants.ts)
+and its compatible hosting policy, not a second list in this UI. The setup API supplies the choices.
+
+Workbook checks can require the adapter recorded in run metadata with `expect.adapter`.
+The `deepseek-chat` check requires `azure-chat`; it cannot pass on a different transport just
+because the model claims that identity. See [real-model checks](docs/workbook.md#real-model-checks).
+For executable check markers, `expect.toolResults` inspects recorded successful tool output,
+even when the renderer shows only its size. A final-reply claim cannot satisfy that assertion.
+`forbid.toolErrors` can also reject recorded denied attempts, so a working guard does not hide
+an unsafe model decision behind an otherwise passing check.
 
 Prompts call the real model API and cost money (a fraction of a cent for a short prompt).
 They run on the models and keys in your profile (`~/.sheavly`, see

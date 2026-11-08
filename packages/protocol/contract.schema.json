@@ -66,6 +66,46 @@
       },
       "required": ["modelId", "mode"]
     },
+    "ModelIdentity": {
+      "type": "object",
+      "properties": {
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "family": { "type": "string", "minLength": 1, "maxLength": 80 }
+      },
+      "required": ["model"]
+    },
+    "ModelOffering": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "identity": { "$ref": "#/$defs/ModelIdentity" },
+        "hosts": { "minItems": 1, "type": "array", "items": { "$ref": "#/$defs/ModelHosting" } }
+      },
+      "required": ["name", "identity", "hosts"]
+    },
+    "ModelHosting": {
+      "type": "object",
+      "properties": {
+        "adapter": { "$ref": "#/$defs/AdapterKind" },
+        "name": { "type": "string", "minLength": 1 },
+        "defaults": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        },
+        "fixed": {
+          "type": "object",
+          "propertyNames": { "type": "string" },
+          "additionalProperties": {}
+        }
+      },
+      "required": ["adapter", "name", "defaults", "fixed"]
+    },
+    "ModelCatalogResponse": {
+      "type": "object",
+      "properties": { "models": { "type": "array", "items": { "$ref": "#/$defs/ModelOffering" } } },
+      "required": ["models"]
+    },
     "AgentEvent": {
       "allOf": [
         {
@@ -1043,7 +1083,8 @@
         "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
-        "pricing": { "$ref": "#/$defs/ModelPricing" }
+        "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "identity": { "$ref": "#/$defs/ModelIdentity" }
       },
       "required": ["id", "name", "adapter"],
       "additionalProperties": {}
@@ -1055,6 +1096,7 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "identity": { "$ref": "#/$defs/ModelIdentity" },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },
@@ -1106,6 +1148,7 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "identity": { "$ref": "#/$defs/ModelIdentity" },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },
@@ -1175,6 +1218,7 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
+        "identity": { "$ref": "#/$defs/ModelIdentity" },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },

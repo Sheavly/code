@@ -391,6 +391,29 @@
         }
       }
     },
+    "/setup/models": {
+      "get": {
+        "operationId": "listModelCatalog",
+        "summary": "Models available to add and their supported hosting routes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ModelCatalogResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
     "/terminal-settings": {
       "put": {
         "operationId": "setTerminalSettings",
@@ -1017,6 +1040,52 @@
           "mode": { "$ref": "#/components/schemas/ModelMode" }
         },
         "required": ["modelId", "mode"]
+      },
+      "ModelIdentity": {
+        "type": "object",
+        "properties": {
+          "model": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "family": { "type": "string", "minLength": 1, "maxLength": 80 }
+        },
+        "required": ["model"]
+      },
+      "ModelOffering": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" },
+          "hosts": {
+            "minItems": 1,
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ModelHosting" }
+          }
+        },
+        "required": ["name", "identity", "hosts"]
+      },
+      "ModelHosting": {
+        "type": "object",
+        "properties": {
+          "adapter": { "$ref": "#/components/schemas/AdapterKind" },
+          "name": { "type": "string", "minLength": 1 },
+          "defaults": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          },
+          "fixed": {
+            "type": "object",
+            "propertyNames": { "type": "string" },
+            "additionalProperties": {}
+          }
+        },
+        "required": ["adapter", "name", "defaults", "fixed"]
+      },
+      "ModelCatalogResponse": {
+        "type": "object",
+        "properties": {
+          "models": { "type": "array", "items": { "$ref": "#/components/schemas/ModelOffering" } }
+        },
+        "required": ["models"]
       },
       "AgentEvent": {
         "allOf": [
@@ -2044,7 +2113,8 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
-          "pricing": { "$ref": "#/components/schemas/ModelPricing" }
+          "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" }
         },
         "required": ["id", "name", "adapter"],
         "additionalProperties": {}
@@ -2056,6 +2126,7 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -2107,6 +2178,7 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -2181,6 +2253,7 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },

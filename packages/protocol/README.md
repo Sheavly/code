@@ -14,6 +14,11 @@ A client in another language reads `contract.schema.json`, the whole contract as
 or `openapi.json`, the HTTP API as an OpenAPI 3.2 document. After changing a schema or a route,
 run `npm run schema -w @sheavly/protocol`; a test fails while either file is out of date.
 
+Model-first setup uses `GET /setup/models` to return `ModelOffering` choices and supported hosting
+routes. Optional `ModelIdentity` metadata keeps the chosen model separate from its profile UUID,
+display name and adapter definition. Legacy model files without it remain valid. Catalogue values
+belong to the backend app; this package defines and validates only their wire shapes.
+
 | Module               | What it holds                                                                |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `event/`             | The loop's `AgentEvent`s and the `ToolArtifact` they carry                   |

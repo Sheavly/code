@@ -42,7 +42,8 @@
     "./*.errors": {
       "@sheavly/source": "./src/*.errors.ts",
       "default": "./dist/*.errors.js"
-    }
+    },
+    "./chat-reply/*": null
   },
   "files": [
     "dist",

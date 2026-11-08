@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { filesHolding as holding } from '@sheavly/testing/files/files-holding.fake';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
+import { modelCatalogResponseSchema } from '@sheavly/protocol/setup/setup.validator';
 import { testApi, testSetup } from '../../testing/api.fake.js';
 import { testBackend } from '../../testing/backend.fake.js';
 
@@ -121,6 +122,25 @@ describe('GET /setup and GET /adapters', () => {
     });
   });
 
+  it('serves model-first choices independently of profiles and credentials', async () => {
+    const response = await api().request('/setup/models');
+    const catalog = modelCatalogResponseSchema.parse(await response.json());
+
+    expect(response.status).toBe(200);
+    expect(catalog.models).toContainEqual({
+      name: 'DeepSeek V4 Flash',
+      identity: { model: 'deepseek-v4-flash', family: 'deepseek' },
+      hosts: [
+        {
+          name: 'Azure',
+          adapter: 'azure-chat',
+          defaults: { deployment: 'deepseek-v4-flash', replayReasoning: true },
+          fixed: {},
+        },
+      ],
+    });
+  });
+
   it('shows a profile, its models, whether keys are set, and whether it is ready', async () => {
     const a = api();
 
@@ -154,6 +174,37 @@ describe('the models of a profile', () => {
     a.request(`/profiles/${WORK}/models`, { method: 'QUERY', body });
   const namesOf = async (response: Response) =>
     ((await json(response)).models as { name: string }[]).map((model) => model.name);
+
+  it('persists chosen model identity outside adapter fields and rejects incompatible hosts', async () => {
+    const a = api();
+    const identity = { model: 'claude-opus-5-5', family: 'claude' };
+
+    await put(a, `/profiles/${WORK}`, { name: 'Work' });
+    const body = {
+      name: 'Opus',
+      identity,
+      adapter: 'azure-anthropic',
+      definition: {
+        deployment: 'production-opus',
+        baseUrl: 'https://resource.test/anthropic',
+        thinkingMode: 'adaptive',
+      },
+    };
+
+    expect((await put(a, `/profiles/${WORK}/models/${ASTRA}`, body)).status).toBe(204);
+    expect(await json(await api().request(`/profiles/${WORK}/models/${ASTRA}`))).toMatchObject(
+      body,
+    );
+    const wrong = await put(a, `/profiles/${WORK}/models/${BORA}`, {
+      name: 'Wrong',
+      identity,
+      adapter: 'openai',
+      definition: { model: 'claude-opus-5-5' },
+    });
+
+    expect(wrong.status).toBe(422);
+    expect((await a.request(`/profiles/${WORK}/models/${BORA}`)).status).toBe(404);
+  });
 
   it('lists them all, and one by id', async () => {
     const a = api();

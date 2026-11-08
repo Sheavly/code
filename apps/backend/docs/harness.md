@@ -1,5 +1,10 @@
 # What a run includes
 
+The coding harness supplies shared generic instructions, coding guidance and any explicit host
+extras. Backend conversations use that composed text by default; sub-agents receive it before
+their narrower child role. The terminal and workbook use this same backend path, not separate
+prompt copies. See [instruction composition](../../../packages/host/docs/harness.md#instruction-composition).
+
 The packages provide pieces and the services a run shares; the backend decides what its runs
 include, in one place, `createBackendHarness` (`src/harness/harness.helper.ts`). Every
 conversation it serves, for whichever UI, is built on it, by `servedConversation`

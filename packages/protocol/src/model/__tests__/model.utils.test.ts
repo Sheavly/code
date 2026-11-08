@@ -1,12 +1,46 @@
 import { describe, expect, it } from 'vitest';
 import { modelFileSchema } from '../model.validator.js';
 import { fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
+import { RESERVED_MODEL_FIELDS } from '../model.constants.js';
 
 const ID = '0b6c2f1e-3a4d-4c8e-9f10-7a2b5d6e8c01';
 const OTHER = '9d3e7a52-1c46-4b0f-8e21-5f6a7b8c9d02';
 const read = (json: unknown) => modelFileSchema.parse(json);
 
 describe('toModel', () => {
+  it('does not promote optional envelope metadata from adapter configuration', () => {
+    const model = toModel(read({ id: ID, name: 'Test', adapter: 'openai', model: 'm' }));
+    const file = toModelFile({
+      ...model,
+      definition: { ...model.definition, pricing: { input: 1 }, identity: { model: 'injected' } },
+    });
+
+    expect(file).not.toHaveProperty('pricing');
+    expect(file).not.toHaveProperty('identity');
+    expect(file.model).toBe('m');
+  });
+
+  it('reserves every envelope field so metadata cannot collide with adapter configuration', () => {
+    expect([...RESERVED_MODEL_FIELDS].sort()).toEqual(Object.keys(modelFileSchema.shape).sort());
+  });
+  it('keeps chosen identity independent of hosting and deployment across a round trip', () => {
+    const identity = { model: 'claude-opus-5-5', family: 'claude' };
+    const file = read({
+      id: ID,
+      name: 'Production',
+      adapter: 'azure-anthropic',
+      deployment: 'prod',
+      identity,
+    });
+    const model = toModel(file);
+
+    expect(model.identity).toEqual(identity);
+    expect(model.definition).toEqual({ deployment: 'prod' });
+    expect(toModelFile(model)).toEqual(file);
+    const { identity: _identity, ...legacy } = model;
+
+    expect(toModelFile({ ...legacy, definition: { identity } })).not.toHaveProperty('identity');
+  });
   it('keeps prices in the envelope, out of the adapter definition, across a round trip', () => {
     const pricing = { input: 2, output: 8, cacheRead: 0.2, cacheWrite: 2.5 };
     const file = read({ id: ID, name: 'Priced', adapter: 'openai', model: 'm', pricing });

@@ -22,6 +22,10 @@ export type RunSources = z.infer<typeof runSourcesSchema>;
 export type Observed = {
   transcript: string;
   reply: string;
+  /** Successful foreground tool output only, never assistant text or failed tool output. */
+  toolResults: Readonly<Record<string, string>>;
+  /** Failed foreground tool output, including permission and protected-file denials. */
+  toolErrors: Readonly<Record<string, string>>;
   /** Event types, in order. */
   events: readonly string[];
   /** Hooks that emitted context_added events, in order. */
@@ -29,6 +33,8 @@ export type Observed = {
   /** Tool names, in the order first called. */
   tools: readonly string[];
   outcome: string;
+  /** Transport adapter recorded by the backend, never inferred from the model's reply. */
+  adapter: string;
 };
 
 /**

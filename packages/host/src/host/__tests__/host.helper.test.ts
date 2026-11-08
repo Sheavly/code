@@ -59,6 +59,7 @@ describe('createHarness', () => {
 
     expect(Object.keys(harness).sort()).toEqual([
       'approvals',
+      'instructions',
       'mainSession',
       'provider',
       'sessions',

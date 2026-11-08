@@ -10,7 +10,7 @@ import {
   bindWorkspaceRequestSchema,
 } from '@sheavly/protocol/setup/setup.validator';
 import type { AdapterDescription } from '@sheavly/protocol/model/model.types';
-import type { Setup } from '@sheavly/protocol/setup/setup.types';
+import type { Setup, ModelOffering } from '@sheavly/protocol/setup/setup.types';
 import type { SetupUi } from '../setup/setup.types.js';
 import { terminalSettingsSchema } from '@sheavly/protocol/terminal-settings/terminal-settings.validator';
 
@@ -35,7 +35,9 @@ export function setupAdapter(): AdapterDescription {
 }
 
 /** Stateful setup routes, validated by the same request and response schemas as the backend. */
-export function fakeSetupBackend() {
+export function fakeSetupBackend(
+  options: { adapters?: AdapterDescription[]; catalog?: ModelOffering[] } = {},
+) {
   const state: Setup = { home: '/test-home', profiles: [], problems: [] };
   let binding: Setup['defaultProfile'];
   const profileOf = (id: string | undefined) => {
@@ -58,7 +60,8 @@ export function fakeSetupBackend() {
       state.terminal = terminalSettingsSchema.parse(body);
     },
     migrateTerminalSettings: () => state.terminal ?? {},
-    listAdapters: () => ({ adapters: [setupAdapter()] }),
+    listAdapters: () => ({ adapters: options.adapters ?? [setupAdapter()] }),
+    listModelCatalog: () => ({ models: options.catalog ?? [] }),
     getProfile: ({ params }) => profileOf(params.profile),
     putProfile: ({ params, body }) => {
       const settings = putProfileRequestSchema.parse(body);
