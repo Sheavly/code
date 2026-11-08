@@ -79,6 +79,7 @@ async function saveDefinition(
           definition,
           ...(identity && { identity }),
           ...(previous?.pricing && { pricing: previous.pricing }),
+          ...(previous?.contextWindow && { contextWindow: previous.contextWindow }),
         },
         signal: ui.signal,
       });

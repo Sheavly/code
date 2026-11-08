@@ -148,6 +148,27 @@ describe('terminal setup over the API', () => {
     expect(backend.calls.at(-1)?.name).toBe('bindWorkspace');
   });
 
+  it('keeps a model’s context window, which the form has no field for, when its settings are edited', async () => {
+    const backend = fakeSetupBackend();
+    const setup = readyWorkProfile();
+
+    backend.state.profiles.push({
+      ...setup,
+      models: setup.models.map((item) => ({ ...item, contextWindow: 1_000_000 })),
+    });
+    const { ui } = setupAnswers({
+      // The fake backend forgets the key when a model is rewritten, so the user sets it again.
+      choices: [profile, model, 'edit', 'true', 'key', 'start'],
+      text: ['Selected', 'remote-deployment', 'https://example.test', '2048', 'private-key'],
+    });
+
+    await runSetupWizard({ ...backend, ui, workspace: '/workspace', setup: backend.state });
+
+    expect(backend.calls.filter(({ name }) => name === 'putModel')).toMatchObject([
+      { call: { body: { contextWindow: 1_000_000 } } },
+    ]);
+  });
+
   it('repairs missing credentials and lets a failed connection check return to key entry', async () => {
     const backend = fakeSetupBackend();
 
