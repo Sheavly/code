@@ -47,8 +47,8 @@ function recording(params: { turns: StreamEvent[][]; contextWindow?: number }) {
   return { provider, requests };
 }
 
-/** What the model was told last in a request, which is where the context line goes. */
-const lastLine = (request: ProviderRequest | undefined) => request?.messages.at(-1)?.content;
+/** The context line a request carries beside its history. */
+const lastLine = (request: ProviderRequest | undefined) => request?.notice;
 const prompt = [{ role: 'user' as const, content: 'go' }];
 
 describe('telling the agent how full its context is', () => {
@@ -71,14 +71,14 @@ describe('telling the agent how full its context is', () => {
     });
     const messages = await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(messages.some((message) => message.content.startsWith('Context:'))).toBe(false);
-    // The second request is the first one's history, the turn's reply and result, and one new line.
     const [first, second] = requests;
-    const history = (request: ProviderRequest | undefined) => request?.messages.slice(0, -1);
+    const everywhere = [...messages, ...(first?.messages ?? []), ...(second?.messages ?? [])];
 
-    expect(second?.messages.slice(0, 1)).toEqual(history(first));
-    expect(second?.messages.filter((m) => m.content.startsWith('Context:'))).toHaveLength(1);
+    expect(everywhere.some((message) => message.content.includes('Context:'))).toBe(false);
+    // The second request starts with the first one's history, and the instructions are the same.
+    expect(second?.messages.slice(0, first?.messages.length)).toEqual(first?.messages);
     expect(second?.instructions).toBe(first?.instructions);
+    expect(first?.notice).not.toBe(second?.notice);
   });
 
   it('leaves the line out when the provider reports neither a window nor usage', async () => {
@@ -90,13 +90,7 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    // The last message is the tool's result both times: nothing was added after it.
-    expect(requests[0]?.messages.map((message) => message.role)).toEqual(['user']);
-    expect(requests[1]?.messages.map((message) => message.role)).toEqual([
-      'user',
-      'assistant',
-      'tool',
-    ]);
+    expect(requests.map(lastLine)).toEqual([undefined, undefined]);
   });
 
   it('shrinks to what is used when the window is unknown', async () => {
@@ -104,7 +98,7 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(lastLine(requests[0])).toBe('go');
+    expect(lastLine(requests[0])).toBeUndefined();
     expect(lastLine(requests[1])).toBe('Context: 1,000 tokens used');
   });
 

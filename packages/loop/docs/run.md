@@ -54,13 +54,15 @@ history or discard messages automatically.
 Before every model call the loop reads the provider's `contextWindow` and the session's last
 reported tokens (`sessions.lastTokens`) once, and uses that one reading three ways:
 
-- **The agent** gets one short line, e.g. `Context: 48,210 of 400,000 tokens used (12%)`, as a
-  last user message of the request only (`sample.helper.ts`). "Used" is the last call's input plus
-  its output, what the model saw, not a total over calls. The line changes every turn, so it comes
-  after everything a provider could cache, never goes through `instructions`, and is never put in
-  history: not in `done`'s messages, not resent next turn. It shrinks to what is known: the window
-  alone before any usage is known, the used tokens alone when the window is unknown, nothing when
-  neither is.
+- **The agent** gets one short line, e.g. `Context: 48,210 of 400,000 tokens used (12%)`, as the
+  request's `notice` (`sample.helper.ts`), which a provider sends as a last user message after the
+  history. "Used" is the last call's input plus its output, what the model saw, not a total over
+  calls. The line changes every turn, so it never goes through `instructions` and is never put in
+  history: not in `done`'s messages, not resent next turn. It is a field of its own, not a message
+  in `messages`, so a provider can keep it out of what it hashes or replays (Anthropic's thinking
+  signatures bind the messages before a reply, and a line that was in them would never match
+  again). It shrinks to what is known: the window alone before any usage is known, the used
+  tokens alone when the window is unknown, nothing when neither is.
 - **Hooks** get the same numbers as `beforeTurn`'s `context` (`window`, `used`), so compaction
   decides from what the agent sees.
 - **A UI** gets the window on the call's `usage` event (`usage.contextWindow`) next to its tokens,
@@ -69,7 +71,9 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
 
 The numbers belong to the session, so a sub-agent has its own against its own provider's window,
 and a conversation's next prompt carries on from the last call. A call that reported no usage
-clears them, since stale ones would say the context is emptier than it is.
+clears them, since stale ones would say the context is emptier than it is. After a model switch
+the count is the previous model's measure of the same history, paired with the new window until
+the next call reports its own.
 
 ## Hook order
 

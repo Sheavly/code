@@ -100,7 +100,7 @@ export type SampleContext = ToolStart & {
   instructions?: string | undefined;
   messages: Message[];
   /** How full the context is for this call, read once by the turn. */
-  context: ContextState;
+  state: ContextState;
   /** Resolves when `signal` (the run's) aborts. */
   aborted: Promise<void>;
   events: AgentEvents;

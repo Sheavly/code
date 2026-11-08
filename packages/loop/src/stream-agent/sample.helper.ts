@@ -1,7 +1,6 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import { toDefinition } from '@sheavly/core/tool/tool.utils';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
-import type { ContextState } from '@sheavly/core/hook/hook.types';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
 import { contextNotice } from '../context/context.utils.js';
 import type { ToolOutcome } from '../events/events.types.js';
@@ -26,7 +25,8 @@ import type {
  */
 export async function sample(context: SampleContext) {
   const { provider, instructions, tools, messages, signal, aborted, events } = context;
-  const { window } = context.context;
+  const { state } = context;
+  const { window } = state;
   let content = '';
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
@@ -44,10 +44,13 @@ export async function sample(context: SampleContext) {
   const start = { ...context, signal: toolSignal };
 
   try {
-    // A snapshot: providers must never see later pushes to the loop's own history.
+    // A snapshot: providers must never see later pushes to the loop's own history. The context
+    // line goes beside it, not in it: it changes every turn, so a provider sends it after the
+    // history, and it is not in `messages`, in `done`'s messages or in the next request.
     const source = provider.stream({
       instructions,
-      messages: modelView({ messages, state: context.context }),
+      messages: [...messages],
+      notice: contextNotice(state),
       tools: tools.map(toDefinition),
       signal,
     });
@@ -86,8 +89,8 @@ export async function sample(context: SampleContext) {
     }
   }
 
-  // The window the call ran against, from the provider at the start of the call: the provider's
-  // own report of it, if it made one, gives way.
+  // The window the call ran against: the reading taken before the call, the same the agent was
+  // told. It replaces a window the provider may have put on its own usage.
   events.enqueue({
     type: 'usage',
     usage: window === undefined ? usage : { ...usage, contextWindow: window },
@@ -103,20 +106,6 @@ export async function sample(context: SampleContext) {
   };
 
   return { message, stopReason, running, failure };
-}
-
-/**
- * What the provider is sent as history: a copy of it, plus the context line as a last user
- * message when anything is known. The line changes every turn, so it comes after everything the
- * provider could cache, and only here: it is never put in `messages`, so it is not in history,
- * not in `done`'s messages, and not sent again next turn.
- */
-function modelView(params: { messages: Message[]; state: ContextState }): Message[] {
-  const notice = contextNotice(params.state);
-
-  if (notice === undefined) return [...params.messages];
-
-  return [...params.messages, { role: 'user', content: notice, at: now() }];
 }
 
 /**

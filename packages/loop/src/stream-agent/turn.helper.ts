@@ -42,7 +42,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
     messages,
-    context: state,
+    state,
     signal,
     aborted,
     events,
