@@ -16,6 +16,7 @@
       "properties": {
         "tokens": { "anyOf": [{ "$ref": "#/$defs/TokenUsage" }, { "type": "null" }] },
         "modelId": { "$ref": "#/$defs/ModelId" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
         "estimatedCostUsd": { "type": "number", "minimum": 0 }
       },
       "required": ["tokens"]
@@ -1084,7 +1085,8 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
-        "identity": { "$ref": "#/$defs/ModelIdentity" }
+        "identity": { "$ref": "#/$defs/ModelIdentity" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
       },
       "required": ["id", "name", "adapter"],
       "additionalProperties": {}
@@ -1097,6 +1099,7 @@
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
         "identity": { "$ref": "#/$defs/ModelIdentity" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },
@@ -1149,6 +1152,7 @@
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
         "identity": { "$ref": "#/$defs/ModelIdentity" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },
@@ -1219,6 +1223,7 @@
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "pricing": { "$ref": "#/$defs/ModelPricing" },
         "identity": { "$ref": "#/$defs/ModelIdentity" },
+        "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
         "definition": {
           "type": "object",
           "propertyNames": { "type": "string" },

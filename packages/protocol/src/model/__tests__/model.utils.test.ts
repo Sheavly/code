@@ -53,6 +53,24 @@ describe('toModel', () => {
       false,
     );
   });
+  it('keeps the context window in the envelope, out of the adapter’s definition', () => {
+    const model = toModel(
+      read({ id: ID, name: 'Astra 6', adapter: 'openai', contextWindow: 1_000_000 }),
+    );
+
+    expect(model.contextWindow).toBe(1_000_000);
+    expect(model.definition).toEqual({});
+    expect(toModel(read(toModelFile(model)))).toEqual(model);
+  });
+
+  it('does not promote a context window from adapter configuration', () => {
+    const model = toModel(read({ id: ID, name: 'Plain', adapter: 'openai' }));
+
+    expect(toModelFile({ ...model, definition: { contextWindow: 5 } })).not.toHaveProperty(
+      'contextWindow',
+    );
+  });
+
   it('splits a file into its id, name and adapter, and the adapter’s definition', () => {
     const file = read({
       id: ID,

@@ -5,7 +5,7 @@ import type { Model, ModelFile } from './model.types.js';
  * hosting backend receives envelope fields as configuration.
  */
 export function toModel(file: ModelFile): Model {
-  const { id, name, adapter, pricing, identity, ...definition } = file;
+  const { id, name, adapter, pricing, identity, contextWindow, ...definition } = file;
 
   return {
     id,
@@ -14,6 +14,7 @@ export function toModel(file: ModelFile): Model {
     definition,
     ...(pricing && { pricing }),
     ...(identity && { identity }),
+    ...(contextWindow && { contextWindow }),
   };
 }
 
@@ -22,7 +23,12 @@ export function toModel(file: ModelFile): Model {
  * definition can't overwrite the model's own id, name or adapter, or supply optional metadata.
  */
 export function toModelFile(model: Model): ModelFile {
-  const { identity: _identity, pricing: _pricing, ...definition } = model.definition;
+  const {
+    identity: _identity,
+    pricing: _pricing,
+    contextWindow: _contextWindow,
+    ...definition
+  } = model.definition;
 
   return {
     ...definition,
@@ -31,6 +37,7 @@ export function toModelFile(model: Model): ModelFile {
     adapter: model.adapter,
     ...(model.pricing && { pricing: model.pricing }),
     ...(model.identity && { identity: model.identity }),
+    ...(model.contextWindow && { contextWindow: model.contextWindow }),
   };
 }
 
