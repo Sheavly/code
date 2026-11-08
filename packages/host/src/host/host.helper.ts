@@ -20,6 +20,10 @@ export function createHarness(options: HarnessOptions): Harness {
 
           return options.provider.stream(request);
         },
+        // Read through on every call: a switch answers for whichever model is active.
+        get contextWindow() {
+          return options.provider.contextWindow;
+        },
       }
     : options.provider;
   const sessions = new SessionRegistry({
