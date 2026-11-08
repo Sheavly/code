@@ -21,6 +21,14 @@ Two ways to tell the model something:
   order, and are never stored in history. Call it every turn they should apply. Use it for
   standing rules, like AGENTS.md.
 
+## Context state
+
+`beforeTurn` also receives `context`: `window`, the model's context window in tokens, and `used`,
+the tokens the context held as of the last model call (its input plus its output). They are the
+numbers the loop tells the agent, so a hook (compaction, say) decides from the same ones. Either
+is left out when unknown: `used` before the first call, and `window` for a provider that doesn't
+report one.
+
 ## Adding a hook point
 
 1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.

@@ -73,6 +73,7 @@ async function contextFrom(hooks: Hook[]): Promise<string[]> {
   for (const hook of hooks) {
     await hook.beforeTurn?.({
       turn: 1,
+      context: {},
       messages: [],
       signal: new AbortController().signal,
       addContext: (content) => added.push(content),

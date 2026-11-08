@@ -49,6 +49,28 @@ system instructions are not changed and completed tools are not rerun by the loo
 retrying: a larger output budget cannot repair a full context window. The loop does not compact
 history or discard messages automatically.
 
+## Context usage
+
+Before every model call the loop reads the provider's `contextWindow` and the session's last
+reported tokens (`sessions.lastTokens`) once, and uses that one reading three ways:
+
+- **The agent** gets one short line, e.g. `Context: 48,210 of 400,000 tokens used (12%)`, as a
+  last user message of the request only (`sample.helper.ts`). "Used" is the last call's input plus
+  its output, what the model saw, not a total over calls. The line changes every turn, so it comes
+  after everything a provider could cache, never goes through `instructions`, and is never put in
+  history: not in `done`'s messages, not resent next turn. It shrinks to what is known: the window
+  alone before any usage is known, the used tokens alone when the window is unknown, nothing when
+  neither is.
+- **Hooks** get the same numbers as `beforeTurn`'s `context` (`window`, `used`), so compaction
+  decides from what the agent sees.
+- **A UI** gets the window on the call's `usage` event (`usage.contextWindow`) next to its tokens,
+  emitted after the turn's stream and before `turn_end`. The harness renders nothing itself: the
+  line is for the model, and a UI shows usage however it likes from the event.
+
+The numbers belong to the session, so a sub-agent has its own against its own provider's window,
+and a conversation's next prompt carries on from the last call. A call that reported no usage
+clears them, since stale ones would say the context is emptier than it is.
+
 ## Hook order
 
 - Hooks run in the order given. Every handler runs one after another, except `aroundToolCall`,

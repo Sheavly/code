@@ -1,7 +1,9 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import { toDefinition } from '@sheavly/core/tool/tool.utils';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
+import type { ContextState } from '@sheavly/core/hook/hook.types';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
+import { contextNotice } from '../context/context.utils.js';
 import type { ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
@@ -24,6 +26,7 @@ import type {
  */
 export async function sample(context: SampleContext) {
   const { provider, instructions, tools, messages, signal, aborted, events } = context;
+  const { window } = context.context;
   let content = '';
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
@@ -44,7 +47,7 @@ export async function sample(context: SampleContext) {
     // A snapshot: providers must never see later pushes to the loop's own history.
     const source = provider.stream({
       instructions,
-      messages: [...messages],
+      messages: modelView({ messages, state: context.context }),
       tools: tools.map(toDefinition),
       signal,
     });
@@ -83,7 +86,12 @@ export async function sample(context: SampleContext) {
     }
   }
 
-  events.enqueue({ type: 'usage', usage });
+  // The window the call ran against, from the provider at the start of the call: the provider's
+  // own report of it, if it made one, gives way.
+  events.enqueue({
+    type: 'usage',
+    usage: window === undefined ? usage : { ...usage, contextWindow: window },
+  });
   if (signal.aborted || failure) stopReason = 'interrupted';
 
   const message: Message = {
@@ -95,6 +103,20 @@ export async function sample(context: SampleContext) {
   };
 
   return { message, stopReason, running, failure };
+}
+
+/**
+ * What the provider is sent as history: a copy of it, plus the context line as a last user
+ * message when anything is known. The line changes every turn, so it comes after everything the
+ * provider could cache, and only here: it is never put in `messages`, so it is not in history,
+ * not in `done`'s messages, and not sent again next turn.
+ */
+function modelView(params: { messages: Message[]; state: ContextState }): Message[] {
+  const notice = contextNotice(params.state);
+
+  if (notice === undefined) return [...params.messages];
+
+  return [...params.messages, { role: 'user', content: notice, at: now() }];
 }
 
 /**
