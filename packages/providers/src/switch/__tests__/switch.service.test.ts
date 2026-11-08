@@ -51,6 +51,31 @@ describe('ProviderSwitch', () => {
     expect(text(await collect(providers.stream(request)))).toBe('b');
   });
 
+  it('reports the context window of whichever provider is active, and none when it has none', () => {
+    const providers = new ProviderSwitch()
+      .add('a', { ...named('a'), contextWindow: 300_000 })
+      .add('b', { ...named('b'), contextWindow: 1_000_000 })
+      .add('c', named('c'));
+
+    expect(providers.contextWindow).toBe(300_000);
+    providers.use('b');
+    expect(providers.contextWindow).toBe(1_000_000);
+    providers.use('c');
+    expect(providers.contextWindow).toBeUndefined();
+    expect(new ProviderSwitch().contextWindow).toBeUndefined();
+  });
+
+  it('keeps the window of a pinned provider, with or without an effort set', () => {
+    const providers = new ProviderSwitch()
+      .add('a', { ...named('a'), contextWindow: 300_000 })
+      .add('b', { ...named('b'), contextWindow: 1_000_000 });
+
+    expect(providers.pinned('a').contextWindow).toBe(300_000);
+    providers.setMode({ name: 'a', mode: 'high' });
+    providers.use('b');
+    expect(providers.pinned('a').contextWindow).toBe(300_000);
+  });
+
   it('refuses to pin to a key that was never added', () => {
     const providers = new ProviderSwitch().add('a', named('a'));
 

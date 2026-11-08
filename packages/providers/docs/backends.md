@@ -40,6 +40,10 @@ const providers = new ProviderSwitch()
 providers.use(GPT); // swap at runtime; applies from the next model call
 ```
 
+The switch's `contextWindow` is the active provider's, so it follows a swap; one from `pinned(key)`
+keeps the window of the provider it was pinned to. An adapter doesn't know its model's window: the
+host wraps the provider it builds with one (the backend app does, from the model's file).
+
 ## Models on Azure
 
 Every model deployed on Azure uses the adapter for its endpoint's protocol, all in

@@ -79,7 +79,15 @@ export class ProviderSwitch implements Provider {
 
     if (!mode) return provider;
 
-    return { stream: (request) => provider.stream({ ...request, mode }) };
+    return {
+      stream: (request) => provider.stream({ ...request, mode }),
+      contextWindow: provider.contextWindow,
+    };
+  }
+
+  /** The active provider's window, so it follows a swap; none when it reports none. */
+  get contextWindow(): number | undefined {
+    return this.activeName ? this.providers.get(this.activeName)?.contextWindow : undefined;
   }
 
   stream(request: ProviderRequest): AsyncIterable<StreamEvent> {
