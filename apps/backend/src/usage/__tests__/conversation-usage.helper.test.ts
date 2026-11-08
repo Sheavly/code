@@ -46,7 +46,7 @@ describe('conversation usage over the API', () => {
       sessions: new SessionRegistry(),
       storage: {
         keepHistory: () => undefined,
-        resume: { next: 3, tail: [oldTurn], sessions: [] },
+        resume: { next: 3, tail: [oldTurn], sessions: [], lastTokens: [] },
         entries: {
           append: async () => undefined,
           async *read() {
