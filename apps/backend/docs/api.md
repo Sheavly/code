@@ -100,6 +100,14 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
   `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
   captures configured prices when its providers are built; saved cost estimates are never
   recalculated on resume. The backend does not fetch prices or claim these are invoices.
+- **The agent is told its model's context window.** The model API accepts an optional
+  `contextWindow` (tokens), kept outside the adapter's fields like `pricing`. A model that sets none
+  gets 300,000, the same for every model: the backend can't know what a deployment or gateway
+  really serves, and 300K stays under the 272K-input size above which the GPT-6 models cost more.
+  Set `contextWindow: 1000000` on a model whose deployment really has the full window. It is
+  captured when the conversation's providers are built, follows the model switch, and goes on each
+  `usage` event as `usage.contextWindow`, for a UI to show against the tokens. The agent's own
+  line is never in the stream or the history: see the loop's [context usage](../../../packages/loop/docs/run.md#context-usage).
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
 - **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
   in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences

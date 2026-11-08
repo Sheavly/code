@@ -83,6 +83,17 @@ describe('modelsOf', () => {
     expect((await build(profile, CORA)).models.switch.active).toBe(ASTRA);
   });
 
+  it('tells the agent each model’s own window, 300K unless its file sets one, as the switch moves', async () => {
+    const { profile } = await profileWith({
+      models: [azure, { ...openai, contextWindow: 1_000_000 }],
+    });
+    const { models } = await build(profile);
+
+    expect(models.switch.contextWindow).toBe(300_000);
+    models.switch.use(BORA);
+    expect(models.switch.contextWindow).toBe(1_000_000);
+  });
+
   it('leaves out a model with no key, with a note that names it, and keeps the rest', async () => {
     const { profile } = await profileWith({ models: [azure, openai], keyless: [ASTRA] });
     const { models, notes } = await build(profile);
