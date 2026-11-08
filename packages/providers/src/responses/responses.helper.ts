@@ -20,7 +20,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
   const reasoningSource = reasoning ? source : undefined;
 
   return {
-    async *stream({ instructions, messages, tools, signal, mode }) {
+    async *stream({ instructions, messages, notice, tools, signal, mode }) {
       const url = new URL(`${endpoint.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(endpoint.query ?? {})) {
@@ -40,7 +40,10 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             model: endpoint.model,
             // The Responses API's system prompt; with `store: false` it is sent every call.
             ...(instructions ? { instructions } : {}),
-            input: messages.flatMap((message) => toInputItems({ message, reasoningSource })),
+            input: [
+              ...messages.flatMap((message) => toInputItems({ message, reasoningSource })),
+              ...(notice ? [{ role: 'user', content: notice }] : []),
+            ],
             tools: tools.map((tool) => ({
               type: 'function',
               name: tool.name,

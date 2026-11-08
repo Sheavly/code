@@ -81,7 +81,9 @@ export class ProviderSwitch implements Provider {
 
     return {
       stream: (request) => provider.stream({ ...request, mode }),
-      contextWindow: provider.contextWindow,
+      get contextWindow() {
+        return provider.contextWindow;
+      },
     };
   }
 

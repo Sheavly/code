@@ -4,7 +4,7 @@ import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { ANTHROPIC_VERSION, MESSAGES_API } from './messages.constants.js';
-import { toMessagesApiMessages } from './input.utils.js';
+import { toMessagesApiMessages, withNotice } from './input.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
@@ -22,7 +22,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
   const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, tools, signal, mode }) {
+    async *stream({ instructions, messages, notice, tools, signal, mode }) {
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
@@ -57,7 +57,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: apiMessages,
+            messages: withNotice({ messages: apiMessages, notice }),
             ...(tools.length > 0 && {
               tools: apiTools,
             }),
@@ -72,7 +72,8 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         },
       });
 
-      // sendRequest guarantees a body for a started stream.
+      // sendRequest guarantees a body for a started stream. The prefix is over the history only:
+      // the notice is gone next turn, so a prefix that included it could never match on replay.
       yield* readMessagesReply({
         body: response.body as ReadableStream<Uint8Array>,
         reasoningSource,
