@@ -26,13 +26,13 @@ export async function askContextWindow(params: {
   const sizes = [...own, ...offered];
   const picked = await ui.choose({
     title:
-      'Context size\nHow much context the agent is told it has. It paces itself by it, so a smaller size costs less. It does not limit what the provider accepts.',
+      'Context size\nHow much context the agent is told it has. It paces itself by it, so a smaller size tends to cost less. It does not limit what the provider accepts or change its prices.',
     items: sizes.map((size) => ({ value: String(size), label: contextWindowLabel(size) })),
     initial: String(current ?? DEFAULT_CONTEXT_WINDOW),
   });
   const size = sizes.find((candidate) => String(candidate) === picked);
 
-  if (size === undefined) throw new SetupError(`${picked} is not one of the sizes offered.`);
+  if (size === undefined) throw new SetupError('That is not one of the sizes offered.');
 
   return size;
 }

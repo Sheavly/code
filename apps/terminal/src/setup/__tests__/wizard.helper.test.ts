@@ -153,6 +153,7 @@ describe('terminal setup over the API', () => {
   it.each([
     { current: 1_000_000, picked: '1000000', saved: 1_000_000, labels: ['300K', '1M'] },
     { current: 1_000_000, picked: '300000', saved: 300_000, labels: ['300K', '1M'] },
+    { current: 300_000, picked: '1000000', saved: 1_000_000, labels: ['300K', '1M'] },
     // A size a host gave the model is shown by its exact count, and kept unless it is changed.
     {
       current: 128_000,
