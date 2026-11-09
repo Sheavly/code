@@ -1,4 +1,5 @@
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type { ChatEndpoint, ChatThinkingMode } from './chat-completions.types.js';
 import { chatMessages } from './input.utils.js';
 
@@ -18,7 +19,7 @@ export function chatRequestBody(params: {
     messages: [
       ...(request.instructions ? [{ role: 'system', content: request.instructions }] : []),
       ...chatMessages({ messages: request.messages, source, replayReasoning }),
-      ...(request.notice ? [{ role: 'user', content: request.notice }] : []),
+      ...(request.notice ? [{ role: 'user', content: formatHarnessNotice(request.notice) }] : []),
     ],
     ...(request.tools.length > 0 && {
       tools: request.tools.map((tool) => ({

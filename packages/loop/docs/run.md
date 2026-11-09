@@ -64,10 +64,12 @@ history or discard messages automatically.
 Before every model call the loop reads the provider's `contextWindow` and the session's last
 reported tokens (`sessions.lastTokens`) once, and uses that one reading three ways:
 
-- **The agent** gets one short line, e.g. `Context: 48,210 of 400,000 tokens used (12%)`, as the
-  request's `notice` (`sample.helper.ts`), which a provider sends as a last user message after the
-  history. "Used" is the last call's input plus its output, what the model saw, not a total over
-  calls. The line changes every turn, so it never goes through `instructions` and is never put in
+- **The agent** gets a typed `context-usage` notice on the request's `notice` (`sample.helper.ts`).
+  Providers use the [shared formatter](../../core/docs/providers.md#harness-notices) to label it
+  as harness telemetry, not user input, and direct the model to use it silently unless context
+  limits affect the task. For example, its measurement is `Context: 48,210 of 400,000 tokens used (12%)`.
+  "Used" is the last call's input plus its output, what the model saw, not a total over calls.
+  The notice changes every turn, so it never goes through `instructions` and is never put in
   history: not in `done`'s messages, not resent next turn. It is a field of its own, not a message
   in `messages`, so the cached prefix is unchanged. A provider whose replay state is bound to what
   a call sent has to account for it: Anthropic binds a thinking signature to the notice too, so
@@ -79,6 +81,12 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
 - **A UI** gets the window on the call's `usage` event (`usage.contextWindow`) next to its tokens,
   emitted after the turn's stream and before `turn_end`. The harness renders nothing itself: the
   line is for the model, and a UI shows usage however it likes from the event.
+
+Before calling the provider, the loop also emits `harness_notice` with the exact notice payload
+sent on that request. It uses the ordinary ordered event queue and combined session stream, so
+downstream UIs receive structured data with session attribution and replay support, not formatter
+text. When neither context count is known, no notice or notice event is sent. Model history and
+system instructions still contain neither the notice nor its UI event.
 
 The numbers belong to the session, so a sub-agent has its own against its own provider's window,
 and a conversation's next prompt carries on from the last call. A call that reported no usage

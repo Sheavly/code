@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type {
   ResponsesAdapterConfig,
   ResponsesEndpoint,
@@ -42,7 +43,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             ...(instructions ? { instructions } : {}),
             input: [
               ...messages.flatMap((message) => toInputItems({ message, reasoningSource })),
-              ...(notice ? [{ role: 'user', content: notice }] : []),
+              ...(notice ? [{ role: 'user', content: formatHarnessNotice(notice) }] : []),
             ],
             tools: tools.map((tool) => ({
               type: 'function',

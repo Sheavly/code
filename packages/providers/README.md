@@ -33,6 +33,11 @@ Messages and Responses providers attach reported token usage to the final `done`
 usage deltas are cumulative; its cache tokens are added to ordinary input. Responses cached input
 is already part of its input total, so it is not counted twice. No provider guesses prices.
 
+All three protocols format typed harness notices with the core's shared formatter. Notices are
+explicitly labeled telemetry rather than user requests, even when an API requires a user role,
+and never mutate conversation history or system instructions. See
+[harness notices](../core/docs/providers.md#harness-notices).
+
 Chat Completions uses its own nested function tools, streamed deltas and `finish_reason` markers.
 It bounds replies with `maxTokens`, reports final token usage, and optionally replays plain
 `reasoning_content` under endpoint/model provenance. Truncated replies never release incomplete

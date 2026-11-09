@@ -77,7 +77,8 @@ export class Renderer {
   event(event: EntryEvent): void {
     switch (event.type) {
       case 'usage':
-        // Statistics belong to the live status line, not the conversation transcript.
+      case 'harness_notice':
+        // Telemetry is not conversation output; the status line already uses usage events.
         break;
       case 'text_delta':
         this.#reply(plainTerminalText(event.text));

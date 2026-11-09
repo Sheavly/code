@@ -1,4 +1,5 @@
 import type { StreamEvent } from '../message/message.types.js';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ModelMode } from '@sheavly/protocol/model/model.types';
 
@@ -20,13 +21,12 @@ export type ProviderRequest = {
   mode?: ModelMode | undefined;
   messages: Message[];
   /**
-   * One short line for the model that changes every call (how full its context is). It is not
-   * history: an adapter sends it after the history, as a last user message, so the cached prefix
-   * is unchanged. Never stored in `messages`. It is part of what the call sent, though: an adapter
-   * whose replay state is bound to the request (Anthropic's thinking signatures) must bind it to
-   * the notice too, and not replay it once the notice is gone.
+   * Transient harness data. An adapter formats it with `formatHarnessNotice` and sends it after
+   * history, so the cached prefix is unchanged. Never stored in `messages` or attributed to the
+   * user. Adapters with request-bound replay state (Anthropic's thinking signatures) include the
+   * notice in the reply's prefix and omit replay once that prefix no longer matches.
    */
-  notice?: string | undefined;
+  notice?: HarnessNotice | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };

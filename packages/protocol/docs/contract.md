@@ -29,6 +29,23 @@ other workspace packages out.
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.
 
+## Harness notices
+
+`HarnessNotice` (`@sheavly/protocol/notice/notice.types`) is defined by `harnessNoticeSchema` in
+the same module's validator. A `harness_notice` event carries it before the model call; the loop
+and combined session stream expose the same payload, including session attribution and sequence
+order. It is also named in the generated JSON Schema and OpenAPI documents for non-TypeScript UIs.
+
+The first kind, `context-usage`, carries `context.window` and/or `context.used`. At least one
+count must be known. Used tokens are nonnegative whole numbers; the window is a positive whole
+number within the model contract's bound. Zero usage and usage exceeding capacity are valid.
+
+Notice payloads are structured facts, not model prose, colors, widgets or display directives.
+A UI can show a percentage, a warning, its own visualization, or nothing, without parsing an
+assistant message or importing provider code. Model handling guidance belongs to the core
+formatter, not the wire payload. Adding a notice kind extends this shared schema rather than
+introducing a separate model-only or UI-only shape.
+
 ## What a server accepts and answers
 
 Model-first setup uses `GET /setup/models` (`ModelCatalogResponse`): backend-provided model

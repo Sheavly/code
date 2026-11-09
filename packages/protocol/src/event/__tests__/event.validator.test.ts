@@ -11,6 +11,7 @@ describe('agentEventSchema', () => {
   it('accepts every event kind with its seq', () => {
     const bodies = [
       { type: 'text_delta', text: 'hi' },
+      { type: 'harness_notice', notice: { kind: 'context-usage', context: { used: 100 } } },
       { type: 'reasoning', item: { source: 'openai:gpt', data: { encrypted: 'x' } } },
       { type: 'tool_call_started', ...CALL },
       { type: 'turn_end', turn: 1, stopReason: 'interrupted' },
