@@ -16,4 +16,9 @@ const contextStateSchema = z.union([
 /** Harness-originated data shared by the model and UI, without model instructions or UI styling. */
 export const harnessNoticeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('context-usage'), context: contextStateSchema }),
+  z.object({
+    kind: z.literal('output-continuation'),
+    attempt: z.number().int().positive(),
+    maxAttempts: z.number().int().positive().optional(),
+  }),
 ]);

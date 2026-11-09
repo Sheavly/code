@@ -4,6 +4,34 @@ import { agentEventSchema, entryEventSchema } from '../../event/event.validator.
 import { contractJsonSchema } from '../../contract/contract.utils.js';
 
 describe('harness notices on the wire', () => {
+  it('still reads continuation events in previously stored streams', () => {
+    const event = { type: 'output_continuation', seq: 0, attempt: 1, maxAttempts: 2 };
+
+    expect(entryEventSchema.parse(event)).toEqual(event);
+  });
+
+  it.each([
+    { kind: 'output-continuation', attempt: 1 },
+    { kind: 'output-continuation', attempt: 2, maxAttempts: 5 },
+  ])('preserves structured recovery data in %j for every UI', (notice) => {
+    const event = { type: 'harness_notice', seq: 0, notice };
+
+    expect(harnessNoticeSchema.parse(notice)).toEqual(notice);
+    expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+  });
+
+  it.each([
+    { attempt: 0 },
+    { attempt: -1 },
+    { attempt: 1.5 },
+    { attempt: 1, maxAttempts: 0 },
+    { attempt: 1, maxAttempts: Infinity },
+  ])('rejects invalid recovery data in %j', (data) => {
+    expect(harnessNoticeSchema.safeParse({ kind: 'output-continuation', ...data }).success).toBe(
+      false,
+    );
+  });
+
   it.each([
     { window: 1_000_000 },
     { used: 0 },

@@ -19,28 +19,28 @@ routes. Optional `ModelIdentity` metadata keeps the chosen model separate from i
 display name and adapter definition. Legacy model files without it remain valid. Catalogue values
 belong to the backend app; this package defines and validates only their wire shapes.
 
-| Module               | What it holds                                                                     |
-| -------------------- | --------------------------------------------------------------------------------- |
-| `event/`             | The loop's `AgentEvent`s and the `ToolArtifact` they carry                        |
-| `session/`           | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream                           |
-| `stream/`            | `StreamEntry`: every session's events and updates, in one order                   |
-| `approval/`          | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`                           |
-| `task/`              | Background task states                                                            |
-| `message/`           | The conversation history, and the `PromptPart`s a user typed                      |
-| `skill/`             | `SkillInfo`: a skill as a UI lists it                                             |
-| `server/`            | The server's requests, responses and `ServerError` codes                          |
-| `store/`             | `StoredConversation`: a past conversation as the store lists it                   |
-| `model/`             | A model's id, name and file, `AdapterDescription`, and the `KeyCheck` result      |
-| `setup/`             | `GET /setup` and the profile, model and credential requests of a setup UI         |
-| `id/`                | `lowercaseUuidSchema`: the shape of every id a file or folder is named by         |
-| `profile/`           | A profile's identity and model preferences                                        |
-| `terminal-settings/` | Global terminal preferences, shared by every profile                              |
-| `usage/`             | Reported per-call token usage, recorded cost estimates and cumulative totals      |
-| `notice/`            | `HarnessNotice`: shared model and UI telemetry carried by `harness_notice` events |
-| `permission/`        | A folder's command permissions: its mode and the commands the user allowed        |
-| `time/`              | `timestampSchema`: when something happened, in milliseconds since the epoch       |
-| `api/`               | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument`      |
-| `contract/`          | `contract.schema.json`, generated from the schemas                                |
+| Module               | What it holds                                                                |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `event/`             | The loop's `AgentEvent`s and the `ToolArtifact` they carry                   |
+| `session/`           | `SessionRef`, `SessionInfo`, the `SessionUpdate` stream                      |
+| `stream/`            | `StreamEntry`: every session's events and updates, in one order              |
+| `approval/`          | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`                      |
+| `task/`              | Background task states                                                       |
+| `message/`           | The conversation history, and the `PromptPart`s a user typed                 |
+| `skill/`             | `SkillInfo`: a skill as a UI lists it                                        |
+| `server/`            | The server's requests, responses and `ServerError` codes                     |
+| `store/`             | `StoredConversation`: a past conversation as the store lists it              |
+| `model/`             | A model's id, name and file, `AdapterDescription`, and the `KeyCheck` result |
+| `setup/`             | `GET /setup` and the profile, model and credential requests of a setup UI    |
+| `id/`                | `lowercaseUuidSchema`: the shape of every id a file or folder is named by    |
+| `profile/`           | A profile's identity and model preferences                                   |
+| `terminal-settings/` | Global terminal preferences, shared by every profile                         |
+| `usage/`             | Reported per-call token usage, recorded cost estimates and cumulative totals |
+| `notice/`            | `HarnessNotice`: model and UI data carried by `harness_notice` events        |
+| `permission/`        | A folder's command permissions: its mode and the commands the user allowed   |
+| `time/`              | `timestampSchema`: when something happened, in milliseconds since the epoch  |
+| `api/`               | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument` |
+| `contract/`          | `contract.schema.json`, generated from the schemas                           |
 
 Conversation details keep `contextUsage` separate from cumulative `usage`: the latest main-session
 measurement (`used`), active window (`window`) and snapshot position (`throughSeq`). Unknown
