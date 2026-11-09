@@ -33,6 +33,24 @@ The backend explicitly passes `web_fetch` to sub-agents when enabled. The same t
 shares the host's limits and domain policy, but each call has its own request and cancellation.
 See [web fetch](../../../packages/tools/docs/web-fetch.md) for address rules and defaults.
 
+**Summaries.** Unless `SUMMARY=false`, the main run and every sub-agent summarize their history
+when the context nears the window (`backendSummary`, `harness/summary.helper.ts`). The model the
+conversation is on writes the sections it is asked for (`modelSummarizer`, `@sheavly/summary`),
+and rules keep the user's own words and a trail of the files and commands the work touched
+(`fileTrail`, `@sheavly/coding`). The main run's summarizer uses the model switch, so a switch
+changes who writes the next summary; a sub-agent's uses its pinned model. A sub-agent's first
+message is the task its parent agent wrote, so its checkpoint lists it under "Task from the parent
+agent", never "What the user asked for" (`subAgentSummary`). A trail line is left out when its
+call's result was an error.
+
+Summaries are on by default, so a long history, tool inputs and results included, is sent to the
+model that writes the summary: the same provider the conversation already uses, in an extra call.
+Credential forms are redacted first, and again in what the model writes (`redactDiagnosticText`,
+a pattern match that misses unfamiliar forms). `SUMMARY=false` sends nothing extra. Thresholds are
+the loop's defaults; the
+[loop doc](../../../packages/loop/docs/run.md#summaries) says how a checkpoint is made and
+rejected.
+
 AGENTS.md and skill-list updates are appended as instruction context, not substituted into the
 system prompt. Earlier messages remain unchanged, keeping Claude's signed reasoning valid.
 

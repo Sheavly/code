@@ -4,8 +4,9 @@ How a long history gets a summary in Sheavly. The evidence behind each choice is
 [research](README.md). Built (#14): the `summary` role and its three events, `formatCheckpoint`,
 the view, the policy and the loop engine (`summary` option, [run](../../packages/loop/docs/run.md#summaries)),
 and the built-in summarizers in `@sheavly/summary` ([sections](../../packages/summary/docs/sections.md)).
-Still a design: the hide step, `beforeSummary`/`afterSummary`, the backend setting and a manual
-request. The numbers are rough starting points to be checked with the workbook, not tuned values.
+The backend turns it on by default (`SUMMARY`, [serve](../../apps/backend/docs/serve.md)), for the
+main run and sub-agents, with the file trail from `@sheavly/coding`. Still a design: the hide step,
+`beforeSummary`/`afterSummary`, sharing the turn's prompt cache, and a manual request. The numbers are rough starting points to be checked with the workbook, not tuned values.
 
 ## What it is
 
