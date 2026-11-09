@@ -47,6 +47,25 @@ describe('a session’s last reported tokens', () => {
     expect(sessions.lastTokens(second.id)).toEqual(tokens(7));
   });
 
+  it('ignores the call that wrote a summary: its tokens are not the conversation’s context', () => {
+    const sessions = new SessionRegistry();
+    const main = sessions.startMain({ title: 'Chat' });
+    const summary: AgentEvent = {
+      seq: 0,
+      type: 'usage',
+      usage: { tokens: tokens(9_000), purpose: 'summary' },
+    };
+
+    sessions.publish({ sessionId: main.id, event: usage(tokens(250)) });
+    sessions.publish({ sessionId: main.id, event: summary });
+    expect(sessions.lastTokens(main.id)).toEqual(tokens(250));
+
+    // After a checkpoint cleared the count, a late summary event must not bring one back.
+    sessions.forgetLastTokens(main.id);
+    sessions.publish({ sessionId: main.id, event: summary });
+    expect(sessions.lastTokens(main.id)).toBeUndefined();
+  });
+
   it('is cleared by a call that reported none, since the old numbers are stale', () => {
     const sessions = new SessionRegistry();
     const main = sessions.startMain({ title: 'Chat' });
