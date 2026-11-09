@@ -40,6 +40,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         tools: apiTools,
       });
 
+      const sent = withNotice({ messages: apiMessages, notice });
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,
@@ -57,7 +58,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: withNotice({ messages: apiMessages, notice }),
+            messages: sent,
             ...(tools.length > 0 && {
               tools: apiTools,
             }),
@@ -72,12 +73,14 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         },
       });
 
-      // sendRequest guarantees a body for a started stream. The prefix is over the history only:
-      // the notice is gone next turn, so a prefix that included it could never match on replay.
+      // sendRequest guarantees a body for a started stream. The API binds a thinking signature to
+      // everything sent before it, the notice included, and refuses it (400) once that content is
+      // missing. The notice is gone next turn, so the prefix covers what was sent: it then no
+      // longer matches, and the thinking is dropped instead of replayed.
       yield* readMessagesReply({
         body: response.body as ReadableStream<Uint8Array>,
         reasoningSource,
-        prefix: messagesPrefix({ instructions, tools: apiTools, messages: apiMessages }),
+        prefix: messagesPrefix({ instructions, tools: apiTools, messages: sent }),
         signal,
       });
     },

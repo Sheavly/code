@@ -46,7 +46,7 @@ export function toMessagesApiMessages(params: {
 /**
  * The messages to send: `messages` plus the notice as text in the last user message (the API
  * wants roles to alternate, and the last one is a user's after a prompt or tool results), or as a
- * user message of its own. A copy: `messages` stays the history the reply's prefix is made of.
+ * user message of its own. A copy: `messages` is left as it was.
  */
 export function withNotice(params: {
   messages: MessagesApiMessage[];

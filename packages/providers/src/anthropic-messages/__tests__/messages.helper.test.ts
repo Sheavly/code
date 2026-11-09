@@ -260,8 +260,9 @@ describe('createMessagesProvider', () => {
     ]);
   });
 
-  it('still replays signed thinking from a reply made while a notice was sent', async () => {
-    // The notice is gone from the next request, so it must not be part of what the signature binds.
+  it('drops, not replays, signed thinking from a reply made while a notice was sent', async () => {
+    // The API binds the signature to the notice too, and the next request no longer has it: a
+    // replay would be refused with a 400, so the thinking is left out and the rest is kept.
     const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
     const thinker = provider({ fetch, thinkingMode: 'adaptive' });
     const events = await collect(
@@ -288,8 +289,7 @@ describe('createMessagesProvider', () => {
       content: { type: string; text?: string }[];
     }[];
 
-    // The signed block survived: the first request's notice is not what its signature binds.
-    expect(assistant?.content.map((block) => block.type)).toEqual(['thinking', 'tool_use']);
+    expect(assistant?.content.map((block) => block.type)).toEqual(['tool_use']);
     expect(results?.content.map((block) => block.text ?? block.type)).toEqual([
       'tool_result',
       'Context: 2,000 of 5,000 (40%)',
