@@ -150,7 +150,9 @@ describe('a conversation', () => {
     await collect(conversation.send('hi'));
     await collect(conversation.send('again'));
 
-    expect(conversation.messages.filter((m) => m.content === 'house rules')).toHaveLength(1);
+    expect(
+      conversation.messages.filter((m) => m.role !== 'summary' && m.content === 'house rules'),
+    ).toHaveLength(1);
   });
 
   it('reports a background task from one prompt in the next', async () => {

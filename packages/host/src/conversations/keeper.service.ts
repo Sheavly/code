@@ -2,7 +2,7 @@ import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { toStoreError } from '@sheavly/core/store/store.utils';
 import type { StoreError } from '@sheavly/core/errors/store.errors';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
@@ -41,7 +41,7 @@ export class ConversationKeeper {
   }
 
   /** The history as it is now: whole, replacing the one stored. */
-  keepHistory(messages: readonly Message[]): void {
+  keepHistory(messages: readonly HistoryMessage[]): void {
     this.#queue(async () => {
       await this.#store.writeMessages({ id: this.#id, messages });
       await this.#touchIndex({});

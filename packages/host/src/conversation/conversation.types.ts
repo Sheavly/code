@@ -4,7 +4,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Harness } from '../host/host.types.js';
 
 /**
@@ -15,7 +15,7 @@ export type RunPrompt = (options: {
   provider: Provider;
   tools: Tool[];
   hooks: Hook[];
-  messages: Message[];
+  messages: HistoryMessage[];
   signal: AbortSignal;
   tasks: TaskRegistry;
   session: RunSession;
@@ -43,7 +43,7 @@ export type ConversationOptions = {
    * The history to continue from (default: none), e.g. a conversation saved earlier: its first
    * prompt runs on it, in this harness's new session.
    */
-  messages?: Message[];
+  messages?: HistoryMessage[];
   /**
    * Starts as a conversation whose session already ran: its first prompt resumes the main
    * session instead of starting it (a reopened conversation, whose `sessionStart` hooks already
@@ -55,7 +55,7 @@ export type ConversationOptions = {
    * ends or fails (the history as it is now). It must not throw or wait: a caller that keeps the
    * history somewhere queues the write and reports a failure its own way.
    */
-  keepHistory?: (messages: readonly Message[]) => void;
+  keepHistory?: (messages: readonly HistoryMessage[]) => void;
 };
 
 /**
@@ -74,7 +74,7 @@ export type Conversation = {
     options?: { signal?: AbortSignal; parts?: PromptPart[] | undefined },
   ) => AsyncIterable<AgentEvent>;
   /** The history so far: every finished prompt's, valid to continue from. */
-  readonly messages: readonly Message[];
+  readonly messages: readonly HistoryMessage[];
   /** Whether a prompt is running now. */
   readonly running: boolean;
   /**

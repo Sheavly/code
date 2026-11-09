@@ -197,7 +197,9 @@ describe('message_agent: steering a running sub-agent', () => {
     taskDone.open();
     const { messages } = await done;
 
-    expect(messages.some((m) => m.content === 'Got it: puppies.')).toBe(true);
+    expect(messages.some((m) => m.role !== 'summary' && m.content === 'Got it: puppies.')).toBe(
+      true,
+    );
   });
 
   it('a message arriving during the last turn gets one more turn instead of ending the run', async () => {
@@ -228,7 +230,12 @@ describe('message_agent: steering a running sub-agent', () => {
 
     expect(reason).toBe('completed');
     expect(seen.get('Start')).toHaveLength(2);
-    expect(messages.map((m) => m.content)).toEqual(['Start', 'first', 'one more thing', 'second']);
+    expect(messages.flatMap((m) => (m.role === 'summary' ? [] : [m.content]))).toEqual([
+      'Start',
+      'first',
+      'one more thing',
+      'second',
+    ]);
   });
 
   it('refuses to message a session the caller did not start', async () => {

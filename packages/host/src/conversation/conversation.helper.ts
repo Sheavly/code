@@ -4,7 +4,12 @@ import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, MessageId, PromptPart } from '@sheavly/protocol/message/message.types';
+import type {
+  HistoryMessage,
+  Message,
+  MessageId,
+  PromptPart,
+} from '@sheavly/protocol/message/message.types';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**
@@ -20,7 +25,7 @@ export function createConversation(options: ConversationOptions): Conversation {
   const { sessions, mainSession, tasks, provider } = harness;
   /** Stops the running prompt when the conversation closes. */
   const closing = new AbortController();
-  let messages: Message[] = [...(options.messages ?? [])];
+  let messages: HistoryMessage[] = [...(options.messages ?? [])];
   let running = false;
   let started = options.resumed ?? false;
   /** Set by the first close(): the cleanup every close() call waits for. */

@@ -65,7 +65,11 @@ describe('Conversations with a store', () => {
     expect(await conversations.listStored()).toMatchObject([
       { id, title: 'Chat', modelId: FAST_ID, status: 'open' },
     ]);
-    expect((await store.readMessages(id)).map((m) => [m.role, m.content])).toEqual([
+    expect(
+      (await store.readMessages(id)).flatMap((m) =>
+        m.role === 'summary' ? [] : [[m.role, m.content]],
+      ),
+    ).toEqual([
       ['user', 'hi'],
       ['assistant', 'hello'],
     ]);
@@ -119,12 +123,9 @@ describe('Conversations with a store', () => {
 
     // The model saw what came before, then the new prompt.
     expect(second.sent[0]?.map((m) => m.content)).toEqual(['first', 'one', 'second']);
-    expect((await store.readMessages(id)).map((m) => m.content)).toEqual([
-      'first',
-      'one',
-      'second',
-      'two',
-    ]);
+    expect(
+      (await store.readMessages(id)).flatMap((m) => (m.role === 'summary' ? [] : [m.content])),
+    ).toEqual(['first', 'one', 'second', 'two']);
     expect(await second.conversations.listStored()).toMatchObject([{ id, status: 'open' }]);
   });
 

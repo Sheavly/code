@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { INTERRUPTED_CALL } from '../conversations.constants.js';
 import { repairHistory } from '../conversations.utils.js';
@@ -32,7 +32,7 @@ const placeholder = (id: typeof c1): Message => ({
 });
 
 /** The roles and ids of a history, to read an order at a glance. */
-const shape = (messages: readonly Message[]) =>
+const shape = (messages: readonly HistoryMessage[]) =>
   messages.map((m) => (m.role === 'tool' ? `tool:${m.toolCallId}` : m.role));
 
 describe('repairHistory', () => {
