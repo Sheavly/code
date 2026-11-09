@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { modelFileSchema } from '../model.validator.js';
-import { fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
+import { contextWindowLabel, fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
 import {
-  CONTEXT_WINDOW_LABELS,
-  CONTEXT_WINDOW_SIZES,
+  CONTEXT_WINDOW_CHOICES,
   DEFAULT_CONTEXT_WINDOW,
   RESERVED_MODEL_FIELDS,
 } from '../model.constants.js';
@@ -68,21 +67,33 @@ describe('toModel', () => {
     expect(toModel(read(toModelFile(model)))).toEqual(model);
   });
 
-  it('offers 300K and 1M only, each with a label, and 300K when a model sets none', () => {
-    expect(CONTEXT_WINDOW_SIZES.map((size) => CONTEXT_WINDOW_LABELS[size])).toEqual(['300K', '1M']);
+  it('offers 300K and 1M to pick from, with 300K as the default a model gets when it sets none', () => {
+    expect(CONTEXT_WINDOW_CHOICES).toEqual([
+      { size: 300_000, label: '300K' },
+      { size: 1_000_000, label: '1M' },
+    ]);
     expect(DEFAULT_CONTEXT_WINDOW).toBe(300_000);
+  });
 
-    for (const contextWindow of CONTEXT_WINDOW_SIZES) {
-      expect(read({ id: ID, name: 'M', adapter: 'openai', contextWindow }).contextWindow).toBe(
-        contextWindow,
-      );
+  it('takes any positive whole size, so a model can have a different one, and nothing else', () => {
+    for (const contextWindow of [128_000, 272_000, 1_050_000]) {
+      const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
+
+      expect(read(file).contextWindow).toBe(contextWindow);
     }
 
-    for (const contextWindow of [0, 272_000, 1_050_000, 1_000_000.5, '1M']) {
+    for (const contextWindow of [0, -1, 1.5, Infinity, '1M']) {
       const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
 
       expect(modelFileSchema.safeParse(file).success).toBe(false);
     }
+  });
+
+  it('labels the offered sizes "300K" and "1M", and any other by its exact count', () => {
+    expect(contextWindowLabel(300_000)).toBe('300K');
+    expect(contextWindowLabel(1_000_000)).toBe('1M');
+    expect(contextWindowLabel(128_000)).toBe('128,000 tokens');
+    expect(contextWindowLabel(1_050_000)).toBe('1,050,000 tokens');
   });
 
   it('does not promote a context window from adapter configuration', () => {

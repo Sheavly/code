@@ -1,3 +1,4 @@
+import { CONTEXT_WINDOW_CHOICES } from './model.constants.js';
 import type { Model, ModelFile } from './model.types.js';
 
 /**
@@ -39,6 +40,17 @@ export function toModelFile(model: Model): ModelFile {
     ...(model.identity && { identity: model.identity }),
     ...(model.contextWindow && { contextWindow: model.contextWindow }),
   };
+}
+
+/**
+ * What a UI calls a context size: "300K" or "1M" for the sizes it offers, and the exact count for
+ * any other a model was given ("128,000 tokens"), so that size is never shown as something it
+ * isn't.
+ */
+export function contextWindowLabel(size: number): string {
+  const choice = CONTEXT_WINDOW_CHOICES.find((candidate) => candidate.size === size);
+
+  return choice ? choice.label : `${size.toLocaleString('en-US')} tokens`;
 }
 
 /**
