@@ -116,10 +116,14 @@ Modes do not change context size, tool permissions or the output-token limit.
   reads and edits by hand, and complete, so it says what it is whatever it is called. `toModel`
   reads it once into a `Model` (`id`, `name`, `adapter`, `definition`), and `toModelFile` writes
   one back. The file never holds a secret: a key lives with the profile's credentials.
-- A model may also carry an optional `contextWindow`, the size of its context in tokens, in the
-  envelope like `pricing`. A `usage` event repeats the window its call ran against
-  (`ModelUsage.contextWindow`), so a UI can show usage against it without looking the model up. Both
-  are left out when unknown.
+- A model may also carry an optional `contextWindow`, in the envelope like `pricing`: how large a
+  context the agent is told it has, so a person can choose it for cost. It is one of
+  `CONTEXT_WINDOW_SIZES`, 300,000 or 1,000,000 tokens (`CONTEXT_WINDOW_LABELS`: "300K" and "1M"), a
+  rounded size and not any provider's exact window; any other value is refused. A model that sets
+  none is told `DEFAULT_CONTEXT_WINDOW` (300K). The setting only says what the agent is told: it
+  doesn't limit what the provider accepts. A `usage` event repeats the window its call ran against
+  (`ModelUsage.contextWindow`, any positive size), so a UI can show usage against it without
+  looking the model up.
 - `AdapterDescription` is what `GET /adapters` says about an adapter: its kind, a description,
   the fields a model of it takes as JSON Schema (a field a person must keep secret carries
   `secret: true`), and the names of the secret fields. A UI builds its form from it, and needs no

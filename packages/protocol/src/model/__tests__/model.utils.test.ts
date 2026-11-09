@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { modelFileSchema } from '../model.validator.js';
 import { fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
-import { RESERVED_MODEL_FIELDS } from '../model.constants.js';
+import {
+  CONTEXT_WINDOW_LABELS,
+  CONTEXT_WINDOW_SIZES,
+  DEFAULT_CONTEXT_WINDOW,
+  RESERVED_MODEL_FIELDS,
+} from '../model.constants.js';
 
 const ID = '0b6c2f1e-3a4d-4c8e-9f10-7a2b5d6e8c01';
 const OTHER = '9d3e7a52-1c46-4b0f-8e21-5f6a7b8c9d02';
@@ -61,6 +66,23 @@ describe('toModel', () => {
     expect(model.contextWindow).toBe(1_000_000);
     expect(model.definition).toEqual({});
     expect(toModel(read(toModelFile(model)))).toEqual(model);
+  });
+
+  it('offers 300K and 1M only, each with a label, and 300K when a model sets none', () => {
+    expect(CONTEXT_WINDOW_SIZES.map((size) => CONTEXT_WINDOW_LABELS[size])).toEqual(['300K', '1M']);
+    expect(DEFAULT_CONTEXT_WINDOW).toBe(300_000);
+
+    for (const contextWindow of CONTEXT_WINDOW_SIZES) {
+      expect(read({ id: ID, name: 'M', adapter: 'openai', contextWindow }).contextWindow).toBe(
+        contextWindow,
+      );
+    }
+
+    for (const contextWindow of [0, 272_000, 1_050_000, 1_000_000.5, '1M']) {
+      const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
+
+      expect(modelFileSchema.safeParse(file).success).toBe(false);
+    }
   });
 
   it('does not promote a context window from adapter configuration', () => {

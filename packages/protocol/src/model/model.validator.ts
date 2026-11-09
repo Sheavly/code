@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
+import { CONTEXT_WINDOW_SIZES } from './model.constants.js';
 
 /**
  * A model's id: a UUID in lowercase, the stem of its file (`models/<id>.json`), and what a request,
@@ -40,6 +41,9 @@ export const modelPricingSchema = z.object({
 /** How many tokens a model's context holds: the prompt and the reply together. */
 export const contextWindowSchema = z.number().int().positive();
 
+/** What a model can be set to: one of `CONTEXT_WINDOW_SIZES`. A call's usage may carry any window. */
+export const contextWindowSizeSchema = z.literal(CONTEXT_WINDOW_SIZES);
+
 /**
  * A model as its file holds it: everything about it but its secret, in the file itself, so the
  * file says what it is whatever it is called. Its `id` is its file's stem, its `name` is for
@@ -54,8 +58,8 @@ export const modelFileSchema = z.looseObject({
   adapter: adapterKindSchema,
   pricing: modelPricingSchema.exactOptional(),
   identity: modelIdentitySchema.exactOptional(),
-  /** What the agent is told its window is. Left out, the host's default applies. */
-  contextWindow: contextWindowSchema.exactOptional(),
+  /** What the agent is told its window is. Left out, `DEFAULT_CONTEXT_WINDOW` applies. */
+  contextWindow: contextWindowSizeSchema.exactOptional(),
 });
 
 /** A model as the API lists it: its file read once. */
@@ -65,7 +69,7 @@ export const modelSchema = z.object({
   adapter: adapterKindSchema,
   pricing: modelPricingSchema.exactOptional(),
   identity: modelIdentitySchema.exactOptional(),
-  contextWindow: contextWindowSchema.exactOptional(),
+  contextWindow: contextWindowSizeSchema.exactOptional(),
   /** The adapter's own fields, as the file holds them. */
   definition: z.record(z.string(), z.unknown()),
 });
