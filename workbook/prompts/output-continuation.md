@@ -1,10 +1,12 @@
 ---
-description: Smoke check of model calls and tool-result replay with output-limit recovery enabled
+description: Smoke check of model calls and tool-result replay with silent harness notices
 maxTurns: 4
 check:
   {
     'areas':
       [
+        'packages/core/src/notice',
+        'packages/protocol/src/notice',
         'packages/loop/src/stream-agent',
         'packages/providers/src/anthropic-messages',
         'packages/providers/src/azure/anthropic.adapter.ts',
@@ -13,6 +15,7 @@ check:
       ],
     'expect':
       { 'outcome': 'completed', 'reply': ['output-check-complete'], 'tools': ['run_command'] },
+    'forbid': { 'transcript': ['harness-notice', 'output continuation', 'output-token limit'] },
   }
 ---
 
