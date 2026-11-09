@@ -108,7 +108,7 @@ async function finishTurn(params: {
   if (running.length > 0) return undefined;
 
   // The model is done. A message that came in meanwhile gets another turn, as does a finished
-  // background task (or a message) while waiting, with `waitForTasks`; otherwise the run ends.
+  // required background task (or any task with `waitForTasks`); otherwise the run ends.
   if (session.registry.hasMessages(session.ref.id)) return undefined;
 
   if (await awaitTask({ options, session, aborted })) return undefined;
@@ -173,8 +173,8 @@ async function releaseResults(params: {
 }
 
 /**
- * With `waitForTasks`: true once a finished task or a new message is ready (waiting for one if
- * needed). False if there's nothing to wait for, or the run was aborted while waiting.
+ * Required tasks always keep the run alive; waitForTasks also includes ordinary background work.
+ * False if there's nothing left to wait for, or the run was aborted while waiting.
  */
 async function awaitTask(params: {
   options: AgentOptions;
@@ -185,10 +185,10 @@ async function awaitTask(params: {
   const { tasks, waitForTasks } = options;
   const { registry, ref } = session;
 
-  if (!waitForTasks || !tasks) return false;
+  if (!tasks || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
 
   while (!tasks.hasUnreported && !registry.hasMessages(ref.id)) {
-    if (tasks.runningCount === 0) return false;
+    if (tasks.runningCount === 0 || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
     const woken = await Promise.race([
       tasks.nextSettled().then(() => true),
       registry.nextMessage(ref.id).then(() => true),

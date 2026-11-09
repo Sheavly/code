@@ -28,7 +28,8 @@ export type AgentOptions = {
   tasks?: TaskRegistry;
   /**
    * When the model is done but background tasks are still running, wait for the next one to
-   * finish and give the model another turn (instead of ending the run). Abort to stop waiting.
+   * finish and give the model another turn (instead of ending the run). Required task completions
+   * always keep the run alive, even without this option. Abort to stop waiting.
    */
   waitForTasks?: boolean;
   /**
