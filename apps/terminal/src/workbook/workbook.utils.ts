@@ -135,6 +135,12 @@ export function describeEvent(event: EntryEvent): string {
       return `${head}  ${event.hook}: ${oneLine({ text: event.content, max: 80 })}`;
     case 'model_input_changed':
       return `${head}  ${event.hook}: +${event.added} −${event.removed} ~${event.edited} messages`;
+    case 'summary_started':
+      return `${head}  ${event.reason} · ${event.tokensBefore} tokens`;
+    case 'summary_done':
+      return `${head}  ${event.tokensBefore} → ${event.tokensAfter} tokens · ${firstLine(event.summarizer)}`;
+    case 'summary_failed':
+      return `${head}  ${event.reason}: ${firstLine(event.error)}`;
     case 'hook_failed':
       return `${head}  ${event.hook}.${event.handler}: ${firstLine(event.error)}`;
     case 'turn_end':

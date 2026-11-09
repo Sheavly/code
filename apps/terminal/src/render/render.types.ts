@@ -63,6 +63,9 @@ export type Look = {
     removed: number;
     edited: number;
   }) => string;
+  summaryStarted: () => string;
+  summaryDone: (params: { tokensBefore: number; tokensAfter: number }) => string;
+  summaryFailed: (error: string) => string;
   runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   turnEnd: (params: {

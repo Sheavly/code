@@ -140,6 +140,20 @@ export class Renderer {
           }),
         );
         break;
+      case 'summary_started':
+        this.#activity(this.look.summaryStarted());
+        break;
+      case 'summary_done':
+        this.#activity(
+          this.look.summaryDone({
+            tokensBefore: event.tokensBefore,
+            tokensAfter: event.tokensAfter,
+          }),
+        );
+        break;
+      case 'summary_failed':
+        this.#activity(this.look.summaryFailed(firstLine(event.error)));
+        break;
       case 'run_failed':
         this.clearRunning();
         this.#activity(this.look.runFailed(plainTerminalText(event.error)));
