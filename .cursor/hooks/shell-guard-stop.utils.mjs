@@ -6,6 +6,7 @@ import { filesOtherChatsEdited } from './chat-files.utils.mjs';
 import { DENIED_CASES } from './shell-guard-cases.utils.mjs';
 import { findShellViolation } from './shell-guard.utils.mjs';
 import { isSanctionedWriter } from './shell-writes.utils.mjs';
+import { commandsInCheckout } from './shell-checkout.utils.mjs';
 
 const CASES_FILE = '.cursor/hooks/shell-guard-cases.utils.mjs';
 
@@ -63,7 +64,11 @@ export async function shellGuardFailure(params) {
       return filesOtherChatsEdited({ exclude: [chat ?? conversationId], since });
     },
   } = params;
-  const lines = describeUnlearned({ unguardedCommands, projectRoot, othersEditedSince });
+  const lines = describeUnlearned({
+    unguardedCommands: commandsInCheckout({ commands: unguardedCommands, projectRoot }),
+    projectRoot,
+    othersEditedSince,
+  });
   const removed = ((await committedDeniedCases(projectRoot)) ?? []).filter(
     (command) => !DENIED_CASES.includes(command),
   );
