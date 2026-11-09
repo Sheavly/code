@@ -40,7 +40,7 @@ export type ContextState = {
 /** What `beforeTurn` receives, just before the model is called. */
 export type BeforeTurnContext = ContextAccess & {
   turn: number;
-  /** The window and how much of it the last call used (a snapshot), e.g. to decide to compact. */
+  /** The window and how much of it the last call used (a snapshot), e.g. to decide to summarize. */
   context: ContextState;
   /**
    * Adds system instructions for this turn's model call only (not history): call it every turn

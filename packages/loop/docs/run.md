@@ -9,15 +9,17 @@ What `streamAgent` does from start to end, how it runs hooks, and how a session'
 1. `sessionStart` hooks run (they may add context).
 2. Each turn: finished background tasks are reported, messages sent to the session meanwhile
    (steering) are added, `beforeTurn` hooks run (they may add
-   context and this turn's system instructions), then the model is called. Text and reasoning
-   stream out as they arrive.
+   context and this turn's system instructions), `beforeModelCall` hooks run (they may replace
+   the messages this one call sends), then the model is called. Text and reasoning stream out as
+   they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
    Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
    A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
    after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model
    called tools, the next turn starts. Without either, the run ends (or waits for a background
-   task, with `waitForTasks`).
+   task). Tasks marked `waitForCompletion`, including sub-agents, always keep the run alive until
+   their results are delivered. `waitForTasks` also waits for ordinary background tasks.
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
@@ -46,7 +48,7 @@ results stay in history. A new user instruction asks the model to finish without
 system instructions are not changed and completed tools are not rerun by the loop.
 `output_continuation` says which attempt is starting. Exhausting the allowance ends with
 `max_tokens`, not `completed`. Context exhaustion ends with `context_window_exceeded` without
-retrying: a larger output budget cannot repair a full context window. The loop does not compact
+retrying: a larger output budget cannot repair a full context window. The loop does not summarize
 history or discard messages automatically.
 
 ## Context usage
@@ -64,8 +66,8 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
   that thinking is not replayed on the next turn (see the provider contract). It shrinks to what
   is known: the window alone before any usage is known, the used tokens alone when the window is
   unknown, nothing when neither is.
-- **Hooks** get the same numbers as `beforeTurn`'s `context` (`window`, `used`), so compaction
-  decides from what the agent sees.
+- **Hooks** get the same numbers as `beforeTurn`'s and `beforeModelCall`'s `context` (`window`,
+  `used`), so a hook that hides old output decides from what the agent sees.
 - **A UI** gets the window on the call's `usage` event (`usage.contextWindow`) next to its tokens,
   emitted after the turn's stream and before `turn_end`. The harness renders nothing itself: the
   line is for the model, and a UI shows usage however it likes from the event.
@@ -84,6 +86,17 @@ the next call reports its own.
   The result is `{ content, isError, artifacts? }`: `content` goes into history, `artifacts`
   (what the tool returned for a UI, see [artifacts](../../core/docs/tools.md#artifacts)) go only onto the
   `tool_result` event, so a hook can drop, replace or add some without the model seeing them.
+- `beforeModelCall` hooks chain: each gets a deep copy of the previous result, and the last result
+  is what the model call sends. The run's stored history is not that array and is never changed
+  by it; the turn goes on appending the reply and tool results to the history. Each result is
+  parsed as a list of messages and goes through `assertValidHistory` (`history/`), so something
+  that is not messages, a broken pairing, an empty list, or a dropped or changed latest user
+  message fails the run with an `InvalidHistoryError` naming the hook, before any model call. A
+  hook that returns its input unchanged is not checked. An abort while a hook runs ends the run
+  `interrupted`. A hook whose result added, dropped or edited messages emits
+  `model_input_changed` (`{ hook, turn, added, removed, edited }`) through the ordered queue,
+  after the turn's `context_added` events and before the model streams. A hook that returns what
+  it was given emits nothing.
 - A handler that throws fails the run, except `aroundToolCall` (the call gets an error result)
   and `onError`: its failure doesn't stop the other `onError` handlers or replace the run's
   error, but it is reported as a `hook_failed` event (`{ hook, handler, error }`, from a
