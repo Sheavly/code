@@ -1,36 +1,38 @@
 import {
-  CONTEXT_WINDOW_LABELS,
-  CONTEXT_WINDOW_SIZES,
+  CONTEXT_WINDOW_CHOICES,
   DEFAULT_CONTEXT_WINDOW,
 } from '@sheavly/protocol/model/model.constants';
-import type { AdapterDescription, ContextWindowSize } from '@sheavly/protocol/model/model.types';
+import type { AdapterDescription } from '@sheavly/protocol/model/model.types';
+import { contextWindowLabel } from '@sheavly/protocol/model/model.utils';
 import { SetupError } from '../errors/setup.errors.js';
 import { fieldProblem, parseAdapterForm, parseFieldValue } from './fields.validator.js';
 import type { SetupField, SetupUi } from './setup.types.js';
 import { fieldText } from './setup.utils.js';
 
 /**
- * Which context size the agent is told, from the sizes the protocol offers, by their labels. It
- * starts on the model's current size, or the default. The size is only what the agent paces
- * itself by, so the question says that a smaller one costs less and limits nothing.
+ * Which context size the agent is told: "300K" or "1M", starting on the model's current size, or
+ * the default. A model given another size by hand or by its host keeps it as an item of its own,
+ * labelled by its exact count, so it is shown for what it is and an edit never changes it unseen.
+ * The size is only what the agent paces itself by, so the question says that a smaller one costs
+ * less and limits nothing.
  */
 export async function askContextWindow(params: {
   ui: SetupUi;
-  current: ContextWindowSize | undefined;
-}): Promise<ContextWindowSize> {
+  current: number | undefined;
+}): Promise<number> {
   const { ui, current } = params;
+  const offered: number[] = CONTEXT_WINDOW_CHOICES.map(({ size }) => size);
+  const own = current === undefined || offered.includes(current) ? [] : [current];
+  const sizes = [...own, ...offered];
   const picked = await ui.choose({
     title:
       'Context size\nHow much context the agent is told it has. It paces itself by it, so a smaller size costs less. It does not limit what the provider accepts.',
-    items: CONTEXT_WINDOW_SIZES.map((size) => ({
-      value: String(size),
-      label: CONTEXT_WINDOW_LABELS[size],
-    })),
+    items: sizes.map((size) => ({ value: String(size), label: contextWindowLabel(size) })),
     initial: String(current ?? DEFAULT_CONTEXT_WINDOW),
   });
-  const size = CONTEXT_WINDOW_SIZES.find((candidate) => String(candidate) === picked);
+  const size = sizes.find((candidate) => String(candidate) === picked);
 
-  if (size === undefined) throw new SetupError(`${picked} is not a context size.`);
+  if (size === undefined) throw new SetupError(`${picked} is not one of the sizes offered.`);
 
   return size;
 }

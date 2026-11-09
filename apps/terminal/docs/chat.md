@@ -88,8 +88,9 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   `output`, `cacheRead` and `cacheWrite` rates per million tokens, through the model API or its JSON
   file. Rates are not fetched automatically and the setup form preserves, but does not edit them.
   The setup form does ask for a model's context size, "300K" or "1M", when a model is added or
-  edited, starting on its current size or 300K. It is what the agent is told it has, for cost, not
-  a limit on the provider (see the backend's model API).
+  edited, starting on its current size or 300K. A model whose size is another (given by its file
+  or host) shows it by its exact count as a third choice, and keeps it unless changed. It is what
+  the agent is told it has, for cost, not a limit on the provider (see the backend's model API).
   At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
 - **A complete approval preview must fit.** If the React footer cannot show the command,
   concerns and permission hints together, confirmation is disabled. Enlarge the terminal to

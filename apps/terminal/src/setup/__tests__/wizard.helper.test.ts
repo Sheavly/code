@@ -151,17 +151,24 @@ describe('terminal setup over the API', () => {
   });
 
   it.each([
-    { picked: '1000000', saved: 1_000_000 },
-    { picked: '300000', saved: 300_000 },
+    { current: 1_000_000, picked: '1000000', saved: 1_000_000, labels: ['300K', '1M'] },
+    { current: 1_000_000, picked: '300000', saved: 300_000, labels: ['300K', '1M'] },
+    // A size a host gave the model is shown by its exact count, and kept unless it is changed.
+    {
+      current: 128_000,
+      picked: '128000',
+      saved: 128_000,
+      labels: ['128,000 tokens', '300K', '1M'],
+    },
   ])(
-    'offers "300K" and "1M" when a model is edited, starts on its size and saves $saved',
-    async ({ picked, saved }) => {
+    'offers "300K" and "1M" when a model is edited, starts on its size $current and saves $saved',
+    async ({ current, picked, saved, labels }) => {
       const backend = fakeSetupBackend();
       const setup = readyWorkProfile();
 
       backend.state.profiles.push({
         ...setup,
-        models: setup.models.map((item) => ({ ...item, contextWindow: 1_000_000 })),
+        models: setup.models.map((item) => ({ ...item, contextWindow: current })),
       });
       const { ui } = setupAnswers({
         // The fake backend forgets the key when a model is rewritten, so the user sets it again.
@@ -184,7 +191,7 @@ describe('terminal setup over the API', () => {
 
       await runSetupWizard({ ...backend, ui, workspace: '/workspace', setup: backend.state });
 
-      expect(asked).toEqual([{ labels: ['300K', '1M'], initial: '1000000' }]);
+      expect(asked).toEqual([{ labels, initial: String(current) }]);
       expect(backend.calls.filter(({ name }) => name === 'putModel')).toMatchObject([
         { call: { body: { contextWindow: saved } } },
       ]);
