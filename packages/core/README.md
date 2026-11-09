@@ -21,7 +21,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 | `tool/`        | `Tool` types, `defineTool`, `runTool`, the call's `description` field                    |
 | `hook/`        | `Hook` and its handlers' contexts, `defineHook`                                          |
 | `provider/`    | `Provider`, `ProviderRequest`, `ToolDefinition`                                          |
-| `notice/`      | `HarnessNotice` and `formatHarnessNotice`: transient model-facing harness telemetry      |
+| `notice/`      | `formatHarnessNotice`: model-facing formatting of shared protocol notices                |
 | `adapter/`     | `Adapter` types and `defineAdapter`, for model backends                                  |
 | `store/`       | `ConversationStore` and `EntryStore` (where past conversations are kept), `toStoreError` |
 | `clock/`       | `now()`: the one place a package reads the time, as epoch milliseconds                   |

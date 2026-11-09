@@ -1,5 +1,5 @@
 import type { StreamEvent } from '../message/message.types.js';
-import type { HarnessNotice } from '../notice/notice.types.js';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ModelMode } from '@sheavly/protocol/model/model.types';
 

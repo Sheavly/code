@@ -1,4 +1,4 @@
-import type { HarnessNotice } from './notice.types.js';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 const count = new Intl.NumberFormat('en-US');
 

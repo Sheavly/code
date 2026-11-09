@@ -21,7 +21,7 @@ API's `instructions` field.
 
 ## Harness notices
 
-`HarnessNotice` (`@sheavly/core/notice/notice.types`) separates transient harness data from user
+`HarnessNotice` (`@sheavly/protocol/notice/notice.types`) separates transient harness data from user
 input and standing instructions. Its first kind, `context-usage`, carries validated context
 counts with at least one of `window` or `used` known. Unknown counts are omitted, not zero.
 
@@ -29,7 +29,9 @@ Providers use `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`) for co
 an explicit `<harness-notice kind="context-usage">` envelope identifies telemetry as not a user
 message or request and tells the model to use it silently unless context limits affect the task.
 The formatter owns this handling policy; callers supply data, not free-form instructions.
-UI status bars render their own usage data, independently of model-facing notices.
+The loop emits the same data as a `harness_notice` event before the model call. UIs receive it
+through the ordinary session stream without provider imports, text parsing or a special route.
+They decide whether and how to render it; model-facing wording and UI presentation stay separate.
 
 `notice` is not history, so an adapter appends the formatted text after it has built the history.
 The API may require a user-role message; the envelope distinguishes its actual origin. Each
