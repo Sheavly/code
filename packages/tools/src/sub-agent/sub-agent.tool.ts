@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
@@ -123,7 +125,11 @@ async function runChild(params: {
         rules: SUB_AGENT_INSTRUCTIONS,
         extra: instructions,
       }),
-      messages: [{ role: 'user', content: task, at: now() }],
+      // An id marks the one message the sub-agent's own work is asked for: the agent that started
+      // it wrote the task, and no one else can message a sub-agent as a user.
+      messages: [
+        { role: 'user', id: messageIdSchema.parse(randomUUID()), content: task, at: now() },
+      ],
       signal,
       tasks: childTasks,
       waitForTasks: true,

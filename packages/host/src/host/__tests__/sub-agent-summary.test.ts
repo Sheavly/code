@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -18,7 +19,7 @@ const summary: SummaryOptions = {
 
 /** Runs a main session that starts a sub-agent, which starts one of its own. */
 async function runNested(options: { summarizeWith?: (provider: Provider) => SummaryOptions }) {
-  const given: (SummaryOptions | undefined)[] = [];
+  const given: { summary: SummaryOptions | undefined; messages: HistoryMessage[] }[] = [];
   const sessions = new SessionRegistry();
   const tasks = new TaskRegistry();
   const provider = routedProvider({
@@ -39,7 +40,7 @@ async function runNested(options: { summarizeWith?: (provider: Provider) => Summ
     tools: [],
     ...options,
     runAgent: (runOptions) => {
-      given.push(runOptions.summary);
+      given.push({ summary: runOptions.summary, messages: runOptions.messages });
 
       return runSession(runOptions);
     },
@@ -57,6 +58,22 @@ async function runNested(options: { summarizeWith?: (provider: Provider) => Summ
   return given;
 }
 
+describe('a sub-agent’s task message', () => {
+  it('carries an id, so the user-messages section counts it as what the work is asked for', async () => {
+    const [outer, inner] = await runNested({});
+    const task = (run: typeof outer) => run?.messages[0];
+
+    expect(task(outer)).toMatchObject({ role: 'user', content: 'Outer' });
+    expect(task(inner)).toMatchObject({ role: 'user', content: 'Inner' });
+
+    for (const run of [outer, inner]) {
+      const message = task(run);
+
+      expect(message?.role === 'user' && message.id).toBeTruthy();
+    }
+  });
+});
+
 describe('sub-agents and summaries', () => {
   it('build each sub-agent run’s summary from the provider that run is on, nested ones included', async () => {
     const builtFor: Provider[] = [];
@@ -68,14 +85,12 @@ describe('sub-agents and summaries', () => {
       },
     });
 
-    expect(given).toHaveLength(2);
-    expect(given[0]).toBe(summary);
-    expect(given[1]).toBe(summary);
+    expect(given.map((run) => run.summary)).toEqual([summary, summary]);
     // One per run, each built from the provider the sub-agent was given.
     expect(builtFor).toHaveLength(2);
   });
 
   it('pass none when the parent gave none', async () => {
-    expect(await runNested({})).toEqual([undefined, undefined]);
+    expect((await runNested({})).map((run) => run.summary)).toEqual([undefined, undefined]);
   });
 });
