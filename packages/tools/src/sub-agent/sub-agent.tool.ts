@@ -94,6 +94,7 @@ async function runChild(params: {
   const childTasks = new TaskRegistry();
   const stopPublishing = childTasks.observe((update) => sessions.publishTask(update));
   const canNest = child.depth < MAX_SESSION_DEPTH;
+  const summary = options.summarizeWith?.(provider);
   const stopListening = sessions.subscribe((update) => {
     if (update.session.id !== child.id) return;
 
@@ -128,6 +129,7 @@ async function runChild(params: {
       waitForTasks: true,
       session: { registry: sessions, ref: child },
       ...(maxTurns !== undefined && { maxTurns }),
+      ...(summary && { summary }),
     });
 
     onOutput(`\n${finalReply(messages)}`);
