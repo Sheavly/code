@@ -1,7 +1,39 @@
-import type { AdapterDescription } from '@sheavly/protocol/model/model.types';
+import {
+  CONTEXT_WINDOW_LABELS,
+  CONTEXT_WINDOW_SIZES,
+  DEFAULT_CONTEXT_WINDOW,
+} from '@sheavly/protocol/model/model.constants';
+import type { AdapterDescription, ContextWindowSize } from '@sheavly/protocol/model/model.types';
+import { SetupError } from '../errors/setup.errors.js';
 import { fieldProblem, parseAdapterForm, parseFieldValue } from './fields.validator.js';
 import type { SetupField, SetupUi } from './setup.types.js';
 import { fieldText } from './setup.utils.js';
+
+/**
+ * Which context size the agent is told, from the sizes the protocol offers, by their labels. It
+ * starts on the model's current size, or the default. The size is only what the agent paces
+ * itself by, so the question says that a smaller one costs less and limits nothing.
+ */
+export async function askContextWindow(params: {
+  ui: SetupUi;
+  current: ContextWindowSize | undefined;
+}): Promise<ContextWindowSize> {
+  const { ui, current } = params;
+  const picked = await ui.choose({
+    title:
+      'Context size\nHow much context the agent is told it has. It paces itself by it, so a smaller size costs less. It does not limit what the provider accepts.',
+    items: CONTEXT_WINDOW_SIZES.map((size) => ({
+      value: String(size),
+      label: CONTEXT_WINDOW_LABELS[size],
+    })),
+    initial: String(current ?? DEFAULT_CONTEXT_WINDOW),
+  });
+  const size = CONTEXT_WINDOW_SIZES.find((candidate) => String(candidate) === picked);
+
+  if (size === undefined) throw new SetupError(`${picked} is not a context size.`);
+
+  return size;
+}
 
 /** Public settings only. Secret-marked fields never enter a model definition. */
 export async function askDefinition(params: {

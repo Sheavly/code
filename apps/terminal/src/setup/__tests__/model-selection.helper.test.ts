@@ -44,7 +44,7 @@ describe('adding a model before selecting its host', () => {
 
     backend.state.profiles.push({ id: profile, name: 'Work', ready: false, models: [] });
     const { ui, questions, secrets, notices } = setupAnswers({
-      choices: ['deepseek-v4-flash', 'azure-chat', 'start'],
+      choices: ['deepseek-v4-flash', 'azure-chat', '300000', 'start'],
       text: ['https://azure.test/models', 'production-flash', 'hidden-key'],
     });
     const originalText = ui.text;
@@ -64,6 +64,7 @@ describe('adding a model before selecting its host', () => {
     expect(backend.modelOf(profile, id)).toMatchObject({
       name: 'DeepSeek V4 Flash',
       identity: { model: 'deepseek-v4-flash', family: 'deepseek' },
+      contextWindow: 300_000,
       definition: {
         baseUrl: 'https://azure.test/models',
         deployment: 'production-flash',
@@ -106,7 +107,7 @@ describe('adding a model before selecting its host', () => {
 
     backend.state.profiles.push({ id: profile, name: 'Work', ready: false, models: [] });
     const { ui, questions } = setupAnswers({
-      choices: ['gpt-6.1-sol', 'openai', 'start'],
+      choices: ['gpt-6.1-sol', 'openai', '1000000', 'start'],
       text: ['key'],
     });
     const id = await configureModel({ client: backend.client, ui, profile });
@@ -115,6 +116,7 @@ describe('adding a model before selecting its host', () => {
     expect(backend.modelOf(profile, id)).toMatchObject({
       name: 'Sol',
       identity: { model: 'gpt-6.1-sol', family: 'gpt' },
+      contextWindow: 1_000_000,
       definition: { model: 'gpt-6.1-sol' },
     });
   });

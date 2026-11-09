@@ -82,6 +82,7 @@ describe('terminal setup over the API', () => {
         'new',
         'custom',
         'setup-test',
+        '300000',
         'start',
       ],
       text: [
@@ -106,6 +107,7 @@ describe('terminal setup over the API', () => {
         id,
         name: 'remote-deployment',
         identity: { model: 'remote-deployment' },
+        contextWindow: 300_000,
         adapter: 'setup-test',
         credential: 'set',
         usable: true,
@@ -148,26 +150,46 @@ describe('terminal setup over the API', () => {
     expect(backend.calls.at(-1)?.name).toBe('bindWorkspace');
   });
 
-  it('keeps a model’s context window, which the form has no field for, when its settings are edited', async () => {
-    const backend = fakeSetupBackend();
-    const setup = readyWorkProfile();
+  it.each([
+    { picked: '1000000', saved: 1_000_000 },
+    { picked: '300000', saved: 300_000 },
+  ])(
+    'offers "300K" and "1M" when a model is edited, starts on its size and saves $saved',
+    async ({ picked, saved }) => {
+      const backend = fakeSetupBackend();
+      const setup = readyWorkProfile();
 
-    backend.state.profiles.push({
-      ...setup,
-      models: setup.models.map((item) => ({ ...item, contextWindow: 1_000_000 })),
-    });
-    const { ui } = setupAnswers({
-      // The fake backend forgets the key when a model is rewritten, so the user sets it again.
-      choices: [profile, model, 'edit', 'true', 'key', 'start'],
-      text: ['Selected', 'remote-deployment', 'https://example.test', '2048', 'private-key'],
-    });
+      backend.state.profiles.push({
+        ...setup,
+        models: setup.models.map((item) => ({ ...item, contextWindow: 1_000_000 })),
+      });
+      const { ui } = setupAnswers({
+        // The fake backend forgets the key when a model is rewritten, so the user sets it again.
+        choices: [profile, model, 'edit', picked, 'true', 'key', 'start'],
+        text: ['Selected', 'remote-deployment', 'https://example.test', '2048', 'private-key'],
+      });
+      const asked: { labels: string[]; initial: string | undefined }[] = [];
+      const choose = ui.choose;
 
-    await runSetupWizard({ ...backend, ui, workspace: '/workspace', setup: backend.state });
+      ui.choose = (question) => {
+        if (question.title.startsWith('Context size')) {
+          asked.push({
+            labels: question.items.map((item) => item.label),
+            initial: question.initial,
+          });
+        }
 
-    expect(backend.calls.filter(({ name }) => name === 'putModel')).toMatchObject([
-      { call: { body: { contextWindow: 1_000_000 } } },
-    ]);
-  });
+        return choose(question);
+      };
+
+      await runSetupWizard({ ...backend, ui, workspace: '/workspace', setup: backend.state });
+
+      expect(asked).toEqual([{ labels: ['300K', '1M'], initial: '1000000' }]);
+      expect(backend.calls.filter(({ name }) => name === 'putModel')).toMatchObject([
+        { call: { body: { contextWindow: saved } } },
+      ]);
+    },
+  );
 
   it('repairs missing credentials and lets a failed connection check return to key entry', async () => {
     const backend = fakeSetupBackend();

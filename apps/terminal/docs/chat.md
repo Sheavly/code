@@ -87,8 +87,9 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   a `~` estimate marker and are in USD. The backend accepts optional model `pricing` with `input`,
   `output`, `cacheRead` and `cacheWrite` rates per million tokens, through the model API or its JSON
   file. Rates are not fetched automatically and the setup form preserves, but does not edit them.
-  It preserves, but does not edit, a model's optional `contextWindow` the same way (300,000 tokens
-  when unset; set `1000000` in the model's file or through the API for a full 1M window).
+  The setup form does ask for a model's context size, "300K" or "1M", when a model is added or
+  edited, starting on its current size or 300K. It is what the agent is told it has, for cost, not
+  a limit on the provider (see the backend's model API).
   At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
 - **A complete approval preview must fit.** If the React footer cannot show the command,
   concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
