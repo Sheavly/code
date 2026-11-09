@@ -13,7 +13,7 @@ import type {
 import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
-import type { SummaryOptions } from '../summary/summary.types.js';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 
 export type AgentOptions = {
   provider: Provider;

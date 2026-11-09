@@ -7,7 +7,7 @@ import type {
   SummaryMessage,
 } from '@sheavly/protocol/message/message.types';
 import { CHARS_PER_TOKEN } from './summary.constants.js';
-import type { SummaryPolicy } from './summary.types.js';
+import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 
 /** A rough token count (characters over four): no tokenizer, and only ever used to compare. */
 export function estimateTokens(message: HistoryMessage): number {
