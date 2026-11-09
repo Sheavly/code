@@ -2,6 +2,13 @@
 
 Why `createHarness` adds no tools or hooks, and how a UI composes a run on what it returns.
 
+## Diagnostic message identity
+
+New conversation prompts receive a stable user-message `id` before the session resumes. It is kept
+in history and attached to stream activity as `messageId`, including failures and background sessions
+started by that prompt. Providers do not send it to the model. Earlier messages without IDs remain
+readable and are not renumbered on resume.
+
 ## Why it includes nothing
 
 The packages provide the pieces and the services a run shares; a UI decides which provider a run

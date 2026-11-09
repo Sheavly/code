@@ -1,8 +1,10 @@
 import { now } from '@sheavly/core/clock/clock.helper';
+import { randomUUID } from 'node:crypto';
+import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { Message, MessageId, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**
@@ -37,6 +39,7 @@ export function createConversation(options: ConversationOptions): Conversation {
    */
   async function* prompt(params: {
     text: string;
+    messageId: MessageId;
     parts?: PromptPart[] | undefined;
     resumed: boolean;
     signal?: AbortSignal;
@@ -49,6 +52,7 @@ export function createConversation(options: ConversationOptions): Conversation {
     ]);
     const user: Message = {
       role: 'user',
+      id: params.messageId,
       content: params.text,
       ...(params.parts && { parts: params.parts }),
       at: now(),
@@ -120,6 +124,9 @@ export function createConversation(options: ConversationOptions): Conversation {
       }
 
       // The main session runs from its start; every later prompt resumes it from idle.
+      const messageId = messageIdSchema.parse(randomUUID());
+
+      sessions.setMessage({ sessionId: mainSession.id, messageId });
       const resumed = started;
 
       if (resumed) sessions.resume(mainSession.id);
@@ -128,6 +135,7 @@ export function createConversation(options: ConversationOptions): Conversation {
 
       return prompt({
         text,
+        messageId,
         resumed,
         parts: sendOptions.parts,
         ...(sendOptions.signal && { signal: sendOptions.signal }),

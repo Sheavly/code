@@ -79,5 +79,9 @@ store, nothing is kept and everything behaves as before.
 
 ## Docs
 
+New user messages have stable UUID `id`s, persisted in history and attached to stream entries as
+`messageId`. The ID is assigned before the resume update, so even early failures can be linked to
+the right prompt. Providers never send these IDs to the model.
+
 - [The services a run shares](docs/harness.md): what `createHarness` makes, and how a UI composes
   a run on it.
