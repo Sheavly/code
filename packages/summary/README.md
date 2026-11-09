@@ -26,3 +26,4 @@ const summarizer = rulesSummarizer({ sections: [userMessagesSection(), windowSec
 ## Docs
 
 - [Design](docs/design.md): how it works, and how to extend it.
+- [Sections and summarizers](docs/sections.md): the rules sections, the model summarizer, and what each call does and why.
