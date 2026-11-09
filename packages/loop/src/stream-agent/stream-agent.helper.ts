@@ -16,7 +16,7 @@ import type {
 } from './stream-agent.types.js';
 import { runTurn } from './turn.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 
 /**
@@ -58,14 +58,14 @@ export async function* streamAgent(options: AgentOptions): AsyncGenerator<AgentE
 }
 
 /** Convenience wrapper: runs to completion and returns the conversation. */
-export async function runAgent(options: RunAgentOptions): Promise<Message[]> {
+export async function runAgent(options: RunAgentOptions): Promise<HistoryMessage[]> {
   return (await runSession(options)).messages;
 }
 
 /** Runs to completion and returns how the run ended and the conversation (e.g. a sub-agent's). */
 export async function runSession(
   options: RunAgentOptions,
-): Promise<{ reason: DoneReason; messages: Message[] }> {
+): Promise<{ reason: DoneReason; messages: HistoryMessage[] }> {
   for await (const event of streamAgent(options)) {
     options.onEvent?.(event);
     if (event.type === 'done') return { reason: event.reason, messages: event.messages };
@@ -87,6 +87,7 @@ async function drive(context: RunContext) {
   const { maxTurns = Infinity, hooks = [] } = options;
   const messages = [...options.messages];
   const outputRecovery: TurnContext['outputRecovery'] = { attempts: 0, pending: undefined };
+  const summaryFailures = { count: 0 };
   // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
   let reason: DoneReason = 'max_turns';
 
@@ -112,7 +113,7 @@ async function drive(context: RunContext) {
     }
 
     for (let turn = 1; turn <= maxTurns; turn++) {
-      const ended = await runTurn({ ...context, turn, messages, outputRecovery });
+      const ended = await runTurn({ ...context, turn, messages, outputRecovery, summaryFailures });
 
       if (ended) {
         reason = ended;

@@ -10,14 +10,21 @@ import type {
   AgentEventBody,
   DescribedCall,
 } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { SummaryOptions } from '../summary/summary.types.js';
 
 export type AgentOptions = {
   provider: Provider;
   tools: Tool[];
-  messages: Message[];
+  /** The stored conversation: messages and any checkpoints. A model is sent `viewOf` it. */
+  messages: HistoryMessage[];
+  /**
+   * Summarize the history when the context nears the window. Without it the loop never writes a
+   * checkpoint (one already in `messages` is still applied to what the model sees).
+   */
+  summary?: SummaryOptions;
   /** Model calls before the run stops with `max_turns`. Without it a run goes on until it is done or stopped. */
   maxTurns?: number;
   /** Extra calls after output truncation, unlimited by default. Set to zero to stop immediately. */
@@ -79,8 +86,10 @@ export type TurnContext = RunContext & {
     attempts: number;
     pending: Extract<HarnessNotice, { kind: 'output-continuation' }> | undefined;
   };
-  /** The run's history; the turn appends to it. */
-  messages: Message[];
+  /** The run's stored history; the turn appends to it, and a summary appends a checkpoint. */
+  messages: HistoryMessage[];
+  /** Threshold summaries that failed in a row this run; at the policy's limit they stop. */
+  summaryFailures: { count: number };
 };
 
 /** A tool call that started while the model streamed, with its eventual outcome. */

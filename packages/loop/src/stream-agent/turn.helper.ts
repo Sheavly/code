@@ -6,11 +6,12 @@ import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
+import { viewOf } from '../summary/summary.utils.js';
 import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
-import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, TurnStopReason } from '@sheavly/protocol/message/message.types';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {
@@ -35,11 +36,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
   });
 
-  // For this call only: `messages` stays the stored history, and the turn appends to that.
+  // For this call only: `messages` stays the stored history, and the turn appends to that. The
+  // model is sent the view (the newest checkpoint as text, then the messages it kept).
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,
-    messages,
+    messages: viewOf(messages),
     context: state,
     signal,
     onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
@@ -126,7 +128,7 @@ async function finishTurn(params: {
  */
 function deliverMessages(params: {
   session: RunSession;
-  messages: Message[];
+  messages: HistoryMessage[];
   events: AgentEvents;
 }): void {
   const { session, messages, events } = params;
@@ -141,7 +143,7 @@ function deliverMessages(params: {
 /** Tasks that finished since the last turn: shown in order, and told to the model before it runs. */
 function reportFinishedTasks(params: {
   tasks: TaskRegistry | undefined;
-  messages: Message[];
+  messages: HistoryMessage[];
   events: AgentEvents;
 }): void {
   const { tasks, messages, events } = params;
@@ -164,7 +166,7 @@ function reportFinishedTasks(params: {
 async function releaseResults(params: {
   running: RunningCall[];
   events: AgentEvents;
-}): Promise<Message[]> {
+}): Promise<HistoryMessage[]> {
   const { running, events } = params;
 
   events.enqueue({ type: 'tool_batch', calls: running.map((r) => r.described) });

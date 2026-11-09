@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, Message, ToolCall } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
@@ -12,7 +12,7 @@ import { runAgent, streamAgent } from '../stream-agent.helper.js';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Every tool call in history must be answered by exactly one tool message, right after it. */
-function expectValidHistory(messages: Message[]) {
+function expectValidHistory(messages: HistoryMessage[]) {
   for (let i = 0; i < messages.length; i++) {
     const message = messages[i]!;
 
