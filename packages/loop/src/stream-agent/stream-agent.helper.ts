@@ -8,7 +8,12 @@ import { errorDetails } from '@sheavly/runtime/errors/error-details.utils';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
-import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
+import type {
+  AgentOptions,
+  RunAgentOptions,
+  RunContext,
+  TurnContext,
+} from './stream-agent.types.js';
 import { runTurn } from './turn.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
@@ -81,7 +86,7 @@ async function drive(context: RunContext) {
   const { options, session, events, signal } = context;
   const { maxTurns = Infinity, hooks = [] } = options;
   const messages = [...options.messages];
-  const outputRecovery = { attempts: 0 };
+  const outputRecovery: TurnContext['outputRecovery'] = { attempts: 0, pending: undefined };
   // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
   let reason: DoneReason = 'max_turns';
 

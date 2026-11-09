@@ -13,6 +13,11 @@ explicit telemetry attribution and silent-use guidance. Notices stay outside sto
 system instructions. The same data is emitted as a `harness_notice` event for UIs, which choose
 their own presentation; existing usage events are unchanged. See [context usage](docs/run.md#context-usage).
 
+Output truncation automatically continues the task by default. A transient `output-continuation`
+notice accompanies context telemetry on the next request and is emitted to every UI through the
+same event stream. Partial replies and completed tools stay in history; recovery instructions do
+not. Cancellation and explicitly configured run limits still apply. See [output-limit recovery](docs/run.md#output-limit-recovery).
+
 ```ts
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 

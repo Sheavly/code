@@ -50,7 +50,7 @@ function recording(params: { turns: StreamEvent[][]; contextWindow?: number }) {
 }
 
 /** The typed telemetry a request carries beside its history. */
-const sentNotice = (request: ProviderRequest | undefined) => request?.notice;
+const sentNotice = (request: ProviderRequest | undefined) => request?.notices?.[0];
 const prompt = [{ role: 'user' as const, content: 'go' }];
 
 describe('telling the agent how full its context is', () => {
@@ -101,7 +101,7 @@ describe('telling the agent how full its context is', () => {
     expect(second?.messages.slice(0, first?.messages.length)).toEqual(first?.messages);
     expect(second?.instructions).toBe(first?.instructions);
     expect(first?.instructions).toBe('Work on the task.');
-    expect(first?.notice).not.toEqual(second?.notice);
+    expect(first?.notices).not.toEqual(second?.notices);
   });
 
   it('leaves the line out when the provider reports neither a window nor usage', async () => {

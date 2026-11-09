@@ -10,7 +10,9 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionUpdateSchema } from '@sheavly/protocol/session/session.validator';
 import { runSession } from '../stream-agent.helper.js';
-import { OUTPUT_CONTINUATION_INSTRUCTION } from '../stream-agent.constants.js';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 
 const capped: StreamEvent[] = [{ type: 'done', stopReason: 'max_tokens' }];
 const complete: StreamEvent[] = [
@@ -18,6 +20,9 @@ const complete: StreamEvent[] = [
   { type: 'done', stopReason: 'end_turn' },
 ];
 const initial = [{ role: 'user' as const, content: 'Finish the work.' }];
+
+const notices = (events: AgentEvent[]) =>
+  events.flatMap((event) => (event.type === 'harness_notice' ? [event.notice] : []));
 
 function keepRequests(responses: StreamEvent[][]) {
   const script = scriptedProvider(responses);
@@ -61,24 +66,22 @@ describe('output-limit recovery', () => {
     expect(requests[1]?.messages).toMatchObject([
       ...initial,
       { role: 'assistant', content: 'First part.', reasoning: [reasoning] },
-      { role: 'user', content: OUTPUT_CONTINUATION_INSTRUCTION },
     ]);
+    expect(requests[1]?.notices).toEqual([{ kind: 'output-continuation', attempt: 1 }]);
+    expect(result.messages.filter((message) => message.role === 'user')).toEqual(initial);
     expect(initial).toHaveLength(1);
     expect(events.map((event) => event.type)).toEqual([
       'text_delta',
       'reasoning',
       'usage',
       'turn_end',
-      'output_continuation',
+      'harness_notice',
       'text_delta',
       'usage',
       'turn_end',
       'done',
     ]);
-    expect(events.find((event) => event.type === 'output_continuation')).toMatchObject({
-      attempt: 1,
-      maxAttempts: 2,
-    });
+    expect(notices(events)).toEqual(requests.flatMap((request) => request.notices ?? []));
     expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index));
     for (const event of events) expect(agentEventSchema.safeParse(event).success).toBe(true);
   });
@@ -97,12 +100,13 @@ describe('output-limit recovery', () => {
     expect(result.messages.at(-1)).toMatchObject({ role: 'assistant', content: 'Finished.' });
   });
 
-  it('stops after two attempts by default and records a non-success session outcome', async () => {
+  it('continues beyond two cutoffs by default and records completion', async () => {
     const registry = new SessionRegistry();
-    const ref = registry.startMain({ title: 'Bounded recovery' });
+    const ref = registry.startMain({ title: 'Automatic recovery' });
     const events: AgentEvent[] = [];
+    const { provider, requests } = keepRequests([capped, capped, capped, complete]);
     const result = await runSession({
-      provider: scriptedProvider([capped, capped, capped]),
+      provider,
       tools: [],
       messages: initial,
       session: { registry, ref },
@@ -110,13 +114,16 @@ describe('output-limit recovery', () => {
       onEvent: (event) => events.push(event),
     });
 
-    expect(result.reason).toBe('max_tokens');
-    expect(events.filter((event) => event.type === 'output_continuation')).toHaveLength(2);
-    expect(result.messages.filter((message) => message.role === 'assistant')).toHaveLength(3);
+    expect(result.reason).toBe('completed');
+    expect(requests).toHaveLength(4);
+    expect(notices(events)).toEqual(
+      [1, 2, 3].map((attempt) => ({ kind: 'output-continuation', attempt })),
+    );
+    expect(result.messages.filter((message) => message.role === 'assistant')).toHaveLength(4);
 
     const session = registry.get(ref.id);
 
-    expect(session).toMatchObject({ state: 'idle', lastOutcome: 'max_tokens' });
+    expect(session).toMatchObject({ state: 'idle', lastOutcome: 'completed' });
     expect(sessionUpdateSchema.safeParse({ type: 'session_idle', session }).success).toBe(true);
   });
 
@@ -135,7 +142,7 @@ describe('output-limit recovery', () => {
     });
 
     expect(result.reason).toBe(limits.reason);
-    expect(events.some((event) => event.type === 'output_continuation')).toBe(false);
+    expect(notices(events)).toEqual([]);
     expect(result.messages).toHaveLength(2);
   });
 
@@ -177,7 +184,7 @@ describe('output-limit recovery', () => {
       'turn_end',
       'tool_batch',
       'tool_result',
-      'output_continuation',
+      'harness_notice',
       'text_delta',
       'usage',
       'turn_end',
@@ -185,7 +192,8 @@ describe('output-limit recovery', () => {
     ]);
   });
 
-  it('does not reset the recovery budget after a normal tool turn', async () => {
+  it('keeps an explicitly requested run-wide recovery budget across normal tool turns', async () => {
+    const events: AgentEvent[] = [];
     const call = {
       id: callIdSchema.parse('unknown-1'),
       name: 'unknown',
@@ -199,12 +207,16 @@ describe('output-limit recovery', () => {
       provider: scriptedProvider([capped, normal, capped, capped]),
       tools: [],
       messages: initial,
+      maxOutputContinuations: 2,
+      onEvent: (event) => events.push(event),
     });
 
     expect(result.reason).toBe('max_tokens');
-    expect(
-      result.messages.filter((message) => message.content === OUTPUT_CONTINUATION_INSTRUCTION),
-    ).toHaveLength(2);
+    expect(notices(events)).toEqual([
+      { kind: 'output-continuation', attempt: 1, maxAttempts: 2 },
+      { kind: 'output-continuation', attempt: 2, maxAttempts: 2 },
+    ]);
+    expect(result.messages.filter((message) => message.role === 'user')).toEqual(initial);
   });
 
   it('never retries context exhaustion as output truncation', async () => {
@@ -241,6 +253,101 @@ describe('output-limit recovery', () => {
 
     expect(result.reason).toBe('interrupted');
     expect(result.messages).toHaveLength(2);
-    expect(events.some((event) => event.type === 'output_continuation')).toBe(false);
+    expect(notices(events)).toEqual([]);
+  });
+
+  it('shares continuation and context notices live and on replay without storing their instructions', async () => {
+    const registry = new SessionRegistry();
+    const session = { registry, ref: registry.startMain({ title: 'Seamless recovery' }) };
+    const live: StreamEntry[] = [];
+    const events: AgentEvent[] = [];
+    const { provider, requests } = keepRequests([
+      [{ type: 'text_delta', text: 'First ' }, ...capped],
+      complete,
+    ]);
+    const unsubscribe = registry.subscribeEntries((entry) => live.push(entry), { replay: true });
+    const result = await runSession({
+      provider: { ...provider, contextWindow: 10_000 },
+      tools: [],
+      messages: initial,
+      instructions: 'Keep the system prefix.',
+      session,
+      onEvent: (event) => events.push(event),
+    });
+
+    unsubscribe();
+    const replay: StreamEntry[] = [];
+    const stopReplay = registry.subscribeEntries((entry) => replay.push(entry), { replay: true });
+
+    stopReplay();
+    const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
+
+    expect(requests[1]?.notices).toEqual([
+      { kind: 'context-usage', context: { window: 10_000, used: undefined } },
+      continuation,
+    ]);
+    expect(notices(events)).toEqual(requests.flatMap((request) => request.notices ?? []));
+    expect(result.messages.filter((message) => message.role === 'user')).toEqual(initial);
+    expect(JSON.stringify(result.messages)).not.toContain('output-continuation');
+    expect(requests.map((request) => request.instructions)).toEqual([
+      'Keep the system prefix.',
+      'Keep the system prefix.',
+    ]);
+    expect(replay).toEqual(live);
+    expect(live.map((entry) => entry.seq)).toEqual(live.map((_, index) => index));
+    for (const entry of live) expect(streamEntrySchema.safeParse(entry).success).toBe(true);
+    const steps = events.map((event) => event.type);
+
+    expect(steps.lastIndexOf('harness_notice')).toBeLessThan(steps.lastIndexOf('text_delta'));
+  });
+
+  it('does not resend a continuation notice after a successful tool turn', async () => {
+    const call = {
+      id: callIdSchema.parse('look-1'),
+      name: 'unknown',
+      input: { description: 'Look' },
+    };
+    const { provider, requests } = keepRequests([
+      capped,
+      [
+        { type: 'tool_call', call },
+        { type: 'done', stopReason: 'tool_use' },
+      ],
+      complete,
+    ]);
+
+    const result = await runSession({ provider, tools: [], messages: initial });
+
+    expect(result.reason).toBe('completed');
+    expect(requests.map((request) => request.notices)).toEqual([
+      [],
+      [{ kind: 'output-continuation', attempt: 1 }],
+      [],
+    ]);
+  });
+
+  it('honors cancellation between recovery and the next model call', async () => {
+    const stop = new AbortController();
+    const events: AgentEvent[] = [];
+    const { provider, requests } = keepRequests([capped]);
+    const result = await runSession({
+      provider,
+      tools: [],
+      messages: initial,
+      signal: stop.signal,
+      hooks: [
+        {
+          name: 'cancel-recovery',
+          beforeTurn: async ({ turn }) => {
+            if (turn === 2) stop.abort();
+          },
+        },
+      ],
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(result.reason).toBe('interrupted');
+    expect(requests).toHaveLength(1);
+    expect(notices(events)).toEqual([]);
   });
 });
