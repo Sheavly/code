@@ -4,6 +4,7 @@ import { inboxMessageSchema, sessionRefSchema } from '../session/session.validat
 import { taskInfoSchema } from '../task/task.validator.js';
 import { harnessNoticeSchema } from '../notice/notice.validator.js';
 import {
+  historyMessageSchema,
   messageSchema,
   reasoningItemSchema,
   summarySectionIdSchema,
@@ -202,7 +203,7 @@ const doneEntrySchema = z.object({
  * Always last. The full conversation (valid to continue from, even after an interrupt), for
  * whoever runs the loop. The combined stream drops `messages` (`entryEventSchema`).
  */
-const doneEventSchema = doneEntrySchema.extend({ messages: z.array(messageSchema) });
+const doneEventSchema = doneEntrySchema.extend({ messages: z.array(historyMessageSchema) });
 
 export const agentEventBodySchema = z.discriminatedUnion('type', [
   ...stepEventSchemas,
