@@ -36,6 +36,25 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
 }
 
 describe('Renderer: entries', () => {
+  it('can ignore structured harness notices without printing telemetry as conversation text', () => {
+    let output = '';
+    const renderer = new Renderer(
+      (text) => (output += text),
+      () => 0,
+    );
+    const event: EntryEvent = {
+      seq: 0,
+      type: 'harness_notice',
+      notice: { kind: 'context-usage', context: { window: 1_000_000, used: 668_100 } },
+    };
+
+    renderer.event(event);
+    renderer.event({ seq: 1, type: 'text_delta', text: 'Task complete.' });
+
+    expect(output).toBe('Task complete.');
+    expect(event.notice.context).toEqual({ window: 1_000_000, used: 668_100 });
+  });
+
   it('escapes controls before reply and tool-start rendering, without changing source events', () => {
     let output = '';
     const renderer = new Renderer(

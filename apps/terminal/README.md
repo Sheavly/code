@@ -85,6 +85,10 @@ history. Window labels match model setup (`300K` and `1M`). Missing context usag
 unknown cost is omitted entirely. A failed main run is
 reported visibly, even when the stream ends without a final reply.
 
+Structured `harness_notice` events are intentionally omitted from the conversation transcript.
+The status line continues to use usage data; another UI can present notices differently without
+changing the backend or interpreting model-facing text.
+
 ## Docs
 
 Model failures show the reported cause and originating message ID instead of a generic error.
