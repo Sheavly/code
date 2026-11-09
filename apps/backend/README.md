@@ -20,6 +20,10 @@ ordinary input, output, cache reads and cache writes; missing rates remain unkno
 `contextWindow` is the window the agent is told, any positive size: 300,000 tokens when unset,
 and UIs offer "300K" and "1M".
 
+The ordinary SSE stream also carries structured `harness_notice` events before model calls.
+Every UI receives the shared protocol payload without a special endpoint or provider imports
+and chooses its own presentation. Notices are not assistant messages or model-facing prose.
+
 | Folder     | What it holds                                                                                               |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |
 | `harness/` | What a run includes (`createBackendHarness`), each served conversation (`servedConversation`), the settings |

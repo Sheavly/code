@@ -8,6 +8,7 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { reply, testApi } from '../../testing/api.fake.js';
 import { TEST_TOKEN } from '../../testing/testing.constants.js';
 import { honoPath } from '../api.utils.js';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 /** A well-formed id that no conversation's models have. */
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
@@ -175,7 +176,27 @@ describe('over real HTTP, with the client UIs use', () => {
 
   /** Listens on a free port on 127.0.0.1, as `serve.ts` does. */
   async function listen() {
-    const { app, conversations } = testApi({ hi: [reply('hello')] });
+    const { app, conversations } = testApi({
+      hi: [reply('hello')],
+      telemetry: [
+        () => [
+          { type: 'text_delta', text: 'measured' },
+          {
+            type: 'done',
+            stopReason: 'end_turn',
+            usage: {
+              tokens: {
+                inputTokens: 90,
+                outputTokens: 10,
+                cacheReadTokens: 0,
+                cacheWriteTokens: 0,
+              },
+            },
+          },
+        ],
+        reply('finished'),
+      ],
+    });
     const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
       const started = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 }, () =>
         resolve(started),
@@ -216,6 +237,38 @@ describe('over real HTTP, with the client UIs use', () => {
     expect(answered).toEqual(['hello']);
     expect(streamed).toContain('text_delta');
     expect(history.messages.map((message) => message.content)).toEqual(['hi', 'hello']);
+  });
+
+  it('serves structured notices to another UI through the ordinary client stream', async () => {
+    const url = await listen();
+    const editor = createClient({ url, token: TEST_TOKEN });
+    const viewer = createClient({ url, token: TEST_TOKEN });
+    const { id } = await editor.call('startConversation', { body: {} });
+
+    for await (const _entry of editor.stream('sendPrompt', { id, body: { text: 'telemetry' } }));
+
+    const stream = await viewer.open('streamConversation', { id, body: { replay: false } });
+    const sent: HarnessNotice[] = [];
+    const observed: HarnessNotice[] = [];
+
+    for await (const entry of editor.stream('sendPrompt', { id, body: { text: 'telemetry' } })) {
+      if (entry.kind === 'event' && entry.event.type === 'harness_notice') {
+        sent.push(entry.event.notice);
+      }
+    }
+
+    for await (const { entry } of readEntries(stream)) {
+      if (entry.kind !== 'event') continue;
+
+      if (entry.event.type === 'harness_notice') observed.push(entry.event.notice);
+      if (entry.event.type === 'done') break;
+    }
+
+    expect(sent).toEqual([{ kind: 'context-usage', context: { used: 100 } }]);
+    expect(observed).toEqual(sent);
+    const { messages } = await editor.call('getMessages', { id });
+
+    expect(JSON.stringify(messages)).not.toContain('context-usage');
   });
 
   it('lets a second UI find a conversation another started, and follow it', async () => {
