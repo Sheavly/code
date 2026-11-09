@@ -5,7 +5,7 @@ import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
-import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;

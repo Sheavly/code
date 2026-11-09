@@ -5,7 +5,7 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import { createChatCompletionsProvider } from '../chat-completions.helper.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
-import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 const url = 'https://resource.test/models/chat/completions?api-version=2024-05-01-preview';
 const source = `chat:${url}#deployment`;

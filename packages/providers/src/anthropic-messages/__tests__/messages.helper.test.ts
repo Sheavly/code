@@ -7,7 +7,7 @@ import { createMessagesProvider } from '../messages.helper.js';
 import type { MessagesThinkingMode } from '../messages.types.js';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
-import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
