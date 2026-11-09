@@ -43,6 +43,10 @@ asked, since the user can change it while the conversation runs). A run's `run_c
 folder's permissions from the user's folder (`workspacePermissions`), so a mode or an allowed
 command applies to every conversation in that folder from its next command.
 
+Sub-agent replies always keep the prompt alive and resume the parent automatically when they
+finish. `WAIT_FOR_TASKS` additionally waits for ordinary background commands; it is not needed
+for sub-agent completion. An interrupted prompt is not restarted automatically.
+
 `workspacePermissions` creates one `ConversationPermissions` per live conversation. Permanent
 entries still come from the workspace store; temporary `allow_session` entries live only in that
 object and are not restored on reopen. Tools sharing it reuse the grants. Default sub-agents

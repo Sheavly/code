@@ -21,6 +21,7 @@ import type { WorkspaceModels } from '../profiles/profiles.types.js';
 import { parseRequestEnv } from './settings.validator.js';
 import { selectedProvider } from './selected-provider.helper.js';
 import { trackConversationUsage } from '../usage/conversation-usage.helper.js';
+import { conversationContextUsage } from '../usage/context-usage.helper.js';
 
 /**
  * One conversation as the backend serves it: placed in a folder on a profile (what the start asked
@@ -106,6 +107,10 @@ export async function servedConversation(params: {
           profile: placement.profile,
           ...modelsIn(workspace),
           usage: usage.ledger.snapshot,
+          contextUsage: conversationContextUsage({
+            harness,
+            throughSeq: usage.ledger.snapshot.throughSeq,
+          }),
           projectTrust: harness.projectTrust,
         }),
         permissionMode: async () => (await permissions.read()).mode,
