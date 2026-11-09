@@ -8,6 +8,7 @@ import { RemoteConversation } from '../client/conversation.service.js';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { RunRecorder } from './recorder.service.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';
@@ -130,7 +131,7 @@ async function streamRun(params: {
     }
   } catch (caughtError) {
     error = caughtError instanceof Error ? caughtError.message : String(caughtError);
-    write(`\n✗ Run failed: ${error}\n`);
+    write(`\n✗ Run failed: ${plainTerminalText(error)}\n`);
   } finally {
     interrupt.dispose();
   }

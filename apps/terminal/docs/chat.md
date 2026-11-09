@@ -1,5 +1,22 @@
 # The chat
 
+## Chat diagnostics
+
+Kept chats have a private `errors.jsonl` beside `history.json` and `stream.jsonl` under
+`~/.sheavly/profiles/<profile-id>/workspaces/<workspace-key>/conversations/<chat-id>/`.
+The startup line prints the chat ID. Find its log with:
+
+```sh
+find ~/.sheavly -path '*/conversations/<chat-id>/errors.jsonl'
+```
+
+Records include timestamps, chat/session IDs, stream sequence and originating user-message IDs.
+Look up `messageId` as a user message's `id` in history, or find the event by `seq` in the stream.
+The modern UI reports run errors with that message ID too. Run diagnostics include selected error
+details, a bounded stack and cause chain. Tool and hook failures name their tool call or hook.
+Prompts, tool inputs and successful outputs are not copied. Common credential forms are redacted,
+but error text and paths can still be private: review logs before sharing. Old records may lack IDs.
+
 ## Model-first setup
 
 Run `npm run dev:terminal -- --setup`, choose a profile, then **Add a model**:

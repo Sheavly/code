@@ -122,6 +122,18 @@ export class RemoteConversation {
         id: this.id,
         body: { text },
       })) {
+        if (
+          entry.kind === 'event' &&
+          entry.event.type === 'run_failed' &&
+          entry.event.session.depth === 1
+        ) {
+          const error = entry.messageId
+            ? `[message ${entry.messageId}] ${entry.event.error}`
+            : entry.event.error;
+
+          throw new BackendError({ message: error });
+        }
+
         this.#countTask(entry);
         yield entry;
 

@@ -87,6 +87,10 @@ reported visibly, even when the stream ends without a final reply.
 
 ## Docs
 
+Model failures show the reported cause and originating message ID instead of a generic error.
+Kept conversations have a private `errors.jsonl` for correlating failures with stored messages;
+see [chat diagnostics](docs/chat.md#chat-diagnostics). Restart a backend after updating its source.
+
 - [The chat](docs/chat.md): one conversation across prompts, and how to stop or end it.
 - [The demo](docs/demo.md): its settings, and how the terminal reaches its backend.
 - [The workbook](docs/workbook.md): stored prompts, saved runs, checks, and the `workbook/` folder.

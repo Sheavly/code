@@ -140,6 +140,10 @@ export class Renderer {
       case 'output_continuation':
         this.#activity(this.look.outputContinuation(event));
         break;
+      case 'run_failed':
+        this.clearRunning();
+        this.#activity(this.look.runFailed(plainTerminalText(event.error)));
+        break;
       case 'hook_failed':
         this.#activity(
           this.look.hookFailed({
