@@ -111,6 +111,7 @@ describe('a model call that fails after starting tools', () => {
       'tool_batch',
       'tool_result',
       'tool_result',
+      'run_failed',
     ]);
     expect(events).toContainEqual(expect.objectContaining({ stopReason: 'interrupted' }));
     expect(results(events)).toMatchObject([
@@ -138,7 +139,7 @@ describe('a model call that fails after starting tools', () => {
     const { events, error: thrown, history } = await runToFailure({ provider, log: [] });
 
     expect(thrown).toBe(error);
-    expect(events.map((event) => event.type)).toEqual(['text_delta', 'usage']);
+    expect(events.map((event) => event.type)).toEqual(['text_delta', 'usage', 'run_failed']);
     expect(events.find((event) => event.type === 'usage')).toMatchObject({
       usage: { tokens: null },
     });

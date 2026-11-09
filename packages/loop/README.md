@@ -35,4 +35,9 @@ one check for the messages a model call sends) and `abort/`.
 
 ## Docs
 
+After cleanup and error hooks, a failed run emits `run_failed` before its failed session update.
+It carries the error message, session and selected diagnostic details. The iterator still throws
+the original exception. Diagnostics can be linked to the originating user message through the
+session stream, never inserted into model history.
+
 - [A run](docs/run.md): one run from start to end, hook order, interrupts and failures.

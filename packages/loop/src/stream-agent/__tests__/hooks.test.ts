@@ -226,8 +226,11 @@ describe('hooks in the loop', () => {
     expect(errors).toEqual(['reply rejected']);
   });
 
-  it("reports an onError hook's own failure as hook_failed, and still throws the run's error", async () => {
-    const types: string[] = [];
+  /** Runs a provider that fails, with an `onError` hook that throws `hookError`; the run must still throw. */
+  async function hookFailures(
+    hookError: string,
+  ): Promise<{ hook: string; handler: string; error: string }[]> {
+    const failures: { hook: string; handler: string; error: string }[] = [];
     const failing: Provider = {
       async *stream() {
         yield* [];
@@ -242,19 +245,36 @@ describe('hooks in the loop', () => {
         defineHook({
           name: 'reporter',
           onError: async () => {
-            throw new Error('disk full');
+            throw new Error(hookError);
           },
         }),
       ],
       onEvent: (event) => {
-        if (event.type === 'hook_failed') {
-          types.push(`${event.hook}.${event.handler}: ${event.error}`);
-        }
+        if (event.type === 'hook_failed') failures.push(event);
       },
     });
 
     await expect(run).rejects.toThrow('provider down');
-    expect(types).toEqual(['reporter.onError: Hook reporter failed in onError: disk full']);
+
+    return failures;
+  }
+
+  it("reports an onError hook's own failure as hook_failed, and still throws the run's error", async () => {
+    const [failure, ...rest] = await hookFailures('disk full');
+
+    expect(rest).toEqual([]);
+    expect(`${failure?.hook}.${failure?.handler}: ${failure?.error}`).toBe(
+      'reporter.onError: Hook reporter failed in onError: disk full',
+    );
+  });
+
+  it('redacts credentials in a hook_failed error before it reaches the event stream', async () => {
+    const failures = await hookFailures('upload failed: api_key=hunter2 Bearer abcdefgh12345678');
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.error).not.toContain('hunter2');
+    expect(failures[0]?.error).not.toContain('abcdefgh12345678');
+    expect(failures[0]?.error).toContain('[REDACTED]');
   });
 
   it('a nested run gets only the hooks its parent passes, with its own sessionStart', async () => {

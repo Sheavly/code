@@ -2,6 +2,14 @@
 
 What `streamAgent` does from start to end, how it runs hooks, and how a session's events are ordered.
 
+## Failure diagnostics
+
+After cleanup and error hooks, `run_failed` carries the error message, session and selected details:
+name, system code or provider reason, stack and up to four causes. The stack is limited to 16,384
+characters and each cause message to 8,192. Common credential forms are redacted. No exception,
+request or response object is serialized. The event reaches subscribers before the failed session
+update; the original exception still ends iteration. Diagnostics never enter model history.
+
 ## From start to end
 
 `streamAgent(options)` returns an async iterable of events, each with a gap-free `seq`:
