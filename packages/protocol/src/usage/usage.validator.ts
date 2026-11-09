@@ -17,9 +17,12 @@ export const tokenUsageSchema = z
 /**
  * One model call. Null tokens mean the provider did not report usage, never zero usage. The
  * window is the size of the context the call ran against, left out when the model's is unknown.
+ * `purpose` is left out for a turn's own call. `summary` marks the call that wrote a checkpoint:
+ * it is billed like any other, but it says nothing about how full the conversation's context is.
  */
 export const modelUsageSchema = z.object({
   tokens: tokenUsageSchema.nullable(),
+  purpose: z.literal('summary').exactOptional(),
   modelId: modelIdSchema.exactOptional(),
   contextWindow: contextWindowSchema.exactOptional(),
   estimatedCostUsd: dollars.exactOptional(),
