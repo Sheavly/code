@@ -12,7 +12,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
     name: 'task_status',
     description:
       "Show background tasks. With an id: that task's status and recent output. Without: all tasks. " +
-      "You don't need it to wait for a task: finished tasks are reported to you automatically.",
+      "You don't need it to wait for a task: finished tasks are reported to you at your next turn.",
     inputSchema: z.object({
       id: taskIdSchema.optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
     }),

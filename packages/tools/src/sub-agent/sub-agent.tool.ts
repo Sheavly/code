@@ -25,10 +25,14 @@ export function createSubAgentTool(options: SubAgentOptions) {
   return defineTool({
     name: 'start_agent',
     description:
-      'Start a sub-agent on a self-contained task. It runs in the background; its final reply ' +
-      'comes to you automatically when it finishes. No need to poll: when you have nothing else ' +
-      'to do, end your turn and you will be woken with the reply. Steer it with message_agent, ' +
-      `stop it with cancel_task. Sub-agents nest at most ${MAX_SESSION_DEPTH} levels deep.`,
+      'Start a sub-agent on a self-contained task. It runs in the background. How its final ' +
+      'reply reaches you depends on the host. In a chat it is held until the next message the ' +
+      'user sends, and you are not woken for it on your own, so the user can keep talking to ' +
+      'you meanwhile. If this run waits for background tasks (a one-shot run, or a sub-agent ' +
+      'of your own), you get another turn with the reply as soon as it finishes. Either way, ' +
+      'no need to poll: tell the user it is working and end your turn. Steer it with ' +
+      `message_agent, stop it with cancel_task. Sub-agents nest at most ${MAX_SESSION_DEPTH} ` +
+      'levels deep.',
     inputSchema: z.object({
       title: z.string().min(1).max(80).describe('A short name, e.g. "Update ESLint rules"'),
       task: z
@@ -70,8 +74,9 @@ export function createSubAgentTool(options: SubAgentOptions) {
 
       return (
         `Started sub-agent "${title}" as background task ${started.id} ` +
-        `(session ${child.id}, depth ${child.depth}). Its final reply comes to you automatically: ` +
-        "don't poll task_status for it; once you have nothing else to do, end your turn and wait. " +
+        `(session ${child.id}, depth ${child.depth}). Its final reply reaches you at your next ` +
+        "turn (the user's next message, or straight away if this run waits for background " +
+        "tasks); don't poll task_status for it. Tell the user it is working and end your turn. " +
         'Use message_agent with its session id to steer it, cancel_task to stop it.'
       );
     },

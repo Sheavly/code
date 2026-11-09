@@ -10,6 +10,11 @@ sub-agent on one task, `{ title, task }`.
 - **A background task.** The sub-agent runs as a task in the parent's `TaskRegistry`, so the
   parent sees it with `task_status`, stops it with `cancel_task` (its session ends as
   `interrupted`), and is told its final reply when it finishes, like any background command.
+  It doesn't keep a prompt busy: the user can keep chatting while it works. A reply that arrives
+  while the conversation is idle is held, not acted on, and reaches the model at the start of the
+  next turn the user starts (or at the next model call of a turn already running); nothing wakes
+  the model on its own. A host that runs one-shot prompts can opt in to waiting for background
+  tasks (`waitForTasks`, the `WAIT_FOR_TASKS` setting), as the workbook and the demo do.
 - **Three levels, hard cap.** Main session → sub-agent → sub-agent (`MAX_SESSION_DEPTH = 3`).
   Below the cap a sub-agent gets `start_agent` too; at depth 3 it doesn't, and the registry
   refuses a fourth level regardless.
