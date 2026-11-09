@@ -4,6 +4,10 @@ The stateful services a run uses, with nothing about files or code: the session 
 inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) makes one of each per
 run; tools and the loop share them.
 
+Tasks started with `waitForCompletion: true` keep their calling run alive until the loop delivers
+their result. `TaskRegistry.hasRequiredTasks` includes running and unreported required tasks;
+ordinary background work remains non-blocking by default.
+
 ```ts
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';

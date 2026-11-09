@@ -19,6 +19,7 @@ type Entry = {
   /** Cancelled on request: whoever cancelled it already knows, so no notification. */
   silent: boolean;
   sessionId?: SessionId | undefined;
+  waitForCompletion: boolean;
 };
 
 export class TaskRegistry {
@@ -29,7 +30,14 @@ export class TaskRegistry {
   #waiters: (() => void)[] = [];
   #observers = new Set<TaskObserver>();
 
-  start({ command, description, callId, sessionId, run }: StartTask): TaskInfo {
+  start({
+    command,
+    description,
+    callId,
+    sessionId,
+    waitForCompletion = false,
+    run,
+  }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
     const info: TaskInfo = {
@@ -41,7 +49,14 @@ export class TaskRegistry {
       startedAt: now(),
       output: '',
     };
-    const entry: Entry = { info, controller, settled: Promise.resolve(), silent: false, sessionId };
+    const entry: Entry = {
+      info,
+      controller,
+      settled: Promise.resolve(),
+      silent: false,
+      sessionId,
+      waitForCompletion,
+    };
     const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
 
     const onOutput = (chunk: string) => {
@@ -129,6 +144,14 @@ export class TaskRegistry {
 
   get hasUnreported(): boolean {
     return this.#unreported.length > 0;
+  }
+
+  /** Required tasks still running or finished but not yet delivered by takeUnreported. */
+  get hasRequiredTasks(): boolean {
+    return [...this.#tasks.values()].some(
+      ({ info, waitForCompletion }) =>
+        waitForCompletion && (info.status === 'running' || this.#unreported.includes(info.id)),
+    );
   }
 
   /** Resolves the next time any task finishes. */

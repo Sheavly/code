@@ -9,6 +9,8 @@ export type StartTask = {
   callId?: CallId;
   /** The session whose tool started it: its start and end go in that session's stream. */
   sessionId?: SessionId | undefined;
+  /** Keep the calling run alive until this task's result has been delivered to the model. */
+  waitForCompletion?: boolean;
   /** Does the work. Must stop when `signal` aborts; reports output as it arrives. */
   run: (params: {
     signal: AbortSignal;
