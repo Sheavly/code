@@ -47,4 +47,9 @@ measurements are omitted so clients cannot confuse missing counts with an empty 
 
 ## Docs
 
+New user messages can carry a stable `id`; stream entries carry the originating `messageId`.
+Both are optional for older histories. A `run_failed` event reports selected error details,
+including a bounded stack and cause chain, before the failed session update. These diagnostics
+never enter model history.
+
 - [The wire contract](docs/contract.md): what is in it, what stays out, and how it is checked.

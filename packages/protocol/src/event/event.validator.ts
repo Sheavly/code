@@ -23,6 +23,19 @@ export const describedCallSchema = z.object({
   description: z.string(),
 });
 
+const errorCauseSchema = z.object({
+  name: z.string(),
+  message: z.string(),
+  code: z.string().exactOptional(),
+  reason: z.string().exactOptional(),
+});
+
+/** Selected diagnostic fields, not a serialized exception, request, response or headers. */
+export const errorDetailsSchema = errorCauseSchema.omit({ message: true }).extend({
+  stack: z.string().exactOptional(),
+  causes: z.array(errorCauseSchema).max(4),
+});
+
 export const doneReasonSchema = z.enum([
   'completed',
   'interrupted',
@@ -45,6 +58,13 @@ export const doneReasonSchema = z.enum([
  */
 /** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
 const stepEventSchemas = [
+  /** Sent after cleanup, before the failed session update; never added to model history. */
+  z.object({
+    type: z.literal('run_failed'),
+    error: z.string(),
+    session: sessionRefSchema,
+    details: errorDetailsSchema.exactOptional(),
+  }),
   z.object({ type: z.literal('usage'), usage: modelUsageSchema }),
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */

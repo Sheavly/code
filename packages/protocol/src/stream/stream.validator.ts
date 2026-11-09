@@ -4,6 +4,7 @@ import { entryEventSchema } from '../event/event.validator.js';
 import { sessionIdSchema, sessionUpdateSchema } from '../session/session.validator.js';
 import { taskUpdateSchema } from '../task/task.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
+import { messageIdSchema } from '../message/message.validator.js';
 
 /**
  * One entry of a session tree's combined stream: every session's loop events (sub-agents
@@ -18,6 +19,8 @@ export const streamEntrySchema = z.intersection(
   z.object({
     seq: z.number().int().nonnegative(),
     sessionId: sessionIdSchema,
+    /** The originating user message, not whichever prompt the parent is processing now. */
+    messageId: messageIdSchema.exactOptional(),
     at: timestampSchema,
   }),
   z.discriminatedUnion('kind', [
