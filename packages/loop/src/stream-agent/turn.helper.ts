@@ -4,7 +4,7 @@ import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { contextState } from '../context/context.utils.js';
-import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
+import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
@@ -35,13 +35,29 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
   });
 
-  if (signal.aborted) return 'interrupted';
+  // For this call only: `messages` stays the stored history, and the turn appends to that.
+  const sent = await runBeforeModelCall({
+    hooks: options.hooks ?? [],
+    turn,
+    messages,
+    context: state,
+    signal,
+    onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
+  }).catch((caughtError: unknown) => {
+    // A hook that fails because the run was aborted ends it as interrupted, like every other
+    // abort; nothing has been added to history yet, so it stays valid.
+    if (signal.aborted) return undefined;
+
+    throw caughtError;
+  });
+
+  if (!sent || signal.aborted) return 'interrupted';
 
   const { message, stopReason, running, failure } = await sample({
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
-    messages,
+    messages: sent,
     state,
     signal,
     aborted,
@@ -92,7 +108,7 @@ async function finishTurn(params: {
   if (running.length > 0) return undefined;
 
   // The model is done. A message that came in meanwhile gets another turn, as does a finished
-  // background task (or a message) while waiting, with `waitForTasks`; otherwise the run ends.
+  // required background task (or any task with `waitForTasks`); otherwise the run ends.
   if (session.registry.hasMessages(session.ref.id)) return undefined;
 
   if (await awaitTask({ options, session, aborted })) return undefined;
@@ -157,8 +173,8 @@ async function releaseResults(params: {
 }
 
 /**
- * With `waitForTasks`: true once a finished task or a new message is ready (waiting for one if
- * needed). False if there's nothing to wait for, or the run was aborted while waiting.
+ * Required tasks always keep the run alive; waitForTasks also includes ordinary background work.
+ * False if there's nothing left to wait for, or the run was aborted while waiting.
  */
 async function awaitTask(params: {
   options: AgentOptions;
@@ -169,10 +185,10 @@ async function awaitTask(params: {
   const { tasks, waitForTasks } = options;
   const { registry, ref } = session;
 
-  if (!waitForTasks || !tasks) return false;
+  if (!tasks || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
 
   while (!tasks.hasUnreported && !registry.hasMessages(ref.id)) {
-    if (tasks.runningCount === 0) return false;
+    if (tasks.runningCount === 0 || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
     const woken = await Promise.race([
       tasks.nextSettled().then(() => true),
       registry.nextMessage(ref.id).then(() => true),

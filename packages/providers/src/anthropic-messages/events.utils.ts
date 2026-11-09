@@ -27,6 +27,7 @@ export function createMessagesReader(params: {
   const { reasoningSource, prefix } = params;
   const blocks = new Map<number, StreamingBlock>();
   const content: MessagesReplay['content'] = [];
+  let reportedStop: string | undefined;
 
   const read = (event: MessagesEvent): MessagesStep => {
     switch (event.type) {
@@ -69,33 +70,14 @@ export function createMessagesReader(params: {
       }
 
       case 'message_delta': {
+        reportedStop = event.delta.stop_reason ?? reportedStop;
         const stopReason = STOP_REASONS[event.delta.stop_reason ?? ''];
 
         return stopReason ? { events: [], stopReason } : { events: [] };
       }
 
       case 'message_stop':
-        if (blocks.size > 0) {
-          throw new ModelApiError({
-            reason: 'cut_off',
-            message: 'Messages reply ended with unfinished content blocks',
-          });
-        }
-
-        return {
-          events: reasoningSource
-            ? [
-                {
-                  type: 'reasoning',
-                  item: {
-                    source: reasoningSource,
-                    data: { type: 'messages-replay', prefix, content },
-                  },
-                },
-              ]
-            : [],
-          ended: true,
-        };
+        return finishReply({ blocks, content, reasoningSource, prefix, reportedStop });
       case 'error':
         throw new ModelApiError({
           reason: 'stream_error',
@@ -105,6 +87,42 @@ export function createMessagesReader(params: {
   };
 
   return { read };
+}
+
+/** An explicit output cap can leave a block open; never execute or replay that unfinished block. */
+function finishReply(params: {
+  blocks: ReadonlyMap<number, StreamingBlock>;
+  content: MessagesReplay['content'];
+  reasoningSource: string | undefined;
+  prefix: string;
+  reportedStop: string | undefined;
+}): MessagesStep {
+  const { blocks, content, reasoningSource, prefix, reportedStop } = params;
+
+  if (blocks.size > 0 && reportedStop !== 'max_tokens') {
+    const unfinished = [...blocks]
+      .map(([index, block]) => `${String(index)}:${block.type}`)
+      .join(', ');
+
+    throw new ModelApiError({
+      reason: 'cut_off',
+      message: `Messages reply ended with unfinished content blocks (stop reason: ${reportedStop ?? 'unknown'}; blocks: ${unfinished})`,
+    });
+  }
+
+  // Text has already streamed and completed calls already started. Partial replay would omit the
+  // unfinished text or unsigned thinking, so let the next request rebuild from the visible history.
+  if (blocks.size > 0 || !reasoningSource) return { events: [], ended: true };
+
+  return {
+    events: [
+      {
+        type: 'reasoning',
+        item: { source: reasoningSource, data: { type: 'messages-replay', prefix, content } },
+      },
+    ],
+    ended: true,
+  };
 }
 
 type BlockStart = Extract<MessagesEvent, { type: 'content_block_start' }>['content_block'];

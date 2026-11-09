@@ -100,6 +100,10 @@ describe('conversation usage over the API', () => {
       await client.send('setDefaultProfile', { body: { profile } });
       const { id } = await client.call('startConversation', { body: {} });
 
+      expect((await client.call('getConversation', { id })).contextUsage).toMatchObject({
+        window: 300_000,
+      });
+
       for (const text of ['first', 'second']) {
         for await (const _entry of client.stream('sendPrompt', { id, body: { text } })) {
           // Drain the stream so its final usage and history have been recorded.
@@ -115,13 +119,25 @@ describe('conversation usage over the API', () => {
         unpricedCalls: 0,
         missingUsageCalls: 0,
       });
+      expect((await client.call('getConversation', { id })).contextUsage).toMatchObject({
+        used: 120,
+        window: 300_000,
+      });
       await client.send('closeConversation', { id });
       await client.send('putModel', {
         profile,
         model,
-        body: { ...definition, pricing: { input: 4, output: 16, cacheRead: 0.4, cacheWrite: 5 } },
+        body: {
+          ...definition,
+          contextWindow: 1_000_000,
+          pricing: { input: 4, output: 16, cacheRead: 0.4, cacheWrite: 5 },
+        },
       });
       await client.call('reopenConversation', { id });
+      expect((await client.call('getConversation', { id })).contextUsage).toMatchObject({
+        used: 120,
+        window: 1_000_000,
+      });
       expect((await client.call('getConversation', { id })).usage?.estimatedCostUsd).toBeCloseTo(
         0.00054,
       );

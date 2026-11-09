@@ -3,6 +3,9 @@ import { OrderedQueue } from '../queue/queue.service.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
 import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import { errorDetails } from '@sheavly/runtime/errors/error-details.utils';
+import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentOptions, RunAgentOptions, RunContext } from './stream-agent.types.js';
@@ -121,8 +124,22 @@ async function drive(context: RunContext) {
       error: caughtError,
       messages,
       onHookError: ({ hook, handler, message }) =>
-        events.enqueue({ type: 'hook_failed', hook, handler, error: message }),
+        events.enqueue({
+          type: 'hook_failed',
+          hook,
+          handler,
+          error: redactDiagnosticText(message),
+        }),
     });
+    events.enqueue({
+      type: 'run_failed',
+      error: redactDiagnosticText(errorMessage(caughtError)),
+      details: errorDetails(caughtError),
+      session: session.ref,
+    });
+    // The API closes on the failed session update, so release the diagnostic first even when
+    // earlier tool results or error hooks were queued. The original exception still reaches callers.
+    await events.consumed();
     throw caughtError;
   }
 

@@ -3,10 +3,12 @@ import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { appendJsonLine, readJsonLines, trimPartialLine } from '../jsonl-file/jsonl-file.helper.js';
 import { SerialQueue } from '../serial-queue/serial-queue.service.js';
 import { STREAM_FILE } from './conversation-store.constants.js';
 import { asStoreError } from './conversation-store.utils.js';
+import { DiagnosticFile } from './diagnostic-file.service.js';
 
 /**
  * One conversation's stream file, `stream.jsonl`: an entry a line, in `seq` order with no gaps.
@@ -21,9 +23,11 @@ export class EntryFile implements EntryStore {
   readonly #file: string;
   readonly #queue = new SerialQueue();
   #next: number | undefined;
+  readonly #diagnostics: DiagnosticFile;
 
-  constructor(params: { folder: string }) {
+  constructor(params: { folder: string; conversationId?: ConversationId }) {
     this.#file = path.join(params.folder, STREAM_FILE);
+    this.#diagnostics = new DiagnosticFile(params);
   }
 
   async append(entry: StreamEntry): Promise<void> {
@@ -66,6 +70,7 @@ export class EntryFile implements EntryStore {
 
     try {
       await appendJsonLine({ file: this.#file, value: entry });
+      await this.#diagnostics.observe(entry);
     } catch (caughtError) {
       // The line may have reached the file even though the call failed: count it again next time.
       this.#next = undefined;
@@ -81,6 +86,7 @@ export class EntryFile implements EntryStore {
 
     // A line cut off by a crash would have the next entry joined onto it, so it goes first.
     await trimPartialLine({ file: this.#file });
+    await this.#diagnostics.prepare();
 
     let count = 0;
 
@@ -93,6 +99,7 @@ export class EntryFile implements EntryStore {
       }
 
       count += 1;
+      await this.#diagnostics.observe(entry);
     }
 
     this.#next = count;

@@ -23,6 +23,19 @@ export const describedCallSchema = z.object({
   description: z.string(),
 });
 
+const errorCauseSchema = z.object({
+  name: z.string(),
+  message: z.string(),
+  code: z.string().exactOptional(),
+  reason: z.string().exactOptional(),
+});
+
+/** Selected diagnostic fields, not a serialized exception, request, response or headers. */
+export const errorDetailsSchema = errorCauseSchema.omit({ message: true }).extend({
+  stack: z.string().exactOptional(),
+  causes: z.array(errorCauseSchema).max(4),
+});
+
 export const doneReasonSchema = z.enum([
   'completed',
   'interrupted',
@@ -37,6 +50,7 @@ export const doneReasonSchema = z.enum([
  *   task_completed × N                            (background tasks that finished since last turn)
  *   → message_received × N                        (messages sent to this session meanwhile)
  *   → context_added × N                           (hooks' `beforeTurn` context, in hook order)
+ *   → model_input_changed × N                     (hooks' `beforeModelCall` that changed the messages)
  *   → text_delta / reasoning / tool_call_started  (live, as the model streams)
  *   → turn_end
  *   → tool_batch → tool_result | task_running × N (results in call order)
@@ -44,6 +58,13 @@ export const doneReasonSchema = z.enum([
  */
 /** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
 const stepEventSchemas = [
+  /** Sent after cleanup, before the failed session update; never added to model history. */
+  z.object({
+    type: z.literal('run_failed'),
+    error: z.string(),
+    session: sessionRefSchema,
+    details: errorDetailsSchema.exactOptional(),
+  }),
   z.object({ type: z.literal('usage'), usage: modelUsageSchema }),
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */
@@ -84,6 +105,22 @@ const stepEventSchemas = [
   z.object({ type: z.literal('message_received'), message: inboxMessageSchema }),
   /** A hook's `beforeTurn` added this context to history; the model sees it from this turn on. */
   z.object({ type: z.literal('context_added'), hook: z.string(), content: z.string() }),
+  /**
+   * A hook's `beforeModelCall` changed the messages this model call sends. Counts only, for this
+   * call: the stored history is unchanged. `added` and `removed` are messages the hook put in or
+   * left out; `edited` are messages it kept but changed. Messages have no ids, so a tool result
+   * (by call id) and an assistant message with tool calls (by its call ids) can be edited, while
+   * a reworded user message or plain assistant message counts as one removed plus one added.
+   * Reordering is not reported.
+   */
+  z.object({
+    type: z.literal('model_input_changed'),
+    hook: z.string(),
+    turn: z.number().int().nonnegative(),
+    added: z.number().int().nonnegative(),
+    removed: z.number().int().nonnegative(),
+    edited: z.number().int().nonnegative(),
+  }),
   /** A bounded continuation after output exhaustion; its instruction is kept in history. */
   z.object({
     type: z.literal('output_continuation'),

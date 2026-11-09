@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type {
   callIdSchema,
   messageSchema,
+  messageIdSchema,
   promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
@@ -9,6 +10,7 @@ import type {
 } from './message.validator.js';
 
 export type CallId = z.infer<typeof callIdSchema>;
+export type MessageId = z.infer<typeof messageIdSchema>;
 
 export type ToolCall = z.infer<typeof toolCallSchema>;
 

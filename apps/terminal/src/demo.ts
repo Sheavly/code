@@ -24,6 +24,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { openSession } from './client/session.helper.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { shortId } from './render/render.utils.js';
+import { plainTerminalText } from './render/terminal-text.utils.js';
 
 /** What the demo asks with no prompt given. */
 const DEFAULT_PROMPT = 'Read package.json and tell me the project name.';
@@ -78,7 +79,10 @@ try {
     renderer.entry(entry, details.session);
   }
 } catch (caughtError) {
-  failure = caughtError instanceof Error ? caughtError.message : String(caughtError);
+  // The message can be text a backend sent, so control characters are shown, not obeyed.
+  failure = plainTerminalText(
+    caughtError instanceof Error ? caughtError.message : String(caughtError),
+  );
   process.stdout.write(`\n✗ Run failed: ${failure}\n`);
 }
 

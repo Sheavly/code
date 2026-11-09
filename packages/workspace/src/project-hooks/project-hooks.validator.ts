@@ -35,6 +35,7 @@ const hookExportSchema = z
     ...({
       sessionStart: handler,
       beforeTurn: handler,
+      beforeModelCall: handler,
       aroundToolCall: handler,
       afterTurn: handler,
       onError: handler,
@@ -42,7 +43,7 @@ const hookExportSchema = z
   })
   .refine((hook) => hasHandler(hook as Hook), {
     message:
-      'Define at least one handler: sessionStart, beforeTurn, aroundToolCall, afterTurn or onError',
+      'Define at least one handler: sessionStart, beforeTurn, beforeModelCall, aroundToolCall, afterTurn or onError',
   });
 
 /** Validates a hook file's default export; returns an error message instead of throwing. */

@@ -22,6 +22,25 @@ export class HookError extends Error {
   }
 }
 
+/**
+ * The messages a model call was about to send break the history rules (a tool call without its
+ * result or the reverse, or the latest user message changed). `source` names what produced them,
+ * e.g. `Hook trim`, so the run fails with the culprit rather than a provider error.
+ */
+export class InvalidHistoryError extends Error {
+  override name = 'InvalidHistoryError';
+  readonly source: string;
+  readonly problem: string;
+
+  constructor(params: { source: string; problem: string; cause?: unknown }) {
+    const { source, problem, cause } = params;
+
+    super(`${source} produced invalid history: ${problem}`, { cause });
+    this.source = source;
+    this.problem = problem;
+  }
+}
+
 /** The run's event stream ended without its `done` event, so the run's outcome is unknown. */
 export class StreamEndedError extends Error {
   override name = 'StreamEndedError';

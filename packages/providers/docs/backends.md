@@ -105,6 +105,13 @@ two-call tool round trip were also tested with 512-token output limits.
 
 ## Sending a call: timeouts and retries
 
+For Messages replies, `message_stop` with open content blocks is accepted only when the server
+explicitly reported `max_tokens`. Already streamed text and completed tool calls are retained;
+unfinished tools are never executed and unfinished thinking is never replayed. The final usage and
+output-limit reason reach the loop's bounded continuation. A missing terminal event or any other
+stop reason with open blocks remains a failure. Diagnostics name the stop reason and block indexes
+and types without including text, arguments or signatures.
+
 `request` decides how each call is sent, in every protocol (`http/request.helper.ts`):
 
 - `responseTimeoutMs`: how long to wait for the response to start (its headers). Without it a

@@ -25,8 +25,11 @@ export const logLook: Look = {
     }`,
   steer: (firstLine) => `\n✉ steer: ${firstLine}\n`,
   contextAdded: ({ hook, chars }) => `\n＋ ${hook} added context (${chars} chars)\n`,
+  modelInputChanged: ({ hook, added, removed, edited }) =>
+    `\n± ${hook} changed this call's messages (+${added} −${removed} ~${edited})\n`,
   outputContinuation: ({ attempt, maxAttempts }) =>
     `\n[output continuation ${attempt}/${maxAttempts}]\n`,
+  runFailed: (error) => `\n✗ Model run failed: ${error}\n`,
   hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
   turnEnd: ({ stopReason, waiting }) => {
     const stopped = stopReason === 'tool_use' ? '' : `\n\n[stop: ${stopReason}]\n`;

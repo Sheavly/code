@@ -114,6 +114,11 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
   conversation's providers are built, follows the model switch, and goes on each `usage` event as
   `usage.contextWindow`, for a UI to show against the tokens. The agent's own line is never in the
   stream or the history: see the loop's [context usage](../../../packages/loop/docs/run.md#context-usage).
+  Conversation details also include `contextUsage` (`used`, `window`, `throughSeq`): the latest
+  main-session input plus output, the active provider's configured window and the snapshot's
+  stream position. Unknown counts or windows are omitted, not zero. Resuming restores the count;
+  switching models changes the window without summing earlier calls or sub-agents. `usage`
+  remains the separate cumulative billing record.
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
 - **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
   in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences

@@ -5,29 +5,10 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
+import { ping, twoTurns } from '../../testing/ping-turns.fake.js';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-
-const ping = defineTool({
-  name: 'ping',
-  description: 'Replies pong',
-  inputSchema: z.object({}),
-  execute: async () => 'pong',
-});
-const call = { id: callIdSchema.parse('1'), name: 'ping', input: { description: 'pinging' } };
-/** Turn 1 calls ping, turn 2 answers. */
-const twoTurns = () =>
-  scriptedProvider([
-    [
-      { type: 'tool_call', call },
-      { type: 'done', stopReason: 'tool_use' },
-    ],
-    [
-      { type: 'text_delta', text: 'pong it is' },
-      { type: 'done', stopReason: 'end_turn' },
-    ],
-  ]);
 
 /** A hook that logs every point it is called at, prefixed with its name. */
 function tracer(name: string, log: string[]): Hook {
@@ -245,8 +226,11 @@ describe('hooks in the loop', () => {
     expect(errors).toEqual(['reply rejected']);
   });
 
-  it("reports an onError hook's own failure as hook_failed, and still throws the run's error", async () => {
-    const types: string[] = [];
+  /** Runs a provider that fails, with an `onError` hook that throws `hookError`; the run must still throw. */
+  async function hookFailures(
+    hookError: string,
+  ): Promise<{ hook: string; handler: string; error: string }[]> {
+    const failures: { hook: string; handler: string; error: string }[] = [];
     const failing: Provider = {
       async *stream() {
         yield* [];
@@ -261,19 +245,36 @@ describe('hooks in the loop', () => {
         defineHook({
           name: 'reporter',
           onError: async () => {
-            throw new Error('disk full');
+            throw new Error(hookError);
           },
         }),
       ],
       onEvent: (event) => {
-        if (event.type === 'hook_failed') {
-          types.push(`${event.hook}.${event.handler}: ${event.error}`);
-        }
+        if (event.type === 'hook_failed') failures.push(event);
       },
     });
 
     await expect(run).rejects.toThrow('provider down');
-    expect(types).toEqual(['reporter.onError: Hook reporter failed in onError: disk full']);
+
+    return failures;
+  }
+
+  it("reports an onError hook's own failure as hook_failed, and still throws the run's error", async () => {
+    const [failure, ...rest] = await hookFailures('disk full');
+
+    expect(rest).toEqual([]);
+    expect(`${failure?.hook}.${failure?.handler}: ${failure?.error}`).toBe(
+      'reporter.onError: Hook reporter failed in onError: disk full',
+    );
+  });
+
+  it('redacts credentials in a hook_failed error before it reaches the event stream', async () => {
+    const failures = await hookFailures('upload failed: api_key=hunter2 Bearer abcdefgh12345678');
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.error).not.toContain('hunter2');
+    expect(failures[0]?.error).not.toContain('abcdefgh12345678');
+    expect(failures[0]?.error).toContain('[REDACTED]');
   });
 
   it('a nested run gets only the hooks its parent passes, with its own sessionStart', async () => {

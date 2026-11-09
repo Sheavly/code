@@ -201,7 +201,7 @@ describe('statusText', () => {
 
   it('names the model and the permission mode', () => {
     expect(plain(statusOf({ state: 'ready', model: 'Deep', mode: 'always_ask', tasks: 0 }))).toBe(
-      '● ready · Deep · mode: always_ask',
+      '● ready · Deep · mode: always_ask · context ?',
     );
   });
 

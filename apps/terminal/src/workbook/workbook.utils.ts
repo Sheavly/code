@@ -133,6 +133,8 @@ export function describeEvent(event: EntryEvent): string {
       return `${head}  from ${event.message.from === 'user' ? 'user' : shortId(event.message.from)}: ${firstLine(event.message.content)}`;
     case 'context_added':
       return `${head}  ${event.hook}: ${oneLine({ text: event.content, max: 80 })}`;
+    case 'model_input_changed':
+      return `${head}  ${event.hook}: +${event.added} −${event.removed} ~${event.edited} messages`;
     case 'hook_failed':
       return `${head}  ${event.hook}.${event.handler}: ${firstLine(event.error)}`;
     case 'turn_end':

@@ -22,6 +22,7 @@ describe('agentEventSchema', () => {
         durationMs: 3,
       },
       { type: 'context_added', hook: 'agents-md', content: 'rules' },
+      { type: 'model_input_changed', hook: 'trim', turn: 2, added: 0, removed: 3, edited: 1 },
       { type: 'hook_failed', hook: 'h', handler: 'onError', error: 'boom' },
       { type: 'message_received', message: { from: 'user', content: 'stop', sentAt: 1 } },
       {
@@ -57,6 +58,17 @@ describe('agentEventSchema', () => {
       false,
     );
     expect(agentEventSchema.safeParse({ seq: 0, type: 'shout', text: 'hi' }).success).toBe(false);
+  });
+
+  it('rejects a model_input_changed with a negative or missing count', () => {
+    const event = { seq: 0, type: 'model_input_changed', hook: 'trim', turn: 1 };
+
+    const counts = { added: 0, removed: 1, edited: 0 };
+
+    expect(agentEventSchema.safeParse({ ...event, ...counts }).success).toBe(true);
+    expect(agentEventSchema.safeParse({ ...event, ...counts, added: -1 }).success).toBe(false);
+    expect(agentEventSchema.safeParse({ ...event, added: 0, removed: 1 }).success).toBe(false);
+    expect(agentEventSchema.safeParse({ ...event, added: 0 }).success).toBe(false);
   });
 
   it('rejects an artifact without a kind and a message with an unknown role', () => {

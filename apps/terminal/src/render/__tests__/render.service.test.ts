@@ -160,6 +160,20 @@ describe('Renderer: chat look', () => {
     );
   });
 
+  it('shows a hook that changed the messages a call sends, with how many', () => {
+    const changed: EntryEvent = {
+      seq: 5,
+      type: 'model_input_changed',
+      hook: 'trim',
+      turn: 2,
+      added: 1,
+      removed: 3,
+      edited: 2,
+    };
+
+    expect(chatted([changed])).toBe("± trim changed this call's messages (+1 −3 ~2)\n");
+  });
+
   it('starts the next prompt without a gap after the last one’s text', () => {
     expect(chatted([reply('One'), finished('completed'), started])).toBe(
       'One⏺ Run the tests  $ npm test\n',

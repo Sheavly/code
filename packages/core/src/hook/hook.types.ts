@@ -40,13 +40,26 @@ export type ContextState = {
 /** What `beforeTurn` receives, just before the model is called. */
 export type BeforeTurnContext = ContextAccess & {
   turn: number;
-  /** The window and how much of it the last call used (a snapshot), e.g. to decide to compact. */
+  /** The window and how much of it the last call used (a snapshot), e.g. to decide to summarize. */
   context: ContextState;
   /**
    * Adds system instructions for this turn's model call only (not history): call it every turn
    * the instructions should apply. Hooks' instructions follow the run's own, in hook order.
    */
   addInstructions: (content: string) => void;
+};
+
+/** What `beforeModelCall` receives: the messages about to be sent, and how full the context is. */
+export type BeforeModelCallContext = {
+  turn: number;
+  /**
+   * The messages this model call would send (a snapshot): the previous `beforeModelCall` hook's
+   * result, or the run's history for the first. Changing the array changes nothing stored.
+   */
+  messages: readonly Message[];
+  /** The window and how much of it the last call used (a snapshot), e.g. to decide to trim. */
+  context: ContextState;
+  signal: AbortSignal;
 };
 
 /** What `afterTurn` receives, once the turn's reply and tool results are in history. */
@@ -92,6 +105,14 @@ export type Hook = {
   sessionStart?: ((context: SessionStartContext) => Promise<void>) | undefined;
   /** Before each model call: look at the history, add context. Throwing fails the run. */
   beforeTurn?: ((context: BeforeTurnContext) => Promise<void>) | undefined;
+  /**
+   * After `beforeTurn`, before each model call: returns the messages to send instead, for that
+   * call only (stored history is never changed). Return the input to change nothing. The result
+   * must keep history valid: every tool call paired with its result, and the latest user message.
+   * Make edits deterministic: a provider reuses the prompt prefix that is byte-identical to the
+   * previous call. Throwing, or returning invalid history, fails the run.
+   */
+  beforeModelCall?: ((context: BeforeModelCallContext) => Promise<readonly Message[]>) | undefined;
   /** Wraps each tool call: block it, change its input or result. Throwing becomes an error result. */
   aroundToolCall?: ((context: ToolCallContext) => Promise<ToolResult>) | undefined;
   /** After each turn (reply and tool results in history): observe, record. Throwing fails the run. */

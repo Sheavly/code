@@ -6,8 +6,88 @@ import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { TEST_REQUEST } from '@sheavly/providers/testing/request.constants';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+
+function completedMessagesReply() {
+  return [
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } },
+    { type: 'content_block_stop', index: 0 },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
+    { type: 'message_stop' },
+  ];
+}
 
 describe('provider output continuation through the real loop', () => {
+  it('recovers an open Claude tool block at max_tokens without executing its partial arguments', async () => {
+    const toolStart = (id: string) => ({
+      type: 'content_block_start',
+      index: 1,
+      content_block: { type: 'tool_use', id, name: 'apply' },
+    });
+    const { fetch, requests } = fakeFetchSequence({
+      complete: false,
+      responses: [
+        [
+          {
+            type: 'content_block_start',
+            index: 0,
+            content_block: { type: 'text', text: 'Writing the design.' },
+          },
+          { type: 'content_block_stop', index: 0 },
+          toolStart('unfinished'),
+          {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'input_json_delta', partial_json: '{"description":' },
+          },
+          { type: 'message_delta', delta: { stop_reason: 'max_tokens' } },
+          { type: 'message_stop' },
+        ],
+        [
+          toolStart('complete'),
+          {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'input_json_delta', partial_json: '{"description":"Apply once"}' },
+          },
+          { type: 'content_block_stop', index: 1 },
+          { type: 'message_delta', delta: { stop_reason: 'tool_use' } },
+          { type: 'message_stop' },
+        ],
+        completedMessagesReply(),
+      ],
+    });
+    const applied: string[] = [];
+    const events: AgentEvent[] = [];
+    const result = await runSession({
+      provider: createDefaultRegistry({ fetch }).create('azure-anthropic', {
+        apiKey: 'test-key',
+        baseUrl: 'https://example.test/anthropic',
+        deployment: 'claude-sonnet-5-5',
+        request: TEST_REQUEST,
+      }),
+      tools: [
+        defineTool({
+          name: 'apply',
+          description: 'Apply a change',
+          inputSchema: z.object({}),
+          execute: async ({ context }) => {
+            applied.push(context.callId);
+
+            return 'Applied.';
+          },
+        }),
+      ],
+      messages: [{ role: 'user', content: 'Write the design.' }],
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(result.reason).toBe('completed');
+    expect(applied).toEqual(['complete']);
+    expect(requests).toHaveLength(3);
+    expect(events.filter((event) => event.type === 'output_continuation')).toHaveLength(1);
+    expect(result.messages[1]).toMatchObject({ content: 'Writing the design.', toolCalls: [] });
+  });
   it('replays signed Claude thinking and completed tools at high effort after an output cutoff', async () => {
     const thinking = { type: 'thinking', thinking: 'Planning.', signature: 'signed-thinking' };
     const { fetch, requests } = fakeFetchSequence({
@@ -31,12 +111,7 @@ describe('provider output continuation through the real loop', () => {
           { type: 'message_delta', delta: { stop_reason: 'max_tokens' } },
           { type: 'message_stop' },
         ],
-        [
-          { type: 'content_block_start', index: 0, content_block: { type: 'text', text: 'Done.' } },
-          { type: 'content_block_stop', index: 0 },
-          { type: 'message_delta', delta: { stop_reason: 'end_turn' } },
-          { type: 'message_stop' },
-        ],
+        completedMessagesReply(),
       ],
     });
     let effects = 0;

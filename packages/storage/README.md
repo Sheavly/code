@@ -35,4 +35,10 @@ asks of every module here.
 
 ## Docs
 
+Each kept chat gets a private `errors.jsonl` beside its history and stream when a run, hook or tool
+fails. Records include conversation, session and originating user-message IDs, timestamps, stream
+sequence and relevant tool-call IDs. Run errors include a bounded stack and cause chain. Prompts,
+tool inputs and successful outputs are not copied. Common credential forms in exception text are
+redacted. The first write after reopening repairs missing diagnostics from the authoritative stream.
+
 - [Design](docs/design.md): how it works, and how to extend it.

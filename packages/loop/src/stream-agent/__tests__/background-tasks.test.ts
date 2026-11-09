@@ -10,6 +10,7 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { until } from '@sheavly/testing/wait/until.fake';
 
 const t1 = taskIdSchema.parse('t1');
 
@@ -19,12 +20,17 @@ afterEach(async () => {
   await tasks.cancelAll();
 });
 
-const background = (id: string, ms: number, output = ''): StreamEvent => ({
+const background = (
+  id: string,
+  ms: number,
+  output = '',
+  waitForCompletion = false,
+): StreamEvent => ({
   type: 'tool_call',
   call: {
     id: callIdSchema.parse(id),
     name: 'start_task',
-    input: { description: `bg ${id}`, ms, output },
+    input: { description: `bg ${id}`, ms, output, waitForCompletion },
   },
 });
 const say = (text: string): StreamEvent[] => [
@@ -227,17 +233,74 @@ describe('background tasks in the loop', () => {
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
 
-  it('an interrupt stops waiting for tasks; the tasks themselves keep running', async () => {
+  it('waits for required work without waiting for an unrelated background server', async () => {
+    tasks = new TaskRegistry();
+    const finish = Promise.withResolvers<undefined>();
+
+    tasks.start({
+      command: 'review',
+      description: 'Review',
+      waitForCompletion: true,
+      run: async ({ onOutput }) => {
+        await finish.promise;
+        onOutput('review findings');
+
+        return { exitCode: 0 };
+      },
+    });
+    const { provider, requests } = recordingProvider([
+      [background('b', 60_000), { type: 'done', stopReason: 'tool_use' }],
+      say('Waiting for review.'),
+      say('Review received.'),
+    ]);
+    const events = await collect(
+      (async function* () {
+        for await (const event of streamAgent(options(provider))) {
+          yield event;
+          if (event.type === 'turn_end' && event.turn === 2) finish.resolve(undefined);
+        }
+      })(),
+    );
+
+    expect(lastUserMessage(requests[2])?.content).toContain('review findings');
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+    expect(tasks.runningCount).toBe(1);
+  });
+
+  it('stops waiting when required work is cancelled, even if an ordinary task still runs', async () => {
+    tasks = new TaskRegistry();
+    const { provider } = recordingProvider([
+      [
+        background('a', 60_000, '', true),
+        background('b', 60_000),
+        { type: 'done', stopReason: 'tool_use' },
+      ],
+      say('Waiting for review.'),
+    ]);
+    const events: AgentEvent[] = [];
+    const running = (async () => {
+      for await (const event of streamAgent(options(provider))) events.push(event);
+    })();
+
+    await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
+    await tasks.cancel(t1);
+    await running;
+    expect(types(events)).not.toContain('task_completed');
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+    expect(tasks.runningCount).toBe(1);
+  });
+
+  it.each([false, true])('an interrupt stops waiting, with required work: %s', async (required) => {
     tasks = new TaskRegistry();
     const controller = new AbortController();
     const { provider } = recordingProvider([
-      [background('c1', 5_000), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 5_000, '', required), { type: 'done', stopReason: 'tool_use' }],
       say('Waiting.'),
     ]);
 
     setTimeout(() => controller.abort(), 200);
     const events = await collect(
-      streamAgent(options(provider, { waitForTasks: true, signal: controller.signal })),
+      streamAgent(options(provider, { waitForTasks: !required, signal: controller.signal })),
     );
 
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });

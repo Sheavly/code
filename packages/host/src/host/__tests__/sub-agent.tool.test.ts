@@ -55,7 +55,6 @@ function setup(params: {
       hooks,
       messages: [{ role: 'user', content }],
       tasks,
-      waitForTasks: true,
       session: { registry: sessions, ref: main },
     });
 

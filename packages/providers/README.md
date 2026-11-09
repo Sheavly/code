@@ -39,6 +39,9 @@ It bounds replies with `maxTokens`, reports final token usage, and optionally re
 tool calls. `chat-reply/` is internal and closed in package exports.
 
 Messages replies preserve their original content-block order and request-prefix provenance.
+An explicit `max_tokens` termination with an open block retains streamed text and completed tool
+calls, but discards unfinished tools and thinking so the loop can request continuation. Other open
+block endings fail with the stop reason and block types, never their content.
 Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
 is omitted without losing text or tool calls. See [Model effort modes](docs/backends.md#model-effort-modes).
 

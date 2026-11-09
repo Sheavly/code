@@ -57,7 +57,14 @@ export type Look = {
   }) => string;
   steer: (firstLine: string) => string;
   contextAdded: (params: { hook: string; chars: number }) => string;
+  modelInputChanged: (params: {
+    hook: string;
+    added: number;
+    removed: number;
+    edited: number;
+  }) => string;
   outputContinuation: (params: { attempt: number; maxAttempts: number }) => string;
+  runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   turnEnd: (params: {
     stopReason: Extract<EntryEvent, { type: 'turn_end' }>['stopReason'];

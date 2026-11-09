@@ -28,7 +28,8 @@ export type AgentOptions = {
   tasks?: TaskRegistry;
   /**
    * When the model is done but background tasks are still running, wait for the next one to
-   * finish and give the model another turn (instead of ending the run). Abort to stop waiting.
+   * finish and give the model another turn (instead of ending the run). Required task completions
+   * always keep the run alive, even without this option. Abort to stop waiting.
    */
   waitForTasks?: boolean;
   /**
@@ -98,7 +99,8 @@ export type SampleContext = ToolStart & {
   provider: Provider;
   /** This turn's system instructions: the run's own plus what `beforeTurn` hooks added. */
   instructions?: string | undefined;
-  messages: Message[];
+  /** The messages this call sends: the history, as `beforeModelCall` hooks changed it. */
+  messages: readonly Message[];
   /** How full the context is for this call, read once by the turn. */
   state: ContextState;
   /** Resolves when `signal` (the run's) aborts. */

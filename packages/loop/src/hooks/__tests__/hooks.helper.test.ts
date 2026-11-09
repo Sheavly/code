@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
+import type { Hook } from '@sheavly/core/hook/hook.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { HookError } from '../../errors/loop.errors.js';
+import { InvalidHistoryError } from '../../errors/loop.errors.js';
 import {
   runAfterTurn,
+  runBeforeModelCall,
   runBeforeTurn,
   runOnError,
   runSessionStart,
@@ -106,6 +109,241 @@ describe('runBeforeTurn', () => {
 
     expect(seen).toEqual([context, context]);
     expect(context.used).toBe(1_000);
+  });
+});
+
+describe('runBeforeModelCall', () => {
+  const prompt: Message = { role: 'user', content: 'start' };
+  const changes: { hook: string; added: number; removed: number; edited: number }[] = [];
+  const run = (hooks: Hook[], messages: Message[] = [prompt]) =>
+    runBeforeModelCall({
+      hooks,
+      turn: 1,
+      messages,
+      context: {},
+      signal,
+      onChanged: (change) => changes.push(change),
+    });
+
+  beforeEach(() => {
+    changes.length = 0;
+  });
+
+  it('reports what each hook added, dropped and edited, as counts', async () => {
+    const tool = (id: string): Message => ({
+      role: 'tool',
+      toolCallId: callIdSchema.parse(id),
+      content: 'long output',
+      isError: false,
+    });
+    const call = (id: string): Message => ({
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: callIdSchema.parse(id), name: 'x', input: {} }],
+    });
+    const again: Message = { role: 'user', content: 'and again' };
+    const history = [prompt, call('1'), tool('1'), call('2'), tool('2'), again];
+    const hide = defineHook({
+      name: 'hide',
+      beforeModelCall: async ({ messages }) =>
+        messages.map((m) => (m.role === 'tool' ? { ...m, content: '[hidden]' } : m)),
+    });
+    const drop = defineHook({
+      name: 'drop',
+      beforeModelCall: async ({ messages }) => messages.filter((m, i) => i < 1 || i > 2),
+    });
+    const note = defineHook({
+      name: 'note',
+      beforeModelCall: async ({ messages }) => [
+        ...messages.slice(0, -1),
+        { role: 'assistant', content: 'a note', toolCalls: [] },
+        ...messages.slice(-1),
+      ],
+    });
+
+    await run([hide, drop, note], history);
+
+    expect(changes).toEqual([
+      { hook: 'hide', added: 0, removed: 0, edited: 2 },
+      { hook: 'drop', added: 0, removed: 2, edited: 0 },
+      { hook: 'note', added: 1, removed: 0, edited: 0 },
+    ]);
+  });
+
+  it('counts a reworded user message as one removed plus one added, never as an edit', async () => {
+    const reword = defineHook({
+      name: 'reword',
+      beforeModelCall: async ({ messages }) => [
+        { role: 'user', content: 'older, reworded' },
+        ...messages.slice(1),
+      ],
+    });
+    const history: Message[] = [{ role: 'user', content: 'older' }, prompt];
+
+    await run([reword], history);
+
+    expect(changes).toEqual([{ hook: 'reword', added: 1, removed: 1, edited: 0 }]);
+  });
+
+  it('reports nothing when no hook changed the messages', async () => {
+    await run([defineHook({ name: 'same', beforeModelCall: async ({ messages }) => messages })]);
+
+    expect(changes).toEqual([]);
+  });
+
+  it('returns the messages as they are when no hook handles it', async () => {
+    const messages = [prompt];
+
+    expect(await run([defineHook({ name: 'other', afterTurn: async () => undefined })])).toEqual(
+      messages,
+    );
+  });
+
+  it('chains hooks in order: each gets the previous hook’s result', async () => {
+    const seen: number[] = [];
+    const add = (name: string) =>
+      defineHook({
+        name,
+        beforeModelCall: async ({ messages }) => {
+          seen.push(messages.length);
+
+          return [...messages, { role: 'assistant', content: name, toolCalls: [] }];
+        },
+      });
+
+    const result = await run([add('a'), add('b')]);
+
+    expect(seen).toEqual([1, 2]);
+    expect(result.map((message) => message.content)).toEqual(['start', 'a', 'b']);
+  });
+
+  it('never changes the messages it was given, even when a hook edits its copy', async () => {
+    const messages: Message[] = [prompt];
+    const sneaky = defineHook({
+      name: 'sneaky',
+      beforeModelCall: async (given) => {
+        (given.messages as Message[]).length = 0;
+
+        return [prompt];
+      },
+    });
+
+    await run([sneaky], messages);
+
+    expect(messages).toEqual([prompt]);
+  });
+
+  it('gives each hook its own copy of the context state', async () => {
+    const context = { window: 1_000, used: 10 };
+    const seen: unknown[] = [];
+    const meddler = defineHook({
+      name: 'meddler',
+      beforeModelCall: async (given) => {
+        seen.push({ ...given.context });
+        given.context.used = 0;
+
+        return given.messages;
+      },
+    });
+    const reader = defineHook({
+      name: 'reader',
+      beforeModelCall: async (given) => {
+        seen.push({ ...given.context });
+
+        return given.messages;
+      },
+    });
+
+    await runBeforeModelCall({
+      hooks: [meddler, reader],
+      turn: 1,
+      messages: [prompt],
+      context,
+      signal,
+      onChanged: () => undefined,
+    });
+
+    expect(seen).toEqual([context, context]);
+    expect(context.used).toBe(10);
+  });
+
+  it('gives hooks deep copies: editing a message in place changes nothing stored', async () => {
+    const stored: Message[] = [{ role: 'user', content: 'start' }];
+    const editor = defineHook({
+      name: 'editor',
+      beforeModelCall: async ({ messages }) => {
+        (messages[0] as { content: string }).content = 'rewritten';
+
+        return messages;
+      },
+    });
+
+    await expect(run([editor], stored)).rejects.toThrow(
+      'Hook editor produced invalid history: the latest user message was removed or changed',
+    );
+    expect(stored[0]?.content).toBe('start');
+  });
+
+  it('refuses a result that is not made of messages, as a typed error naming the hook', async () => {
+    const nulls = { name: 'nulls', beforeModelCall: async () => [null] } as unknown as Hook;
+
+    await expect(run([nulls])).rejects.toThrow(InvalidHistoryError);
+    await expect(run([nulls])).rejects.toThrow('Hook nulls produced invalid history');
+  });
+
+  it('does not blame a hook that returns its input when the history was already broken', async () => {
+    const dangling: Message[] = [
+      prompt,
+      {
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: callIdSchema.parse('1'), name: 'x', input: {} }],
+      },
+    ];
+    const passthrough = defineHook({
+      name: 'passthrough',
+      beforeModelCall: async ({ messages }) => messages,
+    });
+
+    expect(await run([passthrough], dangling)).toEqual(dangling);
+  });
+
+  it('names the hook whose result breaks the rules, and stops there', async () => {
+    const ran: string[] = [];
+    const orphan = defineHook({
+      name: 'orphan',
+      beforeModelCall: async ({ messages }) => [
+        ...messages,
+        { role: 'tool', toolCallId: callIdSchema.parse('x'), content: '', isError: false },
+      ],
+    });
+    const later = defineHook({
+      name: 'later',
+      beforeModelCall: async ({ messages }) => {
+        ran.push('later');
+
+        return messages;
+      },
+    });
+
+    await expect(run([orphan, later])).rejects.toThrow(InvalidHistoryError);
+    await expect(run([orphan, later])).rejects.toThrow('Hook orphan produced invalid history');
+    expect(ran).toEqual([]);
+  });
+
+  it('holds every hook to the original latest user message, not the previous result’s', async () => {
+    const reword = defineHook({
+      name: 'reword',
+      beforeModelCall: async () => [{ role: 'user', content: 'changed' }],
+    });
+    const restore = defineHook({
+      name: 'restore',
+      beforeModelCall: async () => [{ role: 'user', content: 'changed' }],
+    });
+
+    await expect(run([reword, restore])).rejects.toThrow(
+      'Hook reword produced invalid history: the latest user message was removed or changed',
+    );
   });
 });
 

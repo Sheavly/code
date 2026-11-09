@@ -5,26 +5,34 @@ import { statusText } from '../../tui/view.utils.js';
 
 describe('usageText', () => {
   const empty = new UsageLedger().snapshot;
+  const context = { throughSeq: 1, used: 12_756, window: 1_000_000 };
 
-  it('shows unknown rather than zero before reported usage exists', () => {
-    expect(usageText(empty)).toBe('tokens ?');
-    expect(usageText({ ...empty, calls: 1, missingUsageCalls: 1 })).toBe('tokens ?');
+  it('shows unknown context instead of zero or cumulative billing tokens', () => {
+    expect(usageText({ context: undefined, usage: empty })).toBe('context ?');
+    expect(usageText({ context: { throughSeq: 1, window: 300_000 }, usage: undefined })).toBe(
+      'context ? / 300K',
+    );
+    expect(usageText({ context: { throughSeq: 1, window: 1_000_000 }, usage: undefined })).toBe(
+      'context ? / 1M',
+    );
+    expect(usageText({ context: { throughSeq: 1, used: 42 }, usage: undefined })).toBe(
+      'context 42',
+    );
   });
 
-  it('formats reported totals with an estimate marker and USD cost', () => {
+  it('formats the latest context against its window and keeps cumulative cost separate', () => {
     expect(
       usageText({
-        ...empty,
-        calls: 1,
-        inputTokens: 12_300,
-        outputTokens: 456,
-        estimatedCostUsd: 0.1234,
+        context,
+        usage: { ...empty, calls: 20, inputTokens: 1_200_000, estimatedCostUsd: 0.1234 },
       }),
-    ).toBe('12.3k in / 456 out · ~$0.1234');
-    expect(usageText({ ...empty, calls: 1 })).toBe('0 in / 0 out · ~$0.0000');
+    ).toBe('context 12.8k / 1M (1%) · ~$0.1234');
+    expect(usageText({ context: { ...context, used: 0 }, usage: undefined })).toBe(
+      'context 0 / 1M (0%)',
+    );
   });
 
-  it('uses the same metrics in the classic status line', () => {
+  it('uses the same context metrics in the classic status line', () => {
     expect(
       statusText({
         info: {
@@ -32,19 +40,18 @@ describe('usageText', () => {
           model: 'Fast',
           mode: 'ask',
           tasks: 0,
-          usage: { ...empty, calls: 1, inputTokens: 1230, outputTokens: 10 },
+          contextUsage: context,
+          usage: { ...empty, calls: 1 },
         },
       }),
-    ).toContain('1.2k in / 10 out · ~$0.0000');
+    ).toContain('context 12.8k / 1M (1%) · ~$0.0000');
   });
 
-  it('does not present partial usage or unpriced calls as complete billing', () => {
-    expect(usageText({ ...empty, calls: 2, inputTokens: 2000, missingUsageCalls: 1 })).toBe(
-      '≥2.0k in / 0 out',
-    );
-    expect(usageText({ ...empty, calls: 1, unpricedCalls: 1 })).toBe('0 in / 0 out');
-    expect(usageText({ ...empty, calls: 1, incomplete: true, estimatedCostUsd: 0.1 })).toBe(
-      '≥0 in / 0 out',
-    );
+  it.each([
+    { ...empty, calls: 2, missingUsageCalls: 1 },
+    { ...empty, calls: 1, unpricedCalls: 1 },
+    { ...empty, calls: 1, incomplete: true, estimatedCostUsd: 0.1 },
+  ])('omits incomplete or unknown billing without hiding context', (usage) => {
+    expect(usageText({ context, usage })).toBe('context 12.8k / 1M (1%)');
   });
 });

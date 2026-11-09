@@ -1,0 +1,126 @@
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
+import { until } from '@sheavly/testing/wait/until.fake';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
+import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { testBackend } from '../../testing/backend.fake.js';
+
+describe('sub-agent completion over the terminal prompt stream', () => {
+  it('delivers both reviews and resumes the parent without a status message or WAIT_FOR_TASKS', async () => {
+    const base = await mkdtemp(path.join(tmpdir(), 'sub-agent-wake-'));
+    const workspace = path.join(base, 'project');
+    const first = Promise.withResolvers<undefined>();
+    const second = Promise.withResolvers<undefined>();
+    const requests: string[] = [];
+    let parentCalls = 0;
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const body = JSON.parse(await new Request(input, init).text()) as {
+        input: { role?: string; content?: string }[];
+      };
+      const task = body.input.find((item) => item.role === 'user')?.content;
+      const review = [
+        { task: 'FIRST_REVIEW_TASK', finish: first, reply: 'First review findings' },
+        { task: 'SECOND_REVIEW_TASK', finish: second, reply: 'Second review findings' },
+      ].find((review) => review.task === task);
+
+      if (review) {
+        await review.finish.promise;
+
+        return fakeFetch([{ type: 'response.output_text.delta', delta: review.reply }]).fetch(
+          input,
+          init,
+        );
+      }
+
+      parentCalls++;
+      requests.push(JSON.stringify(body.input));
+
+      if (parentCalls === 1) {
+        return fakeFetch(
+          ['FIRST_REVIEW_TASK', 'SECOND_REVIEW_TASK'].map((task, index) => ({
+            type: 'response.output_item.done',
+            item: {
+              type: 'function_call',
+              call_id: `review-${index}`,
+              name: 'start_agent',
+              arguments: JSON.stringify({ description: 'Start review', title: task, task }),
+            },
+          })),
+        ).fetch(input, init);
+      }
+
+      return fakeFetch([
+        { type: 'response.output_text.delta', delta: `Parent turn ${parentCalls}` },
+      ]).fetch(input, init);
+    };
+
+    await mkdir(workspace);
+    const backend = testBackend({ home: path.join(base, 'home'), workspace, fetch });
+    const profile = profileIdSchema.parse('00000000-0000-4000-8000-000000000001');
+    const model = modelIdSchema.parse('00000000-0000-4000-8000-000000000002');
+    let running: Promise<void> | undefined;
+
+    try {
+      await backend.setup.putProfile({ id: profile, name: 'Reviews' });
+      await backend.setup.putModel({
+        profile,
+        id: model,
+        model: { name: 'Fake', adapter: 'openai', definition: { model: 'test' } },
+      });
+      await backend.setup.putCredential({ profile, model, secrets: { apiKey: 'fake-test-key' } });
+      await backend.setup.setDefaultProfile(profile);
+      const { id } = await backend.client.call('startConversation', { body: {} });
+      const entries: StreamEntry[] = [];
+      let ended = false;
+
+      running = (async () => {
+        for await (const entry of backend.client.stream('sendPrompt', {
+          id,
+          body: { text: 'Review the branch' },
+        })) {
+          entries.push(entry);
+        }
+
+        ended = true;
+      })();
+      await until(() => parentCalls === 2);
+      expect(ended).toBe(false);
+      expect(entries.some((entry) => entry.kind === 'event' && entry.event.type === 'done')).toBe(
+        false,
+      );
+      first.resolve(undefined);
+      await until(() => parentCalls === 3);
+      expect(requests[2]).toContain('First review findings');
+      expect(ended).toBe(false);
+      second.resolve(undefined);
+      await running;
+      expect(requests[3]).toContain('Second review findings');
+      expect(
+        entries.filter((entry) => entry.kind === 'event' && entry.event.type === 'task_completed'),
+      ).toHaveLength(2);
+      const history = await backend.client.call('getMessages', { id });
+
+      expect(
+        history.messages.filter((message) => message.content === 'Review the branch'),
+      ).toHaveLength(1);
+      expect(
+        entries.some(
+          (entry) =>
+            entry.kind === 'event' &&
+            entry.event.type === 'done' &&
+            entry.event.reason === 'completed',
+        ),
+      ).toBe(true);
+    } finally {
+      first.resolve(undefined);
+      second.resolve(undefined);
+      await running;
+      await backend.conversations.closeAll();
+      await rm(base, { recursive: true, force: true });
+    }
+  });
+});

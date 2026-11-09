@@ -5,10 +5,12 @@ import type {
   describedCallSchema,
   doneReasonSchema,
   entryEventSchema,
+  errorDetailsSchema,
   toolArtifactSchema,
 } from './event.validator.js';
 
 export type ToolArtifact = z.infer<typeof toolArtifactSchema>;
+export type ErrorDetails = z.infer<typeof errorDetailsSchema>;
 
 export type DescribedCall = z.infer<typeof describedCallSchema>;
 

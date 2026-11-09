@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { timestampSchema } from '../time/time.validator.js';
 import { skillNameSchema } from '../skill/skill.validator.js';
+import { lowercaseUuidSchema } from '../id/id.validator.js';
+
+/** A persisted user message's stable identity, never sent to the model. Legacy history may omit it. */
+export const messageIdSchema = lowercaseUuidSchema.brand<'MessageId'>();
 
 /**
  * A tool call's id, as the model's backend gave it. Branded, so it can't be passed where a
@@ -48,6 +52,7 @@ export const promptPartSchema = z.discriminatedUnion('type', [
 export const messageSchema = z.discriminatedUnion('role', [
   z.object({
     role: z.literal('user'),
+    id: messageIdSchema.exactOptional(),
     /** What the model saw: the text, with the instructions of any skills it ran. */
     content: z.string(),
     /** What the user typed, when it ran skills: for a UI to show, never sent to the model. */
