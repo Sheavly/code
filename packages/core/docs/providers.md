@@ -20,9 +20,11 @@ turns (an edited AGENTS.md) without touching history. The Responses client sends
 API's `instructions` field.
 
 `notice` is not history, so an adapter appends it as a last user message after it has built the
-history, and leaves it out of anything it hashes or replays. Anthropic's thinking signatures, for
-one, are bound to the messages that preceded the reply: a notice inside that hash would make every
-later replay fail. Each turn's notice is gone from the next request.
+history. Each turn's notice is gone from the next request, which matters to replay state bound to
+what a call sent: Anthropic binds a thinking signature to everything before the reply, the notice
+included, and refuses the block (400) once that content is missing. Its adapter therefore treats
+the notice as part of the reply's prefix and drops that thinking on the next turn, instead of
+replaying it. Responses and Chat Completions have no such binding.
 
 ## The context window
 

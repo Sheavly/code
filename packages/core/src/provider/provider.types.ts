@@ -21,9 +21,10 @@ export type ProviderRequest = {
   messages: Message[];
   /**
    * One short line for the model that changes every call (how full its context is). It is not
-   * history: an adapter sends it after the history, as a last user message, and keeps it out of
-   * anything it hashes, caches or replays, so the stable prefix and signed thinking are
-   * unaffected. Never stored in `messages`.
+   * history: an adapter sends it after the history, as a last user message, so the cached prefix
+   * is unchanged. Never stored in `messages`. It is part of what the call sent, though: an adapter
+   * whose replay state is bound to the request (Anthropic's thinking signatures) must bind it to
+   * the notice too, and not replay it once the notice is gone.
    */
   notice?: string | undefined;
   tools: ToolDefinition[];
