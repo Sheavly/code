@@ -1,6 +1,6 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -68,17 +68,23 @@ export class PlacedConversationStore implements ConversationStore {
     };
   }
 
-  async readMessages(id: ConversationId): Promise<Message[]> {
+  async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
     const home = await this.#homeOf(id);
 
     return home ? home.store.readMessages(id) : [];
   }
 
-  async writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void> {
+  async writeMessages(params: {
+    id: ConversationId;
+    messages: readonly HistoryMessage[];
+  }): Promise<void> {
     await (await this.#placed(params.id)).store.writeMessages(params);
   }
 
-  async readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<Message[]> {
+  async readAgentMessages(params: {
+    id: ConversationId;
+    session: SessionId;
+  }): Promise<HistoryMessage[]> {
     const home = await this.#homeOf(params.id);
 
     return home ? home.store.readAgentMessages(params) : [];
@@ -87,7 +93,7 @@ export class PlacedConversationStore implements ConversationStore {
   async writeAgentMessages(params: {
     id: ConversationId;
     session: SessionId;
-    messages: readonly Message[];
+    messages: readonly HistoryMessage[];
   }): Promise<void> {
     await (await this.#placed(params.id)).store.writeAgentMessages(params);
   }
