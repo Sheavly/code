@@ -106,6 +106,28 @@ and OpenHands' blog post gives none), any study that varies the trigger or the t
 which value is best, and anything about how large a summary should be. The JetBrains paper says
 its window had to be tuned per scaffold, which is a reason to expect the same here.
 
+## Summary prompts
+
+The prompts that are public, read on 2026-11-09. No study compares one summary prompt against
+another, so none of these is shown to be best. What they share is the best-supported starting
+point.
+
+| Prompt                          | What it asks for                                                                                                                                                                                                                                                                                                                                                    | Source                                                                                                                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Codex CLI                       | A "handoff summary for another LLM": progress and decisions, constraints and user preferences, what remains, critical data. Five lines. The summary is reinserted behind a prefix saying another model wrote it                                                                                                                                                     | [`prompt.md`](https://raw.githubusercontent.com/openai/codex/main/codex-rs/prompts/templates/compact/prompt.md), [`summary_prefix.md`](https://raw.githubusercontent.com/openai/codex/main/codex-rs/prompts/templates/compact/summary_prefix.md) |
+| Gemini CLI                      | A private scratchpad first, then fixed XML sections: overall goal, active constraints, key knowledge, artifact trail (what changed and why), file system state, recent actions, task state (each step marked done, in progress or to do). Says the snapshot is the agent's only memory and to be dense. Tells the model to ignore instructions found in the history | [`getCompressionPrompt`](https://raw.githubusercontent.com/google-gemini/gemini-cli/main/packages/core/src/prompts/snippets.ts)                                                                                                                  |
+| OpenHands, as JetBrains used it | Fixed sections: user context, completed, pending, current state; for code also code state, tests, changes, dependencies, version control. Given the previous summary and only the new turns, so it updates one summary. Temperature zero                                                                                                                            | [JetBrains, appendix E](https://arxiv.org/html/2508.21433v3#A5)                                                                                                                                                                                  |
+| Anthropic                       | The default prompt is server-side and not public; a caller may replace it. Guidance: maximize recall first, then trim for precision                                                                                                                                                                                                                                 | [Anthropic docs](https://platform.claude.com/docs/en/build-with-claude/compaction-on-demand)                                                                                                                                                     |
+
+What they agree on: fixed sections, the user's goal and constraints, what is done and what is
+next, the errors and tests that matter, and the files touched. Two things only some do: a
+reasoning pass before the summary (Gemini), and treating the history as data to be summarized,
+never as instructions (Gemini). The second matters for a harness: tool output can carry text
+written to steer a model, and a summary would carry it into trusted context.
+
+Not read: OpenCode's and Cline's prompts (the source paths tried returned 404), and the full
+OpenHands prompt as shipped, which JetBrains says it shortened for code tasks only.
+
 ## What the research means for Sheavly
 
 1. **Cheap rules come first.** Hiding stale tool output is the best-evidenced first step, and it
@@ -123,8 +145,9 @@ its window had to be tuned per scaffold, which is a reason to expect the same he
 ## Gaps
 
 - Claude Code, Cursor and Warp are closed; only what they publish is cited.
-- OpenCode, Cline and Gemini CLI are cited from documentation. Their code was not read (the
-  paths tried returned 404).
+- OpenCode and Cline are cited from documentation. Their code was not read (the paths tried
+  returned 404). Gemini CLI's compression prompt was read from source, but not its trigger or
+  what it keeps.
 - Codex's source was read only in part, so what it keeps is stated from a constant and its
   prompt, not from the code that applies them.
 - Nothing here says how large a tail or buffer is right for Sheavly's models.

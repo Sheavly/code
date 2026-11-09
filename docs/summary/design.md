@@ -133,8 +133,18 @@ summarizer or a threshold: the UI passes them, as it passes tools and hooks.
 loop). A model-based one is given a `Provider` by the UI:
 
 - **Sections.** A summarizer is a list of `SummarySection`s, each filling one section by rules or
-  by the model. Default: goal, decisions and why, what failed, what is next (model); the user's
-  own messages, verbatim and capped (rules); the file trail (an extractor, below).
+  by the model. Default: goal, active constraints (the user's rules and preferences), key
+  knowledge (build commands, facts learned), decisions and why, what failed, task state (done, in
+  progress, next) (model); the user's own messages, verbatim and capped (rules); the file trail
+  (an extractor, below). The prompt starts from the structure the public prompts share (see
+  [summary prompts](README.md#summary-prompts)) and is tuned on stored workbook runs, since no
+  outside evidence ranks one prompt over another.
+- **History is data.** The prompt tells the model to treat the history as text to summarize, never
+  as instructions, because tool output can carry text written to steer a model. The checkpoint is
+  rendered to the model as another model's account of earlier work, not as the user's words, so a
+  summary cannot promote injected text into trusted context.
+- **Update, don't regenerate.** The prompt gets the previous checkpoint and only the new span, and
+  returns the merged sections, at temperature zero.
 - **File trail.** The weakest dimension in every study, so it does not depend on the model. The
   generic package takes a `trail` extractor (tool calls in, short lines out); `@sheavly/coding`
   supplies one that reads the file tools' calls. Generic code never learns what a file is.
