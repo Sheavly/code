@@ -105,7 +105,9 @@ describe('sub-agent completion over the terminal prompt stream', () => {
       const history = await backend.client.call('getMessages', { id });
 
       expect(
-        history.messages.filter((message) => message.content === 'Review the branch'),
+        history.messages.filter(
+          (message) => message.role !== 'summary' && message.content === 'Review the branch',
+        ),
       ).toHaveLength(1);
       expect(
         entries.some(

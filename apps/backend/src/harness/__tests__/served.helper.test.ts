@@ -272,15 +272,17 @@ describe('a conversation the backend keeps', () => {
 
     // The model was sent the earlier exchange, so it can answer from it.
     expect(sentTexts(second.requests)).toContain('my name is Ada');
-    expect(
-      after.messages(id).filter((message) => message.content.startsWith('<instruction-context')),
-    ).toHaveLength(1);
-    expect(
-      after
-        .messages(id)
-        .filter((message) => !message.content.startsWith('<instruction-context'))
-        .map((message) => message.content),
-    ).toEqual(['my name is Ada', 'hello', 'what is my name?', 'Hello again, Ada']);
+    const texts = after
+      .messages(id)
+      .flatMap((message) => (message.role === 'summary' ? [] : [message.content]));
+
+    expect(texts.filter((text) => text.startsWith('<instruction-context'))).toHaveLength(1);
+    expect(texts.filter((text) => !text.startsWith('<instruction-context'))).toEqual([
+      'my name is Ada',
+      'hello',
+      'what is my name?',
+      'Hello again, Ada',
+    ]);
     await after.closeAll();
   });
 

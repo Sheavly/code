@@ -236,7 +236,9 @@ describe('over real HTTP, with the client UIs use', () => {
 
     expect(answered).toEqual(['hello']);
     expect(streamed).toContain('text_delta');
-    expect(history.messages.map((message) => message.content)).toEqual(['hi', 'hello']);
+    expect(
+      history.messages.flatMap((message) => (message.role === 'summary' ? [] : [message.content])),
+    ).toEqual(['hi', 'hello']);
   });
 
   it('serves structured notices to another UI through the ordinary client stream', async () => {
