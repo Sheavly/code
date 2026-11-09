@@ -64,9 +64,9 @@ Skills are instructions, not code, so workspace trust doesn't gate them, just as
 
 ## The hook and read_skill
 
-`createSkillsHook({ root, home? })` (`@sheavly/workspace/skills/`) is a `beforeTurn` hook. Before every model call it re-reads each skill's name and description, appending the list to instruction context only when it changes. Earlier messages and the system prompt stay unchanged, preserving signed thinking. Bodies are never in the list. The list is capped at 8,000 characters, with a note saying how many skills were left out. Leave out `home` to read only the project's skills.
+`createSkillsHook({ root, home? })` (`@sheavly/workspace/skills/`) is a `beforeTurn` hook. Before every model call it re-reads each skill's name and description, appending the list to instruction context only when it changes. Earlier messages and the system prompt stay unchanged, preserving signed thinking. Bodies are never in the list. All eligible skills are listed without a character cap; manual-only skills remain excluded. Leave out `home` to read only the project's skills.
 
-The model reads a skill with `read_skill` (`@sheavly/coding/read-skill/`): its `SKILL.md` by default, or `file`, a path relative to the skill's folder. User skills live outside the workspace, so `read_skill` reads outside it, but only inside the skill's own folder (symlinks are followed, as in a workspace), and never a `.env` file. Its line and character limits are the same as `read_file`'s.
+The model reads a skill with `read_skill` (`@sheavly/coding/read-skill/`): its `SKILL.md` by default, or `file`, a path relative to the skill's folder. User skills live outside the workspace, so `read_skill` reads outside it, but only inside the skill's own folder (symlinks are followed, as in a workspace), and never a `.env` file. It returns the complete file without line or character caps or pagination. Ordinary `read_file` limits are unchanged. The model's context-window limit still applies.
 
 ## Running a skill by name
 

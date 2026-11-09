@@ -9,6 +9,3 @@ export const SKILLS_FOLDERS = [
   ['.sheavly', 'skills'],
   ['.agents', 'skills'],
 ] as const;
-
-/** Longest skill list sent to the model; the rest is cut with a note naming how many were left out. */
-export const MAX_SKILLS_CHARS = 8000;

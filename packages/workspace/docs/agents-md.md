@@ -14,4 +14,5 @@ reads AGENTS.md files and appends changed instructions to history.
 - It keeps earlier context unchanged, and appends only when the instructions change, including
   when files are removed. Deduplication reads history, so reopening and sub-agents work without
   shared mutable hook state. This keeps Claude's signed conversation prefix intact.
-- It caps the total at 32,000 characters, with a truncation note. Empty files are skipped.
+- It includes all applicable instructions without a character cap. Empty files are skipped and
+  surrounding whitespace is trimmed. The model's context-window limit still applies.

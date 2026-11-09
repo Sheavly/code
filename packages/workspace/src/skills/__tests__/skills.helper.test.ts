@@ -177,6 +177,40 @@ describe('findSkills', () => {
 });
 
 describe('createSkillsHook in the loop', () => {
+  it('appends the full catalog when descriptions total more than 8,000 characters', async () => {
+    const project = path.join(base, 'large-catalog');
+    const names = Array.from(
+      { length: 30 },
+      (_, index) => `skill-${String(index).padStart(2, '0')}`,
+    );
+    const description = 'Detailed guidance. '.repeat(20).trimEnd();
+
+    await Promise.all(
+      names.map(async (name) => {
+        const dir = path.join(project, '.agents/skills', name);
+
+        await mkdir(dir, { recursive: true });
+        await writeFile(
+          path.join(dir, 'SKILL.md'),
+          skillFile({ name, description }, 'PRIVATE BODY'),
+        );
+      }),
+    );
+
+    const messages = await runAgent({
+      provider: scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]),
+      tools: [],
+      messages: [{ role: 'user', content: 'Which skills are available?' }],
+      hooks: [createSkillsHook({ root: project })],
+    });
+    const instructions = messages[1]?.content ?? '';
+
+    expect(instructions.length).toBeGreaterThan(8000);
+    expect(instructions).toContain(names.map((name) => `- ${name}: ${description}`).join('\n'));
+    expect(instructions).not.toContain('more skills not listed');
+    expect(instructions).not.toContain('PRIVATE BODY');
+  });
+
   it('lists the skills in the instructions of every model call, never their bodies', async () => {
     const requests: ProviderRequest[] = [];
     const scripted = scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]);

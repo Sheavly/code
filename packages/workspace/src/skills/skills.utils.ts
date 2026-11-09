@@ -92,13 +92,10 @@ export function skillBody(text: string): string {
 
 /**
  * The system instructions listing the skills the model may use: each name and what it is for.
- * Cut at `maxChars`, with a note saying how many were left out.
+ * Manual-only skills are excluded; all other names and descriptions are listed in input order.
  */
-export function formatSkillsInstructions(params: {
-  skills: Skill[];
-  maxChars: number;
-}): string | undefined {
-  const { skills, maxChars } = params;
+export function formatSkillsInstructions(params: { skills: Skill[] }): string | undefined {
+  const { skills } = params;
   const offered = skills.filter((skill) => !skill.manualOnly);
 
   if (offered.length === 0) return undefined;
@@ -106,22 +103,9 @@ export function formatSkillsInstructions(params: {
   const intro =
     'Skills: instructions for specific tasks. When a skill fits the task, read it first with ' +
     'read_skill (its SKILL.md, then the files it links to), and follow it. Read only what fits.';
-  let text = intro;
-  let listed = 0;
+  const descriptions = offered.map((skill) => `- ${skill.name}: ${skill.description}`);
 
-  for (const skill of offered) {
-    const line = `\n- ${skill.name}: ${skill.description}`;
-
-    if (text.length + line.length > maxChars) break;
-    text += line;
-    listed++;
-  }
-
-  const left = offered.length - listed;
-
-  return left === 0
-    ? text
-    : `${text}\n[${String(left)} more skills not listed: the list is limited to ${String(maxChars)} characters]`;
+  return [intro, ...descriptions].join('\n');
 }
 
 /** A skill mention starts after the text's start, a space, or an opening bracket or quote. */
