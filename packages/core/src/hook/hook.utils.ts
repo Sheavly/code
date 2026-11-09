@@ -5,6 +5,7 @@ import { DefinitionError } from '../errors/definition.errors.js';
 const HANDLERS = {
   sessionStart: true,
   beforeTurn: true,
+  beforeModelCall: true,
   aroundToolCall: true,
   afterTurn: true,
   onError: true,
