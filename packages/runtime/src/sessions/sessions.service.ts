@@ -10,6 +10,7 @@ import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
 import { MessageContexts } from './message-contexts.service.js';
 import { ApprovalSessions } from './approval-sessions.service.js';
+import { assertCanSend } from './send-check.helper.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
 import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
@@ -250,21 +251,7 @@ export class SessionRegistry {
     const { id, content, from } = params;
     const session = this.#require(id);
 
-    if (!isOpen(session.state)) {
-      throw new SessionError({
-        reason: 'session_ended',
-        sessionId: id,
-        message: `Session ${id} has ended (${session.state}); it can't receive messages`,
-      });
-    }
-
-    if (from !== 'user' && !this.lineage(id).some((s) => s.id === from && s.id !== id)) {
-      throw new SessionError({
-        reason: 'not_an_ancestor',
-        sessionId: id,
-        message: `Session ${from} did not start session ${id} (directly or through a sub-agent)`,
-      });
-    }
+    assertCanSend({ session, from, lineage: this.lineage(id) });
 
     const message: InboxMessage = { from, content, sentAt: now() };
 
@@ -344,6 +331,16 @@ export class SessionRegistry {
    */
   lastTokens(id: SessionId): TokenUsage | undefined {
     return this.#lastTokens.get(id);
+  }
+
+  /**
+   * Clears the session's last reported tokens, for when the history they described was replaced
+   * (a summary): the next model call reports its own. Held in memory only, so a conversation
+   * reopened before that call reads the stored, older numbers.
+   */
+  forgetLastTokens(id: SessionId): void {
+    this.#require(id);
+    this.#lastTokens.forget(id);
   }
 
   /**

@@ -147,6 +147,9 @@ newest `usage` event carried, not a total. A call that reported none clears it, 
 numbers no longer say how full the context is. It belongs to the session, not to a run, so a
 conversation's next prompt (a new run on the same session) and a reopened conversation (read back
 by `readStoredLog`) still have it. The loop uses it to tell the agent how full its context is.
+`forgetLastTokens(id)` clears it on request, for when the history it described was replaced (a
+summary): the next call reports its own. It is held in memory only, so a conversation reopened
+before that call reads the stored, older numbers.
 
 A `done` in the combined stream has no `messages`, for live listeners and replay alike
 (`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
