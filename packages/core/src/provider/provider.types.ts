@@ -24,9 +24,9 @@ export type ProviderRequest = {
    * Transient harness data. An adapter formats it with `formatHarnessNotice` and sends it after
    * history, so the cached prefix is unchanged. Never stored in `messages` or attributed to the
    * user. Adapters with request-bound replay state (Anthropic's thinking signatures) include the
-   * notice in the reply's prefix and omit replay once that prefix no longer matches.
+   * notices in the reply's prefix and omit replay once that prefix no longer matches.
    */
-  notice?: HarnessNotice | undefined;
+  notices?: readonly HarnessNotice[] | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };

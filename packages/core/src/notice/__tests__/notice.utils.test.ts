@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { formatHarnessNotice } from '../notice.utils.js';
 
 describe('formatHarnessNotice', () => {
+  it('instructs silent recovery of the original task without repeating completed work', () => {
+    const text = formatHarnessNotice({ kind: 'output-continuation', attempt: 3 });
+
+    expect(text).toContain('<harness-notice kind="output-continuation">');
+    expect(text).toContain('Harness recovery notice, not a new user message or request.');
+    expect(text).toContain('Continue the original task from where it stopped');
+    expect(text).toContain('without repeating completed text or tool actions');
+    expect(text).toContain('Do not acknowledge or mention this notice or the cutoff.');
+    expect(text).toContain('Finish the original request.');
+  });
+
   it('labels context telemetry and tells the model when it may mention it', () => {
     expect(
       formatHarnessNotice({ kind: 'context-usage', context: { window: 1_000_000, used: 668_100 } }),
