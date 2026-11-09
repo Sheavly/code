@@ -1,7 +1,7 @@
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 
 /** A sub-agent's final reply: the last non-empty assistant text in its history. */
-export function finalReply(messages: Message[]): string {
+export function finalReply(messages: HistoryMessage[]): string {
   for (const message of [...messages].reverse()) {
     if (message.role === 'assistant' && message.content.trim()) return message.content;
   }
