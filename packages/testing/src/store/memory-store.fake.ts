@@ -1,7 +1,7 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -14,9 +14,9 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
  */
 export class MemoryConversationStore implements ConversationStore {
   readonly #entries = new Map<ConversationId, StreamEntry[]>();
-  readonly #messages = new Map<ConversationId, Message[]>();
+  readonly #messages = new Map<ConversationId, HistoryMessage[]>();
   /** Sub-agents' histories: conversation, then session, so two conversations never share one. */
-  readonly #agentMessages = new Map<ConversationId, Map<SessionId, Message[]>>();
+  readonly #agentMessages = new Map<ConversationId, Map<SessionId, HistoryMessage[]>>();
   readonly #index = new Map<ConversationId, StoredConversation>();
   #failure: Error | undefined;
 
@@ -32,26 +32,32 @@ export class MemoryConversationStore implements ConversationStore {
     };
   }
 
-  async readMessages(id: ConversationId): Promise<Message[]> {
+  async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
     return structuredClone(this.#messages.get(id) ?? []);
   }
 
-  async writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void> {
+  async writeMessages(params: {
+    id: ConversationId;
+    messages: readonly HistoryMessage[];
+  }): Promise<void> {
     this.#assertWritable();
     this.#messages.set(params.id, structuredClone([...params.messages]));
   }
 
-  async readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<Message[]> {
+  async readAgentMessages(params: {
+    id: ConversationId;
+    session: SessionId;
+  }): Promise<HistoryMessage[]> {
     return structuredClone(this.#agentMessages.get(params.id)?.get(params.session) ?? []);
   }
 
   async writeAgentMessages(params: {
     id: ConversationId;
     session: SessionId;
-    messages: readonly Message[];
+    messages: readonly HistoryMessage[];
   }): Promise<void> {
     const { id, session, messages } = params;
-    const agents = this.#agentMessages.get(id) ?? new Map<SessionId, Message[]>();
+    const agents = this.#agentMessages.get(id) ?? new Map<SessionId, HistoryMessage[]>();
 
     this.#assertWritable();
     agents.set(session, structuredClone([...messages]));
