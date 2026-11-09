@@ -107,6 +107,7 @@ import {
 import type { ContractJsonSchema } from './contract.types.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 import { modelUsageSchema, tokenUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
+import { harnessNoticeSchema } from '../notice/notice.validator.js';
 
 const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
 
@@ -114,6 +115,7 @@ const JSON_SCHEMA_DIALECT = 'https://json-schema.org/draft/2020-12/schema';
 function contractSchemas(): Record<string, z.ZodType> {
   return {
     TokenUsage: tokenUsageSchema,
+    HarnessNotice: harnessNoticeSchema,
     ModelUsage: modelUsageSchema,
     ModelPricing: modelPricingSchema,
     UsageTotals: usageTotalsSchema,

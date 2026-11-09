@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { modelUsageSchema } from '../usage/usage.validator.js';
 import { inboxMessageSchema, sessionRefSchema } from '../session/session.validator.js';
 import { taskInfoSchema } from '../task/task.validator.js';
+import { harnessNoticeSchema } from '../notice/notice.validator.js';
 import {
   messageSchema,
   reasoningItemSchema,
@@ -51,6 +52,7 @@ export const doneReasonSchema = z.enum([
  *   → message_received × N                        (messages sent to this session meanwhile)
  *   → context_added × N                           (hooks' `beforeTurn` context, in hook order)
  *   → model_input_changed × N                     (hooks' `beforeModelCall` that changed the messages)
+ *   → harness_notice                              (structured telemetry sent to this model call)
  *   → text_delta / reasoning / tool_call_started  (live, as the model streams)
  *   → turn_end
  *   → tool_batch → tool_result | task_running × N (results in call order)
@@ -66,6 +68,8 @@ const stepEventSchemas = [
     details: errorDetailsSchema.exactOptional(),
   }),
   z.object({ type: z.literal('usage'), usage: modelUsageSchema }),
+  /** The same data sent to the model, before its call; a UI decides whether and how to show it. */
+  z.object({ type: z.literal('harness_notice'), notice: harnessNoticeSchema }),
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */
   z.object({ type: z.literal('reasoning'), item: reasoningItemSchema }),
