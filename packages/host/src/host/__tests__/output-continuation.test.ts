@@ -7,6 +7,7 @@ import { createDefaultRegistry } from '@sheavly/providers/registry/default-regis
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { TEST_REQUEST } from '@sheavly/providers/testing/request.constants';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 
 function completedMessagesReply() {
   return [
@@ -85,7 +86,11 @@ describe('provider output continuation through the real loop', () => {
     expect(result.reason).toBe('completed');
     expect(applied).toEqual(['complete']);
     expect(requests).toHaveLength(3);
-    expect(events.filter((event) => event.type === 'output_continuation')).toHaveLength(1);
+    expect(
+      events.filter(
+        (event) => event.type === 'harness_notice' && event.notice.kind === 'output-continuation',
+      ),
+    ).toHaveLength(1);
     expect(result.messages[1]).toMatchObject({ content: 'Writing the design.', toolCalls: [] });
   });
   it('replays signed Claude thinking and completed tools at high effort after an output cutoff', async () => {
@@ -163,7 +168,7 @@ describe('provider output continuation through the real loop', () => {
         role: 'user',
         content: [
           { type: 'tool_result', tool_use_id: 'c1', content: 'Applied once.' },
-          { type: 'text', text: result.messages.at(-2)?.content },
+          { type: 'text', text: formatHarnessNotice({ kind: 'output-continuation', attempt: 1 }) },
         ],
       },
     ]);
@@ -201,7 +206,7 @@ describe('provider output continuation through the real loop', () => {
     expect(requests[1]?.body.input).toMatchObject([
       { role: 'user', content: 'Explain.' },
       { role: 'assistant', content: 'Partial.' },
-      { role: 'user', content: result.messages.at(-2)?.content },
+      { role: 'user', content: formatHarnessNotice({ kind: 'output-continuation', attempt: 1 }) },
     ]);
   });
 });
