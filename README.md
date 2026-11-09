@@ -132,6 +132,11 @@ write is attributed to that sanctioned command; arbitrary or unrelated writes st
 guard. Prediction does not execute project configuration scripts or plugins. Older records
 without hash evidence are never automatically dismissed.
 
+Shell-write findings record the snapshotted checkout root, separately from the command's working
+directory. The stop hook checks findings only in that checkout, so moving a chat between worktrees
+does not carry another checkout's failures into the new one. Older findings without a recorded
+checkout root remain fail-closed; the command's working directory is never used to guess one.
+
 ### The pipeline (Turborepo)
 
 `npm run check` runs every task in `turbo.json`, along the dependency graph npm workspaces define:

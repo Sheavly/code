@@ -5,15 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import { MAX_SKILLS_CHARS, SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
-import type {
-  FoundSkills,
-  HiddenSkill,
-  Skill,
-  SkillProblem,
-  SkillRoots,
-  SkillsHookOptions,
-} from './skills.types.js';
+import { SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
+import type { FoundSkills, HiddenSkill, Skill, SkillProblem, SkillRoots } from './skills.types.js';
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
 import { Workspace } from '../workspace/workspace.service.js';
@@ -186,14 +179,14 @@ export async function findSkills(
  * description), appending changes to history without rewriting the signed conversation prefix.
  * Bodies are never sent: the model reads one when it fits (`read_skill`).
  */
-export function createSkillsHook(options: SkillsHookOptions): Hook {
-  const { root, home, maxChars = MAX_SKILLS_CHARS } = options;
+export function createSkillsHook(options: SkillRoots): Hook {
+  const { root, home } = options;
 
   return defineHook({
     name: 'skills',
     beforeTurn: async (context) => {
       const { skills } = await findSkills({ root, home, signal: context.signal });
-      const instructions = formatSkillsInstructions({ skills, maxChars });
+      const instructions = formatSkillsInstructions({ skills });
 
       appendInstructionContext({ context, name: 'skills', instructions });
     },

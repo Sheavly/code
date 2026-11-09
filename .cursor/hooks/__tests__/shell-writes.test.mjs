@@ -196,6 +196,7 @@ describe('a shell workaround', () => {
       {
         command,
         cwd: repo,
+        projectRoot: repo,
         files: ['a.ts'],
         at: expect.any(Number),
         endedAt: expect.any(Number),

@@ -9,6 +9,4 @@ export type AgentsMdHookOptions = {
   root: string;
   /** Where the agent works; defaults to `root`. Files from `root` down to here apply. */
   cwd?: string;
-  /** Total characters sent to the model (default `MAX_AGENTS_CHARS`). */
-  maxChars?: number;
 };

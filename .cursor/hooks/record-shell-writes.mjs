@@ -138,7 +138,7 @@ if (files.length === 0 || isSanctionedWriter(command)) {
     ...editedFilesFields({ state: latest, files }),
     unguardedCommands: [
       ...unguarded,
-      { command, cwd, files, at: before.takenAt, endedAt, writeHashes },
+      { command, cwd, projectRoot: PROJECT_ROOT, files, at: before.takenAt, endedAt, writeHashes },
     ],
   });
   respond({ additional_context: workaroundNote({ command, files }) });

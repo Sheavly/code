@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,6 +10,8 @@ let base: string;
 let root: string;
 let home: string;
 const signal = new AbortController().signal;
+const longChecklist = `${'x'.repeat(110_000)}\nFINAL CHECKLIST RULE\n`;
+const deployText = `---\nname: deploy\ndescription: Deploys.\n---\n${Array.from({ length: 1100 }, (_, i) => `step ${String(i + 1)}`).join('\n')}\n${longChecklist}`;
 
 /** project/.agents/skills/review (with a linked file and a .env), home/.sheavly/skills/deploy. */
 beforeAll(async () => {
@@ -27,18 +29,20 @@ beforeAll(async () => {
     '---\nname: review\ndescription: Reviews.\n---\nSee checklist.md\n',
   );
   await writeFile(path.join(review, 'checklist.md'), 'CHECKLIST\n');
+  await writeFile(path.join(review, 'long-checklist.md'), longChecklist);
+  await symlink(path.join(review, 'long-checklist.md'), path.join(review, 'linked.md'));
   await writeFile(path.join(review, '.env'), 'SECRET=1\n');
-  await writeFile(
-    path.join(deploy, 'SKILL.md'),
-    `---\nname: deploy\ndescription: Deploys.\n---\n${Array.from({ length: 1100 }, (_, i) => `step ${String(i + 1)}`).join('\n')}\n`,
-  );
+  await writeFile(path.join(review, '.env.local'), 'SECRET=2\n');
+  await symlink(path.join(review, '.env'), path.join(review, 'secret-link.md'));
+  await symlink(path.join(home, '.sheavly/skills/deploy/SKILL.md'), path.join(review, 'escape.md'));
+  await writeFile(path.join(deploy, 'SKILL.md'), deployText);
 });
 
 afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
-const read = (input: { name: string; file?: string; startLine?: number }) =>
+const read = (input: { name: string; file?: string }) =>
   runTool({
     tools: [createReadSkillTool({ root, home })],
     call: {
@@ -61,13 +65,17 @@ describe('read_skill', () => {
     });
   });
 
-  it('reads a user skill outside the workspace, capped like read_file, naming read_skill', async () => {
-    const first = await read({ name: 'deploy' });
-    const rest = await read({ name: 'deploy', startLine: 1001 });
+  it('reads a user SKILL.md outside the workspace beyond 1,000 lines and 100,000 characters', async () => {
+    expect(await read({ name: 'deploy' })).toMatchObject({ isError: false, content: deployText });
+  });
 
-    expect(first.isError).toBe(false);
-    expect(first.content).toContain('To read on, call read_skill with startLine 1001.');
-    expect(rest.content).toContain('step 1100');
+  it('returns linked files beyond 100,000 characters, including confined symlinks', async () => {
+    for (const file of ['long-checklist.md', 'linked.md']) {
+      expect(await read({ name: 'review', file })).toMatchObject({
+        isError: false,
+        content: longChecklist,
+      });
+    }
   });
 
   it('refuses an unknown skill, files outside its folder, and .env files', async () => {
@@ -78,9 +86,16 @@ describe('read_skill', () => {
     expect(
       await read({ name: 'review', file: '../../../../home/.sheavly/skills/deploy/SKILL.md' }),
     ).toMatchObject({ isError: true, content: expect.stringContaining('outside') as string });
-    expect(await read({ name: 'review', file: '.env' })).toMatchObject({
+    expect(await read({ name: 'review', file: 'escape.md' })).toMatchObject({
       isError: true,
-      content: expect.stringContaining('.env') as string,
+      content: expect.stringContaining('outside') as string,
     });
+
+    for (const file of ['.env', '.env.local', 'secret-link.md']) {
+      expect(await read({ name: 'review', file })).toMatchObject({
+        isError: true,
+        content: expect.stringContaining('.env') as string,
+      });
+    }
   });
 });

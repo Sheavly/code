@@ -94,7 +94,6 @@ describe('formatSkillsInstructions', () => {
     const text =
       formatSkillsInstructions({
         skills: [skill('review'), skill('git', { manualOnly: true })],
-        maxChars: 10_000,
       }) ?? '';
 
     expect(text).toContain('read_skill');
@@ -103,22 +102,23 @@ describe('formatSkillsInstructions', () => {
   });
 
   it('says nothing when no skill is offered', () => {
-    expect(formatSkillsInstructions({ skills: [], maxChars: 100 })).toBeUndefined();
+    expect(formatSkillsInstructions({ skills: [] })).toBeUndefined();
     expect(
-      formatSkillsInstructions({ skills: [skill('git', { manualOnly: true })], maxChars: 100 }),
+      formatSkillsInstructions({ skills: [skill('git', { manualOnly: true })] }),
     ).toBeUndefined();
   });
 
-  it('cuts the list at maxChars, saying how many were left out', () => {
-    const skills = Array.from({ length: 20 }, (_, index) => skill(`skill-${String(index)}`));
-    const text = formatSkillsInstructions({ skills, maxChars: 400 }) ?? '';
-    const listed = text.split('\n- ').length - 1;
-
-    expect(listed).toBeGreaterThan(0);
-    expect(listed).toBeLessThan(20);
-    expect(text).toMatch(
-      new RegExp(`\\[${String(20 - listed)} more skills not listed: .*400 characters\\]$`),
+  it('lists every eligible skill beyond 8,000 characters, in order', () => {
+    const skills = Array.from({ length: 30 }, (_, index) =>
+      skill(`skill-${String(index)}`, { description: 'Detailed guidance. '.repeat(20) }),
     );
+    const text = formatSkillsInstructions({ skills }) ?? '';
+
+    expect(text.length).toBeGreaterThan(8000);
+    expect(text.split('\n').slice(1)).toEqual(
+      skills.map(({ name, description }) => `- ${name}: ${description}`),
+    );
+    expect(text).not.toContain('more skills not listed');
   });
 });
 

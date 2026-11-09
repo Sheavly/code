@@ -87,7 +87,6 @@ describe('formatAgentsInstructions', () => {
         { path: 'empty/AGENTS.md', content: '  \n' },
         { path: 'src/AGENTS.md', content: 'Be strict.' },
       ],
-      maxChars: 10_000,
     });
 
     expect(text).toContain('## AGENTS.md\n\nUse npm.\n\n## src/AGENTS.md\n\nBe strict.');
@@ -96,25 +95,53 @@ describe('formatAgentsInstructions', () => {
   });
 
   it('returns undefined when there is nothing to say', () => {
-    expect(formatAgentsInstructions({ files: [], maxChars: 100 })).toBeUndefined();
+    expect(formatAgentsInstructions({ files: [] })).toBeUndefined();
     expect(
-      formatAgentsInstructions({ files: [{ path: 'AGENTS.md', content: '\n' }], maxChars: 100 }),
+      formatAgentsInstructions({ files: [{ path: 'AGENTS.md', content: '\n' }] }),
     ).toBeUndefined();
   });
 
-  it('cuts at maxChars, with a note', () => {
+  it('keeps all instructions from a file larger than 32,000 characters', () => {
+    const content = `${'x'.repeat(40_000)}\nFINAL RULE`;
     const text =
       formatAgentsInstructions({
-        files: [{ path: 'AGENTS.md', content: 'x'.repeat(500) }],
-        maxChars: 200,
+        files: [{ path: 'AGENTS.md', content }],
       }) ?? '';
 
-    expect(text).toMatch(/\[truncated: AGENTS\.md content was cut at 200 of \d+ characters\]$/);
-    expect(text.length).toBeLessThan(300);
+    expect(text).toContain(content);
+    expect(text.endsWith('FINAL RULE')).toBe(true);
+    expect(text).not.toContain('[truncated:');
   });
 });
 
 describe('createAgentsMdHook in the loop', () => {
+  it.each([20_000, 40_000])(
+    'loads root and nested instructions with a %i-character root file',
+    async (length) => {
+      const project = path.join(base, `large-${String(length)}`);
+      const cwd = path.join(project, 'nested');
+      const rootRules = `${'r'.repeat(length)}\nROOT FINAL RULE`;
+      const nestedRules = `${'n'.repeat(20_000)}\nNESTED FINAL RULE`;
+
+      await mkdir(cwd, { recursive: true });
+      await writeFile(path.join(project, 'AGENTS.md'), rootRules);
+      await writeFile(path.join(cwd, 'AGENTS.md'), nestedRules);
+
+      const messages = await runAgent({
+        provider: scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]),
+        tools: [],
+        messages: [{ role: 'user', content: 'hi' }],
+        hooks: [createAgentsMdHook({ root: project, cwd })],
+      });
+      const instructions = messages[1]?.content ?? '';
+
+      expect(instructions).toContain(
+        `## AGENTS.md\n\n${rootRules}\n\n## nested/AGENTS.md\n\n${nestedRules}`,
+      );
+      expect(instructions).not.toContain('[truncated:');
+    },
+  );
+
   it('appends AGENTS.md without changing the host system prompt', async () => {
     const requests: ProviderRequest[] = [];
     const scripted = scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]);

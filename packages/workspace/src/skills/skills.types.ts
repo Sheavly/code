@@ -43,11 +43,6 @@ export type SkillRoots = {
   home?: string | undefined;
 };
 
-export type SkillsHookOptions = SkillRoots & {
-  /** Longest skill list sent to the model (default `MAX_SKILLS_CHARS`). */
-  maxChars?: number;
-};
-
 /** What a user's message sends, with its skills run (`skillRequest`). */
 export type SkillRequest = {
   /** The message to send: the skills' instructions, then the text; or the text unchanged. */

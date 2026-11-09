@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import { AGENTS_FILE, MAX_AGENTS_CHARS } from './agents-md.constants.js';
+import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';
 import { agentsDirs, formatAgentsInstructions } from './agents-md.utils.js';
 import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';
@@ -42,13 +42,13 @@ export async function findAgentsFiles(params: {
  * next model call without invalidating earlier signed thinking blocks.
  */
 export function createAgentsMdHook(options: AgentsMdHookOptions): Hook {
-  const { root, cwd = root, maxChars = MAX_AGENTS_CHARS } = options;
+  const { root, cwd = root } = options;
 
   return defineHook({
     name: 'agents-md',
     beforeTurn: async (context) => {
       const files = await findAgentsFiles({ root, cwd, signal: context.signal });
-      const instructions = formatAgentsInstructions({ files, maxChars });
+      const instructions = formatAgentsInstructions({ files });
 
       appendInstructionContext({ context, name: 'agents-md', instructions });
     },
