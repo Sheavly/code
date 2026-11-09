@@ -48,7 +48,7 @@ export class FileConversationStore implements ConversationStore {
 
     if (existing) return existing;
 
-    const stream = new EntryFile({ folder });
+    const stream = new EntryFile({ folder, conversationId: id });
 
     this.#streams.set(id, stream);
 

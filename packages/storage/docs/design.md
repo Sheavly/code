@@ -2,6 +2,24 @@
 
 How this workspace works inside, why it is built this way, and how to extend it.
 
+## Chat diagnostics
+
+`FileConversationStore` keeps a private, failure-only `errors.jsonl` beside `stream.jsonl` and
+`history.json`. Records include `at`, `seq`, `conversationId`, `sessionId` and `messageId`, plus
+model selection, tool-call or hook identity and structured run-error details when available.
+Join `messageId` to a user message's `id` in history and `seq` to the exact stream event. Background
+sessions retain their originating message even when the parent starts another prompt. Old records
+without IDs remain valid and are not assigned invented ones.
+
+The stream is authoritative. The first append after reopening trims partial lines and replays
+missing failures into the diagnostic log, using the last recorded stream sequence to avoid duplicates.
+A failed diagnostic write becomes a storage failure, so the host refuses further prompts instead
+of silently continuing unrecorded. Deleting a conversation deletes its diagnostics too.
+
+Logs use private file and folder permissions. Only selected exception fields are serialized, never
+request/response objects, authentication headers or tool inputs. Common credential forms in error
+text are redacted, but paths and error messages can still be private: review logs before sharing.
+
 ## What lives here
 
 Everything the harness keeps for the user, under one root an app passes in (`~/.sheavly`): their

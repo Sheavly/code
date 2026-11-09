@@ -7,6 +7,9 @@ export const INDEX_FILE = 'index.json';
 /** A conversation's stream, one entry per line, in `seq` order. */
 export const STREAM_FILE = 'stream.jsonl';
 
+/** A searchable, private projection of run, hook and tool failures from the stream. */
+export const ERRORS_FILE = 'errors.jsonl';
+
 /** The conversation's own history, the main session's. */
 export const HISTORY_FILE = 'history.json';
 
