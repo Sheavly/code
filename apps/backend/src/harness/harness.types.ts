@@ -1,5 +1,6 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { EntryStore } from '@sheavly/core/store/store.types';
@@ -35,6 +36,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   /** Public web reading, default on; false omits it for the main run and every sub-agent. */
   webFetch?: false | Parameters<typeof createWebFetchTool>[0];
+  /** Builds each sub-agent's summary from the provider it runs on; none means none summarize. */
+  summarizeWith?: ((provider: Provider) => SummaryOptions) | undefined;
   title: string;
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;

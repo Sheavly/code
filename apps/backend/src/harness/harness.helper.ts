@@ -32,6 +32,7 @@ export async function createBackendHarness(
     home,
     subAgentProvider,
     webFetch = {},
+    summarizeWith,
     ...coding
   } = options;
   const harness = await createCodingHarness(coding);
@@ -68,6 +69,7 @@ export async function createBackendHarness(
         provider,
         baseInstructions: harness.instructions,
         ...(subAgentProvider && { selectProvider: subAgentProvider }),
+        ...(summarizeWith && { summarizeWith }),
         runAgent: runSession,
         tools: [...fileTools, ...webTools],
         hooks: [agentsMd, skills],

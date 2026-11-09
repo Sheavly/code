@@ -92,7 +92,8 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
  * How the backend runs each conversation, from its environment: `MAX_TURNS` (no limit unless
  * set), `WAIT_FOR_TASKS` (a prompt's `done` waits for its background tasks, as a one-shot run
  * wants), `MODEL_CALLS_FILE` (each model call's full request appended there, one JSON line each)
- * and `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone).
+ * `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone) and
+ * `SUMMARY` (summarize a long history when the context nears the window; on unless "false").
  */
 const runEnvSchema = z.object({
   MAX_TURNS: z
@@ -104,6 +105,7 @@ const runEnvSchema = z.object({
   MODEL_CALLS_FILE: optionalSetting,
   SERVER_EXIT_WITH_PARENT: optionalSetting,
   WEB_FETCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
+  SUMMARY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
 });
 
 /** The run settings from `env`. Only the exact string "true" turns a switch on. */
@@ -116,6 +118,7 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
     modelCallsFile: parsed.MODEL_CALLS_FILE,
     exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
     webFetch: parsed.WEB_FETCH === 'true',
+    summary: parsed.SUMMARY === 'true',
   };
 }
 

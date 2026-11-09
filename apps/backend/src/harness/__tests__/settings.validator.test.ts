@@ -55,6 +55,7 @@ describe('parseRunEnv', () => {
       modelCallsFile: undefined,
       exitWithParent: false,
       webFetch: true,
+      summary: true,
     });
     expect(
       parseRunEnv({
@@ -69,6 +70,7 @@ describe('parseRunEnv', () => {
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
       webFetch: true,
+      summary: true,
     });
     expect(parseRunEnv({ MAX_TURNS: '' }).maxTurns).toBeUndefined();
     expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
@@ -81,6 +83,19 @@ describe('parseRunEnv', () => {
 
     for (const value of ['1', 'yes', 'FALSE']) {
       expect(() => parseRunEnv({ WEB_FETCH: value })).toThrow();
+    }
+  });
+});
+
+describe('SUMMARY', () => {
+  it('summarizes long histories by default, and "false" turns it off', () => {
+    expect(parseRunEnv({}).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: '' }).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: 'true' }).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: 'false' }).summary).toBe(false);
+
+    for (const value of ['0', 'no', 'FALSE']) {
+      expect(() => parseRunEnv({ SUMMARY: value })).toThrow();
     }
   });
 });
