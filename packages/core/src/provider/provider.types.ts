@@ -26,7 +26,7 @@ export type ProviderRequest = {
    * user. Adapters with request-bound replay state (Anthropic's thinking signatures) include the
    * notice in the reply's prefix and omit replay once that prefix no longer matches.
    */
-  notice?: HarnessNotice | string | undefined;
+  notice?: HarnessNotice | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };

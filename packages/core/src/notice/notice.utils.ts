@@ -3,10 +3,7 @@ import type { HarnessNotice } from './notice.types.js';
 const count = new Intl.NumberFormat('en-US');
 
 /** Formats trusted harness data with its origin and handling policy, never as a user request. */
-export function formatHarnessNotice(notice: HarnessNotice | string): string {
-  // Retain the legacy transport while callers migrate to typed notices.
-  if (typeof notice === 'string') return notice;
-
+export function formatHarnessNotice(notice: HarnessNotice): string {
   switch (notice.kind) {
     case 'context-usage':
       return [
