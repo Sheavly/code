@@ -47,8 +47,8 @@ function recording(params: { turns: StreamEvent[][]; contextWindow?: number }) {
   return { provider, requests };
 }
 
-/** The context line a request carries beside its history. */
-const lastLine = (request: ProviderRequest | undefined) => request?.notice;
+/** The typed telemetry a request carries beside its history. */
+const sentNotice = (request: ProviderRequest | undefined) => request?.notice;
 const prompt = [{ role: 'user' as const, content: 'go' }];
 
 describe('telling the agent how full its context is', () => {
@@ -60,25 +60,42 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(lastLine(requests[0])).toBe('Context: 400,000 token window');
-    expect(lastLine(requests[1])).toBe('Context: 48,210 of 400,000 tokens used (12%)');
+    expect(sentNotice(requests[0])).toEqual({
+      kind: 'context-usage',
+      context: { window: 400_000, used: undefined },
+    });
+    expect(sentNotice(requests[1])).toEqual({
+      kind: 'context-usage',
+      context: { window: 400_000, used: 48_210 },
+    });
   });
 
-  it('keeps the line out of history, so the prefix stays the same and the line is never resent', async () => {
+  it('keeps telemetry out of history and events, without changing system instructions', async () => {
+    const events: AgentEvent[] = [];
     const { provider, requests } = recording({
       turns: [toolTurn(1_000), answer()],
       contextWindow: 400_000,
     });
-    const messages = await runAgent({ provider, tools: [probe], messages: prompt });
+    const messages = await runAgent({
+      provider,
+      tools: [probe],
+      messages: prompt,
+      instructions: 'Work on the task.',
+      onEvent: (event) => events.push(event),
+    });
 
     const [first, second] = requests;
     const everywhere = [...messages, ...(first?.messages ?? []), ...(second?.messages ?? [])];
 
     expect(everywhere.some((message) => message.content.includes('Context:'))).toBe(false);
+    expect(JSON.stringify(everywhere)).not.toContain('harness-notice');
+    expect(JSON.stringify(events)).not.toContain('harness-notice');
+    expect(events.some((event) => event.type === 'context_added')).toBe(false);
     // The second request starts with the first one's history, and the instructions are the same.
     expect(second?.messages.slice(0, first?.messages.length)).toEqual(first?.messages);
     expect(second?.instructions).toBe(first?.instructions);
-    expect(first?.notice).not.toBe(second?.notice);
+    expect(first?.instructions).toBe('Work on the task.');
+    expect(first?.notice).not.toEqual(second?.notice);
   });
 
   it('leaves the line out when the provider reports neither a window nor usage', async () => {
@@ -90,7 +107,7 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(requests.map(lastLine)).toEqual([undefined, undefined]);
+    expect(requests.map(sentNotice)).toEqual([undefined, undefined]);
   });
 
   it('shrinks to what is used when the window is unknown', async () => {
@@ -98,8 +115,8 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(lastLine(requests[0])).toBeUndefined();
-    expect(lastLine(requests[1])).toBe('Context: 1,000 tokens used');
+    expect(sentNotice(requests[0])).toBeUndefined();
+    expect(sentNotice(requests[1])).toEqual({ kind: 'context-usage', context: { used: 1_000 } });
   });
 
   it('drops the numbers after a call that reported no usage, since they would be stale', async () => {
@@ -117,8 +134,14 @@ describe('telling the agent how full its context is', () => {
 
     await runAgent({ provider, tools: [probe], messages: prompt });
 
-    expect(lastLine(requests[1])).toBe('Context: 5,100 of 10,000 tokens used (51%)');
-    expect(lastLine(requests[2])).toBe('Context: 10,000 token window');
+    expect(sentNotice(requests[1])).toEqual({
+      kind: 'context-usage',
+      context: { window: 10_000, used: 5_100 },
+    });
+    expect(sentNotice(requests[2])).toEqual({
+      kind: 'context-usage',
+      context: { window: 10_000, used: undefined },
+    });
   });
 });
 
@@ -145,7 +168,10 @@ describe('a session’s own numbers', () => {
       resumed: true,
     });
 
-    expect(lastLine(second.requests[0])).toBe('Context: 2,100 of 10,000 tokens used (21%)');
+    expect(sentNotice(second.requests[0])).toEqual({
+      kind: 'context-usage',
+      context: { window: 10_000, used: 2_100 },
+    });
   });
 
   it('is not shared with another session of the same registry, as a sub-agent has its own window', async () => {
@@ -165,7 +191,10 @@ describe('a session’s own numbers', () => {
     await runSession({ provider: big.provider, tools: [], messages: prompt, session: parent });
     await runSession({ provider: small.provider, tools: [], messages: prompt, session: child });
 
-    expect(lastLine(small.requests[0])).toBe('Context: 32,000 token window');
+    expect(sentNotice(small.requests[0])).toEqual({
+      kind: 'context-usage',
+      context: { window: 32_000, used: undefined },
+    });
   });
 });
 
@@ -244,7 +273,7 @@ describe('the same numbers for hooks and for a UI', () => {
         onEvent: (event) => events.push(event),
       });
 
-      expect(lastLine(requests[0])).toBeUndefined();
+      expect(sentNotice(requests[0])).toBeUndefined();
       const usage = events.find((event) => event.type === 'usage');
 
       expect(usage).toMatchObject({ usage: { tokens: used(10).tokens } });

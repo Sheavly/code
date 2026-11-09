@@ -45,7 +45,7 @@ export async function sample(context: SampleContext) {
 
   try {
     // A snapshot: providers must never see later pushes to the loop's own history. The context
-    // line goes beside it, not in it: it changes every turn, so a provider sends it after the
+    // notice goes beside it, not in it: it changes every turn, so a provider sends it after the
     // history, and it is not in `messages`, in `done`'s messages or in the next request.
     const source = provider.stream({
       instructions,

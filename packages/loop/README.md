@@ -8,6 +8,10 @@ which tools a run has.
 Each attempted model call emits one `usage` event before its `turn_end`, including failed or
 interrupted calls with unknown usage. These statistics are for UIs and are not model history.
 
+The model receives context counts as a typed harness notice, formatted by its provider with
+explicit telemetry attribution and silent-use guidance. Notices stay outside stored history and
+system instructions; UI usage rendering is unchanged. See [context usage](docs/run.md#context-usage).
+
 ```ts
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 

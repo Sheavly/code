@@ -36,17 +36,24 @@ describe('contextState', () => {
 
 describe('contextNotice', () => {
   it('says how much of the window the last call used', () => {
-    expect(contextNotice({ window: 400_000, used: 48_210 })).toBe(
-      'Context: 48,210 of 400,000 tokens used (12%)',
-    );
+    expect(contextNotice({ window: 400_000, used: 48_210 })).toEqual({
+      kind: 'context-usage',
+      context: { window: 400_000, used: 48_210 },
+    });
   });
 
   it('shows only the window before any call has reported usage', () => {
-    expect(contextNotice({ window: 300_000 })).toBe('Context: 300,000 token window');
+    expect(contextNotice({ window: 300_000 })).toEqual({
+      kind: 'context-usage',
+      context: { window: 300_000, used: undefined },
+    });
   });
 
   it('shows only what was used when the window is unknown', () => {
-    expect(contextNotice({ used: 1_500 })).toBe('Context: 1,500 tokens used');
+    expect(contextNotice({ used: 1_500 })).toEqual({
+      kind: 'context-usage',
+      context: { used: 1_500 },
+    });
   });
 
   it('says nothing when nothing is known', () => {
@@ -54,8 +61,9 @@ describe('contextNotice', () => {
   });
 
   it('keeps counting past a full window instead of hiding it', () => {
-    expect(contextNotice({ window: 1_000, used: 1_250 })).toBe(
-      'Context: 1,250 of 1,000 tokens used (125%)',
-    );
+    expect(contextNotice({ window: 1_000, used: 1_250 })).toEqual({
+      kind: 'context-usage',
+      context: { window: 1_000, used: 1_250 },
+    });
   });
 });
