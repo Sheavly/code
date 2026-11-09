@@ -82,6 +82,12 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
   emitted after the turn's stream and before `turn_end`. The harness renders nothing itself: the
   line is for the model, and a UI shows usage however it likes from the event.
 
+Before calling the provider, the loop also emits `harness_notice` with the exact notice payload
+sent on that request. It uses the ordinary ordered event queue and combined session stream, so
+downstream UIs receive structured data with session attribution and replay support, not formatter
+text. When neither context count is known, no notice or notice event is sent. Model history and
+system instructions still contain neither the notice nor its UI event.
+
 The numbers belong to the session, so a sub-agent has its own against its own provider's window,
 and a conversation's next prompt carries on from the last call. A call that reported no usage
 clears them, since stale ones would say the context is emptier than it is. After a model switch

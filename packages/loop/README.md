@@ -10,7 +10,8 @@ interrupted calls with unknown usage. These statistics are for UIs and are not m
 
 The model receives context counts as a typed harness notice, formatted by its provider with
 explicit telemetry attribution and silent-use guidance. Notices stay outside stored history and
-system instructions; UI usage rendering is unchanged. See [context usage](docs/run.md#context-usage).
+system instructions. The same data is emitted as a `harness_notice` event for UIs, which choose
+their own presentation; existing usage events are unchanged. See [context usage](docs/run.md#context-usage).
 
 ```ts
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';

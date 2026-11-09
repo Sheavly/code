@@ -1,5 +1,5 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
-import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 

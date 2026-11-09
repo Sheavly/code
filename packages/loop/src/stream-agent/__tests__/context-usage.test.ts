@@ -9,6 +9,8 @@ import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runAgent, runSession, streamAgent } from '../stream-agent.helper.js';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 
 const probe = defineTool({
   name: 'probe',
@@ -70,7 +72,7 @@ describe('telling the agent how full its context is', () => {
     });
   });
 
-  it('keeps telemetry out of history and events, without changing system instructions', async () => {
+  it('shares notice data with UIs while keeping model wording out of history and events', async () => {
     const events: AgentEvent[] = [];
     const { provider, requests } = recording({
       turns: [toolTurn(1_000), answer()],
@@ -89,7 +91,11 @@ describe('telling the agent how full its context is', () => {
 
     expect(everywhere.some((message) => message.content.includes('Context:'))).toBe(false);
     expect(JSON.stringify(everywhere)).not.toContain('harness-notice');
+    expect(JSON.stringify(everywhere)).not.toContain('context-usage');
     expect(JSON.stringify(events)).not.toContain('harness-notice');
+    expect(
+      events.flatMap((event) => (event.type === 'harness_notice' ? [event.notice] : [])),
+    ).toEqual(requests.map(sentNotice));
     expect(events.some((event) => event.type === 'context_added')).toBe(false);
     // The second request starts with the first one's history, and the instructions are the same.
     expect(second?.messages.slice(0, first?.messages.length)).toEqual(first?.messages);
@@ -99,15 +105,65 @@ describe('telling the agent how full its context is', () => {
   });
 
   it('leaves the line out when the provider reports neither a window nor usage', async () => {
+    const events: AgentEvent[] = [];
     const silent: StreamEvent[] = [
       { type: 'tool_call', call },
       { type: 'done', stopReason: 'tool_use' },
     ];
     const { provider, requests } = recording({ turns: [silent, answer()] });
 
-    await runAgent({ provider, tools: [probe], messages: prompt });
+    await runAgent({
+      provider,
+      tools: [probe],
+      messages: prompt,
+      onEvent: (event) => events.push(event),
+    });
 
     expect(requests.map(sentNotice)).toEqual([undefined, undefined]);
+    expect(events.some((event) => event.type === 'harness_notice')).toBe(false);
+  });
+
+  it('delivers notices through the ordinary session stream, live and on replay', async () => {
+    const registry = new SessionRegistry();
+    const session = { registry, ref: registry.startMain({ title: 'Notice stream' }) };
+    const live: StreamEntry[] = [];
+    const { provider, requests } = recording({
+      turns: [toolTurn(900), answer()],
+      contextWindow: 5_000,
+    });
+    const unsubscribe = registry.subscribeEntries((entry) => live.push(entry), { replay: true });
+
+    await runSession({ provider, tools: [probe], messages: prompt, session });
+    unsubscribe();
+
+    const replay: StreamEntry[] = [];
+    const stopReplay = registry.subscribeEntries((entry) => replay.push(entry), { replay: true });
+
+    stopReplay();
+    expect(replay).toEqual(live);
+    expect(live.map((entry) => entry.seq)).toEqual(live.map((_, index) => index));
+
+    const notices = live.filter(
+      (entry) => entry.kind === 'event' && entry.event.type === 'harness_notice',
+    );
+
+    expect(notices).toHaveLength(2);
+
+    for (const entry of notices) {
+      expect(entry.sessionId).toBe(session.ref.id);
+      expect(streamEntrySchema.parse(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
+      expect(entry).not.toHaveProperty('event.text');
+    }
+
+    expect(
+      notices.flatMap((entry) =>
+        entry.kind === 'event' && entry.event.type === 'harness_notice' ? [entry.event.notice] : [],
+      ),
+    ).toEqual(requests.map(sentNotice));
+    const steps = live.flatMap((entry) => (entry.kind === 'event' ? [entry.event.type] : []));
+
+    expect(steps.indexOf('harness_notice')).toBeLessThan(steps.indexOf('tool_call_started'));
+    expect(steps.lastIndexOf('harness_notice')).toBeLessThan(steps.lastIndexOf('text_delta'));
   });
 
   it('shrinks to what is used when the window is unknown', async () => {

@@ -7,6 +7,7 @@ check:
     'areas':
       [
         'packages/core/src/notice',
+        'packages/protocol/src/notice',
         'packages/core/src/provider',
         'packages/loop/src/context',
         'packages/loop/src/stream-agent/sample.helper.ts',
@@ -17,7 +18,7 @@ check:
     'expect':
       {
         'outcome': 'completed',
-        'events': ['usage'],
+        'events': ['usage', 'harness_notice'],
         'tools': ['read_file'],
         'reply': ['/^\[AGENTS\.md OK\]\s+NOTICE_OK greeting 41\s+Sheavly\s*$/'],
       },
