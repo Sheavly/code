@@ -23,9 +23,3 @@ export type SummaryOptions = {
   /** Overrides of `DEFAULT_SUMMARY_POLICY`. */
   policy?: Partial<SummaryPolicy>;
 };
-
-/**
- * Where a checkpoint cuts the history: `history[start, cut)` is what it summarizes (live
- * messages since the previous checkpoint's tail began), `history[cut..]` stays word for word.
- */
-export type SummaryCut = { start: number; cut: number };

@@ -90,7 +90,9 @@ describe('telling the agent how full its context is', () => {
     const everywhere = [...messages, ...(first?.messages ?? []), ...(second?.messages ?? [])];
 
     expect(
-      everywhere.some((message) => message.role !== 'summary' && message.content.includes('Context:')),
+      everywhere.some(
+        (message) => message.role !== 'summary' && message.content.includes('Context:'),
+      ),
     ).toBe(false);
     expect(JSON.stringify(everywhere)).not.toContain('harness-notice');
     expect(JSON.stringify(everywhere)).not.toContain('context-usage');

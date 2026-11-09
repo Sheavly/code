@@ -50,8 +50,7 @@ describe('shouldSummarize', () => {
   });
 
   it('uses the minimum free room on a small window, but never more than half of it', () => {
-    const small = (used: number) =>
-      shouldSummarize({ context: { window: 20_000, used }, policy });
+    const small = (used: number) => shouldSummarize({ context: { window: 20_000, used }, policy });
 
     expect(small(10_000)).toBe(false);
     expect(small(10_001)).toBe(true);

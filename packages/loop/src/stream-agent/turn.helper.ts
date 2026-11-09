@@ -6,6 +6,7 @@ import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
+import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
 import { viewOf } from '../summary/summary.utils.js';
 import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
@@ -21,6 +22,10 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   reportFinishedTasks({ tasks: options.tasks, messages, events });
   deliverMessages({ session, messages, events });
+  // After tasks and messages are in history, before any hook: hooks see the shortened state.
+  await summarizeAtThreshold(context);
+
+  if (signal.aborted) return 'interrupted';
 
   // Read once, so the hooks, the agent and the usage event all see the same numbers.
   const state = contextState({
@@ -73,6 +78,13 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // A failed model call that started no tools fails the turn as it is, with nothing to record.
   if (failure && running.length === 0) throw failure.error;
 
+  if (await retryAfterOverflow({ context, stopReason, started: running.length > 0 })) {
+    // The rejected reply is dropped from history, but a UI that saw the call start sees it end.
+    events.enqueue({ type: 'turn_end', turn, stopReason });
+
+    return undefined;
+  }
+
   // An interrupt before the model said anything leaves no trace in history.
   const empty = !message.content && message.toolCalls.length === 0 && !message.reasoning;
 
@@ -95,6 +107,35 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   });
 
   return finishTurn({ context, stopReason, running });
+}
+
+/**
+ * A call the provider rejected as too long gets one summary and a retry, once per model call (a
+ * call that ends any other way re-arms it), so it cannot loop. True when a checkpoint was
+ * appended: the caller drops the rejected reply and the next turn calls the model again. If the
+ * summary fails, or none is configured, the run ends `context_window_exceeded` as before. The
+ * retry uses a turn, so `maxTurns` still bounds the run.
+ */
+async function retryAfterOverflow(params: {
+  context: TurnContext;
+  stopReason: TurnStopReason;
+  /** The rejected call had already started tools: its history is not ours to rewind. */
+  started: boolean;
+}): Promise<boolean> {
+  const { context, stopReason, started } = params;
+  const { summaryFailures } = context;
+
+  if (stopReason !== 'context_window_exceeded') {
+    summaryFailures.overflowTried = false;
+
+    return false;
+  }
+
+  if (started || summaryFailures.overflowTried || !context.options.summary) return false;
+
+  summaryFailures.overflowTried = true;
+
+  return summarizeHistory({ context, reason: 'overflow' });
 }
 
 /** Resolves recovery, pending work and completion only after results and afterTurn hooks. */

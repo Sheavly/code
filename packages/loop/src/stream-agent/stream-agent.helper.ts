@@ -14,6 +14,7 @@ import type {
   RunContext,
   TurnContext,
 } from './stream-agent.types.js';
+import { assertValidStoredHistory } from '../summary/checkpoint.utils.js';
 import { runTurn } from './turn.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
@@ -87,7 +88,7 @@ async function drive(context: RunContext) {
   const { maxTurns = Infinity, hooks = [] } = options;
   const messages = [...options.messages];
   const outputRecovery: TurnContext['outputRecovery'] = { attempts: 0, pending: undefined };
-  const summaryFailures = { count: 0 };
+  const summaryFailures = { count: 0, overflowTried: false };
   // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
   let reason: DoneReason = 'max_turns';
 
@@ -102,6 +103,10 @@ async function drive(context: RunContext) {
   }
 
   try {
+    // A history read from disk may hold a damaged checkpoint: fail before the first model call
+    // (only `onError` hooks run, with the history as it is).
+    assertValidStoredHistory(messages);
+
     // Once per session: a resumed one (a conversation's next prompt) already ran these.
     if (!options.resumed) {
       await runSessionStart({

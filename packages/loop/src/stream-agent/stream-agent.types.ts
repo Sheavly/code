@@ -88,8 +88,11 @@ export type TurnContext = RunContext & {
   };
   /** The run's stored history; the turn appends to it, and a summary appends a checkpoint. */
   messages: HistoryMessage[];
-  /** Threshold summaries that failed in a row this run; at the policy's limit they stop. */
-  summaryFailures: { count: number };
+  /**
+   * Threshold summaries that failed in a row this run (at the policy's limit they stop), and
+   * whether the current model call already got its one overflow summary.
+   */
+  summaryFailures: { count: number; overflowTried: boolean };
 };
 
 /** A tool call that started while the model streamed, with its eventual outcome. */
