@@ -12,6 +12,12 @@ export const CONTEXT_WINDOW_CHOICES = [
 export const DEFAULT_CONTEXT_WINDOW = 300_000;
 
 /**
+ * The largest context size a model file or request may set, ten times today's largest window: a
+ * sanity bound, so a typo can't make the agent think it never needs to pace itself.
+ */
+export const MAX_CONTEXT_WINDOW = 10_000_000;
+
+/**
  * The fields of a model's file that belong to the envelope (`ModelFile`). An adapter's own fields
  * can't use these names: the rest of the file is its definition.
  */

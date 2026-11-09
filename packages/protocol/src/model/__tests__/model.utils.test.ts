@@ -82,7 +82,10 @@ describe('toModel', () => {
       expect(read(file).contextWindow).toBe(contextWindow);
     }
 
-    for (const contextWindow of [0, -1, 1.5, Infinity, '1M']) {
+    expect(read({ id: ID, name: 'M', adapter: 'openai', contextWindow: 10_000_000 })).toBeTruthy();
+
+    // Not a size, or past the sanity bound a typo would otherwise slip through.
+    for (const contextWindow of [0, -1, 1.5, Infinity, '1M', 10_000_001]) {
       const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
 
       expect(modelFileSchema.safeParse(file).success).toBe(false);

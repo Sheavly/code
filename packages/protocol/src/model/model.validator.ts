@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
+import { MAX_CONTEXT_WINDOW } from './model.constants.js';
 
 /**
  * A model's id: a UUID in lowercase, the stem of its file (`models/<id>.json`), and what a request,
@@ -38,7 +39,7 @@ export const modelPricingSchema = z.object({
 });
 
 /** How many tokens a model's context holds: the prompt and the reply together. */
-export const contextWindowSchema = z.number().int().positive();
+export const contextWindowSchema = z.number().int().positive().max(MAX_CONTEXT_WINDOW);
 
 /**
  * A model as its file holds it: everything about it but its secret, in the file itself, so the

@@ -119,8 +119,9 @@ Modes do not change context size, tool permissions or the output-token limit.
 - A model may also carry an optional `contextWindow`, in the envelope like `pricing`: how large a
   context the agent is told it has, so a person can choose it for cost. Every UI offers the same
   two sizes to pick from, `CONTEXT_WINDOW_CHOICES`: "300K" (300,000 tokens) and "1M" (1,000,000),
-  rounded, not any provider's exact window. The backend takes any positive size, so a host can
-  give a model another default or round as it needs; `contextWindowLabel` names a size that is not
+  rounded, not any provider's exact window. The backend takes any positive size up to
+  `MAX_CONTEXT_WINDOW` (10,000,000, a bound against typos), so a host can give a model another
+  default or round as it needs; `contextWindowLabel` names a size that is not
   one of the two by its exact count. A model that sets none is told `DEFAULT_CONTEXT_WINDOW`
   (300K). The setting only says what the agent is told: it doesn't limit what the provider
   accepts. A `usage` event repeats the window its call ran against (`ModelUsage.contextWindow`),
