@@ -32,6 +32,15 @@ describe('withContextWindow', () => {
     expect(provider.contextWindow).toBe(1_000_000);
   });
 
+  it('keeps a size that is neither of the two a UI offers, since a model can have its own', () => {
+    const provider = withContextWindow({
+      provider: inner(),
+      model: modelWith({ contextWindow: 128_000 }),
+    });
+
+    expect(provider.contextWindow).toBe(128_000);
+  });
+
   it('streams exactly what the provider it wraps streams', async () => {
     const provider = withContextWindow({ provider: inner(), model: modelWith({}) });
     const request = { messages: [], tools: [], signal: new AbortController().signal };
