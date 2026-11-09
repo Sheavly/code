@@ -26,6 +26,11 @@ import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 
 ## Docs
 
+`SessionRegistry.setMessage` associates stream activity with the originating user message. New
+children inherit that identity; existing children keep it as the parent moves on. Correlation is
+restored from the stored stream. Error diagnostics retain selected, bounded fields and redact common
+credential forms without serializing exception request objects.
+
 `UsageLedger` restores a backend snapshot or consumes `usage` entries. Older snapshots cannot
 overwrite newer live totals. Missing counts and unpriced calls remain explicit, never zero-cost.
 `OutputBuffer` keeps at most 30 initial lines and 70 final lines within its character budget,

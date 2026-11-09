@@ -3,6 +3,7 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { LastTokens } from './last-tokens.service.js';
+import { MessageContexts } from './message-contexts.service.js';
 import { ENTRY_TAIL_SIZE } from './sessions.constants.js';
 import type { StoredLog } from './sessions.types.js';
 
@@ -16,6 +17,7 @@ export async function readStoredLog(store: EntryStore): Promise<StoredLog> {
   const tail: StreamEntry[] = [];
   const sessions = new Map<SessionId, SessionInfo>();
   const lastTokens = new LastTokens();
+  const messageContexts = new MessageContexts();
   let next = 0;
 
   for await (const entry of store.read()) {
@@ -31,7 +33,14 @@ export async function readStoredLog(store: EntryStore): Promise<StoredLog> {
     if (tail.length > ENTRY_TAIL_SIZE) tail.shift();
     if (entry.kind === 'update') sessions.set(entry.update.session.id, entry.update.session);
     if (entry.kind === 'event') lastTokens.observe(entry);
+    messageContexts.observe(entry);
   }
 
-  return { next, tail, sessions: [...sessions.values()], lastTokens: lastTokens.entries() };
+  return {
+    next,
+    tail,
+    sessions: [...sessions.values()],
+    lastTokens: lastTokens.entries(),
+    ...(messageContexts.snapshot.length > 0 && { messageContexts: messageContexts.snapshot }),
+  };
 }

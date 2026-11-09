@@ -2,6 +2,10 @@ import type { SessionRegistry } from './sessions.service.js';
 import type { SessionId, SessionInfo, SessionRef } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
+import type { MessageId } from '@sheavly/protocol/message/message.types';
+
+/** A session's originating user message, retained when its parent starts another prompt. */
+export type SessionMessage = { sessionId: SessionId; messageId: MessageId };
 
 /** The tokens a session's last model call reported. */
 export type SessionTokens = { sessionId: SessionId; tokens: TokenUsage };
@@ -22,6 +26,7 @@ export type StoredLog = {
   tail: StreamEntry[];
   sessions: SessionInfo[];
   lastTokens: SessionTokens[];
+  messageContexts?: SessionMessage[];
 };
 
 /**

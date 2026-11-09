@@ -8,6 +8,8 @@ import { restoreSessions } from './restore.helper.js';
 import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
+import { MessageContexts } from './message-contexts.service.js';
+import { ApprovalSessions } from './approval-sessions.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
 import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
@@ -24,11 +26,11 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
+import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
-import type { EntryFilter, StoredLog } from './sessions.types.js';
+import type { EntryFilter, SessionMessage, StoredLog } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -47,9 +49,10 @@ export class SessionRegistry {
   #listeners = new Set<Listener>();
   readonly #entries: EntryLog;
   /** The session each waiting approval belongs to, so its answer lands in the same place. */
-  #approvalSessions = new Map<ApprovalId, SessionId>();
+  readonly #approvalSessions = new ApprovalSessions();
   #inboxes = new Inboxes();
   #lastTokens: LastTokens;
+  readonly #messageContexts: MessageContexts;
 
   /**
    * With a `store`, the combined stream is also written to it and only its newest entries stay in
@@ -62,6 +65,7 @@ export class SessionRegistry {
     const { store, resume } = options;
 
     this.#lastTokens = new LastTokens(resume?.lastTokens);
+    this.#messageContexts = new MessageContexts(resume?.messageContexts);
     this.#entries = new EntryLog({
       lineage: (id) => this.lineage(id),
       ...(store && { store }),
@@ -98,6 +102,12 @@ export class SessionRegistry {
   /** How many entries of the combined stream are in memory (the newest few, with a store). */
   get retainedEntries(): number {
     return this.#entries.retained;
+  }
+
+  /** Associates activity with this user message; existing children keep their own origin. */
+  setMessage(context: SessionMessage): void {
+    this.#require(context.sessionId);
+    this.#messageContexts.set(context);
   }
 
   /** Starts the main session (depth 1). */
@@ -324,7 +334,7 @@ export class SessionRegistry {
 
     this.#require(sessionId);
     this.#lastTokens.observe({ sessionId, event });
-    this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));
+    this.#addEntry((seq) => ({ seq, sessionId, kind: 'event', event }));
   }
 
   /**
@@ -342,19 +352,10 @@ export class SessionRegistry {
    * goes under the same session as its request, so a session's filter sees both.
    */
   publishApproval(update: ApprovalUpdate): void {
-    const sessionId =
-      update.type === 'approval_requested'
-        ? (update.request.sessionId ?? this.#mainId())
-        : (this.#approvalSessions.get(update.id) ?? this.#mainId());
-
-    if (update.type === 'approval_requested') {
-      this.#approvalSessions.set(update.request.id, sessionId);
-    } else {
-      this.#approvalSessions.delete(update.id);
-    }
+    const sessionId = this.#approvalSessions.keepSession({ update, main: () => this.#mainId() });
 
     this.#require(sessionId);
-    this.#entries.add((seq) => ({ seq, sessionId, kind: 'approval', update }));
+    this.#addEntry((seq) => ({ seq, sessionId, kind: 'approval', update }));
   }
 
   /**
@@ -366,7 +367,7 @@ export class SessionRegistry {
     const sessionId = params.sessionId ?? this.#mainId();
 
     this.#require(sessionId);
-    this.#entries.add((seq) => ({ seq, sessionId, kind: 'task', update }));
+    this.#addEntry((seq) => ({ seq, sessionId, kind: 'task', update }));
   }
 
   /**
@@ -416,6 +417,11 @@ export class SessionRegistry {
     const session: SessionInfo = { ...params, state: 'running', startedAt: now() };
 
     this.#sessions.set(session.id, session);
+
+    if ('parentId' in session) {
+      this.#messageContexts.inherit({ sessionId: session.id, parentId: session.parentId });
+    }
+
     this.#emit({ type: 'session_started', session });
 
     return refOf(session);
@@ -449,6 +455,10 @@ export class SessionRegistry {
     const snapshot = { ...update, session: { ...update.session } };
 
     notifyAll({ listeners: this.#listeners, value: snapshot });
-    this.#entries.add((seq) => ({ seq, sessionId: snapshot.session.id, kind: 'update', update }));
+    this.#addEntry((seq) => ({ seq, sessionId: snapshot.session.id, kind: 'update', update }));
+  }
+
+  #addEntry(build: (seq: number) => Omit<StreamEntry, 'at'>): void {
+    this.#entries.add((seq) => this.#messageContexts.annotate(build(seq)));
   }
 }

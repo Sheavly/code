@@ -2,6 +2,14 @@
 
 Every run is a **session** with an id. The main session is the one the UI starts; a **sub-agent** is a nested agent loop started by a session, as a tool call. Every sub-agent is linked to the session that started it, and through it to the main session, so none can float on its own or get lost. The `start_agent`, `report_status` and `message_agent` tools are in [@sheavly/tools](../../tools/docs/sub-agents.md).
 
+## Message correlation
+
+Before a new user prompt, the host calls `sessions.setMessage({ sessionId, messageId })`.
+Subsequent stream entries carry that ID. A child inherits its parent's current ID when it starts;
+later parent prompts do not reassign existing children. Restoring the stream rebuilds associations
+from every entry, not only its retained tail. Legacy entries without IDs remain valid. The identity
+is diagnostic metadata, never model input.
+
 ## Sessions
 
 `SessionRegistry` (`@sheavly/runtime/sessions/`) holds the session tree of one main run. A session
