@@ -16,11 +16,12 @@ import { windowSection } from '@sheavly/summary/sections/window.utils';
 const summarizer = rulesSummarizer({ sections: [userMessagesSection(), windowSection] });
 ```
 
-| Module      | What it holds                                                                                                                           |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `rules/`    | `rulesSummarizer`: a summarizer whose sections are written by rules, merging each into the previous checkpoint's                        |
-| `sections/` | `RuleSection` and `TrailExtractor`; the rules sections `userMessagesSection`, `trailSection` and `windowSection`; entry merging helpers |
-| `errors/`   | `SummaryDefinitionError`: a summarizer defined with no sections or a repeated section id                                                |
+| Module      | What it holds                                                                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rules/`    | `rulesSummarizer`: a summarizer whose sections are written by rules, merging each into the previous checkpoint's                                                                                    |
+| `sections/` | `RuleSection` and `TrailExtractor`; the rules sections `userMessagesSection`, `trailSection` and `windowSection`; entry merging helpers                                                             |
+| `model/`    | `modelSummarizer`: a model writes the sections it is asked for (a `Provider` from the UI, temperature zero, history given as data), rules write the rest; its default sections and the reply parser |
+| `errors/`   | `SummaryDefinitionError`: a summarizer defined with no sections or a repeated section id                                                                                                            |
 
 ## Docs
 

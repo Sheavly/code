@@ -1,6 +1,6 @@
 import type { Summarizer } from '@sheavly/core/summary/summary.types';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
-import { SummaryDefinitionError } from '../errors/summary.errors.js';
+import { assertSectionIds } from '../sections/definition.utils.js';
 import type { RuleSection } from '../sections/sections.types.js';
 
 /**
@@ -17,15 +17,8 @@ export function rulesSummarizer(params: {
   sections: readonly RuleSection[];
 }): Summarizer {
   const { name = 'rules', sections } = params;
-  const ids = sections.map((section) => section.id);
 
-  if (sections.length === 0) {
-    throw new SummaryDefinitionError({ summarizer: name, problem: 'it has no sections' });
-  }
-
-  if (new Set(ids).size !== ids.length) {
-    throw new SummaryDefinitionError({ summarizer: name, problem: 'two sections share an id' });
-  }
+  assertSectionIds({ summarizer: name, ids: sections.map((section) => section.id) });
 
   // Parsed once here, so a code past this point trusts the branded id.
   const branded = sections.map((section) => ({
