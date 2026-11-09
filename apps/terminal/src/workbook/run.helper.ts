@@ -10,6 +10,7 @@ import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { RunRecorder } from './recorder.service.js';
+import { runEnv } from './run-env.utils.js';
 import type { WorkbookStore } from './store.service.js';
 import type { RunRequest, RunResult } from './workbook.types.js';
 import { runId } from './workbook.utils.js';
@@ -42,7 +43,13 @@ export async function runWorkbook(params: {
     recorder.transcript(text);
   };
   const backend = await connectBackend({
-    env: runEnv({ request, workspaceRoot: workspace.dir, modelCalls: paths.modelCalls, trustFile }),
+    env: runEnv({
+      env: process.env,
+      request,
+      workspaceRoot: workspace.dir,
+      modelCalls: paths.modelCalls,
+      trustFile,
+    }),
     // A fresh copy of a committed fixture is this repo's own code, so its hooks run. A kept or
     // continued workspace the agent may have edited needs trust like any other: `--trust`.
     args: workspace.fresh || request.trust ? ['--trust'] : [],
@@ -54,26 +61,6 @@ export async function runWorkbook(params: {
   } finally {
     await backend.stop();
   }
-}
-
-/** What the run's backend reads: the run's workspace, limits and files, over this environment. */
-function runEnv(params: {
-  request: RunRequest;
-  workspaceRoot: string;
-  modelCalls: string;
-  trustFile: string | undefined;
-}): NodeJS.ProcessEnv {
-  const { request, workspaceRoot, modelCalls, trustFile } = params;
-
-  return {
-    ...process.env,
-    WORKSPACE_ROOT: workspaceRoot,
-    MODEL_CALLS_FILE: modelCalls,
-    WAIT_FOR_TASKS: 'true',
-    SHOW_MODEL_CALLS: request.showModelCalls ? 'true' : 'false',
-    ...(request.stored?.maxTurns !== undefined && { MAX_TURNS: String(request.stored.maxTurns) }),
-    ...(trustFile && { SHEAVLY_TRUST_FILE: trustFile }),
-  };
 }
 
 /** Runs the prompt on the backend's new conversation, recording it, and saves the result. */

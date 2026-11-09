@@ -12,6 +12,18 @@ describe('parsePromptFile', () => {
     ).toEqual({ name: 'x', text: 'Do it.', workspace: 'basic', maxTurns: 7 });
   });
 
+  it('reads the context window a prompt’s runs are told, and refuses one that is not a size', () => {
+    expect(
+      parsePromptFile({ name: 'x', source: '---\ncontextWindow: 40000\n---\nDo it.\n' }),
+    ).toMatchObject({ contextWindow: 40_000 });
+    expect(() =>
+      parsePromptFile({ name: 'bad', source: '---\ncontextWindow: 0\n---\nHi\n' }),
+    ).toThrow('Prompt "bad" is invalid');
+    expect(() =>
+      parsePromptFile({ name: 'big', source: '---\ncontextWindow: 99999999999\n---\nHi\n' }),
+    ).toThrow('Prompt "big" is invalid');
+  });
+
   it('treats a file without front matter as just the prompt', () => {
     expect(parsePromptFile({ name: 'x', source: 'Just this.\n' })).toEqual({
       name: 'x',

@@ -7,13 +7,15 @@ import { WorkbookPromptError } from '../errors/workbook.errors.js';
 import { checkSchema } from './check.validator.js';
 import { isPlainName } from './workbook.utils.js';
 import { historyMessageSchema } from '@sheavly/protocol/message/message.validator';
+import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
 import { runOutcomeSchema, sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 
 // --- Schemas: everything the workbook reads back from disk is validated ---
 
 /**
  * A prompt file's front matter (between `---` lines at the top), all optional:
- * `workspace` (a fixture folder in `workbook/workspaces/` to copy for each run), `maxTurns`.
+ * `workspace` (a fixture folder in `workbook/workspaces/` to copy for each run), `maxTurns`,
+ * `contextWindow`.
  */
 export const promptFileSchema = z.object({
   text: z.string().min(1),
@@ -22,6 +24,8 @@ export const promptFileSchema = z.object({
     .refine(isPlainName, 'a folder name in workbook/workspaces/, not a path')
     .optional(),
   maxTurns: z.number().int().positive().optional(),
+  /** The window every model is told for this prompt's runs (`CONTEXT_WINDOW`), in tokens. */
+  contextWindow: contextWindowSchema.optional(),
   description: z.string().optional(),
   /** A real-model check of this prompt (see `check.validator.ts`): run by `workbook check`. */
   check: checkSchema.optional(),

@@ -39,10 +39,16 @@ A prompt is a markdown file. Optional front matter sets how it runs:
 description: write_file + edit_file, then read both back
 workspace: basic # a fixture folder name in workspaces/ to copy for each run (default: an empty folder)
 maxTurns: 20 # model calls per session (default: no limit)
+contextWindow: 40000 # tokens every model is told it has (default: each model's own)
 ---
 
 Create src/math.ts exporting a function add(a: number, b: number) …
 ```
+
+`maxTurns` and `contextWindow` reach the run's backend as `MAX_TURNS` and `CONTEXT_WINDOW`
+([serve](../../backend/docs/serve.md)). A small `contextWindow` lets a short run reach a limit
+that a model's real window would take a very long one to reach, such as the point where the
+conversation is summarized (`long-run-summary`).
 
 A prompt's name and its `workspace` are single file names (letters, digits, `-`, `_`, `.`),
 never paths, so a run can only read, copy and clear folders inside the workbook.
