@@ -200,6 +200,21 @@ Strict and type-aware (typescript-eslint `strictTypeChecked`), with readability 
 
 `.cursor/hooks.json` runs the same checks automatically while the Cursor agent works.
 
+Prompt and shell guards use Node built-ins so a fresh worktree can accept messages and run
+dependency installation. The hooks' shared clock uses epoch milliseconds anchored to each short-lived
+process's start. Lint hints are loaded only by the edit hook; formatter prediction loads Prettier
+only when a command needs it. Formatting, linting and every stop quality check remain enabled.
+
+Before moving a session into a separate worktree, run from the initialized checkout:
+
+```bash
+node scripts/bootstrap-worktree.mjs /path/to/worktree
+```
+
+This installs with `npm ci`, probes the configured fail-closed guards with isolated temporary chat
+state, and checks the quality-tool executables. Move the session only after successful verification;
+on failure stay in the original checkout. Missing tools are setup failures, not skipped checks.
+
 | Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                                                                                                                                                                                                                                                                      |
