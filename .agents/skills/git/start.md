@@ -26,8 +26,16 @@
    Without network access, `git switch -c 123-provider-switch origin/main` makes the same branch;
    GitHub links it once the PR's `Closes #123` does.
 
-6. **Offer** to assign the issue (`gh issue edit 123 --add-assignee @me`) or move it on the project
+6. **Bootstrap a separate worktree before moving the session.** From the original initialized
+   checkout, run `node scripts/bootstrap-worktree.mjs <worktree-path>`. It runs `npm ci` in the
+   target, probes the configured prompt and shell guards with temporary state, and checks the
+   installed quality tools. Only after it exits successfully may the OpenCode `session_move`
+   tool move this session there. If installation or verification fails, keep the session in the
+   original checkout, report the failure, and fix setup there. Never disable hooks to get in.
+   Creating a worktree alone is not readiness; prompt submission must work and edit/stop checks
+   must have their tools installed.
+7. **Offer** to assign the issue (`gh issue edit 123 --add-assignee @me`) or move it on the project
    board ([issues.md](issues.md)); do it only if the user says yes.
-7. **Report** the planned commits and the branch. The next step is to write the first scope's code,
+8. **Report** the planned commits and the branch. The next step is to write the first scope's code,
    then `/git commit`. Open the PR as a draft once the first commit is pushed
    ([submit.md](submit.md)), so CI runs from the start.
