@@ -25,6 +25,9 @@ export class ContextUsageTracker {
     if (entry.sessionId !== this.mainSession || entry.seq <= this.#snapshot.throughSeq) return;
     if (entry.kind !== 'event' || entry.event.type !== 'usage') return;
 
+    // The call that wrote a summary is billed, but its tokens are not the conversation's context.
+    if (entry.event.usage.purpose === 'summary') return;
+
     const { tokens, contextWindow } = entry.event.usage;
 
     this.#snapshot = {
