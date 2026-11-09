@@ -71,8 +71,8 @@ Grouped by the complaint each item answers. Open work is in
 
 **Control over the loop**
 
-- Hooks that rewrite the messages sent to each model call, which compaction can build on (#55)
-- Context compaction (#13, #14) and its hooks (#15)
+- Hooks that rewrite the messages sent to each model call, which summaries can build on (#55)
+- Summaries of long histories (#13, #14) and their hooks (#15); [research and design](summary/README.md)
 - More hook points, matching Cursor's (#26); `onError` recovery (#12); user-level hooks (#10)
 - Interactive runs: wait for, queue and steer user input (#16); rewind history (#20)
 - The agent sees its context window size and usage (#37)

@@ -4,11 +4,12 @@ How the parts fit, across the workspaces. Each workspace documents itself: its `
 first place to look (what it is for, its public API, a short example), and its `docs/` folder
 goes deeper. Open work is in [GitHub Issues](https://github.com/Sheavly/code/issues).
 
-| Doc                                      | What it covers                                                            |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| [vision.md](vision.md)                   | Why the harness exists, the principles it follows, and the roadmap        |
-| [overview.md](overview.md)               | The layers and their graph, the UI's role, packages, trust, errors        |
-| [Agent prompts](agent-prompts/README.md) | Minimal shared instructions, research evidence and evaluation limitations |
+| Doc                                      | What it covers                                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| [vision.md](vision.md)                   | Why the harness exists, the principles it follows, and the roadmap                 |
+| [overview.md](overview.md)               | The layers and their graph, the UI's role, packages, trust, errors                 |
+| [Agent prompts](agent-prompts/README.md) | Minimal shared instructions, research evidence and evaluation limitations          |
+| [Summary](summary/README.md)             | How a long history is shortened: the research, and [the design](summary/design.md) |
 
 Workspaces:
 
