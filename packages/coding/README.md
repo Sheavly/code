@@ -36,5 +36,7 @@ The coding section is a short reminder to inspect first, fit the surrounding cod
 existing work and verify changed behavior; detailed procedures stay in tools and project instructions.
 
 - [File tools](docs/file-tools.md): confinement, the three tools, and the artifacts they return.
-- [Skills](../workspace/docs/skills.md): `read_skill`, and where the skills it reads come from.
+- [Skills](../workspace/docs/skills.md): `read_skill` returns complete skill files without line or
+  character caps, while preserving path confinement and `.env` protection. Ordinary `read_file`
+  limits are unchanged.
 - [run_command](docs/run-command.md): how a command is checked before it runs.
