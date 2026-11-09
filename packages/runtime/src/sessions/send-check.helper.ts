@@ -22,6 +22,16 @@ export function assertCanSend(params: {
     });
   }
 
+  // A sub-agent is steered by the agent that started it, never by the user: whatever reaches it
+  // as a `user` message must come from an ancestor session.
+  if (from === 'user' && session.depth > 1) {
+    throw new SessionError({
+      reason: 'not_an_ancestor',
+      sessionId: session.id,
+      message: `Session ${session.id} is a sub-agent: only the agent that started it can message it`,
+    });
+  }
+
   if (from !== 'user' && !lineage.some((s) => s.id === from && s.id !== session.id)) {
     throw new SessionError({
       reason: 'not_an_ancestor',
