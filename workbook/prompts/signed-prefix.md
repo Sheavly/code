@@ -5,6 +5,8 @@ check:
   {
     'areas':
       [
+        'packages/core/src/provider',
+        'packages/loop/src/stream-agent/sample.helper.ts',
         'packages/providers/src/anthropic-messages',
         'packages/workspace/src/agents-md',
         'packages/workspace/src/instruction-context',

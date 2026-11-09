@@ -7,6 +7,8 @@ check:
       [
         'packages/tools/src/sub-agent',
         'packages/runtime/src/sessions',
+        'packages/runtime/src/tasks',
+        'packages/loop/src/stream-agent',
         'packages/host/src',
         'packages/coding/src/preset',
         'apps/backend/src/harness',
