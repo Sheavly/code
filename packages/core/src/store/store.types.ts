@@ -1,5 +1,5 @@
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -27,9 +27,9 @@ export type ConversationStore = {
    * were. Entries can't rebuild it (a prompt is not an entry, and a reply arrives in pieces), so
    * the owner of the conversation writes it whole.
    */
-  readMessages(id: ConversationId): Promise<Message[]>;
+  readMessages(id: ConversationId): Promise<HistoryMessage[]>;
   /** Replaces conversation `id`'s history with `messages`. */
-  writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void>;
+  writeMessages(params: { id: ConversationId; messages: readonly HistoryMessage[] }): Promise<void>;
   /**
    * The history of sub-agent `session` in conversation `id`, as last written, `[]` when none was:
    * what a sub-agent that finished continues from when its parent follows up with it. Each
@@ -38,12 +38,12 @@ export type ConversationStore = {
    * `session` is an id the registry made; a store that names a file after it must refuse one that
    * is not safe to use as a name rather than trust it.
    */
-  readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<Message[]>;
+  readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<HistoryMessage[]>;
   /** Replaces sub-agent `session`'s history in conversation `id` with `messages`. */
   writeAgentMessages(params: {
     id: ConversationId;
     session: SessionId;
-    messages: readonly Message[];
+    messages: readonly HistoryMessage[];
   }): Promise<void>;
   /** Every stored conversation's index entry, oldest first. */
   list(): Promise<StoredConversation[]>;
