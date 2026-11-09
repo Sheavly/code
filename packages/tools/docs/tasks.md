@@ -11,7 +11,8 @@ sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
 | `cancel_task` | `{ id }`  | Stops a running task and waits until its process has exited                              |
 
 - The agent doesn't need `task_status` to wait: the loop reports each finished task at the start
-  of the next turn, once, in the order they finished, and a run with `waitForTasks` waits for them
+  of the next turn, once, in the order they finished. Required completions, including sub-agents,
+  keep the run alive automatically; `waitForTasks` also waits for ordinary background commands
   ([@sheavly/loop](../../loop/docs/run.md)).
 - An unknown id is an error result (a `ToolCallError` with `reason: 'not_found'`), and so is
   cancelling a task that has already finished. A cancelled task isn't reported back as a
