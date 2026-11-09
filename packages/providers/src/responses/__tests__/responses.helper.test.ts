@@ -18,10 +18,11 @@ const provider = (fetch: typeof globalThis.fetch) =>
   });
 
 describe('createResponsesProvider', () => {
-  it('sends the request notice as a last user item, and nothing when there is none', async () => {
+  it('sends all request notices after history, and nothing when there are none', async () => {
     const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
-    const sent = request({ instructions: 'Use npm.', notice });
+    const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
+    const sent = request({ instructions: 'Use npm.', notices: [notice, continuation] });
     const original = structuredClone(sent.messages);
 
     await collect(provider(fetch).stream(sent));
@@ -30,6 +31,7 @@ describe('createResponsesProvider', () => {
     expect(requests[0]?.body.input).toEqual([
       { role: 'user', content: 'hi' },
       { role: 'user', content: formatHarnessNotice(notice) },
+      { role: 'user', content: formatHarnessNotice(continuation) },
     ]);
     expect(requests[1]?.body.input).toEqual([{ role: 'user', content: 'hi' }]);
     expect(requests[0]?.body.instructions).toBe('Use npm.');

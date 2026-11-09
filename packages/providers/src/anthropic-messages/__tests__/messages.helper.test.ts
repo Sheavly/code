@@ -245,11 +245,13 @@ describe('createMessagesProvider', () => {
     };
 
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
-    const input = request({ notice, instructions: 'Use npm.' });
+    const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
+    const notices = [notice, continuation];
+    const input = request({ notices, instructions: 'Use npm.' });
     const original = structuredClone(input.messages);
 
     await collect(sent.stream(input));
-    await collect(sent.stream(request({ messages: [reply], notice })));
+    await collect(sent.stream(request({ messages: [reply], notices })));
     await collect(sent.stream(request()));
 
     expect(requests[0]?.body.messages).toEqual([
@@ -258,12 +260,16 @@ describe('createMessagesProvider', () => {
         content: [
           { type: 'text', text: 'hi' },
           { type: 'text', text: formatHarnessNotice(notice) },
+          { type: 'text', text: formatHarnessNotice(continuation) },
         ],
       },
     ]);
     expect(requests[1]?.body.messages).toEqual([
       { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
-      { role: 'user', content: [{ type: 'text', text: formatHarnessNotice(notice) }] },
+      {
+        role: 'user',
+        content: notices.map((item) => ({ type: 'text', text: formatHarnessNotice(item) })),
+      },
     ]);
     expect(requests[2]?.body.messages).toEqual([
       { role: 'user', content: [{ type: 'text', text: 'hi' }] },
@@ -279,7 +285,7 @@ describe('createMessagesProvider', () => {
     const thinker = provider({ fetch, thinkingMode: 'adaptive' });
     const events = await collect(
       thinker.stream(
-        request({ notice: { kind: 'context-usage', context: { window: 5_000, used: 1_000 } } }),
+        request({ notices: [{ kind: 'context-usage', context: { window: 5_000, used: 1_000 } }] }),
       ),
     );
     const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
@@ -300,7 +306,7 @@ describe('createMessagesProvider', () => {
       context: { window: 5_000, used: 2_000 },
     };
 
-    await collect(thinker.stream(request({ messages: history, notice })));
+    await collect(thinker.stream(request({ messages: history, notices: [notice] })));
 
     const [, assistant, results] = (requests[1]?.body.messages ?? []) as {
       content: { type: string; text?: string }[];

@@ -4,7 +4,7 @@ import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { ANTHROPIC_VERSION, MESSAGES_API } from './messages.constants.js';
-import { toMessagesApiMessages, withNotice } from './input.utils.js';
+import { toMessagesApiMessages, withNotices } from './input.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
@@ -22,7 +22,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
   const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, notice, tools, signal, mode }) {
+    async *stream({ instructions, messages, notices, tools, signal, mode }) {
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
@@ -40,7 +40,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         tools: apiTools,
       });
 
-      const sent = withNotice({ messages: apiMessages, notice });
+      const sent = withNotices({ messages: apiMessages, notices });
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,

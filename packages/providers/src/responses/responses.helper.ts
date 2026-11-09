@@ -21,7 +21,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
   const reasoningSource = reasoning ? source : undefined;
 
   return {
-    async *stream({ instructions, messages, notice, tools, signal, mode }) {
+    async *stream({ instructions, messages, notices = [], tools, signal, mode }) {
       const url = new URL(`${endpoint.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(endpoint.query ?? {})) {
@@ -43,7 +43,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             ...(instructions ? { instructions } : {}),
             input: [
               ...messages.flatMap((message) => toInputItems({ message, reasoningSource })),
-              ...(notice ? [{ role: 'user', content: formatHarnessNotice(notice) }] : []),
+              ...notices.map((notice) => ({ role: 'user', content: formatHarnessNotice(notice) })),
             ],
             tools: tools.map((tool) => ({
               type: 'function',

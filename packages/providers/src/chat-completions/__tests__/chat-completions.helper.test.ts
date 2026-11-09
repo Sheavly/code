@@ -38,13 +38,14 @@ const request = (messages: Message[] = [{ role: 'user', content: 'hello' }]) => 
 });
 
 describe('native Chat Completions', () => {
-  it('sends the request notice as a last user message, after the history', async () => {
+  it('sends telemetry and continuation after history without changing it', async () => {
     const { provider, requests } = setup([
       [chunk({ content: 'ok' }, 'stop')],
       [chunk({ content: 'ok' }, 'stop')],
     ]);
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
-    const sent = { ...request(), notice };
+    const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
+    const sent = { ...request(), notices: [notice, continuation] };
     const original = structuredClone(sent.messages);
 
     await collect(provider.stream(sent));
@@ -53,6 +54,7 @@ describe('native Chat Completions', () => {
       { role: 'system', content: 'system instructions' },
       { role: 'user', content: 'hello' },
       { role: 'user', content: formatHarnessNotice(notice) },
+      { role: 'user', content: formatHarnessNotice(continuation) },
     ]);
     expect(requests[1]?.body.messages).toEqual([
       { role: 'system', content: 'system instructions' },
