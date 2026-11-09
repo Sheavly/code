@@ -12,6 +12,7 @@ import type {
 } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 
 export type AgentOptions = {
   provider: Provider;
@@ -19,7 +20,7 @@ export type AgentOptions = {
   messages: Message[];
   /** Model calls before the run stops with `max_turns`. Without it a run goes on until it is done or stopped. */
   maxTurns?: number;
-  /** Extra calls after output truncation, at most two by default. Set to zero to stop immediately. */
+  /** Extra calls after output truncation, unlimited by default. Set to zero to stop immediately. */
   maxOutputContinuations?: number;
   /** The host's system instructions, sent with every model call (hooks may add more). */
   instructions?: string;
@@ -74,7 +75,10 @@ export type RunContext = {
 export type TurnContext = RunContext & {
   turn: number;
   /** Counts output-limit recoveries across the whole run, including tool turns. */
-  outputRecovery: { attempts: number };
+  outputRecovery: {
+    attempts: number;
+    pending: Extract<HarnessNotice, { kind: 'output-continuation' }> | undefined;
+  };
   /** The run's history; the turn appends to it. */
   messages: Message[];
 };
@@ -103,6 +107,8 @@ export type SampleContext = ToolStart & {
   messages: readonly Message[];
   /** How full the context is for this call, read once by the turn. */
   state: ContextState;
+  /** Recovery for this call only, never inserted into conversation history. */
+  continuation: Extract<HarnessNotice, { kind: 'output-continuation' }> | undefined;
   /** Resolves when `signal` (the run's) aborts. */
   aborted: Promise<void>;
   events: AgentEvents;

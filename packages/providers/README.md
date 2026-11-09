@@ -33,8 +33,9 @@ Messages and Responses providers attach reported token usage to the final `done`
 usage deltas are cumulative; its cache tokens are added to ordinary input. Responses cached input
 is already part of its input total, so it is not counted twice. No provider guesses prices.
 
-All three protocols format typed harness notices with the core's shared formatter. Notices are
-explicitly labeled telemetry rather than user requests, even when an API requires a user role,
+All three protocols format an ordered array of typed harness notices with the core's shared formatter.
+Context telemetry and output-continuation notices coexist and are explicitly labeled harness data
+rather than user requests, even when an API requires a user role,
 and never mutate conversation history or system instructions. See
 [harness notices](../core/docs/providers.md#harness-notices).
 

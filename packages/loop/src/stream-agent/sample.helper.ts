@@ -28,6 +28,10 @@ export async function sample(context: SampleContext) {
   const { state } = context;
   const { window } = state;
   const notice = contextNotice(state);
+  const notices = [
+    ...(notice ? [notice] : []),
+    ...(context.continuation ? [context.continuation] : []),
+  ];
   let content = '';
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
@@ -45,15 +49,14 @@ export async function sample(context: SampleContext) {
   const start = { ...context, signal: toolSignal };
 
   try {
-    // A snapshot: providers must never see later pushes to the loop's own history. The context
-    // notice goes beside it, not in it: it changes every turn, so a provider sends it after the
-    // history, and it is not in `messages`, in `done`'s messages or in the next request.
-    if (notice) events.enqueue({ type: 'harness_notice', notice });
+    // Notices go beside the history snapshot, never in it. Every UI receives the same data
+    // before the model starts, and chooses whether to display it.
+    for (const notice of notices) events.enqueue({ type: 'harness_notice', notice });
 
     const source = provider.stream({
       instructions,
       messages: [...messages],
-      notice,
+      notices,
       tools: tools.map(toDefinition),
       signal,
     });

@@ -125,7 +125,7 @@ const stepEventSchemas = [
     removed: z.number().int().nonnegative(),
     edited: z.number().int().nonnegative(),
   }),
-  /** A bounded continuation after output exhaustion; its instruction is kept in history. */
+  /** Accept stored continuation entries; new recovery is reported through harness notices. */
   z.object({
     type: z.literal('output_continuation'),
     attempt: z.number().int().positive(),

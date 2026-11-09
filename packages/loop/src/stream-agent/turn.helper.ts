@@ -53,12 +53,16 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (!sent || signal.aborted) return 'interrupted';
 
+  const continuation = context.outputRecovery.pending;
+
+  context.outputRecovery.pending = undefined;
   const { message, stopReason, running, failure } = await sample({
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
     messages: sent,
     state,
+    continuation,
     signal,
     aborted,
     events,

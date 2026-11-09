@@ -39,6 +39,15 @@
             }
           },
           "required": ["kind", "context"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "output-continuation" },
+            "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+            "maxAttempts": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["kind", "attempt"]
         }
       ]
     },

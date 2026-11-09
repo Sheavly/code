@@ -49,13 +49,17 @@ a conversation's next prompt can resume it; the host ends it when the conversati
 
 ## Output-limit recovery
 
-`maxOutputContinuations` permits at most two extra model calls after output truncation by default;
-zero disables recovery. The count applies across the whole run, including truncated tool turns,
-and never bypasses `maxTurns` or an abort. Partial replies, signed reasoning and completed tool
-results stay in history. A new user instruction asks the model to finish without repeating work;
-system instructions are not changed and completed tools are not rerun by the loop.
-`output_continuation` says which attempt is starting. Exhausting the allowance ends with
-`max_tokens`, not `completed`. Context exhaustion ends with `context_window_exceeded` without
+Output truncation automatically continues the original task, with no continuation cap by default.
+`maxOutputContinuations` optionally bounds recoveries across the whole run, including truncated
+tool turns; zero disables recovery. Recovery never bypasses `maxTurns` or an abort. Partial replies,
+reasoning and completed tool results stay in history, and completed tools are not rerun by the loop.
+The next request carries a transient `output-continuation` notice asking the model to finish
+silently without repeating work. Neither synthetic user messages nor changed system instructions
+are needed. Provider-bound reasoning is replayed only when its original prefix still matches.
+The same notice is emitted as `harness_notice` before the model call, with its attempt and an
+optional explicit maximum. Each UI chooses its own presentation; the terminal shows no interruption.
+Exhausting an explicit allowance ends with `max_tokens`, not `completed`.
+Context exhaustion ends with `context_window_exceeded` without
 retrying: a larger output budget cannot repair a full context window. The loop does not summarize
 history or discard messages automatically.
 
@@ -64,7 +68,7 @@ history or discard messages automatically.
 Before every model call the loop reads the provider's `contextWindow` and the session's last
 reported tokens (`sessions.lastTokens`) once, and uses that one reading three ways:
 
-- **The agent** gets a typed `context-usage` notice on the request's `notice` (`sample.helper.ts`).
+- **The agent** gets a typed `context-usage` notice in the request's `notices` (`sample.helper.ts`).
   Providers use the [shared formatter](../../core/docs/providers.md#harness-notices) to label it
   as harness telemetry, not user input, and direct the model to use it silently unless context
   limits affect the task. For example, its measurement is `Context: 48,210 of 400,000 tokens used (12%)`.
@@ -85,7 +89,7 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
 Before calling the provider, the loop also emits `harness_notice` with the exact notice payload
 sent on that request. It uses the ordinary ordered event queue and combined session stream, so
 downstream UIs receive structured data with session attribution and replay support, not formatter
-text. When neither context count is known, no notice or notice event is sent. Model history and
+text. When neither context count is known, no context notice is sent; recovery notices are independent. Model history and
 system instructions still contain neither the notice nor its UI event.
 
 The numbers belong to the session, so a sub-agent has its own against its own provider's window,

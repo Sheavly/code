@@ -1,5 +1,5 @@
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
-import { CONTEXT_USAGE_NOTICE_TEXT } from './notice.constants.js';
+import { CONTEXT_USAGE_NOTICE_TEXT, OUTPUT_CONTINUATION_NOTICE_TEXT } from './notice.constants.js';
 
 const count = new Intl.NumberFormat('en-US');
 
@@ -14,10 +14,19 @@ export function formatHarnessNotice(notice: HarnessNotice): string {
         CONTEXT_USAGE_NOTICE_TEXT.guidance,
         CONTEXT_USAGE_NOTICE_TEXT.closing,
       ].join('\n');
+    case 'output-continuation':
+      return [
+        OUTPUT_CONTINUATION_NOTICE_TEXT.opening,
+        OUTPUT_CONTINUATION_NOTICE_TEXT.origin,
+        OUTPUT_CONTINUATION_NOTICE_TEXT.guidance,
+        OUTPUT_CONTINUATION_NOTICE_TEXT.closing,
+      ].join('\n');
   }
 }
 
-function contextDescription(context: HarnessNotice['context']): string {
+function contextDescription(
+  context: Extract<HarnessNotice, { kind: 'context-usage' }>['context'],
+): string {
   const { window, used } = context;
 
   if (window !== undefined && used !== undefined) {

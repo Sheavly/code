@@ -40,6 +40,11 @@ The first kind, `context-usage`, carries `context.window` and/or `context.used`.
 count must be known. Used tokens are nonnegative whole numbers; the window is a positive whole
 number within the model contract's bound. Zero usage and usage exceeding capacity are valid.
 
+`output-continuation` carries a positive integer `attempt` and optional positive integer
+`maxAttempts`. An absent maximum means recovery is not capped by a continuation allowance.
+Context and recovery notices each have their own ordered `harness_notice` event before the call.
+Stored `output_continuation` entries remain readable; new runs use the shared notice contract.
+
 Notice payloads are structured facts, not model prose, colors, widgets or display directives.
 A UI can show a percentage, a warning, its own visualization, or nothing, without parsing an
 assistant message or importing provider code. Model handling guidance belongs to the core
@@ -101,9 +106,11 @@ such as an npm script name containing spaces; it does not impose exact argument 
 ## Run limits
 
 `turn_end.stopReason` distinguishes `max_tokens` (output, including thinking) from
-`context_window_exceeded` (the conversation no longer fits). A bounded output recovery emits
-`output_continuation` with `attempt` and `maxAttempts`. A run that cannot finish because of either
-limit ends with that reason in `done`, session state and `lastOutcome`, never `completed`.
+`context_window_exceeded` (the conversation no longer fits). Output recovery continues by default
+and emits a `harness_notice` of kind `output-continuation` before its next call. If an explicit
+continuation allowance is exhausted, the run ends with `max_tokens`; context exhaustion ends with
+`context_window_exceeded`. These outcomes appear in `done`, session state and `lastOutcome`, never
+`completed`.
 
 ## Models
 

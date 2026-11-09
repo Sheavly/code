@@ -78,7 +78,9 @@ export class Renderer {
     switch (event.type) {
       case 'usage':
       case 'harness_notice':
-        // Telemetry is not conversation output; the status line already uses usage events.
+      case 'output_continuation':
+        // Notices are not transcript output. Other UIs can display recovery or telemetry;
+        // this terminal keeps continuations seamless and uses usage events in its status line.
         break;
       case 'text_delta':
         this.#reply(plainTerminalText(event.text));
@@ -137,9 +139,6 @@ export class Renderer {
             edited: event.edited,
           }),
         );
-        break;
-      case 'output_continuation':
-        this.#activity(this.look.outputContinuation(event));
         break;
       case 'run_failed':
         this.clearRunning();

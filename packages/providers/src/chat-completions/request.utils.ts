@@ -19,7 +19,10 @@ export function chatRequestBody(params: {
     messages: [
       ...(request.instructions ? [{ role: 'system', content: request.instructions }] : []),
       ...chatMessages({ messages: request.messages, source, replayReasoning }),
-      ...(request.notice ? [{ role: 'user', content: formatHarnessNotice(request.notice) }] : []),
+      ...(request.notices ?? []).map((notice) => ({
+        role: 'user',
+        content: formatHarnessNotice(notice),
+      })),
     ],
     ...(request.tools.length > 0 && {
       tools: request.tools.map((tool) => ({
