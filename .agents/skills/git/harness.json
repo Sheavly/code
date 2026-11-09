@@ -1,3 +1,8 @@
 {
-  "governs": [".github/pull_request_template.md", ".github/workflows/git-format.yml"]
+  "governs": [
+    ".github/pull_request_template.md",
+    ".github/workflows/git-format.yml",
+    "scripts/check-git-format.mjs",
+    "scripts/__tests__/check-git-format.test.mjs"
+  ]
 }

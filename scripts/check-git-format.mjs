@@ -66,13 +66,45 @@ function checkIssueLink(params) {
 
 const HARNESS_IMPACT = '## Harness impact';
 const NONE_LINE = /^none: \S/;
+const ENFORCEMENT_REFERENCE =
+  /`(?![^`]*\.test\.)(?:harness\/[\w-]+|(?:\.cursor\/hooks|scripts|packages\/eslint-config)\/[^`\s]+\.(?:[cm]?js|json))`/;
+const REGRESSION_REFERENCE = /`[^`\s]+\/[^`/\s]+\.test\.(?:[cm]?[jt]sx?)`/;
+
+function checkImpactEntry(entry) {
+  if (/^none\b/i.test(entry)) {
+    if (NONE_LINE.test(entry)) return [];
+
+    return [`\`${HARNESS_IMPACT}\` says none without a reason: write \`none: <reason>\`.`];
+  }
+
+  if (ENFORCEMENT_REFERENCE.test(entry) && REGRESSION_REFERENCE.test(entry)) return [];
+
+  return [
+    `\`${HARNESS_IMPACT}\` coverage needs a backticked ESLint rule or executable guard/check path and a regression-test path in each bullet, or \`- none: <constraint and reason>\`.`,
+  ];
+}
+
+function checkImpactEvidence(content) {
+  if (/^none\b/i.test(content) && !/^\s*-/m.test(content)) {
+    return checkImpactEntry(content);
+  }
+
+  if (!content.startsWith('- ')) {
+    return [`\`${HARNESS_IMPACT}\` needs coverage bullets or a single \`none: <reason>\` line.`];
+  }
+
+  return content
+    .split(/^\s*-\s+/m)
+    .slice(1)
+    .flatMap((entry) => checkImpactEntry(entry.trim()));
+}
 
 /**
- * The body's `## Harness impact` section (.agents/skills/git/harness.md): what enforces each new
- * package or pattern the PR adds, or `none: <reason>`. Missing, empty or a bare `none` fails.
+ * Validates codebase-guardrail reporting format, not whether the cited enforcement covers the
+ * diff. Reviewers verify that judgement (.agents/skills/git/harness.md).
  */
 export function checkHarnessImpact(body) {
-  const lines = body.split(/\r?\n/);
+  const lines = body.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
   const start = lines.findIndex((line) => line.trim() === HARNESS_IMPACT);
 
   if (start === -1) {
@@ -81,11 +113,14 @@ export function checkHarnessImpact(body) {
     ];
   }
 
-  const end = lines.findIndex((line, index) => index > start && /^#{1,2} /.test(line));
+  if (lines.filter((line) => line.trim() === HARNESS_IMPACT).length > 1) {
+    return [`The PR body needs exactly one \`${HARNESS_IMPACT}\` section.`];
+  }
+
+  const end = lines.findIndex((line, index) => index > start && /^#{1,2} /.test(line.trim()));
   const content = lines
     .slice(start + 1, end === -1 ? undefined : end)
     .join('\n')
-    .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/^\s*-\s*$/gm, '') // the template's empty bullet
     .trim();
 
@@ -95,11 +130,7 @@ export function checkHarnessImpact(body) {
     ];
   }
 
-  if (/^none\b/i.test(content) && !NONE_LINE.test(content)) {
-    return [`\`${HARNESS_IMPACT}\` says none without a reason: write \`none: <reason>\`.`];
-  }
-
-  return [];
+  return checkImpactEvidence(content);
 }
 
 /** A stacked PR is based on a lower layer: a conforming issue branch, not main. */
