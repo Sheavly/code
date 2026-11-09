@@ -8,6 +8,7 @@ function historyContext(messages: Message[]): BeforeTurnContext {
     messages,
     signal: new AbortController().signal,
     turn: 1,
+    context: {},
     addContext: (content) => {
       messages.push({ role: 'user', content });
     },

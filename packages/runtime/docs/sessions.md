@@ -134,6 +134,12 @@ sub-agent that was still open when the process ended is settled as `interrupted`
 the stream: it is not run again, since what it was doing is gone. Stored entries with a gap throw
 a `StoreError` instead of resuming a conversation with a hole in it.
 
+The registry also keeps each session's last reported tokens: `lastTokens(id)` is what the session's
+newest `usage` event carried, not a total. A call that reported none clears it, since the old
+numbers no longer say how full the context is. It belongs to the session, not to a run, so a
+conversation's next prompt (a new run on the same session) and a reopened conversation (read back
+by `readStoredLog`) still have it. The loop uses it to tell the agent how full its context is.
+
 A `done` in the combined stream has no `messages`, for live listeners and replay alike
 (`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
 so far, and a kept log would grow with the square of a long conversation. The history comes from

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { modelFileSchema } from '../model.validator.js';
-import { fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
-import { RESERVED_MODEL_FIELDS } from '../model.constants.js';
+import { contextWindowLabel, fileIsNamedForItsId, toModel, toModelFile } from '../model.utils.js';
+import {
+  CONTEXT_WINDOW_CHOICES,
+  DEFAULT_CONTEXT_WINDOW,
+  RESERVED_MODEL_FIELDS,
+} from '../model.constants.js';
 
 const ID = '0b6c2f1e-3a4d-4c8e-9f10-7a2b5d6e8c01';
 const OTHER = '9d3e7a52-1c46-4b0f-8e21-5f6a7b8c9d02';
@@ -53,6 +57,56 @@ describe('toModel', () => {
       false,
     );
   });
+  it('keeps the context window in the envelope, out of the adapter’s definition', () => {
+    const model = toModel(
+      read({ id: ID, name: 'Astra 6', adapter: 'openai', contextWindow: 1_000_000 }),
+    );
+
+    expect(model.contextWindow).toBe(1_000_000);
+    expect(model.definition).toEqual({});
+    expect(toModel(read(toModelFile(model)))).toEqual(model);
+  });
+
+  it('offers 300K and 1M to pick from, with 300K as the default a model gets when it sets none', () => {
+    expect(CONTEXT_WINDOW_CHOICES).toEqual([
+      { size: 300_000, label: '300K' },
+      { size: 1_000_000, label: '1M' },
+    ]);
+    expect(DEFAULT_CONTEXT_WINDOW).toBe(300_000);
+  });
+
+  it('takes any positive whole size, so a model can have a different one, and nothing else', () => {
+    for (const contextWindow of [128_000, 272_000, 1_050_000]) {
+      const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
+
+      expect(read(file).contextWindow).toBe(contextWindow);
+    }
+
+    expect(read({ id: ID, name: 'M', adapter: 'openai', contextWindow: 10_000_000 })).toBeTruthy();
+
+    // Not a size, or past the sanity bound a typo would otherwise slip through.
+    for (const contextWindow of [0, -1, 1.5, Infinity, '1M', 10_000_001]) {
+      const file = { id: ID, name: 'M', adapter: 'openai', contextWindow };
+
+      expect(modelFileSchema.safeParse(file).success).toBe(false);
+    }
+  });
+
+  it('labels the offered sizes "300K" and "1M", and any other by its exact count', () => {
+    expect(contextWindowLabel(300_000)).toBe('300K');
+    expect(contextWindowLabel(1_000_000)).toBe('1M');
+    expect(contextWindowLabel(128_000)).toBe('128,000 tokens');
+    expect(contextWindowLabel(1_050_000)).toBe('1,050,000 tokens');
+  });
+
+  it('does not promote a context window from adapter configuration', () => {
+    const model = toModel(read({ id: ID, name: 'Plain', adapter: 'openai' }));
+
+    expect(toModelFile({ ...model, definition: { contextWindow: 5 } })).not.toHaveProperty(
+      'contextWindow',
+    );
+  });
+
   it('splits a file into its id, name and adapter, and the adapter’s definition', () => {
     const file = read({
       id: ID,

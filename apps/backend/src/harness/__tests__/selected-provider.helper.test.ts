@@ -32,6 +32,27 @@ it('a sub-agent captures the model and mode at start, including in its logged ca
   expect(logged[0]?.mode).toBe('high');
 });
 
+it('a sub-agent is told the window of the model it started on, whatever the main session switches to', () => {
+  const small = modelIdSchema.parse('22222222-2222-4222-8222-222222222222');
+  const large = modelIdSchema.parse('33333333-3333-4333-8333-333333333333');
+  const named = (contextWindow: number): Provider => ({
+    async *stream() {
+      yield { type: 'done', stopReason: 'end_turn' };
+    },
+    contextWindow,
+  });
+  const active = new ProviderSwitch().add(small, named(300_000)).add(large, named(1_000_000));
+  const choice = (id: typeof small) => ({ id, name: 'M', adapter: 'openai', model: 'm' });
+  const pinned = selectedProvider({
+    models: { switch: active, choices: [choice(small), choice(large)] },
+    onModelCall: undefined,
+  });
+
+  active.use(large);
+  expect(pinned.provider.contextWindow).toBe(300_000);
+  expect(active.contextWindow).toBe(1_000_000);
+});
+
 describe('selectedProvider', () => {
   it('refuses a missing selection', () => {
     expect(() =>

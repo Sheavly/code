@@ -5,6 +5,7 @@ import { providerRequest } from '../../testing/provider-request.fake.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createMessagesProvider } from '../messages.helper.js';
 import type { MessagesThinkingMode } from '../messages.types.js';
+import type { Message } from '@sheavly/protocol/message/message.types';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -231,6 +232,69 @@ describe('createMessagesProvider', () => {
       ]);
     },
   );
+
+  it('puts the request notice in the last user message, or in one of its own after a reply', async () => {
+    const { fetch, requests } = replies([STOP]);
+    const sent = provider({ fetch });
+    const reply = {
+      role: 'assistant' as const,
+      content: 'done',
+      toolCalls: [],
+    };
+
+    await collect(sent.stream(request({ notice: 'Context: 5 token window' })));
+    await collect(sent.stream(request({ messages: [reply], notice: 'Context: 5 token window' })));
+
+    expect(requests[0]?.body.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'hi' },
+          { type: 'text', text: 'Context: 5 token window' },
+        ],
+      },
+    ]);
+    expect(requests[1]?.body.messages).toEqual([
+      { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+      { role: 'user', content: [{ type: 'text', text: 'Context: 5 token window' }] },
+    ]);
+  });
+
+  it('drops, not replays, signed thinking from a reply made while a notice was sent', async () => {
+    // The API binds the signature to the notice too, and the next request no longer has it: a
+    // replay would be refused with a 400, so the thinking is left out and the rest is kept.
+    const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
+    const thinker = provider({ fetch, thinkingMode: 'adaptive' });
+    const events = await collect(
+      thinker.stream(request({ notice: 'Context: 1,000 of 5,000 tokens used (20%)' })),
+    );
+    const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
+
+    const history: Message[] = [
+      { content: 'hi', role: 'user' },
+      {
+        reasoning,
+        toolCalls: [{ id: c1, name: 'lookup', input: {} }],
+        content: '',
+        role: 'assistant',
+      },
+      { isError: false, content: 'found', role: 'tool', toolCallId: c1 },
+    ];
+
+    await collect(
+      thinker.stream(request({ messages: history, notice: 'Context: 2,000 of 5,000 (40%)' })),
+    );
+
+    const [, assistant, results] = (requests[1]?.body.messages ?? []) as {
+      content: { type: string; text?: string }[];
+    }[];
+
+    expect(assistant?.content.map((block) => block.type)).toEqual(['tool_use']);
+    expect(results?.content.map((block) => block.text ?? block.type)).toEqual([
+      'tool_result',
+      'Context: 2,000 of 5,000 (40%)',
+    ]);
+  });
 
   it('keeps no thinking when thinking is off', async () => {
     const events = await collect(

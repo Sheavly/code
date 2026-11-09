@@ -19,10 +19,24 @@ export type ProviderRequest = {
   /** Effort for this call, captured when it starts; a later switch never changes an active stream. */
   mode?: ModelMode | undefined;
   messages: Message[];
+  /**
+   * One short line for the model that changes every call (how full its context is). It is not
+   * history: an adapter sends it after the history, as a last user message, so the cached prefix
+   * is unchanged. Never stored in `messages`. It is part of what the call sent, though: an adapter
+   * whose replay state is bound to the request (Anthropic's thinking signatures) must bind it to
+   * the notice too, and not replay it once the notice is gone.
+   */
+  notice?: string | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };
 
 export type Provider = {
   stream(request: ProviderRequest): AsyncIterable<StreamEvent>;
+  /**
+   * The size of the model's context in tokens, when the provider knows it. The loop reads it
+   * before each model call, so a provider that can change model (a switch) answers for the one
+   * its next call goes to.
+   */
+  readonly contextWindow?: number | undefined;
 };

@@ -4,8 +4,10 @@ import type { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
+import { restoreSessions } from './restore.helper.js';
 import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
+import { LastTokens } from './last-tokens.service.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
 import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
@@ -25,6 +27,7 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { ApprovalId, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
+import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 import type { EntryFilter, StoredLog } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
@@ -46,6 +49,7 @@ export class SessionRegistry {
   /** The session each waiting approval belongs to, so its answer lands in the same place. */
   #approvalSessions = new Map<ApprovalId, SessionId>();
   #inboxes = new Inboxes();
+  #lastTokens: LastTokens;
 
   /**
    * With a `store`, the combined stream is also written to it and only its newest entries stay in
@@ -57,13 +61,20 @@ export class SessionRegistry {
   constructor(options: { store?: EntryStore; resume?: StoredLog } = {}) {
     const { store, resume } = options;
 
+    this.#lastTokens = new LastTokens(resume?.lastTokens);
     this.#entries = new EntryLog({
       lineage: (id) => this.lineage(id),
       ...(store && { store }),
       ...(resume && { resume }),
     });
 
-    if (resume) this.#restore(resume.sessions);
+    if (resume) {
+      restoreSessions({
+        stored: resume.sessions,
+        sessions: this.#sessions,
+        emit: (update) => this.#emit(update),
+      });
+    }
   }
 
   /**
@@ -312,7 +323,17 @@ export class SessionRegistry {
     const event = toEntryEvent(params.event);
 
     this.#require(sessionId);
+    this.#lastTokens.observe({ sessionId, event });
     this.#entries.add((seq) => ({ seq, sessionId, kind: 'event', event }));
+  }
+
+  /**
+   * What the session's last model call reported, for its loop to tell the agent how full its
+   * context is. It survives the session's runs (a conversation's next prompt) and a restore, and
+   * is none before a call that reported usage.
+   */
+  lastTokens(id: SessionId): TokenUsage | undefined {
+    return this.#lastTokens.get(id);
   }
 
   /**
@@ -408,39 +429,6 @@ export class SessionRegistry {
     const main = [...this.#sessions.values()].find((session) => session.depth === 1);
 
     return main && refOf(main);
-  }
-
-  /**
-   * Puts back the sessions a stored conversation had, as their last update left them. One that
-   * was open when the process ended did not finish: a sub-agent becomes `interrupted` for good,
-   * and the main session goes idle, so the conversation can take its next prompt. The change is
-   * announced like any other, so it is in the stream and in the store.
-   */
-  #restore(sessions: readonly SessionInfo[]): void {
-    for (const session of sessions) this.#sessions.set(session.id, { ...session });
-
-    for (const session of this.#sessions.values()) {
-      if (session.depth === 1) this.#idleRestoredMain(session);
-      else if (isOpen(session.state)) this.#interruptRestoredChild(session);
-    }
-  }
-
-  /** A restored main session takes the next prompt: idle, whether it was closed or cut off. */
-  #idleRestoredMain(session: SessionInfo): void {
-    if (session.state === 'idle') return;
-
-    // A run that was still going did not finish; one that ended keeps how it did.
-    if (session.state === 'running') session.lastOutcome = 'interrupted';
-    session.state = 'idle';
-    delete session.endedAt;
-    this.#emit({ type: 'session_idle', session });
-  }
-
-  #interruptRestoredChild(session: SessionInfo): void {
-    session.state = 'interrupted';
-    session.lastOutcome = 'interrupted';
-    session.endedAt = now();
-    this.#emit({ type: 'session_ended', session });
   }
 
   #require(id: SessionId): SessionInfo {

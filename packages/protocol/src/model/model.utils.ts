@@ -1,3 +1,4 @@
+import { CONTEXT_WINDOW_CHOICES } from './model.constants.js';
 import type { Model, ModelFile } from './model.types.js';
 
 /**
@@ -5,7 +6,7 @@ import type { Model, ModelFile } from './model.types.js';
  * hosting backend receives envelope fields as configuration.
  */
 export function toModel(file: ModelFile): Model {
-  const { id, name, adapter, pricing, identity, ...definition } = file;
+  const { id, name, adapter, pricing, identity, contextWindow, ...definition } = file;
 
   return {
     id,
@@ -14,6 +15,7 @@ export function toModel(file: ModelFile): Model {
     definition,
     ...(pricing && { pricing }),
     ...(identity && { identity }),
+    ...(contextWindow && { contextWindow }),
   };
 }
 
@@ -22,7 +24,12 @@ export function toModel(file: ModelFile): Model {
  * definition can't overwrite the model's own id, name or adapter, or supply optional metadata.
  */
 export function toModelFile(model: Model): ModelFile {
-  const { identity: _identity, pricing: _pricing, ...definition } = model.definition;
+  const {
+    identity: _identity,
+    pricing: _pricing,
+    contextWindow: _contextWindow,
+    ...definition
+  } = model.definition;
 
   return {
     ...definition,
@@ -31,7 +38,19 @@ export function toModelFile(model: Model): ModelFile {
     adapter: model.adapter,
     ...(model.pricing && { pricing: model.pricing }),
     ...(model.identity && { identity: model.identity }),
+    ...(model.contextWindow && { contextWindow: model.contextWindow }),
   };
+}
+
+/**
+ * What a UI calls a context size: "300K" or "1M" for the sizes it offers, and the exact count for
+ * any other a model was given ("128,000 tokens"), so that size is never shown as something it
+ * isn't.
+ */
+export function contextWindowLabel(size: number): string {
+  const choice = CONTEXT_WINDOW_CHOICES.find((candidate) => candidate.size === size);
+
+  return choice ? choice.label : `${size.toLocaleString('en-US')} tokens`;
 }
 
 /**

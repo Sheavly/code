@@ -991,6 +991,7 @@
             "anyOf": [{ "$ref": "#/components/schemas/TokenUsage" }, { "type": "null" }]
           },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
           "estimatedCostUsd": { "type": "number", "minimum": 0 }
         },
         "required": ["tokens"]
@@ -2114,7 +2115,8 @@
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
-          "identity": { "$ref": "#/components/schemas/ModelIdentity" }
+          "identity": { "$ref": "#/components/schemas/ModelIdentity" },
+          "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 }
         },
         "required": ["id", "name", "adapter"],
         "additionalProperties": {}
@@ -2127,6 +2129,7 @@
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "identity": { "$ref": "#/components/schemas/ModelIdentity" },
+          "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -2179,6 +2182,7 @@
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "identity": { "$ref": "#/components/schemas/ModelIdentity" },
+          "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },
@@ -2254,6 +2258,7 @@
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "pricing": { "$ref": "#/components/schemas/ModelPricing" },
           "identity": { "$ref": "#/components/schemas/ModelIdentity" },
+          "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
           "definition": {
             "type": "object",
             "propertyNames": { "type": "string" },

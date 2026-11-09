@@ -98,6 +98,10 @@ A model may include `pricing` alongside its identity, with `input`, `output`, `c
 secret. Usage and cost estimates are stored as stream entries, so reopening a conversation uses
 its recorded costs rather than recalculating them with newer rates.
 
+A model may also include `contextWindow`, its context size in tokens, in the same envelope. It is
+read and written like `pricing` and never enters the adapter definition. A file without it reads
+unchanged; the host decides what window a model without one is told.
+
 `ModelStore` is a profile's `models/` folder, one `<model-id>.json` each, flat so a person can
 read and edit it. It is the pattern a store of hand-editable files follows:
 

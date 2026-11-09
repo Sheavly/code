@@ -1,6 +1,10 @@
 import type { SessionRegistry } from './sessions.service.js';
 import type { SessionId, SessionInfo, SessionRef } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
+
+/** The tokens a session's last model call reported. */
+export type SessionTokens = { sessionId: SessionId; tokens: TokenUsage };
 
 /** The session a run belongs to: which registry it is tracked in, and which session it is. */
 export type RunSession = {
@@ -10,13 +14,14 @@ export type RunSession = {
 
 /**
  * What a stored conversation leaves for a registry to carry on from (`readStoredLog`): the `seq`
- * the next entry gets, the newest entries as a live log keeps them, and every session as its last
- * update left it.
+ * the next entry gets, the newest entries as a live log keeps them, every session as its last
+ * update left it, and what each one's last model call reported.
  */
 export type StoredLog = {
   next: number;
   tail: StreamEntry[];
   sessions: SessionInfo[];
+  lastTokens: SessionTokens[];
 };
 
 /**

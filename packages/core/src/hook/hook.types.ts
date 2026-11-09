@@ -22,9 +22,26 @@ type ContextAccess = {
 /** What `sessionStart` receives, once, before the run's first turn. */
 export type SessionStartContext = ContextAccess;
 
+/**
+ * How full the model's context is: the numbers the loop tells the agent, so a hook decides from
+ * the same ones. Each is left out when unknown.
+ */
+export type ContextState = {
+  /** The model's context window in tokens. */
+  window?: number | undefined;
+  /**
+   * Tokens the context held as of the last model call: its input plus its output, which becomes
+   * input next turn. Not a total over calls. Left out before the first call, and when the
+   * provider reported no usage.
+   */
+  used?: number | undefined;
+};
+
 /** What `beforeTurn` receives, just before the model is called. */
 export type BeforeTurnContext = ContextAccess & {
   turn: number;
+  /** The window and how much of it the last call used (a snapshot), e.g. to decide to compact. */
+  context: ContextState;
   /**
    * Adds system instructions for this turn's model call only (not history): call it every turn
    * the instructions should apply. Hooks' instructions follow the run's own, in hook order.

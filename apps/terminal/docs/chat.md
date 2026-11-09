@@ -9,9 +9,11 @@ Run `npm run dev:terminal -- --setup`, choose a profile, then **Add a model**:
 2. **How do you want to host it?** Select a compatible, registered hosting route. GPT models offer
    Azure and OpenAI; Claude and DeepSeek Flash currently offer Azure. Bedrock and other native
    providers are not advertised as working routes without their adapters.
-3. Enter that route's connection details and masked key. Azure deployment names may differ from
+3. **Context size**: "300K" (the default) or "1M", how much context the agent is told it has. It
+   paces itself by it, so a smaller size tends to cost less; it limits nothing the provider accepts.
+4. Enter that route's connection details and masked key. Azure deployment names may differ from
    the chosen model. Native model IDs are filled in without asking the same question again.
-4. Save and start chatting, or explicitly test the connection (a small paid API call).
+5. Save and start chatting, or explicitly test the connection (a small paid API call).
 
 The selected identity is stored as model metadata, separate from hosting settings and credentials.
 It records the user's selection, not a verified cloud deployment inventory. DeepSeek's Azure
@@ -87,6 +89,10 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   a `~` estimate marker and are in USD. The backend accepts optional model `pricing` with `input`,
   `output`, `cacheRead` and `cacheWrite` rates per million tokens, through the model API or its JSON
   file. Rates are not fetched automatically and the setup form preserves, but does not edit them.
+  The setup form does ask for a model's context size, "300K" or "1M", when a model is added or
+  edited, starting on its current size or 300K. A model whose size is another (given by its file
+  or host) shows it by its exact count as an extra first choice, and keeps it unless changed. It is what
+  the agent is told it has, for cost, not a limit on the provider (see the backend's model API).
   At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
 - **A complete approval preview must fit.** If the React footer cannot show the command,
   concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
@@ -268,8 +274,8 @@ when a profile already works.
 
 1. Choose an existing profile or create one, such as Personal or Work.
 2. Choose an existing model or add one. For a new model, choose a provider from the backend's
-   installed adapters. The form asks only for required fields, using provider defaults for
-   optional ones. It derives a display name from the model/deployment; use Edit model settings
+   installed adapters. The form asks the context size ("300K" or "1M"), then only for required
+   fields, using provider defaults for optional ones. It derives a display name from the model/deployment; use Edit model settings
    to rename it or change advanced values. Claude's output limit defaults to 8192. Reasoning
    effort defaults to medium until you select a mode.
 3. Enter the settings and API key. The key is masked, including paste, and sent only to the

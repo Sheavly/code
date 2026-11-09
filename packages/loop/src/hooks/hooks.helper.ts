@@ -1,5 +1,10 @@
 import { now } from '@sheavly/core/clock/clock.helper';
-import type { AfterTurnContext, Hook, ToolResult } from '@sheavly/core/hook/hook.types';
+import type {
+  AfterTurnContext,
+  ContextState,
+  Hook,
+  ToolResult,
+} from '@sheavly/core/hook/hook.types';
 import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
@@ -49,16 +54,18 @@ export async function runBeforeTurn(params: {
   hooks: Hook[];
   turn: number;
   messages: Message[];
+  context: ContextState;
   signal: AbortSignal;
   onContext: OnContext;
 }): Promise<string[]> {
-  const { hooks, turn, messages, signal, onContext } = params;
+  const { hooks, turn, messages, context, signal, onContext } = params;
   const instructions: string[] = [];
 
   for (const hook of hooks) {
     if (!hook.beforeTurn) continue;
     await hook.beforeTurn({
       turn,
+      context: { ...context },
       messages: [...messages],
       signal,
       addContext: contextAdder({ hook, messages, onContext }),

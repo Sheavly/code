@@ -100,6 +100,20 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
   `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
   captures configured prices when its providers are built; saved cost estimates are never
   recalculated on resume. The backend does not fetch prices or claim these are invoices.
+- **The agent is told how large a context it has, and a person chooses it.** The model API accepts
+  an optional `contextWindow` (any positive number of tokens up to 10,000,000), kept outside the
+  adapter's fields
+  like `pricing`. Every UI offers the same two sizes to pick from, "300K" (300,000) and "1M"
+  (1,000,000), rounded and not a provider's exact window (`CONTEXT_WINDOW_CHOICES` in the
+  protocol); the backend itself takes any size, so a model can have a different default. A model
+  that sets none gets 300K, since the backend can't know what a deployment or gateway really
+  serves. The choice is for cost: it is what the agent paces itself by, not a limit on what the
+  provider accepts or charges, so a larger context is used only if the work needs it. The GPT-6
+  models price a prompt over 272K input tokens higher, which 300K does not avoid. Only a
+  deployment that really has the 1M window should use it. The window is captured when the
+  conversation's providers are built, follows the model switch, and goes on each `usage` event as
+  `usage.contextWindow`, for a UI to show against the tokens. The agent's own line is never in the
+  stream or the history: see the loop's [context usage](../../../packages/loop/docs/run.md#context-usage).
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
 - **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
   in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences

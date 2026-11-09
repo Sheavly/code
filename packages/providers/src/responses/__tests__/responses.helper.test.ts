@@ -16,6 +16,19 @@ const provider = (fetch: typeof globalThis.fetch) =>
   });
 
 describe('createResponsesProvider', () => {
+  it('sends the request notice as a last user item, and nothing when there is none', async () => {
+    const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
+
+    await collect(provider(fetch).stream(request({ notice: 'Context: 5 token window' })));
+    await collect(provider(fetch).stream(request()));
+
+    expect(requests[0]?.body.input).toEqual([
+      { role: 'user', content: 'hi' },
+      { role: 'user', content: 'Context: 5 token window' },
+    ]);
+    expect(requests[1]?.body.input).toEqual([{ role: 'user', content: 'hi' }]);
+  });
+
   it('reports cached input as a subset, including usage on an incomplete reply', async () => {
     const { fetch } = fakeFetch([
       {

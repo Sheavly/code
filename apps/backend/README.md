@@ -14,7 +14,9 @@ It calls the real model API, so it costs money. The models and keys it uses are 
 `→ listening on <url>` line it prints once ready.
 Conversation details include cumulative reported token usage and recorded cost estimates, across
 main and sub-agent sessions. Optional model `pricing` supplies USD per million token rates for
-ordinary input, output, cache reads and cache writes; missing rates remain unknown.
+ordinary input, output, cache reads and cache writes; missing rates remain unknown. Optional model
+`contextWindow` is the window the agent is told, any positive size: 300,000 tokens when unset,
+and UIs offer "300K" and "1M".
 
 | Folder     | What it holds                                                                                               |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |

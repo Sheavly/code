@@ -49,6 +49,7 @@ describe('runBeforeTurn', () => {
       hooks: [first, second],
       turn: 3,
       messages,
+      context: {},
       signal,
       onContext: ({ hook, content }) => added.push(`${hook}: ${content}`),
     });
@@ -67,9 +68,44 @@ describe('runBeforeTurn', () => {
       },
     });
 
-    await runBeforeTurn({ hooks: [sneaky], turn: 1, messages, signal, onContext: () => undefined });
+    await runBeforeTurn({
+      hooks: [sneaky],
+      turn: 1,
+      messages,
+      context: {},
+      signal,
+      onContext: () => undefined,
+    });
 
     expect(messages).toHaveLength(1);
+  });
+
+  it('gives hooks the context state as a copy, so one hook cannot change what the next sees', async () => {
+    const context = { window: 300_000, used: 1_000 };
+    const seen: unknown[] = [];
+    const meddler = defineHook({
+      name: 'meddler',
+      beforeTurn: async (given) => {
+        seen.push({ ...given.context });
+        given.context.used = 0;
+      },
+    });
+    const reader = defineHook({
+      name: 'reader',
+      beforeTurn: async (given) => void seen.push({ ...given.context }),
+    });
+
+    await runBeforeTurn({
+      hooks: [meddler, reader],
+      turn: 1,
+      messages: [],
+      context,
+      signal,
+      onContext: () => undefined,
+    });
+
+    expect(seen).toEqual([context, context]);
+    expect(context.used).toBe(1_000);
   });
 });
 

@@ -5,7 +5,7 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { AnswerOf } from '@sheavly/client/client/client.types';
 import { SetupError } from '../errors/setup.errors.js';
-import { askDefinition, askSecrets } from './form.helper.js';
+import { askContextWindow, askDefinition, askSecrets } from './form.helper.js';
 import type { ModelSetup, SetupClient, SetupUi } from './setup.types.js';
 import { fieldText, modelActions } from './setup.utils.js';
 import { chooseModelToAdd } from './model-selection.helper.js';
@@ -54,6 +54,8 @@ async function saveDefinition(
           value.length > 0 && value.length <= 80 ? undefined : 'Use 1 to 80 characters.',
       })
     : undefined;
+  // Asked once, before the settings: a refused setting asks only for the settings again.
+  const contextWindow = await askContextWindow({ ui, current: previous?.contextWindow });
   let definition = previous?.definition ?? params.preset?.host.defaults ?? {};
   const identity = previous?.identity ?? params.preset?.identity;
 
@@ -79,6 +81,7 @@ async function saveDefinition(
           definition,
           ...(identity && { identity }),
           ...(previous?.pricing && { pricing: previous.pricing }),
+          contextWindow,
         },
         signal: ui.signal,
       });

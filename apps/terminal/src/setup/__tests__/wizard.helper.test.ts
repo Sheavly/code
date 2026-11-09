@@ -82,6 +82,7 @@ describe('terminal setup over the API', () => {
         'new',
         'custom',
         'setup-test',
+        '300000',
         'start',
       ],
       text: [
@@ -106,6 +107,7 @@ describe('terminal setup over the API', () => {
         id,
         name: 'remote-deployment',
         identity: { model: 'remote-deployment' },
+        contextWindow: 300_000,
         adapter: 'setup-test',
         credential: 'set',
         usable: true,
@@ -147,6 +149,55 @@ describe('terminal setup over the API', () => {
     ).toEqual([]);
     expect(backend.calls.at(-1)?.name).toBe('bindWorkspace');
   });
+
+  it.each([
+    { current: 1_000_000, picked: '1000000', saved: 1_000_000, labels: ['300K', '1M'] },
+    { current: 1_000_000, picked: '300000', saved: 300_000, labels: ['300K', '1M'] },
+    { current: 300_000, picked: '1000000', saved: 1_000_000, labels: ['300K', '1M'] },
+    // A size a host gave the model is shown by its exact count, and kept unless it is changed.
+    {
+      current: 128_000,
+      picked: '128000',
+      saved: 128_000,
+      labels: ['128,000 tokens', '300K', '1M'],
+    },
+  ])(
+    'offers "300K" and "1M" when a model is edited, starts on its size $current and saves $saved',
+    async ({ current, picked, saved, labels }) => {
+      const backend = fakeSetupBackend();
+      const setup = readyWorkProfile();
+
+      backend.state.profiles.push({
+        ...setup,
+        models: setup.models.map((item) => ({ ...item, contextWindow: current })),
+      });
+      const { ui } = setupAnswers({
+        // The fake backend forgets the key when a model is rewritten, so the user sets it again.
+        choices: [profile, model, 'edit', picked, 'true', 'key', 'start'],
+        text: ['Selected', 'remote-deployment', 'https://example.test', '2048', 'private-key'],
+      });
+      const asked: { labels: string[]; initial: string | undefined }[] = [];
+      const choose = ui.choose;
+
+      ui.choose = (question) => {
+        if (question.title.startsWith('Context size')) {
+          asked.push({
+            labels: question.items.map((item) => item.label),
+            initial: question.initial,
+          });
+        }
+
+        return choose(question);
+      };
+
+      await runSetupWizard({ ...backend, ui, workspace: '/workspace', setup: backend.state });
+
+      expect(asked).toEqual([{ labels, initial: String(current) }]);
+      expect(backend.calls.filter(({ name }) => name === 'putModel')).toMatchObject([
+        { call: { body: { contextWindow: saved } } },
+      ]);
+    },
+  );
 
   it('repairs missing credentials and lets a failed connection check return to key entry', async () => {
     const backend = fakeSetupBackend();

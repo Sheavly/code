@@ -34,6 +34,8 @@ export function selectedProvider(params: {
 
         return pinned.stream(selected);
       },
+      // The sub-agent stays on this model, so it is told this model's window.
+      contextWindow: pinned.contextWindow,
     },
   };
 }

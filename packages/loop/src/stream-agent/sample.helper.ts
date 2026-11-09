@@ -2,6 +2,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { toDefinition } from '@sheavly/core/tool/tool.utils';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { untilAborted, whenAborted } from '../abort/abort.utils.js';
+import { contextNotice } from '../context/context.utils.js';
 import type { ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
@@ -24,6 +25,8 @@ import type {
  */
 export async function sample(context: SampleContext) {
   const { provider, instructions, tools, messages, signal, aborted, events } = context;
+  const { state } = context;
+  const { window } = state;
   let content = '';
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
@@ -41,10 +44,13 @@ export async function sample(context: SampleContext) {
   const start = { ...context, signal: toolSignal };
 
   try {
-    // A snapshot: providers must never see later pushes to the loop's own history.
+    // A snapshot: providers must never see later pushes to the loop's own history. The context
+    // line goes beside it, not in it: it changes every turn, so a provider sends it after the
+    // history, and it is not in `messages`, in `done`'s messages or in the next request.
     const source = provider.stream({
       instructions,
       messages: [...messages],
+      notice: contextNotice(state),
       tools: tools.map(toDefinition),
       signal,
     });
@@ -83,7 +89,14 @@ export async function sample(context: SampleContext) {
     }
   }
 
-  events.enqueue({ type: 'usage', usage });
+  // The window the call ran against: the reading taken before the call, the same the agent was
+  // told. A window a provider put on its own usage is dropped, since it was never checked.
+  const { contextWindow: _unchecked, ...reported } = usage;
+
+  events.enqueue({
+    type: 'usage',
+    usage: window === undefined ? reported : { ...reported, contextWindow: window },
+  });
   if (signal.aborted || failure) stopReason = 'interrupted';
 
   const message: Message = {

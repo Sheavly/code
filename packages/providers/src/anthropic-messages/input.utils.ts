@@ -43,6 +43,27 @@ export function toMessagesApiMessages(params: {
   return joined;
 }
 
+/**
+ * The messages to send: `messages` plus the notice as text in the last user message (the API
+ * wants roles to alternate, and the last one is a user's after a prompt or tool results), or as a
+ * user message of its own. A copy: `messages` is left as it was.
+ */
+export function withNotice(params: {
+  messages: MessagesApiMessage[];
+  notice: string | undefined;
+}): MessagesApiMessage[] {
+  const { messages, notice } = params;
+
+  if (!notice) return messages;
+
+  const block = { type: 'text', text: notice };
+  const last = messages.at(-1);
+
+  if (last?.role !== 'user') return [...messages, { role: 'user', content: [block] }];
+
+  return [...messages.slice(0, -1), { ...last, content: [...last.content, block] }];
+}
+
 /** A replay envelope retains block boundaries, including thinking between text and tool calls. */
 function toMessage(params: {
   message: Message;

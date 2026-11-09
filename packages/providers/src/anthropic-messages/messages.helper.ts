@@ -4,7 +4,7 @@ import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { ANTHROPIC_VERSION, MESSAGES_API } from './messages.constants.js';
-import { toMessagesApiMessages } from './input.utils.js';
+import { toMessagesApiMessages, withNotice } from './input.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
@@ -22,7 +22,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
   const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, tools, signal, mode }) {
+    async *stream({ instructions, messages, notice, tools, signal, mode }) {
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
@@ -40,6 +40,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         tools: apiTools,
       });
 
+      const sent = withNotice({ messages: apiMessages, notice });
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,
@@ -57,7 +58,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: apiMessages,
+            messages: sent,
             ...(tools.length > 0 && {
               tools: apiTools,
             }),
@@ -72,11 +73,14 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         },
       });
 
-      // sendRequest guarantees a body for a started stream.
+      // sendRequest guarantees a body for a started stream. The API binds a thinking signature to
+      // everything sent before it, the notice included, and refuses it (400) once that content is
+      // missing. The notice is gone next turn, so the prefix covers what was sent: it then no
+      // longer matches, and the thinking is dropped instead of replayed.
       yield* readMessagesReply({
         body: response.body as ReadableStream<Uint8Array>,
         reasoningSource,
-        prefix: messagesPrefix({ instructions, tools: apiTools, messages: apiMessages }),
+        prefix: messagesPrefix({ instructions, tools: apiTools, messages: sent }),
         signal,
       });
     },

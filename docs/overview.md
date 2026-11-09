@@ -225,6 +225,14 @@ Before-turn system additions are rebuilt each turn and never stored in `messages
 AGENTS.md and skills instead append deduplicated context to history, preserving signed-thinking
 prefixes. The Responses client sends system text as the API's `instructions` field.
 
+The agent also sees how full its context is. A provider may report its model's `contextWindow`;
+the loop gives each request one line, `Context: 48,210 of 400,000 tokens used (12%)`, as its
+`notice`, which a provider sends as a last user message after the history. That line is for the
+model only: it changes every turn, so it never goes through `instructions` or into history, and
+the cached prefix stays the same. Hooks get the same numbers in
+`beforeTurn`'s `context`, and a UI gets the window on each `usage` event, since the harness renders
+nothing itself. See [a run](../packages/loop/docs/run.md#context-usage).
+
 ## One run
 
 `streamAgent(options)` returns an async iterable of events, each with a gap-free `seq`:

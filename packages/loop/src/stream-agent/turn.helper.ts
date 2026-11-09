@@ -3,6 +3,7 @@ import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
+import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.helper.js';
@@ -20,10 +21,16 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   reportFinishedTasks({ tasks: options.tasks, messages, events });
   deliverMessages({ session, messages, events });
 
+  // Read once, so the hooks, the agent and the usage event all see the same numbers.
+  const state = contextState({
+    window: options.provider.contextWindow,
+    lastTokens: session.registry.lastTokens(session.ref.id),
+  });
   const instructions = await runBeforeTurn({
     hooks: options.hooks ?? [],
     turn,
     messages,
+    context: state,
     signal,
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
   });
@@ -35,6 +42,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
     messages,
+    state,
     signal,
     aborted,
     events,

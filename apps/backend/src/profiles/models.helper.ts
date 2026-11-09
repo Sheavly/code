@@ -5,6 +5,7 @@ import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { OpenProfile } from '@sheavly/storage/profile-registry/open-profile.service';
 import type { ModelSwitch } from '../harness/harness.types.js';
 import type { ProfileModels, RequestSettings } from './profiles.types.js';
+import { withContextWindow } from '../usage/context-window.helper.js';
 import { pricedProvider } from '../usage/priced-provider.helper.js';
 
 /**
@@ -38,7 +39,10 @@ export async function modelsOf(params: {
       const provider = registry.create(model.adapter, { ...model.definition, ...secrets, request });
       const remote = model.definition[remoteFields.get(model.adapter) ?? ''];
 
-      models.switch.add(model.id, pricedProvider({ provider, model }));
+      models.switch.add(
+        model.id,
+        withContextWindow({ provider: pricedProvider({ provider, model }), model }),
+      );
       models.switch.setMode({ name: model.id, mode: params.modes?.[model.id] ?? 'medium' });
       models.choices.push({
         id: model.id,

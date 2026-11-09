@@ -1,7 +1,7 @@
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Tool } from '@sheavly/core/tool/tool.types';
-import type { Hook } from '@sheavly/core/hook/hook.types';
+import type { ContextState, Hook } from '@sheavly/core/hook/hook.types';
 import type { ToolOutcome } from '../events/events.types.js';
 import type { OrderedQueue } from '../queue/queue.service.js';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
@@ -99,6 +99,8 @@ export type SampleContext = ToolStart & {
   /** This turn's system instructions: the run's own plus what `beforeTurn` hooks added. */
   instructions?: string | undefined;
   messages: Message[];
+  /** How full the context is for this call, read once by the turn. */
+  state: ContextState;
   /** Resolves when `signal` (the run's) aborts. */
   aborted: Promise<void>;
   events: AgentEvents;

@@ -99,6 +99,26 @@ describe('createHarness', () => {
     expect(JSON.stringify(requests)).not.toContain('AGENTS NOTE');
   });
 
+  it('keeps the provider’s context window, live, when it taps every model call', () => {
+    const taps: ProviderRequest[] = [];
+    const size = { tokens: 300_000 };
+    const live = {
+      ...provider(),
+      get contextWindow() {
+        return size.tokens;
+      },
+    };
+    const tapped = createHarness({
+      provider: live,
+      title: 'parse it',
+      onModelCall: (request) => taps.push(request),
+    });
+
+    expect(tapped.provider.contextWindow).toBe(300_000);
+    size.tokens = 1_000_000;
+    expect(tapped.provider.contextWindow).toBe(1_000_000);
+  });
+
   it('uses the registries passed in', () => {
     const tasks = new TaskRegistry();
 

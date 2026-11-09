@@ -36,6 +36,17 @@ const request = (messages: Message[] = [{ role: 'user', content: 'hello' }]) => 
 });
 
 describe('native Chat Completions', () => {
+  it('sends the request notice as a last user message, after the history', async () => {
+    const { provider, requests } = setup([[chunk({ content: 'ok' }, 'stop')]]);
+
+    await collect(provider.stream({ ...request(), notice: 'Context: 5 token window' }));
+    expect(requests[0]?.body.messages).toEqual([
+      { role: 'system', content: 'system instructions' },
+      { role: 'user', content: 'hello' },
+      { role: 'user', content: 'Context: 5 token window' },
+    ]);
+  });
+
   it('accepts Azure text and usage frames with nullable optional fields', async () => {
     const { provider } = setup([
       [
