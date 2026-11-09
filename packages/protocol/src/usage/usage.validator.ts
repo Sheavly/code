@@ -25,6 +25,13 @@ export const modelUsageSchema = z.object({
   estimatedCostUsd: dollars.exactOptional(),
 });
 
+/** Latest main-session measurement, not billing totals; seq orders snapshots against live usage. */
+export const contextUsageSchema = z.object({
+  throughSeq: z.number().int().min(-1),
+  used: count.exactOptional(),
+  window: contextWindowSchema.exactOptional(),
+});
+
 export const usageTotalsSchema = z.object({
   throughSeq: z.number().int().min(-1),
   calls: count,

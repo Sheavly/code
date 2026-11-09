@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { modelUsageSchema, tokenUsageSchema } from '../usage.validator.js';
+import { contextUsageSchema, modelUsageSchema, tokenUsageSchema } from '../usage.validator.js';
 
 describe('reported usage', () => {
   const tokens = { inputTokens: 100, outputTokens: 20, cacheReadTokens: 50, cacheWriteTokens: 0 };
@@ -23,5 +23,17 @@ describe('reported usage', () => {
     expect(tokenUsageSchema.safeParse({ ...tokens, inputTokens: 1.5 }).success).toBe(false);
     expect(tokenUsageSchema.safeParse({ ...tokens, cacheReadTokens: 101 }).success).toBe(false);
     expect(modelUsageSchema.safeParse({ tokens, estimatedCostUsd: -1 }).success).toBe(false);
+  });
+
+  it('keeps missing context measurements unknown and validates reported counts', () => {
+    expect(contextUsageSchema.parse({ throughSeq: -1 })).toEqual({ throughSeq: -1 });
+    expect(contextUsageSchema.parse({ throughSeq: 4, used: 0, window: 300_000 })).toEqual({
+      throughSeq: 4,
+      used: 0,
+      window: 300_000,
+    });
+    expect(contextUsageSchema.safeParse({ throughSeq: 0, used: -1 }).success).toBe(false);
+    expect(contextUsageSchema.safeParse({ throughSeq: 0, window: 0 }).success).toBe(false);
+    expect(contextUsageSchema.safeParse({ throughSeq: -2 }).success).toBe(false);
   });
 });

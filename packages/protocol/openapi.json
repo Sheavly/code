@@ -1924,6 +1924,15 @@
           "running": { "type": "boolean" },
           "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "usage": { "$ref": "#/components/schemas/UsageTotals" },
+          "contextUsage": {
+            "type": "object",
+            "properties": {
+              "throughSeq": { "type": "integer", "minimum": -1, "maximum": 9007199254740991 },
+              "used": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "window": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 }
+            },
+            "required": ["throughSeq"]
+          },
           "workspace": { "type": "string" },
           "profile": { "$ref": "#/components/schemas/ModelId" },
           "model": { "$ref": "#/components/schemas/ModelChoice" },

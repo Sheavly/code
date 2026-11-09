@@ -41,6 +41,10 @@ belong to the backend app; this package defines and validates only their wire sh
 | `api/`               | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument` |
 | `contract/`          | `contract.schema.json`, generated from the schemas                           |
 
+Conversation details keep `contextUsage` separate from cumulative `usage`: the latest main-session
+measurement (`used`), active window (`window`) and snapshot position (`throughSeq`). Unknown
+measurements are omitted so clients cannot confuse missing counts with an empty context.
+
 ## Docs
 
 - [The wire contract](docs/contract.md): what is in it, what stays out, and how it is checked.
