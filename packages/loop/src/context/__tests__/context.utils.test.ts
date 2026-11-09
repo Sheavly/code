@@ -16,6 +16,16 @@ describe('contextState', () => {
     });
   });
 
+  it.each([0, -5, 1.5, NaN, Infinity, 10_000_001])(
+    'treats a window of %s, which is not a valid size, as unknown',
+    (window) => {
+      expect(contextState({ window, lastTokens: tokens })).toEqual({
+        window: undefined,
+        used: 48_210,
+      });
+    },
+  );
+
   it('leaves out what is not known', () => {
     expect(contextState({ window: undefined, lastTokens: undefined })).toEqual({
       window: undefined,

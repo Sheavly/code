@@ -90,10 +90,12 @@ export async function sample(context: SampleContext) {
   }
 
   // The window the call ran against: the reading taken before the call, the same the agent was
-  // told. It replaces a window the provider may have put on its own usage.
+  // told. A window a provider put on its own usage is dropped, since it was never checked.
+  const { contextWindow: _unchecked, ...reported } = usage;
+
   events.enqueue({
     type: 'usage',
-    usage: window === undefined ? usage : { ...usage, contextWindow: window },
+    usage: window === undefined ? reported : { ...reported, contextWindow: window },
   });
   if (signal.aborted || failure) stopReason = 'interrupted';
 

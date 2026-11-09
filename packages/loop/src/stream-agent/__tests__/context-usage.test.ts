@@ -225,4 +225,30 @@ describe('the same numbers for hooks and for a UI', () => {
       'usage.contextWindow',
     );
   });
+
+  it.each([0, NaN, 2.5])(
+    'keeps a provider’s window of %s out of the line and the stream, instead of storing what cannot be read back',
+    async (contextWindow) => {
+      const events: AgentEvent[] = [];
+      // The provider reports it on the call's own usage too, which is dropped as unchecked.
+      const own = { tokens: used(10).tokens, contextWindow };
+      const { provider, requests } = recording({
+        turns: [[{ type: 'done', stopReason: 'end_turn', usage: own }]],
+        contextWindow,
+      });
+
+      await runAgent({
+        provider,
+        tools: [],
+        messages: prompt,
+        onEvent: (event) => events.push(event),
+      });
+
+      expect(lastLine(requests[0])).toBeUndefined();
+      const usage = events.find((event) => event.type === 'usage');
+
+      expect(usage).toMatchObject({ usage: { tokens: used(10).tokens } });
+      expect(usage).not.toHaveProperty('usage.contextWindow');
+    },
+  );
 });
