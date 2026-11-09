@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type {
   AfterTurnContext,
@@ -9,6 +10,8 @@ import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { HookError } from '../errors/loop.errors.js';
+import { assertValidHistory, countChanges } from '../history/history.utils.js';
+import { parseSentMessages } from '../history/history.validator.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { Message, ToolCall, ToolMessage } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
@@ -76,6 +79,58 @@ export async function runBeforeTurn(params: {
   }
 
   return instructions;
+}
+
+/**
+ * Runs every `beforeModelCall` handler in order for one model call; each gets a deep copy of the
+ * previous result and may return other messages. Returns the messages to send. The copies mean
+ * a hook that edits what it was given (it may be plain JavaScript) changes nothing stored, and
+ * the result is parsed into new objects, so it can't be changed after it was checked either.
+ * A result that is not a list of messages, or that breaks the history rules, throws an
+ * `InvalidHistoryError` naming the hook. A hook that returns its input unchanged is never
+ * blamed: history that was already broken is the caller's to deal with. `onChanged` hears about
+ * every hook whose result added, dropped or edited messages (`countChanges`), for the event
+ * stream.
+ */
+export async function runBeforeModelCall(params: {
+  hooks: Hook[];
+  turn: number;
+  messages: readonly Message[];
+  context: ContextState;
+  signal: AbortSignal;
+  onChanged: (change: { hook: string; added: number; removed: number; edited: number }) => void;
+}): Promise<readonly Message[]> {
+  const { hooks, turn, messages, context, signal, onChanged } = params;
+  const latestUser = messages.findLast((message) => message.role === 'user');
+  let current = messages;
+
+  for (const hook of hooks) {
+    if (!hook.beforeModelCall) continue;
+
+    const source = `Hook ${hook.name}`;
+    // Typed `unknown`: a project hook is plain JavaScript, so its return value is unchecked.
+    const result: unknown = await hook.beforeModelCall({
+      turn,
+      messages: structuredClone(current),
+      context: { ...context },
+      signal,
+    });
+    const sent = parseSentMessages({ input: result, source });
+
+    if (isDeepStrictEqual(sent, current)) continue;
+
+    assertValidHistory({ messages: sent, latestUser, source });
+
+    const { added, removed, edited } = countChanges({ before: current, after: sent });
+
+    if (added > 0 || removed > 0 || edited > 0) {
+      onChanged({ hook: hook.name, added, removed, edited });
+    }
+
+    current = sent;
+  }
+
+  return current;
 }
 
 /** Runs every `afterTurn` handler in order, once the turn's reply and results are in history. */

@@ -5,29 +5,10 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
+import { ping, twoTurns } from '../../testing/ping-turns.fake.js';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-
-const ping = defineTool({
-  name: 'ping',
-  description: 'Replies pong',
-  inputSchema: z.object({}),
-  execute: async () => 'pong',
-});
-const call = { id: callIdSchema.parse('1'), name: 'ping', input: { description: 'pinging' } };
-/** Turn 1 calls ping, turn 2 answers. */
-const twoTurns = () =>
-  scriptedProvider([
-    [
-      { type: 'tool_call', call },
-      { type: 'done', stopReason: 'tool_use' },
-    ],
-    [
-      { type: 'text_delta', text: 'pong it is' },
-      { type: 'done', stopReason: 'end_turn' },
-    ],
-  ]);
 
 /** A hook that logs every point it is called at, prefixed with its name. */
 function tracer(name: string, log: string[]): Hook {

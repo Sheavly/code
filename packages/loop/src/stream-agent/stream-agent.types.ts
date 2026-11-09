@@ -98,7 +98,8 @@ export type SampleContext = ToolStart & {
   provider: Provider;
   /** This turn's system instructions: the run's own plus what `beforeTurn` hooks added. */
   instructions?: string | undefined;
-  messages: Message[];
+  /** The messages this call sends: the history, as `beforeModelCall` hooks changed it. */
+  messages: readonly Message[];
   /** How full the context is for this call, read once by the turn. */
   state: ContextState;
   /** Resolves when `signal` (the run's) aborts. */

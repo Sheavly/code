@@ -4,7 +4,7 @@ import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { contextState } from '../context/context.utils.js';
-import { runAfterTurn, runBeforeTurn } from '../hooks/hooks.helper.js';
+import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
@@ -35,13 +35,29 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
   });
 
-  if (signal.aborted) return 'interrupted';
+  // For this call only: `messages` stays the stored history, and the turn appends to that.
+  const sent = await runBeforeModelCall({
+    hooks: options.hooks ?? [],
+    turn,
+    messages,
+    context: state,
+    signal,
+    onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
+  }).catch((caughtError: unknown) => {
+    // A hook that fails because the run was aborted ends it as interrupted, like every other
+    // abort; nothing has been added to history yet, so it stays valid.
+    if (signal.aborted) return undefined;
+
+    throw caughtError;
+  });
+
+  if (!sent || signal.aborted) return 'interrupted';
 
   const { message, stopReason, running, failure } = await sample({
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
-    messages,
+    messages: sent,
     state,
     signal,
     aborted,
