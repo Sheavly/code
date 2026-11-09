@@ -4,6 +4,8 @@ import { providerRequest } from '../../testing/provider-request.fake.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createResponsesProvider } from '../responses.helper.js';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
+import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -18,15 +20,20 @@ const provider = (fetch: typeof globalThis.fetch) =>
 describe('createResponsesProvider', () => {
   it('sends the request notice as a last user item, and nothing when there is none', async () => {
     const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
+    const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
+    const sent = request({ instructions: 'Use npm.', notice });
+    const original = structuredClone(sent.messages);
 
-    await collect(provider(fetch).stream(request({ notice: 'Context: 5 token window' })));
+    await collect(provider(fetch).stream(sent));
     await collect(provider(fetch).stream(request()));
 
     expect(requests[0]?.body.input).toEqual([
       { role: 'user', content: 'hi' },
-      { role: 'user', content: 'Context: 5 token window' },
+      { role: 'user', content: formatHarnessNotice(notice) },
     ]);
     expect(requests[1]?.body.input).toEqual([{ role: 'user', content: 'hi' }]);
+    expect(requests[0]?.body.instructions).toBe('Use npm.');
+    expect(sent.messages).toEqual(original);
   });
 
   it('reports cached input as a subset, including usage on an incomplete reply', async () => {

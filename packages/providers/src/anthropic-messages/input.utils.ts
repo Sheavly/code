@@ -1,4 +1,6 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type { MessagesApiMessage } from './messages.types.js';
 import { messagesReplaySchema } from './messages.validator.js';
 import { messagesPrefix } from './prefix.utils.js';
@@ -50,13 +52,13 @@ export function toMessagesApiMessages(params: {
  */
 export function withNotice(params: {
   messages: MessagesApiMessage[];
-  notice: string | undefined;
+  notice: ProviderRequest['notice'];
 }): MessagesApiMessage[] {
   const { messages, notice } = params;
 
   if (!notice) return messages;
 
-  const block = { type: 'text', text: notice };
+  const block = { type: 'text', text: formatHarnessNotice(notice) };
   const last = messages.at(-1);
 
   if (last?.role !== 'user') return [...messages, { role: 'user', content: [block] }];

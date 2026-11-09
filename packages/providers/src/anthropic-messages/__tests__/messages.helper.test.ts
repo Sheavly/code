@@ -6,6 +6,8 @@ import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { createMessagesProvider } from '../messages.helper.js';
 import type { MessagesThinkingMode } from '../messages.types.js';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
+import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -242,22 +244,32 @@ describe('createMessagesProvider', () => {
       toolCalls: [],
     };
 
-    await collect(sent.stream(request({ notice: 'Context: 5 token window' })));
-    await collect(sent.stream(request({ messages: [reply], notice: 'Context: 5 token window' })));
+    const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
+    const input = request({ notice, instructions: 'Use npm.' });
+    const original = structuredClone(input.messages);
+
+    await collect(sent.stream(input));
+    await collect(sent.stream(request({ messages: [reply], notice })));
+    await collect(sent.stream(request()));
 
     expect(requests[0]?.body.messages).toEqual([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'hi' },
-          { type: 'text', text: 'Context: 5 token window' },
+          { type: 'text', text: formatHarnessNotice(notice) },
         ],
       },
     ]);
     expect(requests[1]?.body.messages).toEqual([
       { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
-      { role: 'user', content: [{ type: 'text', text: 'Context: 5 token window' }] },
+      { role: 'user', content: [{ type: 'text', text: formatHarnessNotice(notice) }] },
     ]);
+    expect(requests[2]?.body.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: 'hi' }] },
+    ]);
+    expect(requests[0]?.body.system).toBe('Use npm.');
+    expect(input.messages).toEqual(original);
   });
 
   it('drops, not replays, signed thinking from a reply made while a notice was sent', async () => {
@@ -266,7 +278,9 @@ describe('createMessagesProvider', () => {
     const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
     const thinker = provider({ fetch, thinkingMode: 'adaptive' });
     const events = await collect(
-      thinker.stream(request({ notice: 'Context: 1,000 of 5,000 tokens used (20%)' })),
+      thinker.stream(
+        request({ notice: { kind: 'context-usage', context: { window: 5_000, used: 1_000 } } }),
+      ),
     );
     const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
 
@@ -281,9 +295,12 @@ describe('createMessagesProvider', () => {
       { isError: false, content: 'found', role: 'tool', toolCallId: c1 },
     ];
 
-    await collect(
-      thinker.stream(request({ messages: history, notice: 'Context: 2,000 of 5,000 (40%)' })),
-    );
+    const notice: HarnessNotice = {
+      kind: 'context-usage',
+      context: { window: 5_000, used: 2_000 },
+    };
+
+    await collect(thinker.stream(request({ messages: history, notice })));
 
     const [, assistant, results] = (requests[1]?.body.messages ?? []) as {
       content: { type: string; text?: string }[];
@@ -292,7 +309,7 @@ describe('createMessagesProvider', () => {
     expect(assistant?.content.map((block) => block.type)).toEqual(['tool_use']);
     expect(results?.content.map((block) => block.text ?? block.type)).toEqual([
       'tool_result',
-      'Context: 2,000 of 5,000 (40%)',
+      formatHarnessNotice(notice),
     ]);
   });
 

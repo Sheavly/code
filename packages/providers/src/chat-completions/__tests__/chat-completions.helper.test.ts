@@ -4,6 +4,8 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { createChatCompletionsProvider } from '../chat-completions.helper.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
+import type { HarnessNotice } from '@sheavly/core/notice/notice.types';
 
 const url = 'https://resource.test/models/chat/completions?api-version=2024-05-01-preview';
 const source = `chat:${url}#deployment`;
@@ -37,14 +39,26 @@ const request = (messages: Message[] = [{ role: 'user', content: 'hello' }]) => 
 
 describe('native Chat Completions', () => {
   it('sends the request notice as a last user message, after the history', async () => {
-    const { provider, requests } = setup([[chunk({ content: 'ok' }, 'stop')]]);
+    const { provider, requests } = setup([
+      [chunk({ content: 'ok' }, 'stop')],
+      [chunk({ content: 'ok' }, 'stop')],
+    ]);
+    const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
+    const sent = { ...request(), notice };
+    const original = structuredClone(sent.messages);
 
-    await collect(provider.stream({ ...request(), notice: 'Context: 5 token window' }));
+    await collect(provider.stream(sent));
+    await collect(provider.stream(request()));
     expect(requests[0]?.body.messages).toEqual([
       { role: 'system', content: 'system instructions' },
       { role: 'user', content: 'hello' },
-      { role: 'user', content: 'Context: 5 token window' },
+      { role: 'user', content: formatHarnessNotice(notice) },
     ]);
+    expect(requests[1]?.body.messages).toEqual([
+      { role: 'system', content: 'system instructions' },
+      { role: 'user', content: 'hello' },
+    ]);
+    expect(sent.messages).toEqual(original);
   });
 
   it('accepts Azure text and usage frames with nullable optional fields', async () => {
