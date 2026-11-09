@@ -1,8 +1,11 @@
 # Summary: design
 
 How a long history gets a summary in Sheavly. The evidence behind each choice is in
-[research](README.md). This is a design, not a description of code that exists: nothing here is
-built yet. The numbers are rough starting points to be checked with the workbook, not tuned values.
+[research](README.md). Built (#14): the `summary` role and its three events, `formatCheckpoint`,
+the view, the policy and the loop engine (`summary` option, [run](../../packages/loop/docs/run.md#summaries)).
+Still a design: the hide step, `beforeSummary`/`afterSummary`, `@sheavly/summary` (the built-in
+summarizers), the backend setting and a manual request. The numbers are rough starting points to
+be checked with the workbook, not tuned values.
 
 ## What it is
 
@@ -39,30 +42,40 @@ any package.
 
 ## The checkpoint
 
-A new message role, `summary`, in the protocol's `messageSchema`, so it is stored and sent like
-any message:
+A new message role, `summary`, in the protocol's `historyMessageSchema` (what is stored), not in
+`messageSchema` (what a model is sent), so a provider never sees it:
 
 ```ts
 {
   role: 'summary',
-  sections: { id: string; title: string; body: string }[],  // what the summary says
-  keptFrom: number,   // index in history of the first message still shown word for word
-  covers: { from: number; to: number },  // the span this checkpoint newly summarized
+  sections: { id: string; title: string; body: string }[],  // what the summary says; ids unique
+  kept: number,       // messages right before this one still shown word for word, at least 1
+  summarized: number, // messages this checkpoint newly summarized
   summarizer: string, // the name of what wrote it
   at: number,
 }
 ```
 
+`kept` and `summarized` are counts relative to the checkpoint, not indices, so a history repaired
+after a crash (placeholder results inserted) stays valid.
+
 Rules that follow from it:
 
 - **The view is a function of history.** The loop builds each model call's messages from history:
-  the latest checkpoint rendered as one user message, then history from its `keptFrom`. A provider
-  never sees the `summary` role, so no provider changes.
-- **Pairing is the cut's job.** `keptFrom` is only ever a position where no tool call is open and
+  the latest checkpoint rendered as one user message, then the user messages it pins, the `kept`
+  messages right before it and everything after. A provider never sees the `summary` role, so no
+  provider changes.
+- **The request stays exact.** The latest prompt a person typed and the latest user message stay
+  word for word in the view even when they are older than the tail. A run of one prompt and a
+  long tool loop, the common coding run, would otherwise have nothing to summarize: the cut could
+  never pass the prompt. The model's own work after it is what becomes the checkpoint. Which
+  messages are pinned is derived from history (an `id` marks a person's prompt), so nothing new
+  is stored.
+- **Pairing is the cut's job.** The cut is only ever a position where no tool call is open and
   each call and its result sit on the same side. A shared `assertValidHistory` checks the view and
   throws a typed error; the hide hook point uses the same check.
 - **A later checkpoint carries the earlier one forward.** The summarizer gets the previous
-  checkpoint and only the messages since its `keptFrom`.
+  checkpoint and only the messages since its tail began.
 - **Reasoning.** Summarized messages' reasoning is gone from the view. The kept tail's reasoning
   needs no new rule: the Anthropic backend hashes the request prefix (system instructions, tools
   and preceding messages) and replays signed thinking only when it still matches, otherwise
@@ -79,11 +92,13 @@ A summary is visible work that can take seconds, so it is events, never a print.
 members of `agentEventBodySchema` (`packages/protocol/src/event/event.validator.ts`), emitted
 through the `OrderedQueue` like every other, and carried on the combined session stream:
 
-| Event             | Fields                                                                                          | A UI shows           |
-| ----------------- | ----------------------------------------------------------------------------------------------- | -------------------- |
-| `summary_started` | `reason`: `threshold`, `manual` or `overflow`; `tokensBefore`                                   | "Summarizing…"       |
-| `summary_done`    | `tokensBefore`, `tokensAfter` (an estimate), `covers`, `summarizer`, `checkpoint` (the message) | "Summarized chat"    |
-| `summary_failed`  | `reason`, `error`                                                                               | "Couldn't summarize" |
+| Event             | Fields                                                                                                                       | A UI shows           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `summary_started` | `reason`: `threshold`, `manual` or `overflow`; `tokensBefore`, `messagesBefore`                                              | "Summarizing…"       |
+| `summary_done`    | token and message counts (`tokensAfter` an estimate), `summarized`, `kept`, `summarizer`, a section index (id, title, chars) | "Summarized chat"    |
+| `summary_failed`  | `reason`, `error` (redacted like `run_failed`), `retriesLeft`                                                                | "Couldn't summarize" |
+
+`summary_done` carries data only: the text is the `summary` message in history.
 
 - `summary_started` is always followed by exactly one `summary_done` or `summary_failed`, so a
   spinner never hangs. An abort during a summary ends it with `summary_failed` and the run ends
@@ -102,9 +117,10 @@ through the `OrderedQueue` like every other, and carried on the combined session
 
 - `shouldSummarize({ context, policy })`: true when the free share of the window falls under the
   buffer. Inputs are the `window` and `used` that `beforeTurn` already gets.
-- `chooseCut({ messages, keep })`: the latest valid `keptFrom` that leaves about `keep` tokens in
-  the tail. A tool call and its result are never split, and the latest user message is always in
-  the tail.
+- `chooseCut({ history, keepTokens })`: the latest valid cut that leaves about `keepTokens` in
+  the tail (`kept` is the history length minus the cut). A tool call and its result are never
+  split. The cut may pass the latest user message, which the view pins; there is nothing to
+  summarize when only pinned messages lie before the tail.
 - `assertValidHistory(messages)`: one check, shared with the hide hook point. The loop runs it on
   every view and on every checkpoint, so a summarizer or a hook cannot produce an invalid one: it
   fails with a typed error and the checkpoint is not appended.

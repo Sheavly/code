@@ -16,7 +16,8 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 
 1. `sessionStart` hooks run (they may add context).
 2. Each turn: finished background tasks are reported, messages sent to the session meanwhile
-   (steering) are added, `beforeTurn` hooks run (they may add
+   (steering) are added, a summary is written if the `summary` option is set and the context
+   nears the window ([Summaries](#summaries)), `beforeTurn` hooks run (they may add
    context and this turn's system instructions), `beforeModelCall` hooks run (they may replace
    the messages this one call sends), then the model is called. Text and reasoning stream out as
    they arrive.
@@ -60,8 +61,56 @@ The same notice is emitted as `harness_notice` before the model call, with its a
 optional explicit maximum. Each UI chooses its own presentation; the terminal shows no interruption.
 Exhausting an explicit allowance ends with `max_tokens`, not `completed`.
 Context exhaustion ends with `context_window_exceeded` without
-retrying: a larger output budget cannot repair a full context window. The loop does not summarize
-history or discard messages automatically.
+retrying: a larger output budget cannot repair a full context window. Without the `summary`
+option the loop does not summarize history or discard messages; with it, see below.
+
+## Summaries
+
+`summary: { summarizer, policy? }` on `streamAgent` makes the loop write a checkpoint when the
+context nears the window. Without it the loop writes none, though a checkpoint already in
+`messages` is still applied to what the model sees. No package picks a summarizer or a threshold:
+the UI passes them.
+
+- **History and view.** The loop keeps `HistoryMessage[]` (`messages` and `done.messages`): the
+  conversation plus any `summary` checkpoints, append-only. A model is sent `viewOf(history)`: the
+  newest checkpoint rendered as one user message (`formatCheckpoint`, `@sheavly/core`), then the
+  user messages it pins (below), the `kept` messages right before it and everything after. A
+  provider never sees the `summary` role, and hooks are handed the same view, so they see the
+  shortened state.
+- **Pinned prompts.** The latest prompt a person typed (the host gives those an `id`) and the
+  latest user message of any kind stay word for word in the view even when they are older than
+  the kept tail (`pinnedBefore`). This is what lets a run of one prompt and a long tool loop be
+  summarized: everything the model did after the prompt becomes the checkpoint while the request
+  stays exact. It is a function of stored history, so no field is stored for it. A pinned
+  message is not capped or counted against `keepTokens`, as it was not when it sat in the tail:
+  a very large pasted prompt stays in every view, and if the view alone fills the window no cut
+  can shrink it.
+- **When.** After finished tasks and received messages are added, before `beforeTurn`: threshold,
+  when less than the free buffer is left (a share of the window, at least a minimum, never more
+  than half of it; unknown window or usage means no summary). Also once per model call when the
+  provider rejects the call as too long (`context_window_exceeded`): one summary, then a retry,
+  and the run ends `context_window_exceeded` as before if that fails or happens again.
+- **The cut.** `chooseCut` keeps about `keepTokens` of the newest messages, never splits a tool
+  call from its result. It may cut past the latest user message, which the view pins, and finds
+  nothing to summarize only when nothing but pinned messages lies before the tail. The
+  summarizer is given the newest checkpoint's sections and the messages since its tail began,
+  the pinned prompt included, since it needs the request to write the goal, so each pass is small
+  and old facts are carried forward. A pinned message is not counted as summarized or replaced
+  (`summarized`, and the "smaller than what it replaces" check), because the view still shows it.
+- **Events.** `summary_started`, then exactly one `summary_done` or `summary_failed`, through the
+  ordered queue. A failure (the summarizer threw, the run aborted, the result was rejected) is
+  redacted like `run_failed`, appends nothing and never fails the run; threshold summaries stop
+  being tried for the run after `maxFailures` in a row.
+- **Rejected results.** `SummaryRejectedError` (never thrown to the caller; it is the text of a
+  `summary_failed`) when the result has no sections, is over `maxSummaryTokens`, is not smaller
+  than the messages it replaces, or would leave history that breaks the rules
+  (`assertValidHistory`).
+- **After a checkpoint** the session's last reported tokens are cleared
+  (`SessionRegistry.forgetLastTokens`), since they described the replaced history; the next call
+  reports its own.
+
+The defaults (`DEFAULT_SUMMARY_POLICY`) are starting points, not measured values. The design and
+its evidence are in [docs/summary/design.md](../../../docs/summary/design.md).
 
 ## Context usage
 
