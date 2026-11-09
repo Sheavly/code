@@ -1,7 +1,15 @@
 import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
+import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 
 /** What a summarizer writes: the sections of a checkpoint. The loop adds the rest of the message. */
 export type SummaryBody = Pick<SummaryMessage, 'sections'>;
+
+/**
+ * What `summarize` returns: the sections, and the usage of the model call that wrote them when
+ * there was one (a rules-only summarizer has none). The loop reports it as a `usage` event tagged
+ * `summary`, so the spend shows in the conversation's totals even when the result is rejected.
+ */
+export type SummaryResult = SummaryBody & { usage?: ModelUsage | undefined };
 
 /**
  * What writes a checkpoint, written against by a UI's summarizer (rules, a model, a cheaper
@@ -17,5 +25,5 @@ export type Summarizer = {
     messages: readonly Message[];
     previous?: SummaryBody | undefined;
     signal: AbortSignal;
-  }): Promise<SummaryBody>;
+  }): Promise<SummaryResult>;
 };
