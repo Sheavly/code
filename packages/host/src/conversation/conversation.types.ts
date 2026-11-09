@@ -37,7 +37,7 @@ export type ConversationOptions = {
   /** Complete override of harness instructions; an empty string intentionally omits them. */
   instructions?: string;
   maxTurns?: number;
-  /** Wait for background tasks before a prompt's run ends (default: no, they're reported next). */
+  /** Also wait for ordinary background tasks. Required completions, such as sub-agents, always wait. */
   waitForTasks?: boolean;
   /**
    * The history to continue from (default: none), e.g. a conversation saved earlier: its first

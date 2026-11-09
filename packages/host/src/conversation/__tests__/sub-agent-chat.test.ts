@@ -27,7 +27,7 @@ function conversationWithSlowSubAgent(options: { waitForTasks?: boolean } = {}) 
       calls(
         toolCall({ id: 'a', name: 'start_agent', input: { title: 'Review', task: 'review it' } }),
       ),
-      say('It is working; ask me anything meanwhile.'),
+      say('It is working; waiting for its reply.'),
       answer('Sure.'),
       answer('It found a bug.'),
     ],
@@ -58,48 +58,42 @@ function conversationWithSlowSubAgent(options: { waitForTasks?: boolean } = {}) 
   return { harness, conversation, prompt, finish, seen, tool };
 }
 
-describe('a sub-agent while the user keeps chatting', () => {
-  it('lets the user chat while it works, and delivers its reply with their next message, never on its own', async () => {
+describe('sub-agent completion in a conversation', () => {
+  it('keeps an interrupted prompt idle and delivers unfinished replies on the next user message', async () => {
     const { harness, conversation, prompt, finish, seen, tool } = conversationWithSlowSubAgent();
 
     try {
-      // What the model is told about the reply is true in a chat and when a run waits.
-      expect(tool.description).toContain('held until the next message the user sends');
-      expect(tool.description).toContain('you are not woken for it on your own');
-      expect(tool.description).toContain('If this run waits for background tasks');
+      expect(tool.description).toContain('comes to you automatically');
+      expect(tool.description).toContain('you will be woken with the reply');
+      const stop = new AbortController();
+      const started: AgentEvent[] = [];
 
-      const started = await prompt('review');
+      for await (const event of conversation.send('review', { signal: stop.signal })) {
+        started.push(event);
+        if (event.type === 'turn_end' && event.turn === 2) stop.abort();
+      }
 
-      expect(started.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+      expect(started.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
       expect(conversation.running).toBe(false);
       expect(harness.tasks.runningCount).toBe(1);
 
-      // The model is told its reply comes with the next turn, not that it will be woken for it.
       const told = conversation.messages.find((message) => message.role === 'tool')?.content;
 
-      expect(told).toContain('reaches you at your next turn');
-      expect(told).not.toMatch(/woken|end your turn and wait/);
-
-      // The sub-agent is still working, and the user is not refused (`session_running`).
-      const meanwhile = await prompt('anything else?');
-
-      expect(meanwhile.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
-      expect(seen).toHaveLength(1);
-      expect(seen[0]).not.toContain('a bug in parse()');
+      expect(told).toContain('Its final reply comes to you automatically');
 
       // It finishes while the conversation is idle: nothing wakes the model, the reply waits.
       finish.resolve(undefined);
       await until(() => harness.tasks.runningCount === 0);
       // Give a wrongly woken model time to be called before saying that it was not.
       await new Promise((resolve) => setTimeout(resolve, 50));
-      expect(seen).toHaveLength(1);
+      expect(seen).toHaveLength(0);
       expect(harness.tasks.hasUnreported).toBe(true);
 
       // The user's next turn is what brings it into the chat.
       const next = await prompt('what did it find?');
 
-      expect(seen).toHaveLength(2);
-      expect(seen[1]).toContain('Findings: a bug in parse()');
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toContain('Findings: a bug in parse()');
       expect(next.filter((event) => event.type === 'task_completed')).toHaveLength(1);
       expect(harness.tasks.hasUnreported).toBe(false);
     } finally {
@@ -108,27 +102,30 @@ describe('a sub-agent while the user keeps chatting', () => {
     }
   });
 
-  it('only keeps a prompt busy for it when the host opts in with waitForTasks', async () => {
-    const { harness, conversation, finish, seen } = conversationWithSlowSubAgent({
-      waitForTasks: true,
-    });
-    const events: AgentEvent[] = [];
-    const running = (async () => {
-      for await (const event of conversation.send('review')) events.push(event);
-    })();
+  it.each([false, true])(
+    'keeps a prompt alive for sub-agents with waitForTasks: %s',
+    async (waitForTasks) => {
+      const { harness, conversation, finish, seen } = conversationWithSlowSubAgent({
+        waitForTasks,
+      });
+      const events: AgentEvent[] = [];
+      const running = (async () => {
+        for await (const event of conversation.send('review')) events.push(event);
+      })();
 
-    try {
-      await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
-      // Busy for the sub-agent: the user can't chat until it is done.
-      expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
-      finish.resolve(undefined);
-      await running;
-      expect(seen[0]).toContain('Findings: a bug in parse()');
-      expect(harness.tasks.runningCount).toBe(0);
-    } finally {
-      finish.resolve(undefined);
-      await running;
-      await conversation.close();
-    }
-  });
+      try {
+        await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
+        // Busy for the sub-agent: the user can't chat until it is done.
+        expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
+        finish.resolve(undefined);
+        await running;
+        expect(seen[0]).toContain('Findings: a bug in parse()');
+        expect(harness.tasks.runningCount).toBe(0);
+      } finally {
+        finish.resolve(undefined);
+        await running;
+        await conversation.close();
+      }
+    },
+  );
 });

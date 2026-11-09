@@ -73,10 +73,10 @@ prompt on the history so far, in the harness's main session, and yields its even
 - Aborting `signal` stops that prompt with valid history, and the next continues from it. A failed
   run keeps the user's prompt, added context, completed assistant turns and tool results. Tool
   effects are not undone by a provider failure, so history must not roll back either.
-- Background tasks outlive a prompt; those that finish meanwhile are reported at the next one.
-  That includes sub-agents: one doesn't keep a prompt busy, the user can keep chatting while it
-  works, and a reply that arrives while the conversation is idle waits for the next turn the user
-  starts instead of waking the model. `waitForTasks` is the opt-in to wait, for one-shot runs.
+- Ordinary background tasks outlive a prompt; those that finish meanwhile are reported at the
+  next one. Required tasks, including sub-agents, keep the prompt alive and resume the model
+  automatically with their completion. `waitForTasks` additionally waits for ordinary tasks.
+  Aborting a prompt stops waiting: unfinished replies then arrive on the next prompt instead.
 - `close()` ends the live conversation: it stops the running prompt, cancels background tasks (and
   their processes) and ends the session. It deletes nothing: `messages` stays readable, and
   `createConversation({ …, messages })` continues it in a new one.

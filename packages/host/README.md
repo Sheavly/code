@@ -23,9 +23,9 @@ const harness = createHarness({ provider, title: prompt });
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`. A failed prompt
 keeps the user's message and completed tool work, rather than rolling back history while leaving
-the tool effects on disk. Background work, sub-agents included, doesn't keep a prompt busy: the
-user can keep chatting, and a result that arrives while the conversation is idle waits for the
-user's next turn instead of waking the model (`waitForTasks` opts in to waiting, for one-shot runs).
+the tool effects on disk. Required task completions, including sub-agent replies, keep the prompt
+running and wake the model automatically. Ordinary background tasks can outlive it unless
+`waitForTasks` is enabled.
 
 ```ts
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
