@@ -59,10 +59,11 @@ reported tokens (`sessions.lastTokens`) once, and uses that one reading three wa
   history. "Used" is the last call's input plus its output, what the model saw, not a total over
   calls. The line changes every turn, so it never goes through `instructions` and is never put in
   history: not in `done`'s messages, not resent next turn. It is a field of its own, not a message
-  in `messages`, so a provider can keep it out of what it hashes or replays (Anthropic's thinking
-  signatures bind the messages before a reply, and a line that was in them would never match
-  again). It shrinks to what is known: the window alone before any usage is known, the used
-  tokens alone when the window is unknown, nothing when neither is.
+  in `messages`, so the cached prefix is unchanged. A provider whose replay state is bound to what
+  a call sent has to account for it: Anthropic binds a thinking signature to the notice too, so
+  that thinking is not replayed on the next turn (see the provider contract). It shrinks to what
+  is known: the window alone before any usage is known, the used tokens alone when the window is
+  unknown, nothing when neither is.
 - **Hooks** get the same numbers as `beforeTurn`'s `context` (`window`, `used`), so compaction
   decides from what the agent sees.
 - **A UI** gets the window on the call's `usage` event (`usage.contextWindow`) next to its tokens,
