@@ -2,8 +2,9 @@ name: Git format
 
 # The PR title becomes the squashed commit on main, and the body's `Closes #123` (or `Part of #123`
 # for a stack layer) links the PR to its GitHub issue, whose `area/*` labels must cover every
-# commit scope; its `## Harness impact` section says what enforces each new package or pattern
-# (or `none: <reason>`). Runs on every PR whatever its base, so a stacked PR based on another
+# commit scope; its `## Harness impact` section names ESLint or git workflow enforcement and
+# regression-test evidence (or `none: <reason>`). This validates reporting, not actual coverage.
+# Runs on every PR whatever its base, so a stacked PR based on another
 # issue branch is checked too. Separate from any build so a title or body edit reruns only this quick check;
 # after labelling the issue, rerun the check (`gh run rerun`) or push.
 on:

@@ -74,8 +74,11 @@ If the request fits several rows (for example "commit and submit"), run them in 
   `git push --force-with-lease`; never `--force`. Once the PR is ready for review, commits are only
   added on top, so nothing a reviewer has read changes ([fix.md](fix.md)). Restacking a layer onto
   a changed layer below is the one exception ([stacks.md](stacks.md)).
-- A new package or pattern the harness doesn't check yet gets its enforcement in the same PR,
-  and every PR body says so in `## Harness impact`, or `none: <reason>` ([harness.md](harness.md)).
+- Development-harness impact is the ESLint and git/GitHub guardrails around this codebase, not
+  the coding-harness product. Assess it at triage and again before submission ([harness.md](harness.md)).
+  A missing guardrail gets enforcement and regression tests in the same PR, in a distinct closing
+  commit when dependencies allow. Every PR names concrete coverage or explains `none: <reason>`;
+  type ownership and layout alone do not prove correct usage is enforced.
 - PRs land squashed: `gh pr merge <n> --squash` ([merge.md](merge.md)), or
   `gh stack merge <pr> --yes --squash` for a stack.
 - `git cherry-pick` only after the user wrote "allow cherry-pick" in this chat; ask first, naming

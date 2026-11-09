@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { findAreaProblems, findFormatProblems } from '../check-git-format.mjs';
+import { checkHarnessImpact, findAreaProblems, findFormatProblems } from '../check-git-format.mjs';
 import { REPO_ROOT } from './temp-repo.utils.mjs';
 
 const IMPACT = '## Harness impact\n\nnone: a fix inside one file.';
@@ -102,10 +102,89 @@ describe('harness impact section', () => {
     `## Why\n\nBecause.\n\n${section}\n\n## Test plan\n\n- [x] ran\n\nCloses #12`;
 
   it('passes a list of what enforces each trigger, or none with a reason', () => {
-    expect(pr({ body: body('## Harness impact\n\n- New rule `harness/x` (commit 3).') })).toEqual(
-      [],
-    );
+    const coverage =
+      '- Required helper: `harness/prefer-helper` rejects bypasses; tests in `packages/eslint-config/src/__tests__/helper.test.js` (commit 3).';
+
+    expect(pr({ body: body(`## Harness impact\n\n${coverage}`) })).toEqual([]);
     expect(pr({ body: body('## Harness impact\n\nnone: a typo fix.') })).toEqual([]);
+  });
+
+  it('keeps the published examples valid and the unfilled PR template failing', () => {
+    const guide = readFileSync(path.join(REPO_ROOT, '.agents/skills/git/harness.md'), 'utf8');
+    const examples = [...guide.matchAll(/```markdown\n([\s\S]*?)```/g)];
+    const template = readFileSync(path.join(REPO_ROOT, '.github/pull_request_template.md'), 'utf8');
+
+    expect(examples.length).toBeGreaterThan(0);
+
+    for (const [, example] of examples) {
+      expect(checkHarnessImpact(example)).toEqual([]);
+    }
+
+    expect(checkHarnessImpact(template)[0]).toContain('is empty');
+  });
+
+  it('accepts multiline existing coverage, git check evidence and per-constraint reasons', () => {
+    const section = `## Harness impact
+
+- Imports: existing \`harness/imports\` rejects the prohibited dependency;
+  tests in \`packages/eslint-config/src/__tests__/imports.test.js\`.
+- Reporting: \`scripts/check-git-format.mjs\` rejects missing evidence;
+  tests in \`scripts/__tests__/check-git-format.test.mjs\` (commit 2).
+- Commands: \`.cursor/hooks/guard-git-workflow.mjs\` rejects invalid staging;
+  tests in \`.cursor/hooks/__tests__/git-workflow.test.mjs\`.
+- none: a local calculation fix introduces no new coding convention.`;
+
+    expect(pr({ body: body(section).replaceAll('\n', '\r\n') })).toEqual([]);
+  });
+
+  it.each([
+    '- Existing checks cover it.',
+    '- New rule `harness/x` (commit 3).',
+    '- Tested in `scripts/__tests__/reporting.test.mjs`.',
+    '- Guidance in `AGENTS.md`; tests in `scripts/__tests__/reporting.test.mjs`.',
+    '- `harness/imports` and `imports.test.js`.',
+  ])('rejects incomplete or doc-only coverage: %s', (entry) => {
+    expect(pr({ body: body(`## Harness impact\n\n${entry}`) })[0]).toContain('coverage needs');
+  });
+
+  it('checks every bullet, not just the first coverage reference', () => {
+    const valid = '- `harness/imports`; `packages/eslint-config/src/__tests__/imports.test.js`.';
+
+    expect(
+      pr({ body: body(`## Harness impact\n\n${valid}\n- Missing enforcement.`) }),
+    ).toHaveLength(1);
+    expect(pr({ body: body(`## Harness impact\n\n${valid}\n- none`) })[0]).toContain(
+      'without a reason',
+    );
+    expect(
+      pr({ body: body(`## Harness impact\n\n${valid}\n- none: a local fix adds no convention.`) }),
+    ).toEqual([]);
+  });
+
+  it('does not count comment examples, later sections or duplicate sections as coverage', () => {
+    const evidence = '- `harness/imports`; `packages/eslint-config/src/__tests__/imports.test.js`.';
+
+    expect(pr({ body: body('<!-- ## Harness impact\n\nnone: example -->') })[0]).toContain(
+      'needs a',
+    );
+    expect(
+      pr({ body: body(`## Harness impact\n\n- New rule.\n<!-- ${evidence} -->`) })[0],
+    ).toContain('coverage needs');
+    expect(
+      pr({ body: body(`## Harness impact\n\n- New rule.\n  ## Test plan\n\n${evidence}`) })[0],
+    ).toContain('coverage needs');
+    expect(
+      pr({ body: body(`## Harness impact\n\n${evidence}\n\n## Harness impact\n\nnone: typo.`) })[0],
+    ).toContain('exactly one');
+  });
+
+  it('rejects unstructured prose and a global none mixed with coverage bullets', () => {
+    expect(pr({ body: body('## Harness impact\n\nAll checks pass.') })[0]).toContain(
+      'needs coverage bullets',
+    );
+    expect(pr({ body: body('## Harness impact\n\nnone: typo.\n- Missing check.') })[0]).toContain(
+      'needs coverage bullets',
+    );
   });
 
   it('fails a body without the section, with it empty, or none without a reason', () => {

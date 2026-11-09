@@ -12,6 +12,19 @@ tools, loop, host), coding as a preset on top (workspace, coding), and every fro
 - Which workspace code belongs in: the `sheavly-packages` skill; then that workspace's README.
 - Branches, commits, PRs and issues: the `git` skill.
 
+## Codebase guardrails
+
+Development-harness impact means the ESLint rules, file-kind policies and configuration, plus
+git guards and GitHub workflow checks that keep this repository clean. It does not mean changes
+to the coding-harness product's agent runtime, loop, tools or providers.
+
+Follow `.agents/skills/git/harness.md`: report applicable constraints and planned enforcement at
+triage, then assess the finished diff and decisions before submission. Missing enforcement ships
+with focused regression tests in the same PR, as a distinct closing commit when dependencies
+allow. Existing type ownership or import boundaries only cover those constraints, not correct
+API usage or other coding conventions. Reviewers flag missing guardrails and unsupported coverage
+claims. Not every issue needs a guardrail change, but every PR explains its assessment.
+
 ## File length
 
 Lint caps lines of code (blank and comment lines aside) per file kind, set in
