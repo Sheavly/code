@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
 import { REQUEST, SERVER } from './harness.constants.js';
 
 /** An empty setting (`SERVER_HOST=`) means "not set". */
@@ -92,8 +93,10 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
  * How the backend runs each conversation, from its environment: `MAX_TURNS` (no limit unless
  * set), `WAIT_FOR_TASKS` (a prompt's `done` waits for its background tasks, as a one-shot run
  * wants), `MODEL_CALLS_FILE` (each model call's full request appended there, one JSON line each)
- * `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone) and
- * `SUMMARY` (summarize a long history when the context nears the window; on unless "false").
+ * `SERVER_EXIT_WITH_PARENT` (stop when stdin closes: the UI that started it is gone),
+ * `SUMMARY` (summarize a long history when the context nears the window; on unless "false") and
+ * `CONTEXT_WINDOW` (the window every model is told it has, instead of its file's: for a check
+ * that must reach the summary trigger without a long run; unset means each model's own).
  */
 const runEnvSchema = z.object({
   MAX_TURNS: z
@@ -106,6 +109,15 @@ const runEnvSchema = z.object({
   SERVER_EXIT_WITH_PARENT: optionalSetting,
   WEB_FETCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
   SUMMARY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
+  // Plain digits only: `Number()` would also take `1e3` and `0x10`, which a prompt's front matter
+  // (the other way to set it) does not.
+  CONTEXT_WINDOW: z
+    .string()
+    .regex(/^\d+$/, 'Set CONTEXT_WINDOW to a whole number of tokens, such as 40000')
+    .or(z.literal(''))
+    .optional()
+    .transform((value) => (value === undefined || value === '' ? undefined : Number(value)))
+    .pipe(contextWindowSchema.optional()),
 });
 
 /** The run settings from `env`. Only the exact string "true" turns a switch on. */
@@ -119,6 +131,7 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
     exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
     webFetch: parsed.WEB_FETCH === 'true',
     summary: parsed.SUMMARY === 'true',
+    contextWindow: parsed.CONTEXT_WINDOW,
   };
 }
 

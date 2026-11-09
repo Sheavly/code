@@ -25,8 +25,10 @@ export async function modelsOf(params: {
   request: RequestSettings;
   startWith?: ModelId | undefined;
   modes?: Partial<Record<ModelId, ModelMode>>;
+  /** The window every model is told, instead of its file's (`CONTEXT_WINDOW`). */
+  contextWindow?: number | undefined;
 }): Promise<ProfileModels> {
-  const { profile, registry, request, startWith } = params;
+  const { profile, registry, request, startWith, contextWindow } = params;
   const { models: stored, problems } = await profile.listModels();
   const remoteFields = new Map(registry.describe().map((a) => [a.kind, a.remoteField]));
   const models: ModelSwitch = { switch: new ProviderSwitch(), choices: [] };
@@ -41,7 +43,11 @@ export async function modelsOf(params: {
 
       models.switch.add(
         model.id,
-        withContextWindow({ provider: pricedProvider({ provider, model }), model }),
+        withContextWindow({
+          provider: pricedProvider({ provider, model }),
+          model,
+          override: contextWindow,
+        }),
       );
       models.switch.setMode({ name: model.id, mode: params.modes?.[model.id] ?? 'medium' });
       models.choices.push({

@@ -60,7 +60,11 @@ export async function servedConversation(params: {
     store: permissionStore,
     workspace: placement.workspace,
   });
-  const workspace = await profiles.modelsFor({ placement, request: parseRequestEnv(env) });
+  const workspace = await profiles.modelsFor({
+    placement,
+    request: parseRequestEnv(env),
+    contextWindow: settings.contextWindow,
+  });
 
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
