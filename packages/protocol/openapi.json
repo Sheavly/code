@@ -1308,6 +1308,62 @@
           {
             "type": "object",
             "properties": {
+              "type": { "type": "string", "const": "summary_started" },
+              "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "tokensBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["type", "reason", "tokensBefore", "messagesBefore"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "summary_done" },
+              "tokensBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "tokensAfter": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesAfter": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "kept": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "summarizer": { "type": "string", "minLength": 1 },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "title": { "type": "string" },
+                    "chars": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["id", "title", "chars"]
+                }
+              }
+            },
+            "required": [
+              "type",
+              "tokensBefore",
+              "tokensAfter",
+              "messagesBefore",
+              "messagesAfter",
+              "summarized",
+              "kept",
+              "summarizer",
+              "sections"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "summary_failed" },
+              "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "error": { "type": "string" },
+              "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["type", "reason", "error", "retriesLeft"]
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": { "type": "string", "const": "output_continuation" },
               "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
               "maxAttempts": {
@@ -1514,6 +1570,66 @@
               "edited": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["seq", "type", "hook", "turn", "added", "removed", "edited"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "summary_started" },
+              "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "tokensBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["seq", "type", "reason", "tokensBefore", "messagesBefore"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "summary_done" },
+              "tokensBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "tokensAfter": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesBefore": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "messagesAfter": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "kept": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "summarizer": { "type": "string", "minLength": 1 },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "minLength": 1 },
+                    "title": { "type": "string" },
+                    "chars": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["id", "title", "chars"]
+                }
+              }
+            },
+            "required": [
+              "seq",
+              "type",
+              "tokensBefore",
+              "tokensAfter",
+              "messagesBefore",
+              "messagesAfter",
+              "summarized",
+              "kept",
+              "summarizer",
+              "sections"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "summary_failed" },
+              "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "error": { "type": "string" },
+              "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+            },
+            "required": ["seq", "type", "reason", "error", "retriesLeft"]
           },
           {
             "type": "object",

@@ -24,6 +24,19 @@ describe('agentEventSchema', () => {
       },
       { type: 'context_added', hook: 'agents-md', content: 'rules' },
       { type: 'model_input_changed', hook: 'trim', turn: 2, added: 0, removed: 3, edited: 1 },
+      { type: 'summary_started', reason: 'threshold', tokensBefore: 255_000, messagesBefore: 80 },
+      {
+        type: 'summary_done',
+        tokensBefore: 255_000,
+        tokensAfter: 19_000,
+        messagesBefore: 80,
+        messagesAfter: 21,
+        summarized: 60,
+        kept: 20,
+        summarizer: 'model',
+        sections: [{ id: 'goal', title: 'Goal', chars: 420 }],
+      },
+      { type: 'summary_failed', reason: 'overflow', error: 'provider down', retriesLeft: 2 },
       { type: 'hook_failed', hook: 'h', handler: 'onError', error: 'boom' },
       { type: 'message_received', message: { from: 'user', content: 'stop', sentAt: 1 } },
       {
@@ -37,6 +50,38 @@ describe('agentEventSchema', () => {
     bodies.forEach((body, seq) => {
       expect(agentEventSchema.parse({ seq, ...body })).toEqual({ seq, ...body });
     });
+  });
+
+  it('rejects a summary event with an unknown reason or a negative count', () => {
+    const started = { seq: 0, type: 'summary_started', tokensBefore: 1, messagesBefore: 1 };
+
+    expect(agentEventSchema.safeParse({ ...started, reason: 'threshold' }).success).toBe(true);
+    expect(agentEventSchema.safeParse({ ...started, reason: 'whenever' }).success).toBe(false);
+    expect(
+      agentEventSchema.safeParse({ ...started, reason: 'manual', tokensBefore: -1 }).success,
+    ).toBe(false);
+    expect(
+      agentEventSchema.safeParse({ seq: 1, type: 'summary_failed', reason: 'manual', error: 'x' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('refuses a summary_done that kept nothing, like the checkpoint it announces', () => {
+    const done = {
+      seq: 0,
+      type: 'summary_done',
+      tokensBefore: 10,
+      tokensAfter: 5,
+      messagesBefore: 4,
+      messagesAfter: 2,
+      summarized: 3,
+      kept: 1,
+      summarizer: 'model',
+      sections: [],
+    };
+
+    expect(agentEventSchema.safeParse(done).success).toBe(true);
+    expect(agentEventSchema.safeParse({ ...done, kept: 0 }).success).toBe(false);
   });
 
   it('keeps the fields of a tool artifact it does not know', () => {

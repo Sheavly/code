@@ -6,6 +6,7 @@ import { harnessNoticeSchema } from '../notice/notice.validator.js';
 import {
   messageSchema,
   reasoningItemSchema,
+  summarySectionIdSchema,
   toolCallSchema,
   turnStopReasonSchema,
 } from '../message/message.validator.js';
@@ -37,6 +38,9 @@ export const errorDetailsSchema = errorCauseSchema.omit({ message: true }).exten
   causes: z.array(errorCauseSchema).max(4),
 });
 
+/** Why a summary ran: the context neared its window, a user asked, or a call overflowed it. */
+const summaryReasonSchema = z.enum(['threshold', 'manual', 'overflow']);
+
 export const doneReasonSchema = z.enum([
   'completed',
   'interrupted',
@@ -50,6 +54,7 @@ export const doneReasonSchema = z.enum([
  *
  *   task_completed × N                            (background tasks that finished since last turn)
  *   → message_received × N                        (messages sent to this session meanwhile)
+ *   → summary_started → summary_done | summary_failed  (when the context nears its window)
  *   → context_added × N                           (hooks' `beforeTurn` context, in hook order)
  *   → model_input_changed × N                     (hooks' `beforeModelCall` that changed the messages)
  *   → harness_notice                              (structured telemetry sent to this model call)
@@ -124,6 +129,49 @@ const stepEventSchemas = [
     added: z.number().int().nonnegative(),
     removed: z.number().int().nonnegative(),
     edited: z.number().int().nonnegative(),
+  }),
+  /**
+   * A summary began. Always followed by exactly one `summary_done` or `summary_failed`, so a
+   * "Summarizing…" indicator never hangs. Data only: a UI chooses what to show.
+   */
+  z.object({
+    type: z.literal('summary_started'),
+    reason: summaryReasonSchema,
+    tokensBefore: z.number().int().nonnegative(),
+    messagesBefore: z.number().int().nonnegative(),
+  }),
+  /**
+   * A checkpoint was appended to history. Counts and a section index, not the text: a UI that
+   * shows only "Summarized" needs nothing more, and one that shows the summary reads the
+   * `summary` message from history (`sections` here say what it holds and how big each is).
+   * `tokensAfter` is an estimate, not a measurement.
+   */
+  z.object({
+    type: z.literal('summary_done'),
+    tokensBefore: z.number().int().nonnegative(),
+    tokensAfter: z.number().int().nonnegative(),
+    messagesBefore: z.number().int().nonnegative(),
+    messagesAfter: z.number().int().nonnegative(),
+    /** Messages this checkpoint newly summarized, and how many stay word for word. */
+    summarized: z.number().int().nonnegative(),
+    kept: z.number().int().positive(),
+    summarizer: z.string().min(1),
+    sections: z.array(
+      z.object({
+        id: summarySectionIdSchema,
+        title: z.string(),
+        chars: z.number().int().nonnegative(),
+      }),
+    ),
+  }),
+  /** The summary did not happen and no checkpoint was appended; the run goes on unchanged. */
+  z.object({
+    type: z.literal('summary_failed'),
+    reason: summaryReasonSchema,
+    /** Redacted like `run_failed`. */
+    error: z.string(),
+    /** Further tries this run before summaries stop being attempted. */
+    retriesLeft: z.number().int().nonnegative(),
   }),
   /** Accept stored continuation entries; new recovery is reported through harness notices. */
   z.object({
