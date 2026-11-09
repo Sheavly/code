@@ -7,13 +7,14 @@ What a model backend implements (`@sheavly/core/provider/`). The built-in backen
 A provider (`packages/core/src/provider/`) is one method, `stream(request)`, returning
 `StreamEvent`s. Every model call gets a fresh `ProviderRequest`:
 
-| Field          | What it is                                                                                                                                                |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added (e.g. AGENTS.md), joined with blank lines |
-| `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                                      |
-| `notices`      | An optional ordered array of typed `HarnessNotice` values: transient harness data sent after history, never part of it                                    |
-| `tools`        | The tool definitions (name, description, JSON schema)                                                                                                     |
-| `signal`       | Aborts the call                                                                                                                                           |
+| Field          | What it is                                                                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added (e.g. AGENTS.md), joined with blank lines  |
+| `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                                       |
+| `notices`      | An optional ordered array of typed `HarnessNotice` values: transient harness data sent after history, never part of it                                     |
+| `temperature`  | An optional sampling hint for repeatable work (a summary). An adapter sends it only where its API accepts it with the call's other settings, else omits it |
+| `tools`        | The tool definitions (name, description, JSON schema)                                                                                                      |
+| `signal`       | Aborts the call                                                                                                                                            |
 
 `instructions` are rebuilt each turn and never stored in `messages`, so they can change between
 turns (an edited AGENTS.md) without touching history. The Responses client sends them as the
