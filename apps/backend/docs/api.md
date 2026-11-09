@@ -101,7 +101,8 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
   captures configured prices when its providers are built; saved cost estimates are never
   recalculated on resume. The backend does not fetch prices or claim these are invoices.
 - **The agent is told how large a context it has, and a person chooses it.** The model API accepts
-  an optional `contextWindow` (any positive number of tokens), kept outside the adapter's fields
+  an optional `contextWindow` (any positive number of tokens up to 10,000,000), kept outside the
+  adapter's fields
   like `pricing`. Every UI offers the same two sizes to pick from, "300K" (300,000) and "1M"
   (1,000,000), rounded and not a provider's exact window (`CONTEXT_WINDOW_CHOICES` in the
   protocol); the backend itself takes any size, so a model can have a different default. A model
