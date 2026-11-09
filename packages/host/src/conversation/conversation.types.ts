@@ -1,5 +1,6 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -25,6 +26,7 @@ export type RunPrompt = (options: {
   waitForTasks?: boolean;
   instructions?: string;
   maxTurns?: number;
+  summary?: SummaryOptions;
 }) => AsyncIterable<AgentEvent>;
 
 /** What a conversation runs every prompt with: the UI's choices, as for a single run. */
@@ -39,6 +41,8 @@ export type ConversationOptions = {
   maxTurns?: number;
   /** Also wait for ordinary background tasks. Required completions, such as sub-agents, always wait. */
   waitForTasks?: boolean;
+  /** Summarize the history when the context nears the window; passed to every prompt's run. */
+  summary?: SummaryOptions;
   /**
    * The history to continue from (default: none), e.g. a conversation saved earlier: its first
    * prompt runs on it, in this harness's new session.
