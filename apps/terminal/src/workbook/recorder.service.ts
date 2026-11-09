@@ -6,7 +6,7 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 
 /**
  * Captures everything one run outputs, into its run folder, as it happens: the main session's
@@ -71,7 +71,7 @@ export class RunRecorder {
   async finish(params: {
     outcome: RunResult['outcome'];
     error?: string | undefined;
-    messages: Message[];
+    messages: HistoryMessage[];
     sessions: number;
   }): Promise<RunResult> {
     const { outcome, error, messages, sessions } = params;

@@ -3,7 +3,7 @@ import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 
 /** A prompt or fixture name is one file name in its folder (`write-and-edit`), never a path. */
 export function isPlainName(name: string): boolean {
@@ -225,6 +225,8 @@ export function toolsUsed(events: EntryEvent[]): string[] {
 }
 
 /** The text of the last assistant reply in a conversation. */
-export function finalAnswer(messages: Message[]): string {
-  return messages.findLast((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
+export function finalAnswer(messages: HistoryMessage[]): string {
+  const reply = messages.findLast((m) => m.role === 'assistant' && m.content.trim());
+
+  return reply?.role === 'assistant' ? reply.content : '';
 }
