@@ -29,6 +29,8 @@ Providers use `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`) for co
 an explicit `<harness-notice kind="context-usage">` envelope identifies telemetry as not a user
 message or request and tells the model to use it silently unless context limits affect the task.
 The formatter owns this handling policy; callers supply data, not free-form instructions.
+Its static wording lives in the internal `notice/notice.constants.ts`; the formatter inserts
+the current context measurement without changing the policy text.
 The loop emits the same data as a `harness_notice` event before the model call. UIs receive it
 through the ordinary session stream without provider imports, text parsing or a special route.
 They decide whether and how to render it; model-facing wording and UI presentation stay separate.

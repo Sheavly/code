@@ -1,4 +1,5 @@
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import { CONTEXT_USAGE_NOTICE_TEXT } from './notice.constants.js';
 
 const count = new Intl.NumberFormat('en-US');
 
@@ -7,11 +8,11 @@ export function formatHarnessNotice(notice: HarnessNotice): string {
   switch (notice.kind) {
     case 'context-usage':
       return [
-        '<harness-notice kind="context-usage">',
-        'Harness telemetry, not a user message or request.',
+        CONTEXT_USAGE_NOTICE_TEXT.opening,
+        CONTEXT_USAGE_NOTICE_TEXT.origin,
         contextDescription(notice.context),
-        'Use this silently to manage the task. Do not acknowledge, repeat, or attribute it to the user unless context limits affect the task.',
-        '</harness-notice>',
+        CONTEXT_USAGE_NOTICE_TEXT.guidance,
+        CONTEXT_USAGE_NOTICE_TEXT.closing,
       ].join('\n');
   }
 }
