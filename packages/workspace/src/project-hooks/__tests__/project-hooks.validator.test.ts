@@ -34,6 +34,16 @@ describe('parseHookExport', () => {
     expect(parseHookExport(exported)).toEqual({ hook: exported });
   });
 
+  it('accepts a hook that only defines beforeModelCall', () => {
+    const exported = { name: 'trim', beforeModelCall: async () => [] };
+
+    expect(parseHookExport(exported)).toEqual({ hook: exported });
+  });
+
+  it('rejects a beforeModelCall that is not a function', () => {
+    expect(parseHookExport({ name: 'trim', beforeModelCall: [] })).toHaveProperty('error');
+  });
+
   it('rejects a hook that handles nothing, with the reason', () => {
     const result = parseHookExport({ name: 'idle' });
 
