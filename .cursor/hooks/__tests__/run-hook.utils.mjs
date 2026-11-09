@@ -6,13 +6,17 @@ const HOOKS = path.resolve(import.meta.dirname, '..');
 
 /** Runs `script` in `cwd` with `input`, its chat state in `stateDir`; returns its response. */
 export function runHook(params) {
-  const { script, cwd, input, stateDir } = params;
-  const run = spawnSync(process.execPath, [path.join(HOOKS, script)], {
+  const { script, cwd, input, stateDir, hooksRoot = HOOKS } = params;
+  const run = spawnSync(process.execPath, [path.join(hooksRoot, script)], {
     cwd,
     input: JSON.stringify(input),
     encoding: 'utf8',
     env: { ...process.env, SHEAVLY_HOOK_STATE_DIR: stateDir },
   });
+
+  if (run.status !== 0) {
+    throw new Error(`Hook ${script} failed: ${run.error?.message ?? run.stderr}`);
+  }
 
   return JSON.parse(run.stdout);
 }

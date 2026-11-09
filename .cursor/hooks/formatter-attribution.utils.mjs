@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { format } from 'prettier';
 import { isMissingPath } from './hooks.errors.mjs';
 
 const SAFE_OPTIONS = new Set([
@@ -102,6 +101,7 @@ async function predictFile(params) {
     // evidence and on another writer changing the file while prediction is being computed.
     if (before.files[relative] !== beforeHash) return undefined;
 
+    const { format } = await import('prettier');
     const formatted = await format(source.toString('utf8'), { ...options, filepath: absolute });
 
     if (!isInside({ root, file: realpathSync(absolute) })) return undefined;

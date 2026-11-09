@@ -15,7 +15,6 @@ import { linkFromToolCall } from './chat-links.utils.mjs';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
-  formatEslintReport,
   getChatState,
   getEditedFilePath,
   isProjectSource,
@@ -26,6 +25,7 @@ import {
   runBin,
   updateChatState,
 } from './hooks.utils.mjs';
+import { formatEslintReport } from './lint-report.utils.mjs';
 import { hintGoverningSkills } from './skills.utils.mjs';
 import { strayEditNote } from './layout.utils.mjs';
 import { hintWorkspaceReadme } from './workspace-readme.utils.mjs';

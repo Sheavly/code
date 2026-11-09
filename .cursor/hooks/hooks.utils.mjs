@@ -5,20 +5,19 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
-import { DateTime } from 'luxon';
-import { RULE_HINTS } from '../../packages/eslint-config/src/rule-hints.js';
+import { performance } from 'node:perf_hooks';
 import { GuardCrashError, HookStateError, isMissingPath } from './hooks.errors.mjs';
 
 /** Project hooks run from the project root. */
 export const PROJECT_ROOT = process.cwd();
 
 /**
- * The current time in epoch milliseconds, read through Luxon. The hooks run before anything is
- * built, so they can't use `now()` from `@sheavly/core`; this is their one clock, so a test can
- * pass a time in (`now = hookNow()` defaults) and nothing reads `Date` directly.
+ * Epoch milliseconds anchored to process start, without installed packages. Guards must run
+ * before npm ci; this short-lived clock advances monotonically instead of following wall-clock
+ * adjustments mid-hook. Tests of state lifetimes pass their own time to the state helpers.
  */
 export function hookNow() {
-  return DateTime.now().toMillis();
+  return Math.floor(performance.timeOrigin + performance.now());
 }
 
 /** Files ESLint checks (see eslint.config.js). */
@@ -173,24 +172,6 @@ export async function runGuard(params) {
   } catch (caughtError) {
     respond(deny(new GuardCrashError({ guard, cause: caughtError }).message));
   }
-}
-
-/** ESLint's JSON report as readable lines: `src/a.ts:12:3  message  (rule)`. */
-export function formatEslintReport(json) {
-  const lines = [];
-
-  for (const file of JSON.parse(json)) {
-    const relative = path.relative(PROJECT_ROOT, file.filePath);
-
-    for (const { line, column, message, ruleId } of file.messages) {
-      const problem = `${relative}:${line}:${column}  ${message}  (${ruleId ?? 'parse error'})`;
-      const hint = ruleId && RULE_HINTS[ruleId];
-
-      lines.push(hint ? `${problem}\n  → ${hint}` : problem);
-    }
-  }
-
-  return lines;
 }
 
 /** A task's own line: `@sheavly/core:lint: …` (the root package is `//`), not turbo's `pkg#task:`. */

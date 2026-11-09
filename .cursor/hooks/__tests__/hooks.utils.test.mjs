@@ -1,6 +1,15 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { formatEslintReport, formatTurboReport, PROJECT_ROOT } from '../hooks.utils.mjs';
+import { formatTurboReport, hookNow, PROJECT_ROOT } from '../hooks.utils.mjs';
+import { formatEslintReport } from '../lint-report.utils.mjs';
+
+it('reads integer epoch milliseconds without installing a clock library', () => {
+  const at = hookNow();
+
+  expect(Number.isSafeInteger(at)).toBe(true);
+  expect(at).toBeGreaterThan(1_700_000_000_000);
+  expect(hookNow()).toBeGreaterThanOrEqual(at);
+});
 
 describe('formatEslintReport', () => {
   const report = (ruleId) =>
