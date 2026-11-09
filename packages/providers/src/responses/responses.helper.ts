@@ -21,7 +21,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
   const reasoningSource = reasoning ? source : undefined;
 
   return {
-    async *stream({ instructions, messages, notices = [], tools, signal, mode }) {
+    async *stream({ instructions, messages, notices = [], tools, signal, mode, temperature }) {
       const url = new URL(`${endpoint.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(endpoint.query ?? {})) {
@@ -55,6 +55,8 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             store: false,
             ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
             ...(mode && { reasoning: { effort: mode === 'extreme' ? 'xhigh' : mode } }),
+            // Reasoning models reject a temperature, so a hint is sent only with reasoning off.
+            ...(temperature !== undefined && !reasoning && !mode && { temperature }),
           }),
         },
       });

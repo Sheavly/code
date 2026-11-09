@@ -179,6 +179,16 @@ setting is reported by the provider, never silently relabelled as another mode. 
 an effort mode retain their configured thinking behavior. See
 [Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
 
+### Temperature hint
+
+`ProviderRequest.temperature` is a hint for work that should be repeatable, such as a summary. An
+adapter sends it only where its API accepts it beside the call's other settings, and otherwise
+leaves it out, so a caller cannot rely on it being applied. Chat Completions sends it unless a
+reasoning effort is sent. Anthropic Messages sends it only with thinking off (no effort mode, no
+thinking budget or adaptive mode), since thinking requires the default temperature. Responses
+sends it only when the model's `reasoning` is off and no effort is set, since reasoning models
+reject it. Nothing retries after a rejection: the fallback is to omit the field.
+
 Azure Claude's `maxTokens` defaults to 32768 for the recognized Foundry IDs `claude-sonnet-5-5`,
 `claude-opus-5-5`, `claude-haiku-5-5` and `claude-fable-5-1`, whose documented output limit is 128K
 ([model specifications](https://platform.claude.com/docs/en/models/overview)). Unknown or custom

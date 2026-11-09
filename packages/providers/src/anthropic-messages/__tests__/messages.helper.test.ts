@@ -101,6 +101,24 @@ describe('createMessagesProvider', () => {
       expect(events.some((event) => event.type === 'reasoning')).toBe(true);
     },
   );
+  it('sends a temperature hint only while thinking is off, since thinking needs the default', async () => {
+    const { fetch, requests } = replies([STOP], [STOP], [STOP], [STOP]);
+
+    await collect(provider({ fetch }).stream({ ...request(), temperature: 0 }));
+    await collect(provider({ fetch }).stream({ ...request(), temperature: 0, mode: 'high' }));
+    await collect(
+      provider({ fetch, thinkingBudget: 1024 }).stream({ ...request(), temperature: 0 }),
+    );
+    await collect(
+      provider({ fetch, thinkingMode: 'disabled' }).stream({ ...request(), temperature: 0 }),
+    );
+
+    expect(requests[0]?.body.temperature).toBe(0);
+    expect(requests[1]?.body).not.toHaveProperty('temperature');
+    expect(requests[2]?.body).not.toHaveProperty('temperature');
+    expect(requests[3]?.body.temperature).toBe(0);
+  });
+
   it('sends the model, max_tokens, system prompt, tools and version header', async () => {
     const { fetch, requests } = replies([STOP]);
 
