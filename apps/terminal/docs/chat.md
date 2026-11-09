@@ -144,9 +144,10 @@ start it in (the default workspace), and calls the real API, so it costs money. 
 - **The conversation reads as a conversation.** Each message you send is shown after a `›`, then
   the reply, with a blank line between it and the steps around it. A step is one
   dim line (`⏺ Run the tests  $ npm test`) and its result under it (`⎿ ✓ … · 0.3s`, in red when
-  it failed); the loop's bookkeeping (event counts, stop reasons, sub-agent ids) is left out, and
-  an output-limit continuation is a dim activity line, with at most two attempts by default.
-  Exhausted recovery warns that the reply is incomplete; a context-limit warning instead asks
+  it failed); the loop's bookkeeping (event counts, stop reasons, sub-agent ids) is left out.
+  Output-limit recovery continues seamlessly, without an activity line, warning or reply break.
+  The backend still emits structured recovery notices for other UIs to render as they choose.
+  Exhausting an explicitly configured recovery limit warns that the reply is incomplete; a context-limit warning instead asks
   you to reduce the conversation or start a new one. Turn limits and stopped runs are also said. The
   demo and the workbook keep the complete plain log, which their saved runs and checks read.
 - **Colours are roles, and a theme says which colour each one is.** Nothing in the chat asks for

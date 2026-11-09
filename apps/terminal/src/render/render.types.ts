@@ -63,7 +63,6 @@ export type Look = {
     removed: number;
     edited: number;
   }) => string;
-  outputContinuation: (params: { attempt: number; maxAttempts: number }) => string;
   runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   turnEnd: (params: {

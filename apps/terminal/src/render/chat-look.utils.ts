@@ -41,8 +41,6 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
       paint.text.secondary(
         `± ${hook} changed this call's messages (+${added} −${removed} ~${edited})\n`,
       ),
-    outputContinuation: ({ attempt, maxAttempts }) =>
-      paint.text.secondary(`… continuing after the output limit (${attempt}/${maxAttempts})\n`),
     runFailed: (error) => paint.status.error(`✗ Model run failed: ${error}\n`),
     hookFailed: ({ hook, handler, error }) =>
       paint.status.error(`✗ hook ${hook} failed in ${handler}: ${error}\n`),

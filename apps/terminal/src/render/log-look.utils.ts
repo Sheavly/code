@@ -27,12 +27,11 @@ export const logLook: Look = {
   contextAdded: ({ hook, chars }) => `\n＋ ${hook} added context (${chars} chars)\n`,
   modelInputChanged: ({ hook, added, removed, edited }) =>
     `\n± ${hook} changed this call's messages (+${added} −${removed} ~${edited})\n`,
-  outputContinuation: ({ attempt, maxAttempts }) =>
-    `\n[output continuation ${attempt}/${maxAttempts}]\n`,
   runFailed: (error) => `\n✗ Model run failed: ${error}\n`,
   hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
   turnEnd: ({ stopReason, waiting }) => {
-    const stopped = stopReason === 'tool_use' ? '' : `\n\n[stop: ${stopReason}]\n`;
+    const stopped =
+      stopReason === 'tool_use' || stopReason === 'max_tokens' ? '' : `\n\n[stop: ${stopReason}]\n`;
     const waits =
       stopReason === 'end_turn' && waiting > 0
         ? `… waiting for ${waiting} background task(s) · Ctrl+C to stop\n`

@@ -4,6 +4,7 @@ import { createPalette } from '../../theme/palette.utils.js';
 import { THEMES } from '../../theme/theme.constants.js';
 import { createChatLook } from '../chat-look.utils.js';
 import { Renderer } from '../render.service.js';
+import { logLook } from '../log-look.utils.js';
 import type { EntryEvent, ToolArtifact } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -36,6 +37,29 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
 }
 
 describe('Renderer: entries', () => {
+  it.each([chatLook, logLook])(
+    'does not write or end the reply at an output cutoff with %j',
+    (look) => {
+      const calls: string[] = [];
+      const renderer = new Renderer(
+        (text) => calls.push(`write ${text}`),
+        () => 0,
+        look,
+        { write: (text) => calls.push(`reply ${text}`), end: () => calls.push('end') },
+      );
+      const notice = { kind: 'output-continuation' as const, attempt: 3 };
+
+      renderer.event({ seq: 0, type: 'text_delta', text: 'First ' });
+      renderer.event({ seq: 1, type: 'turn_end', turn: 1, stopReason: 'max_tokens' });
+      renderer.event({ seq: 2, type: 'harness_notice', notice });
+      renderer.event({ seq: 3, type: 'output_continuation', attempt: 1, maxAttempts: 2 });
+      renderer.event({ seq: 4, type: 'text_delta', text: 'part.' });
+
+      expect(calls).toEqual(['reply First ', 'reply part.']);
+      expect(notice).toEqual({ kind: 'output-continuation', attempt: 3 });
+    },
+  );
+
   it('can ignore structured harness notices without printing telemetry as conversation text', () => {
     let output = '';
     const renderer = new Renderer(
@@ -52,7 +76,10 @@ describe('Renderer: entries', () => {
     renderer.event({ seq: 1, type: 'text_delta', text: 'Task complete.' });
 
     expect(output).toBe('Task complete.');
-    expect(event.notice.context).toEqual({ window: 1_000_000, used: 668_100 });
+    expect(event.notice).toEqual({
+      kind: 'context-usage',
+      context: { window: 1_000_000, used: 668_100 },
+    });
   });
 
   it('escapes controls before reply and tool-start rendering, without changing source events', () => {
@@ -159,18 +186,17 @@ describe('Renderer: chat look', () => {
     expect(chatted([finished('max_turns')])).toBe('⚠ stopped at the turn limit\n');
   });
 
-  it('shows continuation as activity, not a failed reply, and warns only when recovery stops', () => {
+  it('keeps continuation invisible and joins partial reply text without a gap', () => {
     const turnEnd: EntryEvent = { seq: 3, type: 'turn_end', turn: 1, stopReason: 'max_tokens' };
     const continuation: EntryEvent = {
       seq: 4,
-      type: 'output_continuation',
-      attempt: 1,
-      maxAttempts: 2,
+      type: 'harness_notice',
+      notice: { kind: 'output-continuation', attempt: 1 },
     };
 
-    expect(chatted([turnEnd, continuation, reply('Finished.'), finished('completed')])).toBe(
-      '… continuing after the output limit (1/2)\n\nFinished.',
-    );
+    expect(
+      chatted([reply('First '), turnEnd, continuation, reply('part.'), finished('completed')]),
+    ).toBe('First part.');
     expect(chatted([turnEnd, finished('max_tokens')])).toBe(
       '⚠ stopped at the output-token limit; the reply is incomplete\n',
     );
