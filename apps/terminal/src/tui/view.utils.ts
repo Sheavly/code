@@ -125,7 +125,7 @@ export function statusText(params: { info: StatusInfo; palette?: Palette }): str
 
   const effort = info.modelMode ? ` · ${info.modelMode}` : '';
 
-  const usage = info.usage ? ` · ${usageText(info.usage)}` : '';
+  const usage = ` · ${usageText({ context: info.contextUsage, usage: info.usage })}`;
 
   return `${state}${text.secondary(` · ${plainTerminalText(info.model)}${effort} · mode: `)}${mode}${text.secondary(tasks + usage)}`;
 }

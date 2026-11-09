@@ -1,6 +1,6 @@
 /**
- * The terminal can't reach a backend: it didn't start, exited before it listened, or isn't set up
- * to connect to. A request a backend refused is `RefusedError`, from the client.
+ * The terminal can't reach a backend, or a streamed main-session run failed. A request a backend
+ * refused is `RefusedError`, from the client.
  */
 export class BackendError extends Error {
   override name = 'BackendError';

@@ -55,7 +55,7 @@ by default and validated by the backend; when connecting to an existing backend,
 | `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                        |
 | `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them  |
 | `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)           |
-| `usage/`        | Compact reported token totals and estimated USD cost for the status line                                 |
+| `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                  |
 | `setup/`        | Guided profile, provider, model and credential setup through the backend's API                           |
 | `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
 | `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
@@ -79,8 +79,11 @@ preferences migrate automatically when an interactive chat opens.
 The same menu has **Terminal bell**, off by default. When enabled, it rings for completed replies,
 new approvals and tools that reach five seconds. Both interactive renderers support it; plain
 and piped output stay silent.
-The interactive status line shows cumulative input/output tokens and estimated cost, including
-sub-agents and resumed history. Missing token usage shows `?`; unknown cost is omitted entirely.
+The interactive status line shows the main session's latest input plus output against its configured
+context window, not cumulative billed tokens. Estimated cost still includes sub-agents and resumed
+history. Window labels match model setup (`300K` and `1M`). Missing context usage shows `?`;
+unknown cost is omitted entirely. A failed main run is
+reported visibly, even when the stream ends without a final reply.
 
 ## Docs
 

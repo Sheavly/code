@@ -35,7 +35,10 @@ export function Activity(props: ActivityProps) {
       </Text>
       <Text {...(mode === 'allow_all' ? { color: colors.status.error } : {})}>{mode}</Text>
       {tasks > 0 && <Text color={secondary}> · {tasks} background</Text>}
-      {props.usage && <Text color={secondary}> · {usageText(props.usage)}</Text>}
+      <Text color={secondary}>
+        {' '}
+        · {usageText({ context: props.contextUsage, usage: props.usage })}
+      </Text>
     </Text>
   );
 }

@@ -5,6 +5,7 @@ import type { ConversationDetails } from '@sheavly/protocol/server/server.types'
 import { ChatSession } from '../chat/chat-session.service.js';
 import { TerminalBell } from '../bell/bell.service.js';
 import { UsageLedger } from '@sheavly/runtime/usage/usage.service';
+import { ContextUsageTracker } from '../usage/context-usage.service.js';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { ScrollbackTerminal } from './scrollback-terminal.service.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
@@ -42,6 +43,7 @@ export async function startScreenChat(params: {
 
   const watching = new AbortController();
   const usage = new UsageLedger(details.usage);
+  const context = new ContextUsageTracker(details.session, details.contextUsage);
   const status = {
     state: 'ready' as const,
     model: details.model.name,
@@ -49,6 +51,7 @@ export async function startScreenChat(params: {
     mode: details.permissionMode,
     tasks: 0,
     usage: usage.snapshot,
+    contextUsage: context.snapshot,
   };
   const editorOptions = {
     commands: [...ChatScreen.commands, ...params.skills],
@@ -91,7 +94,8 @@ export async function startScreenChat(params: {
   );
   const keepUsage = (entry: StreamEntry) => {
     usage.observe(entry);
-    screen.setStatus({ usage: usage.snapshot });
+    context.observe(entry);
+    screen.setStatus({ usage: usage.snapshot, contextUsage: context.snapshot });
   };
   let leave: () => void = () => undefined;
   const finished = new Promise<void>((resolve) => (leave = resolve));
@@ -126,10 +130,12 @@ export async function startScreenChat(params: {
           .details()
           .then((details) => {
             if (details.usage) usage.update(details.usage);
+            if (details.contextUsage) context.update(details.contextUsage);
             screen.setStatus({
               model: details.model.name,
               modelMode: details.model.mode ?? 'medium',
               usage: usage.snapshot,
+              contextUsage: context.snapshot,
             });
           })
           .catch((caughtError: unknown) =>

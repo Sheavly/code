@@ -127,6 +127,16 @@ export class Renderer {
           }),
         );
         break;
+      case 'model_input_changed':
+        this.#activity(
+          this.look.modelInputChanged({
+            hook: plainTerminalText(event.hook),
+            added: event.added,
+            removed: event.removed,
+            edited: event.edited,
+          }),
+        );
+        break;
       case 'output_continuation':
         this.#activity(this.look.outputContinuation(event));
         break;

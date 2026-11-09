@@ -80,12 +80,14 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   and closing the chat silences it. React and classic screens both support it, independently of
   reduced motion and `NO_COLOR`; plain mode, piped output, the demo and workbook stay silent.
   Whether BEL makes a sound, flashes or is ignored depends on your terminal's own bell settings.
-- **Tokens and estimated cost stay in the status line.** React and classic screens show cumulative
-  input/output tokens across the conversation and its sub-agents, updating after each model call.
-  Input includes cache reads and writes; output includes reported reasoning. These are billed-token
-  totals, not a context-window estimate. Resuming restores the full stored usage log, including
-  costs recorded with the rates used then. Older history without usage or a provider that omits
-  counts shows unknown or partial totals (`≥`); unknown or incomplete cost is omitted. Known costs have
+- **Context usage and estimated cost stay in the status line.** React and classic screens show
+  `context 142.5k / 300K (48%)`: the main session's latest reported input plus output, against
+  its configured context window. This is a last-call measurement, not a live count of streamed
+  output or newly added tool results. Cache tokens are already included in input; output includes
+  reported reasoning. Sub-agent calls never add to the main context count. Resuming restores the
+  last measurement, and switching models updates the window. Missing usage clears the count to
+  `?` instead of keeping a stale value. Cost remains cumulative across all sessions, including
+  costs recorded with the rates used then. Unknown or incomplete cost is omitted. Known costs have
   a `~` estimate marker and are in USD. The backend accepts optional model `pricing` with `input`,
   `output`, `cacheRead` and `cacheWrite` rates per million tokens, through the model API or its JSON
   file. Rates are not fetched automatically and the setup form preserves, but does not edit them.
@@ -94,6 +96,9 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   or host) shows it by its exact count as an extra first choice, and keeps it unless changed. It is what
   the agent is told it has, for cost, not a limit on the provider (see the backend's model API).
   At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
+- **A failed model run is not a completed reply.** A main-session `session_idle` update with
+  `lastOutcome: "failed"` reports an error even when no final `done` arrives. Partial text stays
+  visible and the chat remains available; the original exception is in the backend log.
 - **A complete approval preview must fit.** If the React footer cannot show the command,
   concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
   review it or press `Esc` to skip; a clipped preview never grants permission.

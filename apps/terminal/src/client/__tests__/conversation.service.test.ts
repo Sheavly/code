@@ -107,6 +107,56 @@ describe('RemoteConversation', () => {
     });
   });
 
+  it('reports a failed main run after partial text instead of silently becoming ready', async () => {
+    const failed: StreamEntry = {
+      seq: 1,
+      at: 0,
+      sessionId: MAIN,
+      kind: 'update',
+      update: {
+        type: 'session_idle',
+        session: { ...SESSION, title: 'Main', state: 'idle', startedAt: 0, lastOutcome: 'failed' },
+      },
+    };
+    const { conversation } = await open({
+      sendPrompt: () => entries(text(0, 'Now the design doc.'), failed),
+    });
+
+    await expect(sent(conversation)).rejects.toThrow('The model run failed before completing');
+  });
+
+  it('does not mistake a failed sub-agent for a failed main run', async () => {
+    const child = sessionIdSchema.parse('child');
+    const { conversation } = await open({
+      sendPrompt: () =>
+        entries(
+          {
+            seq: 0,
+            at: 0,
+            sessionId: child,
+            kind: 'update',
+            update: {
+              type: 'session_idle',
+              session: {
+                id: child,
+                rootId: MAIN,
+                parentId: MAIN,
+                startedByCall: callIdSchema.parse('child-call'),
+                depth: 2,
+                title: 'Child',
+                state: 'idle',
+                startedAt: 0,
+                lastOutcome: 'failed',
+              },
+            },
+          },
+          done(1, 'completed'),
+        ),
+    });
+
+    expect((await sent(conversation)).at(-1)).toMatchObject({ event: { reason: 'completed' } });
+  });
+
   it('switches to a model by id, and says false for one the backend hasn’t, without throwing', async () => {
     const { conversation } = await open({
       switchModel: ({ body }) =>

@@ -37,6 +37,10 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
     steer: (firstLine) => `${paint.status.warning('✉')} steer: ${firstLine}\n`,
     contextAdded: ({ hook, chars }) =>
       paint.text.secondary(`＋ ${hook} added context (${chars} chars)\n`),
+    modelInputChanged: ({ hook, added, removed, edited }) =>
+      paint.text.secondary(
+        `± ${hook} changed this call's messages (+${added} −${removed} ~${edited})\n`,
+      ),
     outputContinuation: ({ attempt, maxAttempts }) =>
       paint.text.secondary(`… continuing after the output limit (${attempt}/${maxAttempts})\n`),
     hookFailed: ({ hook, handler, error }) =>

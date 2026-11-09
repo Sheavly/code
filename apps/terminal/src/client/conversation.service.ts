@@ -12,6 +12,7 @@ import type { ConversationDetails, ConversationId } from '@sheavly/protocol/serv
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { Backend } from './client.types.js';
+import { BackendError } from '../errors/backend.errors.js';
 
 type Client = ReturnType<typeof createClient>;
 
@@ -123,6 +124,18 @@ export class RemoteConversation {
       })) {
         this.#countTask(entry);
         yield entry;
+
+        if (
+          entry.kind === 'update' &&
+          entry.update.type === 'session_idle' &&
+          entry.update.session.depth === 1 &&
+          entry.update.session.lastOutcome === 'failed'
+        ) {
+          throw new BackendError({
+            message:
+              'The model run failed before completing. The backend log contains the original error.',
+          });
+        }
       }
     } finally {
       signal?.removeEventListener('abort', stop);

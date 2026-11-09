@@ -74,29 +74,39 @@ describe('ReactView', () => {
     }
   });
 
-  it('draws usage totals without hiding the stop hint at narrow widths', async () => {
-    const { view, stdout } = open(24, true, 40, true);
-    let output = '';
+  it.each([40, 120])(
+    'draws context usage while preserving the stop hint at %s columns',
+    async (columns) => {
+      const { view, stdout } = open(24, true, columns, true);
+      let output = '';
 
-    stdout.setEncoding('utf8');
-    stdout.on('data', (chunk: string) => (output += chunk));
-    view.setStatus({
-      state: 'working',
-      model: 'Fast',
-      mode: 'ask',
-      tasks: 0,
-      usage: { ...new UsageLedger().snapshot, calls: 1, inputTokens: 12300, outputTokens: 456 },
-    });
-    view.start();
+      stdout.setEncoding('utf8');
+      stdout.on('data', (chunk: string) => (output += chunk));
+      view.setStatus({
+        state: 'working',
+        model: 'Fast',
+        mode: 'ask',
+        tasks: 0,
+        usage: { ...new UsageLedger().snapshot, calls: 1, inputTokens: 12300, outputTokens: 456 },
+        contextUsage: { throughSeq: 1, used: 12756, window: 300000 },
+      });
+      view.start();
 
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      expect(stripVTControlCharacters(output)).toContain('Ctrl+C to stop');
-      expect(view.snapshot.status.usage?.inputTokens).toBe(12300);
-    } finally {
-      view.stop();
-    }
-  });
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        expect(stripVTControlCharacters(output)).toContain('Ctrl+C to stop');
+        expect(view.snapshot.status.usage?.inputTokens).toBe(12300);
+        expect(view.snapshot.status.contextUsage?.used).toBe(12756);
+
+        if (columns === 120) {
+          expect(stripVTControlCharacters(output)).toContain('context 12.8k / 300K (4%)');
+          expect(stripVTControlCharacters(output)).not.toContain('12.3k in');
+        }
+      } finally {
+        view.stop();
+      }
+    },
+  );
   it('keeps committed history unchanged while only the live tail changes', () => {
     const { view } = open();
 
