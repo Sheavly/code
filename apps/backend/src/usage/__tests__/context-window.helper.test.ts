@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_CONTEXT_WINDOW } from '@sheavly/protocol/model/model.constants';
 import { modelSchema } from '@sheavly/protocol/model/model.validator';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { DEFAULT_CONTEXT_WINDOW } from '../context-window.constants.js';
 import { withContextWindow } from '../context-window.helper.js';
 
 const modelWith = (extra: Record<string, unknown>) =>

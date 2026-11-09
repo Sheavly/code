@@ -1,6 +1,6 @@
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import { DEFAULT_CONTEXT_WINDOW } from '@sheavly/protocol/model/model.constants';
 import type { Model } from '@sheavly/protocol/model/model.types';
-import { DEFAULT_CONTEXT_WINDOW } from './context-window.constants.js';
 
 /**
  * Gives a provider the context window of its model: the one its file sets, else the default. It

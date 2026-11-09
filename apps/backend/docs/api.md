@@ -100,14 +100,18 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
   `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
   captures configured prices when its providers are built; saved cost estimates are never
   recalculated on resume. The backend does not fetch prices or claim these are invoices.
-- **The agent is told its model's context window.** The model API accepts an optional
-  `contextWindow` (tokens), kept outside the adapter's fields like `pricing`. A model that sets none
-  gets 300,000, the same for every model: the backend can't know what a deployment or gateway
-  really serves, and 300K stays under the 272K-input size above which the GPT-6 models cost more.
-  Set `contextWindow: 1000000` on a model whose deployment really has the full window. It is
-  captured when the conversation's providers are built, follows the model switch, and goes on each
-  `usage` event as `usage.contextWindow`, for a UI to show against the tokens. The agent's own
-  line is never in the stream or the history: see the loop's [context usage](../../../packages/loop/docs/run.md#context-usage).
+- **The agent is told how large a context it has, and a person chooses it.** The model API accepts
+  an optional `contextWindow`, kept outside the adapter's fields like `pricing`: 300,000 or
+  1,000,000 tokens ("300K" and "1M"; any other value is refused, and the sizes are rounded, not a
+  provider's exact window). A model that sets none gets 300K, the same for every model, since the
+  backend can't know what a deployment or gateway really serves. The choice is for cost: it is
+  what the agent paces itself by, not a limit on what the provider accepts or charges, so a larger
+  context is used only if the work needs it. The GPT-6 models price a prompt over 272K input
+  tokens higher, which 300K does not avoid. Catalogue models list 1M as available, but only a
+  deployment that really has that window should use it. The window is captured when the
+  conversation's providers are built, follows the model switch, and goes on each `usage` event as
+  `usage.contextWindow`, for a UI to show against the tokens. The agent's own line is never in the
+  stream or the history: see the loop's [context usage](../../../packages/loop/docs/run.md#context-usage).
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
 - **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
   in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences
