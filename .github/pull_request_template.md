@@ -24,9 +24,13 @@ Review bottom up, one commit at a time.
 
 ## Harness impact
 
-<!-- What enforces each new package or pattern this adds (rule, test or hook, and its commit), or
-`none: <reason>`. Triggers and what to add: .agents/skills/git/harness.md. CI fails it missing or
-empty. -->
+<!-- Closing assessment of ESLint and git/GitHub guardrails around the codebase, not product
+runtime changes. One bullet per constraint: explain coverage, name the rule or executable check
+path and regression-test path in backticks, and the commit if enforcement changed. For example:
+- Required helper path: `harness/prefer-helper` rejects bypasses; tests in `path/helper.test.js` (commit 2).
+For a constraint needing no new guardrail: `- none: <constraint and reason>`.
+If none apply: a single `none: <reason>` line. Existing type/layout checks do not prove usage
+coverage. CI validates reporting format; reviewers verify coverage. See .agents/skills/git/harness.md. -->
 
 -
 

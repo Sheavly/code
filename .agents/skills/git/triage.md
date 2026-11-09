@@ -17,11 +17,20 @@ Its `area/*` labels (required, one per commit scope; [issues.md](issues.md), "Cl
 scopes the work should touch. When the planned commits need a scope the issue isn't labelled with,
 say so in the verdict and propose the label: `Git format` fails the PR until the issue has it.
 
-Ask the judgement triggers of [harness.md](harness.md) once per issue: if the work brings a
-convention, a trust concept or a workaround the harness doesn't check, plan its enforcement as a
-commit of this branch.
+## 2. Development-harness impact
 
-## 2. Judge the fit
+Ask the judgement triggers of [harness.md](harness.md) once per issue. Identify enforceable coding
+conventions, API usage constraints, code structure and git workflow constraints, including lessons
+from workarounds or repeated review corrections. This is about codebase guardrails, not product
+runtime features.
+
+Name applicable constraints and planned enforcement in the verdict, for example "introduces a
+required helper path; plan an ESLint rule and regression tests in a closing guardrail commit".
+If existing checks cover a constraint, name the check and why; do not infer usage coverage from
+type uniqueness or layout. If none applies, say why briefly. Reassess discoveries at submission,
+not on every edit.
+
+## 3. Judge the fit
 
 - **Fits:** the request does what the issue describes, or is a step towards it.
 - **Reasonable extension:** closely related work the issue doesn't mention (tests, a small refactor
@@ -29,7 +38,7 @@ commit of this branch.
 - **Outside the issue:** a different feature or fix. **Stop and ask** whether to extend the scope
   or to open a separate issue (a new chat, branch and PR; [issues.md](issues.md)).
 
-## 3. Place the work
+## 4. Place the work
 
 Read the branch's commits with `git log --oneline --reverse origin/<base>..HEAD` (the base is `main`, or the layer below in a stack), its PR's state
 (`gh pr view --json isDraft`) and which commit owns the files involved. Then pick the first row
@@ -48,7 +57,7 @@ A dependency always points down, as the layers do (core ‚Üê providers, runtime ‚
 hosts): if the new code needs something, that something must be in the same commit or an earlier
 one.
 
-## 4. Report, then proceed
+## 5. Report, then proceed
 
 State the result in two or three lines before editing. For example:
 

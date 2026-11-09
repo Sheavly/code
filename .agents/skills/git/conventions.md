@@ -151,7 +151,8 @@ Review bottom up, one commit at a time.
 
 ## Harness impact
 
-none: a new option on an existing contract; `harness/single-definition` already covers its type.
+none: provider switching changes product behaviour, not a coding or git workflow convention;
+the closing assessment found no new codebase constraint requiring enforcement.
 
 ## Test plan
 

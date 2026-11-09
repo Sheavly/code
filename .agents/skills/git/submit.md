@@ -8,8 +8,12 @@ here from step 4 on ([stacks.md](stacks.md)).
    (otherwise run [sync.md](sync.md) first).
 2. **Review** the branch with [review.md](review.md) and settle its findings before anything is
    pushed.
-   Then run the mechanical triggers of [harness.md](harness.md) against the diff: each one the
-   branch hits needs its enforcement committed, before the push.
+   **Closing guardrail pass:** follow [harness.md](harness.md), "Closing assessment", against
+   the finished diff and the issue's decisions, workarounds and review corrections. Report the
+   constraints found and their coverage, not just which files changed. Commit missing ESLint or
+   git workflow enforcement with regression tests before pushing, as a distinct closing commit
+   when dependencies allow. Reuse the review's closing assessment if the diff and decisions are
+   unchanged. If this adds code after review, review that code before the push.
 3. **Push**: `git push -u origin HEAD` the first time, `git push` after. After a fold or reshape
    while the PR is a draft ([fix.md](fix.md)), `git push --force-with-lease`.
 4. **Open the PR** once, as a draft unless the user asked for it to be ready for review. Write the
@@ -56,9 +60,13 @@ Plain, factual English for a reviewer who hasn't followed the chat. No emojis, n
   mechanical fixes).
 - `## Size`: only when the diff is large. What most of the lines are, and the reviewable size.
 - `## Before merging` (optional): manual steps outside the code, as a checklist.
-- `## Harness impact`: one bullet per [harness.md](harness.md) trigger the diff hits, naming
-  what enforces it (the rule, test or hook, and its commit), or `none: <reason>`. CI fails a body
-  without it, with it empty, or with a bare `none`.
+- `## Harness impact`: the closing assessment of codebase guardrails, not product runtime work.
+  One bullet per applicable constraint: explain what enforces it, name the rule or executable
+  check path and its regression-test path in backticks, and identify the commit when enforcement
+  changed. Existing coverage needs an explanation of why it covers this constraint. A constraint
+  needing no new guardrail gets a `- none: <constraint and reason>` bullet; when none apply, use
+  a single `none: <reason>` line. CI checks the section and evidence format, not whether the
+  evidence actually proves coverage; reviewers must check that ([harness.md](harness.md)).
 - `## Test plan`: a checklist. `[x]` for what was actually run on the current head (CI, local
   runs), `[ ]` for what is still to do. Include the Bugbot and security reviews of the current head
   ([review.md](review.md)) and what was left open by decision, and the real-model check's result

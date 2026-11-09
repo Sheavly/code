@@ -268,10 +268,17 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
   pushed with `--force-with-lease`; once it's ready for review, fixes are new commits on top.
 - **Merging:** `gh pr merge <n> --squash` (`gh stack merge <pr> --yes --squash` for a stack).
   Every push of new work is first reviewed by Bugbot and a security review.
+- **Development-harness impact:** the ESLint and git/GitHub guardrails around the codebase,
+  not the product runtime. The git skill assesses constraints at triage and in a closing pass
+  before submission (`.agents/skills/git/harness.md`). Missing enforcement and regression tests
+  ship in a distinct closing commit when dependencies allow. Reviewers verify coverage, not just
+  type ownership or layout; every PR reports evidence or a specific reason no change is needed.
 - **Enforced:** the issue gate and the git guard (hooks above) for agents; the `Git format`
   workflow (`.github/workflows/git-format.yml`, running `scripts/check-git-format.mjs`) for every
   PR's title, branch, base (`main` or an issue branch, for stacks), `Closes #`/`Part of #` line,
-  and an area label on its issue for every commit scope. The `Issue labels` workflow
+  an area label on its issue for every commit scope, and the `## Harness impact` reporting format
+  (enforcement and regression-test references, or a reason no guardrail is needed). This check
+  does not prove the cited guardrail covers the constraint. The `Issue labels` workflow
   (`scripts/check-issue-areas.mjs`) fails, and comments once, on an open issue without an area
   label. Dependabot's PRs are the one kind without an issue.
 - **Repo settings** (once, by a person; `.agents/skills/git/setup.md`): squash merging only,

@@ -21,7 +21,12 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    Custom Instructions: Besides bugs, review against .agents/skills/working-in-sheavly-harness/SKILL.md:
    the layers (imports only point down), file kinds and where code goes, interrupts leaving history
    valid, and a new `ignore` in knip.json or .jscpd.json (there are no baselines). For each changed file,
-   ask whether it still has one reason to change; lint can't judge that.
+    ask whether it still has one reason to change; lint can't judge that.
+    Also apply .agents/skills/git/harness.md to codebase guardrails: flag new coding conventions,
+    API usage or structural constraints, workarounds and repeated corrections without ESLint or
+    git workflow enforcement and regression tests. Check claimed existing coverage against the
+    actual constraint; type uniqueness and import boundaries are not proof of correct usage.
+    Documentation alone is not enforcement. This is not a request to add product runtime features.
    ```
 
    A `security-review` subagent (`description: "Security Review"`):
@@ -33,7 +38,10 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    Custom Instructions: Besides the usual review, check that file access goes through Workspace
    (no escapes via symlinks or `..`), `.env*` files are never read or written, commands go through
    the process runner and its allow list, external input is validated with zod, and no API key
-   reaches logs, events or history.
+    reaches logs, events or history.
+    Flag missing or weakened development guardrails for security-relevant coding or git workflow
+    constraints. Verify the claimed rule or guard and its rejection tests actually cover the
+    constraint; a populated Harness impact section alone is not evidence of coverage.
    ```
 
    If a subagent type isn't available, run that review yourself on the same diff with the same
@@ -62,6 +70,13 @@ doing two jobs. Findings are fixed before the push, so a reviewer never reads th
    never runs in CI: every run is a paid model call. Run it once when the change is done, not on
    every commit, and not for lint, hooks, scripts or docs. A failure is fixed like a finding; one
    that passed only on its retry is reported, not ignored.
-6. Push only when nothing is open, or the user has said to push anyway. Mention the outcome in the
+6. **Closing guardrail pass:** run [harness.md](harness.md), "Closing assessment", after fixes,
+   including workarounds and repeated corrections discovered in this review. Report actual
+   constraints and enforcement/test evidence, or specific reasons no guardrail is needed.
+   This also applies when [commit.md](commit.md) or [fix.md](fix.md) calls review without submission.
+   Review any new enforcement before pushing; keep the two-round limit and report remaining
+   findings rather than looping. Submission can reuse this assessment if the diff and decisions
+   have not changed.
+7. Push only when nothing is open, or the user has said to push anyway. Mention the outcome in the
    report ("Bugbot: 2 fixed, 1 left by decision; Security Review: none") so the PR body's test
    plan can list it.
