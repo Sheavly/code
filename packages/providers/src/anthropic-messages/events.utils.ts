@@ -30,12 +30,7 @@ export function createMessagesReader(params: {
       case 'content_block_start':
         blocks.set(event.index, startBlock(event.content_block));
 
-        return {
-          events:
-            event.content_block.type === 'text' && event.content_block.text
-              ? [{ type: 'text_delta', text: event.content_block.text }]
-              : [],
-        };
+        return { events: startEvents(event.content_block) };
       case 'content_block_delta':
         return { events: applyDelta({ block: blocks.get(event.index), delta: event.delta }) };
 
@@ -50,17 +45,7 @@ export function createMessagesReader(params: {
 
         content.push(finished);
 
-        return {
-          events:
-            finished.type === 'tool_use'
-              ? [
-                  {
-                    type: 'tool_call',
-                    call: { id: finished.id, name: finished.name, input: finished.input },
-                  },
-                ]
-              : [],
-        };
+        return { events: stopEvents(finished) };
       }
 
       case 'message_delta': {
@@ -106,7 +91,12 @@ function finishReply(params: {
 
   // Text has already streamed and completed calls already started. Partial replay would omit the
   // unfinished text or unsigned thinking, so let the next request rebuild from the visible history.
-  if (blocks.size > 0 || !reasoningSource) return { events: [], ended: true };
+  if (blocks.size > 0 || !reasoningSource) {
+    // A capped reply can leave a thinking block open; its activity must still end.
+    const open = [...blocks.values()].some(isThinking);
+
+    return { events: open ? [{ type: 'reasoning_activity', active: false }] : [], ended: true };
+  }
 
   return {
     events: [
@@ -121,6 +111,31 @@ function finishReply(params: {
 
 type BlockStart = Extract<MessagesEvent, { type: 'content_block_start' }>['content_block'];
 type Delta = Extract<MessagesEvent, { type: 'content_block_delta' }>['delta'];
+
+function startEvents(start: BlockStart): StreamEvent[] {
+  if (start.type === 'text' && start.text) return [{ type: 'text_delta', text: start.text }];
+
+  if (isThinking(start)) return [{ type: 'reasoning_activity', active: true }];
+
+  return [];
+}
+
+/** The block kinds that mean the model is reasoning, visible or redacted. */
+function isThinking(block: { type: string }): boolean {
+  return block.type === 'thinking' || block.type === 'redacted_thinking';
+}
+
+function stopEvents(finished: MessagesReplay['content'][number]): StreamEvent[] {
+  if (finished.type === 'tool_use') {
+    return [
+      { type: 'tool_call', call: { id: finished.id, name: finished.name, input: finished.input } },
+    ];
+  }
+
+  if (isThinking(finished)) return [{ type: 'reasoning_activity', active: false }];
+
+  return [];
+}
 
 function startBlock(start: BlockStart): StreamingBlock {
   switch (start.type) {

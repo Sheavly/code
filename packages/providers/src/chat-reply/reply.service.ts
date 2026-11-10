@@ -8,6 +8,7 @@ import type { ChatChunk, StreamingChatCall } from '../chat-completions/chat-comp
 export class ChatReply {
   readonly #calls = new Map<number, StreamingChatCall>();
   #thinking = '';
+  #reasoning = false;
   #stopReason: StopReason | undefined;
   #usage: TokenUsage | undefined;
 
@@ -35,12 +36,37 @@ export class ChatReply {
       });
     }
 
-    this.#thinking += choice.delta.reasoning_content ?? '';
-    this.#keepCalls(choice.delta.tool_calls ?? []);
+    const thinking = choice.delta.reasoning_content ?? '';
+    const toolDeltas = choice.delta.tool_calls ?? [];
+
+    this.#thinking += thinking;
+    this.#keepCalls(toolDeltas);
 
     if (choice.finish_reason) this.#stopReason = this.#reason(choice.finish_reason);
 
-    return choice.delta.content ? [{ type: 'text_delta', text: choice.delta.content }] : [];
+    const visible = Boolean(choice.delta.content) || toolDeltas.length > 0;
+    const events = this.#activityEvents({ started: thinking !== '', ended: visible });
+
+    return choice.delta.content
+      ? [...events, { type: 'text_delta', text: choice.delta.content }]
+      : events;
+  }
+
+  /** Reasoning shows only as plaintext deltas, so activity runs from the first until visible output. */
+  #activityEvents(params: { started: boolean; ended: boolean }): StreamEvent[] {
+    if (params.started && !this.#reasoning) {
+      this.#reasoning = true;
+
+      return [{ type: 'reasoning_activity', active: true }];
+    }
+
+    if (params.ended && this.#reasoning) {
+      this.#reasoning = false;
+
+      return [{ type: 'reasoning_activity', active: false }];
+    }
+
+    return [];
   }
 
   finish(params: { source: string; replayReasoning: boolean }): StreamEvent[] {
@@ -51,7 +77,7 @@ export class ChatReply {
       });
     }
 
-    const events: StreamEvent[] = [];
+    const events: StreamEvent[] = this.#activityEvents({ started: false, ended: true });
 
     if (params.replayReasoning && this.#thinking) {
       events.push({

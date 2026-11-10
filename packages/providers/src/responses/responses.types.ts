@@ -51,7 +51,7 @@ export type ResponsesEvent = z.infer<typeof responsesEventSchema>;
  * `ended`: a terminal event (`response.completed` / `response.incomplete`) finished the turn.
  */
 export type EventStep = {
-  event?: StreamEvent;
+  events?: StreamEvent[];
   stopReason?: StopReason;
   ended?: true;
   usage?: TokenUsage;

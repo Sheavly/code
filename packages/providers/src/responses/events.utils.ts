@@ -15,18 +15,28 @@ export function handleEvent(params: {
 
   switch (event.type) {
     case 'response.output_text.delta':
-      return { event: { type: 'text_delta', text: event.delta } };
+      return { events: [{ type: 'text_delta', text: event.delta }] };
+    case 'response.output_item.added':
+      return event.item.type === 'reasoning'
+        ? { events: [{ type: 'reasoning_activity', active: true }] }
+        : {};
     case 'response.output_item.done':
       if (event.item.type !== 'reasoning') {
         return {
-          event: { type: 'tool_call', call: toToolCall(event.item) },
+          events: [{ type: 'tool_call', call: toToolCall(event.item) }],
           stopReason: 'tool_use',
         };
       }
 
-      return reasoningSource
-        ? { event: { type: 'reasoning', item: { source: reasoningSource, data: event.item } } }
-        : {};
+      // Activity ends with the item whatever its payload; only replay needs encrypted content.
+      return {
+        events: [
+          { type: 'reasoning_activity', active: false },
+          ...(reasoningSource && event.item.encrypted_content
+            ? [{ type: 'reasoning' as const, item: { source: reasoningSource, data: event.item } }]
+            : []),
+        ],
+      };
     case 'response.completed':
       return { ended: true, ...usageOf(event.response?.usage) };
     case 'response.incomplete':
