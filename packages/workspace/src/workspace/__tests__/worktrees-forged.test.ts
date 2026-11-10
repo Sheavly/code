@@ -1,4 +1,4 @@
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { WorkspaceError } from '../../errors/workspace.errors.js';
@@ -6,6 +6,7 @@ import { Workspace } from '../workspace.service.js';
 import {
   expectReachable,
   expectRefused,
+  forgeWorktreeEntry as forgeEntry,
   openWithWorktrees,
   useTempRepo,
 } from '../../testing/git-repo.fake.js';
@@ -16,13 +17,7 @@ import {
  */
 const repo = useTempRepo({ prefix: 'worktrees-forged-', perTest: true });
 
-/** Points the one registered worktree's admin entry at `target`, as a hostile repo could. */
-async function forgeWorktreeEntry(target: string): Promise<void> {
-  const admin = path.join(repo.main, '.git/worktrees');
-  const [id] = await readdir(admin);
-
-  await writeFile(path.join(admin, id ?? '', 'gitdir'), `${path.join(target, '.git')}\n`);
-}
+const forgeWorktreeEntry = (target: string) => forgeEntry({ repo, target });
 
 describe('Workspace with a forged worktree entry', () => {
   it('refuses a folder with no .git that points back at the repo', async () => {
@@ -58,6 +53,24 @@ describe('Workspace with a forged worktree entry', () => {
     const workspace = await openWithWorktrees(repo.main);
 
     await expectReachable({ workspace, file: path.join(repo.worktree, 'src/index.ts') });
+  });
+});
+
+describe('Workspace.inScratch', () => {
+  it('is true only inside the scratch root, never in a worktree', async () => {
+    const scratchRoot = path.join(repo.base, 'scratch');
+    const workspace = await Workspace.open(repo.main, { env: process.env, scratchRoot });
+    const dir = await workspace.scratchDir('agent-1');
+
+    expect(workspace.inScratch(dir)).toBe(true);
+    expect(workspace.inScratch(repo.worktree)).toBe(false);
+    expect(workspace.inScratch(repo.outside)).toBe(false);
+  });
+
+  it('is false for everything when there is no scratch root', async () => {
+    const workspace = await openWithWorktrees(repo.main);
+
+    expect(workspace.inScratch(repo.worktree)).toBe(false);
   });
 });
 
