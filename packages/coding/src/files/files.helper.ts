@@ -3,7 +3,7 @@ import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import type { FileChange } from './files.types.js';
+import type { FileChange, FileChangeVerb } from './files.types.js';
 import { assertNotEnvFile, assertNotGitDir, describeChange } from './files.utils.js';
 
 /**
@@ -163,10 +163,11 @@ export async function createParentFolder(params: { file: string }): Promise<void
  * Removes one file. A path that is already gone fails with ENOENT, so nothing pretends to have
  * deleted what it did not; a folder is never removed (`rm` without `recursive` refuses one).
  * Node's `rm` takes no abort signal: removing one file is a single call, so an interrupt can only
- * land before or after it.
+ * land before or after it. Windows can hold a file briefly after another handle closes, so `rm`
+ * retries the errors that reports instead of failing the call.
  */
 export async function removeFile(params: { file: string }): Promise<void> {
-  await rm(params.file);
+  await rm(params.file, { maxRetries: 3, retryDelay: 100 });
 }
 
 /**
@@ -177,7 +178,7 @@ export async function removeFile(params: { file: string }): Promise<void> {
 export function changeResult(params: {
   workspace: Workspace;
   file: string;
-  verb: string;
+  verb: FileChangeVerb;
   before: string | null;
   after: string | null;
   suffix?: string;

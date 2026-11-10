@@ -41,8 +41,9 @@ can show the deletion. It refuses a folder, since removing one takes files the a
 (`run_command` can ask for it), and a symlink whichever way it points: the tool deletes the file the
 agent named, never the target that a link names for it. It reads and removes under the file's lock,
 and a file already gone is an error rather than a success, since the delete may have been meant for
-another path. What each agent was shown of the file is forgotten, so an edit of a file later created
-at that path is not made from memory.
+another path. Unlike `edit_file`, it is not gated on a read: the call names a path, not remembered
+text, and its result is the record of what was there. What each agent was shown of the file is
+forgotten, so an edit of a file later created at that path is not made from memory.
 
 **Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
 created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are

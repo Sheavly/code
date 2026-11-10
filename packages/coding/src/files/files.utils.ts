@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { FileChange } from './files.types.js';
+import type { FileChange, FileChangeVerb } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
 /** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
@@ -63,7 +63,7 @@ export function countOccurrences(params: { text: string; search: string }): numb
 
 /** A short summary of a change, for the model: e.g. "Edited src/a.ts (+3 −1 lines)". */
 export function describeChange(params: {
-  verb: string;
+  verb: FileChangeVerb;
   path: string;
   before: string | null;
   after: string | null;

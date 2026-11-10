@@ -9,6 +9,9 @@ export type FileToolServices = {
   fileReads: FileReads;
 };
 
+/** The verb a file tool reports its change with, capitalised as the summary line starts. */
+export type FileChangeVerb = 'Created' | 'Edited' | 'Deleted';
+
 /**
  * The artifact the file tools return: a file they created, changed or deleted, enough for a UI to
  * render a diff. Rendering the diff is the UI's job.

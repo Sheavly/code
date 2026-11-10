@@ -41,7 +41,7 @@ const call = (
 const remove = (filePath: string) => call('delete_file', { path: filePath });
 
 describe('delete_file', () => {
-  it('deletes a file, and reports the content it held with after: null', async () => {
+  it('deletes a file with no prior read, and reports the content it held with after: null', async () => {
     const result = await remove('existing.ts');
 
     expect(result).toMatchObject({ isError: false, content: 'Deleted existing.ts (3 → 0 lines)' });

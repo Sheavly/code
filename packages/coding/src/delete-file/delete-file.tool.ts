@@ -14,6 +14,10 @@ import {
  * deleted; a file already gone is an error, never a silent success, since the delete may have been
  * meant for another path.
  *
+ * Unlike `edit_file`, a delete is not gated on the agent having read the file: the call names a
+ * path, not remembered text, and the content is read under the lock for the artifact. Its result is
+ * the only record of what was there.
+ *
  * `fileLocks` is the harness's, as in `write_file` and `edit_file`: a delete and a write of one
  * file take their turns, so a delete never removes a file another call is about to change.
  * `fileReads` is told the file is gone, so what an agent was shown of it can't let an edit through
