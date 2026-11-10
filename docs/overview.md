@@ -277,9 +277,10 @@ you don't trust, run the harness in a container or VM.
 What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **path confinement**:
 
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
-  outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
-  inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)). The one
-  exception is the optional shared scratch folder (`<tmpdir>/sheavly` in the backend).
+  outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and changes
+  (writes and deletes) inside `.git` are refused
+  ([file tools](../packages/coding/docs/file-tools.md)). The one exception is the optional shared
+  scratch folder (`<tmpdir>/sheavly` in the backend).
 - `run_command` runs commands without a shell (a line may chain them with `|`, `&&`, `||` and
   `;`), asks the user before any command they have not allowed, checks the arguments of every
   command with the same path rules, asks for approval when one reaches outside or can name a
@@ -298,6 +299,9 @@ What runs with the user's full rights, outside those checks:
 - **Everything, in a folder set to `allow_all`.** The user can tell a folder to run every command
   without asking, argument checks and approvals included. It is a choice for one folder, kept in
   their own folder where the agent can't change it, and a conversation reports it in its details.
+- **`delete_file`.** It removes one file without an approval, like the other file tools: only
+  `run_command` asks. It refuses a folder, a symlink, a `.env` file and a path outside the
+  workspace, and reports the content it read under the lock unless the file is over 100,000 bytes.
 - **Git filter drivers a repo brings.** A filter defined in a cloned repo's `.git/config` and
   named in a committed `.gitattributes` still runs when an allowed `git status` or `git diff`
   does; on git older than 2.42, so does one an edited `.gitattributes` turns on.
