@@ -274,7 +274,7 @@ describe('a conversation the backend keeps', () => {
     expect(sentTexts(second.requests)).toContain('my name is Ada');
     const texts = after
       .messages(id)
-      .flatMap((message) => (message.role === 'summary' ? [] : [message.content]));
+      .flatMap((message) => ('content' in message ? [message.content] : []));
 
     expect(texts.filter((text) => text.startsWith('<instruction-context'))).toHaveLength(1);
     expect(texts.filter((text) => !text.startsWith('<instruction-context'))).toEqual([
