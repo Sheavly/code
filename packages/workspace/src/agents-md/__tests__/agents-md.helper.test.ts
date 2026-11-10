@@ -133,7 +133,8 @@ describe('createAgentsMdHook in the loop', () => {
         messages: [{ role: 'user', content: 'hi' }],
         hooks: [createAgentsMdHook({ root: project, cwd })],
       });
-      const instructions = messages[1]?.content ?? '';
+      const added = messages[1];
+      const instructions = added?.role === 'user' ? added.content : '';
 
       expect(instructions).toContain(
         `## AGENTS.md\n\n${rootRules}\n\n## nested/AGENTS.md\n\n${nestedRules}`,
