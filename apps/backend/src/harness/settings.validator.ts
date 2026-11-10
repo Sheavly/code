@@ -1,18 +1,12 @@
 import { z } from 'zod';
 import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
-import { REQUEST, SERVER } from './harness.constants.js';
+import { MAX_RETRIES, REQUEST, SERVER } from './harness.constants.js';
 
 /** An empty setting (`SERVER_HOST=`) means "not set". */
 const optionalSetting = z
   .string()
   .optional()
   .transform((value) => (value === '' ? undefined : value));
-
-/**
- * The most retries a policy allows (`requestPolicySchema`), so a bad `MODEL_RETRIES` is named
- * here rather than failing later as an invalid adapter config.
- */
-const MAX_RETRIES = 10;
 
 /** A whole number of milliseconds or retries from env, or the default when it is unset. */
 const count = (fallback: number) =>
