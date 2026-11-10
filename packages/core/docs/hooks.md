@@ -23,6 +23,10 @@ Two ways to tell the model something:
   They go on `ProviderRequest.instructions` after the run's own `instructions` option, in hook
   order, and are never stored in history. Call it every turn they should apply. Use it for
   standing rules, like AGENTS.md.
+  - Keep the text the same from turn to turn. Instructions come first in the prompt, so a change
+    invalidates the provider's cached prefix (tools and every message after it) for that call.
+    Anything that changes per turn (a clock, a counter, the current file list) goes in
+    `addContext`, or in a `beforeModelCall` edit that is deterministic.
 
 ## Context state
 

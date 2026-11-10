@@ -13,6 +13,7 @@ A provider (`packages/core/src/provider/`) is one method, `stream(request)`, ret
 | `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                                       |
 | `notices`      | An optional ordered array of typed `HarnessNotice` values: transient harness data sent after history, never part of it                                     |
 | `temperature`  | An optional sampling hint for repeatable work (a summary). An adapter sends it only where its API accepts it with the call's other settings, else omits it |
+| `cacheKey`     | An optional opaque session identifier an adapter maps to its backend's cache routing key, or ignores when it has none                                      |
 | `tools`        | The tool definitions (name, description, JSON schema)                                                                                                      |
 | `signal`       | Aborts the call                                                                                                                                            |
 
@@ -58,6 +59,29 @@ what a call sent: Anthropic binds a thinking signature to everything before the 
 included, and refuses the block (400) once that content is missing. Its adapter therefore treats
 the notice as part of the reply's prefix and drops that thinking on the next turn, instead of
 replaying it. Responses and Chat Completions have no such binding.
+
+## Prompt caching
+
+Every turn resends nearly the same prompt, and backends reuse the work done on a prefix that is
+byte-identical to an earlier call. The prefix is, in order, `instructions`, `tools` and the
+`messages`; `notices` come after it and change every turn, so they are never part of it. An adapter
+for any backend follows these rules, whatever its way of caching:
+
+- **Keep the order and bytes stable.** Serialize instructions, tools and earlier messages the
+  same way on every call. Put per-call data (`notices`, anything that changes each turn) after
+  the last stable message, as its own trailing part: never inside a message that the next call
+  sends without it, since that changes bytes the backend would otherwise reuse.
+- **Map `cacheKey` if the backend has an equivalent**, and ignore it otherwise. It names the
+  session; it never carries a choice of what to cache.
+- **Opt in where the backend requires it** (a request field or a marker), with an adapter option
+  to turn it off for a deployment that rejects it.
+- **Report what the backend says it reused** in the call's `usage` (cache read and write tokens),
+  so a run can check that caching works instead of assuming it.
+
+Caching that needs more than this, such as a checkpoint marker the backend wants at a chosen
+position or a cache object that is created and referenced by name, belongs in the contract only
+once an adapter needs it; the research in
+[@sheavly/providers' prompt-caching.md](../../providers/docs/prompt-caching.md) says which do.
 
 ## The context window
 
