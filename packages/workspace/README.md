@@ -52,6 +52,12 @@ approval for it says so. A command that runs in a folder outside the root always
 the folder, and the answer is never kept as a grant (`allow_all` asks nothing, as everywhere).
 `.git` of a sibling worktree can't be read or written either.
 
+`findMainRoot({ root, env })` gives the folder `root` has in the repo's main worktree, so per-folder
+settings (the backend's command permissions) are shared by every worktree of a repo. It uses the
+same verification, and returns `root` itself when it is in no repo, its link does not verify, the
+folder is missing from the main worktree, or the main worktree holds it as a symlink to another
+folder.
+
 | Module                 | What it holds                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------- |
 | `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite`, confined to the root (not an OS sandbox)       |
