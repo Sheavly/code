@@ -11,6 +11,7 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { OutputBuffer } from '../output/output.service.js';
+import { abortableWait } from '../wait/abortable-wait.helper.js';
 
 type Entry = {
   info: TaskInfo;
@@ -182,9 +183,23 @@ export class TaskRegistry {
     );
   }
 
-  /** Resolves the next time any task finishes. */
-  nextSettled(): Promise<void> {
-    return new Promise((resolve) => this.#waiters.push(resolve));
+  /**
+   * Resolves the next time any task finishes. Aborting `signal` drops the wait and resolves it,
+   * for a caller that stopped waiting.
+   */
+  nextSettled(signal?: AbortSignal): Promise<void> {
+    return abortableWait({
+      signal,
+      register: (wake) => this.#waiters.push(wake),
+      unregister: (wake) => {
+        this.#waiters = this.#waiters.filter((waiter) => waiter !== wake);
+      },
+    });
+  }
+
+  /** How many callers wait for a task to finish: none is left behind by one that gave up. */
+  get settleWaiters(): number {
+    return this.#waiters.length;
   }
 
   #settle(params: { entry: Entry; status: TaskStatus; result: TaskResult }) {

@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskRegistry } from '../tasks.service.js';
@@ -5,6 +6,41 @@ import { TaskRegistry } from '../tasks.service.js';
 function startTask(params: { tasks: TaskRegistry; run: () => Promise<{ exitCode: number }> }) {
   return params.tasks.start({ command: 'cmd', description: 'work', run: params.run });
 }
+
+describe('waiting for a task to finish', () => {
+  it('drops a wait whose signal aborts', async () => {
+    const tasks = new TaskRegistry();
+    const controller = new AbortController();
+    const wait = tasks.nextSettled(controller.signal);
+
+    expect(tasks.settleWaiters).toBe(1);
+
+    controller.abort();
+    await wait;
+
+    expect(tasks.settleWaiters).toBe(0);
+  });
+});
+
+describe('a task wait on a long-lived signal', () => {
+  it('leaves no abort listener once a task settles, and ignores a signal already aborted', async () => {
+    const tasks = new TaskRegistry();
+    const signal = new AbortController().signal;
+
+    for (let i = 0; i < 5; i++) {
+      const wait = tasks.nextSettled(signal);
+
+      startTask({ tasks, run: () => Promise.resolve({ exitCode: 0 }) });
+      await wait;
+    }
+
+    expect(getEventListeners(signal, 'abort')).toHaveLength(0);
+
+    await tasks.nextSettled(AbortSignal.abort());
+
+    expect(tasks.settleWaiters).toBe(0);
+  });
+});
 
 describe('releasing tasks', () => {
   it('forgets a finished task once it has been reported, with its output', async () => {

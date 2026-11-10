@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
-import { MAX_SESSION_DEPTH } from './sessions.constants.js';
+import { checkedParent } from './child-check.helper.js';
 import { EntryLog } from './entry-log.service.js';
 import { restoreSessions } from './restore.helper.js';
 import { releaseSubtree } from './release.helper.js';
@@ -125,34 +125,7 @@ export class SessionRegistry {
    */
   startChild(params: { parentId: SessionId; startedByCall: CallId; title: string }): SessionRef {
     const { parentId, startedByCall, title } = params;
-    const parent = this.#sessions.get(parentId);
-
-    if (!parent) {
-      throw new SessionError({
-        reason: 'unknown_session',
-        sessionId: parentId,
-        message: `Unknown parent session ${parentId}: a sub-agent must belong to a session`,
-      });
-    }
-
-    if (parent.state !== 'running') {
-      throw new SessionError({
-        reason: 'parent_ended',
-        sessionId: parentId,
-        message:
-          parent.state === 'idle'
-            ? `Parent session ${parentId} is idle between prompts; only a running session starts sub-agents`
-            : `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
-      });
-    }
-
-    if (parent.depth >= MAX_SESSION_DEPTH) {
-      throw new SessionError({
-        reason: 'too_deep',
-        sessionId: parentId,
-        message: `Sub-agents nest at most ${MAX_SESSION_DEPTH} levels (main session → sub-agent → sub-agent); session ${parentId} is at depth ${parent.depth}`,
-      });
-    }
+    const parent = checkedParent({ parentId, parent: this.#sessions.get(parentId) });
 
     return this.#add({
       id: sessionIdSchema.parse(randomUUID()),
@@ -285,9 +258,17 @@ export class SessionRegistry {
     return this.#inboxes.has(id);
   }
 
-  /** Resolves when a message arrives for the session (or it ends). For a loop waiting idle. */
-  nextMessage(id: SessionId): Promise<void> {
-    return this.#inboxes.next(id);
+  /**
+   * Resolves when a message arrives for the session (or it ends). For a loop waiting idle.
+   * Aborting `signal` drops the wait, for a caller that stopped waiting.
+   */
+  nextMessage(id: SessionId, signal?: AbortSignal): Promise<void> {
+    return this.#inboxes.next(id, signal);
+  }
+
+  /** How many callers wait on the session's inbox: none is left behind by one that gave up. */
+  inboxWaiters(id: SessionId): number {
+    return this.#inboxes.waiting(id);
   }
 
   get(id: SessionId): SessionInfo | undefined {
