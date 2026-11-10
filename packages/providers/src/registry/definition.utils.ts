@@ -1,9 +1,7 @@
 import type { z } from 'zod';
 import { fieldsMarked } from './describe.utils.js';
+import { SECRET_STAND_IN } from './registry.constants.js';
 import type { DefinitionProblem } from './registry.types.js';
-
-/** Stands in for a secret while a definition is checked, so the key itself is never needed. */
-const SECRET_STAND_IN = 'x';
 
 /**
  * What is wrong with `definition` as the fields of a model for an adapter whose config is

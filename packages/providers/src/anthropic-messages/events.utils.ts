@@ -1,19 +1,13 @@
-import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
+import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { parseToolArguments } from '../http/json.utils.js';
+import { STOP_REASONS } from './messages.constants.js';
 import type {
   MessagesEvent,
   MessagesReplay,
   MessagesStep,
   StreamingBlock,
 } from './messages.types.js';
-
-/** The API's stop reasons we treat as more than an ended turn; any other ends it normally. */
-const STOP_REASONS: Record<string, StopReason> = {
-  tool_use: 'tool_use',
-  max_tokens: 'max_tokens',
-  model_context_window_exceeded: 'context_window_exceeded',
-};
 
 /**
  * Reads one reply's Messages API events, block by block. Text streams as it arrives; a tool call
