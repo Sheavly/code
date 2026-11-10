@@ -12,14 +12,23 @@ const usage = z
   .object({
     prompt_tokens: count,
     completion_tokens: count,
-    prompt_tokens_details: z.object({ cached_tokens: count.optional() }).nullable().optional(),
-    prompt_cache_hit_tokens: count.optional(),
+    prompt_tokens_details: z
+      .object({ cached_tokens: count.nullable().optional() })
+      .nullable()
+      .optional(),
+    // A null hit or miss count is unreported telemetry, not a measured zero.
+    prompt_cache_hit_tokens: count.nullable().optional(),
+    prompt_cache_miss_tokens: count.nullable().optional(),
   })
-  .refine(
-    (value) =>
-      (value.prompt_tokens_details?.cached_tokens ?? value.prompt_cache_hit_tokens ?? 0) <=
-      value.prompt_tokens,
-  );
+  // A provider's own counts disagreeing must not cost the caller a reply that already streamed:
+  // the detailed count wins, misses are derived downstream, and only counts no prompt could
+  // produce are refused.
+  .refine((value) => {
+    const hits = value.prompt_tokens_details?.cached_tokens ?? value.prompt_cache_hit_tokens;
+    const misses = value.prompt_cache_miss_tokens;
+
+    return (hits ?? 0) <= value.prompt_tokens && (misses ?? 0) <= value.prompt_tokens;
+  }, 'Cache counts cannot exceed prompt tokens');
 
 export const chatChunkSchema = z.object({
   choices: z.array(

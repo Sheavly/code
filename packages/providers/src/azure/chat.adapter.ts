@@ -29,6 +29,10 @@ export const azureChatAdapter = defineChatCompletionsAdapter({
       title: 'Thinking mode',
       description: 'Optional model-specific setting; omit for the deployment default',
     }),
+    effortProfile: z.enum(['openai', 'deepseek']).default('openai').meta({
+      title: 'Effort profile',
+      description: 'Explicit effort mapping: OpenAI uses xhigh for extreme; DeepSeek uses max',
+    }),
     request: requestPolicySchema,
   }),
   toEndpoint: (config) => {

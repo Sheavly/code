@@ -13,7 +13,13 @@ import type {
 
 /** Native Chat Completions; it does not reuse Responses request, event or reasoning formats. */
 export function createChatCompletionsProvider(config: ChatProviderConfig): Provider {
-  const { endpoint, replayReasoning = false, maxTokens = 8192, thinkingMode } = config;
+  const {
+    endpoint,
+    replayReasoning = false,
+    maxTokens = 8192,
+    thinkingMode,
+    effortProfile = 'openai',
+  } = config;
   const source = `chat:${endpoint.url}#${endpoint.model}`;
 
   return {
@@ -37,6 +43,7 @@ export function createChatCompletionsProvider(config: ChatProviderConfig): Provi
               replayReasoning,
               maxTokens,
               thinkingMode,
+              effortProfile,
             }),
           ),
         },
@@ -72,6 +79,7 @@ export function defineChatCompletionsAdapter<S extends z.ZodType<ChatAdapterConf
         maxTokens: config.maxTokens,
         replayReasoning: config.replayReasoning,
         thinkingMode: config.thinkingMode,
+        effortProfile: config.effortProfile,
       }),
   });
 }

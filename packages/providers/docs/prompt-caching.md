@@ -10,7 +10,7 @@ The contract side (the prefix rules every adapter follows, `ProviderRequest.cach
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Messages (`azure-anthropic`, any Messages) | Top-level `cache_control: {type: "ephemeral"}`, plus a block-level marker on the last history block when notices follow it. `promptCaching: false` turns both off |
 | Responses (`openai`, `azure-openai`)       | `prompt_cache_key` = `ProviderRequest.cacheKey` (the session id). With `explicitCache: true`, also explicit-only `prompt_cache_options` and history breakpoints   |
-| Chat Completions (`azure-chat`)            | Nothing; the backends cache automatically and report hits in `usage`                                                                                              |
+| Chat Completions (`azure-chat`)            | No cache controls; maps cache reads when the backend reports them in `usage`                                                                                      |
 
 Caching keeps processed prompt prefixes at the provider for minutes to hours (see each backend below), and the Messages request sends `cache_control` unless `promptCaching` is `false`. A deployment under a zero-retention agreement, or one that rejects the field with a 400 (the legacy Bedrock integration for Opus 4.6 and earlier), sets `promptCaching: false`. The session id sent as the Responses `prompt_cache_key` is a random UUID, never derived from a path, title or prompt.
 
@@ -48,11 +48,14 @@ A session is one cache scope: the main session and each sub-agent have their own
 
 ### Chat Completions backends (DeepSeek, Azure chat)
 
-[DeepSeek](https://api-docs.deepseek.com/guides/kv_cache). Read 2026-11-10.
+[DeepSeek](https://api-docs.deepseek.com/guides/kv_cache/), [Azure inference transport](https://learn.microsoft.com/en-us/python/api/azure-ai-inference/azure.ai.inference.chatcompletionsclient?view=azure-python-preview).
 
-- DeepSeek's disk cache is on by default and matches a request's start against persisted prefix units (the end of the user input, the end of the output, detected common prefixes). A request must fully match a unit to hit, so the history must stay byte-identical.
-- Usage reports cache hit and miss tokens (`prompt_cache_hit_tokens`, as the issue states; the page's field list was cut off in this read). `azure-chat` already includes cache reads in final usage.
-- Contract impact: none. `cacheKey` is ignored.
+- Upstream DeepSeek's disk cache is automatic, enabled by default and best effort. It matches a request's start against persisted prefix units (the end of the user input, the end of the output, detected common prefixes and fixed token intervals). A request must fully match a unit to hit, so retained history must stay byte-identical. Construction takes seconds; reuse is not guaranteed.
+- Chat sends no artificial `cache_control`, cache key or cache breakpoints. Stable instructions, tools and retained history precede transient notices. Changing a notice changes the end of the request, not that retained prefix. Fake multi-tool and subsequent-user-turn tests verify those serialized bytes and history isolation; they do not prove the server persisted a reusable unit before the notice.
+- Usage: `prompt_cache_hit_tokens` is cache reads; `prompt_cache_miss_tokens` is uncached input, **not cache writes**. The optional `prompt_tokens_details.cached_tokens` is an alternative or duplicate read count, and wins when both appear; reads are counted once as a subset of `prompt_tokens`. All reported counts must be nonnegative integers. A reported read or miss count cannot exceed `prompt_tokens`. Beyond that bound, a provider whose own counts disagree keeps its reply and misses are derived here as input minus reads, so inconsistent telemetry never costs an answer that already streamed.
+- Final usage retains total input and output, maps reads, and reports zero cache writes: misses do not measure cache creation. Missing cache fields, a null read or miss count, empty or null optional token details and absent or null usage retain legacy behavior; a null count is unreported, not a measured zero. A default read count of zero is not evidence that caching was measured or unavailable; absent usage stays absent.
+- The shared protocol needs no miss field: uncached input is total input minus reads, and no write measurement is available. `cacheKey` is ignored.
+- These are upstream DeepSeek semantics and offline adapter accounting checks, not a claim that every Foundry deployment returns those fields, uses the same cache persistence rules, or charges upstream rates. One paid check on `DeepSeek-V4.1-Flash-1017` (eight capped requests, at most 512 output tokens each) saw cache reads on repeated and extended prefixes with zero writes; it did not measure billing, other deployments, or the upstream cache's persistence rules.
 
 ### Amazon Bedrock
 

@@ -1,6 +1,10 @@
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
-import type { ChatEndpoint, ChatThinkingMode } from './chat-completions.types.js';
+import type {
+  ChatEffortProfile,
+  ChatEndpoint,
+  ChatThinkingMode,
+} from './chat-completions.types.js';
 import { chatMessages } from './input.utils.js';
 
 /** Serializes only native Chat Completions fields, with an explicit output bound. */
@@ -11,8 +15,10 @@ export function chatRequestBody(params: {
   replayReasoning: boolean;
   maxTokens: number;
   thinkingMode: ChatThinkingMode | undefined;
+  effortProfile: ChatEffortProfile;
 }): Record<string, unknown> {
-  const { request, endpoint, source, replayReasoning, maxTokens, thinkingMode } = params;
+  const { request, endpoint, source, replayReasoning, maxTokens, thinkingMode, effortProfile } =
+    params;
   const sendsEffort = Boolean(request.mode) && thinkingMode !== 'disabled';
 
   return {
@@ -39,8 +45,24 @@ export function chatRequestBody(params: {
     stream: true,
     stream_options: { include_usage: true },
     ...(thinkingMode && { thinking: { type: thinkingMode } }),
-    ...(sendsEffort && { reasoning_effort: request.mode === 'extreme' ? 'xhigh' : request.mode }),
+    ...(sendsEffort && { reasoning_effort: nativeEffort({ mode: request.mode, effortProfile }) }),
     // Reasoning models reject a temperature, so it goes only when no effort is sent.
     ...(request.temperature !== undefined && !sendsEffort && { temperature: request.temperature }),
   };
+}
+
+function nativeEffort(params: {
+  mode: ProviderRequest['mode'];
+  effortProfile: ChatEffortProfile;
+}): string | undefined {
+  const { mode, effortProfile } = params;
+
+  if (effortProfile === 'deepseek') {
+    if (mode === 'extreme') return 'max';
+    if (mode === 'medium') return 'high';
+
+    return mode;
+  }
+
+  return mode === 'extreme' ? 'xhigh' : mode;
 }

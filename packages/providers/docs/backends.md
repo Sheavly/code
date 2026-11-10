@@ -89,21 +89,57 @@ never appends `/responses` to a Chat endpoint. The Responses adapter rejects Cha
 before sending a request, with a message naming the appropriate protocol.
 
 Chat requests use native `messages`, nested function tools and streamed deltas. `maxTokens`
-defaults to 8192 and bounds total reply output. `replayReasoning: true` preserves plain
-`reasoning_content` for models such as DeepSeek, under full endpoint/model provenance; encrypted
-Responses reasoning and Claude signatures are never forwarded. The app's DeepSeek setup preset
-enables this. Other Chat models can leave replay disabled.
+defaults to 8192 and bounds total reply output. `replayReasoning: true` retains plain
+`reasoning_content` from every assistant reply, including replies without tool calls, across
+parallel tools, further tool calls and subsequent user turns. Replay uses full operation URL
+(including API version) and model provenance: other endpoints, models, encrypted Responses
+reasoning and Claude signatures are never forwarded. With replay disabled, reasoning is neither
+emitted as retained state nor serialized; ordinary text and tool calls remain unchanged.
 
-Optional `thinkingMode` sends a model-specific enabled/disabled setting through Foundry's
-extra-parameter pass-through. Leave it unspecified for the deployment default. Disabled thinking
-omits a conflicting effort parameter. Native effort values are sent without guessing the model
-family; unsupported settings must be checked against the deployment's own documentation.
+`effortProfile` explicitly selects native effort mapping and defaults to `'openai'` in both
+`azure-chat` and `createChatCompletionsProvider`. It is never inferred from a deployment name:
+
+| Loop mode | `effortProfile: 'openai'` (default) | `effortProfile: 'deepseek'` |
+| --------- | ----------------------------------- | --------------------------- |
+| low       | low                                 | low                         |
+| medium    | medium                              | high                        |
+| high      | high                                | high                        |
+| extreme   | xhigh                               | max                         |
+
+Optional `thinkingMode` sends `thinking: {type: 'enabled' | 'disabled'}` through the existing
+Foundry extra-parameter pass-through. Leave it unspecified for the deployment default. Disabled
+thinking omits a conflicting `reasoning_effort`; a call without a loop mode sends no effort.
+The profile changes effort mapping only, not thinking or replay defaults. For a DeepSeek
+snapshot that supports these upstream settings, configure all three explicitly:
+
+```ts
+registry.create('azure-chat', {
+  apiKey,
+  baseUrl:
+    'https://<resource>.services.ai.azure.com/models/chat/completions?api-version=2024-05-01-preview',
+  deployment: '<your-deployment-name>',
+  effortProfile: 'deepseek',
+  thinkingMode: 'enabled',
+  replayReasoning: true,
+  request,
+});
+```
+
+[DeepSeek's thinking guide](https://api-docs.deepseek.com/guides/thinking_mode/) documents
+`low/high/max` and maps `medium` and `xhigh` aliases to `high`; using `max` is therefore necessary
+for extreme effort. When requests carry tools, the guide requires all prior `reasoning_content`,
+even from assistant replies without a tool call and earlier user turns. Without tools, upstream
+ignores prior reasoning. The serializer preserves opted-in own-provenance reasoning in either
+case. [Azure's inference client reference](https://learn.microsoft.com/en-us/python/api/azure-ai-inference/azure.ai.inference.chatcompletionsclient?view=azure-python-preview)
+describes model-specific root body fields and the `extra-parameters` header, not a guarantee
+that any particular Foundry deployment supports these thinking, effort, replay or cache semantics.
+Check the deployment's documentation; these changes were verified with injected fake transport,
+not live calls against a V4.1 snapshot.
 
 The reader accepts Azure's nullable optional tool/usage fields. A finish reason is required;
 truncated replies never release partial tool arguments. Complete tool calls are assembled by
-index, with valid IDs, and final usage includes reported cache reads. No reply-state service is
-shared between calls. These behaviors have fake-stream coverage; a live DeepSeek connection and
-two-call tool round trip were also tested with 512-token output limits.
+index, with valid IDs, and final usage includes reported cache reads without counting them twice.
+No reply-state service is shared between calls. See [Chat cache accounting](prompt-caching.md#chat-completions-backends-deepseek-azure-chat).
 
 ## Sending a call: timeouts and retries
 
