@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { z } from 'zod';
-import { hasHandler } from '@sheavly/core/hook/hook.utils';
+import { handlerNames, hasHandler } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { validate } from '@sheavly/core/validation/validation.validator';
 import { HOOK_EXTENSIONS } from './project-hooks.constants.js';
@@ -22,6 +22,13 @@ export const hooksManifestSchema = z.strictObject({
   ),
 });
 
+/** The handler names for an error message: `a, b or c`, read from `HANDLERS` so none is missed. */
+function handlerList(): string {
+  const names = handlerNames();
+
+  return `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
+}
+
 /** A handler is any function; what it receives and returns is typed by `Hook`. */
 const handler = z.custom<() => unknown>((value) => typeof value === 'function').optional();
 
@@ -36,14 +43,15 @@ const hookExportSchema = z
       sessionStart: handler,
       beforeTurn: handler,
       beforeModelCall: handler,
+      beforeSummary: handler,
+      afterSummary: handler,
       aroundToolCall: handler,
       afterTurn: handler,
       onError: handler,
     } satisfies Record<keyof Omit<Hook, 'name'>, typeof handler>),
   })
   .refine((hook) => hasHandler(hook as Hook), {
-    message:
-      'Define at least one handler: sessionStart, beforeTurn, beforeModelCall, aroundToolCall, afterTurn or onError',
+    message: `Define at least one handler: ${handlerList()}`,
   });
 
 /** Validates a hook file's default export; returns an error message instead of throwing. */
