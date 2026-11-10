@@ -8,6 +8,9 @@
 export const PRIVATE_FILE_MODE = 0o600;
 export const PRIVATE_FOLDER_MODE = 0o700;
 
+/** The character code of the byte-order mark some Windows editors put at the start of a file. */
+export const BYTE_ORDER_MARK = 0xfeff;
+
 /** The mode bits that let anyone but the owner read, write or run a file: `0o077`. */
 export const GROUP_AND_OTHERS = 0o077;
 

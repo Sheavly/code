@@ -1,12 +1,7 @@
 import { z } from 'zod';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
-
-/** A command longer than this is cut in the trail: what ran matters, not every argument. */
-const MAX_COMMAND_CHARS = 120;
-
-/** A path longer than this is cut: a model-written value never grows the trail without bound. */
-const MAX_PATH_CHARS = 200;
+import { MAX_COMMAND_CHARS, MAX_PATH_CHARS } from './trail.constants.js';
 
 const pathInput = z.object({ path: z.string().min(1) });
 const readInput = pathInput.extend({

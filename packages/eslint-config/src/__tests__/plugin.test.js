@@ -1,7 +1,7 @@
 import { RuleTester } from 'eslint';
 import tseslint from 'typescript-eslint';
 import { afterAll, describe, it } from 'vitest';
-import { kindOfFile } from '../file-kinds.js';
+import { extensionsOf, FILE_KIND_POLICIES, kindOfFile } from '../file-kinds.js';
 import { harnessPlugin } from '../plugin.js';
 
 RuleTester.afterAll = afterAll;
@@ -73,8 +73,24 @@ ruleTester.run('kind-contents', kindContents, {
       filename: 'src/m/m.constants.ts',
     },
     {
-      code: 'type Local = string; const LOCAL = 1; export function f(x: Local) { return x + LOCAL; }',
+      code: 'type Local = string; const local = compute(); export function f(x: Local) { return x + local; }',
       filename: 'src/m/m.helper.ts',
+    },
+    // Fakes and tests keep their own fixture values beside them.
+    {
+      code: "const FIXTURE = 'a'; export function fixture() { return FIXTURE; }",
+      filename: 'src/m/testing/m.fake.ts',
+    },
+    { code: 'const LIMIT = 5;', filename: 'src/m/__tests__/m.utils.test.ts' },
+    // A function-valued or computed constant is code, not a literal.
+    {
+      code: 'const RETRYABLE = (status: number) => status >= 500; const now = Date.now(); export function f() { return RETRYABLE(now); }',
+      filename: 'src/m/m.utils.ts',
+    },
+    // A literal inside a function is local state, not a module constant.
+    {
+      code: 'export function f() { const LIMIT = 5; return LIMIT; }',
+      filename: 'src/m/m.utils.ts',
     },
     { code: 'export const LIMIT = 1;', filename: 'src/index.ts' }, // no kind: not checked
     // A service exports a class; it may export functions beside it.
@@ -133,6 +149,26 @@ ruleTester.run('kind-contents', kindContents, {
         { messageId: 'literalInCode' },
         { messageId: 'typeInCode' },
       ],
+    },
+    // A literal constant is moved to `*.constants.ts` even when only its own file uses it.
+    {
+      code: 'const MAX_CHARS = 600; export function cut(text: string) { return text.slice(0, MAX_CHARS); }',
+      filename: 'src/m/m.utils.ts',
+      errors: [{ messageId: 'literalConstantInCode', data: { name: 'MAX_CHARS', kind: 'utils' } }],
+    },
+    {
+      code: "const A = 'a', B = /b/, C = { x: [1, 2] } as const; export function f() { return [A, B, C]; }",
+      filename: 'src/m/m.helper.ts',
+      errors: [
+        { messageId: 'literalConstantInCode', data: { name: 'A', kind: 'helper' } },
+        { messageId: 'literalConstantInCode' },
+        { messageId: 'literalConstantInCode' },
+      ],
+    },
+    {
+      code: 'class Queue {} export { Queue }; const LIMIT = 1;',
+      filename: 'src/m/m.service.ts',
+      errors: [{ messageId: 'literalConstantInCode' }],
     },
     // Routes hold no state and export no types: those go in services and `*.types.ts`.
     {
@@ -211,6 +247,33 @@ ruleTester.run('kind-contents', kindContents, {
       ],
     },
   ],
+});
+
+// Derived from the policies, so a new code kind can't skip the constants rule unnoticed: every
+// code kind but test code keeps its literals elsewhere, and each one that does is rejected.
+const CODE_KINDS = Object.keys(FILE_KIND_POLICIES).filter(
+  (kind) => FILE_KIND_POLICIES[kind].exports === 'code' && !['fake', 'test'].includes(kind),
+);
+const KINDS_WITH_LITERALS_ELSEWHERE = CODE_KINDS.filter(
+  (kind) => FILE_KIND_POLICIES[kind].constantsElsewhere,
+);
+
+describe('constantsElsewhere', () => {
+  it('is set for every code kind except fakes and tests', ({ expect }) => {
+    expect(KINDS_WITH_LITERALS_ELSEWHERE).toEqual(CODE_KINDS);
+  });
+});
+
+ruleTester.run('kind-contents: private literal in every code kind', kindContents, {
+  valid: [],
+  invalid: KINDS_WITH_LITERALS_ELSEWHERE.map((kind) => ({
+    code:
+      FILE_KIND_POLICIES[kind].classes === 'required'
+        ? 'export class Owner {} const LIMIT = 5; export function f() { return LIMIT; }'
+        : 'const LIMIT = 5; export function f() { return LIMIT; }',
+    filename: `src/m/m.${kind}.${extensionsOf(kind)[0]}`,
+    errors: [{ messageId: 'literalConstantInCode', data: { name: 'LIMIT', kind } }],
+  })),
 });
 
 ruleTester.run('pure-imports', pureImports, {

@@ -1,9 +1,7 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { mergeEntries } from './entries.utils.js';
+import { USER_MESSAGE_MAX_CHARS, USER_MESSAGES_MAX_CHARS } from './sections.constants.js';
 import type { RuleSection } from './sections.types.js';
-
-const DEFAULT_MAX_CHARS = 6_000;
-const DEFAULT_MAX_MESSAGE_CHARS = 600;
 
 /**
  * The user's own messages, word for word and in order: what they asked for is the one thing a
@@ -28,8 +26,8 @@ export function userMessagesSection(
   const {
     include = (message) => message.id !== undefined,
     title = 'What the user asked for',
-    maxChars = DEFAULT_MAX_CHARS,
-    maxMessageChars = DEFAULT_MAX_MESSAGE_CHARS,
+    maxChars = USER_MESSAGES_MAX_CHARS,
+    maxMessageChars = USER_MESSAGE_MAX_CHARS,
   } = options;
 
   return {

@@ -7,20 +7,8 @@
  */
 import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
 import type { ParseResult, Token, TokenResult } from './allow-list.types.js';
+import { NOT_SUPPORTED, REFUSED } from './allow-list.constants.js';
 import { allowEntryBase, commandBase } from './command-base.utils.js';
-
-// Characters a shell gives a meaning this parser does not; each is refused outside quotes.
-const REFUSED: Record<string, string> = {
-  '<': 'redirects (< >)',
-  '>': 'redirects (< >)',
-  '(': 'subshells and parentheses',
-  ')': 'subshells and parentheses',
-  $: 'variables and substitution ($)',
-  '`': 'backticks',
-  '\n': 'newlines (join commands with ; && || or |)',
-  '\r': 'newlines (join commands with ; && || or |)',
-};
-const NOT_SUPPORTED = ' are not supported';
 
 type Quoted = { ok: true; text: string; next: number } | { ok: false; reason: string };
 type Operator = { connector: Connector; length: number } | { error: string } | undefined;

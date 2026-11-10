@@ -3,14 +3,13 @@ import { defaultPalette } from '../theme/palette.utils.js';
 import type { Palette } from '../theme/theme.types.js';
 import { languageFor } from './code-languages.utils.js';
 import { highlightLine } from './highlight-code.utils.js';
+import { CODE_INDENT } from './markdown.constants.js';
 import {
   createCodePaint,
   createMarkdownTheme,
   plainMarkdownTheme,
 } from './markdown-theme.utils.js';
 import type { CodeFenceDrawing, CodePaint, HighlightState } from './markdown.types.js';
-
-const INDENT = '  ';
 
 /**
  * One fenced code block drawn a line at a time, so a long block shows as it is written instead
@@ -34,7 +33,7 @@ export class CodeFence implements CodeFenceDrawing {
     const palette = params.palette ?? defaultPalette;
 
     this.#tag = params.info.trim().split(/\s+/)[0] ?? '';
-    this.#width = Math.max(1, params.width - INDENT.length);
+    this.#width = Math.max(1, params.width - CODE_INDENT.length);
     this.#plain = params.plain;
     this.#theme = params.plain ? plainMarkdownTheme : createMarkdownTheme(palette);
     this.#paint = createCodePaint(palette);
@@ -48,7 +47,7 @@ export class CodeFence implements CodeFenceDrawing {
   /** The lines one line of code takes, indented; the line itself is wrapped when it is too long. */
   line(code: string): string[] {
     return wrapTextWithAnsi(this.#highlight(code), this.#width).map((part) =>
-      `${INDENT}${part}`.trimEnd(),
+      `${CODE_INDENT}${part}`.trimEnd(),
     );
   }
 

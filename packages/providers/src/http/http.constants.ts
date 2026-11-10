@@ -4,3 +4,15 @@
  * model's file holds it.
  */
 export const FIELD_KIND = { secret: 'secret', host: 'host' } as const;
+
+/** Milliseconds in a second: `retry-after` is sent in seconds. */
+export const MS_PER_SECOND = 1000;
+
+/**
+ * The longest `retry-after` worth waiting for. A server asking for more (a day, say) gets its
+ * error reported instead, rather than a run that hangs with nothing to show for it.
+ */
+export const MAX_RETRY_AFTER_MS = 60_000;
+
+/** Where a server-sent events line ends: `\r\n`, `\r` or `\n`. */
+export const LINE_BREAK = /\r\n|\r|\n/;

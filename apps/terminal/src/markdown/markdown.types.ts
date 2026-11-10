@@ -19,6 +19,9 @@ export type CodeLanguage = {
   multilineStrings: readonly string[];
 };
 
+/** A `CodeLanguage` as written down: its keywords are one space-separated string. */
+export type CodeLanguageSpec = Omit<CodeLanguage, 'keywords'> & { keywords: string };
+
 /**
  * Where a line starts when an earlier one left a comment or a string open: what ends it, and
  * how its text is painted. `undefined` is ordinary code.

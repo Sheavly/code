@@ -44,5 +44,31 @@ export const EMPTY_STATE = {
   lastRunByPrompt: {},
 } as const;
 
+/** A check is retried once: real models aren't fully repeatable, so one bad answer can be noise. */
+export const ATTEMPTS = 2;
+
+/** The base the branch is compared to, for which checks are relevant. */
+export const BASE = 'origin/main';
+
+/** The workbook command's help text. */
+export const USAGE = `Usage: npm run workbook -- <command>
+
+  run <prompt>             run a stored prompt (workbook/prompts/<prompt>.md) in a fresh workspace
+    --continue <run|last>  start from that run's history and workspace instead
+    --keep                 reuse the prompt's last workspace instead of a fresh copy
+  ask "<text>"             run a one-off prompt (saved like any other run)
+  continue [run] "<text>"  send a follow-up to a run (default: the last one), with its history
+  check [prompt…] [--all]  run the real-model checks: the named prompts, else the ones whose
+                           areas this branch changed (--all: every one). Costs model calls.
+  list                     every stored prompt, and the last runs
+  show [run]               a run's summary, result and files (default: the last one)
+  step [run] [--from N]    walk a run's events one at a time (Enter: next, q: quit)
+  diff <run-a> <run-b>     compare two runs: outcome, counts, tools used, final answer
+
+  --model-calls            also print every model call (tools, system prompt, latest message)
+  --trust                  trust the workspace's .sheavly/ hooks (a fresh fixture copy already is)
+
+Runs are saved in workbook/runs/<id>/ as they happen; "last" means the most recent run.`;
+
 /** Written as `.env` into every run workspace, so the `.env` guards have something to refuse. */
 export const FAKE_ENV = 'SECRET=fake-workbook-secret\n';

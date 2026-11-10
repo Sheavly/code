@@ -1,6 +1,4 @@
-/** Names whose value, after `:` or `=`, is a credential. */
-const SECRET_NAMES =
-  '(?:api[_-]?key|access[_-]?token|auth[_-]?token|token|password|passwd|secret|client[_-]?secret)';
+import { SECRET_NAMES } from './errors.constants.js';
 
 /**
  * Redacts common credential forms in exception text without examining request objects. This is

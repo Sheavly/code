@@ -12,3 +12,9 @@ export const DIFF_EXPANDED_ROWS = 500;
 
 /** Columns a tab takes in a diff row. */
 export const DIFF_TAB_WIDTH = 4;
+
+/** Under the `⎿` of the step's result line. */
+export const DIFF_INDENT = '    ';
+
+/** The least columns a diff row's text gets, however narrow the terminal. */
+export const DIFF_MIN_TEXT_WIDTH = 10;

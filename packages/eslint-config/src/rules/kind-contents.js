@@ -1,8 +1,8 @@
 import { FILE_KIND_POLICIES, kindOfFile } from '../file-kinds.js';
 
-// What a file may export follows from its
-// kind's `exports` policy in file-kinds.js. Non-exported values and types may stay next to the
-// code that uses them.
+// What a file may export follows from its kind's `exports` policy in file-kinds.js, and whether
+// it may hold literal constants at all from its `constantsElsewhere` policy. Non-exported types
+// and computed values may stay next to the code that uses them.
 
 const WRAPPERS = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSTypeAssertion']);
 
@@ -295,6 +295,36 @@ function exportedKinds(params) {
   return { classes, schemas };
 }
 
+/**
+ * Top-level `const` declarators of a statement that is not exported and holds a literal value:
+ * the constants a code file keeps to itself.
+ */
+function privateLiteralConstants(statement) {
+  if (statement.type !== 'VariableDeclaration' || statement.kind !== 'const') return [];
+
+  return statement.declarations.filter(
+    (declarator) =>
+      declarator.id.type === 'Identifier' && declarator.init && isLiteralValue(declarator.init),
+  );
+}
+
+/** Literal constants of a code file belong in the module's `*.constants.ts`, exported or not. */
+function checkPrivateLiterals(params) {
+  const { context, program, kind } = params;
+
+  if (!FILE_KIND_POLICIES[kind].constantsElsewhere) return;
+
+  for (const statement of program.body) {
+    for (const declarator of privateLiteralConstants(statement)) {
+      context.report({
+        node: declarator,
+        messageId: 'literalConstantInCode',
+        data: { name: declarator.id.name, kind },
+      });
+    }
+  }
+}
+
 /** Class and schema rules from the kind's `classes` / `schemas` policy, for one file. */
 function checkKindShape(params) {
   const { context, program, kind } = params;
@@ -337,7 +367,7 @@ export const kindContents = {
     schema: [],
     messages: {
       valueInTypes:
-        "`*.types.ts` holds only types. Move `{{name}}` to the module's constants, utils, helper or service file.",
+        "`*.types.ts` holds only types. Move `{{name}}` to the module's constants file if it is a literal, else to its utils, helper or service file.",
       valueImportInTypes:
         '`*.types.ts` holds only types, so it imports only types: write `import type { … }` (for a schema, `import type { xSchema }` and `z.infer<typeof xSchema>`).',
       typeInConstants:
@@ -347,7 +377,9 @@ export const kindContents = {
       typeInCode:
         "Export types from the module's `*.types.ts`, not from a {{kind}} file. Move `{{name}}` there and import it with `import type`; a type only this file uses can stay unexported.",
       literalInCode:
-        "Export literal constants from the module's `*.constants.ts`, not from a {{kind}} file. Move `{{name}}` there; a value only this file uses can stay unexported.",
+        "Export literal constants from the module's `*.constants.ts`, not from a {{kind}} file. Move `{{name}}` there.",
+      literalConstantInCode:
+        "A `*.{{kind}}.ts` keeps no literal constants, exported or not. Move `{{name}}` to the module's `*.constants.ts` and import it.",
       classInHelper:
         'A `*.{{kind}}.ts` holds stateless functions, so it exports no class. `{{name}}` owns state: move it to a `*.service.ts`.',
       serviceWithoutClass:
@@ -366,6 +398,7 @@ export const kindContents = {
     return {
       Program(program) {
         checkKindShape({ context, program, kind });
+        checkPrivateLiterals({ context, program, kind });
 
         for (const statement of program.body) {
           if (policy === 'types' && isValueImport(statement)) {

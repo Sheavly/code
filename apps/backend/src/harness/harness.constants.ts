@@ -14,3 +14,9 @@ export const REQUEST = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 10
  * runs commands for whoever reaches it), on a port unlikely to be taken.
  */
 export const SERVER = { host: '127.0.0.1', port: 4310 } as const;
+
+/**
+ * The most retries a policy allows (`requestPolicySchema`), so a bad `MODEL_RETRIES` is named
+ * here rather than failing later as an invalid adapter config.
+ */
+export const MAX_RETRIES = 10;

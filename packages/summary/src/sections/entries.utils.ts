@@ -1,5 +1,4 @@
-/** Marks a cut-off entry, so a reader can tell it is not the whole text. */
-const ELLIPSIS = '…';
+import { ELLIPSIS } from './sections.constants.js';
 
 /**
  * A rules section is a list of entries, each starting a line with `- `. A longer entry continues

@@ -1,9 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import { InvalidHistoryError } from '../errors/loop.errors.js';
 import type { Message } from '@sheavly/protocol/message/message.types';
-
-/** Longest call id written into an error message. */
-const MAX_SHOWN_ID = 40;
+import { MAX_SHOWN_ID } from './history.constants.js';
 
 /**
  * What a message is, for telling one from another without ids: a tool result by its call id, an

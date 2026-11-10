@@ -9,3 +9,6 @@ export const SKILLS_FOLDERS = [
   ['.sheavly', 'skills'],
   ['.agents', 'skills'],
 ] as const;
+
+/** A block scalar's indicator: `>` folds its lines into one, `|` keeps them; `-` / `+` chomping. */
+export const BLOCK_SCALAR = /^[>|][+-]?$/;

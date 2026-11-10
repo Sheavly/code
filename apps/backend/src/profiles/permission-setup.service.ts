@@ -5,11 +5,9 @@ import type {
   WorkspacePermissions,
 } from '@sheavly/protocol/permission/permission.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
+import { TIGHTEST_MODE } from './profiles.constants.js';
 import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { resolveWorkspace } from './workspace-path.helper.js';
-
-/** The mode that asks about every command: the only one a remote backend sets without leave. */
-const TIGHTEST_MODE: PermissionMode = 'always_ask';
 
 /**
  * What a UI does with a folder's command permissions: read them, set the mode, allow a command

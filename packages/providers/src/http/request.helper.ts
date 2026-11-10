@@ -1,14 +1,9 @@
 import { ModelApiError } from '../errors/providers.errors.js';
+import { MAX_RETRY_AFTER_MS, MS_PER_SECOND } from './http.constants.js';
 import type { RequestPolicy } from './http.types.js';
 
 /** HTTP statuses worth another attempt: rate limited, or the server failed. */
 const RETRYABLE_STATUS = (status: number) => status === 429 || status >= 500;
-const MS_PER_SECOND = 1000;
-/**
- * The longest `retry-after` worth waiting for. A server asking for more (a day, say) gets its
- * error reported instead, rather than a run that hangs with nothing to show for it.
- */
-const MAX_RETRY_AFTER_MS = 60_000;
 
 /** Waits `ms`, or rejects as soon as `signal` aborts. */
 function wait(params: { ms: number; signal: AbortSignal }): Promise<void> {

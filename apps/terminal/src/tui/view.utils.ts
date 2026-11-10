@@ -9,10 +9,7 @@ import type { StatusInfo } from './tui.types.js';
 import { usageText } from '../usage/usage.utils.js';
 import { approvalLiteral } from './approval-literal.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
-
-const ECHO_MAX_LINES = 12;
-/** The longest a running step's description is before the indicator cuts it. */
-const RUNNING_TOOL_MAX = 40;
+import { ECHO_MAX_LINES, RUNNING_TOOL_MAX } from './tui.constants.js';
 
 /**
  * A message the user sent, as the conversation shows it: a blank line, the text after a `›`, and

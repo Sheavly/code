@@ -41,8 +41,10 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   Plain `.ts` tests and fakes are excluded because their lifecycle helpers also use `use*` names;
   `.tsx` tests remain checked.
 - `harness/kind-contents`: code files export no types and no literal constants; those go in the
-  module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` exports a class, a `*.helper.ts`
-  none, and only a `*.validator.ts` exports zod schemas. Unexported local types, values and
+  module's `*.types.ts` / `*.constants.ts`. A code file also keeps no top-level literal `const`,
+  exported or not (the kind's `constantsElsewhere` policy; fakes and tests are exempt): a number,
+  string, regex or literal table moves to `*.constants.ts`. A `*.service.ts` exports a class, a
+  `*.helper.ts` none, and only a `*.validator.ts` exports zod schemas. Unexported local types and
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
 - `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it

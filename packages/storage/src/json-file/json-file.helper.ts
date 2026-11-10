@@ -8,14 +8,13 @@ import { errorCode, errorMessage, isMissingPath } from '@sheavly/runtime/errors/
 import { StorageFileError } from '../errors/storage.errors.js';
 import {
   BUSY_FILE_CODES,
+  BYTE_ORDER_MARK,
   GROUP_AND_OTHERS,
   PRIVATE_FILE_MODE,
   PRIVATE_FOLDER_MODE,
   RENAME_ATTEMPTS,
   RENAME_RETRY_DELAY_MS,
 } from './json-file.constants.js';
-
-const BYTE_ORDER_MARK = 0xfeff;
 
 /**
  * The JSON in `file`, validated with `schema`, or `undefined` when there is no such file (nothing

@@ -1,6 +1,5 @@
 import { ModelApiError } from '../errors/providers.errors.js';
-
-const LINE_BREAK = /\r\n|\r|\n/;
+import { LINE_BREAK } from './http.constants.js';
 
 /**
  * Minimal Server-Sent Events reader: yields the parsed JSON of each `data:` block.

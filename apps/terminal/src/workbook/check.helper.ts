@@ -19,18 +19,12 @@ import {
 import { runSourcesSchema } from './check.validator.js';
 import { runWorkbook } from './run.helper.js';
 import type { WorkbookStore } from './store.service.js';
-import { RUN_SOURCES_FILE } from './workbook.constants.js';
+import { ATTEMPTS, BASE, RUN_SOURCES_FILE } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
 import { toolsUsed } from './workbook.utils.js';
 
-/** A check is retried once: real models aren't fully repeatable, so one bad answer can be noise. */
-const ATTEMPTS = 2;
-
 /** A stored prompt that has a check. */
 type CheckedPrompt = StoredPrompt & { check: Check };
-
-/** The base the branch is compared to, for which checks are relevant. */
-const BASE = 'origin/main';
 
 /**
  * Files this branch changed since `BASE`, committed or not, repo-relative. The branch's own

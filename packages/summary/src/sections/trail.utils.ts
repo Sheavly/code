@@ -1,7 +1,6 @@
 import { mergeEntries } from './entries.utils.js';
+import { TRAIL_MAX_CHARS } from './sections.constants.js';
 import type { RuleSection, TrailExtractor } from './sections.types.js';
-
-const DEFAULT_MAX_CHARS = 4_000;
 
 /**
  * A trail of what the work touched, in the order it happened, one short line per tool call the
@@ -13,7 +12,7 @@ const DEFAULT_MAX_CHARS = 4_000;
  * to say the section is left out.
  */
 export function trailSection(params: { extract: TrailExtractor; maxChars?: number }): RuleSection {
-  const { extract, maxChars = DEFAULT_MAX_CHARS } = params;
+  const { extract, maxChars = TRAIL_MAX_CHARS } = params;
 
   return {
     id: 'trail',

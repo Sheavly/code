@@ -8,6 +8,7 @@ import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
 import { isAllowed } from './allow-list.utils.js';
 import { suggestEntry } from './allow-entry.utils.js';
+import { NOT_ALLOWED } from './run-command.constants.js';
 import type { CommandPermissions } from './run-command.types.js';
 
 type AskingMode = Exclude<PermissionMode, 'allow_all'>;
@@ -22,11 +23,6 @@ function hasCommandGrant(params: {
 
   return !/[\\/]/.test(argv[0] ?? '') && isAllowed({ argv, allowList: BUILT_IN_ALLOW });
 }
-
-const NOT_ALLOWED: Record<AskingMode, string> = {
-  ask: 'is not allowed yet',
-  always_ask: 'is asked about every time in this folder',
-};
 
 /** Only unapproved commands need a decision, regardless of their options and paths. */
 function findLineConcerns(params: { unlisted: readonly ScriptStep[]; mode: AskingMode }): {
