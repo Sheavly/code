@@ -14,6 +14,7 @@ import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
+import { sharedScratchRoot } from './scratch.helper.js';
 import { backendSummary, subAgentSummary } from './summary.helper.js';
 import { workspacePermissions } from './permissions.helper.js';
 import type { PlacedConversationStore } from '../profiles/placed-conversation-store.service.js';
@@ -85,6 +86,7 @@ export async function servedConversation(params: {
     ...(settings.summary && { summarizeWith: subAgentSummary }),
     subAgentProvider: () => selectedProvider({ models: workspace.models, onModelCall }),
     workspaceRoot: placement.workspace,
+    scratchRoot: sharedScratchRoot(),
     fileLocks,
     permissions,
     title: 'Conversation',

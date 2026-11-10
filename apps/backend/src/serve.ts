@@ -18,9 +18,11 @@
  */
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
+import { pruneScratch } from '@sheavly/workspace/scratch/scratch.helper';
 import { serve } from '@hono/node-server';
 import { createApiApp } from './api/api.helper.js';
 import { createBackend } from './backend.helper.js';
+import { sharedScratchRoot } from './harness/scratch.helper.js';
 import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
 import { sheavlyHome } from './profiles/home.helper.js';
 
@@ -41,6 +43,11 @@ const { conversations, setup, workspaces, permissions } = createBackend({
   log,
   remoteSetupAllowed: server.remoteSetupAllowed,
 });
+
+// Stale scratch entries are removed once at startup; a failure is reported, never fatal.
+pruneScratch({ root: sharedScratchRoot() }).catch((caughtError: unknown) =>
+  log(`Could not prune the scratch folder: ${String(caughtError)}\n`),
+);
 const app = createApiApp({ conversations, setup, workspaces, permissions, token });
 
 /** What the user needs once the server listens: where their data is, and the token when made here. */
