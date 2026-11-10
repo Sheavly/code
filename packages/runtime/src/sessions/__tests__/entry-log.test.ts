@@ -54,6 +54,29 @@ function replayInto(params: {
   return { heard, stop };
 }
 
+describe('an entry log without a store', () => {
+  it('keeps only the newest in memory and replays from the oldest it still holds', () => {
+    const log = new EntryLog({ lineage: noLineage });
+    const total = ENTRY_TAIL_SIZE * 3;
+
+    addEvents({ log, count: total });
+
+    expect(log.retained).toBe(ENTRY_TAIL_SIZE);
+    expect(seqs(replayInto({ log }).heard)).toEqual(range(total - ENTRY_TAIL_SIZE, total));
+  });
+
+  it('numbers new entries on from the dropped ones', () => {
+    const log = new EntryLog({ lineage: noLineage });
+    const heard: StreamEntry[] = [];
+
+    addEvents({ log, count: ENTRY_TAIL_SIZE + 5 });
+    log.subscribe({ listener: (entry) => heard.push(entry) });
+    addEvents({ log, count: 1 });
+
+    expect(seqs(heard)).toEqual([ENTRY_TAIL_SIZE + 5]);
+  });
+});
+
 describe('an entry log with a store', () => {
   it('writes every entry in order and keeps only the newest in memory', async () => {
     const store = new MemoryConversationStore();

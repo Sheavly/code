@@ -48,6 +48,12 @@ While idle it accepts messages, kept for its next prompt, but no status reports 
 - Every refusal is a `SessionError` (`@sheavly/runtime/errors/`) with a `reason` (`unknown_session`,
   `parent_ended`, `too_deep`, `session_ended`, `session_running`, `not_an_ancestor`) and the `sessionId` it was
   about, so a caller tells the cases apart without reading the message.
+- `release(id)` forgets an ended session and every sub-agent under it, with their queued messages,
+  last tokens and message ids, and returns how many sessions went. The registry never does this on
+  its own, so a long-lived host calls it for conversations it is done with. It throws
+  `session_running` if the session or a sub-agent under it is still open, and releases nothing then.
+  Entries already in the combined stream stay; a later `publish` for a released session is refused
+  as for an unknown one.
 - `lineage(id)` walks a session up to the main session; `children(id)` lists the ones it started.
 - A run takes `session: { registry, ref }`. Without one it starts its own main session. Either
   way the loop ends the session with the run's outcome, and the `done` event carries its ref.
@@ -124,10 +130,11 @@ A UI picks what it follows with the second argument:
 - `replay: true` (with any of these): first every matching entry since the run started, then
   live, so a panel opened late still starts at the beginning.
 
-By default the registry keeps every entry for this, for as long as it lives. Given a `store`
-(`new SessionRegistry({ store })`, an `EntryStore` from `@sheavly/core/store/`), it also writes
-each entry to it in order and keeps only the newest `ENTRY_TAIL_SIZE` in memory, so a long
-conversation's memory stays bounded. A replay that reaches further back than memory is read from
+The registry keeps only the newest `ENTRY_TAIL_SIZE` entries in memory, so a long conversation's
+memory stays bounded. Without a store, `replay` starts at the oldest entry still held, not at the
+run's start; entries keep their `seq`, so a replay's first `seq` says how many were dropped. Given a
+`store` (`new SessionRegistry({ store })`, an `EntryStore` from `@sheavly/core/store/`), it also
+writes each entry to it in order, and a replay that reaches further back than memory is read from
 the store and delivered a moment later, in order and before any live entry; if the store can't
 give every entry it should (a lost write), the replay stops and `subscribeEntries`' `onError`
 hears a `StoreError`, rather than show a conversation with a hole in it. If a write fails, the
@@ -154,8 +161,7 @@ before that call reads the stored, older numbers.
 A `done` in the combined stream has no `messages`, for live listeners and replay alike
 (`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
 so far, and a kept log would grow with the square of a long conversation. The history comes from
-whoever ran the loop: the run's own `done`, or `conversation.messages`. Without a store the log
-still keeps every other entry, `text_delta`s included, for as long as the registry lives.
+whoever ran the loop: the run's own `done`, or `conversation.messages`.
 
 Following only the main session needs none of this: the main run's own `streamAgent` stream
 has only its events, and its sub-agents work in the background (shown by their session updates).

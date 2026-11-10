@@ -11,6 +11,7 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { OutputBuffer } from '../output/output.service.js';
+import { abortableWait } from '../wait/abortable-wait.helper.js';
 
 type Entry = {
   info: TaskInfo;
@@ -125,6 +126,24 @@ export class TaskRegistry {
     return this.list().filter((t) => t.status === 'running').length;
   }
 
+  /**
+   * Forgets a task that has finished and been reported (or was cancelled on request), with its
+   * output and report. Returns false, changing nothing, for a task still running, one finished
+   * but not yet reported, or an unknown id.
+   */
+  release(id: TaskId): boolean {
+    const entry = this.#tasks.get(id);
+
+    if (!entry || entry.info.status === 'running' || this.#unreported.includes(id)) return false;
+
+    return this.#tasks.delete(id);
+  }
+
+  /** Releases every task `release` would, and returns how many went. */
+  releaseFinished(): number {
+    return [...this.#tasks.keys()].filter((id) => this.release(id)).length;
+  }
+
   /** Stops a task and waits for it to exit. Returns undefined for unknown ids. */
   async cancel(id: TaskId): Promise<TaskInfo | undefined> {
     const entry = this.#tasks.get(id);
@@ -164,9 +183,23 @@ export class TaskRegistry {
     );
   }
 
-  /** Resolves the next time any task finishes. */
-  nextSettled(): Promise<void> {
-    return new Promise((resolve) => this.#waiters.push(resolve));
+  /**
+   * Resolves the next time any task finishes. Aborting `signal` drops the wait and resolves it,
+   * for a caller that stopped waiting.
+   */
+  nextSettled(signal?: AbortSignal): Promise<void> {
+    return abortableWait({
+      signal,
+      register: (wake) => this.#waiters.push(wake),
+      unregister: (wake) => {
+        this.#waiters = this.#waiters.filter((waiter) => waiter !== wake);
+      },
+    });
+  }
+
+  /** How many callers wait for a task to finish: none is left behind by one that gave up. */
+  get settleWaiters(): number {
+    return this.#waiters.length;
   }
 
   #settle(params: { entry: Entry; status: TaskStatus; result: TaskResult }) {

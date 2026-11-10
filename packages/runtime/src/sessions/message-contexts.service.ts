@@ -14,6 +14,11 @@ export class MessageContexts {
     this.#messages.set(sessionId, messageId);
   }
 
+  /** Drops what is known about a session that was released. */
+  forget(id: SessionId): void {
+    this.#messages.delete(id);
+  }
+
   inherit(params: { sessionId: SessionId; parentId: SessionId }): void {
     const messageId = this.#messages.get(params.parentId);
 

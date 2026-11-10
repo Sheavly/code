@@ -18,11 +18,11 @@ type Matcher = (entry: StreamEntry) => boolean;
  * copy, so no listener can change what the run itself holds, and a listener that throws never
  * reaches the run or the listeners after it.
  *
- * Without a store, every entry stays in memory for the life of the run. With one, each entry is
- * also written to it, in order, and only the newest `ENTRY_TAIL_SIZE` stay in memory: a replay
- * that reaches further back reads the rest from the store, so a long conversation's memory is
- * bounded. If a write fails, nothing more is written and `failure` says why: the log goes on in
- * memory, and whoever owns the conversation decides to stop it.
+ * Only the newest `ENTRY_TAIL_SIZE` entries stay in memory, so a long conversation's memory is
+ * bounded. Without a store, a replay starts at the oldest of them. With one, each entry is also
+ * written to it, in order, and a replay that reaches further back reads the rest from the store.
+ * If a write fails, nothing more is written and `failure` says why: the log then keeps every
+ * entry in memory, and whoever owns the conversation decides to stop it.
  */
 export class EntryLog {
   #tail: StreamEntry[] = [];
@@ -61,7 +61,7 @@ export class EntryLog {
     return this.#failure;
   }
 
-  /** How many entries are in memory: all of them without a store, the newest few with one. */
+  /** How many entries are in memory: at most `ENTRY_TAIL_SIZE`, unless a store write failed. */
   get retained(): number {
     return this.#tail.length;
   }
@@ -194,13 +194,14 @@ export class EntryLog {
   }
 
   /**
-   * With a store, the oldest entries leave memory as new ones arrive; the store has them. Not
-   * once a write has failed: those entries exist nowhere else.
+   * The oldest entries leave memory as new ones arrive. With a store, it has them; without one
+   * they are gone, and a replay starts at the oldest entry still held. Not once a write has
+   * failed: those entries exist nowhere else.
    */
   #dropOldFromMemory(): void {
-    if (!this.#store) return;
+    if (this.#store && this.#failure) return;
 
-    while (!this.#failure && this.#tail.length > ENTRY_TAIL_SIZE) {
+    while (this.#tail.length > ENTRY_TAIL_SIZE) {
       this.#tail.shift();
       this.#tailStart++;
     }

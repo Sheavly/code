@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
-import { MAX_SESSION_DEPTH } from './sessions.constants.js';
+import { checkedParent } from './child-check.helper.js';
 import { EntryLog } from './entry-log.service.js';
 import { restoreSessions } from './restore.helper.js';
+import { releaseSubtree } from './release.helper.js';
 import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
@@ -56,8 +57,8 @@ export class SessionRegistry {
   readonly #messageContexts: MessageContexts;
 
   /**
-   * With a `store`, the combined stream is also written to it and only its newest entries stay in
-   * memory (`EntryLog`); without one, behaves as it always has. With `resume` (read from the same
+   * Only the newest entries of the combined stream stay in memory (`EntryLog`); with a `store`
+   * they are also written to it, and a replay reads the older ones from there. With `resume` (read from the same
    * store by `readStoredLog`), it carries on a stored conversation: numbering continues, its
    * sessions are back, and `restoredMain()` is the main session, idle for the next prompt. A
    * sub-agent that was still open when the process died is `interrupted`: it is not run again.
@@ -124,34 +125,7 @@ export class SessionRegistry {
    */
   startChild(params: { parentId: SessionId; startedByCall: CallId; title: string }): SessionRef {
     const { parentId, startedByCall, title } = params;
-    const parent = this.#sessions.get(parentId);
-
-    if (!parent) {
-      throw new SessionError({
-        reason: 'unknown_session',
-        sessionId: parentId,
-        message: `Unknown parent session ${parentId}: a sub-agent must belong to a session`,
-      });
-    }
-
-    if (parent.state !== 'running') {
-      throw new SessionError({
-        reason: 'parent_ended',
-        sessionId: parentId,
-        message:
-          parent.state === 'idle'
-            ? `Parent session ${parentId} is idle between prompts; only a running session starts sub-agents`
-            : `Parent session ${parentId} has ended (${parent.state}); it cannot start sub-agents`,
-      });
-    }
-
-    if (parent.depth >= MAX_SESSION_DEPTH) {
-      throw new SessionError({
-        reason: 'too_deep',
-        sessionId: parentId,
-        message: `Sub-agents nest at most ${MAX_SESSION_DEPTH} levels (main session → sub-agent → sub-agent); session ${parentId} is at depth ${parent.depth}`,
-      });
-    }
+    const parent = checkedParent({ parentId, parent: this.#sessions.get(parentId) });
 
     return this.#add({
       id: sessionIdSchema.parse(randomUUID()),
@@ -259,6 +233,22 @@ export class SessionRegistry {
     this.#inboxes.add({ id, message });
   }
 
+  /**
+   * Forgets an ended session and every sub-agent under it, with their queued messages, last
+   * tokens and message ids, and returns how many sessions went. Throws `session_running` if any
+   * of them is still open. Entries already in the combined stream stay; a later `publish` for a
+   * released session throws as for an unknown one.
+   */
+  release(id: SessionId): number {
+    this.#require(id);
+
+    return releaseSubtree({
+      id,
+      sessions: this.#sessions,
+      holders: [this.#inboxes, this.#lastTokens, this.#messageContexts],
+    });
+  }
+
   /** Removes and returns the session's queued messages, oldest first. */
   takeMessages(id: SessionId): InboxMessage[] {
     return this.#inboxes.take(id);
@@ -268,9 +258,17 @@ export class SessionRegistry {
     return this.#inboxes.has(id);
   }
 
-  /** Resolves when a message arrives for the session (or it ends). For a loop waiting idle. */
-  nextMessage(id: SessionId): Promise<void> {
-    return this.#inboxes.next(id);
+  /**
+   * Resolves when a message arrives for the session (or it ends). For a loop waiting idle.
+   * Aborting `signal` drops the wait, for a caller that stopped waiting.
+   */
+  nextMessage(id: SessionId, signal?: AbortSignal): Promise<void> {
+    return this.#inboxes.next(id, signal);
+  }
+
+  /** How many callers wait on the session's inbox: none is left behind by one that gave up. */
+  inboxWaiters(id: SessionId): number {
+    return this.#inboxes.waiting(id);
   }
 
   get(id: SessionId): SessionInfo | undefined {

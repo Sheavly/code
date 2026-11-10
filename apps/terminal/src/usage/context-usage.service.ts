@@ -32,7 +32,10 @@ export class ContextUsageTracker {
 
     this.#snapshot = {
       throughSeq: entry.seq,
-      ...(tokens && { used: tokens.inputTokens + tokens.outputTokens }),
+      ...(tokens && {
+        used: tokens.inputTokens + tokens.outputTokens,
+        cached: tokens.cacheReadTokens,
+      }),
       ...(contextWindow !== undefined && { window: contextWindow }),
     };
   }

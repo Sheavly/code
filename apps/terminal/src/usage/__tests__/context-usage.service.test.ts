@@ -23,7 +23,7 @@ describe('ContextUsageTracker', () => {
     const tracker = new ContextUsageTracker(main);
 
     tracker.observe(entry({ seq: 1, usage: { tokens, contextWindow: 300_000 } }));
-    expect(tracker.snapshot).toEqual({ throughSeq: 1, used: 120, window: 300_000 });
+    expect(tracker.snapshot).toEqual({ throughSeq: 1, used: 120, cached: 50, window: 300_000 });
     tracker.observe(entry({ seq: 2, usage: { tokens, contextWindow: 300_000 } }));
     expect(tracker.snapshot.used).toBe(120);
   });
@@ -55,7 +55,7 @@ describe('ContextUsageTracker', () => {
         },
       }),
     );
-    expect(tracker.snapshot).toEqual({ throughSeq: 1, used: 120, window: 300_000 });
+    expect(tracker.snapshot).toEqual({ throughSeq: 1, used: 120, cached: 50, window: 300_000 });
   });
 
   it('clears stale measurements on missing usage and accepts a switched window', () => {
@@ -66,6 +66,6 @@ describe('ContextUsageTracker', () => {
     tracker.update({ throughSeq: 2, window: 1_000_000 });
     expect(tracker.snapshot.window).toBe(1_000_000);
     tracker.observe(entry({ seq: 3, usage: { tokens } }));
-    expect(tracker.snapshot).toEqual({ throughSeq: 3, used: 120 });
+    expect(tracker.snapshot).toEqual({ throughSeq: 3, used: 120, cached: 50 });
   });
 });
