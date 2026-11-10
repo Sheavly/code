@@ -45,6 +45,40 @@ describe('responsesEventSchema', () => {
     ).toBe(false);
   });
 
+  it.each([-1, 1.5, '3'])('rejects cache_write_tokens of %s', (bad) => {
+    expect(
+      responsesEventSchema.safeParse({
+        type: 'response.completed',
+        response: {
+          usage: {
+            input_tokens: 10,
+            output_tokens: 1,
+            input_tokens_details: { cached_tokens: 0, cache_write_tokens: bad },
+          },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each(['response.completed', 'response.incomplete'])(
+    'rejects cache reads plus writes exceeding input on %s',
+    (type) => {
+      expect(
+        responsesEventSchema.safeParse({
+          type,
+          response: {
+            incomplete_details: { reason: 'max_output_tokens' },
+            usage: {
+              input_tokens: 10,
+              output_tokens: 0,
+              input_tokens_details: { cached_tokens: 10, cache_write_tokens: 1 },
+            },
+          },
+        }).success,
+      ).toBe(false);
+    },
+  );
+
   it('rejects a reasoning item without encrypted content (it could not be resent)', () => {
     expect(
       responsesEventSchema.safeParse({

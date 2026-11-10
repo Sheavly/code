@@ -74,6 +74,47 @@ describe('modelsOf', () => {
     expect(models.switch.names().sort()).toEqual([ASTRA, BORA].sort());
   });
 
+  it.each([undefined, true, false])(
+    'respects explicitCache=%s for saved OpenAI and Azure definitions',
+    async (explicitCache) => {
+      const stored = [azure, openai].map((model) => ({
+        ...model,
+        definition: {
+          ...model.definition,
+          ...(explicitCache !== undefined && { explicitCache }),
+        },
+      }));
+      const { profile } = await profileWith({ models: stored });
+      const { fetch, requests } = fakeFetch([]);
+      const { models } = await modelsOf({
+        profile,
+        registry: createDefaultRegistry({ fetch }),
+        request: REQUEST,
+      });
+
+      for (const model of stored) {
+        models.switch.use(model.id);
+        await collect(
+          models.switch.stream({
+            messages: [{ role: 'user', content: 'Legacy prompt' }],
+            tools: [],
+            signal: new AbortController().signal,
+          }),
+        );
+        expect((await profile.getModel(model.id))?.definition).toEqual(model.definition);
+      }
+
+      for (const request of requests) {
+        if (explicitCache === true) {
+          expect(request.body.prompt_cache_options).toEqual({ mode: 'explicit' });
+        } else {
+          expect(request.body).not.toHaveProperty('prompt_cache_options');
+          expect(JSON.stringify(request.body.input)).not.toContain('prompt_cache_breakpoint');
+        }
+      }
+    },
+  );
+
   it('starts on the first model, or on the profile’s last one when it is among them', async () => {
     const { profile } = await profileWith({ models: [azure, openai] });
 

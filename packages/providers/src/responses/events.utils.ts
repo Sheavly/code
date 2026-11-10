@@ -56,7 +56,7 @@ function usageOf(
       inputTokens: usage.input_tokens,
       outputTokens: usage.output_tokens,
       cacheReadTokens: usage.input_tokens_details?.cached_tokens ?? 0,
-      cacheWriteTokens: 0,
+      cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
     },
   };
 }

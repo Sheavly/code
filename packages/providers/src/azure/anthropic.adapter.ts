@@ -54,10 +54,10 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
         description:
           'Only for enabled thinking: at least 1024, under max tokens. Leave empty for adaptive or disabled.',
       }),
-      promptCaching: z.boolean().optional().meta({
+      promptCaching: z.boolean().default(true).meta({
         title: 'Prompt caching',
         description:
-          'Send cache_control so repeated turns reuse the prompt prefix. On unless set to false; turn it off only for a deployment that rejects the field.',
+          'Send cache_control so repeated turns reuse the prompt prefix. On by default; turn it off only for a deployment that rejects the field.',
       }),
       request: requestPolicySchema,
     })

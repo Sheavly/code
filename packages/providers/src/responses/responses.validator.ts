@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { tokenUsageSchema } from '@sheavly/protocol/usage/usage.validator';
 
 // The streamed Responses API events we read; any other event type fails to parse and is skipped.
 
@@ -16,11 +17,28 @@ const reasoningOutputItemSchema = z.looseObject({
   encrypted_content: z.string().min(1),
 });
 
-const usageSchema = z.object({
-  input_tokens: z.number().int().nonnegative(),
-  output_tokens: z.number().int().nonnegative(),
-  input_tokens_details: z.object({ cached_tokens: z.number().int().nonnegative() }).nullish(),
-});
+const usageSchema = z
+  .object({
+    input_tokens: z.number().int().nonnegative(),
+    output_tokens: z.number().int().nonnegative(),
+    input_tokens_details: z
+      .object({
+        cached_tokens: z.number().int().nonnegative(),
+        // Absent on backends that predate cache-write reporting.
+        cache_write_tokens: z.number().int().nonnegative().nullish(),
+      })
+      .nullish(),
+  })
+  .refine(
+    (usage) =>
+      tokenUsageSchema.safeParse({
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        cacheReadTokens: usage.input_tokens_details?.cached_tokens ?? 0,
+        cacheWriteTokens: usage.input_tokens_details?.cache_write_tokens ?? 0,
+      }).success,
+    'Cache reads and writes must fit within total input tokens',
+  );
 
 export const responsesEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('response.output_text.delta'), delta: z.string() }),

@@ -204,7 +204,12 @@ describe('provider output continuation through the real loop', () => {
     expect(result.reason).toBe('completed');
     expect(requests).toHaveLength(2);
     expect(requests[1]?.body.input).toMatchObject([
-      { role: 'user', content: 'Explain.' },
+      {
+        role: 'user',
+        content: [
+          { type: 'input_text', text: 'Explain.', prompt_cache_breakpoint: { mode: 'explicit' } },
+        ],
+      },
       { role: 'assistant', content: 'Partial.' },
       { role: 'user', content: formatHarnessNotice({ kind: 'output-continuation', attempt: 1 }) },
     ]);

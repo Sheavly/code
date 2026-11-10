@@ -12,14 +12,19 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { testBackend } from '../../testing/backend.fake.js';
 import { seedFakeModel } from '../../testing/seed-model.fake.js';
 
-type ModelInput = { role?: string; type?: string; content?: string }[];
+type ModelInput = {
+  role?: string;
+  type?: string;
+  content?: string | { type: string; text: string }[];
+}[];
 type TestBackend = ReturnType<typeof testBackend>;
 
 /** The parent starts one sub-agent; the sub-agent runs a command that needs approval. */
 function scriptedModel(): typeof globalThis.fetch {
   return async (input, init) => {
     const body = JSON.parse(await new Request(input, init).text()) as { input: ModelInput };
-    const task = body.input.find((item) => item.role === 'user')?.content;
+    const content = body.input.find((item) => item.role === 'user')?.content;
+    const task = Array.isArray(content) ? content.map((block) => block.text).join('') : content;
     const resumed = body.input.some((item) => item.type === 'function_call_output');
     const call = (name: string, args: Record<string, string>) =>
       fakeFetch([

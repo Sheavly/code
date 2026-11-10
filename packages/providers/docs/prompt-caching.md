@@ -9,7 +9,7 @@ The contract side (the prefix rules every adapter follows, `ProviderRequest.cach
 | Backend                                    | Sent today                                                                                                                                                        |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Messages (`azure-anthropic`, any Messages) | Top-level `cache_control: {type: "ephemeral"}`, plus a block-level marker on the last history block when notices follow it. `promptCaching: false` turns both off |
-| Responses (`openai`, `azure-openai`)       | `prompt_cache_key` = `ProviderRequest.cacheKey` (the session id). Caching itself is automatic                                                                     |
+| Responses (`openai`, `azure-openai`)       | `prompt_cache_key` = `ProviderRequest.cacheKey` (the session id). With `explicitCache: true`, also explicit-only `prompt_cache_options` and history breakpoints   |
 | Chat Completions (`azure-chat`)            | Nothing; the backends cache automatically and report hits in `usage`                                                                                              |
 
 Caching keeps processed prompt prefixes at the provider for minutes to hours (see each backend below), and the Messages request sends `cache_control` unless `promptCaching` is `false`. A deployment under a zero-retention agreement, or one that rejects the field with a 400 (the legacy Bedrock integration for Opus 4.6 and earlier), sets `promptCaching: false`. The session id sent as the Responses `prompt_cache_key` is a random UUID, never derived from a path, title or prompt.
@@ -36,8 +36,15 @@ A session is one cache scope: the main session and each sub-agent have their own
 - Automatic. The whole rendered prefix (instructions, tools, history) must match; a changed `tools` or `reasoning.effort` setting changes it.
 - `prompt_cache_key` improves matching for related requests. Beyond about 15 requests a minute for one prefix and key, some requests may miss; Azure advises spreading higher volume over several keys with a stable mapping.
 - GPT-5.6 and later add `prompt_cache_options` (`mode`, `ttl`) and `prompt_cache_breakpoint` on input blocks, and charge for cache writes. Models before it reject those parameters.
-- Usage: cached input tokens (already mapped as a subset of input).
-- Contract impact: none for now. Breakpoints would be an adapter option gated on the model family; the automatic mode already caches the prefix. Follow-up only if write charges make a per-request opt-out worth it.
+- Usage: `input_tokens_details.cached_tokens` (cache reads, a subset of input) and `cache_write_tokens` (cache writes, also a subset). A missing write count is 0, so older backends keep working; a negative or non-integer count, or reads plus writes exceeding total input, is rejected.
+- Implicit mode ends its write at the latest user message or tool result. The harness sends transient notices as a last user message that the next request no longer contains, so that write could never be matched again.
+- `explicitCache` (config of `openai` and `azure-openai`, default `true`; set `false` for models before GPT-5.6): sends `prompt_cache_options: {mode: "explicit"}` and marks up to four retained user messages and tool results with `prompt_cache_breakpoint`, which is the limit of cache writes per request. The boundary before the latest tool-call turn stays marked for lookup even when four or more parallel results would otherwise replace every earlier marker; remaining slots mark the latest results. Notices follow the last breakpoint, so they are never written, and the previous request's boundary stays marked on the next. User and tool content is sent as `input_text` blocks (tool results inside `function_call_output.output`) so a message does not change form when it stops being the boundary. Stored history is not changed.
+- It is on by default, for GPT-5.6 or later models (such as GPT-6.1 Sol). It is never guessed from a model or deployment name, which Azure lets you choose freely; a model before GPT-5.6 rejects the fields with a 400, so leave it off there. A prefix under the minimum cacheable length (1,024 tokens) is not cached.
+- The backend preserves saved definitions without `explicitCache` as `false`, without rewriting their files, while newly created setup models store the default as `true`. Legacy models opt in explicitly; connection checks and setup forms use the same effective setting. Direct adapter consumers must opt out for unsupported deployments themselves. See [backend models and keys](../../../apps/backend/docs/harness.md#models-and-keys).
+- Azure supports breakpoints on Standard pay-as-you-go deployments of GPT-5.6 and later. On provisioned (PTU-M) deployments only GPT-6 and newer do, so leave `explicitCache` off for a provisioned GPT-5.6 deployment. Azure reports `cache_write_tokens` on Standard deployments.
+- A prompt over 272K input tokens is billed at 2x the input and cache rates and 1.5x the output rate for the whole request on OpenAI. The model's configured pricing is flat, so `estimatedCostUsd` understates those calls.
+- Cost: writes cost 1.25x the ordinary input rate at the default 30-minute lifetime; reads cost 0.1x (0.05x on Sol and Terra). `pricedProvider` charges each input token once at the ordinary, read or write rate.
+- Contract impact: none. The adapter marks the end of the retained history itself, as the Messages adapter does.
 
 ### Chat Completions backends (DeepSeek, Azure chat)
 
@@ -86,4 +93,5 @@ Not opened yet; each needs an issue before the adapter it belongs to:
 
 - Bedrock adapter (Converse `cachePoint`, InvokeModel `cache_control`).
 - Gemini adapter: implicit now, explicit cache lifecycle only if needed.
-- Optional 1-hour TTL for Messages, and `prompt_cache_options` for GPT-5.6 and later, if cache write charges or idle gaps over 5 minutes show up in real runs.
+- Optional 1-hour TTL for Messages, and a 12-hour `ttl` for Responses, if idle gaps over the default lifetime show up in real runs.
+- Measure live reuse on Sol with consecutive tool turns (cache reads and writes in `usage`). It needs paid calls, so it has not been run.

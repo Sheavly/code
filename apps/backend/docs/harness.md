@@ -92,6 +92,13 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   its latest mode in the profile, even if another conversation changed that preference. A
   resumed conversation instead restores its own saved pair. A mode-only switch is persisted
   through the same API, without changing the model.
+- **Responses caching compatibility.** New `openai` and `azure-openai` models created through setup
+  store `explicitCache: true` by default; unsupported deployments must explicitly set it to false.
+  Saved definitions without this setting keep automatic caching (`explicitCache: false`) when
+  loaded, displayed or connection-checked, without rewriting their files or guessing from a model
+  or deployment name. Editing a legacy model does not enable it implicitly; set it to true to opt in.
+  Direct adapter consumers receive the adapter's default-on behavior and must opt out for unsupported
+  deployments. See [prompt caching](../../../packages/providers/docs/prompt-caching.md).
 - **A model that can't be used** (no key, a definition its adapter refuses) is left out with a
   note on the log, and never costs the user the others. A note says which model and why, never the
   key and never what a provider answered.

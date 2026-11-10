@@ -7,6 +7,7 @@ import type { ModelSwitch } from '../harness/harness.types.js';
 import type { ProfileModels, RequestSettings } from './profiles.types.js';
 import { withContextWindow } from '../usage/context-window.helper.js';
 import { pricedProvider } from '../usage/priced-provider.helper.js';
+import { withResponsesCacheDefault } from './cache-definition.utils.js';
 
 /**
  * A profile's models, each combined with its secrets and built into a provider by the adapter
@@ -38,7 +39,8 @@ export async function modelsOf(params: {
     const secrets = await profile.getSecrets(model.id);
 
     try {
-      const provider = registry.create(model.adapter, { ...model.definition, ...secrets, request });
+      const definition = withResponsesCacheDefault({ ...model, enabled: false });
+      const provider = registry.create(model.adapter, { ...definition, ...secrets, request });
       const remote = model.definition[remoteFields.get(model.adapter) ?? ''];
 
       models.switch.add(

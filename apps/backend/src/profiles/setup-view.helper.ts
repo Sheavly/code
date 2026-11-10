@@ -7,6 +7,7 @@ import type { OpenProfile } from '@sheavly/storage/profile-registry/open-profile
 import { modelsOf } from './models.helper.js';
 import type { RequestSettings } from './profiles.types.js';
 import { credentialState, withoutSecrets } from './setup.utils.js';
+import { withResponsesCacheDefault } from './cache-definition.utils.js';
 
 type ProfileView = Setup['profiles'][number];
 type ModelView = ProfileView['models'][number];
@@ -40,7 +41,10 @@ function modelView(params: {
 
   return {
     ...model,
-    definition: withoutSecrets({ definition: model.definition, secrets: required ?? [] }),
+    definition: withoutSecrets({
+      definition: withResponsesCacheDefault({ ...model, enabled: false }),
+      secrets: required ?? [],
+    }),
     credential: credentialState({ required, set }),
     usable,
   };

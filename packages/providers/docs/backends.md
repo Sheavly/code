@@ -57,7 +57,9 @@ Every model deployed on Azure uses the adapter for its endpoint's protocol, all 
 | Claude                                                           | `azure-anthropic` | `https://<resource>.services.ai.azure.com/anthropic` |
 
 `deployment` is the deployment name in the portal. A model whose `/responses` sends no encrypted
-reasoning back takes `reasoning: false`. Claude needs `maxTokens`: the maximum output tokens per
+reasoning back takes `reasoning: false`. `explicitCache` (also on `openai`) defaults to `true` and caches history before transient
+notices; a model before GPT-5.6 needs `explicitCache: false`. It is never inferred from the
+deployment name. See [prompt-caching.md](prompt-caching.md). Claude needs `maxTokens`: the maximum output tokens per
 reply including thinking, not the context window. An explicit limit must fit the deployment's
 output limit; omit it to use the model-aware default described below.
 `thinkingMode: 'adaptive'` lets supported models choose their own thinking budget, with no
