@@ -72,11 +72,11 @@ const sessionDetails = {
   mode: modelModeSchema.exactOptional(),
 };
 
+/** A snapshot of a sub-agent: who it is, who started it, and where it is. */
+export const agentInfoSchema = agentRefSchema.extend(sessionDetails);
+
 /** A snapshot of a session, for a UI (e.g. a sub-agent card). */
-export const sessionInfoSchema = z.union([
-  mainRefSchema.extend(sessionDetails),
-  agentRefSchema.extend(sessionDetails),
-]);
+export const sessionInfoSchema = z.union([mainRefSchema.extend(sessionDetails), agentInfoSchema]);
 
 /** A message waiting in a session's inbox, delivered at its next model call. */
 export const inboxMessageSchema = z.object({

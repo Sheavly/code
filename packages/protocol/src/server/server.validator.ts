@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
-import { historyMessageSchema, promptPartSchema } from '../message/message.validator.js';
+import { clientHistoryMessageSchema, historyMessageSchema } from '../history/history.validator.js';
+import { promptPartSchema } from '../message/message.validator.js';
 import { adapterKindSchema, modelIdSchema, modelModeSchema } from '../model/model.validator.js';
 import { permissionModeSchema } from '../permission/permission.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
@@ -25,7 +26,7 @@ export const conversationIdSchema = lowercaseUuidSchema.brand<'ConversationId'>(
  * else the default). Both are fixed for the conversation's life and kept with it.
  */
 export const startConversationRequestSchema = z.object({
-  messages: z.array(historyMessageSchema).exactOptional(),
+  messages: z.array(clientHistoryMessageSchema).exactOptional(),
   workspace: z.string().min(1).exactOptional(),
   profile: profileIdSchema.exactOptional(),
 });

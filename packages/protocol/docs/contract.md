@@ -45,6 +45,24 @@ number within the model contract's bound. Zero usage and usage exceeding capacit
 Context and recovery notices each have their own ordered `harness_notice` event before the call.
 Stored `output_continuation` entries remain readable; new runs use the shared notice contract.
 
+Every kind has a lifetime. The two above are **transient**: sent beside the history on one model
+call and never stored, because a context count is stale on the next call and a continuation's
+partial reply is already in history. **Persistent** kinds are facts the model has to remember, so
+they are also stored in history as a `notice` entry (`NoticeMessage`, in `history/`: `{ role:
+'notice', notice, at }`), and the same payload is carried by the `harness_notice` event. A UI can
+read it from either and decides whether and how to show it.
+
+- `agent-report`: a sub-agent finished. `agent` is its `AgentInfo` snapshot (id, title, parent,
+  root, depth, model, last reported status, times), `taskId` the background task it ran as,
+  `outcome` how it ended (`RunOutcome`) and `report` what it wrote, whole and unbounded.
+- `task-finished`: a background task finished. `task` is its `TaskInfo`, whose `output` is still
+  the bounded preview.
+
+A persistent notice is a snapshot at the moment it was written. Live state comes from the session
+stream, and a UI joins the two by session or task id. `history/` sits above `message/`,
+`session/` and `task/` because an entry that carries their data would otherwise make `message/`
+import them back.
+
 Notice payloads are structured facts, not model prose, colors, widgets or display directives.
 A UI can show a percentage, a warning, its own visualization, or nothing, without parsing an
 assistant message or importing provider code. Model handling guidance belongs to the core

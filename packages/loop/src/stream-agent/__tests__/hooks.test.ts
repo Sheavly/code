@@ -113,7 +113,7 @@ describe('hooks in the loop', () => {
       'Base prompt.\n\nTurn 1 rule.\n\nOnly on turn 1.',
       'Base prompt.\n\nTurn 2 rule.',
     ]);
-    expect(messages.some((m) => m.role !== 'summary' && m.content.includes('rule.'))).toBe(false);
+    expect(messages.some((m) => 'content' in m && m.content.includes('rule.'))).toBe(false);
   });
 
   it('sends no instructions at all when there are none', async () => {
@@ -300,7 +300,7 @@ describe('hooks in the loop', () => {
 
         const last = nested.at(-1);
 
-        return last && last.role !== 'summary' ? last.content : '';
+        return last && 'content' in last ? last.content : '';
       },
     });
     const subCall = {

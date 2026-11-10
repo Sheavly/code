@@ -17,7 +17,7 @@ export const callIdSchema = z.string().brand<'CallId'>();
  * timed, or one a caller writes by hand, still reads; the harness stamps every message it makes.
  * Never sent to a model.
  */
-const messageTimeSchema = timestampSchema.exactOptional();
+export const messageTimeSchema = timestampSchema.exactOptional();
 
 /** A tool call the model asked for. */
 export const toolCallSchema = z.object({
@@ -61,7 +61,7 @@ const summarySectionSchema = z.object({
 /**
  * What a model is sent: user, assistant and tool messages. A `summary` is not one of them: the
  * loop renders the latest checkpoint as text in the view, so a provider never has to know the
- * role (`historyMessageSchema` adds it for whoever keeps the whole history).
+ * role (`historyMessageSchema`, in `history/`, adds it for whoever keeps the whole history).
  */
 export const messageSchema = z.discriminatedUnion('role', [
   z.object({
@@ -112,12 +112,6 @@ export const summaryMessageSchema = z.object({
   summarizer: z.string().min(1),
   at: messageTimeSchema,
 });
-
-/** One entry of the stored conversation: what a model is sent, and the checkpoints. */
-export const historyMessageSchema = z.discriminatedUnion('role', [
-  ...messageSchema.options,
-  summaryMessageSchema,
-]);
 
 /** Why a turn ended: the model's reason, or `interrupted` if the run's signal aborted. */
 export const turnStopReasonSchema = z.enum([

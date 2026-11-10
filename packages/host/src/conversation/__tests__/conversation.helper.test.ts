@@ -151,7 +151,7 @@ describe('a conversation', () => {
     await collect(conversation.send('again'));
 
     expect(
-      conversation.messages.filter((m) => m.role !== 'summary' && m.content === 'house rules'),
+      conversation.messages.filter((m) => 'content' in m && m.content === 'house rules'),
     ).toHaveLength(1);
   });
 

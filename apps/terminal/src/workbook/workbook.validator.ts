@@ -6,7 +6,7 @@ import type { StoredPrompt } from './workbook.types.js';
 import { WorkbookPromptError } from '../errors/workbook.errors.js';
 import { checkSchema } from './check.validator.js';
 import { isPlainName } from './workbook.utils.js';
-import { historyMessageSchema } from '@sheavly/protocol/message/message.validator';
+import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
 import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
 import { runOutcomeSchema, sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 

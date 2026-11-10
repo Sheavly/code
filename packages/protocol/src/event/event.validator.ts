@@ -4,13 +4,13 @@ import { inboxMessageSchema, sessionRefSchema } from '../session/session.validat
 import { taskInfoSchema } from '../task/task.validator.js';
 import { harnessNoticeSchema } from '../notice/notice.validator.js';
 import {
-  historyMessageSchema,
   messageSchema,
   reasoningItemSchema,
   summarySectionIdSchema,
   toolCallSchema,
   turnStopReasonSchema,
 } from '../message/message.validator.js';
+import { historyMessageSchema } from '../history/history.validator.js';
 
 /**
  * Data a tool returns for a UI, never for history (so it costs no tokens). `kind` names it

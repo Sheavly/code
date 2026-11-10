@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SummaryMessage, HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { SummaryHookError } from '../../errors/loop.errors.js';
 import { runAfterSummary, runBeforeSummary } from '../hooks.helper.js';

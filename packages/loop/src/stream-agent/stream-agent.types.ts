@@ -10,7 +10,8 @@ import type {
   AgentEventBody,
   DescribedCall,
 } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';

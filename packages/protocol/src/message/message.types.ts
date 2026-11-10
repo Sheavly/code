@@ -1,7 +1,6 @@
 import type { z } from 'zod';
 import type {
   callIdSchema,
-  historyMessageSchema,
   messageSchema,
   messageIdSchema,
   summaryMessageSchema,
@@ -22,9 +21,6 @@ export type ReasoningItem = z.infer<typeof reasoningItemSchema>;
 export type PromptPart = z.infer<typeof promptPartSchema>;
 
 export type Message = z.infer<typeof messageSchema>;
-
-/** One entry of the stored conversation: a `Message`, or a checkpoint. */
-export type HistoryMessage = z.infer<typeof historyMessageSchema>;
 
 /** A tool's result, as kept in history. */
 export type ToolMessage = Extract<Message, { role: 'tool' }>;

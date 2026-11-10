@@ -237,7 +237,7 @@ describe('over real HTTP, with the client UIs use', () => {
     expect(answered).toEqual(['hello']);
     expect(streamed).toContain('text_delta');
     expect(
-      history.messages.flatMap((message) => (message.role === 'summary' ? [] : [message.content])),
+      history.messages.flatMap((message) => ('content' in message ? [message.content] : [])),
     ).toEqual(['hi', 'hello']);
   });
 

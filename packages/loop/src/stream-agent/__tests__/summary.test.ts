@@ -3,7 +3,7 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Summarizer } from '@sheavly/core/summary/summary.types';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { callIdSchema, summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { WINDOW, answer, overflow } from '../../testing/summary-run.constants.js';
 import {

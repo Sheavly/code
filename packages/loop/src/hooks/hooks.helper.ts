@@ -18,8 +18,8 @@ import { parseSentMessages } from '../history/history.validator.js';
 import { mergeSections, viewOf } from '../summary/summary.utils.js';
 import { parseSummaryChange } from './summary-change.validator.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type {
-  HistoryMessage,
   Message,
   SummaryMessage,
   ToolCall,

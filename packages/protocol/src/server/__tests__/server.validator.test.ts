@@ -92,6 +92,27 @@ describe('the other requests', () => {
     expect(messagesResponseSchema.parse({ messages })).toEqual({ messages });
   });
 
+  it('refuses a notice in the history a client starts from, but reads one back', () => {
+    const notice = {
+      role: 'notice',
+      notice: {
+        kind: 'task-finished',
+        task: {
+          id: 't1',
+          command: 'ls',
+          description: 'list',
+          status: 'completed',
+          output: '',
+          startedAt: 1,
+        },
+      },
+      at: 4,
+    };
+
+    expect(startConversationRequestSchema.safeParse({ messages: [notice] }).success).toBe(false);
+    expect(messagesResponseSchema.safeParse({ messages: [notice] }).success).toBe(true);
+  });
+
   it('filters the stream by session, subtree and replay, each optional', () => {
     expect(streamQuerySchema.parse({})).toEqual({});
     expect(streamQuerySchema.parse({ session: 's1', subtree: true, replay: true })).toEqual({

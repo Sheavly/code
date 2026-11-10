@@ -5,7 +5,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelSelection } from '@sheavly/protocol/model/model.types';
 
 /**

@@ -2,7 +2,7 @@ import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { toStoreError } from '@sheavly/core/store/store.utils';
 import type { StoreError } from '@sheavly/core/errors/store.errors';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 

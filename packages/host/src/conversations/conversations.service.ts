@@ -15,7 +15,8 @@ import type {
 import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { PromptPart } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,

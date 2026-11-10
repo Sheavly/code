@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { WINDOW } from './summary-run.constants.js';
 

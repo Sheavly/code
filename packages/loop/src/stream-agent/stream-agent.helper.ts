@@ -17,7 +17,7 @@ import type {
 import { assertValidStoredHistory } from '../summary/checkpoint.utils.js';
 import { runTurn } from './turn.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 
 /**

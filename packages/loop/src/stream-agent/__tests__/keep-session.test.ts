@@ -90,7 +90,7 @@ describe('a kept session', () => {
 
     expect(started).toEqual(['sessionStart']);
     expect(
-      second.messages.filter((m) => m.role !== 'summary' && m.content.includes('house rules')),
+      second.messages.filter((m) => 'content' in m && m.content.includes('house rules')),
     ).toHaveLength(1);
   });
 

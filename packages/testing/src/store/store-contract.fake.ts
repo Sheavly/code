@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
-import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
@@ -13,6 +15,27 @@ const other = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002')
 const reader = sessionIdSchema.parse('7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20');
 const writer = sessionIdSchema.parse('c3b81f6e-92a4-4d07-b5e9-18a7d0c64e35');
 const SECTION = summarySectionIdSchema.parse('goal');
+/** A sub-agent's report as a history entry: parsed, since its ids are branded. */
+const NOTICE = historyMessageSchema.parse({
+  role: 'notice',
+  at: 4,
+  notice: {
+    kind: 'agent-report',
+    agent: {
+      id: 'sub-1',
+      parentId: 'main',
+      startedByCall: 'call-1',
+      rootId: 'main',
+      depth: 2,
+      title: 'Research',
+      state: 'completed',
+      startedAt: 1,
+    },
+    taskId: 't1',
+    outcome: 'completed',
+    report: 'REPORT-BEGIN\n'.concat('Finding: e\n'.repeat(900), 'REPORT-END'),
+  },
+});
 
 /** Test-only: the first conversation id the store tests use. */
 export const CONVERSATION = id;
@@ -127,6 +150,7 @@ export function describeConversationStore(params: { name: string; make: () => Co
           summarizer: 'test',
           at: 3,
         },
+        NOTICE,
       ];
 
       expect(await store.readMessages(id)).toEqual([]);
@@ -136,7 +160,7 @@ export function describeConversationStore(params: { name: string; make: () => Co
 
       expect(read).toEqual(messages);
       read.pop();
-      expect(await store.readMessages(id)).toHaveLength(3);
+      expect(await store.readMessages(id)).toHaveLength(4);
 
       await store.writeMessages({ id, messages: [first] });
       expect(await store.readMessages(id)).toEqual([first]);

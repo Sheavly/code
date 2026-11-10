@@ -1,4 +1,5 @@
 import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
+import { neutralize, oneLine } from '../text/text.utils.js';
 import { CHECKPOINT_TEXT } from './summary.constants.js';
 
 /**
@@ -18,19 +19,4 @@ export function formatCheckpoint(checkpoint: SummaryMessage): string {
     ...sections,
     CHECKPOINT_TEXT.closing,
   ].join('\n\n');
-}
-
-/**
- * Stops written text from carrying the envelope's tags or a section header of its own. Every `<`
- * is swapped, not just the envelope's spelling, because a model reads many spellings of a tag
- * (spaces, attributes, lookalike characters) and a list of them is never complete; `#` at a line
- * start is escaped so a body cannot start another section.
- */
-function neutralize(text: string): string {
-  return text.replaceAll(/[<＜]/g, '‹').replaceAll(/^([ \t]*)#/gm, '$1\\#');
-}
-
-/** A title is one line, so it cannot open a section of its own. */
-function oneLine(text: string): string {
-  return text.replaceAll(/\s+/g, ' ').trim();
 }
