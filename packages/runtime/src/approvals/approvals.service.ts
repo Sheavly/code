@@ -5,6 +5,7 @@
  * and the waiting tool carries on. The harness renders nothing.
  */
 import { ApprovalListenerError, ApprovalRequestError } from '../errors/approvals.errors.js';
+import { DEFAULT_OPTIONS } from './approvals.constants.js';
 import type {
   ApprovalConcern,
   ApprovalId,
@@ -23,8 +24,6 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };
-
-const DEFAULT_OPTIONS: readonly ApprovalOption[] = ['approve', 'skip', 'skip_with_message'];
 
 export class ApprovalRegistry {
   #pending = new Map<ApprovalId, Pending>();
