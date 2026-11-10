@@ -18,9 +18,13 @@ describe('sub-agent completion over the terminal prompt stream', () => {
     let parentCalls = 0;
     const fetch: typeof globalThis.fetch = async (input, init) => {
       const body = JSON.parse(await new Request(input, init).text()) as {
-        input: { role?: string; content?: string }[];
+        input: { role?: string; content?: string | { text: string }[] }[];
       };
-      const task = body.input.find((item) => item.role === 'user')?.content;
+      const userContent = body.input.find((item) => item.role === 'user')?.content;
+      const task =
+        typeof userContent === 'string'
+          ? userContent
+          : userContent?.map(({ text }) => text).join('');
       const review = [
         { task: 'FIRST_REVIEW_TASK', finish: first, reply: 'First review findings' },
         { task: 'SECOND_REVIEW_TASK', finish: second, reply: 'Second review findings' },

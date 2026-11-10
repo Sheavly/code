@@ -14,6 +14,7 @@ import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { matchesModel } from './setup.utils.js';
 import { profileView, secretsOf } from './setup-view.helper.js';
 import { setupModelCatalog, assertModelHosting } from './model-catalog.helper.js';
+import { withResponsesCacheDefault } from './cache-definition.utils.js';
 
 type ProfileView = Setup['profiles'][number];
 type ModelView = ProfileView['models'][number];
@@ -158,7 +159,11 @@ export class ProfileSetup {
 
     this.#assertDefinition(model);
     assertModelHosting({ model, adapters: this.adapters() });
-    await open.putModel({ id, ...model });
+
+    const existing = await open.getModel(id);
+    const definition = withResponsesCacheDefault({ ...model, enabled: existing === undefined });
+
+    await open.putModel({ id, ...model, definition });
   }
 
   /** Removes a model and its key; none is fine. */
@@ -221,11 +226,12 @@ export class ProfileSetup {
 
     const { open, stored } = await this.#modelOf({ profile, model });
     const secrets = await open.getSecrets(model);
+    const definition = withResponsesCacheDefault({ ...stored, enabled: false });
 
     try {
       return await this.#adapters.check({
         kind: stored.adapter,
-        config: { ...stored.definition, ...secrets },
+        config: { ...definition, ...secrets },
         signal,
       });
     } catch (caughtError) {
