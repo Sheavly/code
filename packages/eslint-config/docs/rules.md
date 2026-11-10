@@ -106,10 +106,18 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   and private, retried on Windows, one change at a time, and the path checked. A hand-rolled copy
   of that is how the trust store ended up with a temp name two writes could share. The exceptions
   are `files:` overrides in the workspace's `eslint.config.js`, each with its reason: the storage
-  primitives themselves, the agent's two file-writing tools (`Workspace` confines them), the
-  backend's model-call debug log, and the terminal's developer tooling (the workbook and the
-  demo's SSE log). `workspace-coverage.test.js` lists those files and fails an override for any
-  other, or for a whole workspace.
+  primitives themselves, the agent's file helper (`file-effects.helper.ts`: `Workspace` confines
+  every path it touches), the backend's model-call debug log, and the terminal's developer tooling
+  (the workbook and the demo's SSE log). `workspace-coverage.test.js` lists those files and fails
+  an override for any other, or for a whole workspace.
+
+- **Guarded change paths** (`harness/guard-env-write`, every coding source file except tests and
+  the resolver helper): `resolveWritable` and `resolveDeletable`
+  (`@sheavly/coding/files/files.helper`) are the only way to resolve a path for a write or a
+  delete, because they refuse `.env` files and `.git` on the requested path and again on the real
+  one a symlink resolves to. A delete calls `removeFile` with the path `resolveDeletable` returned;
+  `resolveWritable` follows a symlink and would remove its target. The rule has accept and reject
+  cases in `packages/eslint-config/src/__tests__/guard-env-write.test.js`.
 
 ## The rest of the config
 
