@@ -5,6 +5,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { ANTHROPIC_VERSION, MESSAGES_API, PROMPT_CACHE_CONTROL } from './messages.constants.js';
 import { toMessagesApiMessages, withNotices } from './input.utils.js';
+import { withCacheBreakpoint } from './cache-breakpoint.utils.js';
 import type {
   MessagesAdapterConfig,
   MessagesEndpoint,
@@ -41,6 +42,11 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
       });
 
       const sent = withNotices({ messages: apiMessages, notices });
+      // The breakpoint goes on history only, so the prefix check above stays over what is sent.
+      const body =
+        config.promptCaching !== false && notices?.length
+          ? withNotices({ messages: withCacheBreakpoint(apiMessages), notices })
+          : sent;
       const response = await sendRequest({
         api: MESSAGES_API,
         fetch: config.fetch,
@@ -58,7 +64,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             model: endpoint.model,
             max_tokens: maxTokens,
             ...(instructions ? { system: instructions } : {}),
-            messages: sent,
+            messages: body,
             ...(tools.length > 0 && {
               tools: apiTools,
             }),
