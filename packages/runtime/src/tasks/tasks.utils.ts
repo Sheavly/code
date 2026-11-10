@@ -33,9 +33,3 @@ export function formatTask(params: {
     .filter(Boolean)
     .join('\n');
 }
-
-/** The message the loop adds to history so the model learns a task finished. */
-export function taskNotification(task: TaskInfo): string {
-  // Finished, so its elapsed time ends at its own `endedAt`; `now` only matters while it runs.
-  return `Background task finished:\n${formatTask({ task, now: task.endedAt ?? task.startedAt })}`;
-}

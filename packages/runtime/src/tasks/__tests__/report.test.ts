@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TaskRegistry } from '../tasks.service.js';
-import { formatTask, taskNotification } from '../tasks.utils.js';
+import { formatTask } from '../tasks.utils.js';
 
 /** 80 lines of 100 characters each: past the 4,000-character tail and every preview limit. */
 const MULTILINE =
@@ -112,14 +112,5 @@ describe('formatTask with a report', () => {
     expect(text).toContain('[…]');
     expect(text.endsWith('END')).toBe(true);
     expect(text.length).toBeLessThan(4_200);
-  });
-
-  it('keeps the notification of a task with no report as it was', async () => {
-    const { tasks, id } = await finished({ output: 'hello\n' });
-    const task = tasks.get(id);
-
-    expect(task).toBeDefined();
-    expect(taskNotification(task!)).toMatch(/^Background task finished:\n\[task t1 · completed/);
-    expect(taskNotification(task!)).toContain('hello');
   });
 });
