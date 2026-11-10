@@ -104,6 +104,12 @@ export function baseConfig(params) {
         'harness/no-key-holder-import': 'error',
       },
     },
+    // --- A notice envelope is written by the core formatter only; tests assert on its text ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-handwritten-notice': 'error' },
+    },
     // --- Files are written through storage (or a tool, on the agent's project): not in tests ---
     {
       files: SOURCE_FILES,

@@ -152,6 +152,21 @@ export const SYNTAX_RULES = {
       message: `${FILE_WRITES_MESSAGE} Import what you read by name: a dynamic import hides what is written.`,
     },
   ],
+  // A harness notice reaches a model through `formatHarnessNotice`, which owns the envelope: its
+  // origin line, its handling policy, and the escaping of what is inserted inside it. Text built
+  // by hand skips all three, so a report or a tool's output could close the envelope early. Lint
+  // catches the accident: a string or template piece holding `harness-notice` (even without a
+  // bracket, so a path or label of that name is flagged too) or `<harness`, `</harness`. It cannot
+  // see a tag split inside a word or built from a variable, so the formatter's escaping and its
+  // tests carry the guarantee.
+  'no-handwritten-notice': [
+    {
+      selector:
+        'Literal[value=/<\\/?harness|harness-notice/i], TemplateElement[value.cooked=/<\\/?harness|harness-notice/i]',
+      message:
+        'Do not write a `<harness-notice` envelope by hand. Add the notice as a kind of `harnessNoticeSchema` (`@sheavly/protocol/notice/notice.validator`) and format it in `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`), whose wording lives in `notice.constants.ts`: it frames the text as harness data, not a user message, and escapes what is inserted inside it.',
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [
