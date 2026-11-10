@@ -43,6 +43,14 @@ The loop emits the same data as a `harness_notice` event before the model call. 
 through the ordinary session stream without provider imports, text parsing or a special route.
 They decide whether and how to render it; model-facing wording and UI presentation stay separate.
 
+Those two kinds are transient: they travel in `request.notices` and are never stored. Persistent
+kinds (`agent-report`, `task-finished`) are facts the model must remember, so they are stored in
+history as a `notice` entry, and the loop shows them to the model as a user-role message holding
+`formatHarnessNotice`'s text. That message has no `id`, so it is never taken for a prompt. A
+sub-agent's report is inserted whole between fixed lines with only its angle brackets swapped, so
+it cannot close the envelope. The envelope is written only in core
+(`harness/no-handwritten-notice`).
+
 `notices` are not history, so an adapter appends their formatted text after it has built the history.
 The API may require a user-role message; the envelope distinguishes its actual origin. Each
 turn's notice is gone from the next request, which matters to replay state bound to
