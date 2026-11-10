@@ -62,14 +62,15 @@ describe('the scratch folder in a backend run', () => {
     folder = path.join(base, 'scratch', harness.mainSession.id);
 
     const conversation = createConversation({
-      harness,
-      run: streamAgent,
-      tools: harness.tools,
-      hooks: harness.hooks,
       waitForTasks: true,
+      hooks: harness.hooks,
+      harness,
+      tools: harness.tools,
+      run: streamAgent,
     });
+    const events = conversation.send('go');
 
-    for await (const _event of conversation.send('go'));
+    for await (const _event of events);
     await conversation.close();
 
     const sub = requests.find((request) => request.messages[0]?.content === 'help');
