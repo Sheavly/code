@@ -33,6 +33,14 @@ export type ProviderRequest = {
    * notices in the reply's prefix and omit replay once that prefix no longer matches.
    */
   notices?: readonly HarnessNotice[] | undefined;
+  /**
+   * An opaque identifier, the same for every call of one session and different between sessions
+   * (a sub-agent has its own). An adapter maps it to its backend's cache routing or grouping
+   * key (OpenAI's `prompt_cache_key`, a gateway's session affinity), and ignores it when the
+   * backend has none: a caller cannot rely on it being sent. It says which calls belong
+   * together, never what to cache; the cached prefix is `instructions`, `tools` and `messages`.
+   */
+  cacheKey?: string | undefined;
   tools: ToolDefinition[];
   signal: AbortSignal;
 };

@@ -98,6 +98,20 @@ describe('azureAnthropicAdapter', () => {
     expect(request?.body.thinking).toEqual({ type: 'adaptive' });
   });
 
+  it('inherits prompt caching, and turns it off with promptCaching: false', async () => {
+    const config = { ...base, baseUrl: 'https://res.services.ai.azure.com/anthropic' };
+    const reply = [{ type: 'message_stop' }];
+    const on = await requestSentBy({ adapter: azureAnthropicAdapter, config, reply });
+    const off = await requestSentBy({
+      adapter: azureAnthropicAdapter,
+      config: { ...config, promptCaching: false },
+      reply,
+    });
+
+    expect(on?.body.cache_control).toEqual({ type: 'ephemeral' });
+    expect(off?.body).not.toHaveProperty('cache_control');
+  });
+
   it('refuses contradictory thinking settings before making a request', () => {
     const baseUrl = 'https://res.services.ai.azure.com/anthropic';
 

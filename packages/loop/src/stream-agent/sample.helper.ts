@@ -57,6 +57,8 @@ export async function sample(context: SampleContext) {
       instructions,
       messages: [...messages],
       notices,
+      // The session id never changes across turns, resumes or wake-ups, and a sub-agent has its own.
+      cacheKey: context.session.id,
       tools: tools.map(toDefinition),
       signal,
     });

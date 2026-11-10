@@ -216,6 +216,7 @@ A provider (`packages/core/src/provider/`) is one method, `stream(request)`, ret
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `instructions` | System instructions for this call, or none: the run's `instructions` option, then what `beforeTurn` hooks added, joined with blank lines |
 | `messages`     | The conversation history (a copy): user, assistant and tool messages                                                                     |
+| `cacheKey`     | The session id: an adapter maps it to its backend's cache routing key, or ignores it                                                     |
 | `tools`        | The tool definitions (name, description, JSON schema)                                                                                    |
 | `signal`       | Aborts the call                                                                                                                          |
 
@@ -235,6 +236,12 @@ model only: it changes every turn, so it never goes through `instructions` or in
 the cached prefix stays the same. Hooks get the same numbers in
 `beforeTurn`'s `context`, and a UI gets the window on each `usage` event, since the harness renders
 nothing itself. See [a run](../packages/loop/docs/run.md#context-usage).
+
+Every turn resends nearly the same prompt, so providers cache its prefix: `instructions`, `tools`,
+then `messages`. The loop sends the session id as `cacheKey` (a sub-agent has its own), the
+Messages adapter opts in with `cache_control` and ends the cached prefix before the notices, and
+the Responses adapter sends `prompt_cache_key`. What must stay stable between turns, and how each
+backend caches, is in [prompt caching](../packages/providers/docs/prompt-caching.md).
 
 ## One run
 

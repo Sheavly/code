@@ -21,7 +21,16 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
   const reasoningSource = reasoning ? source : undefined;
 
   return {
-    async *stream({ instructions, messages, notices = [], tools, signal, mode, temperature }) {
+    async *stream({
+      instructions,
+      messages,
+      notices = [],
+      tools,
+      signal,
+      mode,
+      temperature,
+      cacheKey,
+    }) {
       const url = new URL(`${endpoint.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(endpoint.query ?? {})) {
@@ -53,6 +62,8 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             })),
             stream: true,
             store: false,
+            // Routes calls of one session to the same cache; automatic caching does the rest.
+            ...(cacheKey && { prompt_cache_key: cacheKey }),
             ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
             ...(mode && { reasoning: { effort: mode === 'extreme' ? 'xhigh' : mode } }),
             // Reasoning models reject a temperature, so a hint is sent only with reasoning off.

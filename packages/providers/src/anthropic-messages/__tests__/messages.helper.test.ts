@@ -276,14 +276,17 @@ describe('createMessagesProvider', () => {
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'hi' },
+          { type: 'text', text: 'hi', cache_control: { type: 'ephemeral' } },
           { type: 'text', text: formatHarnessNotice(notice) },
           { type: 'text', text: formatHarnessNotice(continuation) },
         ],
       },
     ]);
     expect(requests[1]?.body.messages).toEqual([
-      { role: 'assistant', content: [{ type: 'text', text: 'done' }] },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'done', cache_control: { type: 'ephemeral' } }],
+      },
       {
         role: 'user',
         content: notices.map((item) => ({ type: 'text', text: formatHarnessNotice(item) })),
