@@ -16,6 +16,7 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
 
       return lineOpen ? '\n\n' : '\n';
     },
+    pairSteps: true,
     toolStarted: ({ description, command }) =>
       `${paint.text.accent('⏺')} ${description}${command ? paint.text.secondary(`  $ ${command}`) : ''}\n`,
     parallel: () => '',

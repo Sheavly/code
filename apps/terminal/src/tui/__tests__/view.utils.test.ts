@@ -3,6 +3,8 @@ import { stripVTControlCharacters } from 'node:util';
 import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { timestampSchema } from '@sheavly/protocol/time/time.validator';
 import { createPalette } from '../../theme/palette.utils.js';
 import { THEMES } from '../../theme/theme.constants.js';
 import { ApprovalPrompt } from '../approval-prompt.service.js';
@@ -54,6 +56,64 @@ describe('approvalText', () => {
     expect(plain(approvalText({ prompt }))).toContain('Skip printf "a\\r\\u001b[2J');
   });
 
+  it('names the sub-agent that asks, and never shows its session id', () => {
+    const prompt = new ApprovalPrompt();
+    const agent = {
+      id: sessionIdSchema.parse('secret-session-id'),
+      parentId: sessionIdSchema.parse('main'),
+      startedByCall: callIdSchema.parse('c0'),
+      rootId: sessionIdSchema.parse('main'),
+      depth: 2,
+      title: 'Update ESLint rules',
+      state: 'running' as const,
+      startedAt: timestampSchema.parse(1),
+    };
+
+    prompt.ask(request('a1'), agent);
+    const text = plain(approvalText({ prompt }));
+
+    expect(text).toContain('Update ESLint rules (sub-agent) wants to run git push origin main?');
+    expect(text).not.toContain('secret-session-id');
+
+    prompt.forget(approvalIdSchema.parse('a1'));
+    prompt.ask(request('a2'));
+    expect(prompt.currentAgent).toBeUndefined();
+    expect(plain(approvalText({ prompt }))).toContain('Run git push origin main?');
+  });
+
+  it('escapes control and bidi characters in a sub-agent title, in both phases', () => {
+    const prompt = new ApprovalPrompt();
+    const agent = {
+      id: sessionIdSchema.parse('s'),
+      parentId: sessionIdSchema.parse('main'),
+      startedByCall: callIdSchema.parse('c0'),
+      rootId: sessionIdSchema.parse('main'),
+      depth: 2,
+      title: 'evil\u001b[2J\u001b]52;c;x\u0007\u202etitle',
+      state: 'running' as const,
+      startedAt: timestampSchema.parse(1),
+    };
+
+    prompt.ask(request('a1'), agent);
+
+    const question = approvalText({ prompt });
+
+    prompt.pickNumber(4);
+    prompt.confirm();
+    const skipping = approvalText({ prompt });
+
+    for (const text of [question, skipping]) {
+      // The prompt's own styling uses ESC, so look for what the title injected, not any ESC.
+      for (const injected of ['\u001b[2J', '\u001b]52', '\u0007', '\u202e']) {
+        expect(text).not.toContain(injected);
+      }
+
+      expect(plain(text)).toContain('evil\\u001b[2J');
+    }
+
+    expect(plain(skipping)).toContain('Skip git push origin main (evil');
+  });
+
   it('is empty when nothing waits', () => {
     expect(approvalText({ prompt: new ApprovalPrompt() })).toBe('');
   });
@@ -102,7 +162,7 @@ describe('approvalText', () => {
     const text = plain(approvalText({ prompt }));
 
     expect(text).toContain(
-      '2. Always allow  keeps `touch *`, `git push *`, `npm run test *`, `ls *` allowed in this folder',
+      '2. Always allow  keeps `touch *`, `git push *`, `npm run test *`, `ls *` allowed in this folder, for every agent',
     );
     expect(prompt.confirm()).toEqual({ kind: 'none' });
   });

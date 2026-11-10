@@ -10,6 +10,7 @@ const who = (params: { title: string; id: string }) => `"${params.title}" [${sho
 export const logLook: Look = {
   // Each activity carries its own leading newline here; nothing is added between sections.
   gap: () => '',
+  pairSteps: false,
   toolStarted: ({ description, command }) =>
     `\n⏺ ${description}${command ? `  $ ${command}` : ''}\n`,
   parallel: (count) => `  ⎿ ${count} tools in parallel\n`,

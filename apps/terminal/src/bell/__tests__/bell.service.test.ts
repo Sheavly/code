@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
+import { APPROVAL_SETTLE_MS } from '../bell.constants.js';
 import { TerminalBell } from '../bell.service.js';
 
 const clock = useFixedClock();
@@ -52,10 +53,22 @@ describe('TerminalBell', () => {
     bell.requestApproval('a1');
     bell.requestApproval('a1');
     bell.requestApproval('a2');
+    advance(APPROVAL_SETTLE_MS);
     expect(write).toHaveBeenCalledTimes(2);
     bell.forgetApproval('a1');
     bell.requestApproval('a1');
+    advance(APPROVAL_SETTLE_MS);
     expect(write).toHaveBeenCalledTimes(3);
+  });
+
+  it('stays silent for a replayed approval that was already answered', () => {
+    const { bell, write } = open();
+
+    bell.requestApproval('old');
+    bell.forgetApproval('old');
+    advance(APPROVAL_SETTLE_MS * 2);
+    expect(write).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('rings at five seconds once per live call without postponing on new snapshots', () => {

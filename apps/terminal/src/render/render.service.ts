@@ -17,9 +17,9 @@ type EventOf<T extends EntryEvent['type']> = Extract<EntryEvent, { type: T }>;
  * The terminal front end of the chat, the demo and the workbook: one line (or block) per event of
  * the main session and per sub-agent update, from the backend's stream, written to `write`.
  * `runningTasks` says how many background tasks still run, from the stream's task entries. Kept
- * stateful only for the current tool batch size, the reasoning count, the tools running now
- * (`running`), and the file changes and failures it has seen (`changes`, `failures`, whatever
- * the look shows of them).
+ * stateful only for the current tool batch size, the titles it holds back until their result
+ * (when the look pairs steps), the reasoning count, the tools running now (`running`), and the
+ * file changes and failures it has seen (`changes`, `failures`, whatever the look shows of them).
  */
 export class Renderer {
   /** Every file change printed so far, for a screen to show in full when asked. */
@@ -30,6 +30,8 @@ export class Renderer {
   // Replaced, never changed in place, so a caller sees a change by the array not being the same.
   #running: readonly RunningTool[] = [];
   #batchSize = 0;
+  /** Titles not written yet, in call order: a look that pairs steps writes each with its result. */
+  #held: { id: string; text: string }[] = [];
   #reasoningItems = 0;
   #last: Section | undefined;
   #lineOpen = false;
@@ -58,9 +60,13 @@ export class Renderer {
     return this.#running;
   }
 
-  /** Forgets the running tools, for a prompt that ended without its `done` (a failure, a stop). */
+  /**
+   * Forgets the running tools, for a prompt that ended without its `done` (a failure, a stop).
+   * A title still held is written without a result, so what was running is not lost.
+   */
   clearRunning(): void {
     if (this.#running.length > 0) this.#running = [];
+    this.#showHeldSteps();
   }
 
   /**
@@ -97,23 +103,28 @@ export class Renderer {
           { id: event.call.id, description: event.description, startedAt: now() },
         ];
         // Already running; its result is shown after the model's turn.
-        this.#activity(
-          this.look.toolStarted({
-            description: plainTerminalText(event.description),
-            command: commandOf(event.call),
-          }),
-        );
+        this.#startStep({
+          id: event.call.id,
+          description: plainTerminalText(event.description),
+          command: commandOf(event.call),
+        });
         break;
 
       case 'tool_batch':
         this.#batchSize = event.calls.length;
         if (this.#batchSize > 1) this.#activity(this.look.parallel(this.#batchSize));
+        // A lone call has nothing to be mixed up with, so its title shows now. That is once the
+        // model has stopped streaming (the batch is only known then), not when the call started:
+        // text the model streams after a call is written before its title.
+        else this.#showHeldSteps();
         break;
       case 'tool_result':
         this.#running = this.#running.filter(({ id }) => id !== event.call.id);
+        this.#showHeldSteps(event.call.id);
         this.#toolResult(event);
         break;
       case 'task_running':
+        this.#showHeldSteps(event.call.id);
         this.#activity(
           this.look.taskRunning({ label: this.#label(event.description), id: event.task.id }),
         );
@@ -260,8 +271,30 @@ export class Renderer {
     this.#lineOpen = false;
   }
 
+  /** A paired title already sits above its result, so only an unpaired batch repeats it. */
   #label(description: string): string {
-    return this.#batchSize > 1 ? `${plainTerminalText(description)} · ` : '';
+    return this.#batchSize > 1 && !this.look.pairSteps
+      ? `${plainTerminalText(description)} · `
+      : '';
+  }
+
+  /**
+   * Writes a step's title now, or holds it when the look pairs steps: a batch's results all come
+   * after its starts, so a title written at its start would sit above another step's result.
+   */
+  #startStep(step: { id: string; description: string; command: string | undefined }): void {
+    const text = this.look.toolStarted(step);
+
+    if (this.look.pairSteps) this.#held.push({ id: step.id, text });
+    else this.#activity(text);
+  }
+
+  /** Writes the held title of step `id`, or every held title when none is named. */
+  #showHeldSteps(id?: string): void {
+    const shown = this.#held.filter((step) => id === undefined || step.id === id);
+
+    this.#held = this.#held.filter((step) => !shown.includes(step));
+    for (const { text } of shown) this.#activity(text);
   }
 
   #toolResult(event: EventOf<'tool_result'>): void {

@@ -4,10 +4,10 @@ import { keepsHint } from '../keeps.utils.js';
 describe('base-command approval hints', () => {
   it('shows only the command being approved and its lifetime', () => {
     expect(keepsHint({ keeps: ['git log *', 'head *'] })).toBe(
-      'keeps `git log *`, `head *` allowed in this folder',
+      'keeps `git log *`, `head *` allowed in this folder, for every agent',
     );
     expect(keepsHint({ keeps: ['npx eslint *'], scope: 'session' })).toBe(
-      'keeps `npx eslint *` allowed for this session only; not saved',
+      'keeps `npx eslint *` allowed for every agent in this conversation, not saved',
     );
   });
 
@@ -20,6 +20,8 @@ describe('base-command approval hints', () => {
     ['ls -la src', 'ls *'],
     ['npx vitest run *', 'npx vitest *'],
   ])('does not claim legacy option/path restrictions remain: %s', (legacy, base) => {
-    expect(keepsHint({ keeps: [legacy] })).toBe(`keeps \`${base}\` allowed in this folder`);
+    expect(keepsHint({ keeps: [legacy] })).toBe(
+      `keeps \`${base}\` allowed in this folder, for every agent`,
+    );
   });
 });
