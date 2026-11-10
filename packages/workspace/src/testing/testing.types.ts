@@ -10,6 +10,18 @@ export type TempWorkspace = {
   readonly workspace: Workspace;
 };
 
+/** A temp git repo from `useTempRepo`; readable only while its tests run. */
+export type TempRepo = {
+  /** The temp dir; holds the repo, its worktree and the files outside both. */
+  readonly base: string;
+  /** The repo's main worktree, with `src/index.ts` committed. */
+  readonly main: string;
+  /** A folder in no worktree, for escape tests. */
+  readonly outside: string;
+  /** A second worktree of the repo, on branch `feature`, next to `main`. */
+  readonly worktree: string;
+};
+
 /** The skill folders from `useSkillFolders`; readable only while its tests run. */
 export type SkillFolders = {
   /** The temp dir; holds `project/` and `home/`. */
