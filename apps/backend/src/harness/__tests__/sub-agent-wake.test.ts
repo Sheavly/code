@@ -109,6 +109,33 @@ describe('sub-agent completion over the terminal prompt stream', () => {
           (message) => 'content' in message && message.content === 'Review the branch',
         ),
       ).toHaveLength(1);
+
+      // Each report is also in the stored history as typed data, so a reopened conversation
+      // returns it, whole, with the sub-agent's card fields.
+      const reports = history.messages.flatMap((message) =>
+        message.role === 'notice' && message.notice.kind === 'agent-report'
+          ? [{ title: message.notice.agent.title, report: message.notice.report }]
+          : [],
+      );
+
+      expect(reports).toHaveLength(2);
+      expect(reports.map(({ report }) => report).sort()).toEqual([
+        'First review findings',
+        'Second review findings',
+      ]);
+      expect(reports.map(({ title }) => title).sort()).toEqual([
+        'FIRST_REVIEW_TASK',
+        'SECOND_REVIEW_TASK',
+      ]);
+      // The same payload went out on the stream.
+      expect(
+        entries.filter(
+          (entry) =>
+            entry.kind === 'event' &&
+            entry.event.type === 'harness_notice' &&
+            entry.event.notice.kind === 'agent-report',
+        ),
+      ).toHaveLength(2);
       expect(
         entries.some(
           (entry) =>
