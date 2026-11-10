@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { symlink, writeFile } from 'node:fs/promises';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -75,6 +76,22 @@ describe('run_command with a cwd', () => {
 
     expect(result).toMatchObject({ isError: true });
     expect(result.content).toContain('not a directory');
+  });
+
+  it('refuses an environment-file cwd before resolving it', async () => {
+    const result = await run({ command: 'pwd', cwd: '.env.local' });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('.env files is not allowed');
+  });
+
+  it('refuses a cwd symlink to an environment file', async () => {
+    await writeFile(path.join(repo.main, '.env.test'), 'test fixture');
+    await symlink('.env.test', path.join(repo.main, 'env-cwd-link'));
+    const result = await run({ command: 'pwd', cwd: 'env-cwd-link' });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('.env files is not allowed');
   });
 
   it('refuses a cwd that does not exist', async () => {

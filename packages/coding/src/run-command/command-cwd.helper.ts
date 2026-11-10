@@ -3,7 +3,7 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { assertNotGitDir } from '../files/files.utils.js';
+import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
 
 /**
  * The real folder a command runs in: the workspace root without `requested`, else `requested`
@@ -19,7 +19,10 @@ export async function resolveCommandCwd(params: {
   if (requested === undefined) return workspace.root;
 
   try {
+    assertNotEnvFile({ filePath: requested, requested, action: 'Running a command in' });
     const real = await workspace.resolveRead(requested);
+
+    assertNotEnvFile({ filePath: real, requested, action: 'Running a command in' });
 
     // Git config and hooks there can run programs, so a command doesn't start in .git.
     assertNotGitDir({
