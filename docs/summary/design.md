@@ -5,8 +5,9 @@ How a long history gets a summary in Sheavly. The evidence behind each choice is
 the view, the policy and the loop engine (`summary` option, [run](../../packages/loop/docs/run.md#summaries)),
 and the built-in summarizers in `@sheavly/summary` ([sections](../../packages/summary/docs/sections.md)).
 The backend turns it on by default (`SUMMARY`, [serve](../../apps/backend/docs/serve.md)), for the
-main run and sub-agents, with the file trail from `@sheavly/coding`. Still a design: the hide step,
-`beforeSummary`/`afterSummary`, sharing the turn's prompt cache, and a manual request. The numbers are rough starting points to be checked with the workbook, not tuned values.
+main run and sub-agents, with the file trail from `@sheavly/coding`. Built (#15): the
+`beforeSummary` and `afterSummary` hook points ([hooks](../../packages/core/docs/hooks.md#around-a-summary)).
+Still a design: the hide step, sharing the turn's prompt cache, and a manual request. The numbers are rough starting points to be checked with the workbook, not tuned values.
 
 ## What it is
 
@@ -184,7 +185,11 @@ not a private shortcut. The summary view is not a hook: it is what history means
 owns it. `beforeSummary` and `afterSummary` are hook points around the engine: the first can
 change what is kept or supply a section; the second can add context back (`addContext`), such as
 the instruction files, which a changed-context hook already appends without breaking the cached
-prefix. Both go in `Hook`, `HANDLERS` and the project-hook schema.
+prefix. Both go in `Hook`, `HANDLERS` and the project-hook schema. Built as designed: the
+first returns `{ keepTokens?, sections? }`, parsed at the boundary and checked like the
+summarizer's own result, so a hook cannot leave history invalid; a failure there is a
+`summary_failed`, never a failed run. The second runs after `summary_done`, and a throw fails the
+run like `afterTurn`.
 
 ## Failure
 

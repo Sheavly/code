@@ -1,23 +1,24 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import type { SummaryReason } from '@sheavly/core/hook/hook.types';
+import type { SummaryOptions, SummaryPolicy } from '@sheavly/core/summary/summary.types';
 import type { AgentEventBody } from '@sheavly/protocol/event/event.types';
 import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
 import type { TurnContext } from '../stream-agent/stream-agent.types.js';
 import { buildCheckpoint } from './checkpoint.utils.js';
 import { DEFAULT_SUMMARY_POLICY } from './summary.constants.js';
-import { whenAborted } from '../abort/abort.utils.js';
+import { assertNotAborted, callSummarizer } from './summarizer-call.helper.js';
 import { contextState } from '../context/context.utils.js';
-import { SummaryRejectedError } from '../errors/loop.errors.js';
+import { runAfterSummary, runBeforeSummary } from '../hooks/hooks.helper.js';
 import {
   chooseCut,
   estimateTokens,
+  mergeSections,
   shouldSummarize,
   spanToSummarize,
   viewOf,
 } from './summary.utils.js';
-
-type SummaryReason = Extract<AgentEventBody, { type: 'summary_started' }>['reason'];
 
 /** What a model would be sent, in estimated tokens: the number a summary is judged against. */
 function viewTokens(context: TurnContext): number {
@@ -101,52 +102,14 @@ export async function summarizeHistory(params: {
 
   events.enqueue({ type: 'summary_started', reason, tokensBefore, messagesBefore });
 
+  let checkpoint: SummaryMessage;
+
   try {
-    const span = spanToSummarize({ history: messages, cut });
-    // Raced against the abort: a summarizer that ignores its signal must not hold the run. Its
-    // late rejection is handled by the race itself, so it cannot go unhandled.
-    const body = await Promise.race([
-      config.summarizer.summarize({ messages: span.messages, previous: span.previous, signal }),
-      whenAborted(signal).then(() => undefined),
-    ]);
-
-    if (signal.aborted) {
-      throw new SummaryRejectedError({
-        summarizer: config.summarizer.name,
-        problem: 'the run was aborted before it finished',
-      });
-    }
-
-    if (body === undefined) {
-      throw new SummaryRejectedError({
-        summarizer: config.summarizer.name,
-        problem: 'it returned no result',
-      });
-    }
-
-    // Before the checks: a rejected result was still paid for. The tag keeps it out of the
-    // session's last tokens, which describe the conversation's context, not this call's.
-    if (body.usage) events.enqueue({ type: 'usage', usage: { ...body.usage, purpose: 'summary' } });
-
-    const checkpoint = buildCheckpoint({
-      summarizer: config.summarizer.name,
-      body,
-      history: messages,
-      cut,
-      policy,
-      at: now(),
-    });
-
-    messages.push(checkpoint);
-    // The last call's numbers described the history that was just replaced.
-    session.registry.forgetLastTokens(session.ref.id);
-    summaryFailures.count = 0;
-    events.enqueue(doneEvent({ checkpoint, tokensBefore, messagesBefore, context }));
-
-    return true;
+    checkpoint = await writeCheckpoint({ context, reason, config, policy, cut });
   } catch (caughtError) {
-    // A summary is an optimisation: whatever went wrong (the summarizer, the checks, an abort) is
-    // reported on the stream and the run carries on with the unchanged view.
+    // A summary is an optimisation: whatever went wrong (a `beforeSummary` hook, the summarizer,
+    // the checks, an abort) is reported on the stream and the run carries on with the unchanged
+    // view.
     if (reason === 'threshold' && !signal.aborted) summaryFailures.count += 1;
 
     events.enqueue({
@@ -158,4 +121,79 @@ export async function summarizeHistory(params: {
 
     return false;
   }
+
+  messages.push(checkpoint);
+  // The last call's numbers described the history that was just replaced.
+  session.registry.forgetLastTokens(session.ref.id);
+  summaryFailures.count = 0;
+  events.enqueue(doneEvent({ checkpoint, tokensBefore, messagesBefore, context }));
+
+  // Outside the try: the summary is done and reported, and an `afterSummary` hook that throws
+  // fails the run like any other hook, so it cannot be mistaken for a failed summary.
+  await runAfterSummary({
+    hooks: options.hooks ?? [],
+    reason,
+    checkpoint,
+    messages,
+    signal,
+    onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+  });
+
+  return true;
+}
+
+/**
+ * Asks the `beforeSummary` hooks, has the summarizer write the sections, and returns the checked
+ * checkpoint without appending it. The hooks may move the cut (`keepTokens`, falling back to
+ * `cut` when nothing older would be left to summarize) and add sections to what was written.
+ * Throws on a bad hook result, a summarizer that fails or returns nothing, an abort, or a
+ * checkpoint `buildCheckpoint` rejects.
+ */
+async function writeCheckpoint(params: {
+  context: TurnContext;
+  reason: SummaryReason;
+  config: SummaryOptions;
+  policy: SummaryPolicy;
+  cut: number;
+}): Promise<SummaryMessage> {
+  const { context, reason, config, policy } = params;
+  const { options, session, signal, events, messages } = context;
+  const change = await runBeforeSummary({
+    hooks: options.hooks ?? [],
+    reason,
+    messages: viewOf(messages),
+    context: contextState({
+      window: options.provider.contextWindow,
+      lastTokens: session.registry.lastTokens(session.ref.id),
+    }),
+    signal,
+  });
+
+  // A hook that ignores its signal is raced against the abort (`runBeforeSummary`), which leaves
+  // here with the run aborted rather than hung.
+  assertNotAborted({
+    summarizer: config.summarizer.name,
+    signal,
+    problem: 'the run was aborted before the summarizer ran',
+  });
+
+  const cut =
+    change.keepTokens === undefined
+      ? params.cut
+      : (chooseCut({ history: messages, keepTokens: change.keepTokens }) ?? params.cut);
+  const body = await callSummarizer({
+    summarizer: config.summarizer,
+    span: spanToSummarize({ history: messages, cut }),
+    signal,
+    events,
+  });
+
+  return buildCheckpoint({
+    summarizer: config.summarizer.name,
+    body: { sections: mergeSections({ written: body.sections, added: change.sections }) },
+    history: messages,
+    cut,
+    policy,
+    at: now(),
+  });
 }

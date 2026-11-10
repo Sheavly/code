@@ -9,6 +9,8 @@ The `Hook` contract (`@sheavly/core/hook/`): what a hook can do and when. How th
 | `sessionStart`    | Once per run, before the first turn                     | Add opening context                                              |
 | `beforeTurn`      | Before each model call                                  | Add context, add system instructions                             |
 | `beforeModelCall` | After `beforeTurn`, just before the model is called     | Replace the messages sent to this one call                       |
+| `beforeSummary`   | Before a summary is written                             | Choose how much stays word for word, supply a section            |
+| `afterSummary`    | After the checkpoint is in history                      | Add context back                                                 |
 | `aroundToolCall`  | Around each tool call                                   | Block it, change its input or result (including its `artifacts`) |
 | `afterTurn`       | After each turn, with its reply and tool results        | Observe, record, fail the run                                    |
 | `onError`         | When the run fails, before the error reaches the caller | Log, report (its own failure is a `hook_failed` event)           |
@@ -63,10 +65,47 @@ appending to, so replay and a UI's own view of the conversation are unchanged.
   a signed reasoning block after the messages before it changed is that provider's rule (see
   [providers](providers.md)).
 
+## Around a summary
+
+When the loop is given a `summary` option ([summaries](../../loop/docs/run.md#summaries)), two
+hook points surround each checkpoint. Neither runs without that option.
+
+- **`beforeSummary`** receives `{ reason, messages, context, signal }`: why (`threshold`, `manual`
+  or `overflow`), a deep copy of what the model sees now, and the window and last usage. It may
+  return `{ keepTokens?, sections? }`, or nothing to change nothing.
+  - `keepTokens` replaces the policy's tail for this summary: a larger one summarizes less. The
+    cut still never splits a tool call from its result; when nothing older than the new tail can
+    be summarized, the policy's cut is used. With several hooks, the last one to return it wins.
+  - `sections` are added to what the summarizer wrote; one with an id already there replaces it
+    (a later hook's replaces an earlier one's). Use it for what only the project knows, such as
+    rules that must survive every summary.
+  - The result is parsed (unknown keys, a non-positive `keepTokens` and duplicate section ids are
+    refused), and the merged checkpoint goes through the same checks as the summarizer's own
+    (size, smaller than what it replaces, valid history). A bad result, or a throw, is a
+    `summary_failed` event naming the hook; the run goes on with the unchanged view.
+  - A `keepTokens` so large that the checkpoint is not smaller than what it replaces, or sections
+    that push it past `maxSummaryTokens`, fail the same way, and a failed threshold summary
+    counts toward `maxFailures`. A `keepTokens` with nothing older to summarize falls back to the
+    policy's cut without an event.
+  - A hook that ignores its `signal` does not hold the run: the loop stops waiting for it when the
+    run aborts, as it does for the summarizer.
+- **`afterSummary`** receives `{ reason, checkpoint, messages, signal, addContext }`, after the
+  checkpoint is appended and `summary_done` is emitted. `addContext` adds a user message after the
+  checkpoint, kept in history and emitted as `context_added`, so use it to bring back what the
+  summary dropped, such as instruction files. It throws like `afterTurn`: the run fails.
+  - `checkpoint` and `messages` are copies, so editing them changes nothing stored.
+  - A hook that ignores its `signal` does not hold the run: the loop stops waiting for it when the
+    run aborts, asks no later hook, and ignores an `addContext` that arrives after the abort.
+  - What it adds is not size-checked: the checkpoint's own size rules ran before it, so keep what
+    you add small, or the next summary has to shrink it again.
+  - The checkpoint's text comes from tool output and model replies, which can carry text written
+    to steer a model. `addContext` adds a user message, so never copy the checkpoint's text into
+    it; add what the hook itself knows, such as the instruction files.
+
 ## Adding a hook point
 
 1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.
-2. Add it to `HANDLERS` in `hook.utils.ts` and to `hookExportSchema` in
+2. Add it to `HANDLERS` in `hook.constants.ts` and to `hookExportSchema` in
    `packages/workspace/src/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
 3. Add a runner in `packages/loop/src/hooks/hooks.helper.ts` and call it from the loop.
 4. Test it in `packages/loop/src/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
@@ -75,5 +114,4 @@ Every handler is given the model's view of the history (the newest checkpoint as
 messages it kept), never the stored `summary` entries; see
 [summaries](../../loop/docs/run.md#summaries).
 
-Not built: a user-level `~/.sheavly/`, and hooks around a summary (`beforeSummary`,
-`afterSummary`). See [#13](https://github.com/Sheavly/code/issues/13).
+Not built: a user-level `~/.sheavly/`.

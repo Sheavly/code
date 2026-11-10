@@ -5,6 +5,8 @@ export const HANDLERS = {
   sessionStart: true,
   beforeTurn: true,
   beforeModelCall: true,
+  beforeSummary: true,
+  afterSummary: true,
   aroundToolCall: true,
   afterTurn: true,
   onError: true,

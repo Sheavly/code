@@ -1,10 +1,12 @@
-import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { AgentEventBody, ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type {
   Message,
+  SummaryMessage,
   ToolCall,
   ToolMessage,
   TurnStopReason,
 } from '@sheavly/protocol/message/message.types';
+import type { SummarySection } from '../summary/summary.types.js';
 
 /** What a tool call produced: the text for history, and any artifacts (for the UI). */
 export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
@@ -62,6 +64,52 @@ export type BeforeModelCallContext = {
   signal: AbortSignal;
 };
 
+/** Why a summary runs: the context neared the window, a person asked, or a request overflowed. */
+export type SummaryReason = Extract<AgentEventBody, { type: 'summary_started' }>['reason'];
+
+/** What `beforeSummary` receives, before the summarizer is called. */
+export type BeforeSummaryContext = {
+  reason: SummaryReason;
+  /** What a model is sent now, which the checkpoint will shorten (a snapshot). */
+  messages: readonly Message[];
+  /** The window and how much of it the last call used (a snapshot). */
+  context: ContextState;
+  signal: AbortSignal;
+};
+
+/**
+ * What `beforeSummary` may return to shape the checkpoint; returning nothing changes nothing.
+ * Both parts are optional and checked like the summarizer's own result: a `keepTokens` so large
+ * that the checkpoint is not smaller than what it replaces, or sections that push it past the
+ * policy's `maxSummaryTokens`, fail the summary like any rejected result, and a failed
+ * threshold summary counts toward the policy's `maxFailures`.
+ */
+export type SummaryChange = {
+  /**
+   * About how many tokens of the newest messages stay word for word, instead of the policy's
+   * `keepTokens`. The cut still never splits a tool call from its result; when nothing older
+   * than that tail can be summarized, the policy's tail is used instead. Positive; with several
+   * hooks the last one to return it wins.
+   */
+  keepTokens?: number | undefined;
+  /**
+   * Sections added to what the summarizer wrote; one with the same id replaces it, and a later
+   * hook's replaces an earlier hook's. Ids must be unique within one result.
+   */
+  sections?: readonly SummarySection[] | undefined;
+};
+
+/**
+ * What `afterSummary` receives, once the checkpoint is in history. The checkpoint and messages
+ * are copies, so editing them changes nothing stored. The checkpoint's text comes from tool
+ * output and model replies: `addContext` adds a user message, so never copy that text into it.
+ */
+export type AfterSummaryContext = ContextAccess & {
+  reason: SummaryReason;
+  /** The checkpoint that was just appended. */
+  checkpoint: SummaryMessage;
+};
+
 /** What `afterTurn` receives, once the turn's reply and tool results are in history. */
 export type AfterTurnContext = {
   turn: number;
@@ -113,6 +161,18 @@ export type Hook = {
    * previous call. Throwing, or returning invalid history, fails the run.
    */
   beforeModelCall?: ((context: BeforeModelCallContext) => Promise<readonly Message[]>) | undefined;
+  /**
+   * Before a summary is written: choose how much stays word for word, or supply a section.
+   * Return nothing to change nothing. The checkpoint is still checked, so a hook cannot leave
+   * history invalid. Throwing fails the summary (a `summary_failed` event), never the run.
+   */
+  beforeSummary?:
+    ((context: BeforeSummaryContext) => Promise<SummaryChange | undefined>) | undefined;
+  /**
+   * After a checkpoint is appended: add context back with `addContext`, such as instructions the
+   * summary dropped. Throwing fails the run, like `afterTurn`.
+   */
+  afterSummary?: ((context: AfterSummaryContext) => Promise<void>) | undefined;
   /** Wraps each tool call: block it, change its input or result. Throwing becomes an error result. */
   aroundToolCall?: ((context: ToolCallContext) => Promise<ToolResult>) | undefined;
   /** After each turn (reply and tool results in history): observe, record. Throwing fails the run. */

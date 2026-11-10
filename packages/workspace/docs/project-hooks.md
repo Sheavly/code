@@ -25,7 +25,7 @@ A hook file exports the hook as its default (`export default { ... }` or `module
 ```js
 export default {
   name: 'audit',
-  aroundToolCall: async ({ call, next }) => next(), // also: sessionStart, beforeTurn, beforeModelCall, afterTurn, onError
+  aroundToolCall: async ({ call, next }) => next(), // also: sessionStart, beforeTurn, beforeModelCall, beforeSummary, afterSummary, afterTurn, onError
 };
 ```
 

@@ -106,6 +106,17 @@ the UI passes them.
   ordered queue. A failure (the summarizer threw, the run aborted, the result was rejected) is
   redacted like `run_failed`, appends nothing and never fails the run; threshold summaries stop
   being tried for the run after `maxFailures` in a row.
+- **Hooks.** `beforeSummary` runs after `summary_started`, in hook order, and may move the cut
+  (`keepTokens`) or add sections (`runBeforeSummary`); its result is parsed, and a bad one is a
+  `SummaryHookError`, and a throw a `HookError`, in the text of a `summary_failed`, like any other
+  failed summary. A hook that
+  ignores its signal is raced against the abort, like the summarizer.
+  `afterSummary` runs once the checkpoint is appended and `summary_done` is emitted
+  (`runAfterSummary`, handing each hook copies of the checkpoint and the view), so what it adds
+  with `addContext` follows the checkpoint in history, is
+  reported as `context_added`, and a throw fails the run. It is raced against the abort too, and an
+  `addContext` that arrives after the abort adds nothing. See
+  [hooks](../../core/docs/hooks.md#around-a-summary).
 - **Rejected results.** `SummaryRejectedError` (never thrown to the caller; it is the text of a
   `summary_failed`) when the result has no sections, is over `maxSummaryTokens`, is not smaller
   than the messages it replaces, or would leave history that breaks the rules

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { handlerNames } from '@sheavly/core/hook/hook.utils';
 import { hooksManifestSchema, parseHookExport } from '../project-hooks.validator.js';
 
 describe('hooksManifestSchema', () => {
@@ -42,6 +43,28 @@ describe('parseHookExport', () => {
 
   it('rejects a beforeModelCall that is not a function', () => {
     expect(parseHookExport({ name: 'trim', beforeModelCall: [] })).toHaveProperty('error');
+  });
+
+  it('accepts a hook that only defines beforeSummary or afterSummary', () => {
+    const before = { name: 'keep', beforeSummary: async () => undefined };
+    const after = { name: 'restore', afterSummary: async () => undefined };
+
+    expect(parseHookExport(before)).toEqual({ hook: before });
+    expect(parseHookExport(after)).toEqual({ hook: after });
+  });
+
+  it('rejects a summary handler that is not a function', () => {
+    expect(parseHookExport({ name: 'keep', beforeSummary: {} })).toHaveProperty('error');
+    expect(parseHookExport({ name: 'restore', afterSummary: 'no' })).toHaveProperty('error');
+  });
+
+  it('names every handler when a hook handles nothing, read from HANDLERS', () => {
+    const result = parseHookExport({ name: 'idle' });
+    const message = 'error' in result ? result.error : '';
+
+    for (const name of handlerNames()) expect(message).toContain(name);
+
+    expect(message).toContain('beforeSummary, afterSummary');
   });
 
   it('rejects a hook that handles nothing, with the reason', () => {
