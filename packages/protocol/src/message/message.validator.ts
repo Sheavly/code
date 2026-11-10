@@ -48,7 +48,21 @@ export const promptPartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('skill'), name: skillNameSchema }),
 ]);
 
-/** One entry of the conversation history. */
+/** A summary section's id, stable across checkpoints so a UI can pick one out by it. */
+export const summarySectionIdSchema = z.string().min(1).brand<'SummarySectionId'>();
+
+/** One part of a summary: its id, a title, and its text. */
+const summarySectionSchema = z.object({
+  id: summarySectionIdSchema,
+  title: z.string(),
+  body: z.string(),
+});
+
+/**
+ * What a model is sent: user, assistant and tool messages. A `summary` is not one of them: the
+ * loop renders the latest checkpoint as text in the view, so a provider never has to know the
+ * role (`historyMessageSchema` adds it for whoever keeps the whole history).
+ */
 export const messageSchema = z.discriminatedUnion('role', [
   z.object({
     role: z.literal('user'),
@@ -73,6 +87,36 @@ export const messageSchema = z.discriminatedUnion('role', [
     isError: z.boolean(),
     at: messageTimeSchema,
   }),
+]);
+
+/**
+ * A checkpoint appended to history; what came before it is never rewritten. A model sees the
+ * latest one in place of everything older than the `kept` messages right before it. Counts, not
+ * indices, so a history repaired after a crash (placeholder results inserted) stays valid.
+ */
+export const summaryMessageSchema = z.object({
+  role: z.literal('summary'),
+  sections: z
+    .array(summarySectionSchema)
+    .refine((sections) => new Set(sections.map((section) => section.id)).size === sections.length, {
+      message: 'section ids must be unique',
+    }),
+  /**
+   * How many messages directly before this one are still shown word for word, counting every
+   * entry (an earlier checkpoint included). At least one: the latest user message is always kept.
+   */
+  kept: z.number().int().positive(),
+  /** How many messages this checkpoint newly summarized (the span since the previous one). */
+  summarized: z.number().int().nonnegative(),
+  /** The name of what wrote it. */
+  summarizer: z.string().min(1),
+  at: messageTimeSchema,
+});
+
+/** One entry of the stored conversation: what a model is sent, and the checkpoints. */
+export const historyMessageSchema = z.discriminatedUnion('role', [
+  ...messageSchema.options,
+  summaryMessageSchema,
 ]);
 
 /** Why a turn ended: the model's reason, or `interrupted` if the run's signal aborted. */

@@ -3,6 +3,7 @@ import type {
   callIdSchema,
   messageSchema,
   messageIdSchema,
+  summaryMessageSchema,
   promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
@@ -23,5 +24,8 @@ export type Message = z.infer<typeof messageSchema>;
 
 /** A tool's result, as kept in history. */
 export type ToolMessage = Extract<Message, { role: 'tool' }>;
+
+/** A checkpoint in history: the latest one replaces everything before its kept tail. */
+export type SummaryMessage = z.infer<typeof summaryMessageSchema>;
 
 export type TurnStopReason = z.infer<typeof turnStopReasonSchema>;
