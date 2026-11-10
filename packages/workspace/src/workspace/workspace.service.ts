@@ -4,29 +4,37 @@ import path from 'node:path';
 import { PathCheckError, WorkspaceError } from '../errors/workspace.errors.js';
 import { openScratchDir, openScratchRoot } from '../scratch/scratch-root.helper.js';
 import { isInside } from './workspace.utils.js';
+import { findSiblingRoots } from './worktrees.helper.js';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 
 /**
  * The directory the agent is confined to. Every file tool resolves paths through
  * `resolveRead` / `resolveWrite`, which reject anything that ends up outside the root:
- * absolute paths, `../` tricks, and symlinks (to files or directories) that point out. The one
- * exception is the optional scratch root, a shared folder outside the repo for temporary files.
+ * absolute paths, `../` tricks, and symlinks (to files or directories) that point out. The
+ * exceptions are the optional scratch root, a shared folder outside the repo for temporary files,
+ * and the other git worktrees of the root's repo, so a session in the main checkout can work on
+ * an issue's worktree. Nothing else outside the root is reachable.
  */
 export class Workspace {
   private constructor(
     /** Canonical (symlink-free) absolute path of the workspace root. */
     readonly root: string,
     /** Canonical absolute path of the shared scratch root, when the app configured one. */
-    readonly scratchRoot?: string,
+    readonly scratchRoot: string | undefined,
+    /** What git runs with when looking for sibling worktrees; without it there are none. */
+    private readonly env: Environment | undefined,
   ) {}
 
   /**
    * Opens a workspace. Defaults to the current working directory. A `scratchRoot` is created
-   * (mode `0700`) if missing and canonicalized, so file tools may also reach paths under it.
+   * (mode `0700`) if missing and canonicalized, so file tools may also reach paths under it. Pass
+   * the app's `env` to let the other worktrees of the root's repo count as inside; without it the
+   * root is the only one.
    */
   static async open(
     root: string = process.cwd(),
-    options: { scratchRoot?: string | undefined } = {},
+    options: { scratchRoot?: string | undefined; env?: Environment } = {},
   ): Promise<Workspace> {
     const real = await realpath(path.resolve(root));
 
@@ -34,9 +42,10 @@ export class Workspace {
       throw new WorkspaceError(`Workspace root is not a directory: ${root}`);
     }
 
-    if (options.scratchRoot === undefined) return new Workspace(real);
+    const scratchRoot =
+      options.scratchRoot === undefined ? undefined : await openScratchRoot(options.scratchRoot);
 
-    return new Workspace(real, await openScratchRoot(options.scratchRoot));
+    return new Workspace(real, scratchRoot, options.env);
   }
 
   /**
@@ -57,11 +66,12 @@ export class Workspace {
 
   /** Resolves an existing file for reading. Returns its real path inside the workspace. */
   async resolveRead(requested: string): Promise<string> {
-    const lexical = this.assertInside(path.resolve(this.root, requested), requested);
+    const inside = this.insideCheck(requested);
+    const lexical = await inside(path.resolve(this.root, requested));
 
     // Follows every symlink. Missing stays an ENOENT (callers say "not found"); any other
     // failure is a PathCheckError: the path couldn't be checked, which is never "fine".
-    return this.assertInside(await checked({ requested, run: () => realpath(lexical) }), requested);
+    return inside(await checked({ requested, run: () => realpath(lexical) }));
   }
 
   /**
@@ -69,19 +79,17 @@ export class Workspace {
    * closest existing ancestor and check that instead.
    */
   async resolveWrite(requested: string): Promise<string> {
-    const lexical = this.assertInside(path.resolve(this.root, requested), requested);
+    const inside = this.insideCheck(requested);
+    const lexical = await inside(path.resolve(this.root, requested));
 
     const existing = await lstatIfExists({ file: lexical, requested });
 
     if (existing?.isSymbolicLink()) {
-      return this.assertInside(await realSymlinkTarget({ lexical, requested }), requested);
+      return inside(await realSymlinkTarget({ lexical, requested }));
     }
 
     if (existing) {
-      return this.assertInside(
-        await checked({ requested, run: () => realpath(lexical) }),
-        requested,
-      );
+      return inside(await checked({ requested, run: () => realpath(lexical) }));
     }
 
     // Walk up to the nearest directory that exists, canonicalize it, re-append the rest.
@@ -90,7 +98,7 @@ export class Workspace {
     while (!(await lstatIfExists({ file: ancestor, requested }))) ancestor = path.dirname(ancestor);
     const realAncestor = await checked({ requested, run: () => realpath(ancestor) });
 
-    return this.assertInside(path.join(realAncestor, path.relative(ancestor, lexical)), requested);
+    return inside(path.join(realAncestor, path.relative(ancestor, lexical)));
   }
 
   /**
@@ -111,14 +119,31 @@ export class Workspace {
     );
   }
 
-  private assertInside(absolute: string, requested: string): string {
-    if (!isInside({ folder: this.root, target: absolute }) && !this.inScratch(absolute)) {
+  /**
+   * The check for one `resolveRead` / `resolveWrite` call. Worktrees are listed when a path
+   * first falls outside the root and kept for the rest of that call only, never across calls: a
+   * worktree removed mid-session must stop being reachable, and a new one must start being.
+   */
+  private insideCheck(requested: string): (absolute: string) => Promise<string> {
+    let siblings: Promise<string[]> | undefined;
+
+    return async (absolute) => {
+      if (isInside({ folder: this.root, target: absolute }) || this.inScratch(absolute)) {
+        return absolute;
+      }
+
+      const { env } = this;
+
+      siblings ??= env ? findSiblingRoots({ root: this.root, env }) : Promise.resolve([]);
+
+      if ((await siblings).some((folder) => isInside({ folder, target: absolute }))) {
+        return absolute;
+      }
+
       throw new WorkspaceError(
         `Path is outside the workspace: ${requested} (workspace: ${this.root})`,
       );
-    }
-
-    return absolute;
+    };
   }
 }
 

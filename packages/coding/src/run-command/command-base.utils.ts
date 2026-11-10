@@ -1,7 +1,16 @@
 import { parseExactAllowEntry } from '@sheavly/protocol/permission/permission.validator';
 
 const OPTION_VALUES: Record<string, ReadonlySet<string>> = {
-  git: new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env']),
+  git: new Set([
+    '-C',
+    '-c',
+    '--git-dir',
+    '--work-tree',
+    '--namespace',
+    '--config-env',
+    '--attr-source',
+    '--shallow-file',
+  ]),
   npm: new Set([
     '-w',
     '--workspace',
@@ -113,6 +122,17 @@ export function commandBase(argv: readonly string[]): string[] {
   }
 
   return [program, command.word];
+}
+
+/** The operation of an actual Git worktree command, ignoring executable paths and Git option operands. */
+export function gitWorktreeSubcommand(argv: readonly string[]): string | undefined {
+  const [file = '', ...args] = argv;
+
+  if (executableName(file) !== 'git') return undefined;
+
+  const command = commandWord({ args, program: 'git' });
+
+  return command?.word === 'worktree' ? args[command.next] : undefined;
 }
 
 /** Older exact, path-specific and operation-specific entries now approve their base command too. */

@@ -30,6 +30,28 @@ symlinks, never deletes the root, refuses a root that fails the same ownership c
 `ScratchPruneError` for entries it could not remove. The backend prunes once at startup, so a
 folder written to while it is being removed can be lost.
 
+## Sibling git worktrees
+
+When the root is in a git repo, the other worktrees of that repo (`git worktree list`) are inside
+the workspace too, so a session in the main checkout can work on an issue's worktree. A root in a
+sub-folder reaches the same sub-folder of each worktree. Worktrees are listed once per call, only
+when a path falls outside the root, and never kept between calls, so one added or removed
+mid-session applies at once.
+Symlinks and `..` are resolved first, so a path that leads out of every worktree is still refused.
+Without git, or outside a repo, the workspace keeps its single root. `run_command` takes a `cwd`
+that goes through the same check.
+
+Only apps turn this on: `Workspace.open(root, { env })` takes the app's environment, and without
+it the root is the only one. Git's list is not trusted on its own, because a repo's contents can
+forge it: a worktree counts only when its `.git` file and the repo's `.git/worktrees/<id>/gitdir`
+point at each other. That shows the two files agree, not that they are authentic; forging both
+takes write access inside `.git`, which the file tools refuse, or a command the user approved.
+Known limits: a submodule or bare repo has no siblings (it fails closed), and an approved
+`git worktree add <path>` makes `<path>` reachable for the rest of the session, which is why the
+approval for it says so. A command that runs in a folder outside the root always asks, naming
+the folder, and the answer is never kept as a grant (`allow_all` asks nothing, as everywhere).
+`.git` of a sibling worktree can't be read or written either.
+
 | Module                 | What it holds                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------- |
 | `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite`, confined to the root (not an OS sandbox)       |

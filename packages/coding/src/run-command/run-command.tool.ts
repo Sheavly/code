@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { confirmCommand } from './command-approval.helper.js';
+import { resolveCommandCwd } from './command-cwd.helper.js';
 import { parseCommand } from './allow-list.utils.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
@@ -18,7 +20,7 @@ export function createRunCommandTool({
   return defineTool({
     name: 'run_command',
     description:
-      'Run a command in the workspace root, without a shell. Chain commands with | && || and ;; ' +
+      'Run a command in the workspace root (or in `cwd`: a folder of the workspace or of a sibling git worktree), without a shell. Chain commands with | && || and ;; ' +
       'redirects (> <), $variables, `backticks`, parentheses and & are not supported, and inside ' +
       "double quotes so is $ (use 'single quotes'; a backslash before other characters is literal, " +
       'so grep -E \'a\\|b\' src and grep -E "a\\|b" src both pass a\\|b). The user is asked before ' +
@@ -31,6 +33,14 @@ export function createRunCommandTool({
         : ''),
     inputSchema: z.object({
       command: z.string().min(1).describe('The command to run, e.g. `git status`'),
+      cwd: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'Folder to run in, absolute or relative to the workspace root (default: the root). ' +
+            'It must be inside the workspace or a sibling git worktree of its repo.',
+        ),
       background: z
         .boolean()
         .optional()
@@ -46,7 +56,7 @@ export function createRunCommandTool({
             'Service is a persistent server or watcher that does not keep the prompt alive. Stop either with cancel_task.',
         ),
     }),
-    execute: async ({ input: { command, background, backgroundKind }, signal, context }) => {
+    execute: async ({ input: { command, cwd, background, backgroundKind }, signal, context }) => {
       const parsed = parseCommand(command);
 
       if (!parsed.ok) {
@@ -56,6 +66,9 @@ export function createRunCommandTool({
         });
       }
 
+      // Before asking the user: a folder the sandbox refuses should not cost them an approval.
+      const commandCwd = await resolveCommandCwd({ workspace, requested: cwd });
+
       await confirmCommand({
         command,
         steps: parsed.steps,
@@ -63,12 +76,15 @@ export function createRunCommandTool({
         approvals,
         call: { callId: context.callId, sessionId: context.session?.id },
         signal,
+        outsideCwd: isInside({ folder: workspace.root, target: commandCwd })
+          ? undefined
+          : commandCwd,
       });
 
       // The repo's git config can't make git run programs, whatever the command.
       const script = {
         steps: safeSteps(parsed.steps),
-        cwd: workspace.root,
+        cwd: commandCwd,
         env: safeGitEnv(),
       };
 

@@ -16,14 +16,21 @@ export async function resolveWritable(params: {
   const { workspace, requested } = params;
 
   assertNotEnvFile({ filePath: requested, requested, action: 'Writing' });
+
   // A `.git` in the temp directory's own path is not the workspace's, so only paths relative to
   // the root are checked by name. An absolute path into the workspace is caught after resolving.
-  if (!path.isAbsolute(requested)) assertNotGitDir({ relativePath: requested, requested });
+  if (!path.isAbsolute(requested)) {
+    assertNotGitDir({ relativePath: requested, requested, action: 'Writing' });
+  }
+
   const real = await workspace.resolveWrite(requested);
   const shown = workspace.relative(real);
 
   assertNotEnvFile({ filePath: real, requested, action: 'Writing' });
-  if (!path.isAbsolute(shown)) assertNotGitDir({ relativePath: shown, requested });
+
+  if (!path.isAbsolute(shown)) {
+    assertNotGitDir({ relativePath: shown, requested, action: 'Writing' });
+  }
 
   return real;
 }

@@ -7,7 +7,8 @@ import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
 import type { FileRead } from './read-file.types.js';
 import { agentOf } from '../files/files.helper.js';
-import { assertNotEnvFile } from '../files/files.utils.js';
+import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 
 /**
  * Reads a UTF-8 text file inside the workspace: the whole file, or lines `startLine`–`endLine`,
@@ -41,6 +42,11 @@ export function createReadFileTool({
       const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
 
       assertNotEnvFile({ filePath: real, requested, action: 'Reading' }); // a symlink pointing at a .env file
+
+      // A sibling worktree's .git (remote URLs, sometimes tokens) is as closed to reads as to writes.
+      if (!isInside({ folder: workspace.root, target: real })) {
+        assertNotGitDir({ relativePath: workspace.relative(real), requested, action: 'Reading' });
+      }
 
       const text = await readFile(real, { encoding: 'utf8', signal });
       const { content, note, lines } = selectLines({
