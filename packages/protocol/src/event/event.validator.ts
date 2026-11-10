@@ -61,7 +61,7 @@ export const doneReasonSchema = z.enum([
  *   → harness_notice                              (structured telemetry sent to this model call)
  *   → text_delta / reasoning / tool_call_started  (live, as the model streams)
  *   → turn_end
- *   → tool_batch → tool_result | task_running × N (results in call order)
+ *   → tool_batch → tool_result | task_running × N (each as its tool finishes; match by call id)
  *   → next turn ... → done
  */
 /** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
