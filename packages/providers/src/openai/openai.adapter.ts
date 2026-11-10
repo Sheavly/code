@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   apiKeySchema,
   baseUrlSchema,
+  explicitCacheSchema,
   reasoningSchema,
   requestPolicySchema,
 } from '../http/adapter-config.validator.js';
@@ -21,6 +22,7 @@ export const openaiAdapter = defineResponsesAdapter({
     }),
     baseUrl: baseUrlSchema.default(OPENAI_BASE_URL),
     reasoning: reasoningSchema.default(true),
+    explicitCache: explicitCacheSchema.default(true),
     request: requestPolicySchema,
   }),
   toEndpoint: (config) => ({

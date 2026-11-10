@@ -8,7 +8,8 @@ import type {
   ResponsesEndpoint,
   ResponsesProviderConfig,
 } from './responses.types.js';
-import { toInputItems } from './input.utils.js';
+import { breakpointIndexes, toInputItems } from './input.utils.js';
+import { EXPLICIT_CACHE_OPTIONS } from './responses.constants.js';
 import { sendRequest } from '../http/request.helper.js';
 import { readResponsesReply } from './responses-stream.helper.js';
 
@@ -31,6 +32,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
       temperature,
       cacheKey,
     }) {
+      const marked = config.explicitCache ? breakpointIndexes(messages) : undefined;
       const url = new URL(`${endpoint.baseUrl}/responses`);
 
       for (const [key, value] of Object.entries(endpoint.query ?? {})) {
@@ -51,7 +53,13 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             // The Responses API's system prompt; with `store: false` it is sent every call.
             ...(instructions ? { instructions } : {}),
             input: [
-              ...messages.flatMap((message) => toInputItems({ message, reasoningSource })),
+              ...messages.flatMap((message, index) =>
+                toInputItems({
+                  message,
+                  reasoningSource,
+                  ...(marked && { cache: { marked: marked.has(index) } }),
+                }),
+              ),
               ...notices.map((notice) => ({ role: 'user', content: formatHarnessNotice(notice) })),
             ],
             tools: tools.map((tool) => ({
@@ -64,6 +72,8 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             store: false,
             // Routes calls of one session to the same cache; automatic caching does the rest.
             ...(cacheKey && { prompt_cache_key: cacheKey }),
+            // Explicit-only: writes end at the marked history, never at a transient notice.
+            ...(marked && { prompt_cache_options: EXPLICIT_CACHE_OPTIONS }),
             ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
             ...(mode && { reasoning: { effort: mode === 'extreme' ? 'xhigh' : mode } }),
             // Reasoning models reject a temperature, so a hint is sent only with reasoning off.
@@ -102,6 +112,7 @@ export function defineResponsesAdapter<TSchema extends z.ZodType<ResponsesAdapte
         endpoint: toEndpoint(config),
         reasoning: config.reasoning,
         request: config.request,
+        explicitCache: config.explicitCache,
         fetch: deps.fetch,
       }),
   });

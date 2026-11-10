@@ -23,6 +23,16 @@ describe('openaiAdapter', () => {
     expect(request?.body.include).toEqual(['reasoning.encrypted_content']);
   });
 
+  it('enables explicit caching by default and supports opting out', async () => {
+    const config = { apiKey: 'k', model: 'gpt-6.1-sol' };
+    const enabled = await sent(config);
+    const disabled = await sent({ ...config, explicitCache: false });
+
+    expect(enabled?.body.prompt_cache_options).toEqual({ mode: 'explicit' });
+    expect(disabled?.body).not.toHaveProperty('prompt_cache_options');
+    expect(JSON.stringify(disabled?.body.input)).not.toContain('prompt_cache_breakpoint');
+  });
+
   it('uses a custom base URL without its trailing slashes', async () => {
     const request = await sent({ apiKey: 'k', model: 'm', baseUrl: 'https://proxy.test/v1//' });
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   apiKeySchema,
+  explicitCacheSchema,
   reasoningSchema,
   requestPolicySchema,
 } from '../http/adapter-config.validator.js';
@@ -30,6 +31,7 @@ export const azureOpenaiAdapter = defineResponsesAdapter({
     }),
     apiVersion: azureApiVersionSchema.optional(),
     reasoning: reasoningSchema.default(true),
+    explicitCache: explicitCacheSchema.default(true),
     request: requestPolicySchema,
   }),
   toEndpoint: (config) => {

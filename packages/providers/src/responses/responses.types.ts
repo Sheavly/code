@@ -29,10 +29,19 @@ export type ResponsesProviderConfig = {
   reasoning?: boolean;
   request: RequestPolicy;
   fetch: typeof fetch;
+  /**
+   * Mark retained history with explicit cache breakpoints (default false). Only for deployments
+   * of GPT-5.6+ models that accept `prompt_cache_options`; others reject the fields.
+   */
+  explicitCache?: boolean | undefined;
 };
 
 /** The config every Responses adapter's schema must produce, besides its own fields. */
-export type ResponsesAdapterConfig = { reasoning: boolean; request: RequestPolicy };
+export type ResponsesAdapterConfig = {
+  reasoning: boolean;
+  request: RequestPolicy;
+  explicitCache?: boolean | undefined;
+};
 
 /** A streamed Responses API event we use (everything else is skipped). */
 export type ResponsesEvent = z.infer<typeof responsesEventSchema>;

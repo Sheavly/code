@@ -28,6 +28,27 @@ describe('azureOpenaiAdapter', () => {
     ).toThrow('Expected v1, preview, or a date');
   });
 
+  it.each([undefined, false])(
+    'honors explicitCache=%s for arbitrary deployments',
+    async (explicitCache) => {
+      const request = await sent({
+        apiKey: 'k',
+        baseUrl: 'https://res.openai.azure.com/openai/v1',
+        deployment: 'my-arbitrary-deployment',
+        explicitCache,
+      });
+
+      if (explicitCache === false) {
+        expect(request?.body).not.toHaveProperty('prompt_cache_options');
+        expect(JSON.stringify(request?.body.input)).not.toContain('prompt_cache_breakpoint');
+
+        return;
+      }
+
+      expect(request?.body.prompt_cache_options).toEqual({ mode: 'explicit' });
+    },
+  );
+
   const cases = [
     {
       name: 'a v1 base URL',

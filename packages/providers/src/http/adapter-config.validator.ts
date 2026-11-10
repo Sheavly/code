@@ -19,6 +19,16 @@ export const apiKeySchema = z
 export const reasoningSchema = z.boolean();
 
 /**
+ * Cache conversation history before transient notices with explicit breakpoints. On by default
+ * (adapters default it to true); turn it off for models before GPT-5.6, which reject the request
+ * fields. It is never guessed from a model or deployment name.
+ */
+export const explicitCacheSchema = z.boolean().meta({
+  title: 'Explicit prompt cache',
+  description: 'Cache history with explicit breakpoints (GPT-5.6 and later only)',
+});
+
+/**
  * How a call is sent: how long to wait for the response to start, and how often to retry one
  * that failed before anything streamed. Required, with no defaults: like the model, it is the
  * caller's choice. See `RequestPolicy`. Host-owned: a model's file doesn't hold it, the backend
