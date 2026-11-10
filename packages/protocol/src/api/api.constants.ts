@@ -272,3 +272,5 @@ export const API_ROUTES = {
   },
   ...FOLDER_ROUTES,
 } as const satisfies Record<string, ApiRoute>;
+
+export const SCHEMAS = '#/components/schemas/';

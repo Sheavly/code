@@ -1,9 +1,7 @@
 import { contractDefinitions, contractName } from '../contract/contract.utils.js';
 import { serverErrorSchema } from '../server/server.validator.js';
-import { API_ROUTES, LAST_EVENT_ID_HEADER, OPENAPI_VERSION } from './api.constants.js';
+import { API_ROUTES, LAST_EVENT_ID_HEADER, OPENAPI_VERSION, SCHEMAS } from './api.constants.js';
 import type { ApiResponse, ApiRoute, OpenApiDocument } from './api.types.js';
-
-const SCHEMAS = '#/components/schemas/';
 
 /** A `$ref` to the contract's schema; a schema the contract doesn't name fails loudly. */
 function refTo(schema: Parameters<typeof contractName>[0]): { $ref: string } {
