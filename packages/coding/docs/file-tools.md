@@ -12,6 +12,14 @@ inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.g
 `sub/.git/config` and a `.git` file) are refused the same way: git config and hooks there can make
 the next `git status` run any program, outside every check `run_command` makes.
 
+When the app sets `scratchRoot` (the backend uses `<tmpdir>/sheavly`), the tools may also use that
+shared folder, by absolute path: an agent keeps notes and hand-offs in `<scratch>/<agent-id>/`,
+and sub-agents use their root agent's folder. The whole scratch root is open to every agent, in
+every conversation, on purpose; the rest of the filesystem is not, symlinks out of it are refused,
+and the `.env` rule still applies. A scratch path is reported absolute, so the `.git` name check
+applies only to paths inside the workspace.
+`run_command` does not check paths and is unchanged.
+
 | Tool         | What it does                                                                               |
 | ------------ | ------------------------------------------------------------------------------------------ |
 | `read_file`  | Returns a UTF-8 file, or lines `startLine`–`endLine`; at most 1,000 lines per call (below) |

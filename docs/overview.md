@@ -278,7 +278,8 @@ What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **pa
 
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and writes
-  inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)).
+  inside `.git` are refused ([file tools](../packages/coding/docs/file-tools.md)). The one
+  exception is the optional shared scratch folder (`<tmpdir>/sheavly` in the backend).
 - `run_command` runs commands without a shell (a line may chain them with `|`, `&&`, `||` and
   `;`), asks the user before any command they have not allowed, checks the arguments of every
   command with the same path rules, asks for approval when one reaches outside or can name a
