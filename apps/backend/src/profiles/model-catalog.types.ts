@@ -1,6 +1,29 @@
+import type { ModelOffering } from '@sheavly/protocol/setup/setup.types';
+import type { z } from 'zod';
+import type { azureChatAdapter } from '@sheavly/providers/azure/chat.adapter';
+
+/** What a catalogue entry may override for a chat host; `z.input` keeps schema defaults optional. */
+type ChatHostingPreset = Partial<
+  Pick<
+    z.input<typeof azureChatAdapter.configSchema>,
+    'replayReasoning' | 'thinkingMode' | 'effortProfile'
+  >
+>;
+
+/** Internal presets are merged into host defaults, never exposed as catalogue metadata. */
+export type SetupModelTemplate = Pick<ModelOffering, 'name'> & {
+  identity: Required<ModelOffering['identity']>;
+  /** Only a host whose schema carries these fields may hold them; every other kind takes none. */
+  hostingPresets?: {
+    [Host in SetupHostingTemplate['adapter']]?: Host extends 'azure-chat'
+      ? ChatHostingPreset
+      : never;
+  };
+};
+
 /** App-owned hosting policy; model names and connection settings are separate choices. */
 export type SetupHostingTemplate = {
-  adapter: string;
+  adapter: 'azure-openai' | 'openai' | 'azure-anthropic' | 'azure-chat';
   name: string;
   families: string[];
   modelField: 'model' | 'deployment';

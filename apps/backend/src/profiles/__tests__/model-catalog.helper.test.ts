@@ -39,6 +39,23 @@ describe('model-first setup catalogue', () => {
         fixed: {},
       },
     ]);
+    expect(models.find(({ identity }) => identity.model === 'DeepSeek-V4.1-Flash-1017')).toEqual({
+      name: 'DeepSeek V4.1 Flash (1017)',
+      identity: { model: 'DeepSeek-V4.1-Flash-1017', family: 'deepseek' },
+      hosts: [
+        {
+          adapter: 'azure-chat',
+          name: 'Azure',
+          defaults: {
+            deployment: 'DeepSeek-V4.1-Flash-1017',
+            replayReasoning: true,
+            thinkingMode: 'enabled',
+            effortProfile: 'deepseek',
+          },
+          fixed: {},
+        },
+      ],
+    });
     expect(hosts('gpt-6.1-sol')?.find(({ adapter }) => adapter === 'openai')?.fixed).toEqual({
       model: 'gpt-6.1-sol',
     });
@@ -76,6 +93,44 @@ describe('model-first setup catalogue', () => {
         adapters,
       }),
     ).toThrow('Use gpt-6.1-sol');
+  });
+
+  it.each(['DeepSeek-V4.1-Flash-1017', 'production-east'])(
+    'accepts snapshot deployment %s only on azure-chat',
+    (deployment) => {
+      const model = {
+        name: 'Snapshot',
+        adapter: 'azure-chat',
+        identity: { model: 'DeepSeek-V4.1-Flash-1017', family: 'deepseek' },
+        definition: { deployment },
+      };
+
+      expect(() => assertModelHosting({ adapters, model })).not.toThrow();
+
+      for (const adapter of ['azure-openai', 'openai', 'azure-anthropic']) {
+        expect(() => assertModelHosting({ adapters, model: { ...model, adapter } })).toThrow(
+          'does not support',
+        );
+      }
+
+      expect(() =>
+        assertModelHosting({
+          adapters: adapters.filter(({ kind }) => kind !== 'azure-chat'),
+          model,
+        }),
+      ).toThrow('does not support');
+    },
+  );
+
+  it('does not let a lowercase identity escape the catalogue host check', () => {
+    const model = {
+      name: 'Snapshot',
+      adapter: 'azure-openai',
+      identity: { model: 'deepseek-v4.1-flash-1017', family: 'deepseek' },
+      definition: { deployment: 'DeepSeek-V4.1-Flash-1017' },
+    };
+
+    expect(() => assertModelHosting({ adapters, model })).toThrow('does not support');
   });
 
   it('accepts custom deployments for known models and leaves legacy/custom models supported', () => {

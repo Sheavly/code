@@ -41,8 +41,14 @@ and never mutate conversation history or system instructions. See
 
 Chat Completions uses its own nested function tools, streamed deltas and `finish_reason` markers.
 It bounds replies with `maxTokens`, reports final token usage, and optionally replays plain
-`reasoning_content` under endpoint/model provenance. Truncated replies never release incomplete
-tool calls. `chat-reply/` is internal and closed in package exports.
+`reasoning_content` under endpoint/model provenance across tool and user turns, including
+assistant replies without tool calls. Explicit `effortProfile: 'deepseek'` maps loop modes to
+`low/high/high/max`; the default `'openai'` retains `low/medium/high/xhigh`, without deployment-name
+inference. Thinking and replay remain separate options. Automatic cache usage counts reported
+hits once and misses as uncached input, never cache writes; missing fields are not proof of
+measured caching. See [Chat Completions on Foundry](docs/backends.md#chat-completions-on-foundry).
+Truncated replies never release incomplete tool calls. `chat-reply/` is internal and closed in
+package exports.
 
 Messages replies preserve their original content-block order and request-prefix provenance.
 An explicit `max_tokens` termination with an open block retains streamed text and completed tool

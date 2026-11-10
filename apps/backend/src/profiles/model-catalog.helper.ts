@@ -8,7 +8,7 @@ export function setupModelCatalog(adapters: AdapterDescription[]): ModelOffering
   const available = new Set(adapters.map(({ kind }) => kind));
 
   return SETUP_MODELS.map((model) => ({
-    ...model,
+    name: model.name,
     identity: { ...model.identity },
     hosts: SETUP_HOSTING.filter(
       (host) => available.has(host.adapter) && host.families.includes(model.identity.family),
@@ -17,6 +17,7 @@ export function setupModelCatalog(adapters: AdapterDescription[]): ModelOffering
       name: host.name,
       defaults: {
         ...host.defaults,
+        ...model.hostingPresets?.[host.adapter],
         ...(host.modelField === 'deployment' && { deployment: model.identity.model }),
       },
       fixed: host.modelField === 'model' ? { model: model.identity.model } : {},
@@ -30,7 +31,10 @@ export function assertModelHosting(params: {
   adapters: AdapterDescription[];
 }): void {
   const { model, adapters } = params;
-  const known = SETUP_MODELS.find((entry) => entry.identity.model === model.identity?.model);
+  // Deployment names are matched case-insensitively, so a lowercase identity cannot slip past the
+  // catalogue and pair a known model with a host it does not serve.
+  const identity = model.identity?.model?.toLowerCase();
+  const known = SETUP_MODELS.find((entry) => entry.identity.model.toLowerCase() === identity);
 
   if (!known) return;
 

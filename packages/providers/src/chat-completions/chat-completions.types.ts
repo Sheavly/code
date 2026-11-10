@@ -5,6 +5,7 @@ import type { chatChunkSchema } from './chat-completions.validator.js';
 
 export type ChatChunk = z.infer<typeof chatChunkSchema>;
 export type ChatThinkingMode = 'enabled' | 'disabled';
+export type ChatEffortProfile = 'openai' | 'deepseek';
 
 export type ChatEndpoint = {
   /** Full operation URL, including any API version query; reasoning provenance uses this too. */
@@ -18,6 +19,8 @@ export type ChatAdapterConfig = {
   maxTokens?: number | undefined;
   replayReasoning?: boolean | undefined;
   thinkingMode?: ChatThinkingMode | undefined;
+  /** Explicit native effort mapping; defaults to OpenAI without model-name inference. */
+  effortProfile?: ChatEffortProfile | undefined;
 };
 
 export type ChatProviderConfig = ChatAdapterConfig & {

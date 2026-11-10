@@ -51,6 +51,52 @@ describe('Azure Foundry Chat Completions', () => {
     },
   );
 
+  it.each([
+    [undefined, 'xhigh'],
+    ['openai', 'xhigh'],
+    ['deepseek', 'max'],
+  ])('forwards explicit effort profile %s to the protocol', async (effortProfile, expected) => {
+    const fake = fakeFetchSequence({
+      responses: [[{ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] }]],
+      complete: false,
+    });
+    const config = azureChatAdapter.configSchema.parse({
+      baseUrl: 'https://resource.test/models/chat/completions?api-version=2024-05-01-preview',
+      deployment: 'DeepSeek-V4.1-Flash-1017',
+      apiKey: 'fake-key',
+      effortProfile,
+      thinkingMode: 'enabled',
+      replayReasoning: true,
+      request: TEST_REQUEST,
+    });
+    const provider = azureChatAdapter.create({ config, deps: { fetch: fake.fetch } });
+
+    await collect(
+      provider.stream({
+        messages: [{ role: 'user', content: 'hello' }],
+        tools: [],
+        mode: 'extreme',
+        signal: new AbortController().signal,
+      }),
+    );
+    expect(config.effortProfile).toBe(effortProfile ?? 'openai');
+    expect(fake.requests[0]?.body.reasoning_effort).toBe(expected);
+    expect(fake.requests[0]?.body.thinking).toEqual({ type: 'enabled' });
+    expect(fake.requests[0]?.headers['extra-parameters']).toBe('pass-through');
+  });
+
+  it('rejects unknown effort profiles rather than silently defaulting', () => {
+    expect(
+      azureChatAdapter.configSchema.safeParse({
+        baseUrl: 'https://resource.test/models',
+        deployment: 'custom',
+        apiKey: 'fake-key',
+        request: TEST_REQUEST,
+        effortProfile: 'automatic',
+      }).success,
+    ).toBe(false);
+  });
+
   it('rejects mixed protocols and invalid API versions before sending a request', () => {
     const config = { deployment: 'model', apiKey: 'key', request: TEST_REQUEST };
 

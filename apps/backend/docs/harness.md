@@ -92,6 +92,23 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   its latest mode in the profile, even if another conversation changed that preference. A
   resumed conversation instead restores its own saved pair. A mode-only switch is persisted
   through the same API, without changing the model.
+- **DeepSeek snapshot setup.** The app catalogue offers **DeepSeek V4.1 Flash (1017)** with
+  identity `DeepSeek-V4.1-Flash-1017`, family `deepseek`, and only the `azure-chat` hosting route.
+  Its suggested deployment is that exact snapshot string; a differently named Azure deployment
+  can retain the same model identity. The preset sets `replayReasoning: true`,
+  `thinkingMode: enabled` and `effortProfile: deepseek`. The existing **DeepSeek V4 Flash** entry
+  still suggests `deepseek-v4-flash` with only `replayReasoning: true`; neither catalogue listing
+  nor provider construction rewrites saved definitions or silently switches their effort profile.
+  The explicit DeepSeek profile maps medium to `high` and extreme to `max`; low and high retain
+  their names. Omitting the profile keeps the adapter's OpenAI mapping (extreme to `xhigh`).
+  Use the Azure Foundry Chat Completions endpoint, for example
+  `https://resource.test/models/chat/completions?api-version=2024-05-01-preview`, not Responses.
+  The user confirmed that endpoint shape and API version for the requested deployment. Offline
+  fake-transport tests verify setup persistence, provider construction, request fields and
+  same-endpoint/model plain-reasoning replay. They do **not** verify live Azure acceptance,
+  reasoning behavior, cached-token reporting, cache billing or model quality; no live call was
+  made to establish those properties. Resource hostnames and private connection settings are
+  not catalogue defaults.
 - **Responses caching compatibility.** New `openai` and `azure-openai` models created through setup
   store `explicitCache: true` by default; unsupported deployments must explicitly set it to false.
   Saved definitions without this setting keep automatic caching (`explicitCache: false`) when
