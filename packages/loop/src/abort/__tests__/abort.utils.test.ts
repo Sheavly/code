@@ -1,6 +1,71 @@
 import { getEventListeners } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { raceAbort } from '../abort.utils.js';
+import { raceAbort, untilAborted } from '../abort.utils.js';
+
+/** A promise that counts every `then` made on it or on a promise derived from it. */
+class CountingPromise<T> extends Promise<T> {
+  static thens = 0;
+
+  override then<A, B>(
+    onFulfilled?: ((value: T) => A | PromiseLike<A>) | null,
+    onRejected?: ((reason: unknown) => B | PromiseLike<B>) | null,
+  ): Promise<A | B> {
+    CountingPromise.thens += 1;
+
+    return super.then(onFulfilled, onRejected);
+  }
+}
+
+async function* numbers(count: number): AsyncGenerator<number> {
+  for (let i = 0; i < count; i++) yield await Promise.resolve(i);
+}
+
+describe('untilAborted', () => {
+  it('yields every item of a source that ends before the abort', async () => {
+    const seen: number[] = [];
+
+    for await (const n of untilAborted({
+      source: numbers(4),
+      aborted: new Promise<void>(() => undefined),
+    })) {
+      seen.push(n);
+    }
+
+    expect(seen).toEqual([0, 1, 2, 3]);
+  });
+
+  it('stops at once on abort, without waiting for the next item', async () => {
+    let abort: () => void = () => undefined;
+    const aborted = new Promise<void>((resolve) => {
+      abort = resolve;
+    });
+    const seen: number[] = [];
+    const hanging = (async function* () {
+      yield 1;
+      await new Promise(() => undefined);
+    })();
+
+    for await (const n of untilAborted({ source: hanging, aborted })) {
+      seen.push(n);
+      abort();
+    }
+
+    expect(seen).toEqual([1]);
+  });
+
+  it('adds no handler to the abort promise per item', async () => {
+    CountingPromise.thens = 0;
+
+    const aborted = new CountingPromise<void>(() => undefined);
+
+    let items = 0;
+
+    for await (const _item of untilAborted({ source: numbers(200), aborted })) items++;
+
+    expect(items).toBe(200);
+    expect(CountingPromise.thens).toBeLessThanOrEqual(1);
+  });
+});
 
 describe('raceAbort', () => {
   it('returns the work when it finishes first', async () => {

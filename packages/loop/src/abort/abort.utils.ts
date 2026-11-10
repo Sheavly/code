@@ -55,6 +55,9 @@ export function ignoreRejection(): undefined {
  * Iterates `source` until it ends or `aborted` resolves, whichever comes first.
  * On abort, iteration stops right away (without waiting for the next item) and the source
  * is told to clean up. Errors thrown by the source after the abort are ignored.
+ *
+ * `aborted` gets one handler for the whole iteration. Racing every item against the same promise
+ * would add a reaction to it per item, held until it settles: one per delta of a long run.
  */
 export async function* untilAborted<T>(params: {
   source: AsyncIterable<T>;
@@ -62,14 +65,24 @@ export async function* untilAborted<T>(params: {
 }): AsyncGenerator<T> {
   const { source, aborted } = params;
   const iterator = source[Symbol.asyncIterator]();
-  const abort = aborted.then((): typeof ABORTED => ABORTED);
+  let isAborted = false;
+  let wakeWaiting: (() => void) | undefined;
+
+  void aborted.then(() => {
+    isAborted = true;
+    wakeWaiting?.();
+  });
 
   while (true) {
     const next = iterator.next();
 
     next.catch(ignoreRejection); // if we stop waiting on it, its rejection must not go unhandled
 
-    const result = await Promise.race([next, abort]);
+    const stopped = new Promise<typeof ABORTED>((resolve) => {
+      wakeWaiting = () => resolve(ABORTED);
+      if (isAborted) resolve(ABORTED);
+    });
+    const result = await Promise.race([next, stopped]);
 
     if (result === ABORTED) {
       iterator.return?.().catch(ignoreRejection);
