@@ -1,15 +1,6 @@
 import type { Hook, HookHandlerName } from './hook.types.js';
 import { DefinitionError } from '../errors/definition.errors.js';
-
-/** Every handler a hook can define, so a check can't miss a newly added one. */
-const HANDLERS = {
-  sessionStart: true,
-  beforeTurn: true,
-  beforeModelCall: true,
-  aroundToolCall: true,
-  afterTurn: true,
-  onError: true,
-} satisfies Record<HookHandlerName, true>;
+import { HANDLERS } from './hook.constants.js';
 
 /** True if the hook defines at least one handler. */
 export function hasHandler(hook: Hook): boolean {
