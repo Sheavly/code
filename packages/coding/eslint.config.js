@@ -13,9 +13,10 @@ export default defineConfig([
   },
   // The agent's file tools write a project. They do it through `Workspace` (confined to its root),
   // under a file lock and the allow list, which is what makes a write by the agent safe; the
-  // user's own data is `@sheavly/storage`'s (`harness/no-direct-file-writes`).
+  // user's own data is `@sheavly/storage`'s (`harness/no-direct-file-writes`). Only this helper
+  // changes the project's files: a tool calls it rather than importing `node:fs` itself.
   {
-    files: ['src/files/files.helper.ts', 'src/write-file/write-file.tool.ts'],
+    files: ['src/files/files.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
 ]);
