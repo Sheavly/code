@@ -3,7 +3,8 @@ import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
+import type { FileChange } from './files.types.js';
+import { assertNotEnvFile, assertNotGitDir, describeChange } from './files.utils.js';
 
 /**
  * Resolves a path the agent may write to: inside the workspace (`resolveWrite` rejects `../`,
@@ -118,6 +119,30 @@ export async function readIfExists(params: {
   }
 }
 
+/**
+ * The content of a file the change expects to exist, read under its lock. A missing file fails as
+ * `not_found`, with `hint` saying what to do instead: creating it, or looking for the delete that
+ * already happened.
+ */
+export async function readForChange(params: {
+  file: string;
+  requested: string;
+  signal: AbortSignal;
+  hint: string;
+}): Promise<string> {
+  const { file, requested, signal, hint } = params;
+  const before = await readIfExists({ file, signal });
+
+  if (before === null) {
+    throw new ToolCallError({
+      reason: 'not_found',
+      message: `File not found: ${requested}. ${hint}`,
+    });
+  }
+
+  return before;
+}
+
 /** Writes UTF-8 text. */
 export async function writeText(params: {
   file: string;
@@ -142,4 +167,27 @@ export async function createParentFolder(params: { file: string }): Promise<void
  */
 export async function removeFile(params: { file: string }): Promise<void> {
   await rm(params.file);
+}
+
+/**
+ * The result a file tool returns for a change: the one-line description a model reads, and the
+ * `FileChange` artifact a UI renders. Built together so a tool can't report a path or a content
+ * pair the other doesn't see; `suffix` adds to the description (an edit's replacement count).
+ */
+export function changeResult(params: {
+  workspace: Workspace;
+  file: string;
+  verb: string;
+  before: string | null;
+  after: string | null;
+  suffix?: string;
+}): { content: string; artifacts: FileChange[] } {
+  const { workspace, file, verb, before, after, suffix = '' } = params;
+  const relative = workspace.relative(file);
+  const change: FileChange = { kind: 'file_change', path: relative, before, after };
+
+  return {
+    content: `${describeChange({ verb, path: relative, before, after })}${suffix}`,
+    artifacts: [change],
+  };
 }

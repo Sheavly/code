@@ -1,18 +1,15 @@
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
-import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
-import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import type { FileToolServices } from '../files/files.types.js';
 import {
   agentOf,
+  changeResult,
   createParentFolder,
   readIfExists,
   resolveWritable,
   writeText,
 } from '../files/files.helper.js';
-import { describeChange } from '../files/files.utils.js';
-import type { FileChange } from '../files/files.types.js';
 
 /**
  * Creates a new UTF-8 text file inside the workspace (creating parent folders), and refuses a
@@ -24,15 +21,7 @@ import type { FileChange } from '../files/files.types.js';
  * tool that made its own would silently let a parallel write or edit overlap. `fileReads` is the
  * harness's too: what the agent creates counts as seen, so it can edit it without reading it back.
  */
-export function createWriteFileTool({
-  workspace,
-  fileLocks,
-  fileReads,
-}: {
-  workspace: Workspace;
-  fileLocks: FileLocks;
-  fileReads: FileReads;
-}) {
+export function createWriteFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
   return defineTool({
     name: 'write_file',
     description:
@@ -66,23 +55,13 @@ export function createWriteFileTool({
             whole: true,
           });
 
-          const relative = workspace.relative(real);
-          const change: FileChange = {
-            kind: 'file_change',
-            path: relative,
+          return changeResult({
+            workspace,
+            file: real,
+            verb: 'Created',
             before: null,
             after: content,
-          };
-
-          return {
-            content: describeChange({
-              verb: 'Created',
-              path: relative,
-              before: null,
-              after: content,
-            }),
-            artifacts: [change],
-          };
+          });
         },
       });
     },

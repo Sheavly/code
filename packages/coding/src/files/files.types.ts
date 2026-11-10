@@ -1,3 +1,14 @@
+import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+
+/** The services every file tool takes from the run it is built in. */
+export type FileToolServices = {
+  workspace: Workspace;
+  fileLocks: FileLocks;
+  fileReads: FileReads;
+};
+
 /**
  * The artifact the file tools return: a file they created, changed or deleted, enough for a UI to
  * render a diff. Rendering the diff is the UI's job.
