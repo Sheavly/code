@@ -36,6 +36,7 @@ export async function sample(context: SampleContext) {
   const toolCalls: ToolCall[] = [];
   const reasoning: ReasoningItem[] = [];
   const running: RunningCall[] = [];
+  const finished = { count: 0 };
   let stopReason: TurnStopReason = 'end_turn';
   let failure: SampleFailure | undefined;
   let usage: ModelUsage = { tokens: null };
@@ -79,7 +80,7 @@ export async function sample(context: SampleContext) {
 
           toolCalls.push(event.call);
           events.enqueue({ type: 'tool_call_started', ...described });
-          running.push({ described, outcome: startTool({ start, described, stopped }) });
+          running.push(trackFinish({ described, start, stopped, finished }));
           break;
         }
 
@@ -116,6 +117,30 @@ export async function sample(context: SampleContext) {
   };
 
   return { message, stopReason, running, failure };
+}
+
+/**
+ * Starts a tool and notes, the moment it finishes, where it came among the turn's calls. The
+ * turn releases results in that order, so one that finished while the model still streamed is
+ * not put back in call order.
+ */
+function trackFinish(params: {
+  described: DescribedCall;
+  start: ToolStart;
+  stopped: Promise<string>;
+  finished: { count: number };
+}): RunningCall {
+  const { described, start, stopped, finished } = params;
+  const call: RunningCall = {
+    described,
+    outcome: startTool({ start, described, stopped }).then((outcome) => {
+      call.settled = { order: finished.count++, outcome };
+
+      return outcome;
+    }),
+  };
+
+  return call;
 }
 
 /**

@@ -253,7 +253,8 @@ backend caches, is in [prompt caching](../packages/providers/docs/prompt-caching
    context and this turn's system instructions), then the model is called. Text and reasoning
    stream out as they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
-   Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
+   Their results are released after the turn ends (`tool_batch`, `tool_result`), each as its tool
+   finishes; a UI matches a result to its call by id, and history keeps call order.
    A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
    after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends

@@ -22,7 +22,11 @@ update; the original exception still ends iteration. Diagnostics never enter mod
    the messages this one call sends), then the model is called. Text and reasoning stream out as
    they arrive.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
-   Their results are released after the turn ends, in call order (`tool_batch`, `tool_result`).
+   Their results are released after the turn ends (`tool_batch`, then one `tool_result` per call),
+   each as its tool finishes, so a fast tool is not held behind a slow one called before it.
+   Results that finished while the model still streamed go out first, in the order they finished.
+   A UI matches a result to its call by id; `tool_batch` lists the calls in the order the model
+   made them, and the history the model is sent next keeps that call order.
    A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
    after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model

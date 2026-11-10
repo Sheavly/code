@@ -209,9 +209,10 @@ function reportFinishedTasks(params: {
 }
 
 /**
- * Queues the turn's results in call order (each is released after the turn ended and the
- * previous result) and returns them for history, also in call order. Every call gets a result,
- * real or "interrupted", so history stays valid.
+ * Queues each result the moment its tool finishes, after the turn ended and `tool_batch`, so a
+ * fast tool is never held back by a slow one called before it. A UI matches a result to its call
+ * by id. History is returned in call order, which is what the model needs next. Every call gets a
+ * result, real or "interrupted", so history stays valid.
  */
 async function releaseResults(params: {
   running: RunningCall[];
@@ -221,7 +222,22 @@ async function releaseResults(params: {
 
   events.enqueue({ type: 'tool_batch', calls: running.map((r) => r.described) });
 
-  for (const { outcome } of running) events.enqueue(outcome);
+  // One synchronous pass, so a call is either already finished or waited for below, never both.
+  // Finished ones go out first, in the order they finished; the rest as each one finishes.
+  const early = running
+    .flatMap(({ settled }) => (settled ? [settled] : []))
+    .sort((a, b) => a.order - b.order);
+  const late = running.filter(({ settled }) => !settled);
+
+  for (const { outcome } of early) events.enqueue(outcome);
+
+  // Enqueued as a settled value, not as the promise: the queue holds a pending item up and
+  // everything behind it, which would put results back in call order.
+  await Promise.all(
+    late.map(async ({ outcome }) => {
+      events.enqueue(await outcome);
+    }),
+  );
 
   const outcomes = await Promise.all(running.map((r) => r.outcome));
 
