@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
 import { RemoteConversation } from '../client/conversation.service.js';
@@ -80,7 +80,7 @@ function runEnv(params: {
 async function streamRun(params: {
   store: WorkbookStore;
   request: RunRequest;
-  history: Message[];
+  history: HistoryMessage[];
   paths: Awaited<ReturnType<WorkbookStore['beginRun']>>;
   recorder: RunRecorder;
   write: (text: string) => void;
@@ -165,7 +165,7 @@ function mainOutcome(params: {
 async function startingPoint(params: {
   store: WorkbookStore;
   request: RunRequest;
-}): Promise<{ history: Message[]; workspace?: string }> {
+}): Promise<{ history: HistoryMessage[]; workspace?: string }> {
   const { store, request } = params;
 
   if (!request.continues) return { history: [] };

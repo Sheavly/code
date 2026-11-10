@@ -71,5 +71,9 @@ appending to, so replay and a UI's own view of the conversation are unchanged.
 3. Add a runner in `packages/loop/src/hooks/hooks.helper.ts` and call it from the loop.
 4. Test it in `packages/loop/src/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
 
-Not built: a user-level `~/.sheavly/`, and hooks around a summary (the loop doesn't summarize
-history yet). See [#13](https://github.com/Sheavly/code/issues/13).
+Every handler is given the model's view of the history (the newest checkpoint as text, then the
+messages it kept), never the stored `summary` entries; see
+[summaries](../../loop/docs/run.md#summaries).
+
+Not built: a user-level `~/.sheavly/`, and hooks around a summary (`beforeSummary`,
+`afterSummary`). See [#13](https://github.com/Sheavly/code/issues/13).

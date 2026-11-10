@@ -19,6 +19,15 @@ const usage = (value: TokenUsage | null): AgentEvent => ({
   usage: { tokens: value },
 });
 
+/** A registry with two main sessions, for tests that must keep their numbers apart. */
+function twoSessions() {
+  const sessions = new SessionRegistry();
+  const first = sessions.startMain({ title: 'One' });
+  const second = sessions.startMain({ title: 'Two' });
+
+  return { sessions, first, second };
+}
+
 describe('a session’s last reported tokens', () => {
   it('is none before any call reported usage', () => {
     const sessions = new SessionRegistry();
@@ -28,10 +37,7 @@ describe('a session’s last reported tokens', () => {
   });
 
   it('is the newest usage event of that session, not a sum and not another session’s', () => {
-    const sessions = new SessionRegistry();
-    const [first, second] = ['One', 'Two'].map((title) => sessions.startMain({ title }));
-
-    if (!first || !second) throw new Error('both sessions start');
+    const { sessions, first, second } = twoSessions();
 
     sessions.publish({ sessionId: first.id, event: usage(tokens(100)) });
     sessions.publish({ sessionId: first.id, event: usage(tokens(250)) });
@@ -49,6 +55,27 @@ describe('a session’s last reported tokens', () => {
     sessions.publish({ sessionId: main.id, event: usage(null) });
 
     expect(sessions.lastTokens(main.id)).toBeUndefined();
+  });
+
+  it('is cleared on request for one session only, since a summary replaced what it described', () => {
+    const { sessions, first, second } = twoSessions();
+
+    sessions.publish({ sessionId: first.id, event: usage(tokens(100)) });
+    sessions.publish({ sessionId: second.id, event: usage(tokens(7)) });
+    sessions.forgetLastTokens(first.id);
+
+    expect(sessions.lastTokens(first.id)).toBeUndefined();
+    expect(sessions.lastTokens(second.id)).toEqual(tokens(7));
+
+    sessions.publish({ sessionId: first.id, event: usage(tokens(40)) });
+    expect(sessions.lastTokens(first.id)).toEqual(tokens(40));
+  });
+
+  it('refuses to clear a session the registry does not know', () => {
+    const sessions = new SessionRegistry();
+    const other = new SessionRegistry().startMain({ title: 'Elsewhere' });
+
+    expect(() => sessions.forgetLastTokens(other.id)).toThrow();
   });
 
   it('comes back with a reopened conversation', async () => {

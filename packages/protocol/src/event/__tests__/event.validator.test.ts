@@ -66,6 +66,23 @@ describe('agentEventSchema', () => {
     ).toBe(false);
   });
 
+  it('lets done carry a history that holds a checkpoint', () => {
+    const messages = [
+      { role: 'user', content: 'go' },
+      {
+        role: 'summary',
+        sections: [{ id: 'goal', title: 'Goal', body: 'Fix it.' }],
+        kept: 1,
+        summarized: 4,
+        summarizer: 'model',
+        at: 1,
+      },
+    ];
+    const done = { seq: 0, type: 'done', reason: 'completed', messages, session: SESSION };
+
+    expect(agentEventSchema.parse(done)).toEqual(done);
+  });
+
   it('refuses a summary_done that kept nothing, like the checkpoint it announces', () => {
     const done = {
       seq: 0,

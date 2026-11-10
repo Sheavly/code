@@ -1,4 +1,4 @@
-import type { Message, ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, ToolMessage } from '@sheavly/protocol/message/message.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { INTERRUPTED_CALL } from './conversations.constants.js';
@@ -26,9 +26,12 @@ export function matchesSearch(params: { skill: SkillInfo; search: string }): boo
  * the results that did arrive, in the assistant message's call order, stamped `at`. History that
  * is already valid comes back unchanged.
  */
-export function repairHistory(params: { messages: readonly Message[]; at: number }): Message[] {
+export function repairHistory(params: {
+  messages: readonly HistoryMessage[];
+  at: number;
+}): HistoryMessage[] {
   const { messages, at } = params;
-  const repaired: Message[] = [];
+  const repaired: HistoryMessage[] = [];
   let index = 0;
 
   while (index < messages.length) {

@@ -89,7 +89,9 @@ describe('a kept session', () => {
     });
 
     expect(started).toEqual(['sessionStart']);
-    expect(second.messages.filter((m) => m.content.includes('house rules'))).toHaveLength(1);
+    expect(
+      second.messages.filter((m) => m.role !== 'summary' && m.content.includes('house rules')),
+    ).toHaveLength(1);
   });
 
   it('ends the session as before without keepSession', async () => {

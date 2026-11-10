@@ -3,7 +3,7 @@ import type { Conversation } from '../conversation/conversation.types.js';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode, ModelSelection } from '@sheavly/protocol/model/model.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
@@ -71,7 +71,7 @@ export type LiveConversation = {
  * them on and records what the run reports.
  */
 export type StartConversationParams = {
-  messages?: Message[] | undefined;
+  messages?: HistoryMessage[] | undefined;
   workspace?: string | undefined;
   profile?: ProfileId | undefined;
   /** An explicitly resumed selection, not the profile's last-used preference. */
@@ -103,7 +103,7 @@ export type CreateConversation = (
  */
 export type ConversationStorage = {
   entries: EntryStore;
-  keepHistory: (messages: readonly Message[]) => void;
+  keepHistory: (messages: readonly HistoryMessage[]) => void;
   resume?: StoredLog | undefined;
 };
 
@@ -119,7 +119,7 @@ export type StoredConversationState = {
   /** Its index entry as stored. */
   stored: StoredConversation;
   /** Its history, with a placeholder for every tool call that never returned. */
-  messages: Message[];
+  messages: HistoryMessage[];
   /** Its stream, to carry on from. */
   resume: StoredLog;
 };

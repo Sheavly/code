@@ -28,6 +28,11 @@ export class LastTokens {
     else this.#tokens.delete(sessionId);
   }
 
+  /** Drops what is known about a session, like a call that reported no usage. */
+  forget(id: SessionId): void {
+    this.#tokens.delete(id);
+  }
+
   /** The tokens of the session's last model call, or none when it has made none that reported. */
   get(id: SessionId): TokenUsage | undefined {
     return this.#tokens.get(id);

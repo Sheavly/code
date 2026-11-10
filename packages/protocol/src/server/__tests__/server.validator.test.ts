@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { summaryMessageSchema } from '../../message/message.validator.js';
 import {
   answerApprovalRequestSchema,
   conversationDetailsSchema,
   conversationsResponseSchema,
+  messagesResponseSchema,
   sendPromptRequestSchema,
   serverErrorSchema,
   skillsResponseSchema,
@@ -73,6 +75,21 @@ describe('the other requests', () => {
 
     expect(startConversationRequestSchema.parse({})).toEqual({});
     expect(startConversationRequestSchema.parse({ messages })).toEqual({ messages });
+  });
+
+  it('resumes from, and reads back, a history that holds a checkpoint', () => {
+    const checkpoint = summaryMessageSchema.parse({
+      at: 7,
+      summarizer: 'rules',
+      summarized: 12,
+      kept: 3,
+      sections: [{ id: 'state', title: 'Task state', body: 'Tests pass.' }],
+      role: 'summary',
+    });
+    const messages = [{ role: 'user', content: 'continue' }, checkpoint];
+
+    expect(startConversationRequestSchema.parse({ messages })).toEqual({ messages });
+    expect(messagesResponseSchema.parse({ messages })).toEqual({ messages });
   });
 
   it('filters the stream by session, subtree and replay, each optional', () => {

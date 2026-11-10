@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -55,18 +55,24 @@ export class FileConversationStore implements ConversationStore {
     return stream;
   }
 
-  async readMessages(id: ConversationId): Promise<Message[]> {
+  async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
     return this.#readHistory(path.join(this.#folderOf(id), HISTORY_FILE));
   }
 
-  async writeMessages(params: { id: ConversationId; messages: readonly Message[] }): Promise<void> {
+  async writeMessages(params: {
+    id: ConversationId;
+    messages: readonly HistoryMessage[];
+  }): Promise<void> {
     await this.#writeHistory({
       file: path.join(this.#folderOf(params.id), HISTORY_FILE),
       messages: params.messages,
     });
   }
 
-  async readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<Message[]> {
+  async readAgentMessages(params: {
+    id: ConversationId;
+    session: SessionId;
+  }): Promise<HistoryMessage[]> {
     const folder = this.#folderOf(params.id);
 
     return this.#readHistory(agentHistoryFile({ folder, session: params.session }));
@@ -75,7 +81,7 @@ export class FileConversationStore implements ConversationStore {
   async writeAgentMessages(params: {
     id: ConversationId;
     session: SessionId;
-    messages: readonly Message[];
+    messages: readonly HistoryMessage[];
   }): Promise<void> {
     const { id, session, messages } = params;
 
@@ -132,7 +138,7 @@ export class FileConversationStore implements ConversationStore {
     return conversationFolder({ conversations: this.#folder, id });
   }
 
-  async #readHistory(file: string): Promise<Message[]> {
+  async #readHistory(file: string): Promise<HistoryMessage[]> {
     try {
       // A conversation is private text, so a file that is not JSON is reported without quoting it.
       return (await readJsonFile({ file, schema: historySchema, holdsSecrets: true })) ?? [];
@@ -141,7 +147,10 @@ export class FileConversationStore implements ConversationStore {
     }
   }
 
-  async #writeHistory(params: { file: string; messages: readonly Message[] }): Promise<void> {
+  async #writeHistory(params: {
+    file: string;
+    messages: readonly HistoryMessage[];
+  }): Promise<void> {
     try {
       await writeJsonFile({ file: params.file, value: params.messages });
     } catch (caughtError) {

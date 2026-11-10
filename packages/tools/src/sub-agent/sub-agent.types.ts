@@ -4,7 +4,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { ModelSelection } from '@sheavly/protocol/model/model.types';
 
 /**
@@ -16,13 +16,13 @@ export type RunNestedAgent = (options: {
   tools: Tool[];
   hooks: Hook[];
   instructions: string;
-  messages: Message[];
+  messages: HistoryMessage[];
   signal: AbortSignal;
   tasks: TaskRegistry;
   waitForTasks: boolean;
   session: RunSession;
   maxTurns?: number;
-}) => Promise<{ reason: string; messages: Message[] }>;
+}) => Promise<{ reason: string; messages: HistoryMessage[] }>;
 
 /** What a parent decides about the sub-agents it starts (and passes on to theirs). */
 export type SubAgentOptions = {

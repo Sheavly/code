@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createHarness } from '../../host/host.helper.js';
 import { createConversation } from '../conversation.helper.js';
@@ -10,7 +10,7 @@ import { createConversation } from '../conversation.helper.js';
 describe('failed conversation history', () => {
   it('keeps completed tool work and the user prompt, then continues from them', async () => {
     const calls: Message[][] = [];
-    const kept: (readonly Message[])[] = [];
+    const kept: (readonly HistoryMessage[])[] = [];
     const harness = createHarness({
       title: 'Recovery',
       provider: {
@@ -55,14 +55,16 @@ describe('failed conversation history', () => {
       'assistant',
       'tool',
     ]);
-    expect(conversation.messages.at(-1)?.content).toContain('edited');
+    const last = conversation.messages.at(-1);
+
+    expect(last?.role === 'tool' && last.content).toContain('edited');
     expect(kept.at(-1)).toEqual(conversation.messages);
     expect(conversation.running).toBe(false);
 
     await collect(conversation.send('Continue'));
 
     expect(calls[2]?.slice(0, 3)).toEqual(kept[1]);
-    expect(conversation.messages.at(-1)?.content).toBe('Recovered');
+    expect(conversation.messages.at(-1)).toMatchObject({ content: 'Recovered' });
   });
 
   it('keeps the prompt even when the provider fails before producing any output', async () => {

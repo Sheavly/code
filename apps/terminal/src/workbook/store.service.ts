@@ -32,7 +32,7 @@ import {
 import { finalAnswer } from './workbook.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import { entryEventSchema } from '@sheavly/protocol/event/event.validator';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 
 /**
  * The workbook folder: stored prompts (`prompts/`), fixture and run workspaces
@@ -228,7 +228,7 @@ export class WorkbookStore {
   }
 
   /** The run's final conversation, to continue from. */
-  async messages(id: string): Promise<Message[]> {
+  async messages(id: string): Promise<HistoryMessage[]> {
     const file = this.#paths(id).messages;
     const raw = await readIfThere(file);
 

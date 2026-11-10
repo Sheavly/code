@@ -15,7 +15,7 @@ import type {
 import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { Message, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
@@ -346,7 +346,7 @@ export class Conversations {
   }
 
   /** The history so far, valid to continue from. */
-  messages(id: ConversationId): readonly Message[] {
+  messages(id: ConversationId): readonly HistoryMessage[] {
     return this.get(id).conversation.messages;
   }
 

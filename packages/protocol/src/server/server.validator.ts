@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
-import { messageSchema, promptPartSchema } from '../message/message.validator.js';
+import { historyMessageSchema, promptPartSchema } from '../message/message.validator.js';
 import { adapterKindSchema, modelIdSchema, modelModeSchema } from '../model/model.validator.js';
 import { permissionModeSchema } from '../permission/permission.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
@@ -25,7 +25,7 @@ export const conversationIdSchema = lowercaseUuidSchema.brand<'ConversationId'>(
  * else the default). Both are fixed for the conversation's life and kept with it.
  */
 export const startConversationRequestSchema = z.object({
-  messages: z.array(messageSchema).exactOptional(),
+  messages: z.array(historyMessageSchema).exactOptional(),
   workspace: z.string().min(1).exactOptional(),
   profile: profileIdSchema.exactOptional(),
 });
@@ -121,7 +121,7 @@ export const streamQuerySchema = z.object({
 export const answerApprovalRequestSchema = z.object({ response: approvalResponseSchema });
 
 /** `GET /conversations/:id/messages`: the history so far, valid to continue from. */
-export const messagesResponseSchema = z.object({ messages: z.array(messageSchema) });
+export const messagesResponseSchema = z.object({ messages: z.array(historyMessageSchema) });
 
 /**
  * `QUERY /conversations/:id/skills`: which skills to list. Nothing: every one. `search`: those

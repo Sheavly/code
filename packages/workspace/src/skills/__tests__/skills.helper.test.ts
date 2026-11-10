@@ -203,7 +203,8 @@ describe('createSkillsHook in the loop', () => {
       messages: [{ role: 'user', content: 'Which skills are available?' }],
       hooks: [createSkillsHook({ root: project })],
     });
-    const instructions = messages[1]?.content ?? '';
+    const added = messages[1];
+    const instructions = added?.role === 'user' ? added.content : '';
 
     expect(instructions.length).toBeGreaterThan(8000);
     expect(instructions).toContain(names.map((name) => `- ${name}: ${description}`).join('\n'));

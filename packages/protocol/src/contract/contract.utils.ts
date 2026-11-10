@@ -17,6 +17,7 @@ import {
 } from '../event/event.validator.js';
 import {
   callIdSchema,
+  historyMessageSchema,
   messageSchema,
   promptPartSchema,
   reasoningItemSchema,
@@ -132,6 +133,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     DoneReason: doneReasonSchema,
     ToolArtifact: toolArtifactSchema,
     Message: messageSchema,
+    HistoryMessage: historyMessageSchema,
     PromptPart: promptPartSchema,
     ToolCall: toolCallSchema,
     ReasoningItem: reasoningItemSchema,

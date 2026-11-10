@@ -12,15 +12,25 @@ import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { HookError } from '../errors/loop.errors.js';
 import { assertValidHistory, countChanges } from '../history/history.utils.js';
 import { parseSentMessages } from '../history/history.validator.js';
+import { viewOf } from '../summary/summary.utils.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
-import type { Message, ToolCall, ToolMessage } from '@sheavly/protocol/message/message.types';
+import type {
+  HistoryMessage,
+  Message,
+  ToolCall,
+  ToolMessage,
+} from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** Someone to tell about every context addition (the loop emits `context_added`). */
 type OnContext = (added: { hook: string; content: string }) => void;
 
-/** `addContext` for one hook: appends a user message to the run's history and reports it. */
-function contextAdder(params: { hook: Hook; messages: Message[]; onContext: OnContext }) {
+/**
+ * `addContext` for one hook: appends a user message to the run's history and reports it. Every
+ * handler is handed the model's view of that history (`viewOf`), never the stored entries: a
+ * hook sees the shortened state after a summary and never the `summary` role.
+ */
+function contextAdder(params: { hook: Hook; messages: HistoryMessage[]; onContext: OnContext }) {
   const { hook, messages, onContext } = params;
 
   return (content: string) => {
@@ -32,7 +42,7 @@ function contextAdder(params: { hook: Hook; messages: Message[]; onContext: OnCo
 /** Runs every `sessionStart` handler in order, once per run, before the first turn. */
 export async function runSessionStart(params: {
   hooks: Hook[];
-  messages: Message[];
+  messages: HistoryMessage[];
   signal: AbortSignal;
   onContext: OnContext;
 }): Promise<void> {
@@ -41,7 +51,7 @@ export async function runSessionStart(params: {
   for (const hook of hooks) {
     if (!hook.sessionStart) continue;
     await hook.sessionStart({
-      messages: [...messages],
+      messages: viewOf(messages),
       signal,
       addContext: contextAdder({ hook, messages, onContext }),
     });
@@ -56,7 +66,7 @@ export async function runSessionStart(params: {
 export async function runBeforeTurn(params: {
   hooks: Hook[];
   turn: number;
-  messages: Message[];
+  messages: HistoryMessage[];
   context: ContextState;
   signal: AbortSignal;
   onContext: OnContext;
@@ -69,7 +79,7 @@ export async function runBeforeTurn(params: {
     await hook.beforeTurn({
       turn,
       context: { ...context },
-      messages: [...messages],
+      messages: viewOf(messages),
       signal,
       addContext: contextAdder({ hook, messages, onContext }),
       addInstructions: (content) => {
@@ -135,13 +145,13 @@ export async function runBeforeModelCall(params: {
 
 /** Runs every `afterTurn` handler in order, once the turn's reply and results are in history. */
 export async function runAfterTurn(
-  params: { hooks: Hook[] } & Omit<AfterTurnContext, 'messages'> & { messages: Message[] },
+  params: { hooks: Hook[] } & Omit<AfterTurnContext, 'messages'> & { messages: HistoryMessage[] },
 ): Promise<void> {
   const { hooks, messages, ...turn } = params;
 
   for (const hook of hooks) {
     if (!hook.afterTurn) continue;
-    await hook.afterTurn({ ...turn, messages: [...messages] });
+    await hook.afterTurn({ ...turn, messages: viewOf(messages) });
   }
 }
 
@@ -153,13 +163,13 @@ export async function runAfterTurn(
 export async function runOnError(params: {
   hooks: Hook[];
   error: unknown;
-  messages: Message[];
+  messages: HistoryMessage[];
   onHookError: (failure: HookError) => void;
 }): Promise<void> {
   const { hooks, error, messages, onHookError } = params;
 
   for (const hook of hooks) {
-    await hook.onError?.({ error, messages: [...messages] }).catch((caughtError: unknown) => {
+    await hook.onError?.({ error, messages: viewOf(messages) }).catch((caughtError: unknown) => {
       onHookError(new HookError({ hook: hook.name, handler: 'onError', cause: caughtError }));
     });
   }

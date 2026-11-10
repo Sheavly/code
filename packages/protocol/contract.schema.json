@@ -396,7 +396,7 @@
             "type": { "type": "string", "const": "done" },
             "reason": { "$ref": "#/$defs/DoneReason" },
             "session": { "$ref": "#/$defs/SessionRef" },
-            "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } }
+            "messages": { "type": "array", "items": { "$ref": "#/$defs/HistoryMessage" } }
           },
           "required": ["type", "reason", "session", "messages"]
         }
@@ -716,6 +716,66 @@
             "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
           },
           "required": ["role", "toolCallId", "content", "isError"]
+        }
+      ]
+    },
+    "HistoryMessage": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "role": { "type": "string", "const": "user" },
+            "id": { "$ref": "#/$defs/ModelId" },
+            "content": { "type": "string" },
+            "parts": { "type": "array", "items": { "$ref": "#/$defs/PromptPart" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["role", "content"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "role": { "type": "string", "const": "assistant" },
+            "content": { "type": "string" },
+            "toolCalls": { "type": "array", "items": { "$ref": "#/$defs/ToolCall" } },
+            "reasoning": { "type": "array", "items": { "$ref": "#/$defs/ReasoningItem" } },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["role", "content", "toolCalls"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "role": { "type": "string", "const": "tool" },
+            "toolCallId": { "$ref": "#/$defs/CallId" },
+            "content": { "type": "string" },
+            "isError": { "type": "boolean" },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["role", "toolCallId", "content", "isError"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "role": { "type": "string", "const": "summary" },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "minLength": 1 },
+                  "title": { "type": "string" },
+                  "body": { "type": "string" }
+                },
+                "required": ["id", "title", "body"]
+              }
+            },
+            "kept": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+            "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "summarizer": { "type": "string", "minLength": 1 },
+            "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["role", "sections", "kept", "summarized", "summarizer"]
         }
       ]
     },
@@ -1127,7 +1187,7 @@
     "StartConversationRequest": {
       "type": "object",
       "properties": {
-        "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } },
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/HistoryMessage" } },
         "workspace": { "type": "string", "minLength": 1 },
         "profile": { "$ref": "#/$defs/ModelId" }
       }
@@ -1248,7 +1308,9 @@
     },
     "MessagesResponse": {
       "type": "object",
-      "properties": { "messages": { "type": "array", "items": { "$ref": "#/$defs/Message" } } },
+      "properties": {
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/HistoryMessage" } }
+      },
       "required": ["messages"]
     },
     "SkillsResponse": {

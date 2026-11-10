@@ -6,7 +6,7 @@ import type {
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
 import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
@@ -52,7 +52,7 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
 export function harnessConversation(params: {
   harness: BackendHarness;
   run: ConversationRun;
-  messages?: Message[] | undefined;
+  messages?: HistoryMessage[] | undefined;
   /** Where the host keeps this conversation (see `ConversationStorage`); none keeps nothing. */
   storage?: ConversationStorage | undefined;
   maxTurns?: number;

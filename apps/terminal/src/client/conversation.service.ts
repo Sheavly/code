@@ -6,7 +6,7 @@ import type {
   ApprovalResponse,
   ApprovalUpdate,
 } from '@sheavly/protocol/approval/approval.types';
-import type { Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
@@ -44,7 +44,7 @@ export class RemoteConversation {
   /** Starts a conversation on `backend`, empty or continuing `messages`. */
   static async open(params: {
     backend: Backend;
-    messages?: Message[];
+    messages?: HistoryMessage[];
     workspace?: string;
   }): Promise<RemoteConversation> {
     const { backend, messages, workspace } = params;
@@ -84,7 +84,7 @@ export class RemoteConversation {
   }
 
   /** The history so far: it is saved, and continued from. */
-  async messages(): Promise<Message[]> {
+  async messages(): Promise<HistoryMessage[]> {
     return (await this.#client.call('getMessages', { id: this.id })).messages;
   }
 

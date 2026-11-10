@@ -41,6 +41,25 @@ export class InvalidHistoryError extends Error {
   }
 }
 
+/**
+ * A summarizer's result broke the rules for a checkpoint (empty, too large, not smaller than what
+ * it replaces, or history that is no longer valid), so none was appended. `summarizer` names who
+ * wrote it, so the failure points at the culprit.
+ */
+export class SummaryRejectedError extends Error {
+  override name = 'SummaryRejectedError';
+  readonly summarizer: string;
+  readonly problem: string;
+
+  constructor(params: { summarizer: string; problem: string; cause?: unknown }) {
+    const { summarizer, problem, cause } = params;
+
+    super(`Summarizer ${summarizer} produced a summary that was rejected: ${problem}`, { cause });
+    this.summarizer = summarizer;
+    this.problem = problem;
+  }
+}
+
 /** The run's event stream ended without its `done` event, so the run's outcome is unknown. */
 export class StreamEndedError extends Error {
   override name = 'StreamEndedError';
