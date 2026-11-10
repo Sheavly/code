@@ -38,6 +38,12 @@ describe('reported usage', () => {
       used: 0,
       window: 300_000,
     });
+    expect(contextUsageSchema.parse({ throughSeq: 4, used: 10, cached: 0 })).toEqual({
+      throughSeq: 4,
+      used: 10,
+      cached: 0,
+    });
+    expect(contextUsageSchema.safeParse({ throughSeq: 0, cached: -1 }).success).toBe(false);
     expect(contextUsageSchema.safeParse({ throughSeq: 0, used: -1 }).success).toBe(false);
     expect(contextUsageSchema.safeParse({ throughSeq: 0, window: 0 }).success).toBe(false);
     expect(contextUsageSchema.safeParse({ throughSeq: -2 }).success).toBe(false);

@@ -160,6 +160,7 @@ describe('conversation usage over the API', () => {
       });
       expect((await client.call('getConversation', { id })).contextUsage).toMatchObject({
         used: 120,
+        cached: 50,
         window: 300_000,
       });
       await client.send('closeConversation', { id });
@@ -175,6 +176,7 @@ describe('conversation usage over the API', () => {
       await client.call('reopenConversation', { id });
       expect((await client.call('getConversation', { id })).contextUsage).toMatchObject({
         used: 120,
+        cached: 50,
         window: 1_000_000,
       });
       expect((await client.call('getConversation', { id })).usage?.estimatedCostUsd).toBeCloseTo(
