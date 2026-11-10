@@ -14,8 +14,14 @@ import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
  * `createAgentsMdHook`, `loadProjectHooks`), so what a run includes is the UI's choice.
  */
 export async function createCodingHarness(options: CodingHarnessOptions): Promise<CodingHarness> {
-  const { workspaceRoot, env, fileLocks = new FileLocks(), ...harnessOptions } = options;
-  const workspace = await Workspace.open(workspaceRoot);
+  const {
+    workspaceRoot,
+    scratchRoot,
+    env,
+    fileLocks = new FileLocks(),
+    ...harnessOptions
+  } = options;
+  const workspace = await Workspace.open(workspaceRoot, { scratchRoot });
 
   return {
     ...createHarness({

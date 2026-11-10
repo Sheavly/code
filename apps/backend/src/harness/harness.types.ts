@@ -41,6 +41,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   title: string;
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;
+  /** The shared scratch folder the file tools may also use (the app picks it); default none. */
+  scratchRoot?: string | undefined;
   /** The environment commands start from (`process.env`; secrets are scrubbed). */
   env: Environment;
   /** Which workspaces the user trusts to run `.sheavly/` hooks. */

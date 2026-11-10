@@ -276,7 +276,8 @@ describe('a conversation the backend keeps', () => {
       .messages(id)
       .flatMap((message) => ('content' in message ? [message.content] : []));
 
-    expect(texts.filter((text) => text.startsWith('<instruction-context'))).toHaveLength(1);
+    // One for the project's instructions, one telling the agent about its scratch folder.
+    expect(texts.filter((text) => text.startsWith('<instruction-context'))).toHaveLength(2);
     expect(texts.filter((text) => !text.startsWith('<instruction-context'))).toEqual([
       'my name is Ada',
       'hello',

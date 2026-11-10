@@ -12,6 +12,10 @@ const harness = await createCodingHarness({ provider, title, workspaceRoot, env:
 const tools = [createReadFileTool({ workspace: harness.workspace })];
 ```
 
+Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) to let the file
+tools also use a shared scratch folder outside the repo; see
+[file tools](docs/file-tools.md) and `@sheavly/workspace`.
+
 | Module          | What it holds                                                                                   |
 | --------------- | ----------------------------------------------------------------------------------------------- |
 | `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                  |

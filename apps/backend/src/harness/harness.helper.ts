@@ -10,6 +10,7 @@ import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
+import { createScratchHook } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
@@ -48,6 +49,11 @@ export async function createBackendHarness(
   const agentsMd = createAgentsMdHook({ root: workspace.root });
   const skillRoots = { root: workspace.root, home };
   const skills = createSkillsHook(skillRoots);
+  // The main session's id, so sub-agents running this same hook share their root agent's folder.
+  const scratch = workspace.scratchRoot
+    ? [createScratchHook({ workspace, agentId: harness.mainSession.id })]
+    : [];
+  const hooks = [agentsMd, skills, ...scratch, ...projectHooks.hooks];
   const fileTools = [
     createReadFileTool({ workspace, fileReads }),
     createWriteFileTool({ workspace, fileLocks, fileReads }),
@@ -77,11 +83,11 @@ export async function createBackendHarness(
         ],
         // The same hook objects as the main run, each sub-agent running its own `sessionStart`:
         // a hook must keep no state of its own across sessions.
-        hooks: [agentsMd, skills, ...projectHooks.hooks],
+        hooks,
       }),
       createMessageAgentTool({ sessions }),
     ],
-    hooks: [agentsMd, skills, ...projectHooks.hooks],
+    hooks,
     skills: skillRoots,
     projectHooks: projectHooks.hooks,
     projectTrust: projectHooks.trust,
