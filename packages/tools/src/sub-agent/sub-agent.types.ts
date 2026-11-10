@@ -22,7 +22,6 @@ export type RunNestedAgent = (options: {
   tasks: TaskRegistry;
   waitForTasks: boolean;
   session: RunSession;
-  maxTurns?: number;
   summary?: SummaryOptions;
 }) => Promise<{ reason: string; messages: HistoryMessage[] }>;
 
@@ -45,7 +44,6 @@ export type SubAgentOptions = {
   baseInstructions?: string;
   /** Extra system instructions for sub-agents, after the built-in sub-agent rules. */
   instructions?: string;
-  maxTurns?: number;
   /**
    * Summarize each sub-agent's history when its context nears the window, so a long-running one
    * keeps going. Called with the provider the sub-agent runs on (the model it was pinned to when
