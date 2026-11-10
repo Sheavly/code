@@ -8,6 +8,7 @@ import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
 import { isAllowed } from './allow-list.utils.js';
 import { suggestEntry } from './allow-entry.utils.js';
+import { gitWorktreeSubcommand } from './command-base.utils.js';
 import { NOT_ALLOWED, WORKTREE_CHANGING_SUBCOMMANDS } from './run-command.constants.js';
 import type { CommandPermissions } from './run-command.types.js';
 
@@ -79,11 +80,7 @@ function stepsNeedingAnswer(params: {
 
 /** Whether `argv` is `git worktree add|move|repair`, which changes what the file tools can reach. */
 function changesWorktrees(argv: readonly string[]): boolean {
-  if (argv[0] !== 'git') return false;
-
-  const subcommand = argv[argv.indexOf('worktree') + 1];
-
-  return argv.includes('worktree') && WORKTREE_CHANGING_SUBCOMMANDS.includes(subcommand ?? '');
+  return WORKTREE_CHANGING_SUBCOMMANDS.includes(gitWorktreeSubcommand(argv) ?? '');
 }
 
 /**

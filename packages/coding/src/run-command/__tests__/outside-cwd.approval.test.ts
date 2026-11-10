@@ -54,6 +54,42 @@ describe('confirmCommand with git worktree changes', () => {
     await expect(refused).rejects.toThrow('readable and writable by the file tools');
   });
 
+  describe.each([
+    ['/usr/bin/git'],
+    ['git', '-C', 'worktree'],
+    ['/usr/bin/git', '-C', 'worktree'],
+    ['git', '--work-tree', 'worktree'],
+  ])('with Git prefix %j', (...prefix) => {
+    it.each(['add', 'move', 'repair'])(
+      'asks about worktree %s despite an existing Git grant',
+      async (operation) => {
+        const refused = confirmGit([
+          prefix[0],
+          ...prefix.slice(1),
+          'worktree',
+          operation,
+          'a',
+          'b',
+        ]);
+
+        await expect(refused).rejects.toBeInstanceOf(CommandRefusedError);
+        await expect(refused).rejects.toThrow('readable and writable by the file tools');
+      },
+    );
+
+    it('allows read-only worktree listing with the same prefix', async () => {
+      await expect(
+        confirmGit([prefix[0], ...prefix.slice(1), 'worktree', 'list']),
+      ).resolves.toBeUndefined();
+    });
+  });
+
+  it('does not mistake option operands and log arguments for a worktree operation', async () => {
+    await expect(
+      confirmGit(['git', '-C', 'worktree', 'log', '--', 'worktree', 'add']),
+    ).resolves.toBeUndefined();
+  });
+
   it('does not ask about the read-only `git worktree list`', async () => {
     await expect(confirmGit(['git', 'worktree', 'list'])).resolves.toBeUndefined();
   });
