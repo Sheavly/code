@@ -13,6 +13,9 @@
  *   none). Left out, a kind may export classes or not.
  * - `schemas` (optional): `allowed` means it may export zod schemas. Only validators may; a
  *   schema anywhere else stays unexported, or moves to the module's `*.validator.ts`.
+ * - `constantsElsewhere` (optional): the file keeps no literal constants, exported or not; they
+ *   live in the module's `*.constants.ts`. Left out for kinds whose literals are their content
+ *   (types, constants) and for test code, where a fixture value stays beside its test.
  * - `extensions` (optional): the file extensions the kind may have, `['ts']` when left out. Only
  *   `component` (`.tsx`, a React view) and `test` (a component's test may be `.tsx`) differ.
  */
@@ -24,34 +27,55 @@ export const FILE_KIND_POLICIES = {
   /** Literal values, `as const` objects. */
   constants: { exports: 'constants', maxLines: LINES.DEFAULT },
   /** Pure helpers: no I/O, no state. */
-  utils: { exports: 'code', maxLines: LINES.UNLIMITED },
+  utils: { exports: 'code', maxLines: LINES.UNLIMITED, constantsElsewhere: true },
   /**
    * Validation at the edge: zod schemas for external input (files, env, API events, hook exports,
    * tool calls) and the `parse*` functions that turn `unknown` into typed data. Pure, like utils.
    */
-  validator: { exports: 'code', maxLines: LINES.DEFAULT, schemas: 'allowed' },
+  validator: {
+    exports: 'code',
+    maxLines: LINES.DEFAULT,
+    schemas: 'allowed',
+    constantsElsewhere: true,
+  },
   /** Stateless functions that may do I/O or call services. Functions only, no classes. */
-  helper: { exports: 'code', maxLines: LINES.UNLIMITED, classes: 'forbidden' },
+  helper: {
+    exports: 'code',
+    maxLines: LINES.UNLIMITED,
+    classes: 'forbidden',
+    constantsElsewhere: true,
+  },
   /** Code that owns state: it exports a class. */
-  service: { exports: 'code', maxLines: LINES.DEFAULT, classes: 'required' },
+  service: {
+    exports: 'code',
+    maxLines: LINES.DEFAULT,
+    classes: 'required',
+    constantsElsewhere: true,
+  },
   /** Error classes. */
-  errors: { exports: 'code', maxLines: LINES.THIN },
+  errors: { exports: 'code', maxLines: LINES.THIN, constantsElsewhere: true },
   /** One agent tool: `create<Name>Tool` returning `defineTool(...)`. */
-  tool: { exports: 'code', maxLines: LINES.THIN },
+  tool: { exports: 'code', maxLines: LINES.THIN, constantsElsewhere: true },
   /** One model backend: `defineAdapter(...)`. */
-  adapter: { exports: 'code', maxLines: LINES.THIN },
+  adapter: { exports: 'code', maxLines: LINES.THIN, constantsElsewhere: true },
   /**
    * One group of HTTP routes: a function building a `Hono` app from what it serves, its handlers
    * inline after each path (so path params and validated bodies stay typed). Thin: a route turns
    * a request into a call and the result into a response, and logic lives in the services.
    */
-  routes: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden' },
+  routes: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden', constantsElsewhere: true },
   /**
    * One React view: a function component (Ink, in the terminal app). Its props type lives in the
    * module's `*.types.ts`, like any type. Thin: a view draws what it is given, and what to show,
    * and when, is decided in the code it calls.
    */
-  component: { exports: 'code', maxLines: LINES.THIN, classes: 'forbidden', extensions: ['tsx'] },
+  component: {
+    exports: 'code',
+    maxLines: LINES.THIN,
+    classes: 'forbidden',
+    constantsElsewhere: true,
+    extensions: ['tsx'],
+  },
   /** Test-only fakes, in a `testing/` folder. */
   fake: { exports: 'code', maxLines: LINES.DEFAULT },
   /** Vitest files, in a `__tests__` folder beside the module they test. */
