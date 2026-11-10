@@ -17,7 +17,7 @@ export const callIdSchema = z.string().brand<'CallId'>();
  * timed, or one a caller writes by hand, still reads; the harness stamps every message it makes.
  * Never sent to a model.
  */
-const messageTimeSchema = timestampSchema.exactOptional();
+export const messageTimeSchema = timestampSchema.exactOptional();
 
 /** A tool call the model asked for. */
 export const toolCallSchema = z.object({

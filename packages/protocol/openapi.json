@@ -985,47 +985,120 @@
         "required": ["inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens"]
       },
       "HarnessNotice": {
+        "anyOf": [
+          {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "context-usage" },
+                  "context": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "window": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 10000000
+                          },
+                          "used": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                        },
+                        "required": ["window"]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "window": { "not": {} },
+                          "used": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                        },
+                        "required": ["used"]
+                      }
+                    ]
+                  }
+                },
+                "required": ["kind", "context"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "output-continuation" },
+                  "attempt": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxAttempts": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["kind", "attempt"]
+              }
+            ]
+          },
+          { "$ref": "#/components/schemas/PersistentNotice" }
+        ]
+      },
+      "PersistentNotice": {
         "oneOf": [
           {
             "type": "object",
             "properties": {
-              "kind": { "type": "string", "const": "context-usage" },
-              "context": {
-                "anyOf": [
-                  {
-                    "type": "object",
-                    "properties": {
-                      "window": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
-                      "used": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
-                    },
-                    "required": ["window"]
-                  },
-                  {
-                    "type": "object",
-                    "properties": {
-                      "window": { "not": {} },
-                      "used": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
-                    },
-                    "required": ["used"]
-                  }
-                ]
-              }
+              "kind": { "type": "string", "const": "agent-report" },
+              "agent": { "$ref": "#/components/schemas/AgentInfo" },
+              "taskId": { "$ref": "#/components/schemas/TaskId" },
+              "outcome": { "$ref": "#/components/schemas/RunOutcome" },
+              "report": { "type": "string" }
             },
-            "required": ["kind", "context"]
+            "required": ["kind", "agent", "taskId", "outcome", "report"]
           },
           {
             "type": "object",
             "properties": {
-              "kind": { "type": "string", "const": "output-continuation" },
-              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-              "maxAttempts": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              }
+              "kind": { "type": "string", "const": "task-finished" },
+              "task": { "$ref": "#/components/schemas/TaskInfo" }
             },
-            "required": ["kind", "attempt"]
+            "required": ["kind", "task"]
           }
+        ]
+      },
+      "NoticeMessage": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "const": "notice" },
+          "notice": { "$ref": "#/components/schemas/PersistentNotice" },
+          "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+        },
+        "required": ["role", "notice"]
+      },
+      "AgentInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "$ref": "#/components/schemas/SessionId" },
+          "parentId": { "$ref": "#/components/schemas/SessionId" },
+          "startedByCall": { "$ref": "#/components/schemas/CallId" },
+          "rootId": { "$ref": "#/components/schemas/SessionId" },
+          "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
+          "title": { "type": "string" },
+          "status": { "type": "string" },
+          "state": { "$ref": "#/components/schemas/SessionState" },
+          "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
+          "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+          "modelId": { "$ref": "#/components/schemas/ModelId" },
+          "mode": { "$ref": "#/components/schemas/ModelMode" }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "startedByCall",
+          "rootId",
+          "depth",
+          "title",
+          "state",
+          "startedAt"
         ]
       },
       "ModelUsage": {
@@ -1796,7 +1869,8 @@
               "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["role", "sections", "kept", "summarized", "summarizer"]
-          }
+          },
+          { "$ref": "#/components/schemas/NoticeMessage" }
         ]
       },
       "PromptPart": {
@@ -1906,34 +1980,7 @@
             "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
             "additionalProperties": false
           },
-          {
-            "type": "object",
-            "properties": {
-              "id": { "$ref": "#/components/schemas/SessionId" },
-              "parentId": { "$ref": "#/components/schemas/SessionId" },
-              "startedByCall": { "$ref": "#/components/schemas/CallId" },
-              "rootId": { "$ref": "#/components/schemas/SessionId" },
-              "depth": { "type": "integer", "minimum": 2, "maximum": 9007199254740991 },
-              "title": { "type": "string" },
-              "status": { "type": "string" },
-              "state": { "$ref": "#/components/schemas/SessionState" },
-              "lastOutcome": { "$ref": "#/components/schemas/RunOutcome" },
-              "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-              "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-              "modelId": { "$ref": "#/components/schemas/ModelId" },
-              "mode": { "$ref": "#/components/schemas/ModelMode" }
-            },
-            "required": [
-              "id",
-              "parentId",
-              "startedByCall",
-              "rootId",
-              "depth",
-              "title",
-              "state",
-              "startedAt"
-            ]
-          }
+          { "$ref": "#/components/schemas/AgentInfo" }
         ]
       },
       "InboxMessage": {
@@ -2219,7 +2266,79 @@
         "properties": {
           "messages": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/HistoryMessage" }
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "role": { "type": "string", "const": "user" },
+                    "id": { "$ref": "#/components/schemas/ModelId" },
+                    "content": { "type": "string" },
+                    "parts": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/PromptPart" }
+                    },
+                    "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["role", "content"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "role": { "type": "string", "const": "assistant" },
+                    "content": { "type": "string" },
+                    "toolCalls": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ToolCall" }
+                    },
+                    "reasoning": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ReasoningItem" }
+                    },
+                    "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["role", "content", "toolCalls"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "role": { "type": "string", "const": "tool" },
+                    "toolCallId": { "$ref": "#/components/schemas/CallId" },
+                    "content": { "type": "string" },
+                    "isError": { "type": "boolean" },
+                    "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["role", "toolCallId", "content", "isError"]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "role": { "type": "string", "const": "summary" },
+                    "sections": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "minLength": 1 },
+                          "title": { "type": "string" },
+                          "body": { "type": "string" }
+                        },
+                        "required": ["id", "title", "body"]
+                      }
+                    },
+                    "kept": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "summarizer": { "type": "string", "minLength": 1 },
+                    "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+                  },
+                  "required": ["role", "sections", "kept", "summarized", "summarizer"]
+                }
+              ]
+            }
           },
           "workspace": { "type": "string", "minLength": 1 },
           "profile": { "$ref": "#/components/schemas/ModelId" }
