@@ -21,6 +21,7 @@ tools also use a shared scratch folder outside the repo; see
 | `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                  |
 | `instructions/` | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                              |
 | `read-file/`    | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                            |
+| `grep/`         | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard           |
 | `read-skill/`   | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's      |
 | `write-file/`   | `write_file`                                                                                    |
 | `edit-file/`    | `edit_file`                                                                                     |
