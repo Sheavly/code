@@ -37,15 +37,16 @@ tell the model how to fix the call (read the file first, add surrounding lines, 
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
 
 `delete_file` removes one file, and reports the content it held in the `FileChange` below, so a UI
-can show the deletion. It refuses a folder, since removing one takes files the agent never named
-(`run_command` can ask for it), and a symlink whichever way it points: the tool deletes the file the
-agent named, never the target that a link names for it. It reads and removes under the file's lock,
-and a file already gone is an error rather than a success, since the delete may have been meant for
-another path. Unlike `edit_file`, it is not gated on a read: the call names a path, not remembered
-text, and its result is the record of what was there. A file larger than `MAX_DELETE_BYTES`
-(100,000 bytes) is refused with a pointer to `run_command`, so a deletion never reads a huge file
-into its result. What each agent was shown of the file is forgotten, so an edit of a file later
-created at that path is not made from memory.
+can show the deletion. It does not ask for approval: like the other file tools, only `run_command`
+is gated by the user's command permissions. It refuses a folder, since removing one takes files the
+agent never named (`run_command` can ask for it), and a symlink whichever way it points: the tool
+deletes the file the agent named, never the target that a link names for it. It reads and removes
+under the file's lock, and a file already gone is an error rather than a success, since the delete
+may have been meant for another path. Unlike `edit_file`, it is not gated on a read: the call names
+a path, not remembered text, and its result is the record of what was there. A file larger than
+`MAX_DELETE_BYTES` (100,000 bytes) is refused with a pointer to `run_command`, so a deletion never
+reads a huge file into its result. What each agent was shown of the file is forgotten, so an edit of
+a file later created at that path is not made from memory.
 
 **Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
 created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are

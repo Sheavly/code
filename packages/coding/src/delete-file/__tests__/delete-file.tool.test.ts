@@ -128,7 +128,7 @@ describe('delete_file', () => {
     expect(existsSync(path.join(temp.root, 'alias.ts'))).toBe(true);
   });
 
-  it.each(['.env', '.env.local', 'nested/.env.production'])(
+  it.each(['.env', '.env.local', 'nested/.env.production', '.env '])(
     'refuses to delete %s',
     async (file) => {
       const result = await remove(file);

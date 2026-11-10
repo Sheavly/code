@@ -42,18 +42,7 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
           // Resolved before the lock to queue on the file, then again under it: a path swapped
           // while the delete waited would otherwise be read or removed without the guards.
           await assertSameDeletable({ workspace, requested, expected: real });
-
-          const size = await fileSize({ file: real });
-
-          if (size > MAX_DELETE_BYTES) {
-            throw new ToolCallError({
-              reason: 'invalid_input',
-              message:
-                `${requested} is ${size} bytes, more than the ${MAX_DELETE_BYTES} bytes a delete ` +
-                'reports. Remove it with run_command (rm) instead, so its content is not read into ' +
-                'the result.',
-            });
-          }
+          await assertReadableSize({ requested, file: real });
 
           const before = await readForChange({
             file: real,
@@ -62,6 +51,10 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
             hint: 'It may already be deleted.',
           });
 
+          assertReportedSize({ requested, content: before });
+
+          // Node has no unlink-by-handle, so the unlink is a fresh path lookup after this check: a
+          // parent swapped in that last moment is the one case neither check can close.
           await assertSameDeletable({ workspace, requested, expected: real });
           await removeFile({ file: real, signal });
           fileReads.markDeleted({ file: real });
@@ -71,4 +64,32 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
       });
     },
   });
+}
+
+/** The refusal for a file too large to report in a `FileChange`. */
+function tooLarge(params: { requested: string; size: number }): ToolCallError {
+  const { requested, size } = params;
+
+  return new ToolCallError({
+    reason: 'invalid_input',
+    message:
+      `${requested} is ${size} bytes, more than the ${MAX_DELETE_BYTES} bytes a delete reports. ` +
+      'Remove it with run_command (rm) instead, so its content is not read into the result.',
+  });
+}
+
+/** Refuses a file already larger than a deletion reports, before its content is read. */
+async function assertReadableSize(params: { requested: string; file: string }): Promise<void> {
+  const { requested, file } = params;
+  const size = await fileSize({ file });
+
+  if (size > MAX_DELETE_BYTES) throw tooLarge({ requested, size });
+}
+
+/** Refuses content that grew past the limit between the size check and the read. */
+function assertReportedSize(params: { requested: string; content: string }): void {
+  const { requested, content } = params;
+  const size = Buffer.byteLength(content, 'utf8');
+
+  if (size > MAX_DELETE_BYTES) throw tooLarge({ requested, size });
 }

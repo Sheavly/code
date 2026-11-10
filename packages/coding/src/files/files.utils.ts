@@ -4,9 +4,14 @@ import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { FileChange, FileChangeVerb } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
-/** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
+/**
+ * True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). Windows drops trailing
+ * dots and spaces from a path component, so `.env ` names the same file there and is refused too.
+ */
 export function isEnvFile(filePath: string): boolean {
-  return /^\.env(\..*)?$/i.test(path.basename(filePath));
+  const name = path.basename(filePath).replace(/[. ]+$/, '');
+
+  return /^\.env(\..*)?$/i.test(name);
 }
 
 /** True if any part of `filePath` is `.git` (case-insensitive): `.git/config`, `sub/.git`. */
