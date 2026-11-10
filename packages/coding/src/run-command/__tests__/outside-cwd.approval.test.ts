@@ -1,0 +1,66 @@
+import { describe, expect, it } from 'vitest';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { CommandRefusedError } from '../../errors/run-command.errors.js';
+import { testPermissions } from '../../testing/permissions.fake.js';
+import { confirmCommand } from '../command-approval.helper.js';
+
+const call = { callId: callIdSchema.parse('1') };
+const signal = new AbortController().signal;
+const steps: [{ argv: [string, ...string[]] }] = [{ argv: ['echo', 'hi'] }];
+
+const confirm = (outsideCwd?: string) =>
+  confirmCommand({
+    command: 'echo hi',
+    steps,
+    permissions: testPermissions({ mode: 'ask', allow: ['echo *'] }),
+    approvals: undefined,
+    call,
+    signal,
+    outsideCwd,
+  });
+
+const confirmGit = (argv: [string, ...string[]], mode: 'ask' | 'allow_all' = 'ask') =>
+  confirmCommand({
+    command: argv.join(' '),
+    steps: [{ argv }],
+    permissions: testPermissions({ mode, allow: ['git *'] }),
+    approvals: undefined,
+    call,
+    signal,
+  });
+
+describe('confirmCommand with a folder outside the workspace root', () => {
+  it('lets an allowed command run in the root', async () => {
+    await expect(confirm()).resolves.toBeUndefined();
+  });
+
+  it('asks about an allowed command, naming the folder, in a sibling worktree', async () => {
+    const refused = confirm('/work/repo-207');
+
+    await expect(refused).rejects.toBeInstanceOf(CommandRefusedError);
+    await expect(refused).rejects.toThrow('/work/repo-207');
+  });
+});
+
+describe('confirmCommand with git worktree changes', () => {
+  it.each([
+    ['add', ['git', 'worktree', 'add', '../wt']],
+    ['move', ['git', 'worktree', 'move', 'a', 'b']],
+    ['repair', ['git', 'worktree', 'repair']],
+  ] as const)('asks about `git worktree %s` even though git is allowed', async (_name, argv) => {
+    const refused = confirmGit([...argv]);
+
+    await expect(refused).rejects.toBeInstanceOf(CommandRefusedError);
+    await expect(refused).rejects.toThrow('readable and writable by the file tools');
+  });
+
+  it('does not ask about the read-only `git worktree list`', async () => {
+    await expect(confirmGit(['git', 'worktree', 'list'])).resolves.toBeUndefined();
+  });
+
+  it('asks nothing in allow_all, as for every command', async () => {
+    await expect(
+      confirmGit(['git', 'worktree', 'add', '../wt'], 'allow_all'),
+    ).resolves.toBeUndefined();
+  });
+});

@@ -21,7 +21,7 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
     fileLocks = new FileLocks(),
     ...harnessOptions
   } = options;
-  const workspace = await Workspace.open(workspaceRoot, { scratchRoot });
+  const workspace = await Workspace.open(workspaceRoot, { scratchRoot, env });
 
   return {
     ...createHarness({

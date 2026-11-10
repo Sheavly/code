@@ -25,6 +25,9 @@ export const NOT_ALLOWED = {
   always_ask: 'is asked about every time in this folder',
 };
 
+/** `git worktree` subcommands that put a folder on the repo's worktree list (and so in reach). */
+export const WORKTREE_CHANGING_SUBCOMMANDS = ['add', 'move', 'repair'];
+
 /** Git subcommands that can run a diff program, and the flags that stop them. */
 export const DIFF_SUBCOMMANDS = ['diff', 'log', 'show'];
 export const NO_DIFF_PROGRAM_FLAGS = ['--no-ext-diff', '--no-textconv'];

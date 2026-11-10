@@ -15,22 +15,22 @@ function isInGitDir(filePath: string): boolean {
 
 /**
  * Throws if `relativePath` (relative to the workspace root) is in a `.git` folder or is a
- * `.git` file. Git config and hooks there can make the next `git status` run any program.
+ * `.git` file. Git config and hooks there can make the next `git status` run any program, and
+ * its config can hold remote URLs or tokens. `action` names what was refused, e.g. "Writing".
  */
 export function assertNotGitDir(params: {
   relativePath: string;
   requested: string;
-  /** What was refused, e.g. "Searching"; "Writing" when omitted. */
-  action?: string;
+  action: string;
 }): void {
-  const { relativePath, requested, action = 'Writing' } = params;
+  const { relativePath, requested, action } = params;
 
   if (isInGitDir(relativePath)) {
     throw new ToolCallError({
       reason: 'forbidden',
       message:
         `${action} inside .git is not allowed (${requested}). Git config and hooks there can run ` +
-        'programs.',
+        'programs, and its config can hold credentials.',
     });
   }
 }

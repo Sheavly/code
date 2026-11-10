@@ -8,7 +8,7 @@ import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
 import { isAllowed } from './allow-list.utils.js';
 import { suggestEntry } from './allow-entry.utils.js';
-import { NOT_ALLOWED } from './run-command.constants.js';
+import { NOT_ALLOWED, WORKTREE_CHANGING_SUBCOMMANDS } from './run-command.constants.js';
 import type { CommandPermissions } from './run-command.types.js';
 
 type AskingMode = Exclude<PermissionMode, 'allow_all'>;
@@ -66,11 +66,58 @@ function offeredOptions(params: {
     : ['approve', 'skip', 'skip_with_message'];
 }
 
+/** The commands to ask about: all of them when `askAll`, else those with no grant. */
+function stepsNeedingAnswer(params: {
+  steps: readonly ScriptStep[];
+  allow: readonly AllowEntry[];
+  askAll: boolean;
+}): readonly ScriptStep[] {
+  const { steps, allow, askAll } = params;
+
+  return askAll ? steps : steps.filter(({ argv }) => !hasCommandGrant({ argv, allow }));
+}
+
+/** Whether `argv` is `git worktree add|move|repair`, which changes what the file tools can reach. */
+function changesWorktrees(argv: readonly string[]): boolean {
+  if (argv[0] !== 'git') return false;
+
+  const subcommand = argv[argv.indexOf('worktree') + 1];
+
+  return argv.includes('worktree') && WORKTREE_CHANGING_SUBCOMMANDS.includes(subcommand ?? '');
+}
+
+/**
+ * The questions no grant answers: the folder, when the line runs outside the workspace root, and
+ * every `git worktree add|move|repair`, because the folder it names becomes reachable by the file
+ * tools for the rest of the session.
+ */
+function ungrantableConcerns(params: {
+  steps: readonly ScriptStep[];
+  outsideCwd: string | undefined;
+}): ApprovalConcern[] {
+  const { steps, outsideCwd } = params;
+  const folder =
+    outsideCwd === undefined
+      ? []
+      : [{ argument: `run in ${outsideCwd}`, reason: 'is outside the workspace root' }];
+  const worktrees = steps
+    .filter(({ argv }) => changesWorktrees(argv))
+    .map(({ argv }) => ({
+      argument: argv.join(' '),
+      reason: 'makes that folder readable and writable by the file tools for this session',
+    }));
+
+  return [...folder, ...worktrees];
+}
+
 /**
  * Decides whether a parsed command line may run, and asks the user when it may not on its own.
  * Built-in and user grants cover every argument of the base command. `always_ask` ignores grants;
- * `allow_all` skips approval entirely. Each command in a chain is checked, and one question covers
- * every unapproved command. There are no path, secret, option or package-verification re-prompts.
+ * `allow_all` skips approval entirely, including the questions below. Each command in a chain is
+ * checked, and one question covers every unapproved command. There are no path, secret, option or
+ * package-verification re-prompts, except two that no grant answers: running outside the
+ * workspace root (`outsideCwd`), and `git worktree add|move|repair`. Both are asked every time,
+ * with every command of the line, and their answer is never kept as a grant.
  *
  * Throws a `CommandRefusedError` when no one can answer, or the user skips (a message they sent
  * instead is put in the error, so the model reads it as the user's direction). On "always allow"
@@ -84,18 +131,26 @@ export async function confirmCommand(params: {
   approvals: ApprovalRegistry | undefined;
   call: { callId: CallId; sessionId?: SessionId | undefined };
   signal: AbortSignal;
+  /**
+   * The folder the line runs in when it is outside the workspace root (a sibling worktree). A
+   * grant is for this folder's commands, not another's, so every command is asked about, the
+   * folder is shown, and the answer is never kept as a grant. `allow_all` still asks nothing.
+   */
+  outsideCwd?: string | undefined;
 }): Promise<void> {
-  const { command, steps, permissions, approvals, call, signal } = params;
+  const { command, steps, permissions, approvals, call, signal, outsideCwd } = params;
   const { mode, allow } = await permissions.read();
 
   if (mode === 'allow_all') return;
 
-  const unlisted =
-    mode === 'always_ask' ? steps : steps.filter(({ argv }) => !hasCommandGrant({ argv, allow }));
-  const { concerns, entries: proposed } = findLineConcerns({
-    unlisted,
-    mode,
+  const unlisted = stepsNeedingAnswer({
+    steps,
+    allow,
+    askAll: mode === 'always_ask' || outsideCwd !== undefined,
   });
+  const { concerns: lineConcerns, entries: proposed } = findLineConcerns({ unlisted, mode });
+  const alwaysAsked = ungrantableConcerns({ steps, outsideCwd });
+  const concerns = [...alwaysAsked, ...lineConcerns];
 
   if (concerns.length === 0) return;
 
@@ -109,7 +164,7 @@ export async function confirmCommand(params: {
     });
   }
 
-  const entries = mode === 'ask' ? proposed : undefined;
+  const entries = mode === 'ask' && alwaysAsked.length === 0 ? proposed : undefined;
   const response = await approvals.request({
     ...call,
     tool: 'run_command',
