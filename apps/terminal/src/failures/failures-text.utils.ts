@@ -1,11 +1,9 @@
 import { bold } from '../render/style.utils.js';
 import { defaultPalette } from '../theme/palette.utils.js';
 import type { Palette } from '../theme/theme.types.js';
-import { FAILURE_HEAD_LINES, FAILURE_TAIL_LINES } from './failures.constants.js';
+import { FAILURE_HEAD_LINES, FAILURE_TAIL_LINES, NO_FAILURES_TEXT } from './failures.constants.js';
 import type { Failure } from './failures.types.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
-
-const NOTHING = 'No failed steps with more to say in this chat yet.';
 
 /** The line under a failed step's result that stands for its whole message, which `/errors` shows. */
 export function collapsedFailure(params: { failure: Failure; palette?: Palette }): string {
@@ -31,7 +29,7 @@ export function failuresText(params: {
 }): string {
   const { failures, target, palette = defaultPalette } = params;
 
-  if (failures.length === 0) return NOTHING;
+  if (failures.length === 0) return NO_FAILURES_TEXT;
 
   if (target === undefined) return failureList({ failures, palette });
 

@@ -1,4 +1,5 @@
 import { DIFF_EXPANDED_ROWS } from '../diff/diff.constants.js';
+import { NO_CHANGES_TEXT } from './changes.constants.js';
 import { formatDiff } from '../diff/diff-text.utils.js';
 import { buildDiff, countChanges } from '../diff/diff.utils.js';
 import { bold } from '../render/style.utils.js';
@@ -7,7 +8,6 @@ import type { Palette } from '../theme/theme.types.js';
 import type { FileEdit, FileTotal, LinkFile } from './changes.types.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
 
-const NOTHING = 'No file changes in this chat yet.';
 const identity: LinkFile = plainTerminalText;
 
 /** The line under a step's result that stands for its diff, which `/changes <number>` expands. */
@@ -36,7 +36,7 @@ export function changesText(params: {
 }): string {
   const { edits, target, columns, palette = defaultPalette, linkFile = identity } = params;
 
-  if (edits.length === 0) return NOTHING;
+  if (edits.length === 0) return NO_CHANGES_TEXT;
 
   const files = totalsByFile(edits);
 

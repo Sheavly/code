@@ -1,4 +1,5 @@
 import { languageFor } from './code-languages.utils.js';
+import { NUMBER_PATTERN, WORD_PATTERN } from './markdown.constants.js';
 import type { CodeLanguage, CodePaint, HighlightedLine, HighlightState } from './markdown.types.js';
 
 type CodeToken = {
@@ -7,9 +8,6 @@ type CodeToken = {
   /** Where the text after this token starts: open when the token ran off the end of a line. */
   state: HighlightState;
 };
-
-const NUMBER = /^(?:0[xX][\da-fA-F_]+|\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)/;
-const WORD = /^[A-Za-z_$][\w$]*/;
 
 /**
  * Paints one line of code and says where the next one starts, so a comment or a string that
@@ -157,11 +155,11 @@ function findEnd(params: {
 function readWord(params: { line: string; at: number; language: CodeLanguage }): CodeToken {
   const { line, at, language } = params;
   const rest = line.slice(at);
-  const number = NUMBER.exec(rest)?.[0];
+  const number = NUMBER_PATTERN.exec(rest)?.[0];
 
   if (number !== undefined) return { style: 'number', length: number.length, state: undefined };
 
-  const word = WORD.exec(rest)?.[0];
+  const word = WORD_PATTERN.exec(rest)?.[0];
 
   if (word === undefined) return { style: 'plain', length: 1, state: undefined };
 

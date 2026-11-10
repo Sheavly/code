@@ -1,7 +1,5 @@
+import { CLOSING_FENCE, OPENING_FENCE } from './markdown.constants.js';
 import type { CodeFenceDrawing } from './markdown.types.js';
-
-const OPENING_FENCE = /^( {0,3})(`{3,}|~{3,})(.*)$/;
-const CLOSING_FENCE = /^ {0,3}(`{3,}|~{3,})\s*$/;
 
 /** A code fence being read: what closes it, how far its lines were indented, how it is drawn. */
 type OpenFence = { marker: string; indent: number; drawing: CodeFenceDrawing };
