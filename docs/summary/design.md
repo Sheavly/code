@@ -215,7 +215,7 @@ on Sheavly.
 | Summary trigger      | 15% of the window kept free, at least 16k                        | 255k used | OpenCode's defaults (`buffer`)                                                                                           |
 | Tail kept            | About 15k tokens                                                 | 15k       | OpenCode's `keep.tokens` default                                                                                         |
 | Hide old tool output | Keep the last 10 tool results; move the cut in steps, not by one | -         | JetBrains' masking window of 10 (inferred from config names) and its `polling` option, which exists to protect the cache |
-| Summary size         | At most 4k tokens, and smaller than what it replaces             | 4k        | Ours. Anthropic's summaries run 7-12k characters (Factory), which is roughly 2-3k tokens                                 |
+| Summary size         | The summarizing model's output limit, and smaller than replaced  | model max | Ours. Anthropic's summaries run 7-12k characters (Factory), which is roughly 2-3k tokens                                 |
 | Retries in a row     | 3                                                                | 3         | Ours                                                                                                                     |
 
 The trigger is a share of the window, so one setting fits every model. Anthropic's own threshold
@@ -233,7 +233,7 @@ purpose, and the issues change to match:
   (`summary_started`, `summary_done`, `summary_failed`), because a UI needs to show that a summary
   is running, not only that it finished. `summary_done` carries the counts.
 - **Hysteresis.** #14 suggests trigger at 80% and compact down to about 40%, "for example". With a
-  15k tail and a summary of at most 4k, a 300k window drops from about 85% to roughly 10% (the
+  15k tail and a summary of a few thousand tokens, a 300k window drops from about 85% to roughly 10% (the
   system instructions and tool definitions count too, and were not measured), so no separate
   target is needed. Each summary rewrites the cached prefix once (#143), and a drop this
   deep makes the next one far off.

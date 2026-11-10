@@ -1,7 +1,7 @@
 # Sections and summarizers
 
 A checkpoint is a list of sections, each with a stable id, a title and a text. A summarizer fills
-them, and the loop checks the result (size cap, smaller than what it replaces, valid history)
+them, and the loop checks the result (smaller than what it replaces, valid history)
 before it appends anything. This package holds the two built-in summarizers; a UI may write its
 own against `Summarizer` in `@sheavly/core`.
 
