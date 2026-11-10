@@ -11,7 +11,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'task_status',
     description:
-      "Show background tasks. With an id: that task's status and recent output. Without: all tasks. " +
+      "Show background tasks. With an id: that task's status and recent output, or, for a sub-agent, its complete report. Without: all tasks. " +
       'Inspection only, not a wait tool. Do not poll: finished tasks are reported automatically. ' +
       'Finish independent work, then end your turn without tool calls to wait for required task results.',
     inputSchema: z.object({
@@ -29,7 +29,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
         }
 
         return taskStatusResponse({
-          content: formatTask({ task, now: now() }),
+          content: formatTask({ task, now: now(), report: tasks.report(id) }),
           running: task.status === 'running',
         });
       }

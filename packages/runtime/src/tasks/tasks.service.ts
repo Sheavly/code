@@ -20,6 +20,8 @@ type Entry = {
   silent: boolean;
   sessionId?: SessionId | undefined;
   waitForCompletion: boolean;
+  /** What the task returned as its result, whole. Not part of `info`, so no event carries it. */
+  report?: string | undefined;
 };
 
 export class TaskRegistry {
@@ -65,11 +67,11 @@ export class TaskRegistry {
     };
 
     entry.settled = run({ signal: controller.signal, onOutput }).then(
-      ({ exitCode }) => {
+      ({ exitCode, report }) => {
         this.#settle({
           entry,
           status: exitCode === 0 ? 'completed' : 'failed',
-          result: { exitCode },
+          result: { exitCode, ...(report !== undefined && { report }) },
         });
       },
       (caughtError: unknown) => {
@@ -101,6 +103,14 @@ export class TaskRegistry {
     const entry = this.#tasks.get(id);
 
     return entry && { ...entry.info };
+  }
+
+  /**
+   * What a finished task returned as its report, whole; undefined for a task that returned none
+   * (every shell command), one still running, or an unknown id.
+   */
+  report(id: TaskId): string | undefined {
+    return this.#tasks.get(id)?.report;
   }
 
   list(): TaskInfo[] {
@@ -167,6 +177,7 @@ export class TaskRegistry {
     info.endedAt = now();
     if ('exitCode' in result) info.exitCode = result.exitCode;
     if (result.error) info.error = result.error;
+    entry.report = result.report;
 
     if (!entry.silent) this.#unreported.push(info.id);
     this.#notify({ entry, type: 'task_ended' });

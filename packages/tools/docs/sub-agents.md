@@ -9,8 +9,8 @@ sub-agent on one task, `{ title, task }`.
 
 - **A background task.** The sub-agent runs as a task in the parent's `TaskRegistry`, so the
   parent sees it with `task_status`, stops it with `cancel_task` (its session ends as
-  `interrupted`), and is told its final reply when it finishes. Its task requires completion:
-  the parent prompt stays alive and resumes automatically with the reply even without
+  `interrupted`), and is told its report when it finishes. Its task requires completion:
+  the parent prompt stays alive and resumes automatically with the report even without
   `waitForTasks`. No user message or status polling is needed. Ordinary background commands can
   still outlive a prompt. Stopping the prompt stops waiting; any unfinished sub-agent result is
   then delivered on the next prompt, rather than restarting an interrupted run.
@@ -28,6 +28,21 @@ sub-agent on one task, `{ title, task }`.
 - The loop's `runSession` is passed in as `options.runAgent`: tools can't import the loop.
 - `start_agent`, `report_status` and `message_agent` only work inside a session: called without
   one (`context.session` unset), they fail with a `ToolCallError` (`reason: 'unavailable'`).
+
+## Reports
+
+What a sub-agent reports is its final answer, and the parent gets it whole, with no size limit.
+`finalReply` takes the unbroken run of assistant messages that ends its last reply and joins them
+in order with nothing between, because after an output-limit cut the continuation resumes
+mid-text. What it said before its last tool call is work in progress and is left out, and so are
+the `[status]` and `[message]` lines. A sub-agent that wrote no text gives a placeholder, so the
+parent never gets a blank result.
+
+`runChild` returns it as the task's `report`. The task registry keeps it outside the output
+preview and outside `TaskInfo`, so the process-output limits never touch it, no event carries it
+as part of the task, and `task_status <id>` shows it whole. The bounded preview still holds the
+status lines and the end of the report for a UI card. Ordinary background commands keep their
+bounded output. The `start_agent` and `task_status` descriptions say the report arrives whole.
 
 ## Status reporting
 

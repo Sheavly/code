@@ -79,7 +79,7 @@ describe('sub-agent completion in a conversation', () => {
 
       const told = conversation.messages.find((message) => message.role === 'tool')?.content;
 
-      expect(told).toContain('Its final reply comes to you automatically');
+      expect(told).toContain('Its complete report comes to you automatically');
 
       // It finishes while the conversation is idle: nothing wakes the model, the reply waits.
       finish.resolve(undefined);

@@ -36,5 +36,10 @@ overwrite newer live totals. Missing counts and unpriced calls remain explicit, 
 `OutputBuffer` keeps at most 30 initial lines and 70 final lines within its character budget,
 shortening each line to 1,000 characters with both ends visible. Omission markers label lost lines.
 
+A task's output is that bounded preview: progress, never a result to rely on. A task whose result
+is a document, such as a sub-agent's report, returns it as `report` from `run`. The registry keeps
+it whole, outside `OutputBuffer` and outside `TaskInfo`, so no limit applies and no task event
+carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in place of the output.
+
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.
 - [Approvals](docs/approvals.md): how a tool asks the user, and how a UI answers.

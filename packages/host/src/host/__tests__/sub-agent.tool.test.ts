@@ -30,6 +30,7 @@ const toolUse: StreamEvent = { type: 'done', stopReason: 'tool_use' };
 function setup(params: {
   scripts: Record<string, Script[]>;
   hooks?: Parameters<typeof createSubAgentTool>[0]['hooks'];
+  runAgent?: Parameters<typeof createSubAgentTool>[0]['runAgent'];
 }) {
   const sessions = new SessionRegistry();
   const tasks = new TaskRegistry();
@@ -43,7 +44,7 @@ function setup(params: {
     sessions,
     tasks,
     provider,
-    runAgent: runSession,
+    runAgent: params.runAgent ?? runSession,
     tools: [],
     ...(params.hooks && { hooks: params.hooks }),
   });
@@ -281,6 +282,34 @@ describe('start_agent', () => {
 
     expect(tasks.get(task.id)?.status).toBe('cancelled');
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
+  });
+
+  it('fails the task with the reason when the sub-agent did not finish, with no report', async () => {
+    const { tasks, run } = setup({
+      scripts: {
+        'Do the thing': [
+          calls(call('m1', 'start_agent', { title: 'Helper', task: 'Help out' })),
+          say('All done.'),
+        ],
+      },
+      // A run cut off before it finished: its last message is work in progress, not a report.
+      runAgent: () =>
+        Promise.resolve({
+          reason: 'context_window_exceeded',
+          messages: [{ role: 'assistant', content: 'half a thought', toolCalls: [] }],
+        }),
+    });
+
+    await run('Do the thing');
+
+    const [task] = tasks.list();
+
+    if (!task) throw new Error('start_agent started no task');
+
+    expect(task.status).toBe('failed');
+    expect(task.error).toContain('context_window_exceeded');
+    expect(task.output).not.toContain('half a thought');
+    expect(tasks.report(task.id)).toBeUndefined();
   });
 });
 

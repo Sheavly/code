@@ -11,15 +11,19 @@ export type StartTask = {
   sessionId?: SessionId | undefined;
   /** Keep the calling run alive until this task's result has been delivered to the model. */
   waitForCompletion?: boolean;
-  /** Does the work. Must stop when `signal` aborts; reports output as it arrives. */
+  /**
+   * Does the work. Must stop when `signal` aborts; reports output as it arrives. `output` is a
+   * bounded preview. A task whose result is a document (a sub-agent's report) returns it as
+   * `report` instead: it is kept whole, never shortened, and never mixed with progress output.
+   */
   run: (params: {
     signal: AbortSignal;
     onOutput: (chunk: string) => void;
-  }) => Promise<{ exitCode: number | null }>;
+  }) => Promise<{ exitCode: number | null; report?: string }>;
 };
 
-/** How a task ended: its exit code, or the error that stopped it. */
-export type TaskResult = { exitCode?: number | null; error?: string };
+/** How a task ended: its exit code and report, or the error that stopped it. */
+export type TaskResult = { exitCode?: number | null; error?: string; report?: string };
 
 /** A task update, with the session whose tool started it (unset for one started outside a run). */
 export type TaskObserver = (params: { update: TaskUpdate; sessionId?: SessionId }) => void;

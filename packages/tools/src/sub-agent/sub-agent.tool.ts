@@ -5,6 +5,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { SubAgentStoppedError } from '../errors/sub-agent.errors.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
 import { createMessageAgentTool } from './message-agent.tool.js';
@@ -19,7 +20,7 @@ import type { SessionRef } from '@sheavly/protocol/session/session.types';
  * the calling session. The sub-agent gets its own session (id, linked to the caller as parent),
  * its own `sessionStart`, the tools and hooks the parent chose, and `report_status`. Below the
  * depth cap it can start sub-agents of its own; at the cap (depth 3) it can't, and the session
- * registry refuses anyway. Its final reply comes back as the task's output.
+ * registry refuses anyway. Its report, its final answer whole, comes back as the task's report.
  */
 export function createSubAgentTool(options: SubAgentOptions) {
   const { sessions, tasks } = options;
@@ -27,8 +28,8 @@ export function createSubAgentTool(options: SubAgentOptions) {
   return defineTool({
     name: 'start_agent',
     description:
-      'Start a sub-agent on a self-contained task. It runs in the background; its final reply ' +
-      'comes to you automatically when it finishes. No need to poll: when you have nothing else ' +
+      'Start a sub-agent on a self-contained task. It runs in the background; its complete ' +
+      'report comes to you automatically when it finishes. No need to poll: when you have nothing else ' +
       'to do, end your turn and you will be woken with the reply. Steer it with message_agent, ' +
       `stop it with cancel_task. Sub-agents nest at most ${MAX_SESSION_DEPTH} levels deep.`,
     inputSchema: z.object({
@@ -73,7 +74,7 @@ export function createSubAgentTool(options: SubAgentOptions) {
 
       return (
         `Started sub-agent "${title}" as background task ${started.id} ` +
-        `(session ${child.id}, depth ${child.depth}). Its final reply comes to you automatically: ` +
+        `(session ${child.id}, depth ${child.depth}). Its complete report comes to you automatically: ` +
         "don't poll task_status for it; once you have nothing else to do, end your turn and wait. " +
         'Use message_agent with its session id to steer it, cancel_task to stop it.'
       );
@@ -81,16 +82,19 @@ export function createSubAgentTool(options: SubAgentOptions) {
   });
 }
 
-/** Runs the sub-agent's loop to its end. Its status reports also go into the task's output. */
+/**
+ * Runs the sub-agent's loop to its end and returns its report, whole. Its status and steering
+ * lines go into the task's output preview, never into the report.
+ */
 async function runChild(params: {
   options: SubAgentOptions;
   child: SessionRef;
   task: string;
   signal: AbortSignal;
   onOutput: (chunk: string) => void;
-}): Promise<{ exitCode: number }> {
+}): Promise<{ exitCode: number; report: string }> {
   const { options, child, task, signal, onOutput } = params;
-  const { sessions, provider, runAgent, tools, hooks = [], instructions, maxTurns } = options;
+  const { sessions, provider, runAgent, tools, hooks = [], instructions } = options;
   // The sub-agent's own background tasks (its sub-agents); stopped when it ends. They join the
   // combined stream like the main run's, so a UI sees a nested task start and end too.
   const childTasks = new TaskRegistry();
@@ -134,13 +138,21 @@ async function runChild(params: {
       tasks: childTasks,
       waitForTasks: true,
       session: { registry: sessions, ref: child },
-      ...(maxTurns !== undefined && { maxTurns }),
       ...(summary && { summary }),
     });
 
-    onOutput(`\n${finalReply(messages)}`);
+    // A run that did not finish has no report: its last message is work in progress. Throwing
+    // fails the task with the reason, so the parent is told it failed and why, not handed text.
+    if (reason !== 'completed') {
+      throw new SubAgentStoppedError({ reason });
+    }
 
-    return { exitCode: reason === 'completed' ? 0 : 1 };
+    const report = finalReply(messages);
+
+    // The preview keeps the report's end for a UI that shows a card; the parent is handed `report`.
+    onOutput(`\n${report}`);
+
+    return { exitCode: 0, report };
   } finally {
     stopListening();
     // Cancelled first, then unobserved: the stream still sees each cancelled task end.
