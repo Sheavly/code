@@ -38,7 +38,7 @@ for await (const event of streamAgent({
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stream-agent/` | `streamAgent`, `runAgent`, `runSession`: the turn, one model call, tool calls                                                                                                                                           |
 | `errors/`       | `StreamEndedError` (the stream ended without `done`), `HookError`, `InvalidHistoryError` (a `beforeModelCall` result that breaks the history rules), `SummaryRejectedError` (a summary that broke the checkpoint rules) |
-| `summary/`      | The `summary` option's types and defaults, and the pure policy: `shouldSummarize`, `chooseCut`, `viewOf` (what a model is sent for a history with checkpoints)                                                          |
+| `summary/`      | The default summary policy and the pure policy: `shouldSummarize`, `chooseCut`, `viewOf` (what a model is sent for a history with checkpoints)                                                                          |
 
 Internal (closed in `exports`): `events/` (the event bodies), `queue/` (the `OrderedQueue` every
 event goes through), `hooks/` (running each hook point), `history/` (`assertValidHistory`, the

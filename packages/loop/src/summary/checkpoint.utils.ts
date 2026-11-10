@@ -8,7 +8,7 @@ import type {
 import { InvalidHistoryError, SummaryRejectedError } from '../errors/loop.errors.js';
 import { assertValidHistory } from '../history/history.utils.js';
 import { CHARS_PER_TOKEN } from './summary.constants.js';
-import type { SummaryPolicy } from './summary.types.js';
+import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 import {
   estimateTokens,
   latestCheckpoint,

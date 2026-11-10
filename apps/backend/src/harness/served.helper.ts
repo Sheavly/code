@@ -14,6 +14,7 @@ import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
+import { backendSummary, subAgentSummary } from './summary.helper.js';
 import { workspacePermissions } from './permissions.helper.js';
 import type { PlacedConversationStore } from '../profiles/placed-conversation-store.service.js';
 import type { Profiles } from '../profiles/profiles.service.js';
@@ -59,7 +60,11 @@ export async function servedConversation(params: {
     store: permissionStore,
     workspace: placement.workspace,
   });
-  const workspace = await profiles.modelsFor({ placement, request: parseRequestEnv(env) });
+  const workspace = await profiles.modelsFor({
+    placement,
+    request: parseRequestEnv(env),
+    contextWindow: settings.contextWindow,
+  });
 
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
@@ -73,8 +78,11 @@ export async function servedConversation(params: {
   for (const note of workspace.notes) log(`${note}\n`);
 
   const onModelCall = modelCallsTo({ settings, log });
+  // The conversation's model switch writes the summaries, so a switch changes who summarizes.
+  const summary = settings.summary ? backendSummary(workspace.models.switch) : undefined;
   const harness = await createBackendHarness({
     provider: workspace.models.switch,
+    ...(settings.summary && { summarizeWith: subAgentSummary }),
     subAgentProvider: () => selectedProvider({ models: workspace.models, onModelCall }),
     workspaceRoot: placement.workspace,
     fileLocks,
@@ -101,6 +109,7 @@ export async function servedConversation(params: {
       storage,
       ...(settings.maxTurns !== undefined && { maxTurns: settings.maxTurns }),
       waitForTasks: settings.waitForTasks,
+      summary,
       run: {
         details: () => ({
           workspace: harness.workspace.root,

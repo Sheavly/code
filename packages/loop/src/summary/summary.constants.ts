@@ -1,4 +1,4 @@
-import type { SummaryPolicy } from './summary.types.js';
+import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 
 /**
  * Starting points, not measured values: trigger at 15% of the window free (at least 16k tokens),

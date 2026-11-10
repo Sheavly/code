@@ -55,6 +55,8 @@ describe('parseRunEnv', () => {
       modelCallsFile: undefined,
       exitWithParent: false,
       webFetch: true,
+      summary: true,
+      contextWindow: undefined,
     });
     expect(
       parseRunEnv({
@@ -69,6 +71,8 @@ describe('parseRunEnv', () => {
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
       webFetch: true,
+      summary: true,
+      contextWindow: undefined,
     });
     expect(parseRunEnv({ MAX_TURNS: '' }).maxTurns).toBeUndefined();
     expect(() => parseRunEnv({ MAX_TURNS: '0' })).toThrow();
@@ -81,6 +85,31 @@ describe('parseRunEnv', () => {
 
     for (const value of ['1', 'yes', 'FALSE']) {
       expect(() => parseRunEnv({ WEB_FETCH: value })).toThrow();
+    }
+  });
+});
+
+describe('SUMMARY', () => {
+  it('summarizes long histories by default, and "false" turns it off', () => {
+    expect(parseRunEnv({}).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: '' }).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: 'true' }).summary).toBe(true);
+    expect(parseRunEnv({ SUMMARY: 'false' }).summary).toBe(false);
+
+    for (const value of ['0', 'no', 'FALSE']) {
+      expect(() => parseRunEnv({ SUMMARY: value })).toThrow();
+    }
+  });
+});
+
+describe('CONTEXT_WINDOW', () => {
+  it('is each model’s own unless set, and takes a positive whole number of tokens', () => {
+    expect(parseRunEnv({}).contextWindow).toBeUndefined();
+    expect(parseRunEnv({ CONTEXT_WINDOW: '' }).contextWindow).toBeUndefined();
+    expect(parseRunEnv({ CONTEXT_WINDOW: '24000' }).contextWindow).toBe(24_000);
+
+    for (const value of ['0', '-5', '1.5', 'big', '10000001', '1e3', '0x10', ' 5']) {
+      expect(() => parseRunEnv({ CONTEXT_WINDOW: value })).toThrow();
     }
   });
 });

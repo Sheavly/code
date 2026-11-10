@@ -21,6 +21,7 @@ const tools = [createReadFileTool({ workspace: harness.workspace })];
 | `write-file/`   | `write_file`                                                                                    |
 | `edit-file/`    | `edit_file`                                                                                     |
 | `run-command/`  | `run_command`: base-command permissions, safe git config, approvals                             |
+| `trail/`        | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail          |
 | `files/`        | What the file tools share: `resolveWritable`, the `.env` guard, `FileChange` and `isFileChange` |
 | `errors/`       | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it            |
 

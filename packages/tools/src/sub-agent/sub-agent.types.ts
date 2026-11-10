@@ -1,5 +1,6 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
@@ -22,6 +23,7 @@ export type RunNestedAgent = (options: {
   waitForTasks: boolean;
   session: RunSession;
   maxTurns?: number;
+  summary?: SummaryOptions;
 }) => Promise<{ reason: string; messages: HistoryMessage[] }>;
 
 /** What a parent decides about the sub-agents it starts (and passes on to theirs). */
@@ -44,4 +46,11 @@ export type SubAgentOptions = {
   /** Extra system instructions for sub-agents, after the built-in sub-agent rules. */
   instructions?: string;
   maxTurns?: number;
+  /**
+   * Summarize each sub-agent's history when its context nears the window, so a long-running one
+   * keeps going. Called with the provider the sub-agent runs on (the model it was pinned to when
+   * it started), so its summary is written, priced and logged by that model and never by one the
+   * user switched to since. Passed on to the sub-agents it starts; none means no summaries.
+   */
+  summarizeWith?: (provider: Provider) => SummaryOptions;
 };

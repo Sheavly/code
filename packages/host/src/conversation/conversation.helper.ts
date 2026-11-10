@@ -83,6 +83,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       ...(options.waitForTasks !== undefined && { waitForTasks: options.waitForTasks }),
       instructions: options.instructions ?? harness.instructions,
       ...(options.maxTurns !== undefined && { maxTurns: options.maxTurns }),
+      ...(options.summary && { summary: options.summary }),
     })[Symbol.asyncIterator]();
     const record = (event: AgentEvent) => {
       if (event.type === 'done') messages = event.messages;

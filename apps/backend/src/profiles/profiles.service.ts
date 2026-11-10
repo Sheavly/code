@@ -99,14 +99,17 @@ export class Profiles {
   async modelsFor(params: {
     placement: Placement;
     request: RequestSettings;
+    /** The window every model is told, instead of its file's (`CONTEXT_WINDOW`). */
+    contextWindow?: number | undefined;
   }): Promise<WorkspaceModels> {
-    const { placement, request } = params;
+    const { placement, request, contextWindow } = params;
     const found = await this.#profileNamed(placement.profile);
     const profile = await this.#registry.open(found.id);
     const { models, notes } = await modelsOf({
       profile,
       registry: this.#adapters,
       request,
+      contextWindow,
       ...(found.lastModelSelection && { startWith: found.lastModelSelection.modelId }),
       ...(found.modelModes && { modes: found.modelModes }),
     });

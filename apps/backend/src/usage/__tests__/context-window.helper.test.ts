@@ -41,6 +41,16 @@ describe('withContextWindow', () => {
     expect(provider.contextWindow).toBe(128_000);
   });
 
+  it('lets the backend’s CONTEXT_WINDOW win over the file and the default', () => {
+    const model = modelWith({ contextWindow: 1_000_000 });
+    const windowOf = (params: { model: ReturnType<typeof modelWith>; override?: number }) =>
+      withContextWindow({ provider: inner(), ...params }).contextWindow;
+
+    expect(windowOf({ model, override: 24_000 })).toBe(24_000);
+    expect(windowOf({ model: modelWith({}), override: 24_000 })).toBe(24_000);
+    expect(windowOf({ model })).toBe(1_000_000);
+  });
+
   it('streams exactly what the provider it wraps streams', async () => {
     const provider = withContextWindow({ provider: inner(), model: modelWith({}) });
     const request = { messages: [], tools: [], signal: new AbortController().signal };

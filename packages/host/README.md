@@ -25,7 +25,9 @@ the history so far, in the same session, idle between prompts until `close`. A f
 keeps the user's message and completed tool work, rather than rolling back history while leaving
 the tool effects on disk. Required task completions, including sub-agent replies, keep the prompt
 running and wake the model automatically. Ordinary background tasks can outlive it unless
-`waitForTasks` is enabled.
+`waitForTasks` is enabled. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
+every prompt's run, so the loop summarizes the history when the context nears the window; the
+host never picks a summarizer, the app does.
 
 ```ts
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';

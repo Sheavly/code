@@ -5,6 +5,7 @@ import type {
   ConversationStorage,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
@@ -57,8 +58,10 @@ export function harnessConversation(params: {
   storage?: ConversationStorage | undefined;
   maxTurns?: number;
   waitForTasks?: boolean;
+  /** Summarize the history when the context nears the window; none never does. */
+  summary?: SummaryOptions | undefined;
 }): LiveConversation {
-  const { harness, run, messages, storage, maxTurns, waitForTasks = false } = params;
+  const { harness, run, messages, storage, maxTurns, waitForTasks = false, summary } = params;
 
   return {
     harness,
@@ -69,6 +72,7 @@ export function harnessConversation(params: {
       hooks: harness.hooks,
       ...(maxTurns !== undefined && { maxTurns }),
       waitForTasks,
+      ...(summary && { summary }),
       ...(messages && { messages }),
       ...(storage && {
         keepHistory: storage.keepHistory,

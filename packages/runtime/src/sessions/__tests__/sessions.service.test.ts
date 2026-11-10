@@ -12,12 +12,36 @@ const s1 = sessionIdSchema.parse('s1');
 const s2 = sessionIdSchema.parse('s2');
 const nope = sessionIdSchema.parse('nope');
 
+/** A registry with a main session, a child of it and a grandchild. */
+function threeLevels() {
+  const sessions = new SessionRegistry();
+  const main = sessions.startMain({ title: 'Main' });
+  const child = sessions.startChild({ parentId: main.id, ...BY, title: 'Child' });
+  const grandchild = sessions.startChild({ parentId: child.id, ...BY, title: 'Grandchild' });
+
+  return { sessions, main, child, grandchild };
+}
+
+describe('who may message a sub-agent', () => {
+  it('refuses the user, at any depth, and still lets the agent that started it steer it', () => {
+    const { sessions, main, child, grandchild } = threeLevels();
+
+    expect(() => sessions.send({ id: child.id, content: 'hi', from: 'user' })).toThrow(
+      'only the agent that started it',
+    );
+    expect(() => sessions.send({ id: grandchild.id, content: 'hi', from: 'user' })).toThrow(
+      'only the agent that started it',
+    );
+    // The main session still takes the user's messages, and a parent can steer its child.
+    expect(() => sessions.send({ id: main.id, content: 'hi', from: 'user' })).not.toThrow();
+    expect(() => sessions.send({ id: child.id, content: 'go', from: main.id })).not.toThrow();
+    expect(sessions.takeMessages(child.id).map((message) => message.from)).toEqual([main.id]);
+  });
+});
+
 describe('SessionRegistry', () => {
   it('gives every session a unique id, linked to its parent and the main session', () => {
-    const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({ parentId: main.id, ...BY, title: 'Child' });
-    const grandchild = sessions.startChild({ parentId: child.id, ...BY, title: 'Grandchild' });
+    const { sessions, main, child, grandchild } = threeLevels();
 
     expect(main).toEqual({ id: main.id, rootId: main.id, depth: 1 });
     expect(child).toEqual({

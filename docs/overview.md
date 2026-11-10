@@ -58,6 +58,7 @@ flowchart BT
   backend --> loop
   backend --> providers
   backend --> storage
+  backend --> summary
   backend --> tools
   client --> protocol
   coding --> host
