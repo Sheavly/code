@@ -87,7 +87,7 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
 const FILE_WRITERS = new RegExp(
   [
     '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path)[/\\\\]',
-    '^packages[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]files\\.helper\\.ts$',
+    '^packages[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]file-effects\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',
     '^apps[/\\\\]backend[/\\\\]src[/\\\\]harness[/\\\\]model-calls\\.helper\\.ts$',
     '^apps[/\\\\]terminal[/\\\\]src[/\\\\](demo\\.ts$|workbook[/\\\\](recorder\\.service|store\\.service|check\\.helper)\\.ts$)',

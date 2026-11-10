@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { FileChange, FileChangeVerb } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
@@ -78,4 +79,13 @@ export function describeChange(params: {
 /** True if `artifact` is the file change a file tool returned. */
 export function isFileChange(artifact: ToolArtifact): artifact is FileChange {
   return artifact.kind === 'file_change';
+}
+
+/**
+ * Who a file tool's call is for, as `FileReads` names it: the session making the call, so the main
+ * agent and each sub-agent are told apart. A call with no session (a tool run on its own) is the
+ * only agent there is.
+ */
+export function agentOf(context: ToolContext): string {
+  return context.session?.id ?? 'no-session';
 }

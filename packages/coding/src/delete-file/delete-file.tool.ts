@@ -1,12 +1,11 @@
 import { z } from 'zod';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileToolServices } from '../files/files.types.js';
-import {
-  changeResult,
-  readForChange,
-  removeFile,
-  resolveDeletable,
-} from '../files/files.helper.js';
+import { fileSize, readForChange, removeFile } from '../files/file-effects.helper.js';
+import { changeResult } from '../files/file-change.helper.js';
+import { assertSameDeletable, resolveDeletable } from '../files/files.helper.js';
+import { MAX_DELETE_BYTES } from './delete-file.constants.js';
 
 /**
  * Removes one file from the workspace, and refuses a folder, a symlink, a `.env` file and anything
@@ -40,6 +39,22 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
         file: real,
         signal,
         change: async () => {
+          // Resolved before the lock to queue on the file, then again under it: a path swapped
+          // while the delete waited would otherwise be read or removed without the guards.
+          await assertSameDeletable({ workspace, requested, expected: real });
+
+          const size = await fileSize({ file: real });
+
+          if (size > MAX_DELETE_BYTES) {
+            throw new ToolCallError({
+              reason: 'invalid_input',
+              message:
+                `${requested} is ${size} bytes, more than the ${MAX_DELETE_BYTES} bytes a delete ` +
+                'reports. Remove it with run_command (rm) instead, so its content is not read into ' +
+                'the result.',
+            });
+          }
+
           const before = await readForChange({
             file: real,
             requested,
@@ -47,7 +62,8 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
             hint: 'It may already be deleted.',
           });
 
-          await removeFile({ file: real });
+          await assertSameDeletable({ workspace, requested, expected: real });
+          await removeFile({ file: real, signal });
           fileReads.markDeleted({ file: real });
 
           return changeResult({ workspace, file: real, verb: 'Deleted', before, after: null });

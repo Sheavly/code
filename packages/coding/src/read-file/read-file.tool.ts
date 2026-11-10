@@ -6,7 +6,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
 import type { FileRead } from './read-file.types.js';
-import { agentOf } from '../files/files.helper.js';
+import { agentOf } from '../files/files.utils.js';
 import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
 import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 

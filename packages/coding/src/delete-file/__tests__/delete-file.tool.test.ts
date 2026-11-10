@@ -1,16 +1,38 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, realpath, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
 import { isFileChange } from '../../files/files.utils.js';
+import { MAX_DELETE_BYTES } from '../delete-file.constants.js';
 import { createDeleteFileTool } from '../delete-file.tool.js';
+
+/** A lock set that swaps the file for a symlink just before the delete takes its turn. */
+class SwappingLocks extends FileLocks {
+  readonly #swap: () => Promise<void>;
+
+  constructor(swap: () => Promise<void>) {
+    super();
+    this.#swap = swap;
+  }
+
+  override async run<T>(params: {
+    file: string;
+    signal: AbortSignal;
+    change: () => Promise<T>;
+  }): Promise<T> {
+    await this.#swap();
+
+    return super.run(params);
+  }
+}
 
 const signal = new AbortController().signal;
 const temp = useTempWorkspace({
@@ -119,8 +141,9 @@ describe('delete_file', () => {
   it('refuses paths inside .git, and deletes nothing there', async () => {
     await mkdir(path.join(temp.root, '.git'));
     await writeFile(path.join(temp.root, '.git', 'config'), '[core]\n');
+    await symlink(path.join(temp.root, '.git'), path.join(temp.root, 'meta'));
 
-    for (const file of ['.git/config', '.Git/config']) {
+    for (const file of ['.git/config', '.Git/config', 'meta/config']) {
       const result = await remove(file);
 
       expect(result).toMatchObject({ isError: true });
@@ -128,6 +151,36 @@ describe('delete_file', () => {
     }
 
     expect(existsSync(path.join(temp.root, '.git/config'))).toBe(true);
+  });
+
+  it('refuses a file larger than a deletion reports, and points to run_command', async () => {
+    await writeFile(path.join(temp.root, 'big.txt'), 'x'.repeat(MAX_DELETE_BYTES + 1));
+
+    const result = await remove('big.txt');
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain(`${MAX_DELETE_BYTES + 1} bytes`);
+    expect(result.content).toContain('run_command');
+    expect(existsSync(path.join(temp.root, 'big.txt'))).toBe(true);
+  });
+
+  it('re-checks the path under the lock, so a file swapped for a symlink is not read or removed', async () => {
+    await writeFile(path.join(temp.root, '.env'), 'SECRET=1\n');
+
+    const locks = new SwappingLocks(async () => {
+      await rm(path.join(temp.root, 'existing.ts'));
+      await symlink(path.join(temp.root, '.env'), path.join(temp.root, 'existing.ts'));
+    });
+    const tool = createDeleteFileTool({
+      workspace: temp.workspace,
+      fileLocks: locks,
+      fileReads: fileReads.current,
+    });
+    const result = await call('delete_file', { path: 'existing.ts' }, [tool]);
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('Refusing to delete a symlink');
+    expect(await readFile(path.join(temp.root, '.env'), 'utf8')).toBe('SECRET=1\n');
   });
 
   it('forgets the deleted file, so an edit after a new file takes its place is not from memory', async () => {

@@ -2,13 +2,10 @@ import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileToolServices } from '../files/files.types.js';
-import {
-  agentOf,
-  changeResult,
-  readForChange,
-  resolveWritable,
-  writeText,
-} from '../files/files.helper.js';
+import { readForChange, writeText } from '../files/file-effects.helper.js';
+import { changeResult } from '../files/file-change.helper.js';
+import { resolveWritable } from '../files/files.helper.js';
+import { agentOf } from '../files/files.utils.js';
 import { applyEdit } from './edit-file.utils.js';
 
 /**

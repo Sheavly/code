@@ -42,8 +42,10 @@ can show the deletion. It refuses a folder, since removing one takes files the a
 agent named, never the target that a link names for it. It reads and removes under the file's lock,
 and a file already gone is an error rather than a success, since the delete may have been meant for
 another path. Unlike `edit_file`, it is not gated on a read: the call names a path, not remembered
-text, and its result is the record of what was there. What each agent was shown of the file is
-forgotten, so an edit of a file later created at that path is not made from memory.
+text, and its result is the record of what was there. A file larger than `MAX_DELETE_BYTES`
+(100,000 bytes) is refused with a pointer to `run_command`, so a deletion never reads a huge file
+into its result. What each agent was shown of the file is forgotten, so an edit of a file later
+created at that path is not made from memory.
 
 **Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
 created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are
@@ -78,9 +80,11 @@ A range past the end, a reversed range or a line number that isn't one is adjust
 with a note. Only the guards fail closed: `.env` files, writes and deletes inside `.git` and paths
 outside the workspace are always refused.
 
-Shared pieces live in `@sheavly/coding/files/`: `resolveWritable` and `resolveDeletable` (the
-write- and delete-path checks, with the `.env` and `.git` guards), `readIfExists`, `writeText`,
-`createParentFolder`, `removeFile`.
+Shared pieces live in `@sheavly/coding/files/`: `files.helper.ts` holds `resolveWritable` and
+`resolveDeletable` (the write- and delete-path checks, with the `.env` and `.git` guards);
+`file-effects.helper.ts` holds the filesystem effects (`readIfExists`, `readForChange`, `writeText`,
+`createParentFolder`, `removeFile`, `fileSize`); and `file-change.helper.ts` builds the result a
+tool returns.
 
 ## Searching with `grep`
 

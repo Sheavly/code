@@ -17,16 +17,17 @@ export default defineConfig([
       'harness/guard-search-root': 'error',
     },
   },
-  // The agent's file tools write a project. They do it through `Workspace` (confined to its root),
-  // under a file lock and the allow list, which is what makes a write by the agent safe; the
-  // user's own data is `@sheavly/storage`'s (`harness/no-direct-file-writes`). Only this helper
-  // changes the project's files and resolves their paths: a tool calls it rather than importing
-  // `node:fs` or `Workspace`'s unguarded resolvers itself.
+  // The agent's file tools write a project through the filesystem effects in this one helper,
+  // which `Workspace` has confined; the user's own data is `@sheavly/storage`'s
+  // (`harness/no-direct-file-writes`). A tool calls it rather than importing `node:fs` itself.
+  {
+    files: ['src/files/file-effects.helper.ts'],
+    rules: { 'harness/no-direct-file-writes': 'off' },
+  },
+  // The guarded resolvers are the one place `Workspace.resolveWrite` / `resolveDelete` are called,
+  // with the `.env` and `.git` guards on both sides (`harness/guard-env-write`).
   {
     files: ['src/files/files.helper.ts'],
-    rules: {
-      'harness/guard-env-write': 'off',
-      'harness/no-direct-file-writes': 'off',
-    },
+    rules: { 'harness/guard-env-write': 'off' },
   },
 ]);
