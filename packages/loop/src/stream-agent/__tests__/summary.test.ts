@@ -25,21 +25,27 @@ const writer = (body = 'short summary'): Summarizer => ({
 });
 const options = (summarizer: Summarizer) => ({
   summarizer,
-  policy: { keepTokens: 150, minFreeTokens: 100, freeShare: 0.1, maxSummaryTokens: 60 },
+  policy: { keepTokens: 150, minFreeTokens: 100, freeShare: 0.1 },
 });
 const types = (events: AgentEvent[]) => events.map((event) => event.type);
 
+async function runNearWindow(summarizer: Summarizer) {
+  const { provider, requests } = recording([toolTurn(95_000), answer]);
+  const events: AgentEvent[] = [];
+  const { messages } = await runSession({
+    provider,
+    tools: [probe],
+    messages: history(),
+    summary: options(summarizer),
+    onEvent: (event) => events.push(event),
+  });
+
+  return { events, messages, requests };
+}
+
 describe('summarizing in the loop', () => {
   it('summarizes before the turn once the context nears the window, and the model sees it', async () => {
-    const { provider, requests } = recording([toolTurn(95_000), answer]);
-    const events: AgentEvent[] = [];
-    const { messages } = await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(writer()),
-      onEvent: (event) => events.push(event),
-    });
+    const { events, messages, requests } = await runNearWindow(writer());
     const wire = types(events).filter((type) => type.startsWith('summary_'));
 
     expect(wire).toEqual(['summary_started', 'summary_done']);
@@ -138,20 +144,8 @@ describe('summarizing in the loop', () => {
   });
 
   it('rejects a summary that is not smaller, appending no checkpoint', async () => {
-    const { provider } = recording([toolTurn(95_000), answer]);
-    const events: AgentEvent[] = [];
-    const { messages } = await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      // About 350 tokens against the 300 it would replace; the size cap is lifted so that the
-      // "not smaller" rule is the one that rejects it.
-      summary: {
-        ...options(writer('y'.repeat(1_400))),
-        policy: { ...options(writer()).policy, maxSummaryTokens: 1_000 },
-      },
-      onEvent: (event) => events.push(event),
-    });
+    // About 350 tokens against the 300 it would replace.
+    const { events, messages } = await runNearWindow(writer('y'.repeat(1_400)));
 
     expect(types(events)).toContain('summary_failed');
     expect(messages.some((m) => m.role === 'summary')).toBe(false);

@@ -2,7 +2,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { SummaryReason } from '@sheavly/core/hook/hook.types';
-import type { SummaryOptions, SummaryPolicy } from '@sheavly/core/summary/summary.types';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { AgentEventBody } from '@sheavly/protocol/event/event.types';
 import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
 import type { TurnContext } from '../stream-agent/stream-agent.types.js';
@@ -105,7 +105,7 @@ export async function summarizeHistory(params: {
   let checkpoint: SummaryMessage;
 
   try {
-    checkpoint = await writeCheckpoint({ context, reason, config, policy, cut });
+    checkpoint = await writeCheckpoint({ context, reason, config, cut });
   } catch (caughtError) {
     // A summary is an optimisation: whatever went wrong (a `beforeSummary` hook, the summarizer,
     // the checks, an abort) is reported on the stream and the run carries on with the unchanged
@@ -153,10 +153,9 @@ async function writeCheckpoint(params: {
   context: TurnContext;
   reason: SummaryReason;
   config: SummaryOptions;
-  policy: SummaryPolicy;
   cut: number;
 }): Promise<SummaryMessage> {
-  const { context, reason, config, policy } = params;
+  const { context, reason, config } = params;
   const { options, session, signal, events, messages } = context;
   const change = await runBeforeSummary({
     hooks: options.hooks ?? [],
@@ -193,7 +192,6 @@ async function writeCheckpoint(params: {
     body: { sections: mergeSections({ written: body.sections, added: change.sections }) },
     history: messages,
     cut,
-    policy,
     at: now(),
   });
 }
