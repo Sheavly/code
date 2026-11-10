@@ -19,6 +19,12 @@ export const SAFE_GIT_CONFIG = {
   'attr.tree': 'HEAD',
 };
 
+/** Why a command needs a decision, by the permission mode that asks. */
+export const NOT_ALLOWED = {
+  ask: 'is not allowed yet',
+  always_ask: 'is asked about every time in this folder',
+};
+
 /** Git subcommands that can run a diff program, and the flags that stop them. */
 export const DIFF_SUBCOMMANDS = ['diff', 'log', 'show'];
 export const NO_DIFF_PROGRAM_FLAGS = ['--no-ext-diff', '--no-textconv'];
