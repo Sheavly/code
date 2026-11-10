@@ -130,6 +130,7 @@ describe('background tasks in the loop', () => {
       'usage',
       'turn_end',
       'task_completed', // released at the turn boundary, before the next model call
+      'harness_notice', // the same facts as typed data, also stored in history
       'text_delta',
       'usage',
       'turn_end',
@@ -145,9 +146,22 @@ describe('background tasks in the loop', () => {
       exitCode: 0,
     });
     expect(lastUserMessage(requests[2])?.content).toMatch(
-      /Background task finished:\n\[task t1 · completed · exit code 0/,
+      /^<harness-notice kind="task-finished">\n[^\n]*\n\[task t1 · completed · exit code 0/,
     );
     expect(lastUserMessage(requests[2])?.content).toContain('built');
+
+    // The event and the history entry carry the same payload, so a UI and a reload agree.
+    const noticeEvent = events.find((event) => event.type === 'harness_notice');
+    const done = events.at(-1);
+    const stored =
+      done?.type === 'done' ? done.messages.find((m) => m.role === 'notice') : undefined;
+
+    expect(noticeEvent?.type === 'harness_notice' && noticeEvent.notice).toMatchObject({
+      kind: 'task-finished',
+    });
+    expect(stored?.role === 'notice' && stored.notice).toEqual(
+      noticeEvent?.type === 'harness_notice' ? noticeEvent.notice : undefined,
+    );
   });
 
   it('repeated status snapshots guide yielding without consuming the required completion', async () => {
@@ -220,7 +234,14 @@ describe('background tasks in the loop', () => {
       ),
     );
 
-    expect(types(events)).toEqual(['task_completed', 'text_delta', 'usage', 'turn_end', 'done']);
+    expect(types(events)).toEqual([
+      'task_completed',
+      'harness_notice',
+      'text_delta',
+      'usage',
+      'turn_end',
+      'done',
+    ]);
     expect(lastUserMessage(second.requests[0])?.content).toContain('[task t1 · completed');
   });
 

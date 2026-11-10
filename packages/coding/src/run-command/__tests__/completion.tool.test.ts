@@ -102,7 +102,7 @@ describe('command completion through the loop', () => {
       await running;
 
       expect(requests).toHaveLength(3);
-      expect(requests[2]?.at(-1)?.content).toContain('Background task finished:');
+      expect(requests[2]?.at(-1)?.content).toContain('<harness-notice kind="task-finished">');
       expect(requests[2]?.at(-1)?.content).toContain('CI passed');
       expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
       expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });

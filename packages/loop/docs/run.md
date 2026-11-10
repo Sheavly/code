@@ -37,6 +37,17 @@ starting model turns instead of waiting; the agent must finish independent work 
 Required task completion wakes that wait and reaches history before the next model call, without
 another user prompt. Non-required tasks that outlive a run are reported at the next run.
 
+**A finished task is a persistent notice.** For each task that finished, the loop emits
+`task_completed` (the snapshot), then a `harness_notice` carrying a typed notice, and stores the
+same notice in history as a `notice` entry (`finishedTaskNotice`, `stream-agent/`). A sub-agent,
+found by the `start_agent` call that started it, is an `agent-report`: its card (id, title, parent,
+depth, model, status, how it ended) and the report it wrote, whole. Any other task is a
+`task-finished`, with its bounded output preview. The model is sent the notice as a user-role
+message holding the core formatter's text inside the `<harness-notice>` envelope, never as a
+person's prompt, so it is not pinned as the latest request and a summary treats it like any older
+message. A UI reads the same data from the event or from history. See
+[harness notices](../../protocol/docs/contract.md#harness-notices).
+
 Each event also joins its session tree's combined stream the moment it is released
 (`sessions.publish`), so a UI following every session at once (`sessions.subscribeEntries`) sees
 a sub-agent's activity in the same order as its parent's: a sub-agent's start comes after the
