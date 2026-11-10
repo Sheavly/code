@@ -87,6 +87,72 @@ describe('createResponsesProvider', () => {
       },
     });
   });
+  it.each(['response.completed', 'response.incomplete'])(
+    'reports cache writes from usage on %s',
+    async (type) => {
+      const { fetch } = fakeFetch([
+        {
+          type,
+          response: {
+            incomplete_details: { reason: 'max_output_tokens' },
+            usage: {
+              input_tokens: 100,
+              output_tokens: 20,
+              input_tokens_details: { cached_tokens: 60, cache_write_tokens: 30 },
+            },
+          },
+        },
+      ]);
+
+      const done = (await collect(provider(fetch).stream(request()))).at(-1);
+
+      expect(done).toMatchObject({
+        type: 'done',
+        usage: { tokens: { cacheReadTokens: 60, cacheWriteTokens: 30 } },
+      });
+    },
+  );
+  it.each(['response.completed', 'response.incomplete'])(
+    'does not release inconsistent usage from %s',
+    async (type) => {
+      const { fetch } = fakeFetch([
+        {
+          type,
+          response: {
+            incomplete_details: { reason: 'max_output_tokens' },
+            usage: {
+              input_tokens: 10,
+              output_tokens: 0,
+              input_tokens_details: { cached_tokens: 10, cache_write_tokens: 1 },
+            },
+          },
+        },
+      ]);
+
+      await expect(collect(provider(fetch).stream(request()))).rejects.toThrow(
+        'Responses stream ended before response.completed',
+      );
+    },
+  );
+
+  it('reports no cache writes when the backend omits the field', async () => {
+    const { fetch } = fakeFetch([
+      {
+        type: 'response.completed',
+        response: {
+          usage: {
+            input_tokens: 10,
+            output_tokens: 2,
+            input_tokens_details: { cached_tokens: 4, cache_write_tokens: null },
+          },
+        },
+      },
+    ]);
+
+    expect((await collect(provider(fetch).stream(request()))).at(-1)).toMatchObject({
+      usage: { tokens: { cacheReadTokens: 4, cacheWriteTokens: 0 } },
+    });
+  });
   it.each(['low', 'medium', 'high', 'extreme'] as const)(
     'sends %s as native reasoning effort',
     async (mode) => {
