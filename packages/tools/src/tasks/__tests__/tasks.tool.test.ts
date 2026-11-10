@@ -54,6 +54,27 @@ describe('cancel_task and task_status', () => {
     expect(one.role === 'tool' && one.content).toContain('hi');
   });
 
+  it('every running snapshot explains how to yield instead of polling', async () => {
+    const { run } = setup();
+
+    await run('start', 'start_task', { ms: 5_000, waitForCompletion: true });
+
+    for (const id of ['first', 'again']) {
+      const result = await run(id, 'task_status', { id: 't1' });
+
+      expect(result.role === 'tool' && result.content).toContain('Do not poll');
+      expect(result.role === 'tool' && result.content).toContain(
+        'end your turn without tool calls',
+      );
+    }
+
+    const listed = await run('list', 'task_status', {});
+
+    expect(listed.role === 'tool' && listed.content).toContain('Do not poll');
+    expect(tasks.get(t1)?.status).toBe('running');
+    expect(tasks.hasRequiredTasks).toBe(true);
+  });
+
   it("unknown ids are errors, finished tasks can't be cancelled", async () => {
     const { run } = setup();
 

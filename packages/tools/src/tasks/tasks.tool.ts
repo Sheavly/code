@@ -12,7 +12,8 @@ function createTaskStatusTool(tasks: TaskRegistry) {
     name: 'task_status',
     description:
       "Show background tasks. With an id: that task's status and recent output. Without: all tasks. " +
-      "You don't need it to wait for a task: finished tasks are reported to you at your next turn.",
+      'Inspection only, not a wait tool. Do not poll: finished tasks are reported automatically. ' +
+      'Finish independent work, then end your turn without tool calls to wait for required task results.',
     inputSchema: z.object({
       id: taskIdSchema.optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
     }),
@@ -27,16 +28,33 @@ function createTaskStatusTool(tasks: TaskRegistry) {
           });
         }
 
-        return formatTask({ task, now: now() });
+        return taskStatusResponse({
+          content: formatTask({ task, now: now() }),
+          running: task.status === 'running',
+        });
       }
 
       const all = tasks.list();
 
       if (all.length === 0) return 'No background tasks.';
 
-      return all.map((task) => formatTask({ task, now: now(), outputChars: 0 })).join('\n');
+      return taskStatusResponse({
+        content: all.map((task) => formatTask({ task, now: now(), outputChars: 0 })).join('\n'),
+        running: all.some((task) => task.status === 'running'),
+      });
     },
   });
+}
+
+function taskStatusResponse(params: { content: string; running: boolean }): string {
+  const { content, running } = params;
+
+  if (!running) return content;
+
+  return (
+    content +
+    '\nSnapshot only; this tool does not wait. Do not poll. Finish independent work, then end your turn without tool calls to wait for required task results. Services do not need to exit before you finish.'
+  );
 }
 
 /** Lets the agent stop a background task; waits until its process has exited. */
