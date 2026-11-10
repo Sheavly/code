@@ -5,6 +5,7 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import { MAX_SESSION_DEPTH } from './sessions.constants.js';
 import { EntryLog } from './entry-log.service.js';
 import { restoreSessions } from './restore.helper.js';
+import { releaseSubtree } from './release.helper.js';
 import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
@@ -257,6 +258,22 @@ export class SessionRegistry {
 
     this.#emit({ type: 'session_message', session, message });
     this.#inboxes.add({ id, message });
+  }
+
+  /**
+   * Forgets an ended session and every sub-agent under it, with their queued messages, last
+   * tokens and message ids, and returns how many sessions went. Throws `session_running` if any
+   * of them is still open. Entries already in the combined stream stay; a later `publish` for a
+   * released session throws as for an unknown one.
+   */
+  release(id: SessionId): number {
+    this.#require(id);
+
+    return releaseSubtree({
+      id,
+      sessions: this.#sessions,
+      holders: [this.#inboxes, this.#lastTokens, this.#messageContexts],
+    });
   }
 
   /** Removes and returns the session's queued messages, oldest first. */

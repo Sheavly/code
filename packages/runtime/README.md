@@ -41,5 +41,12 @@ is a document, such as a sub-agent's report, returns it as `report` from `run`. 
 it whole, outside `OutputBuffer` and outside `TaskInfo`, so no limit applies and no task event
 carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in place of the output.
 
+Neither registry forgets on its own: a UI frees memory on request. `SessionRegistry.release(id)`
+removes an ended session and the sub-agents under it (it throws `session_running` if any is still
+open), with their inboxes, last tokens and message ids; entries already in the combined stream
+stay. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
+request, with its output and report, and returns false for one still running or not yet reported;
+`releaseFinished()` does it for every such task.
+
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.
 - [Approvals](docs/approvals.md): how a tool asks the user, and how a UI answers.

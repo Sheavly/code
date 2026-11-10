@@ -25,6 +25,12 @@ export class Inboxes {
     return messages;
   }
 
+  /** Drops the session's queued messages and wakes anyone waiting on it, for a released session. */
+  forget(id: SessionId): void {
+    this.#messages.delete(id);
+    this.wake(id);
+  }
+
   has(id: SessionId): boolean {
     return (this.#messages.get(id)?.length ?? 0) > 0;
   }

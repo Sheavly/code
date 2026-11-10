@@ -125,6 +125,24 @@ export class TaskRegistry {
     return this.list().filter((t) => t.status === 'running').length;
   }
 
+  /**
+   * Forgets a task that has finished and been reported (or was cancelled on request), with its
+   * output and report. Returns false, changing nothing, for a task still running, one finished
+   * but not yet reported, or an unknown id.
+   */
+  release(id: TaskId): boolean {
+    const entry = this.#tasks.get(id);
+
+    if (!entry || entry.info.status === 'running' || this.#unreported.includes(id)) return false;
+
+    return this.#tasks.delete(id);
+  }
+
+  /** Releases every task `release` would, and returns how many went. */
+  releaseFinished(): number {
+    return [...this.#tasks.keys()].filter((id) => this.release(id)).length;
+  }
+
   /** Stops a task and waits for it to exit. Returns undefined for unknown ids. */
   async cancel(id: TaskId): Promise<TaskInfo | undefined> {
     const entry = this.#tasks.get(id);
