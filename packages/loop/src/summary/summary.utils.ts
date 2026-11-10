@@ -1,4 +1,5 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
+import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
 import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -15,6 +16,8 @@ function textOf(message: HistoryMessage): string {
   if (message.role === 'assistant') return message.content + JSON.stringify(message.toolCalls);
 
   if (message.role === 'summary') return formatCheckpoint(message);
+
+  if (message.role === 'notice') return formatHarnessNotice(message.notice);
 
   return message.content;
 }
@@ -72,8 +75,27 @@ function liveStart(history: readonly HistoryMessage[]): number {
   return latest ? Math.max(0, latest.index - latest.checkpoint.kept) : 0;
 }
 
+/**
+ * What a model is sent for these entries: checkpoints are left out (the view renders the newest),
+ * and a stored notice becomes a user-role message holding its formatted text. It carries no `id`,
+ * so it is never taken for a prompt a person typed (see `pinnedBefore`).
+ */
 function withoutCheckpoints(messages: readonly HistoryMessage[]): Message[] {
-  return messages.filter((message): message is Message => message.role !== 'summary');
+  return messages.flatMap((message): Message[] => {
+    if (message.role === 'summary') return [];
+
+    if (message.role === 'notice') {
+      return [
+        {
+          role: 'user',
+          content: formatHarnessNotice(message.notice),
+          ...(message.at !== undefined && { at: message.at }),
+        },
+      ];
+    }
+
+    return [message];
+  });
 }
 
 /**
