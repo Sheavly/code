@@ -1,7 +1,15 @@
 import { parseExactAllowEntry } from '@sheavly/protocol/permission/permission.validator';
 
 const OPTION_VALUES: Record<string, ReadonlySet<string>> = {
-  git: new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env']),
+  git: new Set([
+    '-C',
+    '-c',
+    '--git-dir',
+    '--work-tree',
+    '--namespace',
+    '--config-env',
+    '--attr-source',
+  ]),
   npm: new Set([
     '-w',
     '--workspace',

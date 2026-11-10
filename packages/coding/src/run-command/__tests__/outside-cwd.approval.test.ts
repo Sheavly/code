@@ -3,6 +3,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { CommandRefusedError } from '../../errors/run-command.errors.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { confirmCommand } from '../command-approval.helper.js';
+import { commandBase } from '../command-base.utils.js';
 
 const call = { callId: callIdSchema.parse('1') };
 const signal = new AbortController().signal;
@@ -59,10 +60,14 @@ describe('confirmCommand with git worktree changes', () => {
     ['git', '-C', 'worktree'],
     ['/usr/bin/git', '-C', 'worktree'],
     ['git', '--work-tree', 'worktree'],
+    ['git', '--attr-source', 'HEAD'],
+    ['git', '--attr-source=HEAD'],
+    ['/usr/bin/git', '-C', 'worktree', '--attr-source', 'HEAD'],
   ])('with Git prefix %j', (...prefix) => {
     it.each(['add', 'move', 'repair'])(
       'asks about worktree %s despite an existing Git grant',
       async (operation) => {
+        expect(commandBase([...prefix, 'worktree', operation])).toEqual(['git', 'worktree']);
         const refused = confirmGit([
           prefix[0],
           ...prefix.slice(1),
