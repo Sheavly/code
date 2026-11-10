@@ -31,6 +31,11 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
+The automatic wait begins only after a turn without tool calls. Repeated status-tool calls keep
+starting model turns instead of waiting; the agent must finish independent work and yield.
+Required task completion wakes that wait and reaches history before the next model call, without
+another user prompt. Non-required tasks that outlive a run are reported at the next run.
+
 Each event also joins its session tree's combined stream the moment it is released
 (`sessions.publish`), so a UI following every session at once (`sessions.subscribeEntries`) sees
 a sub-agent's activity in the same order as its parent's: a sub-agent's start comes after the

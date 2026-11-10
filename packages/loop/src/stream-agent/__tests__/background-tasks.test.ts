@@ -150,6 +150,57 @@ describe('background tasks in the loop', () => {
     expect(lastUserMessage(requests[2])?.content).toContain('built');
   });
 
+  it('repeated status snapshots guide yielding without consuming the required completion', async () => {
+    tasks = new TaskRegistry();
+    const finish = Promise.withResolvers<undefined>();
+
+    tasks.start({
+      command: 'CI',
+      description: 'CI',
+      waitForCompletion: true,
+      run: async ({ onOutput }) => {
+        await finish.promise;
+        onOutput('CI passed');
+
+        return { exitCode: 0 };
+      },
+    });
+    const status = (id: string): StreamEvent[] => [
+      {
+        type: 'tool_call',
+        call: {
+          id: callIdSchema.parse(id),
+          name: 'task_status',
+          input: { id: 't1', description: 'Wait for CI' },
+        },
+      },
+      { type: 'done', stopReason: 'tool_use' },
+    ];
+    const { provider, requests } = recordingProvider([
+      status('first'),
+      status('again'),
+      say('Waiting for CI.'),
+      say('CI finished.'),
+    ]);
+    const events: AgentEvent[] = [];
+
+    for await (const event of streamAgent(options(provider))) {
+      events.push(event);
+      if (event.type === 'turn_end' && event.turn === 3) finish.resolve(undefined);
+    }
+
+    for (const messages of requests.slice(1, 3)) {
+      expect(messages.at(-1)?.content).toContain('Do not poll');
+      expect(messages.at(-1)?.content).toContain('end your turn without tool calls');
+    }
+
+    expect(requests).toHaveLength(4);
+    expect(lastUserMessage(requests[3])?.content).toContain('CI passed');
+    expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
+    expect(events.filter((event) => event.type === 'tool_result')).toHaveLength(2);
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+  });
+
   it('a completion that happens after the run is delivered at the start of the next run', async () => {
     tasks = new TaskRegistry();
     const first = recordingProvider([
