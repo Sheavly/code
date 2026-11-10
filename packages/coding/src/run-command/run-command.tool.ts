@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { confirmCommand } from './command-approval.helper.js';
-import { resolveCommandCwd } from './command-cwd.helper.js';
+import { outsideGrantedFolder, resolveCommandCwd } from './command-cwd.helper.js';
 import { parseCommand } from './allow-list.utils.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
@@ -76,9 +75,7 @@ export function createRunCommandTool({
         approvals,
         call: { callId: context.callId, sessionId: context.session?.id },
         signal,
-        outsideCwd: isInside({ folder: workspace.root, target: commandCwd })
-          ? undefined
-          : commandCwd,
+        outsideCwd: outsideGrantedFolder({ workspace, commandCwd }),
       });
 
       // The repo's git config can't make git run programs, whatever the command.

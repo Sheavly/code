@@ -3,7 +3,25 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
+
+/**
+ * The folder to ask about, when the command runs where the grants do not reach, else undefined.
+ * `commandCwd` came from `resolveCommandCwd`, so it is in the root, in scratch or in a verified
+ * sibling worktree. The root and the siblings share one mode and allow list, so only scratch is
+ * asked about, every time and never kept.
+ */
+export function outsideGrantedFolder(params: {
+  workspace: Workspace;
+  commandCwd: string;
+}): string | undefined {
+  const { workspace, commandCwd } = params;
+
+  if (isInside({ folder: workspace.root, target: commandCwd })) return undefined;
+
+  return workspace.inScratch(commandCwd) ? commandCwd : undefined;
+}
 
 /**
  * The real folder a command runs in: the workspace root without `requested`, else `requested`
