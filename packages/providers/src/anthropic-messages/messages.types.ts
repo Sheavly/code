@@ -30,6 +30,11 @@ export type MessagesProviderConfig = {
   thinkingBudget?: number | undefined;
   /** Omitted: a budget enables thinking, otherwise the request leaves thinking unspecified. */
   thinkingMode?: MessagesThinkingMode | undefined;
+  /**
+   * Send the top-level `cache_control` field, so the API caches the prompt up to its last
+   * cacheable block. Omitted means on; `false` is for a backend that rejects the field.
+   */
+  promptCaching?: boolean | undefined;
   request: RequestPolicy;
   fetch: typeof fetch;
 };
@@ -39,6 +44,7 @@ export type MessagesAdapterConfig = {
   maxTokens?: number | undefined;
   thinkingBudget?: number | undefined;
   thinkingMode?: MessagesThinkingMode | undefined;
+  promptCaching?: boolean | undefined;
   request: RequestPolicy;
 };
 
