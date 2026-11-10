@@ -29,7 +29,7 @@ function spying() {
   return { spans, summarizer };
 }
 
-const policy = { keepTokens: 150, minFreeTokens: 100, freeShare: 0.1, maxSummaryTokens: 60 };
+const policy = { keepTokens: 150, minFreeTokens: 100, freeShare: 0.1 };
 
 async function run(params: {
   summarizer: Summarizer;

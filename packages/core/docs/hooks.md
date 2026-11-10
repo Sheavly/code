@@ -85,12 +85,11 @@ hook points surround each checkpoint. Neither runs without that option.
     rules that must survive every summary.
   - The result is parsed (unknown keys, a non-positive `keepTokens` and duplicate section ids are
     refused), and the merged checkpoint goes through the same checks as the summarizer's own
-    (size, smaller than what it replaces, valid history). A bad result, or a throw, is a
+    (smaller than what it replaces, valid history). A bad result, or a throw, is a
     `summary_failed` event naming the hook; the run goes on with the unchanged view.
-  - A `keepTokens` so large that the checkpoint is not smaller than what it replaces, or sections
-    that push it past `maxSummaryTokens`, fail the same way, and a failed threshold summary
-    counts toward `maxFailures`. A `keepTokens` with nothing older to summarize falls back to the
-    policy's cut without an event.
+  - A `keepTokens` so large that the checkpoint is not smaller than what it replaces fails the
+    same way, and a failed threshold summary counts toward `maxFailures`. A `keepTokens` with
+    nothing older to summarize falls back to the policy's cut without an event.
   - A hook that ignores its `signal` does not hold the run: the loop stops waiting for it when the
     run aborts, as it does for the summarizer.
 - **`afterSummary`** receives `{ reason, checkpoint, messages, signal, addContext }`, after the

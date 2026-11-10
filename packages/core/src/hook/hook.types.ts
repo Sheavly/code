@@ -80,9 +80,8 @@ export type BeforeSummaryContext = {
 /**
  * What `beforeSummary` may return to shape the checkpoint; returning nothing changes nothing.
  * Both parts are optional and checked like the summarizer's own result: a `keepTokens` so large
- * that the checkpoint is not smaller than what it replaces, or sections that push it past the
- * policy's `maxSummaryTokens`, fail the summary like any rejected result, and a failed
- * threshold summary counts toward the policy's `maxFailures`.
+ * that the checkpoint is not smaller than what it replaces fails the summary like any rejected
+ * result, and a failed threshold summary counts toward the policy's `maxFailures`.
  */
 export type SummaryChange = {
   /**
