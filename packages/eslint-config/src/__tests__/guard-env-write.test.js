@@ -5,14 +5,17 @@ import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
 const ruleTester = typescriptRuleTester({ sourceType: 'module' });
 
+const invalid = (code, messageId) => ({ code, errors: [{ messageId }] });
+
 ruleTester.run('guard-env-write', harnessPlugin.rules['guard-env-write'], {
   valid: [
-    // The shape every file tool follows: the guarded helper, never the Workspace method, and a
-    // delete removes the path `resolveDeletable` returned.
+    // The shapes the file tools follow: a guarded resolver, then its effects with that path.
     'async function run() { return resolveWritable({ workspace, requested }); }',
+    'async function run() { const real = await resolveWritable({ workspace, requested }); await writeText({ file: real, content, signal }); }',
+    'async function run() { const real = await resolveWritable({ workspace, requested }); await createParentFolder({ file: real }); }',
     'async function run() { const real = await resolveDeletable({ workspace, requested }); await removeFile({ file: real, signal }); }',
     'const run = async () => { const real = await resolveDeletable({ workspace, requested }); await removeFile({ file: real, signal }); };',
-    // Resolved outside the lock for its key, removed inside the callback, as the delete tool does.
+    // Resolved outside the lock for its key, changed inside the callback, as the tools do.
     'async function run() { const real = await resolveDeletable({ workspace, requested }); return fileLocks.run({ change: async () => { await removeFile({ file: real, signal }); } }); }',
     // A read is not this rule's business.
     'async function run() { return workspace.resolveRead(requested); }',
@@ -20,23 +23,47 @@ ruleTester.run('guard-env-write', harnessPlugin.rules['guard-env-write'], {
     'function run() { const resolveWrite = () => undefined; return resolveWrite; }',
   ],
   invalid: [
-    'async function run() { return workspace.resolveWrite(requested); }',
-    'async function run() { const real = await workspace.resolveDelete(requested); return real; }',
-    "async function run() { return workspace['resolveWrite'](requested); }",
-    'async function run() { return folder.resolveDelete(requested); }',
+    invalid('async function run() { return workspace.resolveWrite(requested); }', 'unguarded'),
+    invalid(
+      'async function run() { const real = await workspace.resolveDelete(requested); return real; }',
+      'unguarded',
+    ),
+    invalid("async function run() { return workspace['resolveWrite'](requested); }", 'unguarded'),
+    invalid('async function run() { return folder.resolveDelete(requested); }', 'unguarded'),
+    // A write of a path that never went through `resolveWritable`.
+    invalid(
+      'async function run() { await writeText({ file: requested, content, signal }); }',
+      'unguardedWrite',
+    ),
+    invalid(
+      "async function run() { await createParentFolder({ file: 'src' }); }",
+      'unguardedWrite',
+    ),
+    // Each effect takes the path of its own resolver.
+    invalid(
+      'async function run() { const real = await resolveDeletable({ workspace, requested }); await writeText({ file: real, content, signal }); }',
+      'unguardedWrite',
+    ),
     // `resolveWritable` follows a symlink, so a delete through it removes the target.
-    'async function run() { const real = await resolveWritable({ workspace, requested }); await removeFile({ file: real, signal }); }',
-    // A path that never went through `resolveDeletable`.
-    'async function run() { await removeFile({ file: requested, signal }); }',
-    "async function run() { await removeFile({ file: 'a.txt' }); }",
-    // The path assigned by `resolveDeletable` is not the one removed.
-    'async function run() { const real = await resolveDeletable({ workspace, requested }); await removeFile({ file: other, signal }); }',
-    // `resolveDeletable` in another function does not cover this one.
-    'async function other() { return resolveDeletable({ workspace, requested }); } async function run() { await removeFile({ file: real, signal }); }',
-  ].map((code, index) => ({
-    code,
-    errors: [{ messageId: index < 4 ? 'unguarded' : 'unguardedDelete' }],
-  })),
+    invalid(
+      'async function run() { const real = await resolveWritable({ workspace, requested }); await removeFile({ file: real, signal }); }',
+      'unguardedDelete',
+    ),
+    // The path assigned by the resolver is not the one changed.
+    invalid(
+      'async function run() { const real = await resolveDeletable({ workspace, requested }); await removeFile({ file: other, signal }); }',
+      'unguardedDelete',
+    ),
+    // A resolver in another function does not cover this one.
+    invalid(
+      'async function other() { return resolveDeletable({ workspace, requested }); } async function run() { await removeFile({ file: real, signal }); }',
+      'unguardedDelete',
+    ),
+    invalid(
+      'async function other() { return resolveWritable({ workspace, requested }); } async function run() { await writeText({ file: real, content, signal }); }',
+      'unguardedWrite',
+    ),
+  ],
 });
 
 const ruleOn = (file) => ruleIsErrorOn({ rule: 'harness/guard-env-write', file });

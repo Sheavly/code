@@ -115,9 +115,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   the resolver helper): `resolveWritable` and `resolveDeletable`
   (`@sheavly/coding/files/files.helper`) are the only way to resolve a path for a write or a
   delete, because they refuse `.env` files and `.git` on the requested path and again on the real
-  one a symlink resolves to. A delete calls `removeFile` with the path `resolveDeletable` returned;
-  `resolveWritable` follows a symlink and would remove its target. The rule has accept and reject
-  cases in `packages/eslint-config/src/__tests__/guard-env-write.test.js`.
+  one a symlink resolves to. The effects that change a file (`writeText`, `createParentFolder`,
+  `removeFile`) take the path their own resolver returned: `resolveWritable` for a write,
+  `resolveDeletable` for a delete, since `resolveWritable` follows a symlink and would remove its
+  target. The rule has accept and reject cases in
+  `packages/eslint-config/src/__tests__/guard-env-write.test.js`.
 
 ## The rest of the config
 
