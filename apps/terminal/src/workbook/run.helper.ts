@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
 import { RemoteConversation } from '../client/conversation.service.js';
@@ -67,7 +67,7 @@ export async function runWorkbook(params: {
 async function streamRun(params: {
   store: WorkbookStore;
   request: RunRequest;
-  history: HistoryMessage[];
+  history: ClientHistoryMessage[];
   paths: Awaited<ReturnType<WorkbookStore['beginRun']>>;
   recorder: RunRecorder;
   write: (text: string) => void;
@@ -152,7 +152,7 @@ function mainOutcome(params: {
 async function startingPoint(params: {
   store: WorkbookStore;
   request: RunRequest;
-}): Promise<{ history: HistoryMessage[]; workspace?: string }> {
+}): Promise<{ history: ClientHistoryMessage[]; workspace?: string }> {
   const { store, request } = params;
 
   if (!request.continues) return { history: [] };
@@ -162,7 +162,11 @@ async function startingPoint(params: {
     store.meta(request.continues),
   ]);
 
-  return { history, workspace: meta.workspace };
+  // A notice is written by the harness alone: a backend refuses one in a starting history.
+  return {
+    history: history.filter((entry) => entry.role !== 'notice'),
+    workspace: meta.workspace,
+  };
 }
 
 /** Ctrl+C once stops the run cleanly (its result is still saved); twice force-quits. */
