@@ -91,7 +91,7 @@ export function assertRanToTheEnd(run: RipgrepRun): void {
   if (run.timedOut) {
     throw new ToolCallError({
       reason: 'invalid_input',
-      message: `The search took longer than ${GREP_TIMEOUT_MS / 1000}s and was stopped. Narrow it with path or glob.`,
+      message: `The search took longer than ${GREP_TIMEOUT_MS / 1000}s and was stopped. Narrow it with a smaller path or a tighter pattern.`,
     });
   }
 

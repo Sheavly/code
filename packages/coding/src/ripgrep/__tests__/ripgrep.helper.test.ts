@@ -65,7 +65,7 @@ describe('assertRanToTheEnd', () => {
 
   it('fails a timeout, telling the agent to narrow the search', () => {
     expect(() => assertRanToTheEnd(run({ exitCode: null, timedOut: true }))).toThrow(
-      'Narrow it with path or glob',
+      'Narrow it with a smaller path or a tighter pattern',
     );
   });
 

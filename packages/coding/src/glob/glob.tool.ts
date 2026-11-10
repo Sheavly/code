@@ -24,7 +24,8 @@ export function createGlobTool({ workspace, processes, ripgrepPath = rgPath }: R
       '"src/**/*.test.ts" (case-insensitive). Searches the whole workspace, or the folder in path ' +
       '(relative to the workspace root). Respects .gitignore; .env files and .git are never listed. ' +
       `At most ${MAX_GLOB_RESULTS} files are returned and the output says when more were cut, so ` +
-      'narrow the pattern instead of repeating it.',
+      `narrow the pattern instead of repeating it. A pattern matching over ${MAX_GLOB_SCANNED} files ` +
+      'is only sorted among the first ones found, so narrow it for a reliable newest-first.',
     inputSchema: z.object({
       pattern: z.string().min(1).describe('Glob to match file paths against, e.g. "**/*.ts"'),
       path: z

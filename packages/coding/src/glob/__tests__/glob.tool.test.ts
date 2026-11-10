@@ -111,6 +111,13 @@ describe('glob', () => {
     expect(result.content).not.toContain('outside.ts');
   });
 
+  it('reads a pattern that looks like a flag as a pattern', async () => {
+    const result = await glob({ pattern: '--files' });
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.content).toContain('No files match');
+  });
+
   it('says when nothing matches', async () => {
     const result = await glob({ pattern: '*.nope' });
 
