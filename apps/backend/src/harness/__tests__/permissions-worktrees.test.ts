@@ -1,9 +1,9 @@
-import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
 import { PathCheckError } from '@sheavly/workspace/errors/workspace.errors';
-import { useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
+import { brokenGitEnv, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { workspacePermissions } from '../permissions.helper.js';
 
 const repo = useTempRepo({ prefix: 'permissions-worktrees-', perTest: true });
@@ -47,14 +47,11 @@ describe('workspacePermissions in a repo with worktrees', () => {
 
   it('asks about every command, allowing none, when git cannot be checked', async () => {
     const { store } = permissionsIn(repo.main);
-    const bin = path.join(repo.base, 'bin');
 
     await store.allow({ realPath: repo.worktree, entry: 'rm *' });
     await store.setMode({ realPath: repo.worktree, mode: 'allow_all' });
-    await mkdir(bin);
-    await writeFile(path.join(bin, 'git'), '#!/bin/sh\nexit 1\n');
-    await chmod(path.join(bin, 'git'), 0o755);
-    const broken = workspacePermissions({ store, workspace: repo.worktree, env: { PATH: bin } });
+    const env = await brokenGitEnv({ repo });
+    const broken = workspacePermissions({ store, workspace: repo.worktree, env });
 
     await broken.allowSession?.('ls *');
 
