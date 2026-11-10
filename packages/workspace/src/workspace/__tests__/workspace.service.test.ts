@@ -14,6 +14,7 @@ import { PathCheckError, WorkspaceError } from '../../errors/workspace.errors.js
  *       link-to-secret.txt  -> base/outside/secret.txt
  *       link-to-outside/    -> base/outside/
  *       broken-link         -> base/outside/does-not-exist.txt
+ *       src-link/           -> workspace/src
  *     outside/
  *       secret.txt
  */
@@ -36,6 +37,7 @@ beforeAll(async () => {
   await symlink(path.join(outside, 'secret.txt'), path.join(root, 'link-to-secret.txt'));
   await symlink(outside, path.join(root, 'link-to-outside'));
   await symlink(path.join(outside, 'does-not-exist.txt'), path.join(root, 'broken-link'));
+  await symlink(path.join(root, 'src'), path.join(root, 'src-link'));
 
   workspace = await Workspace.open(root);
 });
@@ -147,5 +149,50 @@ describe('resolveWrite', () => {
     } finally {
       await rm(loop);
     }
+  });
+});
+
+describe('resolveDelete', () => {
+  it('resolves a regular file inside the workspace, under its own name', async () => {
+    expect(await workspace.resolveDelete('src/index.ts')).toBe(
+      path.join(workspace.root, 'src', 'index.ts'),
+    );
+    expect(await workspace.resolveDelete('./src/../src/index.ts')).toBe(
+      path.join(workspace.root, 'src', 'index.ts'),
+    );
+  });
+
+  it('resolves a file under a symlinked folder that stays inside', async () => {
+    expect(await workspace.resolveDelete('src-link/index.ts')).toBe(
+      path.join(workspace.root, 'src', 'index.ts'),
+    );
+  });
+
+  it('reports a missing file as missing, not as refused', async () => {
+    await expect(workspace.resolveDelete('src/nope.ts')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it.each(['src', '.'])('refuses the folder %s', async (requested) => {
+    await expect(workspace.resolveDelete(requested)).rejects.toThrow('not a regular file');
+  });
+
+  it.each(['link-to-inside.ts', 'link-to-secret.txt', 'broken-link', 'src-link'])(
+    'refuses the symlink %s, so no target is removed in its place',
+    async (requested) => {
+      await expect(workspace.resolveDelete(requested)).rejects.toThrow(
+        'Refusing to delete a symlink',
+      );
+    },
+  );
+
+  it.each(['../outside/secret.txt', 'src/../../outside/secret.txt', '/etc/passwd'])(
+    'blocks deleting %s outside the workspace',
+    async (requested) => {
+      await expect(workspace.resolveDelete(requested)).rejects.toThrow(OUTSIDE);
+    },
+  );
+
+  it('blocks deleting a file reached through a symlinked folder that points outside', async () => {
+    await expect(workspace.resolveDelete('link-to-outside/secret.txt')).rejects.toThrow(OUTSIDE);
   });
 });

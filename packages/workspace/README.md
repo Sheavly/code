@@ -52,20 +52,20 @@ approval for it says so. A command that runs in a folder outside the root always
 the folder, and the answer is never kept as a grant (`allow_all` asks nothing, as everywhere).
 `.git` of a sibling worktree can't be read or written either.
 
-| Module                 | What it holds                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite`, confined to the root (not an OS sandbox)       |
-| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook              |
-| `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell |
-| `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                             |
-| `file-reads/`          | `FileReads`: which files each agent has seen, so an edit to one it never read is refused    |
-| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                          |
-| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                      |
-| `agents-md/`           | `createAgentsMdHook`: AGENTS.md files as append-only instruction context                    |
-| `instruction-context/` | `appendInstructionContext`: append changed instructions, deduplicated from history          |
-| `skills/`              | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs           |
-| `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                      |
-| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                        |
+| Module                 | What it holds                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)               |
+| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                        |
+| `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell                           |
+| `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                       |
+| `file-reads/`          | `FileReads`: which files each agent has seen, so an edit to one it never read is refused; a deleted file is forgotten |
+| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                    |
+| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                                |
+| `agents-md/`           | `createAgentsMdHook`: AGENTS.md files as append-only instruction context                                              |
+| `instruction-context/` | `appendInstructionContext`: append changed instructions, deduplicated from history                                    |
+| `skills/`              | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs                                     |
+| `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                                |
+| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                                  |
 
 ## Docs
 
