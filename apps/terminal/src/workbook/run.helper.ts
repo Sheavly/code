@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
 import { RemoteConversation } from '../client/conversation.service.js';

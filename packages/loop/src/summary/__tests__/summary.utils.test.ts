@@ -4,7 +4,7 @@ import {
   messageIdSchema,
   summarySectionIdSchema,
 } from '@sheavly/protocol/message/message.validator';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { DEFAULT_SUMMARY_POLICY } from '../summary.constants.js';
 import {
   chooseCut,

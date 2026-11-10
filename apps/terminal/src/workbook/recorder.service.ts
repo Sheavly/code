@@ -6,7 +6,7 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 
 /**
  * Captures everything one run outputs, into its run folder, as it happens: the main session's

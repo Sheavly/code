@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { historyMessageSchema, messageSchema, summaryMessageSchema } from '../message.validator.js';
+import { messageSchema, summaryMessageSchema } from '../message.validator.js';
+import { historyMessageSchema } from '../../history/history.validator.js';
 
 const checkpoint = {
   role: 'summary',

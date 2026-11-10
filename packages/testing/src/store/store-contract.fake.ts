@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
-import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';

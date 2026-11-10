@@ -3,7 +3,7 @@ import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES, USAGE } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 
 /** A prompt or fixture name is one file name in its folder (`write-and-edit`), never a path. */
 export function isPlainName(name: string): boolean {

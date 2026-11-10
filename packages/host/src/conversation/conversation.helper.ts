@@ -4,12 +4,8 @@ import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type {
-  HistoryMessage,
-  Message,
-  MessageId,
-  PromptPart,
-} from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message, MessageId, PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**

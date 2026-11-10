@@ -5,7 +5,8 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { PromptPart } from '@sheavly/protocol/message/message.types';
 import type { Harness } from '../host/host.types.js';
 
 /**

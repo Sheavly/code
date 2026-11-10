@@ -12,7 +12,8 @@ import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
-import type { HistoryMessage, TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { TurnStopReason } from '@sheavly/protocol/message/message.types';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {

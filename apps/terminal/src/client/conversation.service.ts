@@ -6,7 +6,7 @@ import type {
   ApprovalResponse,
   ApprovalUpdate,
 } from '@sheavly/protocol/approval/approval.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';

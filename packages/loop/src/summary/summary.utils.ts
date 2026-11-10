@@ -1,11 +1,8 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
 import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
 import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
-import type {
-  HistoryMessage,
-  Message,
-  SummaryMessage,
-} from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
 import { CHARS_PER_TOKEN } from './summary.constants.js';
 import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 

@@ -26,7 +26,8 @@ belong to the backend app; this package defines and validates only their wire sh
 | `stream/`            | `StreamEntry`: every session's events and updates, in one order              |
 | `approval/`          | `ApprovalRequest`, `ApprovalUpdate`, `ApprovalResponse`                      |
 | `task/`              | Background task states                                                       |
-| `message/`           | The conversation history, and the `PromptPart`s a user typed                 |
+| `message/`           | What a model is sent, and the `PromptPart`s a user typed                     |
+| `history/`           | `HistoryMessage`: the stored conversation, above message, session and task   |
 | `skill/`             | `SkillInfo`: a skill as a UI lists it                                        |
 | `server/`            | The server's requests, responses and `ServerError` codes                     |
 | `store/`             | `StoredConversation`: a past conversation as the store lists it              |

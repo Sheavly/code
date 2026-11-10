@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { historyMessageSchema } from '@sheavly/protocol/message/message.validator';
+import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
 
 /**
  * A history as `history.json` and a sub-agent's history file hold it: the messages and any

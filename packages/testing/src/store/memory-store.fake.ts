@@ -1,7 +1,7 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';

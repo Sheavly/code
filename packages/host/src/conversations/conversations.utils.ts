@@ -1,4 +1,5 @@
-import type { HistoryMessage, ToolMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { ToolMessage } from '@sheavly/protocol/message/message.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { INTERRUPTED_CALL } from './conversations.constants.js';

@@ -1,10 +1,7 @@
 import type { SummaryBody } from '@sheavly/core/summary/summary.types';
 import { summaryMessageSchema } from '@sheavly/protocol/message/message.validator';
-import type {
-  HistoryMessage,
-  Message,
-  SummaryMessage,
-} from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
 import { InvalidHistoryError, SummaryRejectedError } from '../errors/loop.errors.js';
 import { assertValidHistory } from '../history/history.utils.js';
 import { CHARS_PER_TOKEN } from './summary.constants.js';

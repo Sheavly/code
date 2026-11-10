@@ -1,6 +1,6 @@
 import path from 'node:path';
 import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';

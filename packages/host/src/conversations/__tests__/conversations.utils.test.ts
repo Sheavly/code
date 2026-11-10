@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { HistoryMessage, Message } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { INTERRUPTED_CALL } from '../conversations.constants.js';
 import { repairHistory } from '../conversations.utils.js';

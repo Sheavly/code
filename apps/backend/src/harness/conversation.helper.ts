@@ -7,7 +7,7 @@ import type {
 } from '@sheavly/host/conversations/conversations.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
 import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';

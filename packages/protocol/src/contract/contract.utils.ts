@@ -17,13 +17,13 @@ import {
 } from '../event/event.validator.js';
 import {
   callIdSchema,
-  historyMessageSchema,
   messageSchema,
   promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
   turnStopReasonSchema,
 } from '../message/message.validator.js';
+import { historyMessageSchema } from '../history/history.validator.js';
 import {
   inboxMessageSchema,
   runOutcomeSchema,
