@@ -26,6 +26,10 @@ const tools = [createReadFileTool({ workspace: harness.workspace })];
 
 ## Docs
 
+`run_command` starts required finite work with `background: true`: the loop keeps the prompt alive
+until its result is delivered. Persistent servers and watchers use `backgroundKind: 'service'`
+instead. The agent can finish independent work, then yield without polling task status.
+
 The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
 this text by default; direct loop callers pass it explicitly. See

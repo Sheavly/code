@@ -60,9 +60,9 @@ async function setup(responses: StreamEvent[][]) {
 }
 
 describe('a coding conversation', () => {
-  it('keeps a background command running between prompts, and close() kills it', async () => {
+  it('keeps a background service running between prompts, and close() kills it', async () => {
     const { harness, conversation } = await setup([
-      runCommand('c1', { command: 'sleep 30', background: true }),
+      runCommand('c1', { command: 'sleep 30', background: true, backgroundKind: 'service' }),
       say('started'),
       say('still there'),
     ]);
