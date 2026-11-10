@@ -18,6 +18,12 @@ describe('reported usage', () => {
     expect(modelUsageSchema.safeParse({ tokens, contextWindow: 1.5 }).success).toBe(false);
   });
 
+  it('tags the call that wrote a summary, and refuses any other purpose', () => {
+    expect(modelUsageSchema.parse({ tokens, purpose: 'summary' }).purpose).toBe('summary');
+    expect(modelUsageSchema.parse({ tokens }).purpose).toBeUndefined();
+    expect(modelUsageSchema.safeParse({ tokens, purpose: 'other' }).success).toBe(false);
+  });
+
   it('refuses negative, fractional and inconsistent cache counts', () => {
     expect(tokenUsageSchema.safeParse({ ...tokens, outputTokens: -1 }).success).toBe(false);
     expect(tokenUsageSchema.safeParse({ ...tokens, inputTokens: 1.5 }).success).toBe(false);

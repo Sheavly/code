@@ -17,12 +17,13 @@ export class LastTokens {
 
   /**
    * Notes a session's event: a `usage` event replaces what was known. A call that reported no
-   * usage clears it, since the old numbers no longer say how full the context is.
+   * usage clears it, since the old numbers no longer say how full the context is. The call that
+   * wrote a summary is skipped: its tokens are not the conversation's context.
    */
   observe(params: { sessionId: SessionId; event: EntryEvent }): void {
     const { sessionId, event } = params;
 
-    if (event.type !== 'usage') return;
+    if (event.type !== 'usage' || event.usage.purpose === 'summary') return;
 
     if (event.usage.tokens) this.#tokens.set(sessionId, event.usage.tokens);
     else this.#tokens.delete(sessionId);

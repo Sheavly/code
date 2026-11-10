@@ -2,10 +2,10 @@
 
 How a long history gets a summary in Sheavly. The evidence behind each choice is in
 [research](README.md). Built (#14): the `summary` role and its three events, `formatCheckpoint`,
-the view, the policy and the loop engine (`summary` option, [run](../../packages/loop/docs/run.md#summaries)).
-Still a design: the hide step, `beforeSummary`/`afterSummary`, `@sheavly/summary` (the built-in
-summarizers), the backend setting and a manual request. The numbers are rough starting points to
-be checked with the workbook, not tuned values.
+the view, the policy and the loop engine (`summary` option, [run](../../packages/loop/docs/run.md#summaries)),
+and the built-in summarizers in `@sheavly/summary` ([sections](../../packages/summary/docs/sections.md)).
+Still a design: the hide step, `beforeSummary`/`afterSummary`, the backend setting and a manual
+request. The numbers are rough starting points to be checked with the workbook, not tuned values.
 
 ## What it is
 
@@ -160,12 +160,20 @@ loop). A model-based one is given a `Provider` by the UI:
   rendered to the model as another model's account of earlier work, not as the user's words, so a
   summary cannot promote injected text into trusted context.
 - **Update, don't regenerate.** The prompt gets the previous checkpoint and only the new span, and
-  returns the merged sections, at temperature zero.
+  returns the merged sections. The call asks for temperature zero through
+  `ProviderRequest.temperature`, a hint an adapter sends only where its API accepts it beside the
+  call's other settings (not with reasoning effort or thinking) and omits otherwise.
 - **File trail.** The weakest dimension in every study, so it does not depend on the model. The
   generic package takes a `trail` extractor (tool calls in, short lines out); `@sheavly/coding`
-  supplies one that reads the file tools' calls. Generic code never learns what a file is.
-- **Cache.** The model call sends the same instructions, tools and view as a normal turn, with the
-  summary instruction last, so it reuses the prompt cache. Tools in that call are not run.
+  supplies one that reads the file tools' calls (not built yet). Generic code never learns what a
+  file is.
+- **Cache.** Not built. The `Summarizer` contract passes only the span, the previous sections and
+  a signal, so the model call sends its own short instructions and no tools, and does not share
+  the turn's prompt cache. Sharing it means passing the run's instructions and tools through the
+  contract; that is a separate change.
+- **Usage.** The summarizer returns the usage of its model call, and the loop emits it as a
+  `usage` event tagged `purpose: 'summary'`. The ledger counts it, and the session's last tokens
+  skip it, since they describe the conversation's context.
 - **Other summarizers** a UI may write or pick: rules only (no model, no cost), a cheaper model,
   a provider-native one. None is the only path, since native summaries are not portable between
   models.
@@ -232,7 +240,9 @@ purpose, and the issues change to match:
   tail is never edited, and the provider decides whether a signature still matches (see
   [Reasoning](#the-checkpoint)).
 - **Options.** The summary prompt, thresholds and summarizer are options the UI passes (#127), the
-  summary model call reports its own usage and cost (#53), and a cheaper model can write it (#60).
+  summary model call reports its own usage (#53; the cost estimate is attached by the app that
+  prices usage, as for any call), and a cheaper model can write it (#60) by being the `Provider`
+  the UI hands the model summarizer.
 
 ## What it needs and what it enables
 

@@ -1034,6 +1034,7 @@
           "tokens": {
             "anyOf": [{ "$ref": "#/components/schemas/TokenUsage" }, { "type": "null" }]
           },
+          "purpose": { "type": "string", "const": "summary" },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
           "contextWindow": { "type": "integer", "exclusiveMinimum": 0, "maximum": 10000000 },
           "estimatedCostUsd": { "type": "number", "minimum": 0 }

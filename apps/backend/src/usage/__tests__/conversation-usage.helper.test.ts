@@ -8,6 +8,7 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { testBackend } from '../../testing/backend.fake.js';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { trackConversationUsage } from '../conversation-usage.helper.js';
 
@@ -62,6 +63,44 @@ describe('conversation usage over the API', () => {
       estimatedCostUsd: 0.25,
       incomplete: true,
       throughSeq: 2,
+    });
+    tracked.stop();
+  });
+
+  it('counts a summary call’s cost, but a turn that reported none is still incomplete', async () => {
+    const sessionId = sessionIdSchema.parse('main');
+    const tokens = { inputTokens: 900, outputTokens: 60, cacheReadTokens: 0, cacheWriteTokens: 0 };
+    const entry = (seq: number, event: EntryEvent): StreamEntry => ({
+      seq,
+      at: 0,
+      sessionId,
+      kind: 'event',
+      event,
+    });
+    const summaryUsage = entry(0, {
+      seq: 0,
+      type: 'usage',
+      usage: { tokens, purpose: 'summary', estimatedCostUsd: 0.1 },
+    });
+    const turnEnd = entry(1, { seq: 1, type: 'turn_end', turn: 1, stopReason: 'end_turn' });
+    const tracked = await trackConversationUsage({
+      sessions: new SessionRegistry(),
+      storage: {
+        keepHistory: () => undefined,
+        resume: { next: 2, tail: [turnEnd], sessions: [], lastTokens: [] },
+        entries: {
+          append: async () => undefined,
+          async *read() {
+            yield* [summaryUsage, turnEnd];
+          },
+        },
+      },
+    });
+
+    expect(tracked.ledger.snapshot).toMatchObject({
+      calls: 1,
+      estimatedCostUsd: 0.1,
+      incomplete: true,
     });
     tracked.stop();
   });

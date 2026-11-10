@@ -22,7 +22,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
   const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, notices, tools, signal, mode }) {
+    async *stream({ instructions, messages, notices, tools, signal, mode, temperature }) {
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
@@ -68,6 +68,10 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
                   output_config: { effort: mode === 'extreme' ? 'max' : mode },
                 }
               : thinking && { thinking }),
+            // Thinking requires the default temperature, so a hint is sent only without it.
+            ...(temperature !== undefined &&
+              !mode &&
+              (!thinking || thinking.type === 'disabled') && { temperature }),
             stream: true,
           }),
         },

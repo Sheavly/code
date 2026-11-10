@@ -41,6 +41,23 @@ describe('ContextUsageTracker', () => {
     expect(tracker.snapshot.used).toBe(120);
   });
 
+  it('ignores the call that wrote a summary: its tokens are not the conversation’s context', () => {
+    const tracker = new ContextUsageTracker(main);
+
+    tracker.observe(entry({ seq: 1, usage: { tokens, contextWindow: 300_000 } }));
+    tracker.observe(
+      entry({
+        seq: 2,
+        usage: {
+          tokens: { ...tokens, inputTokens: 9_000 },
+          purpose: 'summary',
+          contextWindow: 300_000,
+        },
+      }),
+    );
+    expect(tracker.snapshot).toEqual({ throughSeq: 1, used: 120, window: 300_000 });
+  });
+
   it('clears stale measurements on missing usage and accepts a switched window', () => {
     const tracker = new ContextUsageTracker(main, { throughSeq: 1, used: 40, window: 300_000 });
 

@@ -124,6 +124,10 @@ export async function summarizeHistory(params: {
       });
     }
 
+    // Before the checks: a rejected result was still paid for. The tag keeps it out of the
+    // session's last tokens, which describe the conversation's context, not this call's.
+    if (body.usage) events.enqueue({ type: 'usage', usage: { ...body.usage, purpose: 'summary' } });
+
     const checkpoint = buildCheckpoint({
       summarizer: config.summarizer.name,
       body,

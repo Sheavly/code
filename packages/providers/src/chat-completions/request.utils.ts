@@ -13,6 +13,7 @@ export function chatRequestBody(params: {
   thinkingMode: ChatThinkingMode | undefined;
 }): Record<string, unknown> {
   const { request, endpoint, source, replayReasoning, maxTokens, thinkingMode } = params;
+  const sendsEffort = Boolean(request.mode) && thinkingMode !== 'disabled';
 
   return {
     model: endpoint.model,
@@ -38,9 +39,8 @@ export function chatRequestBody(params: {
     stream: true,
     stream_options: { include_usage: true },
     ...(thinkingMode && { thinking: { type: thinkingMode } }),
-    ...(request.mode &&
-      thinkingMode !== 'disabled' && {
-        reasoning_effort: request.mode === 'extreme' ? 'xhigh' : request.mode,
-      }),
+    ...(sendsEffort && { reasoning_effort: request.mode === 'extreme' ? 'xhigh' : request.mode }),
+    // Reasoning models reject a temperature, so it goes only when no effort is sent.
+    ...(request.temperature !== undefined && !sendsEffort && { temperature: request.temperature }),
   };
 }

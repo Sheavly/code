@@ -19,6 +19,12 @@ export type ProviderRequest = {
   instructions?: string | undefined;
   /** Effort for this call, captured when it starts; a later switch never changes an active stream. */
   mode?: ModelMode | undefined;
+  /**
+   * Sampling temperature for this call, a hint for work that should be repeatable (a summary).
+   * An adapter sends it only where its API accepts it alongside the call's other settings, and
+   * otherwise leaves it out: a caller cannot rely on it being applied.
+   */
+  temperature?: number | undefined;
   messages: Message[];
   /**
    * Transient harness data. An adapter formats it with `formatHarnessNotice` and sends it after

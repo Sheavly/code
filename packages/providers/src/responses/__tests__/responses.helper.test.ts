@@ -18,6 +18,27 @@ const provider = (fetch: typeof globalThis.fetch) =>
   });
 
 describe('createResponsesProvider', () => {
+  it('sends a temperature hint only with reasoning off, since reasoning models reject it', async () => {
+    const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
+    const plain = createResponsesProvider({
+      endpoint: { baseUrl: 'https://example.test/v1', model: 'm', headers: {} },
+      request: TEST_REQUEST,
+      fetch,
+      reasoning: false,
+    });
+
+    /** The temperature the request actually carried, when a hint of 0 was asked for. */
+    const sentWith = async (target: typeof plain, extra: { mode?: 'high' } = {}) => {
+      await collect(target.stream({ ...request(), temperature: 0, ...extra }));
+
+      return requests.at(-1)?.body.temperature;
+    };
+
+    expect(await sentWith(plain)).toBe(0);
+    expect(await sentWith(plain, { mode: 'high' })).toBeUndefined();
+    expect(await sentWith(provider(fetch))).toBeUndefined();
+  });
+
   it('sends all request notices after history, and nothing when there are none', async () => {
     const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };

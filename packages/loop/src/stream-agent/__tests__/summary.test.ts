@@ -4,6 +4,7 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { Summarizer } from '@sheavly/core/summary/summary.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { callIdSchema, summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -300,6 +301,75 @@ describe('summarizing in the loop', () => {
       'keeps 5 messages but only 1 come before it',
     );
     expect(requests).toHaveLength(0);
+  });
+
+  it('reports the summarizer’s usage tagged as a summary, even for a rejected result', async () => {
+    const tokens = {
+      inputTokens: 9_000,
+      outputTokens: 50,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    };
+    const paid = (body: string): Summarizer => ({
+      name: 'paid',
+      summarize: async () => ({ sections: section(body), usage: { tokens } }),
+    });
+
+    for (const body of ['short summary', 'y'.repeat(1_400)]) {
+      const { provider } = recording([toolTurn(95_000), answer]);
+      const events: AgentEvent[] = [];
+
+      await runSession({
+        provider,
+        tools: [probe],
+        messages: history(),
+        summary: options(paid(body)),
+        onEvent: (event) => events.push(event),
+      });
+
+      const tagged = events.filter((e) => e.type === 'usage' && e.usage.purpose === 'summary');
+
+      // The long body is over the size cap and rejected, but was still paid for.
+      expect(tagged).toHaveLength(1);
+      expect(tagged[0]).toMatchObject({ usage: { tokens, purpose: 'summary' } });
+    }
+  });
+
+  it('keeps the summary call out of the session’s last tokens, which describe the conversation', async () => {
+    const tokens = {
+      inputTokens: 9_000,
+      outputTokens: 50,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    };
+    const paid: Summarizer = {
+      name: 'paid',
+      summarize: async () => ({ sections: section('short summary'), usage: { tokens } }),
+    };
+    const registry = new SessionRegistry();
+    const main = registry.startMain({ title: 'Chat' });
+    const finalTurn: StreamEvent[] = [
+      { type: 'text_delta', text: 'done' },
+      {
+        type: 'done',
+        stopReason: 'end_turn',
+        usage: {
+          tokens: { inputTokens: 1_000, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        },
+      },
+    ];
+    const { provider } = recording([toolTurn(95_000), finalTurn]);
+
+    await runSession({
+      provider,
+      tools: [probe],
+      messages: history(),
+      summary: options(paid),
+      session: { registry, ref: main },
+    });
+
+    // The last model call's own numbers (1,000 in, 10 out), not the summarizer's 9,000.
+    expect(registry.lastTokens(main.id)).toMatchObject({ inputTokens: 1_000 });
   });
 
   it('says a summarizer returned nothing, rather than blaming an abort', async () => {

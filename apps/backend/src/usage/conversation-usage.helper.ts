@@ -14,7 +14,12 @@ export async function trackConversationUsage(params: {
     for await (const entry of params.storage.entries.read()) {
       ledger.observe(entry);
       if (entry.kind !== 'event') continue;
-      if (entry.event.type === 'usage') reported.add(entry.sessionId);
+
+      // A summary call's usage is counted by the ledger above, but it does not stand in for the
+      // turn's own report: a turn that reported none is still incomplete.
+      if (entry.event.type === 'usage' && entry.event.usage.purpose !== 'summary') {
+        reported.add(entry.sessionId);
+      }
 
       if (entry.event.type === 'turn_end' && !reported.delete(entry.sessionId)) {
         ledger.markIncomplete();

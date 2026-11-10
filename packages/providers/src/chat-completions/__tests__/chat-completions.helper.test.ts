@@ -251,4 +251,21 @@ describe('native Chat Completions', () => {
       { role: 'assistant', content: 'previous' },
     ]);
   });
+
+  it('sends a temperature hint, but never beside a reasoning effort', async () => {
+    const { provider, requests } = setup([
+      [chunk({ content: 'ok' }, 'stop')],
+      [chunk({ content: 'ok' }, 'stop')],
+      [chunk({ content: 'ok' }, 'stop')],
+    ]);
+
+    await collect(provider.stream({ ...request(), temperature: 0 }));
+    await collect(provider.stream({ ...request(), temperature: 0, mode: 'high' }));
+    await collect(provider.stream(request()));
+
+    expect(requests[0]?.body.temperature).toBe(0);
+    expect(requests[1]?.body).not.toHaveProperty('temperature');
+    expect(requests[1]?.body).toMatchObject({ reasoning_effort: 'high' });
+    expect(requests[2]?.body).not.toHaveProperty('temperature');
+  });
 });
