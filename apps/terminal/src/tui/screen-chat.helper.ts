@@ -121,9 +121,10 @@ export async function startScreenChat(params: {
       bell.watchTools(tools);
       screen.setStatus({ tools });
     },
+    onThinking: (thinking) => screen.setStatus({ thinking }),
     onUsage: keepUsage,
     onBusy: (busy) => {
-      screen.setStatus({ state: busy ? 'working' : 'ready' });
+      screen.setStatus({ state: busy ? 'working' : 'ready', ...(busy ? {} : { thinking: false }) });
 
       if (!busy) {
         void conversation

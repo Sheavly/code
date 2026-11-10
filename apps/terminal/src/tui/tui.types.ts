@@ -39,6 +39,8 @@ export type StatusInfo = {
   tasks: number;
   /** Tool calls the prompt waits on now, which a screen that can animate shows with their time. */
   tools?: readonly RunningTool[];
+  /** The model signalled reasoning; only shown while working, never claimed without a signal. */
+  thinking?: boolean;
   usage?: UsageTotals;
   contextUsage?: ContextUsage;
 };

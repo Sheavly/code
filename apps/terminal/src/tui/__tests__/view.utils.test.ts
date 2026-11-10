@@ -259,6 +259,15 @@ describe('statusText', () => {
     expect(plain(statusOf({ state, model: 'Fast', mode: 'ask', tasks: 0 }))).toContain(shown);
   });
 
+  it('says thinking... only while working; approvals and idle keep their words', () => {
+    const base = { model: 'Fast', mode: 'ask', tasks: 0, thinking: true } as const;
+
+    expect(plain(statusOf({ ...base, state: 'working' }))).toContain('● thinking...');
+    expect(plain(statusOf({ ...base, state: 'waiting' }))).toContain('● waiting for you');
+    expect(plain(statusOf({ ...base, state: 'ready' }))).toContain('● ready');
+    expect(plain(statusOf({ ...base, thinking: false, state: 'working' }))).toContain('● working');
+  });
+
   it('names the model and the permission mode', () => {
     expect(plain(statusOf({ state: 'ready', model: 'Deep', mode: 'always_ask', tasks: 0 }))).toBe(
       '● ready · Deep · mode: always_ask · context ?',

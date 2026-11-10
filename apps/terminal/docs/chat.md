@@ -65,6 +65,10 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   several tools at once it says how many and times the oldest. It follows the loop's
   `tool_call_started` and `tool_result` events and is cut from the end first, so the stop hint
   stays. A printed `⏺` line is in the scrollback and is never rewritten: only the footer is live.
+  While the main session's provider signals reasoning (`reasoning_activity`), the Ink footer and
+  the classic status line say `thinking...` instead of `working`, without printing any reasoning.
+  A provider with no signal keeps `working`, a sub-agent's reasoning is ignored, and `waiting for
+you` keeps its own words.
   The classic screen shows no step, and neither does the plain line chat. The editor and approval state machine are shared with the previous renderer, selected with
   `SHEAVLY_TUI=classic`. `NO_COLOR` removes styling from React's conversation and editor. No alternate
   screen or mouse capture is used. Static history is not replayed on resize: the terminal owns

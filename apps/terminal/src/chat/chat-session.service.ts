@@ -38,7 +38,9 @@ export class ChatSession {
   readonly #onExit: () => void;
   readonly #columns: () => number;
   readonly #palette: Palette;
+  readonly #onThinking: (thinking: boolean) => void;
   #reportedTools: readonly RunningTool[];
+  #reportedThinking = false;
   #queue: string[] = [];
   #current: AbortController | undefined;
   #draining = false;
@@ -65,6 +67,8 @@ export class ChatSession {
     linkFile?: LinkFile;
     /** Told whenever the set of tools running changes, so a UI can show what it waits on. */
     onTools?: (tools: readonly RunningTool[]) => void;
+    /** Told when the main session's model starts or stops signalling reasoning. */
+    onThinking?: (thinking: boolean) => void;
     /** Usage entries from every session, including sub-agents; seq allows replay deduplication. */
     onUsage?: (entry: StreamEntry) => void;
     /** Told once, when the user asked to leave. */
@@ -86,6 +90,7 @@ export class ChatSession {
     this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
     this.#linkFile = params.linkFile ?? ((path) => path);
     this.#onTools = params.onTools ?? (() => undefined);
+    this.#onThinking = params.onThinking ?? (() => undefined);
     this.#onUsage = params.onUsage ?? (() => undefined);
     this.#onExit = params.onExit;
     this.#columns = params.columns ?? (() => LINE_COLUMNS);
@@ -277,7 +282,7 @@ export class ChatSession {
       this.#current = undefined;
       // A failure or a stop can end the stream without the result of a call that was running.
       this.#renderer.clearRunning();
-      this.#reportTools();
+      this.#reportLiveState();
     }
 
     this.#write('\n');
@@ -285,14 +290,14 @@ export class ChatSession {
     this.#onTurnEnd(outcome);
   }
 
-  /** Prints a message's entries as they stream, telling the UI when the running tools change. */
+  /** Prints a message's entries as they stream, telling the UI when the running tools or thinking change. */
   async #showEntries(params: { text: string; signal: AbortSignal }): Promise<boolean> {
     let completed = false;
 
     for await (const entry of this.#conversation.send(params)) {
       if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
       this.#renderer.entry(entry, this.#mainSession);
-      this.#reportTools();
+      this.#reportLiveState();
 
       if (
         entry.sessionId === this.#mainSession &&
@@ -304,6 +309,19 @@ export class ChatSession {
     }
 
     return completed;
+  }
+
+  /** Tells the UI the running tools and whether the model thinks, for what changed since. */
+  #reportLiveState(): void {
+    this.#reportThinking();
+    this.#reportTools();
+  }
+
+  /** Tells the UI whether the model thinks, when that is not what it was last told. */
+  #reportThinking(): void {
+    if (this.#renderer.thinking === this.#reportedThinking) return;
+    this.#reportedThinking = this.#renderer.thinking;
+    this.#onThinking(this.#reportedThinking);
   }
 
   /** Tells the UI the running tools, when they are not the ones it was last told. */
