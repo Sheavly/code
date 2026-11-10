@@ -110,6 +110,7 @@ export function testApi(
   const permissions = new PermissionSetup({
     store: permissionStoreFor({ SHEAVLY_HOME: unused }),
     home: unused,
+    env: process.env,
     remoteSetupAllowed: true,
   });
   const conversations = new Conversations({

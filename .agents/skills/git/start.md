@@ -14,8 +14,13 @@
    - If the plan is too big for one PR and its parts depend on each other, propose a stack: the
      plan's commits grouped into layers, one branch and PR each ([stacks.md](stacks.md)). Create
      it there instead of step 5.
-4. **Check the starting point:** the working tree must be clean (or the user agrees to carry
-   changes over), then `git fetch origin main`.
+4. **Check the starting point:** `git fetch origin main`, then `git status --short --branch`.
+   If the current branch is not `main` and is out of sync with `origin/main` (it has commits
+   `origin/main` lacks, or uncommitted changes), someone else may be building on it: do not build
+   this issue there. Use a new worktree from `origin/main` (step 5b). The exception is a branch
+   that is already this issue's own (its name starts with the issue number): continue on it. On
+   `main`, or a branch with no commits or changes of its own, the working tree must be clean (or
+   the user agrees to carry changes over).
 5. **Create the branch** from `main`, named for the task, not for a scope. `gh issue develop`
    links it to the issue:
 
@@ -25,6 +30,16 @@
 
    Without network access, `git switch -c 123-provider-switch origin/main` makes the same branch;
    GitHub links it once the PR's `Closes #123` does.
+
+   **5b. From a branch that is not `main` and is out of sync (step 4)**, create the branch in a
+   new worktree in a sibling folder, `../<repo>-<branch>`, instead of switching branches here:
+
+   ```bash
+   git worktree add -b 123-provider-switch ../coding-harness-123-provider-switch origin/main
+   ```
+
+   Bootstrap it in step 6. GitHub links the branch to the issue once the PR's `Closes #123` does,
+   as in the no-network case above. Leave the original checkout as it is.
 
 6. **Bootstrap a separate worktree before moving the session.** From the original initialized
    checkout, run `node scripts/bootstrap-worktree.mjs <worktree-path>`. It runs `npm ci` in the

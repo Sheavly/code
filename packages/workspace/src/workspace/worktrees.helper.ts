@@ -24,6 +24,42 @@ export async function findSiblingRoots(params: {
   root: string;
   env: Environment;
 }): Promise<string[]> {
+  const repo = await verifiedRepo(params);
+
+  if (!repo) return [];
+  const { worktrees, own, subpath } = repo;
+  const others = worktrees.filter((worktree) => worktree !== own);
+  const siblings = await Promise.all(others.map((worktree) => siblingRoot({ worktree, subpath })));
+
+  return siblings.filter((sibling): sibling is string => sibling !== undefined);
+}
+
+/**
+ * The folder `root` has in its repo's main worktree, as a real path: what per-folder settings are
+ * keyed by, so every worktree of a repo shares them. `root` itself when it is not in a git repo,
+ * is already in the main worktree, sits in a worktree that does not verifiably belong to the repo
+ * (see `belongsToRepo`), or has no such folder in the main worktree. A folder there that is a
+ * symlink to another one is no match either: it would key this folder to a different folder's
+ * settings. Throws a `PathCheckError` as `findSiblingRoots` does.
+ */
+export async function findMainRoot(params: { root: string; env: Environment }): Promise<string> {
+  const repo = await verifiedRepo(params);
+
+  if (!repo) return params.root;
+  const found = await siblingRoot({ worktree: repo.main, subpath: repo.subpath });
+
+  // `main` is already a real path (see `verifiedRepo`), so a real path that differs from the
+  // plain join went through a symlink.
+  return found === path.join(repo.main, repo.subpath) ? found : params.root;
+}
+
+type VerifiedRepo = { worktrees: string[]; main: string; own: string; subpath: string };
+
+/** The verified worktrees of the repo holding `root`, with the one holding it, or undefined. */
+async function verifiedRepo(params: {
+  root: string;
+  env: Environment;
+}): Promise<VerifiedRepo | undefined> {
   const { root, env } = params;
   const listed = await listWorktrees({ root, env });
   // Git lists the main worktree first; its `.git` folder is the repo's common git dir. A
@@ -32,16 +68,11 @@ export async function findSiblingRoots(params: {
   const commonDir =
     main === undefined ? undefined : await realPathIfUsable(path.join(main, '.git'));
 
-  if (main === undefined || commonDir === undefined) return [];
+  if (main === undefined || commonDir === undefined) return undefined;
   const worktrees = await verifiedWorktrees({ listed, main, commonDir });
   const own = owningWorktree({ worktrees, root });
 
-  if (!own) return [];
-  const subpath = path.relative(own, root);
-  const others = worktrees.filter((worktree) => worktree !== own);
-  const siblings = await Promise.all(others.map((worktree) => siblingRoot({ worktree, subpath })));
-
-  return siblings.filter((sibling): sibling is string => sibling !== undefined);
+  return own ? { worktrees, main, own, subpath: path.relative(own, root) } : undefined;
 }
 
 /**

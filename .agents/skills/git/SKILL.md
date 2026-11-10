@@ -63,6 +63,9 @@ If the request fits several rows (for example "commit and submit"), run them in 
    stack: `gh pr view --json baseRefName`. If `gh stack view --json` exits 0, the branch is in a
    stack: follow [stacks.md](stacks.md) for rebases, pushes and merges.
 4. Uncommitted changes: say so and ask before running anything that switches branches or rebases.
+5. Starting an issue from a branch that is not `main` and is out of sync with `origin/main`
+   (commits or uncommitted changes of its own, and not this issue's branch): never build on it.
+   Create a new worktree from `origin/main` ([start.md](start.md), step 5b).
 
 ## Hard rules
 

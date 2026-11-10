@@ -16,6 +16,14 @@ export default defineConfig([
     files: ['src/harness/model-calls.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // A repo's worktrees share one mode and allow list, so every call on the permission store is
+  // keyed by `permissionRoot`, never by a folder's own path. Every source file, so moving a call
+  // cannot take it out of the rule's reach.
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/**/__tests__/**', 'src/testing/**'],
+    rules: { 'harness/permission-store-root': 'error' },
+  },
   // The backend is where a key is read and handed to a provider, so `src/profiles/` is the one
   // place in it that imports the profile registry and an open profile (`harness/no-key-holder-import`).
   // Nothing else in the backend does: a handler asks these modules, it never holds a key.

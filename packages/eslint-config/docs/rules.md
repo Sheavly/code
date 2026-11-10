@@ -69,6 +69,10 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
   handle only what it expects, or pass it on as `cause`. Turning every error into a default
   (`[]`, `undefined`, a fresh error without the cause) fails.
+- **Shared permissions** (`harness/permission-store-root`, backend source): a repo's worktrees
+  share one mode and allow list, so every `read`, `setMode`, `allow` or `revoke` on the permission
+  store is keyed by an inline `permissionRoot(...)` call, never by a folder's own path. It matches
+  stores by name, so a store under another name, `.call` and destructuring are left to review.
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
   a class from its area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [the overview](../../../docs/overview.md#errors).

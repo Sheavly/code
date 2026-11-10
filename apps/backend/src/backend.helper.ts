@@ -58,6 +58,7 @@ export function createBackend(params: {
     permissions: new PermissionSetup({
       store: permissionStore,
       home: sheavlyHome(env),
+      env,
       remoteSetupAllowed,
     }),
     conversations: new Conversations({

@@ -26,7 +26,7 @@ afterEach(async () => {
 
 describe('workspacePermissions', () => {
   it('reads the folder’s permissions fresh each time, so a change shows at the next command', async () => {
-    const permissions = workspacePermissions({ store, workspace: root });
+    const permissions = workspacePermissions({ store, workspace: root, env: process.env });
 
     expect(await permissions.read()).toEqual({ mode: 'ask', allow: [] });
 
@@ -37,8 +37,12 @@ describe('workspacePermissions', () => {
   });
 
   it('keeps an allowed command in the user’s folder, for this folder only', async () => {
-    const permissions = workspacePermissions({ store, workspace: root });
-    const other = workspacePermissions({ store, workspace: path.join(base, 'elsewhere') });
+    const permissions = workspacePermissions({ store, workspace: root, env: process.env });
+    const other = workspacePermissions({
+      store,
+      workspace: path.join(base, 'elsewhere'),
+      env: process.env,
+    });
 
     await permissions.allow('echo hi *');
 
@@ -49,8 +53,8 @@ describe('workspacePermissions', () => {
   });
 
   it('is shared by every permissions made for the same folder', async () => {
-    const first = workspacePermissions({ store, workspace: root });
-    const second = workspacePermissions({ store, workspace: root });
+    const first = workspacePermissions({ store, workspace: root, env: process.env });
+    const second = workspacePermissions({ store, workspace: root, env: process.env });
 
     await first.allow('ls src');
 
@@ -58,8 +62,8 @@ describe('workspacePermissions', () => {
   });
 
   it('keeps session grants in one conversation, never the workspace store or another conversation', async () => {
-    const first = workspacePermissions({ store, workspace: root });
-    const second = workspacePermissions({ store, workspace: root });
+    const first = workspacePermissions({ store, workspace: root, env: process.env });
+    const second = workspacePermissions({ store, workspace: root, env: process.env });
 
     await first.allowSession?.('npx vitest run *');
 
@@ -70,7 +74,7 @@ describe('workspacePermissions', () => {
   });
 
   it('reads policy changes fresh even after a temporary grant was made', async () => {
-    const permissions = workspacePermissions({ store, workspace: root });
+    const permissions = workspacePermissions({ store, workspace: root, env: process.env });
 
     await permissions.allowSession?.('npm run test *');
     await store.setMode({ realPath: root, mode: 'always_ask' });

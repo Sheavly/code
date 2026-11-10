@@ -5,6 +5,8 @@ import type {
   WorkspacePermissions,
 } from '@sheavly/protocol/permission/permission.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
+import type { Environment } from '@sheavly/core/environment/environment.types';
+import { permissionRoot } from './permission-root.helper.js';
 import { TIGHTEST_MODE } from './profiles.constants.js';
 import { assertRemoteSetupAllowed } from './remote-setup.helper.js';
 import { resolveWorkspace } from './workspace-path.helper.js';
@@ -24,18 +26,28 @@ export class PermissionSetup {
   readonly #store: PermissionStore;
   readonly #home: string;
   readonly #remoteSetupAllowed: boolean;
+  readonly #env: Environment;
 
-  constructor(params: { store: PermissionStore; home: string; remoteSetupAllowed: boolean }) {
+  constructor(params: {
+    store: PermissionStore;
+    home: string;
+    env: Environment;
+    remoteSetupAllowed: boolean;
+  }) {
     this.#store = params.store;
     this.#home = params.home;
+    this.#env = params.env;
     this.#remoteSetupAllowed = params.remoteSetupAllowed;
   }
 
   /** The folder's mode, the commands the user allowed, and the built-in ones. */
   async read(workspace: string): Promise<WorkspacePermissions> {
     const real = await this.#real(workspace);
+    const stored = await this.#store.read(
+      await permissionRoot({ workspace: real, env: this.#env }),
+    );
 
-    return { workspace: real, ...(await this.#store.read(real)), builtIn: [...BUILT_IN_ALLOW] };
+    return { workspace: real, ...stored, builtIn: [...BUILT_IN_ALLOW] };
   }
 
   /** Sets the folder's mode. `forbidden` when it loosens and the backend is not local. */
@@ -49,7 +61,12 @@ export class PermissionSetup {
       });
     }
 
-    await this.#store.setMode({ realPath: await this.#real(workspace), mode });
+    const real = await this.#real(workspace);
+
+    await this.#store.setMode({
+      realPath: await permissionRoot({ workspace: real, env: this.#env }),
+      mode,
+    });
   }
 
   /** Allows `entry` in the folder for good. `forbidden` unless the backend is local. */
@@ -59,12 +76,22 @@ export class PermissionSetup {
       refuses: 'allows no command for the agent to run',
     });
 
-    await this.#store.allow({ realPath: await this.#real(params.workspace), entry: params.entry });
+    const real = await this.#real(params.workspace);
+
+    await this.#store.allow({
+      realPath: await permissionRoot({ workspace: real, env: this.#env }),
+      entry: params.entry,
+    });
   }
 
   /** Stops allowing `entry` in the folder; one that was not allowed is fine. */
   async revoke(params: { workspace: string; entry: AllowEntry }): Promise<void> {
-    await this.#store.revoke({ realPath: await this.#real(params.workspace), entry: params.entry });
+    const real = await this.#real(params.workspace);
+
+    await this.#store.revoke({
+      realPath: await permissionRoot({ workspace: real, env: this.#env }),
+      entry: params.entry,
+    });
   }
 
   #real(workspace: string): Promise<string> {

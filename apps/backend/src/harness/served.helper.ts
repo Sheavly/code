@@ -60,6 +60,7 @@ export async function servedConversation(params: {
   const permissions = workspacePermissions({
     store: permissionStore,
     workspace: placement.workspace,
+    env,
   });
   const workspace = await profiles.modelsFor({
     placement,

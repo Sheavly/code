@@ -8,6 +8,7 @@ import { layoutRule } from './rules/layout.js';
 import { noBrandCast } from './rules/no-brand-cast.js';
 import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
+import { permissionStoreRoot } from './rules/permission-store-root.js';
 import { SYNTAX_RULES, syntaxRule } from './rules/syntax-rules.js';
 import { pureImports } from './rules/pure-imports.js';
 import { singleDefinition } from './rules/single-definition.js';
@@ -26,6 +27,7 @@ export const harnessPlugin = {
     'no-brand-cast': noBrandCast,
     'no-raw-error': noRawError,
     'no-silent-catch': noSilentCatch,
+    'permission-store-root': permissionStoreRoot,
     'pure-imports': pureImports,
     'single-definition': singleDefinition,
     ...Object.fromEntries(
