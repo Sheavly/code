@@ -146,7 +146,7 @@ async function finishTurn(params: {
   running: readonly RunningCall[];
 }): Promise<DoneReason | undefined> {
   const { context, stopReason, running } = params;
-  const { signal, session, options, aborted } = context;
+  const { signal, session, options } = context;
 
   if (signal.aborted) return 'interrupted';
 
@@ -159,7 +159,7 @@ async function finishTurn(params: {
   // required background task (or any task with `waitForTasks`); otherwise the run ends.
   if (session.registry.hasMessages(session.ref.id)) return undefined;
 
-  if (await awaitTask({ options, session, aborted })) return undefined;
+  if (await awaitTask({ options, session, signal })) return undefined;
 
   return signal.aborted ? 'interrupted' : 'completed';
 }
@@ -235,9 +235,9 @@ async function releaseResults(params: {
 async function awaitTask(params: {
   options: AgentOptions;
   session: RunSession;
-  aborted: Promise<void>;
+  signal: AbortSignal;
 }): Promise<boolean> {
-  const { options, session, aborted } = params;
+  const { options, session, signal } = params;
   const { tasks, waitForTasks } = options;
   const { registry, ref } = session;
 
@@ -245,15 +245,35 @@ async function awaitTask(params: {
 
   while (!tasks.hasUnreported && !registry.hasMessages(ref.id)) {
     if (tasks.runningCount === 0 || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
-    const woken = await Promise.race([
-      tasks.nextSettled().then(() => true),
-      registry.nextMessage(ref.id).then(() => true),
-      aborted.then(() => false),
-    ]);
+    const woken = await waitForWake({ tasks, registry, id: ref.id, signal });
 
     if (!woken) return false;
     // Loop again: a task cancelled on request settles silently, with nothing to report.
   }
 
   return true;
+}
+
+/**
+ * Waits for a task to finish or a message to arrive; false if the run aborted first. Whichever
+ * wait did not fire is cancelled before returning, so each pass leaves no waiter in the
+ * registries.
+ */
+async function waitForWake(params: {
+  tasks: TaskRegistry;
+  registry: RunSession['registry'];
+  id: RunSession['ref']['id'];
+  signal: AbortSignal;
+}): Promise<boolean> {
+  const { tasks, registry, id, signal } = params;
+  const done = new AbortController();
+  const waits = AbortSignal.any([signal, done.signal]);
+
+  try {
+    await Promise.race([tasks.nextSettled(waits), registry.nextMessage(id, waits)]);
+
+    return !signal.aborted;
+  } finally {
+    done.abort();
+  }
 }
