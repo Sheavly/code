@@ -38,6 +38,11 @@ export type SubAgentOptions = {
   runAgent: RunNestedAgent;
   /** The tools sub-agents get. `report_status` (and `start_agent`, below the depth cap) are added. */
   tools: Tool[];
+  /**
+   * Tools that start background tasks (e.g. `run_command`), built for each sub-agent on its own
+   * task registry so the sub-agent waits for and can cancel what it starts.
+   */
+  tasksTools?: (tasks: TaskRegistry) => Tool[];
   /** The hooks sub-agents get; the parent's own hooks are not inherited unless listed here. */
   hooks?: Hook[];
   /** Shared guidance before the child role. The host chooses it; parent history is not copied. */

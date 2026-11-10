@@ -24,6 +24,14 @@ sub-agent on one task, `{ title, task }`.
   are skipped, and sections are joined with one blank line. The same
   composition is passed to descendants. Neither option implicitly copies parent history or
   conversation overrides. The backend supplies its shared generic and coding text explicitly.
+- **Tools that start background tasks.** `options.tasksTools(tasks)` builds tools (for example
+  `run_command`) for each sub-agent on that sub-agent's own `TaskRegistry`, so it waits for and
+  can cancel what it starts, and its background commands stop when it ends. A sub-agent with
+  `tasksTools` also gets `task_status` and `cancel_task` at the depth cap. Tools in
+  `options.tools` are shared and must not start tasks of their own.
+- **Approvals.** A sub-agent's tools ask the user through the same approval registry as the main
+  session; the request carries the sub-agent's `sessionId`. A UI names the asker from the
+  session updates: see `watchApprovals` in [@sheavly/client](../../client/docs/design.md).
 - **Its own context.** A sub-agent sees only its task, not the parent's conversation.
 - The loop's `runSession` is passed in as `options.runAgent`: tools can't import the loop.
 - `start_agent`, `report_status` and `message_agent` only work inside a session: called without

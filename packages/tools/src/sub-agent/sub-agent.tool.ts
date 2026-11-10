@@ -114,12 +114,14 @@ async function runChild(params: {
       provider,
       tools: [
         ...tools,
+        ...(options.tasksTools?.(childTasks) ?? []),
         createReportStatusTool({ sessions }),
+        // Background-capable tools need task_status/cancel_task even where it can't nest.
+        ...(canNest || options.tasksTools ? createTaskTools(childTasks) : []),
         ...(canNest
           ? [
               createSubAgentTool({ ...options, tasks: childTasks }),
               createMessageAgentTool({ sessions }),
-              ...createTaskTools(childTasks),
             ]
           : []),
       ],
