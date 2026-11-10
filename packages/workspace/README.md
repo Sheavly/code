@@ -48,9 +48,12 @@ point at each other. That shows the two files agree, not that they are authentic
 takes write access inside `.git`, which the file tools refuse, or a command the user approved.
 Known limits: a submodule or bare repo has no siblings (it fails closed), and an approved
 `git worktree add <path>` makes `<path>` reachable for the rest of the session, which is why the
-approval for it says so. A command that runs in a folder outside the root always asks, naming
-the folder, and the answer is never kept as a grant (`allow_all` asks nothing, as everywhere).
-`.git` of a sibling worktree can't be read or written either.
+approval for it says so. A path `resolveRead` accepted is in the root, in scratch (`inScratch`) or
+in a verified sibling, so `run_command` treats a verified sibling like the root: the shared mode
+and allow list apply, including grants given for the root. Those grants then cover a checkout that
+may come from another branch, which is the cost of sharing one list. A command that runs in the
+scratch folder always asks, naming the folder, and the answer is never kept as a grant (`allow_all`
+asks nothing, as everywhere). `.git` of a sibling worktree can't be read or written either.
 
 `findMainRoot({ root, env })` gives the folder `root` has in the repo's main worktree, so per-folder
 settings (the backend's command permissions) are shared by every worktree of a repo. It uses the

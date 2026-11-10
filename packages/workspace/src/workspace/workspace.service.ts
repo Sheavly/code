@@ -113,7 +113,11 @@ export class Workspace {
     return path.relative(this.root, absolute) || '.';
   }
 
-  private inScratch(absolute: string): boolean {
+  /**
+   * Whether `absolute` (a real path) is in the shared scratch root. A path `resolveRead` accepted
+   * that is neither in the root nor here is in a verified sibling worktree.
+   */
+  inScratch(absolute: string): boolean {
     return (
       this.scratchRoot !== undefined && isInside({ folder: this.scratchRoot, target: absolute })
     );

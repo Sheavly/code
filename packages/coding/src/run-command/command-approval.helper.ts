@@ -84,7 +84,7 @@ function changesWorktrees(argv: readonly string[]): boolean {
 }
 
 /**
- * The questions no grant answers: the folder, when the line runs outside the workspace root, and
+ * The questions no grant answers: the folder, when the line runs where no grant reaches, and
  * every `git worktree add|move|repair`, because the folder it names becomes reachable by the file
  * tools for the rest of the session.
  */
@@ -112,8 +112,8 @@ function ungrantableConcerns(params: {
  * Built-in and user grants cover every argument of the base command. `always_ask` ignores grants;
  * `allow_all` skips approval entirely, including the questions below. Each command in a chain is
  * checked, and one question covers every unapproved command. There are no path, secret, option or
- * package-verification re-prompts, except two that no grant answers: running outside the
- * workspace root (`outsideCwd`), and `git worktree add|move|repair`. Both are asked every time,
+ * package-verification re-prompts, except two that no grant answers: running in a folder no grant
+ * reaches (`outsideCwd`), and `git worktree add|move|repair`. Both are asked every time,
  * with every command of the line, and their answer is never kept as a grant.
  *
  * Throws a `CommandRefusedError` when no one can answer, or the user skips (a message they sent
@@ -129,9 +129,10 @@ export async function confirmCommand(params: {
   call: { callId: CallId; sessionId?: SessionId | undefined };
   signal: AbortSignal;
   /**
-   * The folder the line runs in when it is outside the workspace root (a sibling worktree). A
-   * grant is for this folder's commands, not another's, so every command is asked about, the
-   * folder is shown, and the answer is never kept as a grant. `allow_all` still asks nothing.
+   * The folder the line runs in when no grant reaches it: outside the workspace root and not in a
+   * verified sibling worktree (those share the root's mode and allow list), so the scratch folder.
+   * Every command is asked about, the folder is shown, and the answer is never kept as a grant.
+   * `allow_all` still asks nothing.
    */
   outsideCwd?: string | undefined;
 }): Promise<void> {

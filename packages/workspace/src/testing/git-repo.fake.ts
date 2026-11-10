@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -97,6 +97,36 @@ export function useTempRepo(params: {
   }
 
   return repo;
+}
+
+/**
+ * Test-only: points the repo's one registered worktree's admin entry at `target`, as a hostile
+ * repo could. The worktree's own `.git` file no longer matches, so it must stop counting.
+ */
+export async function forgeWorktreeEntry(params: {
+  repo: TempRepo;
+  target: string;
+}): Promise<void> {
+  const admin = path.join(params.repo.main, '.git/worktrees');
+  const [id] = await readdir(admin);
+
+  if (id === undefined) throw new Error(`No registered worktree to forge in ${admin}`);
+
+  await writeFile(path.join(admin, id, 'gitdir'), `${path.join(params.target, '.git')}\n`);
+}
+
+/**
+ * Test-only: an environment whose `git` fails the way a crash does (exit 1), not the way "not a
+ * repository" does (exit 128), so a worktree lookup throws instead of finding no siblings.
+ */
+export async function brokenGitEnv(params: { repo: TempRepo }): Promise<{ PATH: string }> {
+  const bin = path.join(params.repo.base, 'bin');
+
+  await mkdir(bin);
+  await writeFile(path.join(bin, 'git'), '#!/bin/sh\nexit 1\n');
+  await chmod(path.join(bin, 'git'), 0o755);
+
+  return { PATH: bin };
 }
 
 /** Test-only: opens `root` as an app would, passing the environment so worktrees are found. */

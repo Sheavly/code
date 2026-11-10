@@ -1,7 +1,7 @@
 import { mkdir, readdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { useTempRepo } from '../../testing/git-repo.fake.js';
+import { forgeWorktreeEntry, useTempRepo } from '../../testing/git-repo.fake.js';
 import { findMainRoot } from '../worktrees.helper.js';
 
 const repo = useTempRepo({ prefix: 'worktrees-main-root-', perTest: true });
@@ -54,10 +54,7 @@ describe('findMainRoot', () => {
   });
 
   it('keeps a worktree whose admin entry was forged to name another folder', async () => {
-    const admin = path.join(repo.main, '.git/worktrees');
-    const [id] = await readdir(admin);
-
-    await writeFile(path.join(admin, id ?? '', 'gitdir'), `${path.join(repo.outside, '.git')}\n`);
+    await forgeWorktreeEntry({ repo, target: repo.outside });
 
     await expect(findMainRoot({ root: repo.worktree, env: process.env })).resolves.toBe(
       repo.worktree,
