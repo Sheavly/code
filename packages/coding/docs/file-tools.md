@@ -62,6 +62,33 @@ workspace are always refused.
 Shared pieces live in `@sheavly/coding/files/`: `resolveWritable` (the write-path check, with the `.git`
 guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
 
+## Searching with `grep`
+
+`grep` searches file contents with ripgrep, using the binary `@vscode/ripgrep` ships so nothing
+has to be installed. It runs through the harness's `ProcessRunner`, in the workspace root.
+
+- **Input:** `pattern` (a regex), optional `path` (a file or folder, default the whole workspace),
+  `glob`, `mode` and `caseInsensitive`.
+- **Modes:** `content` (default) returns `path:line:text`, `files` only the paths that match, and
+  `count` the number of matching lines per file.
+- **Confinement:** `path` goes through `Workspace.resolveRead`, so escapes and symlinks that point
+  out are refused, and a `.env` path or a path inside `.git` is refused by name and after
+  symlinks. ripgrep never applies its excludes to a root path it is given, which is why the tool
+  checks that path itself. For what it walks, the tool passes case-insensitive excludes for
+  `.env`, `.env.*` and `.git` (a folder, or the file a submodule or worktree has) after the
+  agent's `glob`, so no pattern or glob can bring their content back, whatever the case of the
+  name. The agent's own `glob` is case-insensitive too, because ripgrep has one setting for both. ripgrep's own config is ignored (`--no-config`) and
+  the pattern goes behind `--regexp`, so it can't be read as a flag.
+- **Failures:** exit 0 and 1 are results. A search that printed results but could not read some
+  files (exit 2) returns them with a note and `skipped` on the artifact, so a partial search is
+  never presented as complete. A killed process or an error with no output is an error result,
+  never "no matches".
+- **Limits:** at most 200 results, lines longer than 300 characters are shortened, ripgrep is
+  stopped after 2,000,000 characters of output and after 30 seconds. Like `read_file`, a cut is
+  never silent: the text says how many results were shown and to narrow the search.
+- **Artifact:** a `GrepResult` (`kind: 'grep_matches'`, `@sheavly/coding/grep/grep.types`) with
+  the results for the mode asked and `truncated`, for a UI. The model never sees it.
+
 ## File changes
 
 `write_file` and `edit_file` return a `FileChange` artifact (`@sheavly/coding/files/files.types`):
