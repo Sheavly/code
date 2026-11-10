@@ -53,7 +53,8 @@
     "./*.constants": {
       "@sheavly/source": "./src/*.constants.ts",
       "default": "./dist/*.constants.js"
-    }
+    },
+    "./ripgrep/*": null
   },
   "files": [
     "dist",

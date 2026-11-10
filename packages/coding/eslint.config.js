@@ -9,7 +9,7 @@ export default defineConfig([
   {
     files: ['src/**/*.ts'],
     ignores: ['src/**/__tests__/**', 'src/testing/**'],
-    rules: { 'harness/guard-env-read': 'error' },
+    rules: { 'harness/guard-env-read': 'error', 'harness/guard-search-root': 'error' },
   },
   // The agent's file tools write a project. They do it through `Workspace` (confined to its root),
   // under a file lock and the allow list, which is what makes a write by the agent safe; the

@@ -1,4 +1,5 @@
-import { GREP_EXCLUDE_ARGS, GREP_MODE_FLAGS, MAX_GREP_LINE_CHARS } from './grep.constants.js';
+import { GREP_EXCLUDE_ARGS } from '../ripgrep/ripgrep.constants.js';
+import { GREP_MODE_FLAGS, MAX_GREP_LINE_CHARS } from './grep.constants.js';
 import type { GrepMode } from './grep.types.js';
 
 /**

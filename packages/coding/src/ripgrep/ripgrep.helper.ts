@@ -2,8 +2,32 @@ import { StringDecoder } from 'node:string_decoder';
 import { Writable } from 'node:stream';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
-import { GREP_TIMEOUT_MS, MAX_GREP_RAW_CHARS } from './grep.constants.js';
-import type { RipgrepRun } from './grep.types.js';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
+import { GREP_TIMEOUT_MS, MAX_GREP_RAW_CHARS } from './ripgrep.constants.js';
+import type { RipgrepRun } from './ripgrep.types.js';
+
+/**
+ * The folder or file a search starts from, relative to the workspace root. ripgrep applies its
+ * excludes to what it walks, never to a root path it is given, so the path is checked here, by
+ * name and after symlinks. Throws if it is outside the workspace, a `.env` file or inside `.git`.
+ */
+export async function resolveSearchRoot(params: {
+  workspace: Workspace;
+  requested: string;
+}): Promise<string> {
+  const { workspace, requested } = params;
+
+  assertNotEnvFile({ filePath: requested, requested, action: 'Searching' });
+  assertNotGitDir({ relativePath: requested, requested, action: 'Searching' });
+  const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
+  const searched = workspace.relative(real);
+
+  assertNotEnvFile({ filePath: real, requested, action: 'Searching' });
+  assertNotGitDir({ relativePath: searched, requested, action: 'Searching' });
+
+  return searched;
+}
 
 /**
  * Runs ripgrep with its standard output going to a collector of its own, not the runner's
@@ -67,7 +91,7 @@ export function assertRanToTheEnd(run: RipgrepRun): void {
   if (run.timedOut) {
     throw new ToolCallError({
       reason: 'invalid_input',
-      message: `The search took longer than ${GREP_TIMEOUT_MS / 1000}s and was stopped. Narrow it with path or glob.`,
+      message: `The search took longer than ${GREP_TIMEOUT_MS / 1000}s and was stopped. Narrow it with a smaller path or a tighter pattern.`,
     });
   }
 

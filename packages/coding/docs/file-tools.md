@@ -97,6 +97,20 @@ has to be installed. It runs through the harness's `ProcessRunner`, in the works
 - **Artifact:** a `GrepResult` (`kind: 'grep_matches'`, `@sheavly/coding/grep/grep.types`) with
   the results for the mode asked and `truncated`, for a UI. The model never sees it.
 
+## Finding files with `glob`
+
+`glob` lists the files whose path matches a pattern, newest first. It runs `rg --files` with the
+agent's pattern as a case-insensitive glob, then stats each file (`lstat`, so a symlink's own time)
+to sort by modification time, ties by path.
+
+- **Input:** `pattern` (a glob) and optional `path` (a folder, default the whole workspace).
+- **Confinement:** the same as `grep`: `path` is checked by name and after symlinks, and the
+  `.env`, `.env.*` and `.git` excludes come after the agent's pattern.
+- **Limits:** at most 200 files are returned. Only the first 5,000 matches by path are stat-ed, so
+  past that the newest is the newest of those; either cut sets `truncated` and the text says so.
+- **Artifact:** a `GlobResult` (`kind: 'glob_files'`, `@sheavly/coding/glob/glob.types`) with the
+  files, `truncated` and `skipped`, for a UI.
+
 ## File changes
 
 `write_file` and `edit_file` return a `FileChange` artifact (`@sheavly/coding/files/files.types`):
