@@ -35,6 +35,8 @@ export function fileTrail(call: ToolCall): string | undefined {
       return changeLine({ verb: 'wrote', input: call.input });
     case 'edit_file':
       return changeLine({ verb: 'edited', input: call.input });
+    case 'delete_file':
+      return changeLine({ verb: 'deleted', input: call.input });
     case 'read_file':
       return readLine(call.input);
     case 'run_command':

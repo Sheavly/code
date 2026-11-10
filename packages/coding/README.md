@@ -16,20 +16,21 @@ Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) t
 tools also use a shared scratch folder outside the repo; see
 [file tools](docs/file-tools.md) and `@sheavly/workspace`.
 
-| Module          | What it holds                                                                                   |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                  |
-| `instructions/` | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                              |
-| `read-file/`    | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                            |
-| `grep/`         | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard           |
-| `glob/`         | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard    |
-| `read-skill/`   | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's      |
-| `write-file/`   | `write_file`                                                                                    |
-| `edit-file/`    | `edit_file`                                                                                     |
-| `run-command/`  | `run_command`: base-command permissions, safe git config, approvals                             |
-| `trail/`        | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail          |
-| `files/`        | What the file tools share: `resolveWritable`, the `.env` guard, `FileChange` and `isFileChange` |
-| `errors/`       | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it            |
+| Module          | What it holds                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
+| `instructions/` | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
+| `read-file/`    | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
+| `grep/`         | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
+| `glob/`         | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard      |
+| `read-skill/`   | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's        |
+| `write-file/`   | `write_file`                                                                                      |
+| `edit-file/`    | `edit_file`                                                                                       |
+| `delete-file/`  | `delete_file`: removes one file, through the workspace and the file lock                          |
+| `run-command/`  | `run_command`: base-command permissions, safe git config, approvals                               |
+| `trail/`        | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail            |
+| `files/`        | What the file tools share: `resolveWritable` / `resolveDeletable`, the `.env` guard, `FileChange` |
+| `errors/`       | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it              |
 
 ## Docs
 

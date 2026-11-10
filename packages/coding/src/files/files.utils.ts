@@ -66,7 +66,7 @@ export function describeChange(params: {
   verb: string;
   path: string;
   before: string | null;
-  after: string;
+  after: string | null;
 }): string {
   const { verb, path: file, before, after } = params;
   const lines = (text: string | null) =>
@@ -75,7 +75,7 @@ export function describeChange(params: {
   return `${verb} ${file} (${lines(before)} → ${lines(after)} lines)`;
 }
 
-/** True if `artifact` is the file change `write_file` or `edit_file` returned. */
+/** True if `artifact` is the file change a file tool returned. */
 export function isFileChange(artifact: ToolArtifact): artifact is FileChange {
   return artifact.kind === 'file_change';
 }

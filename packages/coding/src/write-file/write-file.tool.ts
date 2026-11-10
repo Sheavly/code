@@ -1,12 +1,16 @@
-import { mkdir } from 'node:fs/promises';
-import path from 'node:path';
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { agentOf, readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
+import {
+  agentOf,
+  createParentFolder,
+  readIfExists,
+  resolveWritable,
+  writeText,
+} from '../files/files.helper.js';
 import { describeChange } from '../files/files.utils.js';
 import type { FileChange } from '../files/files.types.js';
 
@@ -53,7 +57,7 @@ export function createWriteFileTool({
             });
           }
 
-          await mkdir(path.dirname(real), { recursive: true });
+          await createParentFolder({ file: real });
           await writeText({ file: real, content, signal });
           fileReads.markRead({
             agent: agentOf(context),

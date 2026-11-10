@@ -1,14 +1,14 @@
 # File tools
 
-`read_file`, `write_file` and `edit_file`, and the artifacts they return.
+`read_file`, `write_file`, `edit_file` and `delete_file`, and the artifacts they return.
 
-## Confinement and the three tools
+## Confinement and the four tools
 
-All three go through `Workspace` path confinement (`@sheavly/workspace/workspace/`), which is not an OS
+All four go through `Workspace` path confinement (`@sheavly/workspace/workspace/`), which is not an OS
 sandbox ([trust model](../../../docs/overview.md#trust-model)): paths are relative to
 the root, and anything that ends up outside it is refused, including `../`, absolute paths and
-symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes
-inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.git/hooks/x`,
+symlinks that point out. `.env` files are refused by name, before and after symlinks. Writes and
+deletes inside `.git` (any path part equal to `.git`, in any case, so `.git/config`, `.git/hooks/x`,
 `sub/.git/config` and a `.git` file) are refused the same way: git config and hooks there can make
 the next `git status` run any program, outside every check `run_command` makes.
 
@@ -20,11 +20,12 @@ and the `.env` rule still applies. A scratch path is reported absolute, so the `
 applies only to paths inside the workspace.
 `run_command` does not check paths and is unchanged.
 
-| Tool         | What it does                                                                               |
-| ------------ | ------------------------------------------------------------------------------------------ |
-| `read_file`  | Returns a UTF-8 file, or lines `startLine`–`endLine`; at most 1,000 lines per call (below) |
-| `write_file` | Creates a new file with `content`, and its missing folders; refuses one that exists        |
-| `edit_file`  | Replaces `oldText` with `newText` in an existing file the agent has read                   |
+| Tool          | What it does                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| `read_file`   | Returns a UTF-8 file, or lines `startLine`–`endLine`; at most 1,000 lines per call (below) |
+| `write_file`  | Creates a new file with `content`, and its missing folders; refuses one that exists        |
+| `edit_file`   | Replaces `oldText` with `newText` in an existing file the agent has read                   |
+| `delete_file` | Deletes one file; refuses a folder, a symlink, a `.env` file and anything outside          |
 
 `write_file` only creates. A path that already holds a file is refused with a message pointing to
 `edit_file`, checked under the file's lock so two agents creating one path can't both win. To
@@ -35,6 +36,14 @@ refused unless `replaceAll` is set, so an ambiguous edit can't change the wrong 
 tell the model how to fix the call (read the file first, add surrounding lines, or use
 `write_file` for a new file). `newText` is inserted literally (`$&` stays `$&`).
 
+`delete_file` removes one file, and reports the content it held in the `FileChange` below, so a UI
+can show the deletion. It refuses a folder, since removing one takes files the agent never named
+(`run_command` can ask for it), and a symlink whichever way it points: the tool deletes the file the
+agent named, never the target that a link names for it. It reads and removes under the file's lock,
+and a file already gone is an error rather than a success, since the delete may have been meant for
+another path. What each agent was shown of the file is forgotten, so an edit of a file later created
+at that path is not made from memory.
+
 **Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
 created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are
 kept per agent (a `FileReads` from `@sheavly/workspace/file-reads/`, one per harness), by real
@@ -42,8 +51,9 @@ path: the main agent and each sub-agent must read for themselves, and a symlink 
 one file. It does not stop a file changing after it was read; the exact-text match does that, so an
 edit to text that has since changed fails. A reopened conversation starts with nothing read.
 
-Tool calls in a turn run in parallel, so `write_file` and `edit_file` share a per-file lock
-(a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the file's real path (a symlink and its
+Tool calls in a turn run in parallel, so `write_file`, `edit_file` and `delete_file` share a
+per-file lock (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the
+file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
 apply one after the other, each starting from what the previous one wrote; changes to different
 files still run at the same time. A call aborted while it waits gives up its place.
@@ -64,11 +74,12 @@ never sees it; it's for a UI. The demo shows `read src/a.ts` when `whole` is tru
 `read src/a.ts lines 40–45 (of 1500)` otherwise.
 
 A range past the end, a reversed range or a line number that isn't one is adjusted the same way,
-with a note. Only the guards fail closed: `.env` files, writes inside `.git` and paths outside the
-workspace are always refused.
+with a note. Only the guards fail closed: `.env` files, writes and deletes inside `.git` and paths
+outside the workspace are always refused.
 
-Shared pieces live in `@sheavly/coding/files/`: `resolveWritable` (the write-path check, with the `.git`
-guard), `readIfExists`, `writeText`, and the `.env` guard all three tools use.
+Shared pieces live in `@sheavly/coding/files/`: `resolveWritable` and `resolveDeletable` (the
+write- and delete-path checks, with the `.env` and `.git` guards), `readIfExists`, `writeText`,
+`createParentFolder`, `removeFile`.
 
 ## Searching with `grep`
 
@@ -113,20 +124,23 @@ to sort by modification time, ties by path.
 
 ## File changes
 
-`write_file` and `edit_file` return a `FileChange` artifact (`@sheavly/coding/files/files.types`):
+`write_file`, `edit_file` and `delete_file` return a `FileChange` artifact
+(`@sheavly/coding/files/files.types`):
 
 ```ts
 type FileChange = {
   kind: 'file_change';
   path: string; // relative to the workspace root
   before: string | null; // null: the tool created the file
-  after: string;
+  after: string | null; // null: the tool deleted the file
 };
 ```
 
-- The model sees a one-line summary (`Edited src/a.ts (4 → 5 lines)`).
-- A UI renders the diff from `before` and `after`; how (unified, side by side, word-level) is
-  the UI's choice. The demo just prints the summary.
+- The model sees a one-line summary (`Edited src/a.ts (4 → 5 lines)`, `Deleted src/a.ts (4 → 0
+lines)`).
+- A UI renders the diff from `before` and `after`: `before: null` is a new file and `after: null`
+  a deleted one. How (unified, side by side, word-level) is the UI's choice. The demo prints the
+  summary.
 
 Full content, not a computed diff, keeps the harness simple and lets every UI diff its own way.
 For very large files this may need a size limit or a diff format later.

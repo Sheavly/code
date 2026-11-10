@@ -1,5 +1,6 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
@@ -9,27 +10,85 @@ import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
  * absolute paths outside and symlinks out), never a .env file and never inside `.git`, before
  * and after symlinks.
  */
-export async function resolveWritable(params: {
+export function resolveWritable(params: {
   workspace: Workspace;
   requested: string;
 }): Promise<string> {
   const { workspace, requested } = params;
 
-  assertNotEnvFile({ filePath: requested, requested, action: 'Writing' });
+  return resolveGuarded({
+    workspace,
+    requested,
+    action: 'Writing',
+    resolve: (asking) => workspace.resolveWrite(asking),
+  });
+}
+
+/**
+ * Resolves an existing file the agent may delete: one regular file inside the workspace (a folder
+ * and a symlink are refused by `resolveDelete`), never a .env file and never inside `.git`, before
+ * and after symlinks. A path with nothing at it is reported as `not_found`, so the model is told
+ * what to do instead of reading an ENOENT.
+ */
+export function resolveDeletable(params: {
+  workspace: Workspace;
+  requested: string;
+}): Promise<string> {
+  const { workspace, requested } = params;
+
+  return resolveGuarded({
+    workspace,
+    requested,
+    action: 'Deleting',
+    resolve: () => resolveExisting({ workspace, requested }),
+  });
+}
+
+/** `resolveDelete`, with a missing path turned into the tool error a caller expects. */
+async function resolveExisting(params: {
+  workspace: Workspace;
+  requested: string;
+}): Promise<string> {
+  const { workspace, requested } = params;
+
+  try {
+    return await workspace.resolveDelete(requested);
+  } catch (caughtError) {
+    // ENOENT is the one failure expected here: there is no file at the path to delete.
+    if ((caughtError as NodeJS.ErrnoException).code !== 'ENOENT') throw caughtError;
+
+    throw new ToolCallError({ reason: 'not_found', message: `File not found: ${requested}.` });
+  }
+}
+
+/**
+ * A path a file tool changes, whichever change it is: the `.env` and `.git` guards run by name and
+ * again after resolving, so a symlink to one is refused too. `action` names what was refused, e.g.
+ * "Writing".
+ */
+async function resolveGuarded(params: {
+  workspace: Workspace;
+  requested: string;
+  action: string;
+  resolve: (requested: string) => Promise<string>;
+}): Promise<string> {
+  const { workspace, requested, action, resolve } = params;
+
+  assertNotEnvFile({ filePath: requested, requested, action });
 
   // A `.git` in the temp directory's own path is not the workspace's, so only paths relative to
   // the root are checked by name. An absolute path into the workspace is caught after resolving.
   if (!path.isAbsolute(requested)) {
-    assertNotGitDir({ relativePath: requested, requested, action: 'Writing' });
+    assertNotGitDir({ relativePath: requested, requested, action });
   }
 
-  const real = await workspace.resolveWrite(requested);
+  const real = await resolve(requested);
   const shown = workspace.relative(real);
 
-  assertNotEnvFile({ filePath: real, requested, action: 'Writing' });
+  assertNotEnvFile({ filePath: real, requested, action });
 
   if (!path.isAbsolute(shown)) {
-    assertNotGitDir({ relativePath: shown, requested, action: 'Writing' });
+    assertNotGitDir({ relativePath: shown, requested, action });
   }
 
   return real;
@@ -68,4 +127,19 @@ export async function writeText(params: {
   const { file, content, signal } = params;
 
   await writeFile(file, content, { encoding: 'utf8', signal });
+}
+
+/** Creates the folders a file's path needs, so a file can be written into them. */
+export async function createParentFolder(params: { file: string }): Promise<void> {
+  await mkdir(path.dirname(params.file), { recursive: true });
+}
+
+/**
+ * Removes one file. A path that is already gone fails with ENOENT, so nothing pretends to have
+ * deleted what it did not; a folder is never removed (`rm` without `recursive` refuses one).
+ * Node's `rm` takes no abort signal: removing one file is a single call, so an interrupt can only
+ * land before or after it.
+ */
+export async function removeFile(params: { file: string }): Promise<void> {
+  await rm(params.file);
 }

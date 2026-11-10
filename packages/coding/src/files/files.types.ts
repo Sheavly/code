@@ -1,6 +1,6 @@
 /**
- * The artifact `write_file` and `edit_file` return: a file they created or changed, enough for a
- * UI to render a diff. Rendering the diff is the UI's job.
+ * The artifact the file tools return: a file they created, changed or deleted, enough for a UI to
+ * render a diff. Rendering the diff is the UI's job.
  */
 export type FileChange = {
   kind: 'file_change';
@@ -8,5 +8,6 @@ export type FileChange = {
   path: string;
   /** The content before the change; `null` if the tool created the file. */
   before: string | null;
-  after: string;
+  /** The content after it; `null` if the tool deleted the file. */
+  after: string | null;
 };
