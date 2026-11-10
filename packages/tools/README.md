@@ -31,6 +31,10 @@ const tools = [
 
 ## Docs
 
+`task_status` returns an immediate snapshot for inspection, not a wait. Running snapshots remind
+the agent to finish independent work and yield without tool calls rather than poll. Required task
+results arrive automatically through the loop; services need not exit before a prompt finishes.
+
 - [Sub-agents](docs/sub-agents.md): starting them, what they get, status reporting.
 - [The task tools](docs/tasks.md): checking on and stopping background work.
 - [Web fetch](docs/web-fetch.md): limits, content types, address and domain rules, cancellation.

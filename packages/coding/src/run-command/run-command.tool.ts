@@ -26,18 +26,27 @@ export function createRunCommandTool({
       'including paths outside the workspace, secret files, editing/execution options and npx downloads. ' +
       'Examples: find, sed, git diff, npm run test, npx eslint. Chained commands are approved independently. ' +
       'There is no shell glob expansion. If the user skips a command, do not run it again; do what they say.' +
-      (tasks ? ' Set background: true for servers, watchers, or slow commands.' : ''),
+      (tasks
+        ? ' Set background: true for slow finite work; set backgroundKind: "service" for persistent servers or watchers. Do not poll background work.'
+        : ''),
     inputSchema: z.object({
       command: z.string().min(1).describe('The command to run, e.g. `git status`'),
       background: z
         .boolean()
         .optional()
         .describe(
-          'Run in the background: returns a task id immediately, and you are notified when it exits. ' +
-            'Check it with task_status, stop it with cancel_task.',
+          'Return a task id immediately. Finite work keeps this prompt alive until its result is delivered. ' +
+            'Finish independent work, then end your turn without tool calls to wait. Do not poll task_status.',
+        ),
+      backgroundKind: z
+        .enum(['task', 'service'])
+        .default('task')
+        .describe(
+          'With background: true, task is finite work (builds, tests, CI waits) whose result is required. ' +
+            'Service is a persistent server or watcher that does not keep the prompt alive. Stop either with cancel_task.',
         ),
     }),
-    execute: async ({ input: { command, background }, signal, context }) => {
+    execute: async ({ input: { command, background, backgroundKind }, signal, context }) => {
       const parsed = parseCommand(command);
 
       if (!parsed.ok) {
@@ -77,13 +86,23 @@ export function createRunCommandTool({
           description: context.description,
           callId: context.callId,
           sessionId: context.session?.id,
+          waitForCompletion: backgroundKind === 'task',
           run: ({ signal: taskSignal, onOutput }) =>
             processes.runScript({ ...script, signal: taskSignal, onOutput }),
         });
 
+        const started = `Started background task ${task.id}: $ ${command}\n`;
+
+        if (backgroundKind === 'service') {
+          return (
+            started +
+            'This service does not keep this prompt alive. Use task_status only to inspect readiness or diagnose a problem, not to wait for exit. Stop it with cancel_task when finished.'
+          );
+        }
+
         return (
-          `Started background task ${task.id}: $ ${command}\n` +
-          "It keeps running; you'll be notified when it exits. Use task_status to see its output, cancel_task to stop it."
+          started +
+          'This finite task keeps this prompt alive until its result is delivered automatically. Finish independent work, then end your turn without tool calls to wait. Do not poll task_status or repeat the command. Use cancel_task to stop it.'
         );
       }
 

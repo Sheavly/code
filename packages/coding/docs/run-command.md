@@ -82,6 +82,25 @@ describes the effective command scope rather than claiming old restrictions rema
 
 ## Execution protections and limits
 
+### Background lifecycle
+
+`background: true` returns a task id immediately. Its default `backgroundKind: 'task'` means finite
+work, such as a build, test run or CI wait. The tool marks it `waitForCompletion: true`, so the loop
+keeps the calling prompt alive until it delivers the result, even without `waitForTasks`.
+The agent finishes independent work and ends its turn without tool calls to wait. Completion is
+delivered automatically; `task_status` is for requested inspection or diagnosis, not polling.
+
+Use `backgroundKind: 'service'` for a persistent server or watcher. It remains non-blocking by
+default and can outlive the prompt. Explicit global `waitForTasks` still waits for all background
+work, including services. Use `cancel_task` to stop a service when finished.
+
+Existing `background: true` calls now start required finite work. Callers launching persistent
+processes must explicitly select `backgroundKind: 'service'`. The kind has no effect on foreground
+commands. Interrupting a prompt stops the loop's wait, not the background process; the host owns
+cancellation and shuts tasks down when the conversation closes.
+
+### Process protections
+
 Every process still receives safe Git configuration that disables repository hooks,
 filesystem monitors and signature programs, and uses committed attributes. Git diff/log/show
 retain `--no-ext-diff --no-textconv` driver protection. These do not add approval questions.

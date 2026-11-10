@@ -60,6 +60,33 @@ describe('background run_command', () => {
       description: 'call c1',
       status: 'running',
     });
+    expect(tasks.hasRequiredTasks).toBe(true);
+    expect(result.role === 'tool' && result.content).toContain('end your turn without tool calls');
+    expect(result.role === 'tool' && result.content).toContain('Do not poll');
+  });
+
+  it('rejects an unknown background kind before starting a process', async () => {
+    const { run } = setup();
+    const result = await run('invalid', 'run_command', {
+      command: 'echo never',
+      background: true,
+      backgroundKind: 'unknown',
+    });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(tasks.list()).toEqual([]);
+  });
+
+  it('does not create a background task for a foreground command', async () => {
+    const { run } = setup();
+    const result = await run('foreground', 'run_command', {
+      command: 'echo foreground',
+      backgroundKind: 'service',
+    });
+
+    expect(result.role === 'tool' && result.content).toContain('foreground');
+    expect(tasks.list()).toEqual([]);
+    expect(tasks.hasRequiredTasks).toBe(false);
   });
 
   it('records exit code and output when the command finishes', async () => {

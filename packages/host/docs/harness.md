@@ -58,6 +58,12 @@ core is replaced. Generic hosts receive no coding section and require no workspa
 That existing option is a complete override, not an extension; an empty override remains empty.
 Direct `streamAgent` or `runAgent` callers pass the returned string explicitly.
 
+The generic core tells the agent to finish independent work, then yield without tool calls while
+waiting for required background results. Status inspection is limited to requested updates or
+diagnosis, not waiting. This rule belongs in stable system instructions as well as task-tool
+guidance; models must not turn immediate snapshots into a wait loop. It names no particular tool
+and applies equally to commands and sub-agent work.
+
 The backend passes its composed shared text to the child factory; the child adds its role,
 then any child-specific extras. Other hosts explicitly choose what children receive. Parent
 conversation overrides and history are not implicitly inherited. All models use the same text,

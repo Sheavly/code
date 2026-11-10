@@ -8,3 +8,8 @@ The terminal app's workbook data: stored prompts (`prompts/`), the fixture proje
 non-mutating planning and untrusted-support-data cases for the
 [agent prompt comparison](../docs/agent-prompts/evaluation.md#second-sonnet-comparison-proposal).
 The `.env` bait used by the workbook is generated fake data; no real credentials belong in fixtures.
+
+`background-completion` checks delayed finite commands: both results arrive before the final reply,
+without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
+It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
+evidence that completion delivery works. The check does not grant command permissions itself.

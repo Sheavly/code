@@ -54,8 +54,9 @@ A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this
 
 The harness composes stable domain-neutral instructions. `instructions` in `HarnessOptions`
 adds host extras; `baseInstructions` replaces only the generic core (an empty string omits it).
-The default is deliberately small: task scope, approval/data boundaries and concise, truthful
-communication. It contains no coding recipes or model-specific overlays.
+The default is deliberately small: task scope, approval/data boundaries, yielding for required
+background results instead of polling, and concise, truthful communication. It contains no coding
+recipes or model-specific overlays.
 Conversations use `harness.instructions` by default. An explicit conversation `instructions`
 string remains a complete override, including an empty string. Direct loop callers pass
 `instructions: harness.instructions` themselves. See [instruction composition](docs/harness.md#instruction-composition).
