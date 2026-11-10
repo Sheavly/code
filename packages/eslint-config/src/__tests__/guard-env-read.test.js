@@ -1,7 +1,6 @@
-import path from 'node:path';
-import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { harnessPlugin } from '../plugin.js';
+import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
 const ruleTester = typescriptRuleTester({ sourceType: 'module' });
@@ -52,25 +51,19 @@ ruleTester.run('guard-env-read', harnessPlugin.rules['guard-env-read'], {
   ].map((code) => ({ code, errors: [{ messageId: 'unguarded' }] })),
 });
 
-const CODING = path.resolve(import.meta.dirname, '../../../coding');
-
-async function ruleOn(file) {
-  const config = await new ESLint({ cwd: CODING }).calculateConfigForFile(path.join(CODING, file));
-  const entry = config?.rules['harness/guard-env-read'];
-  const severity = Array.isArray(entry) ? entry[0] : entry;
-
-  return severity === 2 || severity === 'error';
-}
+const ruleOn = (file) => ruleIsErrorOn({ rule: 'harness/guard-env-read', file });
 
 // The rule only protects what it is enabled for: every source file of the coding package that
 // could read a path (a tool, or the helper a tool moves the read into), never a test.
 describe('guard-env-read is enabled', () => {
-  it.each(['src/grep/grep.tool.ts', 'src/ripgrep/ripgrep.helper.ts', 'src/files/files.utils.ts'])(
-    'for %s',
-    async (file) => {
-      expect(await ruleOn(file)).toBe(true);
-    },
-  );
+  it.each([
+    'src/grep/grep.tool.ts',
+    'src/glob/glob.tool.ts',
+    'src/ripgrep/ripgrep.helper.ts',
+    'src/files/files.utils.ts',
+  ])('for %s', async (file) => {
+    expect(await ruleOn(file)).toBe(true);
+  });
 
   it('not for a test', async () => {
     expect(await ruleOn('src/grep/__tests__/grep.tool.test.ts')).toBe(false);

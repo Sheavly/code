@@ -1,7 +1,7 @@
 // A tool that resolves a path for reading must refuse `.env` files twice: on the path the model
 // asked for (before touching the disk) and on the real path `resolveRead` returns (a symlink can
-// point at one). `read_file` and `grep` do; the next tool that reads or searches files has to, and
-// only a check can make sure it does.
+// point at one). `read_file` and `resolveSearchRoot` (which `grep` and `glob` call) do; the next
+// tool that reads or searches files has to, and only a check can make sure it does.
 //
 // For each `resolveRead(requested)` call, in the same function: a top-level
 // `assertNotEnvFile({ filePath: requested })` before it, and a top-level
@@ -12,22 +12,9 @@
 // carry those.
 
 const MESSAGE =
-  'A call to `resolveRead` needs the `.env` guard on both sides, in the same function: `assertNotEnvFile({ filePath: <the requested path> })` before it, and `assertNotEnvFile({ filePath: <the variable it is assigned to> })` after it, each as a statement of its own (not in a branch), since a symlink can point at a `.env` file (`@sheavly/coding/files/files.utils`). See `read_file` or `grep`.';
+  'A call to `resolveRead` needs the `.env` guard on both sides, in the same function: `assertNotEnvFile({ filePath: <the requested path> })` before it, and `assertNotEnvFile({ filePath: <the variable it is assigned to> })` after it, each as a statement of its own (not in a branch), since a symlink can point at a `.env` file (`@sheavly/coding/files/files.utils`). See `read_file` or `resolveSearchRoot`.';
 
-const FUNCTIONS = new Set(['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression']);
-
-/** The called method's name: `x.name(...)`, `x['name'](...)` or `name(...)`. */
-function calleeName(node) {
-  const { callee } = node;
-
-  if (callee.type === 'Identifier') return callee.name;
-
-  if (callee.type !== 'MemberExpression') return undefined;
-
-  if (!callee.computed) return callee.property.name;
-
-  return callee.property.type === 'Literal' ? callee.property.value : undefined;
-}
+import { calleeName, enclosingScope } from './call-scope.utils.js';
 
 /** The text of the `filePath` property of a guard call's options object, if it has one. */
 function guardedPath(params) {
@@ -41,18 +28,6 @@ function guardedPath(params) {
   );
 
   return property ? sourceCode.getText(property.value) : undefined;
-}
-
-/** The function a node is in, or the program. */
-function enclosingScope(params) {
-  const { node, sourceCode } = params;
-
-  return (
-    sourceCode
-      .getAncestors(node)
-      .reverse()
-      .find((ancestor) => FUNCTIONS.has(ancestor.type)) ?? sourceCode.ast
-  );
 }
 
 /** True if the call is a statement of its own directly in the scope's body, not in a branch. */
