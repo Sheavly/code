@@ -101,6 +101,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'read_file',
       'write_file',
       'edit_file',
+      'delete_file',
       'read_skill',
       'web_fetch',
       'run_command',
