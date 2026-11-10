@@ -12,7 +12,10 @@ export function conversationContextUsage(params: {
 
   return {
     throughSeq,
-    ...(tokens && { used: tokens.inputTokens + tokens.outputTokens }),
+    ...(tokens && {
+      used: tokens.inputTokens + tokens.outputTokens,
+      cached: tokens.cacheReadTokens,
+    }),
     ...(window !== undefined && { window }),
   };
 }

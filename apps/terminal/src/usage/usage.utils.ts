@@ -23,7 +23,8 @@ export function usageText(params: {
   const used = context?.used === undefined ? '?' : tokens(context.used);
   const window = context?.window;
   const capacity = window === undefined ? '' : ` / ${contextWindowLabel(window)}`;
-  const measured = `context ${used}${capacity}${percentage(context)}`;
+  const cache = context?.cached === undefined ? '' : ` · cache ${tokens(context.cached)}`;
+  const measured = `context ${used}${capacity}${percentage(context)}${cache}`;
 
   if (!usage || usage.calls === 0 || usage.incomplete || usage.missingUsageCalls > 0) {
     return measured;

@@ -32,6 +32,15 @@ describe('usageText', () => {
     );
   });
 
+  it('shows what the last call read from the prompt cache, including none', () => {
+    expect(usageText({ context: { ...context, cached: 10_000 }, usage: undefined })).toBe(
+      'context 12.8k / 1M (1%) · cache 10.0k',
+    );
+    expect(usageText({ context: { ...context, cached: 0 }, usage: undefined })).toBe(
+      'context 12.8k / 1M (1%) · cache 0',
+    );
+  });
+
   it('uses the same context metrics in the classic status line', () => {
     expect(
       statusText({
