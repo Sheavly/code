@@ -4,10 +4,9 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
-import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
-import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { testBackend } from '../../testing/backend.fake.js';
+import { seedFakeModel } from '../../testing/seed-model.fake.js';
 
 describe('sub-agent completion over the terminal prompt stream', () => {
   it('delivers both reviews and resumes the parent without a status message or WAIT_FOR_TASKS', async () => {
@@ -60,19 +59,10 @@ describe('sub-agent completion over the terminal prompt stream', () => {
 
     await mkdir(workspace);
     const backend = testBackend({ home: path.join(base, 'home'), workspace, fetch });
-    const profile = profileIdSchema.parse('00000000-0000-4000-8000-000000000001');
-    const model = modelIdSchema.parse('00000000-0000-4000-8000-000000000002');
     let running: Promise<void> | undefined;
 
     try {
-      await backend.setup.putProfile({ id: profile, name: 'Reviews' });
-      await backend.setup.putModel({
-        profile,
-        id: model,
-        model: { name: 'Fake', adapter: 'openai', definition: { model: 'test' } },
-      });
-      await backend.setup.putCredential({ profile, model, secrets: { apiKey: 'fake-test-key' } });
-      await backend.setup.setDefaultProfile(profile);
+      await seedFakeModel(backend);
       const { id } = await backend.client.call('startConversation', { body: {} });
       const entries: StreamEntry[] = [];
       let ended = false;
