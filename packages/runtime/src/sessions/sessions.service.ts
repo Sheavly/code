@@ -56,8 +56,8 @@ export class SessionRegistry {
   readonly #messageContexts: MessageContexts;
 
   /**
-   * With a `store`, the combined stream is also written to it and only its newest entries stay in
-   * memory (`EntryLog`); without one, behaves as it always has. With `resume` (read from the same
+   * Only the newest entries of the combined stream stay in memory (`EntryLog`); with a `store`
+   * they are also written to it, and a replay reads the older ones from there. With `resume` (read from the same
    * store by `readStoredLog`), it carries on a stored conversation: numbering continues, its
    * sessions are back, and `restoredMain()` is the main session, idle for the next prompt. A
    * sub-agent that was still open when the process died is `interrupted`: it is not run again.

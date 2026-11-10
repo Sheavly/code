@@ -124,10 +124,11 @@ A UI picks what it follows with the second argument:
 - `replay: true` (with any of these): first every matching entry since the run started, then
   live, so a panel opened late still starts at the beginning.
 
-By default the registry keeps every entry for this, for as long as it lives. Given a `store`
-(`new SessionRegistry({ store })`, an `EntryStore` from `@sheavly/core/store/`), it also writes
-each entry to it in order and keeps only the newest `ENTRY_TAIL_SIZE` in memory, so a long
-conversation's memory stays bounded. A replay that reaches further back than memory is read from
+The registry keeps only the newest `ENTRY_TAIL_SIZE` entries in memory, so a long conversation's
+memory stays bounded. Without a store, `replay` starts at the oldest entry still held, not at the
+run's start; entries keep their `seq`, so a replay's first `seq` says how many were dropped. Given a
+`store` (`new SessionRegistry({ store })`, an `EntryStore` from `@sheavly/core/store/`), it also
+writes each entry to it in order, and a replay that reaches further back than memory is read from
 the store and delivered a moment later, in order and before any live entry; if the store can't
 give every entry it should (a lost write), the replay stops and `subscribeEntries`' `onError`
 hears a `StoreError`, rather than show a conversation with a hole in it. If a write fails, the
@@ -154,8 +155,7 @@ before that call reads the stored, older numbers.
 A `done` in the combined stream has no `messages`, for live listeners and replay alike
 (`EntryEvent` in `@sheavly/protocol`). Each prompt's `done` would otherwise hold the whole history
 so far, and a kept log would grow with the square of a long conversation. The history comes from
-whoever ran the loop: the run's own `done`, or `conversation.messages`. Without a store the log
-still keeps every other entry, `text_delta`s included, for as long as the registry lives.
+whoever ran the loop: the run's own `done`, or `conversation.messages`.
 
 Following only the main session needs none of this: the main run's own `streamAgent` stream
 has only its events, and its sub-agents work in the background (shown by their session updates).
