@@ -81,6 +81,8 @@ export class Renderer {
       case 'output_continuation':
         // Notices are not transcript output. Other UIs can display recovery or telemetry;
         // this terminal keeps continuations seamless and uses usage events in its status line.
+        // A persistent notice (a finished task, a sub-agent's report) is ignored here on purpose:
+        // the `task_completed` event and the sub-agent's session updates already draw its line.
         break;
       case 'text_delta':
         this.#reply(plainTerminalText(event.text));

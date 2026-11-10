@@ -88,7 +88,9 @@ reported visibly, even when the stream ends without a final reply.
 Structured `harness_notice` events are intentionally omitted from the conversation transcript.
 Output-continuation notices leave streamed replies open, with no continuation line or cutoff marker.
 The status line continues to use usage data; another UI can present notices differently without
-changing the backend or interpreting model-facing text.
+changing the backend or interpreting model-facing text. A persistent notice (a finished task, or a
+sub-agent's report) is ignored too: the task line and the sub-agent's own updates already show the
+finish, and its typed data stays in history for a UI that wants a card.
 
 ## Docs
 
