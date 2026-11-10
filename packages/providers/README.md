@@ -62,3 +62,5 @@ output-limit and rate-limit failures without returning provider error bodies. Se
 
 - [Backends](docs/backends.md): creating and switching providers, describing adapters and checking a
   model, and adding a backend.
+- [Prompt caching](docs/prompt-caching.md): how each backend caches a prompt, what a request sends,
+  and what it means for the provider contract.
