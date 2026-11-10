@@ -1,5 +1,6 @@
 import { fileKind } from './rules/file-kind.js';
 import { brandedIds } from './rules/branded-ids.js';
+import { guardEnvRead } from './rules/guard-env-read.js';
 import { importsRule } from './rules/imports.js';
 import { kindContents } from './rules/kind-contents.js';
 import { layoutRule } from './rules/layout.js';
@@ -16,6 +17,7 @@ export const harnessPlugin = {
   rules: {
     'branded-ids': brandedIds,
     'file-kind': fileKind,
+    'guard-env-read': guardEnvRead,
     imports: importsRule,
     'kind-contents': kindContents,
     layout: layoutRule,
