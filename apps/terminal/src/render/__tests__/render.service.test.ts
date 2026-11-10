@@ -1,5 +1,6 @@
 import { stripVTControlCharacters } from 'node:util';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { batchOf } from '../../testing/steps.fake.js';
 import { createPalette } from '../../theme/palette.utils.js';
 import { THEMES } from '../../theme/theme.constants.js';
 import { createChatLook } from '../chat-look.utils.js';
@@ -96,6 +97,11 @@ describe('Renderer: entries', () => {
     renderer.event({ seq: 0, type: 'text_delta', text });
     renderer.event({ seq: 1, type: 'text_delta', text: '52;c;reply\u0007' });
     renderer.event({ seq: 2, type: 'tool_call_started', call, description: 'step\u001b[2J' });
+    renderer.event({
+      seq: 3,
+      type: 'tool_batch',
+      calls: [{ call, description: 'step\u001b[2J' }],
+    });
     expect(output).not.toContain('\u001b]52;');
     expect(output).not.toContain('\u001b[2J');
     expect(output).toContain('\\u001b]52;c;reply\\u0007');
@@ -174,9 +180,9 @@ describe('Renderer: chat look', () => {
   });
 
   it('sets the reply apart from the steps around it with a blank line', () => {
-    expect(chatted([reply('Let me check.'), started, result, reply('All passing.')])).toBe(
-      'Let me check.\n\n⏺ Run the tests  $ npm test\n  ⎿ ✓ 2 chars · 0.3s\n\nAll passing.',
-    );
+    expect(
+      chatted([reply('Let me check.'), started, batchOf(started), result, reply('All passing.')]),
+    ).toBe('Let me check.\n\n⏺ Run the tests  $ npm test\n  ⎿ ✓ 2 chars · 0.3s\n\nAll passing.');
   });
 
   it('leaves out the loop’s bookkeeping, and says so when a run was cut short', () => {
@@ -220,7 +226,7 @@ describe('Renderer: chat look', () => {
   });
 
   it('starts the next prompt without a gap after the last one’s text', () => {
-    expect(chatted([reply('One'), finished('completed'), started])).toBe(
+    expect(chatted([reply('One'), finished('completed'), started, batchOf(started)])).toBe(
       'One⏺ Run the tests  $ npm test\n',
     );
   });
@@ -241,6 +247,7 @@ describe('Renderer: chat look', () => {
       reply('Hi '),
       reply('there'),
       started,
+      batchOf(started),
       reply('Done'),
       finished('completed'),
     ]) {

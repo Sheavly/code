@@ -144,7 +144,7 @@ describe('parallel tool calls', () => {
     ]);
   });
 
-  it("renders a faster tool's result after a slower earlier one (call order, not completion order)", async () => {
+  it("emits a faster tool's result before a slower earlier one: completion order, matched by call id", async () => {
     const finished: string[] = [];
     const events: AgentEvent[] = [];
     const controlled = gatedTool(['slow', 'mid', 'fast'], finished);
@@ -165,7 +165,15 @@ describe('parallel tool calls', () => {
     await run;
 
     expect(finished).toEqual(['fast', 'mid', 'slow']);
-    expect(toolResults(events)).toEqual(['slow', 'mid', 'fast']);
+    expect(toolResults(events)).toEqual(['fast', 'mid', 'slow']);
+    // The batch still names the calls in the order the model made them.
+    const batch = events.find((e) => e.type === 'tool_batch');
+
+    expect(batch?.type === 'tool_batch' && batch.calls.map((c) => c.call.id)).toEqual([
+      'slow',
+      'mid',
+      'fast',
+    ]);
   });
 
   it("a failure in one parallel call doesn't break the others", async () => {
@@ -237,6 +245,56 @@ describe('parallel tool calls', () => {
       'tool_batch',
       'tool_result', // ...both render before the result, even though it finished first
     ]);
+  });
+
+  it('releases results that finished while the model streamed in the order they finished', async () => {
+    const events: AgentEvent[] = [];
+    const gates = { early: Promise.withResolvers<undefined>() };
+    const finished = {
+      early: Promise.withResolvers<undefined>(),
+      late: Promise.withResolvers<undefined>(),
+    };
+    const tool = defineTool({
+      name: 'wait',
+      description: 'Finishes when its gate opens',
+      inputSchema: z.object({ id: z.enum(['late', 'early']) }),
+      execute: async ({ input: { id } }) => {
+        if (id === 'late') await gates.early.promise; // `late` waits for `early` to be done
+        finished[id].resolve(undefined);
+
+        return `done ${id}`;
+      },
+    });
+    const callOf = (id: string): StreamEvent => ({ type: 'tool_call', call: call(id, {}) });
+    const provider: Provider = {
+      async *stream() {
+        if (events.some((e) => e.type === 'turn_end')) {
+          yield { type: 'done', stopReason: 'end_turn' };
+
+          return;
+        }
+
+        // `late` is called first, `early` second; `early` finishes first, then `late`, and both
+        // are done before the model stops streaming.
+        yield callOf('late');
+        yield callOf('early');
+        await finished.early.promise;
+        gates.early.resolve(undefined);
+        await finished.late.promise;
+        // Both outcomes are recorded as settled a few ticks after their tools return. Waiting
+        // here makes both "early" when the turn ends, so call order (`late`, `early`) is what
+        // the release would give if it did not sort them by when they finished.
+        await sleep(10);
+        yield { type: 'done', stopReason: 'tool_use' };
+      },
+    };
+
+    await runAgent({ provider, tools: [tool], messages: [], onEvent: (e) => events.push(e) });
+
+    const types = events.map((e) => e.type);
+
+    expect(toolResults(events)).toEqual(['early', 'late']);
+    expect(types.indexOf('tool_batch')).toBeLessThan(types.indexOf('tool_result'));
   });
 
   it("finishes rendering one turn before the next turn's output starts", async () => {

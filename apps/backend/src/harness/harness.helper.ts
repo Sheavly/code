@@ -16,8 +16,8 @@ import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
  * What a backend run includes, chosen here and nowhere else: the file tools, read_skill, optional web_fetch and
- * run_command, the task tools, sub-agents (with the file tools, read_skill, and the AGENTS.md and
- * skills hooks and enabled web_fetch, not run_command or the `.sheavly` hooks) and message_agent; the AGENTS.md hook,
+ * run_command, the task tools, sub-agents (with the file tools, read_skill, run_command on their own
+ * tasks, the same hooks as the main run and enabled web_fetch) and message_agent; the AGENTS.md hook,
  * the skills hook (the project's skills, and the user's when `home` is set), then the workspace's
  * `.sheavly/` hooks if it is trusted. The packages provide the pieces and the shared services,
  * never the choice. Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
@@ -72,7 +72,12 @@ export async function createBackendHarness(
         ...(summarizeWith && { summarizeWith }),
         runAgent: runSession,
         tools: [...fileTools, ...webTools],
-        hooks: [agentsMd, skills],
+        tasksTools: (childTasks) => [
+          createRunCommandTool({ workspace, permissions, tasks: childTasks, approvals, processes }),
+        ],
+        // The same hook objects as the main run, each sub-agent running its own `sessionStart`:
+        // a hook must keep no state of its own across sessions.
+        hooks: [agentsMd, skills, ...projectHooks.hooks],
       }),
       createMessageAgentTool({ sessions }),
     ],

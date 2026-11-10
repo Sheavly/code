@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { timestampSchema } from '@sheavly/protocol/time/time.validator';
 import { ApprovalPrompt } from '../approval-prompt.service.js';
 
 const ALL: ApprovalOption[] = ['approve', 'always_allow', 'skip', 'skip_with_message'];
@@ -23,7 +25,33 @@ const asking = (...ids: string[]) => {
   return prompt;
 };
 
+const agent = {
+  id: sessionIdSchema.parse('s2'),
+  parentId: sessionIdSchema.parse('main'),
+  startedByCall: callIdSchema.parse('c0'),
+  rootId: sessionIdSchema.parse('main'),
+  depth: 2,
+  title: 'Helper',
+  state: 'running' as const,
+  startedAt: timestampSchema.parse(1),
+};
+
 describe('ApprovalPrompt', () => {
+  it('learns who asked from a repeat of a request, keeps it once, and drops it with the request', () => {
+    const prompt = new ApprovalPrompt();
+
+    prompt.ask(request('a1'));
+    expect(prompt.currentAgent).toBeUndefined();
+
+    prompt.ask(request('a1'), agent);
+    expect(prompt.currentAgent).toBe(agent);
+    expect(prompt.waiting).toBe(0);
+
+    prompt.forget(approvalIdSchema.parse('a1'));
+    prompt.ask(request('a1'));
+    expect(prompt.currentAgent).toBeUndefined();
+  });
+
   it('offers temporary and permanent scopes explicitly, without selecting either on arrival', () => {
     const prompt = new ApprovalPrompt();
 
@@ -39,7 +67,7 @@ describe('ApprovalPrompt', () => {
       'always_allow',
       'skip',
     ]);
-    expect(prompt.choices[1]?.hint).toContain('for this session only; not saved');
+    expect(prompt.choices[1]?.hint).toContain('for every agent in this conversation, not saved');
     prompt.pickNumber(2);
     expect(prompt.confirm()).toEqual({
       kind: 'answer',
@@ -76,7 +104,7 @@ describe('ApprovalPrompt', () => {
 
     prompt.ask({ ...request('a1'), keeps: ['npm run test *'] });
     expect(prompt.choices.find(({ option }) => option === 'always_allow')?.hint).toBe(
-      'keeps `npm run test *` allowed in this folder',
+      'keeps `npm run test *` allowed in this folder, for every agent',
     );
 
     prompt.forget(approvalIdSchema.parse('a1'));

@@ -15,12 +15,12 @@ import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 
-/** The project: AGENTS.md, a skill, and one `.sheavly/` hook that does nothing. */
+/** The project: AGENTS.md, a skill, and one `.sheavly/` hook that adds a note at session start. */
 const FILES = {
   'AGENTS.md': 'AGENTS NOTE\n',
   '.agents/skills/review/SKILL.md': '---\nname: review\ndescription: REVIEW SKILL\n---\nSteps\n',
   '.sheavly/hooks.json': JSON.stringify({ version: 1, hooks: [{ path: 'hooks/marker.js' }] }),
-  '.sheavly/hooks/marker.js': `export default { name: 'marker', sessionStart: async () => {} };\n`,
+  '.sheavly/hooks/marker.js': `export default { name: 'marker', sessionStart: async ({ addContext }) => addContext('MARKER NOTE') };\n`,
 };
 
 let base: string;
@@ -72,9 +72,12 @@ const startHelper: Script = () => [
  * background sub-agents it starts (or the prompt can end, and `close` cancel them, before they
  * made their first call, which a busy machine makes likely). Returns every request the model got.
  */
-async function runPrompt(scripts: Record<string, Script[]>): Promise<ProviderRequest[]> {
+async function runPrompt(
+  scripts: Record<string, Script[]>,
+  trusted = false,
+): Promise<ProviderRequest[]> {
   const requests: ProviderRequest[] = [];
-  const harness = await open(false, (request) => requests.push(request), scripts);
+  const harness = await open(trusted, (request) => requests.push(request), scripts);
   const conversation = createConversation({
     harness,
     run: streamAgent,
@@ -156,6 +159,23 @@ describe('createBackendHarness: what a backend run includes', () => {
     expect(sub?.instructions?.startsWith(`${main?.instructions}\n\n# Sub-agent role\n`)).toBe(true);
     expect(sub?.instructions?.split(main?.instructions ?? '')).toHaveLength(2);
     expect(sub?.messages.some((message) => message.content === 'go')).toBe(false);
+  });
+
+  it('runs a trusted workspace’s .sheavly/ hooks for sub-agents too, and none when untrusted', async () => {
+    const scripts = { go: [startHelper, say('done')], help: [say('helped')] };
+    const subAgentSaw = async (trusted: boolean) => {
+      const requests = await runPrompt(scripts, trusted);
+      const sub = requests.find((request) => request.messages[0]?.content === 'help');
+
+      // A missing request must fail the test, not read as "no marker" and pass the untrusted case.
+      if (!sub) throw new Error('the sub-agent made no model call');
+
+      return sub.messages.map((message) => message.content).join('\n');
+    };
+
+    // Untrusted first: granting trust is remembered by the store for the runs after it.
+    expect(await subAgentSaw(false)).not.toContain('MARKER NOTE');
+    expect(await subAgentSaw(true)).toContain('MARKER NOTE');
   });
 
   it('can omit web_fetch from both the main run and its sub-agents', async () => {

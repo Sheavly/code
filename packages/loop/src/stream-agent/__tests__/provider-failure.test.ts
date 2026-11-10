@@ -114,11 +114,17 @@ describe('a model call that fails after starting tools', () => {
       'run_failed',
     ]);
     expect(events).toContainEqual(expect.objectContaining({ stopReason: 'interrupted' }));
+    // On the stream a result comes when its tool is done: c2 finished, c1 was stopped after it.
     expect(results(events)).toMatchObject([
-      { role: 'tool', toolCallId: 'c1', content: STOPPED_BY_FAILURE, isError: true },
       { toolCallId: 'c2', content: 'done c2', isError: false },
+      { role: 'tool', toolCallId: 'c1', content: STOPPED_BY_FAILURE, isError: true },
     ]);
+    // History stays in call order, which is what the model is sent next.
     expect(history.map((message) => message.role)).toEqual(['assistant', 'tool', 'tool']);
+    expect(history.slice(1)).toMatchObject([
+      { toolCallId: 'c1', content: STOPPED_BY_FAILURE },
+      { toolCallId: 'c2', content: 'done c2' },
+    ]);
   });
 
   it("doesn't wait for a tool that ignores its signal", async () => {

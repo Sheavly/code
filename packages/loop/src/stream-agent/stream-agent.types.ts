@@ -100,6 +100,11 @@ export type TurnContext = RunContext & {
 export type RunningCall = {
   described: DescribedCall;
   outcome: Promise<ToolOutcome>;
+  /**
+   * Set the moment the tool finishes: its outcome and where it finished among the turn's calls
+   * (0 first). Results that finished while the model still streamed are released in this order.
+   */
+  settled?: { order: number; outcome: ToolOutcome };
 };
 
 /** What a tool needs to start: the tools, hooks, task registry and its abort signal. */

@@ -18,7 +18,11 @@ export function keepsHint(params: {
   scope?: 'session' | 'workspace';
 }): string {
   const { keeps, scope = 'workspace' } = params;
-  const duration = scope === 'session' ? 'for this session only; not saved' : 'in this folder';
+  // A grant is shared by the main session and every sub-agent, so the hint says so.
+  const duration =
+    scope === 'session'
+      ? 'for every agent in this conversation, not saved'
+      : 'in this folder, for every agent';
 
   return `keeps ${keeps.map(grantLabel).join(', ')} allowed ${duration}`;
 }

@@ -38,6 +38,12 @@ type SubAgent = { indent: string; title: string; id: string };
 export type Look = {
   /** What goes between two sections, so a reply and the tool lines don't run together. */
   gap: (params: { from: Section | undefined; to: Section; lineOpen: boolean }) => string;
+  /**
+   * Whether a step of a batch is written with its result, in call order, instead of when it
+   * starts: the results of a batch come after all its starts, so a person would read each under
+   * the wrong title. A log read by a script keeps the start order (false).
+   */
+  pairSteps: boolean;
   toolStarted: (params: { description: string; command: string | undefined }) => string;
   parallel: (count: number) => string;
   toolResult: (params: { ok: boolean; label: string; detail: string; seconds: string }) => string;

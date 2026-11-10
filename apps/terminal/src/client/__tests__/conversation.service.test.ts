@@ -276,7 +276,7 @@ describe('RemoteConversation', () => {
       const { conversation } = await open({ streamConversation: () => entries(usage) });
       const heard: StreamEntry[] = [];
       const { ended } = await conversation.watchApprovals({
-        onUpdate: () => undefined,
+        onApproval: () => undefined,
         onUsage: (entry) => heard.push(entry),
         signal: new AbortController().signal,
       });
@@ -316,15 +316,17 @@ describe('RemoteConversation', () => {
       });
       const heard: string[] = [];
       const { ended } = await conversation.watchApprovals({
-        onUpdate: (update) => heard.push(update.type),
+        onApproval: ({ update }) => heard.push(update.type),
         signal: new AbortController().signal,
       });
 
       await ended;
 
       expect(heard).toEqual(['approval_requested', 'approval_cancelled']);
+      // Replayed, so sub-agents already running are known by name when they ask.
       expect(server.calls.find(({ name }) => name === 'streamConversation')?.call.body).toEqual({
         approvals: true,
+        replay: true,
       });
     });
 
@@ -343,7 +345,7 @@ describe('RemoteConversation', () => {
       });
 
       const { ended } = await conversation.watchApprovals({
-        onUpdate: () => undefined,
+        onApproval: () => undefined,
         signal: new AbortController().signal,
       });
 
@@ -363,7 +365,7 @@ describe('RemoteConversation', () => {
         },
       });
       const watching = await stopped.conversation.watchApprovals({
-        onUpdate: () => undefined,
+        onApproval: () => undefined,
         signal: stop.signal,
       });
 
@@ -376,7 +378,7 @@ describe('RemoteConversation', () => {
         },
       });
       const failed = await failing.conversation.watchApprovals({
-        onUpdate: () => undefined,
+        onApproval: () => undefined,
         signal: new AbortController().signal,
       });
 

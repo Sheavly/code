@@ -14,11 +14,12 @@ const { id } = await client.call('startConversation', { body: {} });
 for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' } })) render(entry);
 ```
 
-| Module    | What it holds                                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------------------------- |
-| `client/` | `createClient`: a client built from `API_ROUTES`, every call typed and parsed; `readEntries`: an SSE stream's entries |
-| `errors/` | `RefusedError` (the backend's `code`) and `AnswerError` (an answer off the contract)                                  |
-| `testing` | `fakeServer`: a `fetch` that answers the routes as a UI's test says, checked against the contract                     |
+| Module       | What it holds                                                                                                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `approvals/` | `watchApprovals` / `followApprovals`: a conversation's approvals, each with the sub-agent that asked (`HeardApproval`), learned from the stream, so a UI needn't build that itself |
+| `client/`    | `createClient`: a client built from `API_ROUTES`, every call typed and parsed; `readEntries`: an SSE stream's entries                                                              |
+| `errors/`    | `RefusedError` (the backend's `code`) and `AnswerError` (an answer off the contract)                                                                                               |
+| `testing`    | `fakeServer`: a `fetch` that answers the routes as a UI's test says, checked against the contract                                                                                  |
 
 ## Docs
 

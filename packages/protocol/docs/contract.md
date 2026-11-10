@@ -29,6 +29,15 @@ other workspace packages out.
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.
 
+## Tool results arrive as tools finish
+
+`tool_call_started` comes when the model asks for a call, so a UI can show every call of a turn
+at once. `tool_batch` then lists the turn's calls in the order the model made them, and each
+call's `tool_result` (or `task_running`) follows when that tool finishes, in any order. Match a
+result to its call by `call.id`, never by position, and fill in a call's row when its result
+comes. A UI that cannot update lines it already wrote (a terminal) can hold a call's title until
+its result. The history (`done.messages`, `GET /messages`) keeps the results in call order.
+
 ## Harness notices
 
 `HarnessNotice` (`@sheavly/protocol/notice/notice.types`) is defined by `harnessNoticeSchema` in
@@ -101,6 +110,15 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
   what the user typed, for a UI to show the skills as chips. Providers send only `content`.
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
+
+## Who asked
+
+An approval names the session that asked by id only: the stream entry's `sessionId` (also
+`ApprovalRequest.sessionId` when a loop ran the tool). A sub-agent's title, depth and parent are
+not repeated in the request; they are in its `session_started` update, the one place they are
+kept. A UI that wants to show who asked follows the stream from its start (`replay`) and looks
+the id up, or uses `watchApprovals` from `@sheavly/client`, which does that and hands back the
+sub-agent with each approval. Whether and how to show it is the UI's choice.
 
 ## Approval permissions
 

@@ -41,10 +41,14 @@ export function approvalText(params: { prompt: ApprovalPrompt; palette?: Palette
 
   if (!request) return '';
   const command = approvalLiteral(request.command);
+  const agent = prompt.currentAgent;
+  // The id stays in the data for other UIs; only the name is shown here.
+  const name = agent ? approvalLiteral(agent.title) : undefined;
+  const asker = name ? `${name} (sub-agent) wants to run` : 'Run';
 
   if (prompt.phase === 'message') {
     return [
-      bold(`Skip ${command}`),
+      bold(name ? `Skip ${command} (${name})` : `Skip ${command}`),
       'Type what it should do instead, then Enter to send it. Esc goes back.',
     ].join('\n');
   }
@@ -61,7 +65,7 @@ export function approvalText(params: { prompt: ApprovalPrompt; palette?: Palette
   const waiting = prompt.waiting > 0 ? ` · +${String(prompt.waiting)} more waiting` : '';
 
   return [
-    bold(`Run ${command}?`),
+    bold(`${asker} ${command}?`),
     ...reasons,
     ...choices,
     secondary(

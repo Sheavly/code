@@ -1,6 +1,6 @@
 import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
-import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
+import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
 import { TerminalBell } from '../bell/bell.service.js';
@@ -148,7 +148,7 @@ export async function startScreenChat(params: {
 
   const { ended } = await conversation.watchApprovals({
     onUsage: keepUsage,
-    onUpdate: (update) => hear({ update, screen, bell }),
+    onApproval: (heard) => hear({ heard, screen, bell }),
     signal: watching.signal,
   });
 
@@ -172,11 +172,12 @@ export async function startScreenChat(params: {
 }
 
 /** What an approval update means for the screen: one asked appears, one gone disappears. */
-function hear(params: { update: ApprovalUpdate; screen: ChatScreen; bell: TerminalBell }): void {
-  const { update, screen, bell } = params;
+function hear(params: { heard: HeardApproval; screen: ChatScreen; bell: TerminalBell }): void {
+  const { heard, screen, bell } = params;
+  const { update, agent } = heard;
 
   if (update.type === 'approval_requested') {
-    screen.ask(update.request);
+    screen.ask(update.request, agent);
     bell.requestApproval(update.request.id);
 
     return;

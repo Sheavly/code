@@ -3,6 +3,7 @@ import type {
   ApprovalRequest,
   ApprovalResponse,
 } from '@sheavly/protocol/approval/approval.types';
+import type { AgentSession } from '@sheavly/client/approvals/approvals.types';
 import { APPROVAL_LABELS, APPROVAL_ORDER } from './approval.constants.js';
 import { keepsHint } from './keeps.utils.js';
 import type { ApprovalChoice, ApprovalOutcome, ApprovalPhase } from './tui.types.js';
@@ -17,6 +18,8 @@ import type { ApprovalChoice, ApprovalOutcome, ApprovalPhase } from './tui.types
  */
 export class ApprovalPrompt {
   #queue: ApprovalRequest[] = [];
+  /** Who asked each waiting request, when a sub-agent did; dropped with the request. */
+  #agents = new Map<ApprovalId, AgentSession>();
   #picked: number | undefined;
   #phase: ApprovalPhase = 'choose';
 
@@ -59,10 +62,24 @@ export class ApprovalPrompt {
     return this.#picked;
   }
 
+  /** The sub-agent that asked the request shown; undefined for the main session or none shown. */
+  get currentAgent(): AgentSession | undefined {
+    const request = this.current;
+
+    return request ? this.#agents.get(request.id) : undefined;
+  }
+
   /** Adds a request that was asked. One asked twice (a replay) is kept once. */
-  ask(request: ApprovalRequest): void {
-    if (this.#queue.some(({ id }) => id === request.id)) return;
+  ask(request: ApprovalRequest, agent?: AgentSession): void {
+    if (this.#queue.some(({ id }) => id === request.id)) {
+      // A repeat may know who asked when the first delivery did not.
+      if (agent && !this.#agents.has(request.id)) this.#agents.set(request.id, agent);
+
+      return;
+    }
+
     this.#queue.push(request);
+    if (agent) this.#agents.set(request.id, agent);
     if (this.#queue.length === 1) this.#reset();
   }
 
@@ -71,6 +88,7 @@ export class ApprovalPrompt {
     const wasCurrent = this.current?.id === id;
 
     this.#queue = this.#queue.filter((request) => request.id !== id);
+    this.#agents.delete(id);
     if (wasCurrent) this.#reset();
   }
 
@@ -133,6 +151,7 @@ export class ApprovalPrompt {
     const all = this.#queue;
 
     this.#queue = [];
+    this.#agents.clear();
     this.#reset();
 
     return all;
@@ -140,6 +159,7 @@ export class ApprovalPrompt {
 
   #answer(request: ApprovalRequest, response: ApprovalResponse): ApprovalOutcome {
     this.#queue = this.#queue.filter(({ id }) => id !== request.id);
+    this.#agents.delete(request.id);
     this.#reset();
 
     return { kind: 'answer', answer: { id: request.id, response } };

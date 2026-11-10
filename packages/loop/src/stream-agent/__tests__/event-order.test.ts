@@ -63,7 +63,7 @@ describe('streamAgent', () => {
     expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i));
   });
 
-  it('lets a consumer iterate a full run, including parallel tool results in call order', async () => {
+  it('lets a consumer iterate a full run, including parallel tool results as they finish', async () => {
     const events = await collect(scriptedProvider(script));
 
     expect(
@@ -81,9 +81,9 @@ describe('streamAgent', () => {
       'usage',
       'turn_end',
       'tool_batch',
-      'tool_result:slow', // finished last, but called first
+      'tool_result:fast', // finished first, though called last
       'tool_result:mid',
-      'tool_result:fast',
+      'tool_result:slow',
       'text_delta',
       'usage',
       'turn_end',
@@ -102,7 +102,7 @@ describe('streamAgent', () => {
       call: { id: 'slow' },
     });
     expect(byType('tool_batch')[0]?.calls.map((c) => c.call.id)).toEqual(['slow', 'mid', 'fast']);
-    expect(byType('tool_result')[2]).toMatchObject({
+    expect(byType('tool_result').find((e) => e.call.id === 'fast')).toMatchObject({
       call: { id: 'fast' },
       message: { role: 'tool', toolCallId: 'fast', content: 'done fast', isError: false },
     });

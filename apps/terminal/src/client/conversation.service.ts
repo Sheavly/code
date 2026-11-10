@@ -1,11 +1,8 @@
+import { watchApprovals } from '@sheavly/client/approvals/approvals.helper';
+import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import { createClient } from '@sheavly/client/client/client.helper';
-import { readEntries } from '@sheavly/client/client/entries.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
-import type {
-  ApprovalId,
-  ApprovalResponse,
-  ApprovalUpdate,
-} from '@sheavly/protocol/approval/approval.types';
+import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
@@ -171,32 +168,23 @@ export class RemoteConversation {
    * before that is refused on the spot, so send the first prompt only after this resolves. `ended`
    * resolves when `signal` aborts or the stream ends, and rejects on any other failure.
    */
-  async watchApprovals(params: {
-    onUpdate: (update: ApprovalUpdate) => void;
+  watchApprovals(params: {
+    onApproval: (heard: HeardApproval) => void;
     /** Usage from every session also arrives between prompts, while background agents finish. */
     onUsage?: (entry: StreamEntry) => void;
     signal: AbortSignal;
   }): Promise<{ ended: Promise<void> }> {
-    const { onUpdate, signal } = params;
-    const body = await this.#client.open('streamConversation', {
+    const { onApproval, onUsage, signal } = params;
+
+    return watchApprovals({
+      client: this.#client,
       id: this.id,
-      body: { approvals: true },
+      onApproval,
+      onEntry: (entry) => {
+        if (entry.kind === 'event' && entry.event.type === 'usage') onUsage?.(entry);
+      },
       signal,
     });
-
-    const follow = async (): Promise<void> => {
-      try {
-        for await (const { entry } of readEntries(body)) {
-          if (entry.kind === 'event' && entry.event.type === 'usage') params.onUsage?.(entry);
-          if (entry.kind === 'approval') onUpdate(entry.update);
-        }
-      } catch (caughtError) {
-        // Stopping the watch is how it ends; anything else is a real failure.
-        if (!signal.aborted) throw caughtError;
-      }
-    };
-
-    return { ended: follow() };
   }
 
   /** Answers a waiting approval. `unknown_approval` when it is gone: someone answered first. */

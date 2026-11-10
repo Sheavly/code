@@ -1,12 +1,12 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { RunningTool, Write } from '../render/render.types.js';
-import { LONG_TOOL_MS } from './bell.constants.js';
+import { APPROVAL_SETTLE_MS, LONG_TOOL_MS } from './bell.constants.js';
 
 /** Sends BEL directly to the terminal, never through rendered text or saved scrollback. */
 export class TerminalBell {
   readonly #enabled: boolean;
   readonly #write: Write;
-  readonly #approvals = new Set<string>();
+  readonly #approvals = new Map<string, ReturnType<typeof setTimeout> | undefined>();
   readonly #tools = new Map<string, ReturnType<typeof setTimeout> | undefined>();
   #active = false;
   #stopped = false;
@@ -37,13 +37,26 @@ export class TerminalBell {
     this.finishTurn();
   }
 
+  /**
+   * Rings once for a request that is still waiting after `APPROVAL_SETTLE_MS`. A replayed
+   * conversation re-sends requests that were answered long ago, each followed at once by its
+   * answer (`forgetApproval`), and those must stay silent.
+   */
   requestApproval(id: string): void {
     if (this.#stopped || !this.#enabled || this.#approvals.has(id)) return;
-    this.#approvals.add(id);
-    this.#ring();
+
+    const timer = setTimeout(() => {
+      // Keep the id after firing, so a repeated update of the same request cannot ring twice.
+      this.#approvals.set(id, undefined);
+      this.#ring();
+    }, APPROVAL_SETTLE_MS);
+
+    timer.unref();
+    this.#approvals.set(id, timer);
   }
 
   forgetApproval(id: string): void {
+    clearTimeout(this.#approvals.get(id));
     this.#approvals.delete(id);
   }
 
@@ -68,6 +81,8 @@ export class TerminalBell {
   stop(): void {
     this.#stopped = true;
     this.finishTurn();
+
+    for (const timer of this.#approvals.values()) clearTimeout(timer);
     this.#approvals.clear();
   }
 

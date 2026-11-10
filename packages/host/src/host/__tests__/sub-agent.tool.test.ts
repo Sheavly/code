@@ -16,6 +16,7 @@ import {
   toolCall,
 } from '@sheavly/testing/provider/routed-provider.fake';
 import { startDeepestSession } from '@sheavly/runtime/testing/sessions.fake';
+import { until } from '@sheavly/testing/wait/until.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -290,6 +291,131 @@ describe('start_agent', () => {
 
     expect(tasks.get(task.id)?.status).toBe('cancelled');
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
+  });
+
+  it('gives every sub-agent the tools built on its own task registry, even at the depth cap', async () => {
+    const sessions = new SessionRegistry();
+    const tasks = new TaskRegistry();
+    const built: TaskRegistry[] = [];
+    const seenTools: string[][] = [];
+    const root = sessions.startMain({ title: 'Main' });
+    const main = sessions.startChild({ parentId: root.id, startedByCall: callId, title: 'L2' });
+    const provider: Provider = {
+      async *stream(request) {
+        seenTools.push(request.tools.map((t) => t.name).sort());
+        yield { type: 'text_delta', text: 'ok' };
+        yield { type: 'done', stopReason: 'end_turn' };
+      },
+    };
+    const tool = createSubAgentTool({
+      sessions,
+      tasks,
+      provider,
+      runAgent: runSession,
+      tools: [],
+      tasksTools: (childTasks) => {
+        built.push(childTasks);
+
+        return [
+          defineTool({
+            name: 'shell',
+            description: 's',
+            inputSchema: z.object({}),
+            execute: async () => '',
+          }),
+        ];
+      },
+    });
+
+    await tool.execute({
+      input: { title: 'Deep', task: 'run git' },
+      signal: new AbortController().signal,
+      context: { callId, description: 'd', session: main },
+    });
+    await tasks.nextSettled();
+
+    expect(built).toHaveLength(1);
+    expect(built[0]).not.toBe(tasks);
+    expect(seenTools[0]).toEqual(['cancel_task', 'report_status', 'shell', 'task_status']);
+  });
+
+  it('cancels a command the sub-agent started through tasksTools when the sub-agent is cancelled', async () => {
+    const sessions = new SessionRegistry();
+    const tasks = new TaskRegistry();
+    const main = sessions.startMain({ title: 'Main' });
+    let childTasks: TaskRegistry | undefined;
+    let turn = 0;
+    const provider: Provider = {
+      async *stream(request) {
+        if (turn++ === 0) {
+          yield {
+            type: 'tool_call',
+            call: {
+              id: callIdSchema.parse('b1'),
+              name: 'bg',
+              input: { description: 'start it' },
+            },
+          };
+          yield { type: 'done', stopReason: 'tool_use' };
+
+          return;
+        }
+
+        // The sub-agent waits for its next turn until it is cancelled.
+        await new Promise((resolve) =>
+          request.signal.addEventListener('abort', resolve, { once: true }),
+        );
+        yield* [];
+      },
+    };
+    const tool = createSubAgentTool({
+      sessions,
+      tasks,
+      provider,
+      runAgent: runSession,
+      tools: [],
+      tasksTools: (registry) => {
+        childTasks = registry;
+
+        return [
+          defineTool({
+            name: 'bg',
+            description: 'Starts a background command that runs until cancelled',
+            inputSchema: z.object({}),
+            execute: async () => {
+              registry.start({
+                command: 'sleep',
+                description: 'sleeps',
+                run: ({ signal }) =>
+                  new Promise((resolve) =>
+                    signal.addEventListener('abort', () => resolve({ exitCode: 1 }), {
+                      once: true,
+                    }),
+                  ),
+              });
+
+              return 'started';
+            },
+          }),
+        ];
+      },
+    });
+
+    await tool.execute({
+      input: { title: 'Runner', task: 'start it' },
+      signal: new AbortController().signal,
+      context: { callId, description: 'd', session: main },
+    });
+    await until(() => childTasks?.list().length === 1);
+
+    const [parentTask] = tasks.list();
+
+    if (!parentTask) throw new Error('start_agent started no task');
+    await tasks.cancel(parentTask.id);
+
+    // Its command belonged to the sub-agent, not to the parent: it ends with the sub-agent.
+    expect(childTasks?.list().map((task) => task.status)).toEqual(['cancelled']);
+    expect(tasks.list()).toHaveLength(1);
   });
 
   it('fails the task with the reason when the sub-agent did not finish, with no report', async () => {
