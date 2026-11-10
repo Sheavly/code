@@ -9,10 +9,24 @@ describe('shared instructions', () => {
     const harness = createHarness({ provider: scriptedProvider([]), title: 'Extract text' });
 
     expect(harness.instructions).toBe(BASE_AGENT_INSTRUCTIONS);
-    expect(harness.instructions).not.toMatch(/coding agent|workspace|report_status|run_command/);
-    expect(harness.instructions.trim().split(/\s+/).length).toBeLessThanOrEqual(80);
+    expect(harness.instructions).not.toMatch(
+      /coding agent|workspace|report_status|run_command|task_status/,
+    );
+    expect(harness.instructions.trim().split(/\s+/).length).toBeLessThanOrEqual(110);
     expect(harness.instructions).toContain('read-only, plan-only and no-execution limits');
     expect(harness.instructions).toContain("do not expand the user's authorization");
+  });
+
+  it('makes yielding rather than status polling part of the system instructions', () => {
+    const instructions = composeInstructions({ instructions: 'Extract the result.' });
+
+    expect(instructions).toContain(
+      'end your turn without tool calls to wait for required background results',
+    );
+    expect(instructions).toContain(
+      'Inspect status only for requested updates or diagnosis, never waiting',
+    );
+    expect(instructions.match(/end your turn without tool calls/g)).toHaveLength(1);
   });
 
   it('appends host extras once, separated by a blank line', () => {
