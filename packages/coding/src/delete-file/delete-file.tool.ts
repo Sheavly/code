@@ -26,9 +26,9 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
   return defineTool({
     name: 'delete_file',
     description:
-      'Delete one file. Paths are relative to the workspace root. It refuses a folder, a ' +
-      'symlink, .env files and paths outside the workspace; to remove a folder, use ' +
-      'run_command.',
+      'Delete one file. Paths are relative to the workspace root. It refuses a folder, a symlink, ' +
+      `.env files, paths outside the workspace and files over ${MAX_DELETE_BYTES} bytes; to remove ` +
+      'a folder or a large file, use run_command.',
     inputSchema: z.object({
       path: z.string().min(1).describe('File path, relative to the workspace root'),
     }),
