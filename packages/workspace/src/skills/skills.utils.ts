@@ -1,9 +1,7 @@
 import type { PromptPart } from '@sheavly/protocol/message/message.types';
+import { BLOCK_SCALAR } from './skills.constants.js';
 import type { Skill, SkillCompletion, SkillMention } from './skills.types.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
-
-/** A block scalar's indicator: `>` folds its lines into one, `|` keeps them; `-` / `+` chomping. */
-const BLOCK_SCALAR = /^[>|][+-]?$/;
 
 /** The `---` header's lines and what follows it, or undefined when the text has no header. */
 function splitFrontmatter(text: string): { header: string[]; body: string } | string | undefined {
