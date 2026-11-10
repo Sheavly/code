@@ -9,6 +9,7 @@ const OPTION_VALUES: Record<string, ReadonlySet<string>> = {
     '--namespace',
     '--config-env',
     '--attr-source',
+    '--shallow-file',
   ]),
   npm: new Set([
     '-w',
