@@ -93,8 +93,16 @@ describe('start_agent', () => {
       status: 'reading files, reading core package',
     });
     expect(helper?.id).not.toBe(main.id);
-    // The parent was told the sub-agent's final reply, through the task notification.
-    expect(messages.some((m) => m.role === 'user' && m.content.includes('Helped.'))).toBe(true);
+    // The parent was handed the sub-agent's report as typed data: who it is, how it ended, and
+    // what it wrote, whole.
+    const notice = messages.find((m) => m.role === 'notice');
+
+    expect(notice?.role === 'notice' && notice.notice).toMatchObject({
+      kind: 'agent-report',
+      agent: { id: helper?.id, title: 'Helper', parentId: main.id, depth: 2 },
+      outcome: 'completed',
+      report: 'Helped.',
+    });
     expect(sessions.get(main.id)?.state).toBe('completed');
   });
 
