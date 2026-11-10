@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { INTERRUPTED_CALL } from '../conversations.constants.js';
@@ -86,6 +87,33 @@ describe('repairHistory', () => {
       'assistant',
       'tool:c2',
       'user',
+    ]);
+  });
+
+  it('keeps a stored notice after a turn’s results, and does not orphan a result', () => {
+    const notice = historyMessageSchema.parse({
+      role: 'notice',
+      notice: {
+        kind: 'task-finished',
+        task: {
+          id: 't1',
+          command: 'ls',
+          description: 'list',
+          status: 'completed',
+          output: '',
+          startedAt: 1,
+        },
+      },
+      at: 4,
+    });
+    const history = [user('go'), asking(c1, c2), result(c1), result(c2), notice, user('next')];
+
+    expect(repairHistory({ messages: history, at: AT })).toEqual(history);
+    expect(shape(repairHistory({ messages: [user('go'), asking(c1), notice], at: AT }))).toEqual([
+      'user',
+      'assistant',
+      'tool:c1',
+      'notice',
     ]);
   });
 

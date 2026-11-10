@@ -20,9 +20,10 @@ describe('Conversations', () => {
     await collect((await conversations.send({ id: b, prompt: { text: 'hi b' } })).events);
 
     expect(a).not.toBe(b);
-    expect(
-      conversations.messages(a).flatMap((m) => (m.role === 'summary' ? [] : [m.content])),
-    ).toEqual(['hi a', 'one']);
+    expect(conversations.messages(a).flatMap((m) => ('content' in m ? [m.content] : []))).toEqual([
+      'hi a',
+      'one',
+    ]);
     expect(sent.at(-1)?.map((m) => m.content)).toEqual(['earlier', 'hi b']);
   });
 
