@@ -311,6 +311,8 @@ The harness fails loudly, and ESLint enforces it in every workspace and on `.cur
 
 - `harness/no-silent-catch`: a `catch` either rethrows or checks what it caught (an error code, a
   class) and handles only what it expects, so no failure turns silently into a default.
+- `harness/permission-store-root` (backend): every call on the permission store is keyed by
+  `permissionRoot`, so a repo's worktrees share one mode and allow list.
 - `harness/no-raw-error`: source never creates a plain `Error`. Every error is a typed class,
   with a `name` and the fields to act on, keeping the original as `cause`, so a caller catches it
   by class instead of by message. Tests, fakes and root `scripts/` are exempt.
