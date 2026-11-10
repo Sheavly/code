@@ -19,21 +19,30 @@ export async function resolveCommandCwd(params: {
   if (requested === undefined) return workspace.root;
 
   try {
-    assertNotEnvFile({ filePath: requested, requested, action: 'Running a command in' });
-    const real = await workspace.resolveRead(requested);
-
-    assertNotEnvFile({ filePath: real, requested, action: 'Running a command in' });
-
-    // Git config and hooks there can run programs, so a command doesn't start in .git.
-    assertNotGitDir({
-      relativePath: workspace.relative(real),
-      requested,
-      action: 'Running a command',
-    });
-    if ((await stat(real)).isDirectory()) return real;
+    return await resolveRequestedCommandCwd({ workspace, requested });
   } catch (caughtError) {
     throw cwdError({ requested, caughtError });
   }
+}
+
+async function resolveRequestedCommandCwd(params: {
+  workspace: Workspace;
+  requested: string;
+}): Promise<string> {
+  const { workspace, requested } = params;
+
+  assertNotEnvFile({ filePath: requested, requested, action: 'Running a command in' });
+  const real = await workspace.resolveRead(requested);
+
+  assertNotEnvFile({ filePath: real, requested, action: 'Running a command in' });
+
+  // Git config and hooks there can run programs, so a command doesn't start in .git.
+  assertNotGitDir({
+    relativePath: workspace.relative(real),
+    requested,
+    action: 'Running a command',
+  });
+  if ((await stat(real)).isDirectory()) return real;
 
   throw new ToolCallError({
     reason: 'invalid_input',
