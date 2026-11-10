@@ -3,15 +3,6 @@ import type { GREP_MODES } from './grep.constants.js';
 /** What a `grep` call returns: matching lines, the files that match, or a count per file. */
 export type GrepMode = (typeof GREP_MODES)[number];
 
-/** What one ripgrep run produced. `cut` means it was stopped for printing too much. */
-export type RipgrepRun = {
-  stdout: string;
-  stderr: string;
-  exitCode: number | null;
-  cut: boolean;
-  timedOut: boolean;
-};
-
 /** One matching line. */
 export type GrepMatch = {
   /** Relative to the workspace root. */

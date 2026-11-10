@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { MAX_GREP_RAW_CHARS } from '../grep.constants.js';
-import { assertRanToTheEnd, runRipgrep } from '../grep.helper.js';
-import type { RipgrepRun } from '../grep.types.js';
+import { MAX_GREP_RAW_CHARS } from '../ripgrep.constants.js';
+import { assertRanToTheEnd, runRipgrep } from '../ripgrep.helper.js';
+import type { RipgrepRun } from '../ripgrep.types.js';
 
 describe('runRipgrep output cap', () => {
   // A real process that prints three times the cap stands in for ripgrep: the helper only

@@ -2,8 +2,8 @@ import { StringDecoder } from 'node:string_decoder';
 import { Writable } from 'node:stream';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
-import { GREP_TIMEOUT_MS, MAX_GREP_RAW_CHARS } from './grep.constants.js';
-import type { RipgrepRun } from './grep.types.js';
+import { GREP_TIMEOUT_MS, MAX_GREP_RAW_CHARS } from './ripgrep.constants.js';
+import type { RipgrepRun } from './ripgrep.types.js';
 
 /**
  * Runs ripgrep with its standard output going to a collector of its own, not the runner's

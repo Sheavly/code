@@ -65,7 +65,7 @@ async function ruleOn(file) {
 // The rule only protects what it is enabled for: every source file of the coding package that
 // could read a path (a tool, or the helper a tool moves the read into), never a test.
 describe('guard-env-read is enabled', () => {
-  it.each(['src/grep/grep.tool.ts', 'src/grep/grep.helper.ts', 'src/files/files.utils.ts'])(
+  it.each(['src/grep/grep.tool.ts', 'src/ripgrep/ripgrep.helper.ts', 'src/files/files.utils.ts'])(
     'for %s',
     async (file) => {
       expect(await ruleOn(file)).toBe(true);
