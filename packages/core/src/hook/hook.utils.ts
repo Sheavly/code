@@ -2,9 +2,14 @@ import type { Hook, HookHandlerName } from './hook.types.js';
 import { DefinitionError } from '../errors/definition.errors.js';
 import { HANDLERS } from './hook.constants.js';
 
+/** Every handler name a hook can define, in the order of `HANDLERS`. */
+export function handlerNames(): HookHandlerName[] {
+  return Object.keys(HANDLERS) as HookHandlerName[];
+}
+
 /** True if the hook defines at least one handler. */
 export function hasHandler(hook: Hook): boolean {
-  return Object.keys(HANDLERS).some((name) => hook[name as HookHandlerName] !== undefined);
+  return handlerNames().some((name) => hook[name] !== undefined);
 }
 
 /** Identity helper for writing a hook; rejects one that handles nothing. */

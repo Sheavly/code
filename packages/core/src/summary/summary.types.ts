@@ -4,6 +4,9 @@ import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 /** What a summarizer writes: the sections of a checkpoint. The loop adds the rest of the message. */
 export type SummaryBody = Pick<SummaryMessage, 'sections'>;
 
+/** One part of a checkpoint: its id, a title and its text. */
+export type SummarySection = SummaryBody['sections'][number];
+
 /**
  * What `summarize` returns: the sections, and the usage of the model call that wrote them when
  * there was one (a rules-only summarizer has none). The loop reports it as a `usage` event tagged
