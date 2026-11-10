@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -36,10 +36,16 @@ afterAll(async () => {
 const call = (name: 'read_file' | 'write_file' | 'edit_file', input: Record<string, unknown>) => {
   const shared = { workspace, fileLocks: fileLocks.current, fileReads: fileReads.current };
 
+  const tools = [
+    createWriteFileTool(shared),
+    createEditFileTool(shared),
+    createReadFileTool(shared),
+  ];
+
   return runTool({
-    tools: [createReadFileTool(shared), createWriteFileTool(shared), createEditFileTool(shared)],
-    call: { id: callIdSchema.parse('1'), name, input: { description: name, ...input } },
     signal,
+    call: { id: callIdSchema.parse('scratch'), name, input: { description: name, ...input } },
+    tools,
   });
 };
 
