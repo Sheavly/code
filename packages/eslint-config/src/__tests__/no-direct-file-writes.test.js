@@ -47,6 +47,9 @@ ruleTester.run('no-direct-file-writes', harnessPlugin.rules['no-direct-file-writ
     // Writing through storage is the way.
     "import { writeJsonFile } from '@sheavly/storage/json-file/json-file.helper';",
     "import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';",
+    // A coding tool changes the project's files through its shared helper, which owns the `node:fs`
+    // writes.
+    "import { createParentFolder, removeFile } from '../files/files.helper.js';",
     // A module that merely has a similar name, or another package's `rm`.
     "import { rm } from './rm.helper.js';",
     "import { writeFile } from 'some-other-package';",
