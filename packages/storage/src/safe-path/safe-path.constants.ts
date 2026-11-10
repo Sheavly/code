@@ -4,3 +4,6 @@
  */
 export const RM_RETRIES = 5;
 export const RM_RETRY_DELAY_MS = 50;
+
+/** The suffix of a file a store names: a dot and a few lowercase letters (`.json`, `.jsonl`). */
+export const PLAIN_EXTENSION = /^\.[a-z]{1,8}$/;

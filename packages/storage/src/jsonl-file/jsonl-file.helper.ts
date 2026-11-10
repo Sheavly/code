@@ -6,8 +6,7 @@ import { validate } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { PRIVATE_FILE_MODE, PRIVATE_FOLDER_MODE } from '../json-file/json-file.constants.js';
-
-const NEWLINE = 0x0a;
+import { NEWLINE } from './jsonl-file.constants.js';
 
 /**
  * Adds `value` to the end of `file` as one JSON line, creating the file and its folders, private to

@@ -1,9 +1,7 @@
 import path from 'node:path';
 import type { z } from 'zod';
 import { lowercaseUuidSchema } from '@sheavly/protocol/id/id.validator';
-
-/** The suffix of a file a store names: a dot and a few lowercase letters (`.json`, `.jsonl`). */
-const PLAIN_EXTENSION = /^\.[a-z]{1,8}$/;
+import { PLAIN_EXTENSION } from './safe-path.constants.js';
 
 /** Whether `candidate` is the top of a file system (`/`, `C:\`), where `dirname` goes no higher. */
 export function isFilesystemRoot(candidate: string): boolean {
