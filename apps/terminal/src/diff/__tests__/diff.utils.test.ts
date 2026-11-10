@@ -17,6 +17,14 @@ describe('buildDiff', () => {
     expect(buildDiff({ before: 'a\n', after: 'a\n', maxRows: 10 })).toEqual([]);
   });
 
+  it('shows a deleted file as removed lines, numbered from 1', () => {
+    expect(buildDiff({ before: 'a\nb\n', after: null, maxRows: 10 })).toEqual([
+      { kind: 'removed', no: 1, text: 'a' },
+      { kind: 'removed', no: 2, text: 'b' },
+    ]);
+    expect(buildDiff({ before: '', after: null, maxRows: 10 })).toEqual([]);
+  });
+
   it('shows an edit with context, a removed line by its old number and an added one by its new', () => {
     const before = 'one\ntwo\nthree\nfour\nfive\n';
     const after = 'one\ntwo\nTHREE\nfour\nfive\n';
@@ -103,6 +111,10 @@ describe('countChanges', () => {
 
   it('counts every line of a created file as added', () => {
     expect(countChanges({ before: null, after: lines(3) })).toEqual({ added: 3, removed: 0 });
+  });
+
+  it('counts every line of a deleted file as removed', () => {
+    expect(countChanges({ before: lines(4), after: null })).toEqual({ added: 0, removed: 4 });
   });
 
   it('counts nothing for a change that changed nothing', () => {

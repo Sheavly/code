@@ -15,8 +15,9 @@ export function collapsedChange(params: { edit: FileEdit; palette?: Palette }): 
   const { edit, palette = defaultPalette } = params;
   const { secondary } = palette.paint.text;
   const created = edit.before === null ? secondary(' · new file') : '';
+  const deleted = edit.after === null ? secondary(' · deleted') : '';
 
-  return `    ${secondary('▸')} ${counts({ ...edit, palette })}${created} ${secondary(`· /changes ${edit.number}`)}\n`;
+  return `    ${secondary('▸')} ${counts({ ...edit, palette })}${created}${deleted} ${secondary(`· /changes ${edit.number}`)}\n`;
 }
 
 /**
@@ -92,10 +93,11 @@ function fileList(params: {
   const rows = totals.map(({ file, ...changed }) => {
     const numbers = file.edits.map(({ number }) => `#${number}`).join(' ');
     const created = file.before === null ? secondary('  new') : '';
+    const deleted = file.after === null ? secondary('  deleted') : '';
 
     const path = `${linkFile(file.path)}${' '.repeat(width - file.path.length)}`;
 
-    return `  ${path}  ${counts({ ...changed, palette })}  ${secondary(numbers)}${created}`;
+    return `  ${path}  ${counts({ ...changed, palette })}  ${secondary(numbers)}${created}${deleted}`;
   });
 
   return [
@@ -166,7 +168,7 @@ function fileDiff(params: {
 
 function diffBody(params: {
   before: string | null;
-  after: string;
+  after: string | null;
   columns: number;
   palette: Palette;
 }): string {

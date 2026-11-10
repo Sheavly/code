@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ChangeLog } from '../change-log.service.js';
 
-const change = (path: string, before: string | null, after: string) =>
+const change = (path: string, before: string | null, after: string | null) =>
   ({ kind: 'file_change', path, before, after }) as const;
 
 describe('ChangeLog', () => {
@@ -32,5 +32,19 @@ describe('ChangeLog', () => {
     const log = new ChangeLog();
 
     expect(log.keep(change('empty.txt', null, ''))).toMatchObject({ number: 1, added: 0 });
+  });
+
+  it('keeps a deleted file, with its lines removed, even when it was empty', () => {
+    const log = new ChangeLog();
+
+    expect(log.keep(change('gone.ts', 'a\nb\n', null))).toEqual({
+      number: 1,
+      path: 'gone.ts',
+      before: 'a\nb\n',
+      after: null,
+      added: 0,
+      removed: 2,
+    });
+    expect(log.keep(change('empty.txt', '', null))).toMatchObject({ number: 2, removed: 0 });
   });
 });

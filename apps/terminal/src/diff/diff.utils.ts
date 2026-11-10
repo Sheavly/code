@@ -7,7 +7,7 @@ import type { DiffRow } from './diff.types.js';
  * How many lines a change added and removed. A rewrite too big to compare counts as every line
  * of the old file removed and every line of the new one added.
  */
-export function countChanges(params: { before: string | null; after: string }): {
+export function countChanges(params: { before: string | null; after: string | null }): {
   added: number;
   removed: number;
 } {
@@ -15,7 +15,7 @@ export function countChanges(params: { before: string | null; after: string }): 
   const rows = buildDiff({ before, after, maxRows: Infinity });
 
   if (rows.some((row) => row.kind === 'hidden')) {
-    return { added: linesOf(after).length, removed: linesOf(before ?? '').length };
+    return { added: linesOf(after ?? '').length, removed: linesOf(before ?? '').length };
   }
 
   return {
@@ -27,18 +27,26 @@ export function countChanges(params: { before: string | null; after: string }): 
 /**
  * The rows of a file change: each change with a little context, the stretches between folded
  * into one `unchanged` row, and at most `maxRows` rows before a `hidden` row counting the changed
- * lines left out. A file the change created (`before` is `null`) is all added lines. Empty when
- * nothing changed.
+ * lines left out. A file the change created (`before` is `null`) is all added lines, and one it
+ * deleted (`after` is `null`) all removed ones. Empty when nothing changed.
  */
 export function buildDiff(params: {
   before: string | null;
-  after: string;
+  after: string | null;
   maxRows: number;
 }): DiffRow[] {
   const { before, after, maxRows } = params;
-  const rows = before === null ? createdRows(after) : changedRows({ before, after });
 
-  return capRows({ rows, maxRows });
+  return capRows({ rows: rowsOf({ before, after }), maxRows });
+}
+
+function rowsOf(params: { before: string | null; after: string | null }): DiffRow[] {
+  const { before, after } = params;
+
+  if (before === null) return createdRows(after ?? '');
+  if (after === null) return removedRows(before);
+
+  return changedRows({ before, after });
 }
 
 function linesOf(text: string): string[] {
@@ -49,6 +57,10 @@ function linesOf(text: string): string[] {
 
 function createdRows(after: string): DiffRow[] {
   return linesOf(after).map((text, index) => ({ kind: 'added', no: index + 1, text }));
+}
+
+function removedRows(before: string): DiffRow[] {
+  return linesOf(before).map((text, index) => ({ kind: 'removed', no: index + 1, text }));
 }
 
 function changedRows(params: { before: string; after: string }): DiffRow[] {
