@@ -8,6 +8,11 @@ import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
 export type CodingHarnessOptions = HarnessOptions & {
   /** The workspace root the agent is confined to (default: the current directory). */
   workspaceRoot?: string | undefined;
+  /**
+   * A shared scratch folder outside the repo that the file tools may also use. The app picks the
+   * location (packages do not read env); it is created on open. Default: none.
+   */
+  scratchRoot?: string | undefined;
   /** The environment commands start from, secrets scrubbed (an app passes `process.env`). */
   env: Environment;
   /**

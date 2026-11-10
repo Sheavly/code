@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
@@ -15,11 +16,14 @@ export async function resolveWritable(params: {
   const { workspace, requested } = params;
 
   assertNotEnvFile({ filePath: requested, requested, action: 'Writing' });
-  assertNotGitDir({ relativePath: requested, requested });
+  // A `.git` in the temp directory's own path is not the workspace's, so only paths relative to
+  // the root are checked by name. An absolute path into the workspace is caught after resolving.
+  if (!path.isAbsolute(requested)) assertNotGitDir({ relativePath: requested, requested });
   const real = await workspace.resolveWrite(requested);
+  const shown = workspace.relative(real);
 
   assertNotEnvFile({ filePath: real, requested, action: 'Writing' });
-  assertNotGitDir({ relativePath: workspace.relative(real), requested });
+  if (!path.isAbsolute(shown)) assertNotGitDir({ relativePath: shown, requested });
 
   return real;
 }
