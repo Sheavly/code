@@ -79,12 +79,12 @@ describe('responsesEventSchema', () => {
     },
   );
 
-  it('rejects a reasoning item without encrypted content (it could not be resent)', () => {
+  it('parses a reasoning item without encrypted content, so it can still signal activity', () => {
     expect(
       responsesEventSchema.safeParse({
         type: 'response.output_item.done',
         item: { type: 'reasoning', id: 'rs_1' },
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });

@@ -14,4 +14,10 @@ export type StreamEvent =
   | { type: 'text_delta'; text: string }
   | { type: 'tool_call'; call: ToolCall }
   | { type: 'reasoning'; item: ReasoningItem }
+  /**
+   * The model started (`active: true`) or stopped reasoning, as the provider can observe it.
+   * Carries no reasoning content and is never kept in history; `reasoning` holds replay state.
+   * Providers emit it live, may repeat a value, and send nothing when they can't observe it.
+   */
+  | { type: 'reasoning_activity'; active: boolean }
   | { type: 'done'; stopReason: StopReason; usage?: ModelUsage };

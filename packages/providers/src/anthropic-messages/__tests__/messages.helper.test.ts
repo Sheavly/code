@@ -345,7 +345,13 @@ describe('createMessagesProvider', () => {
       provider({ fetch: replies([...thinking, STOP]).fetch }).stream(request()),
     );
 
-    expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
+    // Nothing is kept for replay, but observed thinking blocks still drive the live activity.
+    expect(events.map((event) => event.type)).toEqual([
+      'reasoning_activity',
+      'reasoning_activity',
+      'done',
+    ]);
+    expect(events.some((event) => event.type === 'reasoning')).toBe(false);
   });
 
   it('can explicitly disable thinking', async () => {
@@ -353,6 +359,8 @@ describe('createMessagesProvider', () => {
     const events = await collect(provider({ fetch, thinkingMode: 'disabled' }).stream(request()));
 
     expect(requests[0]?.body.thinking).toEqual({ type: 'disabled' });
-    expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
+    expect(events.filter((event) => event.type !== 'reasoning_activity')).toEqual([
+      { type: 'done', stopReason: 'end_turn' },
+    ]);
   });
 });

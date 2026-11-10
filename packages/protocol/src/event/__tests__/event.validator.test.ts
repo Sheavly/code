@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentEventSchema } from '../event.validator.js';
+import { agentEventBodySchema, agentEventSchema } from '../event.validator.js';
 
 const CALL = {
   call: { id: 'call-1', name: 'read_file', input: { path: 'a.ts' } },
@@ -13,6 +13,7 @@ describe('agentEventSchema', () => {
       { type: 'text_delta', text: 'hi' },
       { type: 'harness_notice', notice: { kind: 'context-usage', context: { used: 100 } } },
       { type: 'reasoning', item: { source: 'openai:gpt', data: { encrypted: 'x' } } },
+      { type: 'reasoning_activity', active: true },
       { type: 'tool_call_started', ...CALL },
       { type: 'turn_end', turn: 1, stopReason: 'interrupted' },
       { type: 'tool_batch', calls: [CALL] },
@@ -50,6 +51,17 @@ describe('agentEventSchema', () => {
     bodies.forEach((body, seq) => {
       expect(agentEventSchema.parse({ seq, ...body })).toEqual({ seq, ...body });
     });
+  });
+
+  it('keeps reasoning_activity content-free: any extra field is rejected', () => {
+    // The body schema, not `agentEventSchema`: its intersection with `seq` lets extra keys through.
+    const activity = { type: 'reasoning_activity', active: true };
+
+    expect(agentEventBodySchema.safeParse(activity).success).toBe(true);
+
+    for (const extra of [{ text: 'secret' }, { encrypted_content: 'x' }, { item: {} }]) {
+      expect(agentEventBodySchema.safeParse({ ...activity, ...extra }).success).toBe(false);
+    }
   });
 
   it('rejects a summary event with an unknown reason or a negative count', () => {

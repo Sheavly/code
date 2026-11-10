@@ -133,7 +133,11 @@ describe('unfinished Messages replies', () => {
       ]),
     );
 
-    expect(events).toEqual([{ type: 'done', stopReason: 'max_tokens' }]);
+    expect(events).toEqual([
+      { type: 'reasoning_activity', active: true },
+      { type: 'reasoning_activity', active: false },
+      { type: 'done', stopReason: 'max_tokens' },
+    ]);
   });
 
   it.each(['end_turn', 'tool_use', 'model_context_window_exceeded', undefined])(

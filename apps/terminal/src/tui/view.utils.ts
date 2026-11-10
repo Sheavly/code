@@ -112,13 +112,24 @@ export function runningToolsText(params: {
   return `⏺ ${what} ${String(elapsed)}s`;
 }
 
+/** The state's words; `thinking...` only while working, so waiting for approval keeps its own. */
+export function statusLabel(params: {
+  state: StatusInfo['state'];
+  thinking: boolean | undefined;
+}): string {
+  if (params.state === 'waiting') return 'waiting for you';
+  if (params.state === 'working' && params.thinking) return 'thinking...';
+
+  return params.state;
+}
+
 /** The line under the conversation: what it is doing, the model, the permission mode, tasks. */
 export function statusText(params: { info: StatusInfo; palette?: Palette }): string {
   const { info, palette = defaultPalette } = params;
   const { text, status } = palette.paint;
   const state = {
     ready: status.success('● ready'),
-    working: status.warning('● working'),
+    working: status.warning(`● ${statusLabel({ state: 'working', thinking: info.thinking })}`),
     waiting: status.warning('● waiting for you'),
   }[info.state];
   const tasks = info.tasks > 0 ? ` · ${String(info.tasks)} running in background` : '';

@@ -5,6 +5,7 @@ import { untilAborted, whenAborted } from '../abort/abort.utils.js';
 import { contextNotice } from '../context/context.utils.js';
 import type { ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.helper.js';
+import { createReasoningActivity } from './reasoning-activity.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
 import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 import type { DescribedCall } from '@sheavly/protocol/event/event.types';
@@ -37,6 +38,7 @@ export async function sample(context: SampleContext) {
   const reasoning: ReasoningItem[] = [];
   const running: RunningCall[] = [];
   const finished = { count: 0 };
+  const activity = createReasoningActivity(events);
   let stopReason: TurnStopReason = 'end_turn';
   let failure: SampleFailure | undefined;
   let usage: ModelUsage = { tokens: null };
@@ -74,6 +76,9 @@ export async function sample(context: SampleContext) {
           reasoning.push(event.item);
           events.enqueue(event);
           break;
+        case 'reasoning_activity':
+          activity.set(event.active);
+          break;
 
         case 'tool_call': {
           const described = { call: event.call, description: describeCall(event.call) };
@@ -97,6 +102,8 @@ export async function sample(context: SampleContext) {
       stopTools.abort(caughtError);
     }
   }
+
+  activity.close();
 
   // The window the call ran against: the reading taken before the call, the same the agent was
   // told. A window a provider put on its own usage is dropped, since it was never checked.

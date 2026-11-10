@@ -20,7 +20,9 @@ update; the original exception still ends iteration. Diagnostics never enter mod
    nears the window ([Summaries](#summaries)), `beforeTurn` hooks run (they may add
    context and this turn's system instructions), `beforeModelCall` hooks run (they may replace
    the messages this one call sends), then the model is called. Text and reasoning stream out as
-   they arrive.
+   they arrive. A provider's `reasoning_activity` signal goes out through the same queue as
+   deduplicated start and end transitions, and the loop ends one a cut stream, abort or failure
+   left open. It never enters history.
 3. Tool calls start the moment the model asks for them, each wrapped by `aroundToolCall` hooks.
    Their results are released after the turn ends (`tool_batch`, then one `tool_result` per call),
    each as its tool finishes, so a fast tool is not held behind a slow one called before it.
@@ -133,7 +135,7 @@ the UI passes them.
   `addContext` that arrives after the abort adds nothing. See
   [hooks](../../core/docs/hooks.md#around-a-summary).
 - **Rejected results.** `SummaryRejectedError` (never thrown to the caller; it is the text of a
-  `summary_failed`) when the result has no sections, is over `maxSummaryTokens`, is not smaller
+  `summary_failed`) when the result has no sections, is not smaller
   than the messages it replaces, or would leave history that breaks the rules
   (`assertValidHistory`).
 - **After a checkpoint** the session's last reported tokens are cleared

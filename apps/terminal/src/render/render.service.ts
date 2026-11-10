@@ -33,6 +33,7 @@ export class Renderer {
   /** Titles not written yet, in call order: a look that pairs steps writes each with its result. */
   #held: { id: string; text: string }[] = [];
   #reasoningItems = 0;
+  #thinking = false;
   #last: Section | undefined;
   #lineOpen = false;
 
@@ -60,11 +61,18 @@ export class Renderer {
     return this.#running;
   }
 
+  /** Whether the main session's model is reasoning now, as its provider signalled it. */
+  get thinking(): boolean {
+    return this.#thinking;
+  }
+
   /**
-   * Forgets the running tools, for a prompt that ended without its `done` (a failure, a stop).
+   * Forgets the running tools and any signalled reasoning, for a prompt that ended without its
+   * `done` (a failure, a stop).
    * A title still held is written without a result, so what was running is not lost.
    */
   clearRunning(): void {
+    this.#thinking = false;
     if (this.#running.length > 0) this.#running = [];
     this.#showHeldSteps();
   }
@@ -95,6 +103,9 @@ export class Renderer {
         break;
       case 'reasoning':
         this.#reasoningItems++; // opaque; resent to the model automatically
+        break;
+      case 'reasoning_activity':
+        this.#thinking = event.active; // content-free; shown only by the live indicator
         break;
 
       case 'tool_call_started':

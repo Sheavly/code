@@ -25,7 +25,7 @@ export async function* readResponsesReply(params: {
     if (step.stopReason) stopReason = step.stopReason;
     if (step.ended) ended = true;
     if (step.usage) usage = step.usage;
-    if (step.event) yield step.event;
+    if (step.events) yield* step.events;
   }
 
   if (!ended) {

@@ -11,10 +11,13 @@ const functionCallItemSchema = z.object({
   arguments: z.string(),
 });
 
-/** Kept whole (`loose`) so it can be resent exactly as received. Useless without encrypted_content. */
+/**
+ * Kept whole (`loose`) so it can be resent exactly as received. Without encrypted_content it
+ * can't be resent, but it still shows the model reasoned, so it parses and only drives activity.
+ */
 const reasoningOutputItemSchema = z.looseObject({
   type: z.literal('reasoning'),
-  encrypted_content: z.string().min(1),
+  encrypted_content: z.string().optional(),
 });
 
 const usageSchema = z
@@ -42,6 +45,11 @@ const usageSchema = z
 
 export const responsesEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('response.output_text.delta'), delta: z.string() }),
+  // Only the item's type is read: an added reasoning item is the earliest sign of reasoning.
+  z.object({
+    type: z.literal('response.output_item.added'),
+    item: z.object({ type: z.string() }),
+  }),
   z.object({
     type: z.literal('response.output_item.done'),
     item: z.discriminatedUnion('type', [functionCallItemSchema, reasoningOutputItemSchema]),

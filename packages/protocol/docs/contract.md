@@ -38,6 +38,15 @@ result to its call by `call.id`, never by position, and fill in a call's row whe
 comes. A UI that cannot update lines it already wrote (a terminal) can hold a call's title until
 its result. The history (`done.messages`, `GET /messages`) keeps the results in call order.
 
+## Reasoning activity
+
+`reasoning_activity` (`{ active: boolean }`) says live that the model started or stopped
+reasoning, as its provider could observe it. It is separate from `reasoning`, which carries
+opaque replay state late and stays in history. The activity event carries no reasoning content
+(its schema is strict, so an extra field is rejected), is never stored in history, and arrives
+only as transitions. A provider that cannot observe reasoning sends none, so a UI keeps its
+generic busy state rather than claiming the model thinks.
+
 ## Harness notices
 
 `HarnessNotice` (`@sheavly/protocol/notice/notice.types`) is defined by `harnessNoticeSchema` in

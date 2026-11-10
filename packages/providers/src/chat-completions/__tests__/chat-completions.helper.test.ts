@@ -252,6 +252,48 @@ describe('native Chat Completions', () => {
     ]);
   });
 
+  it('signals reasoning activity once per block of plaintext thinking, even with replay off', async () => {
+    const { provider } = setup(
+      [
+        [
+          chunk({ reasoning_content: 'a' }),
+          chunk({ reasoning_content: 'b' }),
+          chunk({ content: 'answer' }),
+          chunk({ content: '!' }, 'stop'),
+        ],
+      ],
+      { replayReasoning: false },
+    );
+    const events = await collect(provider.stream(request()));
+
+    expect(events.map((event) => event.type)).toEqual([
+      'reasoning_activity',
+      'reasoning_activity',
+      'text_delta',
+      'text_delta',
+      'done',
+    ]);
+    expect(events.filter((event) => event.type === 'reasoning_activity')).toEqual([
+      { type: 'reasoning_activity', active: true },
+      { type: 'reasoning_activity', active: false },
+    ]);
+    expect(JSON.stringify(events)).not.toContain('"a"');
+  });
+
+  it('ends activity at the end of a reply that only reasoned, and sends none without reasoning', async () => {
+    const reasoned = setup([[chunk({ reasoning_content: 'x' }, 'stop')]]);
+    const plain = setup([[chunk({ content: 'hi' }, 'stop')]]);
+    const types = (events: { type: string }[]) => events.map((event) => event.type);
+
+    expect(types(await collect(reasoned.provider.stream(request())))).toEqual([
+      'reasoning_activity',
+      'reasoning_activity',
+      'reasoning',
+      'done',
+    ]);
+    expect(types(await collect(plain.provider.stream(request())))).toEqual(['text_delta', 'done']);
+  });
+
   it('sends a temperature hint, but never beside a reasoning effort', async () => {
     const { provider, requests } = setup([
       [chunk({ content: 'ok' }, 'stop')],

@@ -79,6 +79,12 @@ const stepEventSchemas = [
   z.object({ type: z.literal('text_delta'), text: z.string() }),
   /** Opaque reasoning state; kept in history and resent automatically. */
   z.object({ type: z.literal('reasoning'), item: reasoningItemSchema }),
+  /**
+   * Live and content-free: the model started (`active: true`) or stopped reasoning, as its
+   * provider could observe it. Never kept in history. A provider that can't observe reasoning
+   * sends none, so a UI keeps its generic busy state rather than claiming the model thinks.
+   */
+  z.strictObject({ type: z.literal('reasoning_activity'), active: z.boolean() }),
   /** The model asked for a tool and it started running (concurrently with the rest of the turn). */
   describedCallSchema.extend({ type: z.literal('tool_call_started') }),
   z.object({

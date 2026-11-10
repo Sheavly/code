@@ -1,6 +1,6 @@
 import { Text, useAnimation } from 'ink';
 import { now } from '@sheavly/core/clock/clock.helper';
-import { runningToolsText } from '../tui/view.utils.js';
+import { runningToolsText, statusLabel } from '../tui/view.utils.js';
 import type { ActivityProps } from './react-screen.types.js';
 import { usageText } from '../usage/usage.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
@@ -16,7 +16,7 @@ export function Activity(props: ActivityProps) {
   });
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const working = state === 'working';
-  const label = state === 'waiting' ? 'waiting for you' : state;
+  const label = statusLabel({ state, thinking: props.thinking });
   const icon = working && !reducedMotion ? frames[frame % frames.length] : '●';
   // Read on every tick: tool elapsed times advance even without the spinner.
   const running = working ? runningToolsText({ tools, at: now() }) : undefined;

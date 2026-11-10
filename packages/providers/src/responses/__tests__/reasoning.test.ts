@@ -15,30 +15,62 @@ const config = {
 const SOURCE = 'responses:https://example.test/v1#m';
 const functionCall = lookupCall();
 
+/** The events the provider yields for a reply made of these stream events. */
+function streamed(replies: object[]) {
+  const { fetch } = fakeFetch(replies);
+
+  return collect(
+    createResponsesProvider({ ...config, fetch }).stream({ messages: [], tools: [], signal }),
+  );
+}
+
 describe('reasoning items: response side', () => {
   it('emits encrypted reasoning items tagged with their source', async () => {
-    const { fetch } = fakeFetch([
+    const events = await streamed([
       { type: 'response.output_item.done', item: reasoningItem(1) },
       { type: 'response.output_item.done', item: functionCall },
     ]);
-    const events = await collect(
-      createResponsesProvider({ ...config, fetch }).stream({ messages: [], tools: [], signal }),
-    );
 
-    expect(events[0]).toEqual({
-      type: 'reasoning',
-      item: { source: SOURCE, data: reasoningItem(1) },
-    });
+    expect(events.slice(0, 2)).toEqual([
+      { type: 'reasoning_activity', active: false },
+      { type: 'reasoning', item: { source: SOURCE, data: reasoningItem(1) } },
+    ]);
     expect(events.at(-1)).toEqual({ type: 'done', stopReason: 'tool_use' });
   });
 
-  it("ignores reasoning items without encrypted content (they can't be resent statelessly)", async () => {
-    const { fetch } = fakeFetch([
+  it("signals activity for reasoning items without encrypted content but doesn't replay them", async () => {
+    const events = await streamed([
+      { type: 'response.output_item.added', item: { type: 'reasoning', id: 'rs_1' } },
       { type: 'response.output_item.done', item: { type: 'reasoning', id: 'rs_1' } },
     ]);
-    const events = await collect(
-      createResponsesProvider({ ...config, fetch }).stream({ messages: [], tools: [], signal }),
-    );
+
+    expect(events.map((event) => event.type)).toEqual([
+      'reasoning_activity',
+      'reasoning_activity',
+      'done',
+    ]);
+    expect(events.map((event) => ('active' in event ? event.active : null))).toEqual([
+      true,
+      false,
+      null,
+    ]);
+  });
+
+  it('treats an empty encrypted_content as no replay state, while still signalling activity', async () => {
+    const events = await streamed([
+      {
+        type: 'response.output_item.done',
+        item: { type: 'reasoning', id: 'rs_1', encrypted_content: '' },
+      },
+    ]);
+
+    expect(events.map((event) => event.type)).toEqual(['reasoning_activity', 'done']);
+  });
+
+  it('ignores added items that are not reasoning', async () => {
+    const events = await streamed([
+      { type: 'response.output_item.added', item: { type: 'message' } },
+    ]);
 
     expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
   });
@@ -94,6 +126,10 @@ describe('reasoning items: request side', () => {
 
     expect(requests[0]?.body).not.toHaveProperty('include');
     expect(requests[0]?.body.input).not.toContainEqual(reasoningItem(1));
-    expect(events).toEqual([{ type: 'done', stopReason: 'end_turn' }]);
+    // Replay is off, but the live activity signal is independent of it.
+    expect(events).toEqual([
+      { type: 'reasoning_activity', active: false },
+      { type: 'done', stopReason: 'end_turn' },
+    ]);
   });
 });
