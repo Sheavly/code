@@ -12,6 +12,38 @@ export function whenAborted(signal: AbortSignal): Promise<void> {
   );
 }
 
+/**
+ * Waits for `work`, or for `signal` to abort, whichever comes first: resolves with undefined on
+ * abort, so a caller that checks `signal.aborted` afterwards tells the two apart. For work that may
+ * ignore its signal (a hook, a summarizer), which must not hold the run. `work` is attached to the
+ * race, so a rejection after the abort is handled and cannot go unhandled. The abort listener is
+ * removed once the race settles, so a long-lived run signal does not collect one per call.
+ */
+export async function raceAbort<T>(params: {
+  work: Promise<T>;
+  signal: AbortSignal;
+}): Promise<T | undefined> {
+  const { work, signal } = params;
+  const listener = new AbortController();
+
+  try {
+    return await Promise.race([
+      work,
+      new Promise<undefined>((resolve) => {
+        if (signal.aborted) {
+          resolve(undefined);
+
+          return;
+        }
+
+        signal.addEventListener('abort', () => resolve(undefined), { signal: listener.signal });
+      }),
+    ]);
+  } finally {
+    listener.abort();
+  }
+}
+
 const ABORTED: unique symbol = Symbol('aborted');
 
 /** For `.catch(ignoreRejection)`: the rejection is handled elsewhere or no longer matters. */

@@ -1,6 +1,6 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
 import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
-import type { SummaryBody } from '@sheavly/core/summary/summary.types';
+import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
 import type {
   HistoryMessage,
   Message,
@@ -36,6 +36,26 @@ export function shouldSummarize(params: { context: ContextState; policy: Summary
   const buffer = Math.min(Math.max(window * policy.freeShare, policy.minFreeTokens), window / 2);
 
   return window - used < buffer;
+}
+
+/**
+ * `written` with `added` on top: an added section whose id is already there replaces it in
+ * place, any other is appended.
+ */
+export function mergeSections(params: {
+  written: readonly SummarySection[];
+  added: readonly SummarySection[];
+}): SummarySection[] {
+  const merged = [...params.written];
+
+  for (const section of params.added) {
+    const index = merged.findIndex(({ id }) => id === section.id);
+
+    if (index === -1) merged.push(section);
+    else merged[index] = section;
+  }
+
+  return merged;
 }
 
 /** The newest checkpoint in history and where it is, if there is one. */

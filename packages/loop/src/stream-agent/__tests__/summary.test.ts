@@ -1,66 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
-import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { Summarizer } from '@sheavly/core/summary/summary.types';
-import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/message/message.types';
 import { callIdSchema, summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
+import { WINDOW, answer, overflow } from '../../testing/summary-run.constants.js';
+import {
+  history,
+  long,
+  probe,
+  probeCall as call,
+  recording,
+  toolTurn,
+} from '../../testing/summary-run.fake.js';
 import { runSession } from '../stream-agent.helper.js';
-
-const WINDOW = 100_000;
-const probe = defineTool({
-  name: 'probe',
-  description: 'Looks something up',
-  inputSchema: z.object({}),
-  execute: async () => 'found it',
-});
-const call = { id: callIdSchema.parse('c1'), name: 'probe', input: { description: 'probing' } };
-
-/** A model turn that calls the probe and reports `inputTokens` of context. */
-function toolTurn(inputTokens: number): StreamEvent[] {
-  const tokens = { inputTokens, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 };
-
-  return [
-    { type: 'tool_call', call },
-    { type: 'done', stopReason: 'tool_use', usage: { tokens } },
-  ];
-}
-
-const answer: StreamEvent[] = [
-  { type: 'text_delta', text: 'done' },
-  { type: 'done', stopReason: 'end_turn' },
-];
-const overflow: StreamEvent[] = [{ type: 'done', stopReason: 'context_window_exceeded' }];
-
-/** 400 characters: about 100 tokens by the estimate. */
-const long = (role: 'user' | 'assistant', n: number): HistoryMessage =>
-  role === 'user'
-    ? { role, content: `${n}`.padEnd(400, 'x'), at: n }
-    : { role, content: `${n}`.padEnd(400, 'x'), toolCalls: [], at: n };
-const history = (): HistoryMessage[] => [
-  long('user', 1),
-  long('assistant', 2),
-  long('user', 3),
-  long('assistant', 4),
-  long('user', 5),
-];
-
-/** Plays its turns in order and keeps every request. */
-function recording(turns: StreamEvent[][]) {
-  const requests: ProviderRequest[] = [];
-  const provider: Provider = {
-    contextWindow: WINDOW,
-    async *stream(request) {
-      requests.push(request);
-      yield* turns[requests.length - 1] ?? [];
-    },
-  };
-
-  return { provider, requests };
-}
 
 const section = (body: string) => [
   { id: summarySectionIdSchema.parse('goal'), title: 'Goal', body },

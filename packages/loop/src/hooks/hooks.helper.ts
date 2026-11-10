@@ -4,19 +4,24 @@ import type {
   AfterTurnContext,
   ContextState,
   Hook,
+  SummaryReason,
   ToolResult,
 } from '@sheavly/core/hook/hook.types';
+import type { SummarySection } from '@sheavly/core/summary/summary.types';
 import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
+import { raceAbort } from '../abort/abort.utils.js';
 import { HookError } from '../errors/loop.errors.js';
 import { assertValidHistory, countChanges } from '../history/history.utils.js';
 import { parseSentMessages } from '../history/history.validator.js';
-import { viewOf } from '../summary/summary.utils.js';
+import { mergeSections, viewOf } from '../summary/summary.utils.js';
+import { parseSummaryChange } from './summary-change.validator.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type {
   HistoryMessage,
   Message,
+  SummaryMessage,
   ToolCall,
   ToolMessage,
 } from '@sheavly/protocol/message/message.types';
@@ -141,6 +146,99 @@ export async function runBeforeModelCall(params: {
   }
 
   return current;
+}
+
+/**
+ * Runs every `beforeSummary` handler in order and combines what they asked for: the last
+ * `keepTokens` wins, and the sections add up (a later hook's replaces an earlier one's with the
+ * same id). Each handler gets a deep copy of the view, so editing it changes nothing stored. A
+ * handler that throws is a `HookError`, and a result that is not a valid change a
+ * `SummaryHookError`, both naming the hook; the caller reports either as a failed summary. Stops
+ * asking hooks once the run aborts.
+ */
+export async function runBeforeSummary(params: {
+  hooks: Hook[];
+  reason: SummaryReason;
+  messages: readonly Message[];
+  context: ContextState;
+  signal: AbortSignal;
+}): Promise<{ keepTokens: number | undefined; sections: SummarySection[] }> {
+  const { hooks, reason, messages, context, signal } = params;
+  let keepTokens: number | undefined;
+  let sections: SummarySection[] = [];
+
+  for (const hook of hooks) {
+    // Stop asking once aborted; the caller sees the abort and fails the summary.
+    if (signal.aborted) break;
+
+    if (!hook.beforeSummary) continue;
+
+    // Typed `unknown`: a project hook is plain JavaScript, so its return value is unchecked.
+    // Raced against the abort, like the summarizer: a hook that ignores its signal must not hold
+    // the run.
+    const result: unknown = await raceAbort({
+      work: hook.beforeSummary({
+        reason,
+        messages: structuredClone(messages),
+        context: { ...context },
+        signal,
+      }),
+      signal,
+    }).catch((caughtError: unknown) => {
+      throw new HookError({ hook: hook.name, handler: 'beforeSummary', cause: caughtError });
+    });
+
+    if (signal.aborted) break;
+
+    const change = parseSummaryChange({ input: result, hook: hook.name });
+
+    keepTokens = change?.keepTokens ?? keepTokens;
+    sections = mergeSections({ written: sections, added: change?.sections ?? [] });
+  }
+
+  return { keepTokens, sections };
+}
+
+/**
+ * Runs every `afterSummary` handler in order, once the checkpoint is in history. Each gets copies
+ * of the checkpoint and of the model's view of history (`viewOf`), and what it adds with
+ * `addContext` lands after the checkpoint, reported through `onContext` like any other context.
+ * Stops waiting for a hook, and asking the next, once the run aborts.
+ */
+export async function runAfterSummary(params: {
+  hooks: Hook[];
+  reason: SummaryReason;
+  checkpoint: SummaryMessage;
+  messages: HistoryMessage[];
+  signal: AbortSignal;
+  onContext: OnContext;
+}): Promise<void> {
+  const { hooks, reason, checkpoint, messages, signal, onContext } = params;
+
+  for (const hook of hooks) {
+    if (signal.aborted) return;
+
+    if (!hook.afterSummary) continue;
+
+    const addContext = contextAdder({ hook, messages, onContext });
+
+    // Copies, so a plain-JavaScript hook that edits what it was given can't change the stored
+    // checkpoint after `buildCheckpoint` checked it; each hook gets its own. Raced against the
+    // abort like `beforeSummary`, and a hook still running after it adds nothing: the run was
+    // told to stop, and history is not for a late `addContext` to grow.
+    await raceAbort({
+      work: hook.afterSummary({
+        reason,
+        checkpoint: structuredClone(checkpoint),
+        messages: structuredClone(viewOf(messages)),
+        signal,
+        addContext: (content) => {
+          if (!signal.aborted) addContext(content);
+        },
+      }),
+      signal,
+    });
+  }
 }
 
 /** Runs every `afterTurn` handler in order, once the turn's reply and results are in history. */

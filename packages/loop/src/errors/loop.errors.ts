@@ -60,6 +60,24 @@ export class SummaryRejectedError extends Error {
   }
 }
 
+/**
+ * What a `beforeSummary` hook returned is not a valid change (a typo'd key, a wrong type, a
+ * section without an id). The summary fails with this, naming the hook; the run goes on.
+ */
+export class SummaryHookError extends Error {
+  override name = 'SummaryHookError';
+  readonly hook: string;
+  readonly problem: string;
+
+  constructor(params: { hook: string; problem: string; cause?: unknown }) {
+    const { hook, problem, cause } = params;
+
+    super(`Hook ${hook} returned an invalid summary change: ${problem}`, { cause });
+    this.hook = hook;
+    this.problem = problem;
+  }
+}
+
 /** The run's event stream ended without its `done` event, so the run's outcome is unknown. */
 export class StreamEndedError extends Error {
   override name = 'StreamEndedError';
