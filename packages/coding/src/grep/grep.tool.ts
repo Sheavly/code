@@ -1,10 +1,8 @@
 import { rgPath } from '@vscode/ripgrep';
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
-import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
-import { assertRanToTheEnd, runRipgrep } from '../ripgrep/ripgrep.helper.js';
+import { assertRanToTheEnd, resolveSearchRoot, runRipgrep } from '../ripgrep/ripgrep.helper.js';
+import type { RipgrepToolDeps } from '../ripgrep/ripgrep.types.js';
 import { GREP_MODES, MAX_GREP_RESULTS } from './grep.constants.js';
 import { grepArgs } from './grep-args.utils.js';
 import { formatGrep } from './grep-format.utils.js';
@@ -17,15 +15,7 @@ import { grepResult } from './grep-output.utils.js';
  * Results are cut at `MAX_GREP_RESULTS` with a note saying so. `ripgrepPath` is the binary to
  * run; it defaults to the one `@vscode/ripgrep` ships.
  */
-export function createGrepTool({
-  workspace,
-  processes,
-  ripgrepPath = rgPath,
-}: {
-  workspace: Workspace;
-  processes: ProcessRunner;
-  ripgrepPath?: string;
-}) {
+export function createGrepTool({ workspace, processes, ripgrepPath = rgPath }: RipgrepToolDeps) {
   return defineTool({
     name: 'grep',
     description:
@@ -48,15 +38,7 @@ export function createGrepTool({
     execute: async ({ input, signal }) => {
       const { pattern, path: requested = '.', glob, mode, caseInsensitive } = input;
 
-      // ripgrep applies its excludes to what it walks, never to a root path it is given, so the
-      // requested path is checked here, by name and after symlinks.
-      assertNotEnvFile({ filePath: requested, requested, action: 'Searching' });
-      assertNotGitDir({ relativePath: requested, requested, action: 'Searching' });
-      const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
-      const searched = workspace.relative(real);
-
-      assertNotEnvFile({ filePath: real, requested, action: 'Searching' });
-      assertNotGitDir({ relativePath: searched, requested, action: 'Searching' });
+      const searched = await resolveSearchRoot({ workspace, requested });
       const run = await runRipgrep({
         processes,
         file: ripgrepPath,
