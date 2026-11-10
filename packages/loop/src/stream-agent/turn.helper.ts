@@ -2,13 +2,13 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { taskNotification } from '@sheavly/runtime/tasks/tasks.utils';
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
 import { viewOf } from '../summary/summary.utils.js';
 import { sample } from './sample.helper.js';
+import { finishedTaskNotice } from './task-notice.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
@@ -21,7 +21,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (signal.aborted) return 'interrupted';
 
-  reportFinishedTasks({ tasks: options.tasks, messages, events });
+  reportFinishedTasks({ tasks: options.tasks, session, messages, events });
   deliverMessages({ session, messages, events });
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   await summarizeAtThreshold(context);
@@ -185,18 +185,26 @@ function deliverMessages(params: {
 /** Tasks that finished since the last turn: shown in order, and told to the model before it runs. */
 function reportFinishedTasks(params: {
   tasks: TaskRegistry | undefined;
+  session: RunSession;
   messages: HistoryMessage[];
   events: AgentEvents;
 }): void {
-  const { tasks, messages, events } = params;
+  const { tasks, session, messages, events } = params;
 
-  for (const task of tasks?.takeUnreported() ?? []) {
-    events.enqueue({ type: 'task_completed', task });
-    messages.push({
-      role: 'user',
-      content: taskNotification(task),
-      at: task.endedAt ?? now(),
+  if (!tasks) return;
+
+  for (const task of tasks.takeUnreported()) {
+    // The same payload goes to the stream and into history, so a UI sees it live and on reopening.
+    const notice = finishedTaskNotice({
+      task,
+      tasks,
+      sessions: session.registry,
+      parent: session.ref.id,
     });
+
+    events.enqueue({ type: 'task_completed', task });
+    events.enqueue({ type: 'harness_notice', notice });
+    messages.push({ role: 'notice', notice, at: task.endedAt ?? now() });
   }
 }
 
