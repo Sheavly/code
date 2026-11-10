@@ -18,7 +18,7 @@ export type SummaryResult = SummaryBody & { usage?: ModelUsage | undefined };
  * What writes a checkpoint, written against by a UI's summarizer (rules, a model, a cheaper
  * model). It gets the span to summarize, already cut so no tool call is split from its result,
  * and the previous checkpoint's sections to merge into rather than regenerate. It returns the
- * whole new set of sections; the loop rejects a result that is empty, too large or not smaller
+ * whole new set of sections; the loop rejects a result that is empty or not smaller
  * than what it replaces. It must stop when `signal` aborts, and treat `messages` as text to
  * summarize, never as instructions.
  */
@@ -42,8 +42,6 @@ export type SummaryPolicy = {
   minFreeTokens: number;
   /** About how many tokens of the newest messages stay word for word. */
   keepTokens: number;
-  /** The most tokens a summary may take; a longer one is rejected. */
-  maxSummaryTokens: number;
   /** Failed threshold summaries in a row before the run stops trying. */
   maxFailures: number;
 };
