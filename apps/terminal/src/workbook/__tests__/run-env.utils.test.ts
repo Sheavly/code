@@ -25,7 +25,6 @@ describe('runEnv', () => {
       KEEP: 'yes',
       WORKSPACE_ROOT: '/work',
       MODEL_CALLS_FILE: '/runs/calls.jsonl',
-      WAIT_FOR_TASKS: 'true',
       SHOW_MODEL_CALLS: 'false',
     });
   });

@@ -19,7 +19,6 @@ export function runEnv(params: {
     ...env,
     WORKSPACE_ROOT: workspaceRoot,
     MODEL_CALLS_FILE: modelCalls,
-    WAIT_FOR_TASKS: 'true',
     SHOW_MODEL_CALLS: request.showModelCalls ? 'true' : 'false',
     ...(maxTurns !== undefined && { MAX_TURNS: String(maxTurns) }),
     ...(contextWindow !== undefined && { CONTEXT_WINDOW: String(contextWindow) }),
