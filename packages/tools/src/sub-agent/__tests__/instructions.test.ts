@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { SUB_AGENT_INSTRUCTIONS } from '../sub-agent.constants.js';
+import { SUB_AGENT_INSTRUCTIONS } from '../sub-agent.prompt.js';
 import { subAgentInstructions } from '../sub-agent.utils.js';
 
 describe('child instruction assembly', () => {
   it('keeps the child role small and retains status and parent steering', () => {
+    expect(SUB_AGENT_INSTRUCTIONS).toBe(
+      '# Sub-agent role\n' +
+        'Work only on the assigned task. Use report_status before starting and when changing steps. Incorporate parent messages without losing valid requirements. Return a concise handoff with findings or changes, checks and blockers.',
+    );
     expect(SUB_AGENT_INSTRUCTIONS.trim().split(/\s+/).length).toBeLessThanOrEqual(60);
     expect(SUB_AGENT_INSTRUCTIONS).toContain('report_status before starting');
     expect(SUB_AGENT_INSTRUCTIONS).toContain('Incorporate parent messages');

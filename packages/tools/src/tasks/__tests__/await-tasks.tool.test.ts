@@ -43,7 +43,11 @@ describe('await_tasks', () => {
     });
     expect(nextSettled).not.toHaveBeenCalled();
     expect(tasks.runningCount).toBe(2);
-    expect(result.content).toContain('Do not poll task_status');
+    expect(result.content).toBe(
+      'Grouped tasks t1, t2. Their results will be delivered together when all members finish.\n' +
+        'Reason: Compare lint and tests before deciding whether the patch is ready.\n' +
+        'Finish independent work, then end your turn without tool calls to wait. Do not poll task_status.',
+    );
   });
 
   it('passes the calling session id to the registry', async () => {

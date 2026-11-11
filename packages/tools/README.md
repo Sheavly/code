@@ -43,6 +43,13 @@ state the constraints for direct use. Apps normally use the tool factories, supp
 transport dependencies and use the artifact guard rather than composing low-level operations.
 `testing/` exposes source-only HTTP fakes for tests, never production network fallbacks.
 
+Model-facing tool descriptions, parameter guidance and instruction-bearing result boilerplate live
+in adjacent `*.prompt.ts` modules. These internal modules hold string tables and pure renderers;
+tools pass validated limits, selected backend names and prepared task/session facts into them.
+Validation, execution, factual status/error output and the `NO_REPLY` fallback remain outside
+prompt modules. The child role is in `sub-agent/sub-agent.prompt.ts`; shared instruction assembly
+remains available through the existing sub-agent utility. Prompt modules are not package exports.
+
 ## Docs
 
 `task_status` returns an immediate snapshot for inspection, not a wait. Running snapshots remind

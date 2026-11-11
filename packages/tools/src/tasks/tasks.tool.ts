@@ -6,17 +6,15 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { createAwaitTasksTool } from './await-tasks.tool.js';
+import { cancelTaskPrompts, taskStatusPrompts, taskStatusResponse } from './tasks.prompt.js';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 function createTaskStatusTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'task_status',
-    description:
-      "Show background tasks. With an id: that task's status and recent output, or, for a sub-agent, its complete report. Without: all tasks. " +
-      'Inspection only, for requested updates or diagnosis, not a wait tool. Do not poll: finished tasks are reported automatically (grouped results arrive together). ' +
-      'Finish independent work, then end your turn without tool calls to wait for required task results.',
+    description: taskStatusPrompts.description,
     inputSchema: z.object({
-      id: taskIdSchema.optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
+      id: taskIdSchema.optional().describe(taskStatusPrompts.id),
     }),
     execute: async ({ input: { id } }) => {
       if (id) {
@@ -47,23 +45,12 @@ function createTaskStatusTool(tasks: TaskRegistry) {
   });
 }
 
-function taskStatusResponse(params: { content: string; running: boolean }): string {
-  const { content, running } = params;
-
-  if (!running) return content;
-
-  return (
-    content +
-    '\nSnapshot only; inspect for requested updates or diagnosis, not waiting. Do not poll. Grouped results arrive together when all members finish. Finish independent work, then end your turn without tool calls to wait for required task results. Services do not need to exit before you finish.'
-  );
-}
-
 /** Lets the agent stop a background task; waits until its process has exited. */
 function createCancelTaskTool(tasks: TaskRegistry) {
   return defineTool({
     name: 'cancel_task',
-    description: 'Stop a running background task (kills its process and everything it started).',
-    inputSchema: z.object({ id: taskIdSchema.describe('Task id, e.g. t1') }),
+    description: cancelTaskPrompts.description,
+    inputSchema: z.object({ id: taskIdSchema.describe(cancelTaskPrompts.id) }),
     execute: async ({ input: { id } }) => {
       const before = tasks.get(id);
 
