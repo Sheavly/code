@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { fakeFetch, fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { AdapterError } from '../../errors/providers.errors.js';
 import { createDefaultRegistry } from '../default-registry.helper.js';
-import { CHECK_MESSAGES, CHECK_PROMPT } from '../registry.constants.js';
+import { CHECK_MESSAGES } from '../registry.constants.js';
+import { CHECK_PROMPT } from '../registry.prompt.js';
 
 /** A key no other string in a request or a result could be: finding it means it leaked. */
 const KEY = 'sk-LEAK-CHECK-9f3a71c2';
@@ -34,6 +35,7 @@ describe('AdapterRegistry.check', () => {
     const result = await registryOn(fetch).check({ kind: 'openai', config });
 
     expect(result).toEqual({ status: 'valid' });
+    expect(CHECK_PROMPT).toBe('Reply with the single word OK.');
     expect(requests).toHaveLength(1);
     expect(requests[0]?.headers.authorization).toBe(`Bearer ${KEY}`);
     expect(JSON.stringify(requests[0]?.body)).toContain(CHECK_PROMPT);

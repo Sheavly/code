@@ -3,9 +3,6 @@ import type { FailedCheck } from './registry.types.js';
 /** Stands in for a secret while a definition is checked, so the key itself is never needed. */
 export const SECRET_STAND_IN = 'x';
 
-/** What the model is asked when its key is checked: the least that makes it answer. */
-export const CHECK_PROMPT = 'Reply with the single word OK.';
-
 /** How long a check waits for the model to start answering. */
 export const CHECK_RESPONSE_TIMEOUT_MS = 30_000;
 
