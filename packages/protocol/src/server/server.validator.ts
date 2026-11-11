@@ -96,13 +96,17 @@ export const switchModelRequestSchema = z.object({
 });
 
 /**
- * `POST /conversations/:id/prompts`: the next prompt, as `text` (a script; `/<name>` mentions in
- * it run those skills) or as `parts` (a UI; exactly the skills picked run). One or the other.
+ * `POST /conversations/:id/prompts` or `/followups`: a prompt as `text` (a script; `/<name>`
+ * mentions in it run those skills) or as `parts` (a UI; exactly the skills picked run).
+ * One or the other.
  */
 export const sendPromptRequestSchema = z.xor([
   z.object({ text: z.string().min(1) }),
   z.object({ parts: z.array(promptPartSchema).min(1) }),
 ]);
+
+/** `POST /conversations/:id/followups`: whether the active, non-stopping run accepted the prompt. */
+export const sendFollowupResponseSchema = z.object({ accepted: z.boolean() });
 
 /**
  * `QUERY /conversations/:id/stream`: which entries of the combined stream to send. Nothing: every

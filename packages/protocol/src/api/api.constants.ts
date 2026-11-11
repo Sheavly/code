@@ -3,6 +3,7 @@ import {
   conversationDetailsSchema,
   conversationsResponseSchema,
   messagesResponseSchema,
+  sendFollowupResponseSchema,
   sendPromptRequestSchema,
   skillsQuerySchema,
   skillsResponseSchema,
@@ -113,6 +114,14 @@ export const API_ROUTES = {
     summary: "Send the next prompt; its entries stream back, to the main session's done",
     body: sendPromptRequestSchema,
     response: { status: 200, stream: streamEntrySchema },
+  },
+  sendFollowup: {
+    effect: 'change',
+    method: 'post',
+    path: '/conversations/{id}/followups',
+    summary: 'Queue a followup on the active run; idle or stopping runs do not accept it',
+    body: sendPromptRequestSchema,
+    response: { status: 200, schema: sendFollowupResponseSchema },
   },
   stopPrompt: {
     effect: 'change',

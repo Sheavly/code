@@ -5,6 +5,7 @@ import {
   conversationDetailsSchema,
   conversationsResponseSchema,
   messagesResponseSchema,
+  sendFollowupResponseSchema,
   sendPromptRequestSchema,
   serverErrorSchema,
   skillsResponseSchema,
@@ -130,6 +131,18 @@ describe('the other requests', () => {
     expect(answerApprovalRequestSchema.safeParse({ response: { decision: 'maybe' } }).success).toBe(
       false,
     );
+  });
+});
+
+describe('sendFollowupResponseSchema', () => {
+  it('requires a boolean acceptance result, including false', () => {
+    for (const accepted of [true, false]) {
+      expect(sendFollowupResponseSchema.parse({ accepted })).toEqual({ accepted });
+    }
+
+    for (const body of [{}, { accepted: 'true' }, { accepted: 1 }, null]) {
+      expect(sendFollowupResponseSchema.safeParse(body).success).toBe(false);
+    }
   });
 });
 

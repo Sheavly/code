@@ -206,6 +206,37 @@
         }
       }
     },
+    "/conversations/{id}/followups": {
+      "post": {
+        "operationId": "sendFollowup",
+        "summary": "Queue a followup on the active run; idle or stopping runs do not accept it",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SendPromptRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SendFollowupResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{id}/stop": {
       "post": {
         "operationId": "stopPrompt",
@@ -2558,6 +2589,11 @@
             "required": ["parts"]
           }
         ]
+      },
+      "SendFollowupResponse": {
+        "type": "object",
+        "properties": { "accepted": { "type": "boolean" } },
+        "required": ["accepted"]
       },
       "StreamQuery": {
         "type": "object",
