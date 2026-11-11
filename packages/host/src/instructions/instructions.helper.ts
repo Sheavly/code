@@ -1,4 +1,4 @@
-import { BASE_AGENT_INSTRUCTIONS } from './instructions.constants.js';
+import { BASE_AGENT_INSTRUCTIONS } from './instructions.prompt.js';
 
 /** Omission uses the generic core; an explicit empty base omits it. Blank sections are skipped. */
 export function composeInstructions(params: {

@@ -48,7 +48,7 @@ way, `createHarness` puts their updates in the sessions' combined stream (`kind:
 ## Instruction composition
 
 `createHarness` returns stable `instructions` assembled by `composeInstructions`:
-generic core, then host extras. Set `baseInstructions` to replace just the generic core;
+generic core from `instructions/instructions.prompt.ts`, then host extras. Set `baseInstructions` to replace just the generic core;
 omission uses the default and an empty string omits it. Blank sections are skipped, outer
 whitespace is trimmed, and sections are joined with one blank line.
 
@@ -64,10 +64,32 @@ diagnosis, not waiting. This rule belongs in stable system instructions as well 
 guidance; models must not turn immediate snapshots into a wait loop. It names no particular tool
 and applies equally to commands and sub-agent work.
 
+The core also prefers dedicated tools for file work and requires reading relevant files before
+editing. Delegation guidance covers which work to split, not how to call a particular tool.
+Tool descriptions continue to own their parameters, limits and execution mechanics.
+
+Git/GitHub policy is conditional on the task: commits require an explicit request, preceded by
+status, diff and history inspection, intended-file staging and result verification. Configuration
+changes and hook bypasses are forbidden; destructive operations and history rewrites require
+explicit authorization. PR preparation inspects the full branch against its intended base,
+including remote tracking. Use `gh` when available, but editing or committing never implies
+permission to publish or change issues. The text contains no repository-specific branch, label,
+commit-message or merge conventions. The hook-bypass prohibition governs agent requests; it does
+not guarantee repository hooks run. The coding command runner independently disables repository
+hooks through its existing safety environment, which prompt wording does not change.
+
 The backend passes its composed shared text to the child factory; the child adds its role,
 then any child-specific extras. Other hosts explicitly choose what children receive. Parent
 conversation overrides and history are not implicitly inherited. All models use the same text,
 including unknown families and pinned children; switching providers does not rebuild it.
+
+The default's adjacent `@system-prompt-review` comment is development metadata, not model-facing
+text. `harness/system-prompt-review` checks the reviewed production prompt/tool sources and the
+base prompt's own hash plus an explicit decision and reason; `npm run lint:prompt` runs it across
+workspace boundaries. This is
+an offline review gate, not proof of semantic freshness or model compliance. Its watched-source
+scope and limitations are documented in [the rule](../../eslint-config/docs/rules.md#system-prompt-review).
+Custom bases and conversation overrides remain host choices; the record does not restrict them.
 
 Before-turn instruction additions follow static text through the loop. AGENTS.md and skills
 remain deduplicated append-only conversation context, preserving signed-thinking prefixes.
