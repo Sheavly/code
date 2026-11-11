@@ -56,6 +56,12 @@ export type AgentOptions = {
    */
   keepSession?: boolean;
   /**
+   * Aborting it asks the run to end as `completed` at its next completion point instead of
+   * waiting for background tasks or delivering their results; those stay pending for the next
+   * run. It never interrupts a model call or running tools, and never steers the run.
+   */
+  yieldSignal?: AbortSignal;
+  /**
    * This run continues a session an earlier run already started (a conversation's next prompt):
    * `sessionStart` hooks ran then and are not run again, so their context isn't added twice.
    */
