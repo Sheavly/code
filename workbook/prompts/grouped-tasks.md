@@ -19,7 +19,13 @@ check:
         'toolResults':
           { 'await_tasks': ['Compare both release checks before recommending deployment.'] },
         'events': ['task_running', 'task_completed', 'harness_notice'],
-        'reply': ['GROUP_ALPHA_PASSED', 'GROUP_BETA_PASSED', 'COMPLETION_CONTEXT_CONFIRMED'],
+        'reply':
+          [
+            'GROUP_ALPHA_PASSED',
+            'GROUP_BETA_PASSED',
+            'RUNNING_TASKS_CONFIRMED',
+            'COMPLETION_CONTEXT_CONFIRMED',
+          ],
         'outcome': 'completed',
       },
     'forbid': { 'tools': ['task_status'] },
@@ -33,7 +39,10 @@ Start these two finite release checks concurrently in the background:
 
 Use await_tasks to group their task IDs, with this reason:
 "Compare both release checks before recommending deployment."
-Then run pwd as independent work. Once that is done, end your turn without tool calls to wait
+On your next model turn after grouping, check the transient running-tasks notice for both IDs,
+titles, the grouping reason, start timestamps and shared group ID. If all those fields are present,
+remember RUNNING_TASKS_CONFIRMED for your final reply; never infer the fields from earlier tool
+calls. Then run pwd as independent work. Once that is done, end your turn without tool calls to wait
 for the combined results; do not poll task_status. After both results arrive, report each check's
 output and exit status and whether deployment is safe based on those checks.
 Also report the completion reason, earliest start timestamp, aggregate duration in milliseconds,
