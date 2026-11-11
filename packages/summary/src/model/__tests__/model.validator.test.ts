@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { SummaryReplyError } from '../../errors/summary.errors.js';
-import { DEFAULT_MODEL_SECTIONS } from '../model.constants.js';
+import { defaultModelSections } from '../summary.prompt.js';
 import { parseSectionReply } from '../model.validator.js';
 
 const parse = (reply: string) =>
-  parseSectionReply({ summarizer: 'model', reply, sections: DEFAULT_MODEL_SECTIONS });
+  parseSectionReply({ summarizer: 'model', reply, sections: defaultModelSections() });
 
 describe('parseSectionReply', () => {
   it('reads a JSON object of section texts, trimmed', () => {

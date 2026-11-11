@@ -5,9 +5,9 @@ import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 import { SummaryReplyError } from '../errors/summary.errors.js';
 import { assertSectionIds } from '../sections/definition.utils.js';
 import type { ModelSection, RuleSection } from '../sections/sections.types.js';
-import { DEFAULT_MODEL_SECTIONS } from './model.constants.js';
 import { parseSectionReply } from './model.validator.js';
-import { summaryInstructions, summaryRequest } from './prompt.utils.js';
+import { renderPreviousSummary, renderSpan } from './prompt.utils.js';
+import { defaultModelSections, summaryInstructions, summaryRequest } from './summary.prompt.js';
 
 /**
  * A summarizer that has a model write the sections it is asked for, and rules write the rest
@@ -37,7 +37,7 @@ export function modelSummarizer(params: {
     provider,
     redact,
     name = 'model',
-    sections = DEFAULT_MODEL_SECTIONS,
+    sections = defaultModelSections(),
     ruleSections = [],
   } = params;
 
@@ -59,7 +59,10 @@ export function modelSummarizer(params: {
               name,
               signal,
               instructions,
-              request: summaryRequest({ previous, messages, redact }),
+              request: summaryRequest({
+                previous: renderPreviousSummary({ previous, redact }),
+                history: renderSpan({ messages, redact }),
+              }),
               sections,
             })
           : { written: new Map<string, string>(), usage: undefined };
