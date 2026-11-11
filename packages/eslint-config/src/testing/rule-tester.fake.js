@@ -12,5 +12,15 @@ RuleTester.it = it;
  * `{ sourceType: 'module' }` for a rule about imports.
  */
 export function typescriptRuleTester(languageOptions = {}) {
-  return new RuleTester({ languageOptions: { parser: tseslint.parser, ...languageOptions } });
+  const { parserOptions, ...options } = languageOptions;
+
+  // RuleTester reuses filenames with different source text. CI's immutable single-run programs
+  // cannot represent those edits, so these tests need the parser's mutable program path.
+  return new RuleTester({
+    languageOptions: {
+      parser: tseslint.parser,
+      ...options,
+      parserOptions: { ...parserOptions, disallowAutomaticSingleRunInference: true },
+    },
+  });
 }
