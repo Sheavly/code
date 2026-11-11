@@ -151,31 +151,72 @@ describe('background task lifecycle in a conversation', () => {
     }
   });
 
-  it('wakes a finite-task wait for ordered follow-ups without cancelling the task', async () => {
-    const { harness, conversation, finish, seen } = conversationWithTask();
+  it('ends a prompt that waits on a finite task when asked to yield, leaving the task running', async () => {
+    const { harness, conversation, finish } = conversationWithTask();
     const { events, running } = startBuild(conversation);
 
     try {
       await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
-      expect(conversation.followup('Focus on failures.')).toBe(true);
-      expect(conversation.followup('Also include warnings.')).toBe(true);
-      await until(() => seen.length === 1);
-      expect(
-        seen[0]?.messages.filter((message) => message.role === 'user').map((m) => m.content),
-      ).toEqual(['build', 'Focus on failures.', 'Also include warnings.']);
-      expect(harness.tasks.runningCount).toBe(1);
-      expect(events.filter((event) => event.type === 'message_received')).toHaveLength(2);
-      finish.resolve(undefined);
+      expect(conversation.yieldPrompt()).toBe(true);
       await running;
-      expect(seen).toHaveLength(2);
-      expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
-      expect(
-        conversation.messages.filter((message) => message.role === 'user').map((m) => m.content),
-      ).toEqual(['build', 'Focus on failures.', 'Also include warnings.']);
-      expect(conversation.followup('too late')).toBe(false);
+      expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+      expect(conversation.running).toBe(false);
+      expect(harness.tasks.runningCount).toBe(1);
     } finally {
       finish.resolve(undefined);
       await running;
+      await conversation.close();
+    }
+  });
+
+  it.each(['after', 'at the same moment as'] as const)(
+    'delivers a task result once to the next prompt when it finishes %s the yield',
+    async (timing) => {
+      const { harness, conversation, finish, seen } = conversationWithTask();
+      const { events, running } = startBuild(conversation);
+
+      try {
+        await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
+
+        if (timing === 'at the same moment as') finish.resolve(undefined);
+        expect(conversation.yieldPrompt()).toBe(true);
+        await running;
+        expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+
+        finish.resolve(undefined);
+        await until(() => harness.tasks.hasUnreported);
+        for await (const _event of conversation.send('what happened?'));
+
+        const lastRequest = JSON.stringify(seen.at(-1)?.messages);
+
+        expect(lastRequest).toContain('Build passed');
+        expect(JSON.stringify(conversation.messages).split('Build passed')).toHaveLength(2);
+        expect(harness.tasks.hasUnreported).toBe(false);
+      } finally {
+        finish.resolve(undefined);
+        await conversation.close();
+      }
+    },
+  );
+
+  it('runs the next prompt before any automatic continuation from a task that finished while yielding', async () => {
+    const { harness, conversation, finish, seen } = conversationWithTask();
+    const { running } = startBuild(conversation);
+
+    try {
+      await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
+      conversation.yieldPrompt();
+      await running;
+      finish.resolve(undefined);
+      await until(() => harness.tasks.hasUnreported);
+
+      // No model call happens on its own: the finished task waits for the next prompt.
+      expect(conversation.running).toBe(false);
+      expect(seen).toHaveLength(0);
+      for await (const _event of conversation.send('what happened?'));
+      expect(seen).toHaveLength(1);
+    } finally {
+      finish.resolve(undefined);
       await conversation.close();
     }
   });

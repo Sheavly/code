@@ -25,8 +25,8 @@ export function createConversation(options: ConversationOptions): Conversation {
   let running = false;
   let started = options.resumed ?? false;
   let runSignal: AbortSignal | undefined;
-  let completing = false;
-  let keptPrompt: HistoryMessage[] = [];
+  /** Aborted by `yieldPrompt`; replaced for each prompt. */
+  let yielding = new AbortController();
   /** Set by the first close(): the cleanup every close() call waits for. */
   let closed: Promise<void> | undefined;
 
@@ -45,6 +45,7 @@ export function createConversation(options: ConversationOptions): Conversation {
     user: Message;
     resumed: boolean;
     signal: AbortSignal;
+    yieldSignal: AbortSignal;
   }): AsyncGenerator<AgentEvent> {
     const stop = new AbortController();
     const signal = AbortSignal.any([
@@ -62,14 +63,7 @@ export function createConversation(options: ConversationOptions): Conversation {
         ...hooks,
         defineHook({
           name: 'conversation-history',
-          afterTurn: async (context) => {
-            // Terminal limits cannot run another model call: close intake before done is queued.
-            completing =
-              context.turn >= (options.maxTurns ?? Infinity) ||
-              context.stopReason === 'context_window_exceeded';
-          },
           onError: async (context) => {
-            completing = true;
             messages = [...context.messages];
           },
         }),
@@ -79,6 +73,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       tasks,
       session: { registry: sessions, ref: mainSession },
       keepSession: true,
+      yieldSignal: params.yieldSignal,
       resumed: params.resumed,
       instructions: options.instructions ?? harness.instructions,
       ...(options.maxTurns !== undefined && { maxTurns: options.maxTurns }),
@@ -86,13 +81,12 @@ export function createConversation(options: ConversationOptions): Conversation {
     })[Symbol.asyncIterator]();
     const record = (event: AgentEvent) => {
       if (event.type !== 'done') return;
-      completing = true;
       messages = event.messages;
     };
     let finished = false;
 
-    // Include follow-ups accepted before the caller began driving this iterator.
-    options.keepHistory?.(keptPrompt);
+    // The user's prompt is recorded before the run, so a crash mid-run does not lose it.
+    options.keepHistory?.([...messages, user]);
 
     try {
       for (let next = await events.next(); !next.done; next = await events.next()) {
@@ -113,15 +107,6 @@ export function createConversation(options: ConversationOptions): Conversation {
 
       running = false;
       runSignal = undefined;
-      // An abort or turn cap can prevent accepted steering from reaching a model call. Keep it
-      // once in history and clear the inbox so the next prompt does not deliver it twice.
-      messages.push(
-        ...sessions.takeMessages(mainSession.id).map((message) => ({
-          role: 'user' as const,
-          content: message.content,
-          at: message.sentAt,
-        })),
-      );
       // Provider failures do not undo tool effects, so their completed work must stay in history.
       options.keepHistory?.(messages);
     }
@@ -149,7 +134,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       if (resumed) sessions.resume(mainSession.id);
       started = true;
       running = true;
-      completing = false;
+      yielding = new AbortController();
       runSignal = AbortSignal.any([
         closing.signal,
         ...(sendOptions.signal ? [sendOptions.signal] : []),
@@ -162,27 +147,15 @@ export function createConversation(options: ConversationOptions): Conversation {
         at: now(),
       };
 
-      keptPrompt = [...messages, user];
-
-      return prompt({ user, resumed, signal: runSignal });
+      return prompt({ user, resumed, signal: runSignal, yieldSignal: yielding.signal });
     },
-    followup(text) {
+    yieldPrompt() {
       if (closed) {
         refuse({ reason: 'session_ended', why: 'This conversation is closed; start a new one' });
       }
 
-      if (
-        !running ||
-        runSignal?.aborted ||
-        completing ||
-        sessions.get(mainSession.id)?.state !== 'running'
-      ) {
-        return false;
-      }
-
-      sessions.send({ id: mainSession.id, from: 'user', content: text });
-      keptPrompt.push({ role: 'user', content: text, at: now() });
-      options.keepHistory?.([...keptPrompt]);
+      if (!running || runSignal?.aborted) return false;
+      yielding.abort();
 
       return true;
     },
