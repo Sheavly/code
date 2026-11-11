@@ -13,3 +13,8 @@ The `.env` bait used by the workbook is generated fake data; no real credentials
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
 evidence that completion delivery works. The check does not grant command permissions itself.
+
+`grouped-tasks` additionally requires a successful `await_tasks` call with future-self context,
+independent work, and both delayed outputs without polling. It needs the same command approval.
+Its smoke assertions do not verify notice count or ordering; the registry and loop regression tests
+check those details, including held cancellations and grouping across summaries.
