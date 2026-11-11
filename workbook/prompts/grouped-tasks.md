@@ -19,7 +19,7 @@ check:
         'toolResults':
           { 'await_tasks': ['Compare both release checks before recommending deployment.'] },
         'events': ['task_running', 'task_completed', 'harness_notice'],
-        'reply': ['GROUP_ALPHA_PASSED', 'GROUP_BETA_PASSED'],
+        'reply': ['GROUP_ALPHA_PASSED', 'GROUP_BETA_PASSED', 'COMPLETION_CONTEXT_CONFIRMED'],
         'outcome': 'completed',
       },
     'forbid': { 'tools': ['task_status'] },
@@ -36,3 +36,7 @@ Use await_tasks to group their task IDs, with this reason:
 Then run pwd as independent work. Once that is done, end your turn without tool calls to wait
 for the combined results; do not poll task_status. After both results arrive, report each check's
 output and exit status and whether deployment is safe based on those checks.
+Also report the completion reason, earliest start timestamp, aggregate duration in milliseconds,
+and user-message count from the combined notice's completion context. Include
+COMPLETION_CONTEXT_CONFIRMED only if all those fields arrived with the results; do not infer
+missing measurements from tool calls or your own memory.
