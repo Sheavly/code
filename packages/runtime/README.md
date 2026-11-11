@@ -15,6 +15,10 @@ service members remain; a group containing only running services does not.
 one delivery when the last settles, including cancelled members. Unknown, duplicate, already
 grouped and unowned IDs throw `TaskError` without changing anything; empty groups are rejected.
 Already settled members join the group instead of producing separate undelivered notices.
+After validation succeeds, the explicit `reason` is stored on every member's `TaskInfo` as well as
+on the delivery. It remains available through `get`, `list`, `byCallId` and `takeDeliveries`, even
+after delivery; these return independent snapshots. Rejected groups assign no reasons, and
+ungrouped tasks do not infer a reason from their command or description.
 Membership persists after delivery until each task is released. Ordinary requested cancellations
 remain silent. Task observers still receive every start/end immediately, even for held groups.
 Registering an already-settled group also wakes `nextSettled` waiters, so a parked run can consume

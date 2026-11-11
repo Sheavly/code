@@ -138,7 +138,13 @@ export class TaskRegistry {
 
     const group: Delivery = { ids: [...ids], reason, delivered: false };
 
-    for (const id of ids) this.#entry(id).group = group;
+    for (const id of ids) {
+      const entry = this.#entry(id);
+
+      entry.group = group;
+      entry.info.reason = reason;
+    }
+
     this.#ready = this.#ready.filter((delivery) => !delivery.ids.some((id) => seen.has(id)));
     if (this.#enqueueSettledGroup(group)) this.#wakeWaiters();
   }
