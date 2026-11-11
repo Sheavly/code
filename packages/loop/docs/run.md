@@ -47,7 +47,8 @@ reason and individual results. An ungrouped task is delivered on its own. Finish
 turn are reported at the next turn, never inserted into a call already in flight.
 
 A follow-up message wakes the existing inbox wait without cancelling tasks or releasing held
-groups. Cancelling a grouped task counts it as finished, but the combined notice waits for the
+groups. Normal completion rechecks the inbox after the final asynchronous task check, so a
+follow-up accepted at that boundary is handled instead of stranded in an idle session. Cancelling a grouped task counts it as finished, but the combined notice waits for the
 remaining members and includes its cancelled status. Services that outlive a run are reported
 at the next prompt; grouping a service does not turn it into finite work.
 
