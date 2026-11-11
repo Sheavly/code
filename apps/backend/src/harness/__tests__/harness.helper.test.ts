@@ -97,6 +97,8 @@ describe('createBackendHarness: what a backend run includes', () => {
     expect(harness.workspace.root).toBe(realpathSync(root));
     expect(harness.tools.map((tool) => tool.name)).toEqual([
       'read_file',
+      'glob',
+      'grep',
       'write_file',
       'edit_file',
       'delete_file',
@@ -155,11 +157,26 @@ describe('createBackendHarness: what a backend run includes', () => {
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
     expect(sub?.tools.map((tool) => tool.name)).toContain('web_fetch');
     expect(sub?.tools.map((tool) => tool.name)).toContain('web_search');
-    expect(sub?.tools.map((tool) => tool.name)).toEqual(
-      expect.arrayContaining(['read_file', 'write_file', 'edit_file', 'delete_file']),
-    );
+    const sharedTools = [
+      'read_file',
+      'glob',
+      'grep',
+      'write_file',
+      'edit_file',
+      'delete_file',
+      'read_skill',
+      'web_fetch',
+      'web_search',
+      'run_command',
+      'task_status',
+      'cancel_task',
+      'await_tasks',
+    ];
+
+    expect(sub?.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(sharedTools));
     const main = requests.find((request) => request.messages[0]?.content === 'go');
 
+    expect(main?.tools.map((tool) => tool.name)).toEqual(expect.arrayContaining(sharedTools));
     expect(main?.instructions).toBeTruthy();
     expect(sub?.instructions?.startsWith(`${main?.instructions}\n\n# Sub-agent role\n`)).toBe(true);
     expect(sub?.instructions?.split(main?.instructions ?? '')).toHaveLength(2);

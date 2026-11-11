@@ -5,6 +5,9 @@ hooks, workspace trust) and serves them to every UI over HTTP. This is where a r
 live; a UI decides only how to show it, and none is built into the backend. Runs include
 `web_search` backed by free, rate-limited keyless Tavily without signup; `WEB_SEARCH=false`
 disables it. Embedding apps can inject a different search backend or a keyed Tavily backend.
+Coding runs and their sub-agents share dedicated `glob`/`grep` discovery, the reading/editing/deletion
+tools and enabled web tools. Children get their own task tools, including `await_tasks`, even at
+the nesting limit. Restart an already running backend after updating its tool composition.
 
 ```bash
 npm run serve -w @sheavly/backend                  # from source; prints the URL and a token
