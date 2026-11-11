@@ -35,6 +35,9 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 Completion notices render optional timing, intervening user-message counts and a starting tool
 call ID alongside a fenced agent-authored reason. Historical notices without context retain their
 previous formatting; grouped completions keep one wrapper wait-reason block and per-member context.
+Transient `running-tasks` snapshots render total/omitted counts, escaped one-line task IDs, titles
+and scalar group IDs, epoch start times and individually fenced agent-authored reasons as DATA.
+The formatter supplies the no-polling/wait handling policy, never commands or task output.
 
 ## Docs
 

@@ -6,6 +6,7 @@ import { createResponsesProvider } from '../responses.helper.js';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import { RUNNING_TASKS_NOTICE } from '../../testing/running-tasks.fake.js';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -39,11 +40,14 @@ describe('createResponsesProvider', () => {
     expect(await sentWith(provider(fetch))).toBeUndefined();
   });
 
-  it('sends all request notices after history, and nothing when there are none', async () => {
+  it('sends telemetry, running tasks and continuation after unchanged history', async () => {
     const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'ok' }]);
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
     const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
-    const sent = request({ instructions: 'Use npm.', notices: [notice, continuation] });
+    const sent = request({
+      instructions: 'Use npm.',
+      notices: [notice, RUNNING_TASKS_NOTICE, continuation],
+    });
     const original = structuredClone(sent.messages);
 
     await collect(provider(fetch).stream(sent));
@@ -52,6 +56,7 @@ describe('createResponsesProvider', () => {
     expect(requests[0]?.body.input).toEqual([
       { role: 'user', content: 'hi' },
       { role: 'user', content: formatHarnessNotice(notice) },
+      { role: 'user', content: formatHarnessNotice(RUNNING_TASKS_NOTICE) },
       { role: 'user', content: formatHarnessNotice(continuation) },
     ]);
     expect(requests[1]?.body.input).toEqual([{ role: 'user', content: 'hi' }]);

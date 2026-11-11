@@ -1,9 +1,15 @@
-import type { HarnessNotice, TaskCompletionContext } from '@sheavly/protocol/notice/notice.types';
+import type {
+  HarnessNotice,
+  RunningTask,
+  RunningTasksNotice,
+  TaskCompletionContext,
+} from '@sheavly/protocol/notice/notice.types';
 import { escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
 import {
   AGENT_REPORT_NOTICE_TEXT,
   CONTEXT_USAGE_NOTICE_TEXT,
   OUTPUT_CONTINUATION_NOTICE_TEXT,
+  RUNNING_TASKS_NOTICE_TEXT,
   TASK_COMPLETION_CONTEXT_TEXT,
   TASK_FINISHED_NOTICE_TEXT,
   TASKS_FINISHED_NOTICE_TEXT,
@@ -14,6 +20,8 @@ const count = new Intl.NumberFormat('en-US');
 /** Formats trusted harness data with its origin and handling policy, never as a user request. */
 export function formatHarnessNotice(notice: HarnessNotice): string {
   switch (notice.kind) {
+    case 'running-tasks':
+      return formatRunningTasks(notice);
     case 'context-usage':
       return [
         CONTEXT_USAGE_NOTICE_TEXT.opening,
@@ -44,6 +52,32 @@ export function formatHarnessNotice(notice: HarnessNotice): string {
     case 'tasks-finished':
       return formatTasksFinished(notice);
   }
+}
+
+/** Live metadata stays outside agent-authored reason fences; no command or output is included. */
+function formatRunningTasks(notice: RunningTasksNotice): string {
+  return [
+    RUNNING_TASKS_NOTICE_TEXT.opening,
+    RUNNING_TASKS_NOTICE_TEXT.origin,
+    `Running tasks: total ${String(notice.total)} · omitted ${String(notice.omitted)}`,
+    RUNNING_TASKS_NOTICE_TEXT.guidance,
+    ...notice.tasks.map(formatRunningTask),
+    RUNNING_TASKS_NOTICE_TEXT.closing,
+  ].join('\n');
+}
+
+function formatRunningTask(task: RunningTask): string {
+  const group = task.group === undefined ? '' : ` · group ${line(task.group)}`;
+  const reason = escapeTags(task.reason);
+  const fence = fenceDashes(reason);
+
+  return [
+    `[task ${line(task.id)} · title "${line(task.title)}"${group} · startedAt ${String(task.startedAt)} (epoch milliseconds)]`,
+    RUNNING_TASKS_NOTICE_TEXT.reasonOrigin,
+    `${fence} ${RUNNING_TASKS_NOTICE_TEXT.reasonOpening} ${fence}`,
+    reason,
+    `${fence} ${RUNNING_TASKS_NOTICE_TEXT.reasonClosing} ${fence}`,
+  ].join('\n');
 }
 
 /**

@@ -6,6 +6,7 @@ import { createChatCompletionsProvider } from '../chat-completions.helper.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import { RUNNING_TASKS_NOTICE } from '../../testing/running-tasks.fake.js';
 
 const url = 'https://resource.test/models/chat/completions?api-version=2024-05-01-preview';
 const source = `chat:${url}#deployment`;
@@ -38,14 +39,14 @@ const request = (messages: Message[] = [{ role: 'user', content: 'hello' }]) => 
 });
 
 describe('native Chat Completions', () => {
-  it('sends telemetry and continuation after history without changing it', async () => {
+  it('sends telemetry, running tasks and continuation after unchanged history', async () => {
     const { provider, requests } = setup([
       [chunk({ content: 'ok' }, 'stop')],
       [chunk({ content: 'ok' }, 'stop')],
     ]);
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
     const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
-    const sent = { ...request(), notices: [notice, continuation] };
+    const sent = { ...request(), notices: [notice, RUNNING_TASKS_NOTICE, continuation] };
     const original = structuredClone(sent.messages);
 
     await collect(provider.stream(sent));
@@ -53,8 +54,10 @@ describe('native Chat Completions', () => {
     expect(requests[0]?.body.messages).toEqual([
       { role: 'system', content: 'system instructions' },
       { role: 'user', content: 'hello' },
-      { role: 'user', content: formatHarnessNotice(notice) },
-      { role: 'user', content: formatHarnessNotice(continuation) },
+      ...[notice, RUNNING_TASKS_NOTICE, continuation].map((item) => ({
+        role: 'user',
+        content: formatHarnessNotice(item),
+      })),
     ]);
     expect(requests[1]?.body.messages).toEqual([
       { role: 'system', content: 'system instructions' },

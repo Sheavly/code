@@ -113,6 +113,8 @@ import { modelUsageSchema, tokenUsageSchema, usageTotalsSchema } from '../usage/
 import {
   harnessNoticeSchema,
   persistentNoticeSchema,
+  runningTaskSchema,
+  runningTasksNoticeSchema,
   taskCompletionContextSchema,
 } from '../notice/notice.validator.js';
 
@@ -121,6 +123,8 @@ function contractSchemas(): Record<string, z.ZodType> {
   return {
     TokenUsage: tokenUsageSchema,
     HarnessNotice: harnessNoticeSchema,
+    RunningTask: runningTaskSchema,
+    RunningTasksNotice: runningTasksNoticeSchema,
     PersistentNotice: persistentNoticeSchema,
     TaskCompletionContext: taskCompletionContextSchema,
     NoticeMessage: noticeMessageSchema,

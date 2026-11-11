@@ -13,6 +13,12 @@ explicit telemetry attribution and silent-use guidance. Notices stay outside sto
 system instructions. The same data is emitted as a `harness_notice` event for UIs, which choose
 their own presentation; existing usage events are unchanged. See [context usage](docs/run.md#context-usage).
 
+While tasks run, each call also receives a transient `running-tasks` snapshot from the registry,
+not from history. It includes session-compatible services, the 10 most recent tasks, bounded
+launch titles and reasons, start times, group identity, and total/omitted counts. The identical
+payload reaches UIs as `harness_notice`; neither it nor its formatted text reaches history or
+summarizers. See [running tasks](docs/run.md#running-tasks).
+
 Output truncation automatically continues the task by default. A transient `output-continuation`
 notice accompanies context telemetry on the next request and is emitted to every UI through the
 same event stream. Partial replies and completed tools stay in history; recovery instructions do

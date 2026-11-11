@@ -63,9 +63,25 @@ number within the model contract's bound. Zero usage and usage exceeding capacit
 Context and recovery notices each have their own ordered `harness_notice` event before the call.
 Stored `output_continuation` entries remain readable; new runs use the shared notice contract.
 
-Every kind has a lifetime. The two above are **transient**: sent beside the history on one model
-call and never stored, because a context count is stale on the next call and a continuation's
-partial reply is already in history. **Persistent** kinds are facts the model has to remember, so
+`running-tasks` carries a bounded live snapshot: `{ kind: 'running-tasks', tasks, total, omitted }`.
+Each task is `{ id: TaskId, title, reason, startedAt, group?: TaskId }`; `startedAt` is epoch
+milliseconds and `reason` is calling-agent-authored data. `group` is a scalar stable identifier:
+the first member ID requested when forming the delivery group, not an array of member IDs. Runtime
+supplies it; the first member need not be present in this bounded snapshot.
+
+The literal limits in `notice/notice.constants.ts` are `MAX_RUNNING_TASKS` (10),
+`MAX_RUNNING_TASK_TITLE_CHARS` (200) and `MAX_RUNNING_TASK_REASON_CHARS` (1000). The task array
+must be nonempty. Empty titles and reasons remain valid, matching existing registry text semantics;
+IDs retain the existing `TaskId` brand semantics. Titles and reasons are bounded in JavaScript
+string characters (UTF-16 code units). `total` and `omitted` are nonnegative integers, and parsing rejects
+`total !== tasks.length + omitted`. Task entries and the snapshot reject unknown fields, including
+commands and output. `RunningTask` and `RunningTasksNotice` are inferred protocol types. The count
+equality is enforced by zod parsing; standard generated JSON Schema describes the field bounds
+but cannot express this cross-field arithmetic invariant.
+
+Every kind has a lifetime. The three above are **transient**: sent beside the history on one model
+call and never stored, because context and running-task snapshots become stale on the next call
+and a continuation's partial reply is already in history. **Persistent** kinds are facts the model has to remember, so
 they are also stored in history as a `notice` entry (`NoticeMessage`, in `history/`: `{ role:
 'notice', notice, at }`), and the same payload is carried by the `harness_notice` event. A UI can
 read it from either and decides whether and how to show it.

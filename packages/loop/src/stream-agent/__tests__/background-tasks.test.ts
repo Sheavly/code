@@ -95,6 +95,7 @@ describe('background tasks in the loop', () => {
       'turn_end',
       'tool_batch',
       'task_running', // in place of tool_result
+      'harness_notice', // live service snapshot, outside history
       'text_delta',
       'usage',
       'turn_end',
@@ -127,6 +128,7 @@ describe('background tasks in the loop', () => {
       'turn_end',
       'tool_batch',
       'task_running',
+      'harness_notice', // transient running-task snapshot before the call
       'text_delta', // the model kept going while the task ran
       'usage',
       'turn_end',
@@ -152,7 +154,9 @@ describe('background tasks in the loop', () => {
     expect(lastUserMessage(requests[2])?.content).toContain('built');
 
     // The event and the history entry carry the same payload, so a UI and a reload agree.
-    const noticeEvent = events.find((event) => event.type === 'harness_notice');
+    const noticeEvent = events.find(
+      (event) => event.type === 'harness_notice' && event.notice.kind === 'task-finished',
+    );
     const done = events.at(-1);
     const stored =
       done?.type === 'done' ? done.messages.find((m) => m.role === 'notice') : undefined;

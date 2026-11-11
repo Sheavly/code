@@ -29,6 +29,35 @@ A session is one cache scope: the main session and each sub-agent have their own
 - Contract impact: none. A per-request `ttl` option would be an adapter option, not a contract change.
 - Not verified: whether the top-level field still reuses earlier blocks when the final block changes. The adapter avoids relying on it by marking the last history block, so notices after it never end the cached prefix.
 
+#### Signed-thinking replay and transient notices
+
+Prompt-cache reuse and signed-thinking replay are separate mechanisms. Messages records each
+completed reply's provenance as a hash of system instructions, tool definitions and all preceding
+API messages, including formatted transient notices, but excluding cache-control markers. When
+replaying history it checks each assistant reply against the messages reconstructed **before that
+reply**, then appends the current call's notices only after all history has been translated.
+
+Consequently, a reply generated with a `running-tasks` notice can lose its signed and redacted
+thinking on the next call even when system instructions and stored history are unchanged. Task
+starts, finishes, regrouping or reason changes can change the notice, and removing it also loses
+that provenance. Even an identical notice on the next call does not restore it: the earlier notice
+is absent from the reconstructed history prefix where the check runs. The adapter leaves text and
+completed tool calls intact and does not mutate stored reasoning or history.
+
+This does **not** discard all prior thinking. Earlier replies whose own preceding prefixes still
+match remain replayable. Removing a thinking block changes the reconstructed prefix for later
+replies, so later signatures that depended on those blocks can also fail. A fresh reply signed over
+the reconstructed, reduced prefix can replay on a subsequent call, provided its own prefix still
+matches (in particular, it was not itself generated with transient notices).
+
+The tradeoff is live task awareness and avoiding incompatible signature replay at the expense of
+retained thinking continuity. Claude may need to reason again, potentially adding output tokens,
+latency and cost; there is no fixed surcharge or offline measurement of that effect. Stable-history
+cache breakpoints keep notices outside the intended cached history boundary, but do not make signed
+thinking valid, and dropping thinking can also change later cacheable message bytes. Fake-network
+regressions verify serialization and these local prefix decisions, not server cache hits, billing
+or model quality. Responses and Chat Completions have no analogous notice-bound signature check.
+
 ### Azure OpenAI and OpenAI Responses
 
 [Azure](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/prompt-caching), [OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching). Read 2026-11-10.

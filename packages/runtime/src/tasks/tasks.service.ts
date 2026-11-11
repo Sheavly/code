@@ -3,6 +3,7 @@ import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { StartTask, TaskDelivery, TaskObserver, TaskResult } from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus, TaskUpdate } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
@@ -107,6 +108,37 @@ export class TaskRegistry {
 
   list(): TaskInfo[] {
     return [...this.#tasks.values()].map((e) => ({ ...e.info }));
+  }
+
+  /**
+   * Fresh metadata-only snapshots of every compatible running task, including services, in start
+   * order. Does not consume deliveries or bound text/count. Generic tasks are visible to all
+   * sessions; groups use their first requested ID. If any member belongs to another session,
+   * hides the shared group ID and reason while retaining compatible tasks with their descriptions.
+   */
+  runningTasks(sessionId?: SessionId): RunningTask[] {
+    // Each large group's ownership is checked once, not once per running member.
+    const visibility = new Map<Delivery, boolean>();
+
+    return [...this.#tasks.values()]
+      .filter((entry) => entry.info.status === 'running' && this.#owns({ entry, sessionId }))
+      .map((entry) => {
+        const { info, group } = entry;
+
+        if (group && !visibility.has(group)) {
+          visibility.set(group, this.#ownsDelivery({ delivery: group, sessionId }));
+        }
+
+        const visibleGroup = group && visibility.get(group);
+
+        return {
+          id: info.id,
+          title: info.description,
+          reason: visibleGroup ? (info.reason ?? info.description) : info.description,
+          startedAt: info.startedAt,
+          ...(visibleGroup && { group: group.ids[0] }),
+        };
+      });
   }
 
   byCallId(callId: CallId): TaskInfo | undefined {
