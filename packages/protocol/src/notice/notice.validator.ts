@@ -34,7 +34,7 @@ const transientNoticeSchema = z.discriminatedUnion('kind', [
  * decides whether and how to render it. Each is a snapshot at the moment it was written: live
  * state still comes from the session stream, and a UI joins the two by id.
  */
-export const persistentNoticeSchema = z.discriminatedUnion('kind', [
+const individualPersistentNoticeSchema = z.discriminatedUnion('kind', [
   /** A sub-agent finished: who it is and how it ended, and the complete report it wrote. */
   z.object({
     kind: z.literal('agent-report'),
@@ -47,6 +47,16 @@ export const persistentNoticeSchema = z.discriminatedUnion('kind', [
   }),
   /** A background task finished: its snapshot, whose `output` stays the bounded preview. */
   z.object({ kind: z.literal('task-finished'), task: taskInfoSchema }),
+]);
+
+/** A completion delivery retains the agent-authored wait reason as data, not instructions. */
+export const persistentNoticeSchema = z.union([
+  individualPersistentNoticeSchema,
+  z.object({
+    kind: z.literal('tasks-finished'),
+    reason: z.string(),
+    notices: z.array(individualPersistentNoticeSchema).min(1),
+  }),
 ]);
 
 /** Harness-originated data shared by the model and UI, without model instructions or UI styling. */
