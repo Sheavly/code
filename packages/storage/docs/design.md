@@ -20,6 +20,16 @@ Logs use private file and folder permissions. Only selected exception fields are
 request/response objects, authentication headers or tool inputs. Common credential forms in error
 text are redacted, but paths and error messages can still be private: review logs before sharing.
 
+## Shell state
+
+`FileConversationStore.shell(id)` is a conversation's `shell.json`, beside its `history.json`: one
+JSON document that its main session and sub-agents share. The harness keeps the agents' working
+root in it (`@sheavly/workspace`'s `WorkingRoots`); storage holds no opinion about what is in it.
+Every call for one id gets the same `DocumentFile`, so changes by several agents go through one
+queue and never erase each other, and a write is atomic and private like the other files. It is
+removed with the conversation. A write that arrives after `delete` still recreates the folder, as
+the other files do; that is tracked in #241.
+
 ## What lives here
 
 Everything the harness keeps for the user, under one root an app passes in (`~/.sheavly`): their
