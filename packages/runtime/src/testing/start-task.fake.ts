@@ -15,14 +15,15 @@ export function startTaskTool(tasks: TaskRegistry) {
       ms: z.number(),
       output: z.string().default(''),
       exitCode: z.number().default(0),
-      waitForCompletion: z.boolean().default(false),
+      backgroundKind: z.enum(['task', 'service']).default('task'),
     }),
-    execute: async ({ input: { ms, output, exitCode, waitForCompletion }, context }) => {
+    execute: async ({ input: { ms, output, exitCode, backgroundKind }, context }) => {
       const task = tasks.start({
         command: `wait ${ms}ms`,
         description: context.description,
         callId: context.callId,
-        waitForCompletion,
+        sessionId: context.session?.id,
+        backgroundKind,
         run: ({ signal, onOutput }) =>
           new Promise((resolve) => {
             const timer = setTimeout(() => {
