@@ -95,7 +95,7 @@ describe('command completion through the loop', () => {
       const { finish, requests, events, running } = setup(kind);
 
       await until(() => events.some((event) => event.type === 'turn_end' && event.turn === 2));
-      expect(tasks.hasRequiredTasks).toBe(true);
+      expect(tasks.hasPendingTasks()).toBe(true);
       expect(events.some((event) => event.type === 'done')).toBe(false);
       expect(requests).toHaveLength(2);
       finish.resolve({ exitCode: 0, output: 'CI passed', timedOut: false });
@@ -107,7 +107,7 @@ describe('command completion through the loop', () => {
       expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
       expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
       expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index));
-      expect(tasks.hasRequiredTasks).toBe(false);
+      expect(tasks.hasPendingTasks()).toBe(false);
     },
   );
 
@@ -115,7 +115,7 @@ describe('command completion through the loop', () => {
     const { events, running } = setup('service');
 
     await running;
-    expect(tasks.hasRequiredTasks).toBe(false);
+    expect(tasks.hasPendingTasks()).toBe(false);
     expect(tasks.runningCount).toBe(1);
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
     const started = events.find((event) => event.type === 'task_running');
@@ -145,13 +145,14 @@ describe('command completion through the loop', () => {
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
 
-  it('an interrupt stops the wait but leaves cancellation to the host', async () => {
+  it('an interrupt cancels background work before ending the run', async () => {
     const { controller, requests, events, running } = setup();
 
     await until(() => requests.length === 2);
     controller.abort();
     await running;
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
-    expect(tasks.runningCount).toBe(1);
+    expect(tasks.runningCount).toBe(0);
+    expect(tasks.get(taskIdSchema.parse('t1'))?.status).toBe('cancelled');
   });
 });
