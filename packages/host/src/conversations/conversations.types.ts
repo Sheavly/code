@@ -97,7 +97,7 @@ export type CreateConversation = (
 
 /**
  * What an app builds a kept conversation on: its stream goes to `entries` (`createHarness`'s
- * `entries`), and `keepHistory` is called with the history whenever a prompt starts and ends
+ * `entries`), and `keepHistory` receives prompt/follow-up previews and finished history
  * (`createConversation`'s `keepHistory`). `resume`, set when a stored conversation is reopened, is
  * the stored log to carry on from (`createHarness`'s `resume`), and the conversation is then
  * `resumed`: its session already ran its `sessionStart` hooks.

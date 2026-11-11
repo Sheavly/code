@@ -5,7 +5,7 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { Message, MessageId, PromptPart } from '@sheavly/protocol/message/message.types';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**
@@ -24,6 +24,9 @@ export function createConversation(options: ConversationOptions): Conversation {
   let messages: HistoryMessage[] = [...(options.messages ?? [])];
   let running = false;
   let started = options.resumed ?? false;
+  let runSignal: AbortSignal | undefined;
+  let completing = false;
+  let keptPrompt: HistoryMessage[] = [];
   /** Set by the first close(): the cleanup every close() call waits for. */
   let closed: Promise<void> | undefined;
 
@@ -39,11 +42,9 @@ export function createConversation(options: ConversationOptions): Conversation {
    * so its history is kept and the session is idle again before the next `send`.
    */
   async function* prompt(params: {
-    text: string;
-    messageId: MessageId;
-    parts?: PromptPart[] | undefined;
+    user: Message;
     resumed: boolean;
-    signal?: AbortSignal;
+    signal: AbortSignal;
   }): AsyncGenerator<AgentEvent> {
     const stop = new AbortController();
     const signal = AbortSignal.any([
@@ -51,13 +52,9 @@ export function createConversation(options: ConversationOptions): Conversation {
       closing.signal,
       ...(params.signal ? [params.signal] : []),
     ]);
-    const user: Message = {
-      role: 'user',
-      id: params.messageId,
-      content: params.text,
-      ...(params.parts && { parts: params.parts }),
-      at: now(),
-    };
+    const { user } = params;
+
+    runSignal = signal;
     const events = run({
       provider,
       tools,
@@ -65,7 +62,14 @@ export function createConversation(options: ConversationOptions): Conversation {
         ...hooks,
         defineHook({
           name: 'conversation-history',
+          afterTurn: async (context) => {
+            // Terminal limits cannot run another model call: close intake before done is queued.
+            completing =
+              context.turn >= (options.maxTurns ?? Infinity) ||
+              context.stopReason === 'context_window_exceeded';
+          },
           onError: async (context) => {
+            completing = true;
             messages = [...context.messages];
           },
         }),
@@ -81,12 +85,14 @@ export function createConversation(options: ConversationOptions): Conversation {
       ...(options.summary && { summary: options.summary }),
     })[Symbol.asyncIterator]();
     const record = (event: AgentEvent) => {
-      if (event.type === 'done') messages = event.messages;
+      if (event.type !== 'done') return;
+      completing = true;
+      messages = event.messages;
     };
     let finished = false;
 
-    // The user's prompt is kept before the run starts, so a crash mid-run loses nothing they sent.
-    options.keepHistory?.([...messages, user]);
+    // Include follow-ups accepted before the caller began driving this iterator.
+    options.keepHistory?.(keptPrompt);
 
     try {
       for (let next = await events.next(); !next.done; next = await events.next()) {
@@ -106,6 +112,16 @@ export function createConversation(options: ConversationOptions): Conversation {
       }
 
       running = false;
+      runSignal = undefined;
+      // An abort or turn cap can prevent accepted steering from reaching a model call. Keep it
+      // once in history and clear the inbox so the next prompt does not deliver it twice.
+      messages.push(
+        ...sessions.takeMessages(mainSession.id).map((message) => ({
+          role: 'user' as const,
+          content: message.content,
+          at: message.sentAt,
+        })),
+      );
       // Provider failures do not undo tool effects, so their completed work must stay in history.
       options.keepHistory?.(messages);
     }
@@ -133,14 +149,42 @@ export function createConversation(options: ConversationOptions): Conversation {
       if (resumed) sessions.resume(mainSession.id);
       started = true;
       running = true;
+      completing = false;
+      runSignal = AbortSignal.any([
+        closing.signal,
+        ...(sendOptions.signal ? [sendOptions.signal] : []),
+      ]);
+      const user: Message = {
+        role: 'user',
+        id: messageId,
+        content: text,
+        ...(sendOptions.parts && { parts: sendOptions.parts }),
+        at: now(),
+      };
 
-      return prompt({
-        text,
-        messageId,
-        resumed,
-        parts: sendOptions.parts,
-        ...(sendOptions.signal && { signal: sendOptions.signal }),
-      });
+      keptPrompt = [...messages, user];
+
+      return prompt({ user, resumed, signal: runSignal });
+    },
+    followup(text) {
+      if (closed) {
+        refuse({ reason: 'session_ended', why: 'This conversation is closed; start a new one' });
+      }
+
+      if (
+        !running ||
+        runSignal?.aborted ||
+        completing ||
+        sessions.get(mainSession.id)?.state !== 'running'
+      ) {
+        return false;
+      }
+
+      sessions.send({ id: mainSession.id, from: 'user', content: text });
+      keptPrompt.push({ role: 'user', content: text, at: now() });
+      options.keepHistory?.([...keptPrompt]);
+
+      return true;
     },
     get messages() {
       return messages;

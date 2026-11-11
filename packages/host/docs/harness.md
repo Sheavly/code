@@ -81,8 +81,26 @@ prompt on the history so far, in the harness's main session, and yields its even
 
 - Between prompts the session is `idle` (a `session_idle` update, with how the prompt ended as
   `lastOutcome`), and the next prompt resumes it (`session_resumed`); it never ends on its own.
-- A prompt sent while one runs is refused with a `SessionError` (`session_running`); steering a
-  running prompt is `sessions.send`.
+- A normal prompt sent while one runs is refused with a `SessionError` (`session_running`).
+  `conversation.followup(text)` instead synchronously attempts user steering through
+  `sessions.send({ id: mainSession.id, from: 'user', content: text })`. Accepted messages wake a
+  finite-task or sub-agent wait without cancelling anything, and are delivered in inbox order at
+  the next model call (`message_received`). Idle or stopping/completing prompts return `false`;
+  closed conversations throw `session_ended`. Terminal limits close intake before `done` is
+  queued; idle session state closes it before the iterator's cleanup clears `running`.
+- `conversations.followup({ id, prompt })` prepares text or picked skill parts just as normal
+  `send` does, then rechecks the original run's identity, stopping state and storage health.
+  Preparation finishing after a run cannot steer a subsequent prompt. A UI queues its original
+  prompt as a normal send when acceptance is false; the host does not start that fallback itself.
+  Expanded skill text is kept, but the inbox contract carries neither original parts nor a new
+  diagnostic message ID: stream activity remains associated with the active prompt.
+- Accepted follow-ups are queued for history persistence immediately: the preview contains the
+  previous finished history, current prompt and accepted follow-ups. In-flight model/tool work
+  remains in the separately persisted stream; it joins the history snapshot when the run ends
+  or fails, as for a normal prompt. An interrupt, failure or turn limit may prevent model delivery;
+  remaining inbox messages are then kept once in valid final history and cleared from the inbox,
+  so the next normal prompt sees them without duplicate delivery. Acceptance is not a promise of
+  a model response after abort or a terminal limit.
 - Aborting `signal` stops that prompt with valid history, and the next continues from it. A failed
   run keeps the user's prompt, added context, completed assistant turns and tool results. Tool
   effects are not undone by a provider failure, so history must not roll back either.

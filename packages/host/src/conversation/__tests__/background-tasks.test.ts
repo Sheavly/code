@@ -13,18 +13,14 @@ import { createConversation } from '../conversation.helper.js';
 function conversationWithTask(backgroundKind?: 'task' | 'service') {
   const finish = Promise.withResolvers<undefined>();
   const seen: ProviderRequest[] = [];
+  const answer = (request: ProviderRequest) => {
+    seen.push(request);
+
+    return say('The build passed.')(request);
+  };
   const harness = createHarness({
     title: 'Build',
-    provider: routedProvider({
-      build: [
-        say('Waiting for the build.'),
-        (request) => {
-          seen.push(request);
-
-          return say('The build passed.')(request);
-        },
-      ],
-    }),
+    provider: routedProvider({ build: [say('Waiting for the build.'), answer, answer] }),
   });
 
   harness.tasks.start({
@@ -43,6 +39,16 @@ function conversationWithTask(backgroundKind?: 'task' | 'service') {
   const conversation = createConversation({ harness, run: streamAgent, tools: [] });
 
   return { harness, conversation, finish, seen };
+}
+
+/** Drive one prompt concurrently so the test can steer or release its finite work. */
+function startBuild(conversation: ReturnType<typeof createConversation>) {
+  const events: AgentEvent[] = [];
+  const running = (async () => {
+    for await (const event of conversation.send('build')) events.push(event);
+  })();
+
+  return { events, running };
 }
 
 /** Unlike the manually released build, this work must be stopped by lifecycle cleanup. */
@@ -122,10 +128,7 @@ describe('background task lifecycle in a conversation', () => {
   });
   it('keeps a prompt active for finite work by default and delivers its completion', async () => {
     const { harness, conversation, finish, seen } = conversationWithTask();
-    const events: AgentEvent[] = [];
-    const running = (async () => {
-      for await (const event of conversation.send('build')) events.push(event);
-    })();
+    const { events, running } = startBuild(conversation);
 
     try {
       await until(() => events.some((event) => event.type === 'turn_end'));
@@ -141,6 +144,35 @@ describe('background task lifecycle in a conversation', () => {
       expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
       expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
       expect(harness.tasks.runningCount).toBe(0);
+    } finally {
+      finish.resolve(undefined);
+      await running;
+      await conversation.close();
+    }
+  });
+
+  it('wakes a finite-task wait for ordered follow-ups without cancelling the task', async () => {
+    const { harness, conversation, finish, seen } = conversationWithTask();
+    const { events, running } = startBuild(conversation);
+
+    try {
+      await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
+      expect(conversation.followup('Focus on failures.')).toBe(true);
+      expect(conversation.followup('Also include warnings.')).toBe(true);
+      await until(() => seen.length === 1);
+      expect(
+        seen[0]?.messages.filter((message) => message.role === 'user').map((m) => m.content),
+      ).toEqual(['build', 'Focus on failures.', 'Also include warnings.']);
+      expect(harness.tasks.runningCount).toBe(1);
+      expect(events.filter((event) => event.type === 'message_received')).toHaveLength(2);
+      finish.resolve(undefined);
+      await running;
+      expect(seen).toHaveLength(2);
+      expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
+      expect(
+        conversation.messages.filter((message) => message.role === 'user').map((m) => m.content),
+      ).toEqual(['build', 'Focus on failures.', 'Also include warnings.']);
+      expect(conversation.followup('too late')).toBe(false);
     } finally {
       finish.resolve(undefined);
       await running;
