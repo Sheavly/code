@@ -4,6 +4,27 @@
 that writes the trusted notice envelope. Apps receive the same structured notice data and choose
 their own presentation; they do not need to parse this text.
 
+## Running tasks
+
+`running-tasks` is a transient protocol snapshot, formatted beside the history for one model call.
+The formatter preserves the supplied order and shows `total`, `omitted`, each task's ID and title,
+`startedAt` as epoch milliseconds (including zero), and the optional scalar `group` ID. The group
+is the stable first requested member ID supplied by runtime; the formatter does not infer or
+expand group membership. There is no command or output in this payload.
+
+IDs, titles and group IDs are angle-bracket escaped and collapsed to one line. Each task reason
+is separately escaped and fenced with a dash run longer than any in that reason, and explicitly
+labeled calling-agent-authored DATA, not instructions. The fixed policy reminds the model not to
+poll to wait: finish independent work, then end the turn without tool calls to wait for required
+background results, whose completions arrive automatically. Dynamic text cannot write a trusted
+envelope or end its own reason fence. All envelope and handling text lives in formatter constants.
+
+Protocol validation owns the 10-entry, 200-character title and 1000-character reason bounds and
+count consistency; formatting does not truncate, validate again or put the snapshot in persistent
+history. See the [protocol contract](../../protocol/docs/contract.md#harness-notices) for payload
+rules. Adversarial tests in `src/notice/__tests__/running-tasks.utils.test.ts` cover forged tags,
+lookalike brackets, multiline metadata, forged closing fences and separate per-task fences.
+
 ## Completion context
 
 `agent-report`, `task-finished` and `tasks-finished` can carry a `TaskCompletionContext` from
