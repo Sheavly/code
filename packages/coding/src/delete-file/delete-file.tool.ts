@@ -6,6 +6,7 @@ import { fileSize, readForChange, removeFile } from '../files/file-effects.helpe
 import { changeResult } from '../files/file-change.helper.js';
 import { assertSameDeletable, resolveDeletable } from '../files/files.helper.js';
 import { MAX_DELETE_BYTES } from './delete-file.constants.js';
+import { DELETE_FILE_PROMPTS } from './delete-file.prompt.js';
 
 /**
  * Removes one file from the workspace, and refuses a folder, a symlink, a `.env` file and anything
@@ -25,12 +26,9 @@ import { MAX_DELETE_BYTES } from './delete-file.constants.js';
 export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
   return defineTool({
     name: 'delete_file',
-    description:
-      'Delete one file. Paths are relative to the workspace root. It refuses a folder, a symlink, ' +
-      `.env files, paths outside the workspace and files over ${MAX_DELETE_BYTES} bytes; to remove ` +
-      'a folder or a large file, use run_command.',
+    description: DELETE_FILE_PROMPTS.description,
     inputSchema: z.object({
-      path: z.string().min(1).describe('File path, relative to the workspace root'),
+      path: z.string().min(1).describe(DELETE_FILE_PROMPTS.path),
     }),
     execute: async ({ input: { path: requested }, signal }) => {
       const real = await resolveDeletable({ workspace, requested });

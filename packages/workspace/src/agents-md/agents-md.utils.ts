@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { AGENTS_FILE } from './agents-md.constants.js';
+import { renderAgentsInstructions } from './agents-md.prompt.js';
 import type { AgentsFile } from './agents-md.types.js';
 import { AgentsMdError } from '../errors/agents-md.errors.js';
 import { isInside } from '../workspace/workspace.utils.js';
@@ -32,14 +32,11 @@ export function agentsDirs(params: { root: string; cwd: string }): string[] {
  */
 export function formatAgentsInstructions(params: { files: AgentsFile[] }): string | undefined {
   const { files } = params;
-  const present = files.filter((file) => file.content.trim() !== '');
+  const present = files
+    .filter((file) => file.content.trim() !== '')
+    .map((file) => ({ ...file, content: file.content.trim() }));
 
   if (present.length === 0) return undefined;
 
-  const intro =
-    `Project instructions from ${AGENTS_FILE} files. Each applies to its folder and everything ` +
-    'below it; where they disagree, the more specific (later) one wins.';
-  const sections = present.map((file) => `## ${file.path}\n\n${file.content.trim()}`);
-
-  return [intro, ...sections].join('\n\n');
+  return renderAgentsInstructions({ files: present });
 }

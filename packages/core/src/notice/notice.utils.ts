@@ -6,49 +6,37 @@ import type {
 } from '@sheavly/protocol/notice/notice.types';
 import { escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
 import {
-  AGENT_REPORT_NOTICE_TEXT,
-  CONTEXT_USAGE_NOTICE_TEXT,
-  OUTPUT_CONTINUATION_NOTICE_TEXT,
-  RUNNING_TASKS_NOTICE_TEXT,
-  TASK_COMPLETION_CONTEXT_TEXT,
-  TASK_FINISHED_NOTICE_TEXT,
-  TASKS_FINISHED_NOTICE_TEXT,
-} from './notice.constants.js';
+  renderAgentReport,
+  renderCompletionContext,
+  renderCompletionMetrics,
+  renderContextUsage,
+  renderNoticeEnvelope,
+  renderOutputContinuation,
+  renderRunningTask,
+  renderRunningTasks,
+  renderTaskFinished,
+  renderTasksFinished,
+} from './notice.prompt.js';
 
 const count = new Intl.NumberFormat('en-US');
 
 /** Formats trusted harness data with its origin and handling policy, never as a user request. */
 export function formatHarnessNotice(notice: HarnessNotice): string {
+  return renderNoticeEnvelope({ kind: notice.kind, body: prepareNoticeBody(notice) });
+}
+
+function prepareNoticeBody(notice: HarnessNotice): string {
   switch (notice.kind) {
     case 'running-tasks':
       return formatRunningTasks(notice);
     case 'context-usage':
-      return [
-        CONTEXT_USAGE_NOTICE_TEXT.opening,
-        CONTEXT_USAGE_NOTICE_TEXT.origin,
-        contextDescription(notice.context),
-        CONTEXT_USAGE_NOTICE_TEXT.guidance,
-        CONTEXT_USAGE_NOTICE_TEXT.closing,
-      ].join('\n');
+      return contextDescription(notice.context);
     case 'output-continuation':
-      return [
-        OUTPUT_CONTINUATION_NOTICE_TEXT.opening,
-        OUTPUT_CONTINUATION_NOTICE_TEXT.origin,
-        OUTPUT_CONTINUATION_NOTICE_TEXT.guidance,
-        OUTPUT_CONTINUATION_NOTICE_TEXT.closing,
-      ].join('\n');
+      return renderOutputContinuation();
     case 'agent-report':
-      return [
-        AGENT_REPORT_NOTICE_TEXT.opening,
-        formatAgentReport(notice),
-        AGENT_REPORT_NOTICE_TEXT.closing,
-      ].join('\n');
+      return formatAgentReport(notice);
     case 'task-finished':
-      return [
-        TASK_FINISHED_NOTICE_TEXT.opening,
-        formatTaskFinished(notice),
-        TASK_FINISHED_NOTICE_TEXT.closing,
-      ].join('\n');
+      return formatTaskFinished(notice);
     case 'tasks-finished':
       return formatTasksFinished(notice);
   }
@@ -56,28 +44,24 @@ export function formatHarnessNotice(notice: HarnessNotice): string {
 
 /** Live metadata stays outside agent-authored reason fences; no command or output is included. */
 function formatRunningTasks(notice: RunningTasksNotice): string {
-  return [
-    RUNNING_TASKS_NOTICE_TEXT.opening,
-    RUNNING_TASKS_NOTICE_TEXT.origin,
-    `Running tasks: total ${String(notice.total)} · omitted ${String(notice.omitted)}`,
-    RUNNING_TASKS_NOTICE_TEXT.guidance,
-    ...notice.tasks.map(formatRunningTask),
-    RUNNING_TASKS_NOTICE_TEXT.closing,
-  ].join('\n');
+  return renderRunningTasks({
+    total: String(notice.total),
+    omitted: String(notice.omitted),
+    tasks: notice.tasks.map(formatRunningTask),
+  });
 }
 
 function formatRunningTask(task: RunningTask): string {
-  const group = task.group === undefined ? '' : ` · group ${line(task.group)}`;
   const reason = escapeTags(task.reason);
-  const fence = fenceDashes(reason);
 
-  return [
-    `[task ${line(task.id)} · title "${line(task.title)}"${group} · startedAt ${String(task.startedAt)} (epoch milliseconds)]`,
-    RUNNING_TASKS_NOTICE_TEXT.reasonOrigin,
-    `${fence} ${RUNNING_TASKS_NOTICE_TEXT.reasonOpening} ${fence}`,
+  return renderRunningTask({
+    id: line(task.id),
+    title: line(task.title),
+    group: task.group === undefined ? undefined : line(task.group),
+    startedAt: String(task.startedAt),
     reason,
-    `${fence} ${RUNNING_TASKS_NOTICE_TEXT.reasonClosing} ${fence}`,
-  ].join('\n');
+    fence: fenceDashes(reason),
+  });
 }
 
 /**
@@ -87,19 +71,18 @@ function formatRunningTask(task: RunningTask): string {
  */
 function formatAgentReport(notice: Extract<HarnessNotice, { kind: 'agent-report' }>): string {
   const { agent, taskId, outcome, report } = notice;
-  const status = agent.status ? ` Last status it reported: ${line(agent.status)}.` : '';
   const body = escapeTags(report);
-  const fence = fenceDashes(body);
 
-  return [
-    AGENT_REPORT_NOTICE_TEXT.origin,
-    `Sub-agent "${line(agent.title)}" (session ${line(agent.id)}, task ${line(taskId)}) ended: ${line(outcome)}.${status}`,
-    ...formatCompletionContext(notice.context),
-    AGENT_REPORT_NOTICE_TEXT.guidance,
-    `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportOpening} ${fence}`,
+  return renderAgentReport({
+    title: line(agent.title),
+    id: line(agent.id),
+    taskId: line(taskId),
+    outcome: line(outcome),
+    status: agent.status ? line(agent.status) : undefined,
     body,
-    `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportClosing} ${fence}`,
-  ].join('\n');
+    fence: fenceDashes(body),
+    context: formatCompletionContext(notice.context),
+  });
 }
 
 /** A header field as one escaped line: the harness made most of them, but history is a file. */
@@ -111,27 +94,19 @@ function line(text: string): string {
 function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finished' }>): string {
   const { task } = notice;
   const elapsed = ((task.endedAt ?? task.startedAt) - task.startedAt) / 1000;
-  const parts: string[] = [line(task.status)];
-
-  if (task.exitCode !== undefined) parts.push(`exit code ${task.exitCode ?? 'unknown'}`);
-  parts.push(`${Math.max(0, elapsed).toFixed(1)}s`);
-
   // The error and the output are both what the command printed: data, fenced together.
   const body = escapeTags([task.error, task.output.trimEnd()].filter(Boolean).join('\n'));
-  const fence = fenceDashes(body);
 
-  return [
-    TASK_FINISHED_NOTICE_TEXT.origin,
-    `[task ${line(task.id)} · ${parts.join(' · ')}] $ ${line(task.command)}`,
-    ...formatCompletionContext(notice.context),
-    ...(body
-      ? [
-          `${fence} ${TASK_FINISHED_NOTICE_TEXT.outputOpening} ${fence}`,
-          body,
-          `${fence} ${TASK_FINISHED_NOTICE_TEXT.outputClosing} ${fence}`,
-        ]
-      : []),
-  ].join('\n');
+  return renderTaskFinished({
+    id: line(task.id),
+    status: line(task.status),
+    exitCode: task.exitCode === undefined ? undefined : String(task.exitCode ?? 'unknown'),
+    elapsed: Math.max(0, elapsed).toFixed(1),
+    command: line(task.command),
+    body,
+    fence: fenceDashes(body),
+    context: formatCompletionContext(notice.context),
+  });
 }
 
 /** Reuses individual bodies without nesting trusted envelopes around agent-authored data. */
@@ -144,17 +119,12 @@ function formatTasksFinished(notice: Extract<HarnessNotice, { kind: 'tasks-finis
     return formatTaskFinished(individual);
   });
 
-  return [
-    TASKS_FINISHED_NOTICE_TEXT.opening,
-    TASKS_FINISHED_NOTICE_TEXT.origin,
-    TASKS_FINISHED_NOTICE_TEXT.reasonOrigin,
-    `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonOpening} ${fence}`,
+  return renderTasksFinished({
     reason,
-    `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonClosing} ${fence}`,
-    ...formatCompletionMetrics(notice.context),
-    ...bodies,
-    TASKS_FINISHED_NOTICE_TEXT.closing,
-  ].join('\n');
+    fence,
+    metrics: formatCompletionMetrics(notice.context),
+    bodies,
+  });
 }
 
 /** Keep the calling agent's reason fenced separately from trusted completion measurements. */
@@ -164,29 +134,18 @@ function formatCompletionContext(context: TaskCompletionContext | undefined): st
   const reason = escapeTags(context.reason);
   const fence = fenceDashes(reason);
 
-  return [
-    ...formatCompletionMetrics(context),
-    TASK_COMPLETION_CONTEXT_TEXT.reasonOrigin,
-    `${fence} ${TASK_COMPLETION_CONTEXT_TEXT.reasonOpening} ${fence}`,
-    reason,
-    `${fence} ${TASK_COMPLETION_CONTEXT_TEXT.reasonClosing} ${fence}`,
-  ];
+  return renderCompletionContext({ metrics: formatCompletionMetrics(context), reason, fence });
 }
 
 function formatCompletionMetrics(context: TaskCompletionContext | undefined): string[] {
   if (!context) return [];
 
-  const parts = [
-    `startedAt ${String(context.startedAt)} (epoch milliseconds)`,
-    `duration ${String(context.durationMs)}ms`,
-    `user messages since start ${String(context.userMessagesSinceStart)}`,
-  ];
-
-  if (context.callId !== undefined) {
-    parts.push(`starting tool call ID ${line(context.callId)}`);
-  }
-
-  return [`Completion context: ${parts.join(' · ')}`];
+  return renderCompletionMetrics({
+    startedAt: String(context.startedAt),
+    durationMs: String(context.durationMs),
+    userMessagesSinceStart: String(context.userMessagesSinceStart),
+    callId: context.callId === undefined ? undefined : line(context.callId),
+  });
 }
 
 function contextDescription(
@@ -194,13 +153,12 @@ function contextDescription(
 ): string {
   const { window, used } = context;
 
-  if (window !== undefined && used !== undefined) {
-    const percent = Math.round((used / window) * 100);
-
-    return `Context: ${count.format(used)} of ${count.format(window)} tokens used (${String(percent)}%)`;
-  }
-
-  if (window !== undefined) return `Context: ${count.format(window)} token window`;
-
-  return `Context: ${count.format(used)} tokens used`;
+  return renderContextUsage({
+    window: window === undefined ? undefined : count.format(window),
+    used: used === undefined ? undefined : count.format(used),
+    percent:
+      window === undefined || used === undefined
+        ? undefined
+        : String(Math.round((used / window) * 100)),
+  });
 }

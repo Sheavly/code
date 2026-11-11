@@ -45,6 +45,13 @@ describe('start_agent task lifecycle', () => {
     });
 
     expect(result.isError).toBe(false);
+    const child = runAgent.mock.calls[0]![0].session.ref;
+
+    expect(result.content).toBe(
+      `Started sub-agent "Review" as background task t1 (session ${child.id}, depth ${child.depth}). Its complete report comes to you automatically: ` +
+        "don't poll task_status for it; once you have nothing else to do, end your turn and wait. " +
+        'Use message_agent with its session id to steer it, cancel_task to stop it.',
+    );
     expect(tasks.hasPendingTasks(parent.id)).toBe(true);
     expect(start.mock.calls[0]?.[0]).toMatchObject({ sessionId: parent.id });
     const childOptions = runAgent.mock.calls[0]![0];

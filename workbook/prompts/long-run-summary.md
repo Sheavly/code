@@ -8,6 +8,7 @@ check:
     'areas':
       [
         'packages/loop/src/summary',
+        'packages/core/src/summary',
         'packages/loop/src/stream-agent/turn.helper.ts',
         'packages/summary/src',
         'packages/coding/src/trail',

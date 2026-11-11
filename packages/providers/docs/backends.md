@@ -185,7 +185,9 @@ A UI that sets a model up never imports this package. The backend reads the regi
   failure, the network, a timeout). HTTP 400/422 messages explain known adaptive-thinking and
   output-limit failures, or point to the settings to check; HTTP 429 says to retry or check quota.
   These are fixed explanations, never the provider's error text, which can echo what was sent.
-  Aborting `signal` rejects instead; that is not an answer.
+  Aborting `signal` rejects instead; that is not an answer. The tiny question is authored in
+  internal `registry/registry.prompt.ts`; request policy and fixed failure messages stay in
+  `registry.constants.ts`.
 
 What marks a field is in its schema, so an adapter that reuses `apiKeySchema` and
 `requestPolicySchema` is described correctly with nothing more. A field named like a secret that is

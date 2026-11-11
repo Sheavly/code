@@ -18,6 +18,9 @@ import {
 } from './check.utils.js';
 import { runSourcesSchema } from './check.validator.js';
 import { runWorkbook } from './run.helper.js';
+import { assertCheckBackend } from './check-isolation.helper.js';
+import { parseApprovedCommands } from './check-approval.validator.js';
+import { stepApprovedCommands } from './check-approval.utils.js';
 import type { WorkbookStore } from './store.service.js';
 import { ATTEMPTS, BASE, RUN_SOURCES_FILE } from './workbook.constants.js';
 import type { StoredPrompt } from './workbook.types.js';
@@ -134,6 +137,7 @@ function stepsOf(check: Check): CheckStep[] {
 async function attempt(params: {
   store: WorkbookStore;
   prompt: CheckedPrompt;
+  approvedCommands: readonly string[];
 }): Promise<{ problems: string[]; runs: string[]; interrupted: boolean }> {
   const { store, prompt } = params;
   // A fresh trust store per attempt, outside every repo: a check never touches the user's own.
@@ -159,6 +163,12 @@ async function attempt(params: {
       const result = await runWorkbook({
         store,
         trustFile,
+        checkContext: {
+          approvedCommands: stepApprovedCommands({
+            step,
+            approvedCommands: params.approvedCommands,
+          }),
+        },
         request: {
           name: prompt.name,
           text: step.run.text ?? prompt.text,
@@ -207,6 +217,7 @@ export async function appendToWorkspace(params: {
 async function runCheck(params: {
   store: WorkbookStore;
   prompt: CheckedPrompt;
+  approvedCommands: readonly string[];
 }): Promise<CheckOutcome> {
   const attempts: string[][] = [];
   const runs: string[] = [];
@@ -240,8 +251,11 @@ export async function checkWorkbook(params: {
   store: WorkbookStore;
   names: string[];
   all: boolean;
+  approvedCommands?: readonly string[];
   write: (text: string) => void;
 }): Promise<boolean> {
+  assertCheckBackend(process.env);
+  const approvedCommands = parseApprovedCommands(params.approvedCommands ?? []);
   const { store, names, all, write } = params;
   const changed = names.length > 0 || all ? [] : changedFiles();
   const { checks, uncovered, unknown } = selectChecks({
@@ -273,7 +287,7 @@ export async function checkWorkbook(params: {
   const outcomes: CheckOutcome[] = [];
 
   for (const prompt of checks) {
-    const outcome = await runCheck({ store, prompt });
+    const outcome = await runCheck({ store, prompt, approvedCommands });
 
     outcomes.push(outcome);
     // Ctrl+C stops the paid runs: nothing more starts after a stopped one.

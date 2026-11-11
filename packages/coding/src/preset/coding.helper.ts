@@ -4,7 +4,7 @@ import { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
 import { composeInstructions } from '@sheavly/host/instructions/instructions.helper';
-import { CODING_INSTRUCTIONS } from '../instructions/coding-instructions.constants.js';
+import { CODING_INSTRUCTIONS } from '../instructions/coding-instructions.prompt.js';
 import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
 
 /**

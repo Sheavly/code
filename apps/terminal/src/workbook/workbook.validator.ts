@@ -47,6 +47,9 @@ export const runMetaSchema = z.object({
   workspace: z.string(),
   mainSession: sessionIdSchema,
   gitCommit: z.string().optional(),
+  /** Authorization for this conversation, not an OS sandbox or persisted permission. */
+  approvedCommands: z.array(z.string()).optional(),
+  approvalScope: z.literal('conversation-session').optional(),
 });
 
 /** A run's saved conversation (`messages.json`), the history a continued run starts from. */

@@ -1,5 +1,6 @@
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { GrepResult } from './grep.types.js';
+import { grepTruncationPrompt } from './grep.prompt.js';
 
 function resultLines(result: GrepResult): string[] {
   if (result.mode === 'files') return result.files;
@@ -19,11 +20,7 @@ export function formatGrep(params: { result: GrepResult; skipped: string }): str
   const { result, skipped } = params;
   const lines = resultLines(result);
   const notes = [
-    ...(result.truncated
-      ? [
-          `Showing the first ${lines.length} results; there are more. Narrow the search with path or glob, or a more specific pattern.`,
-        ]
-      : []),
+    ...(result.truncated ? [grepTruncationPrompt(lines.length)] : []),
     ...(skipped
       ? [`Some files could not be searched, so results may be incomplete: ${skipped}`]
       : []),

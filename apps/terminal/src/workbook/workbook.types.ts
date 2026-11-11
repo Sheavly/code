@@ -40,7 +40,7 @@ export type Command =
       showModelCalls: boolean;
       trust: boolean;
     }
-  | { name: 'check'; prompts: string[]; all: boolean }
+  | { name: 'check'; prompts: string[]; all: boolean; approvedCommands: string[] }
   | { name: 'list' }
   | { name: 'show'; run?: string | undefined }
   | { name: 'step'; run?: string | undefined; from?: number | undefined }
@@ -49,6 +49,9 @@ export type Command =
 
 /** Where a run's files go, resolved: its folder, and one path per file in `RUN_FILES`. */
 export type RunPaths = Record<'dir' | keyof typeof RUN_FILES, string>;
+
+/** Explicit check CLI authorization; the runner derives the workspace from its store, never here. */
+export type CheckContext = { approvedCommands: readonly string[] };
 
 /** What to run: a stored prompt, a one-off text, or a follow-up to an earlier run. */
 export type RunRequest = {

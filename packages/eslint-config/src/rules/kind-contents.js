@@ -1,4 +1,5 @@
 import { FILE_KIND_POLICIES, kindOfFile } from '../file-kinds.js';
+import { isPromptValue, promptBindings, promptExports } from './prompt-shape.utils.js';
 
 // What a file may export follows from its kind's `exports` policy in file-kinds.js, and whether
 // it may hold literal constants at all from its `constantsElsewhere` policy. Non-exported types
@@ -58,8 +59,42 @@ const TYPE_DECLARATIONS = new Set([
   'TSDeclareFunction',
 ]);
 
+/** Compatibility aliases expose adjacent prompt text without exposing renderers or other code. */
+function isImportedPromptLiteral(params) {
+  const { node, sourceCode } = params;
+  const services = sourceCode?.parserServices;
+
+  if (node?.type !== 'Identifier' || !services?.program || !services.esTreeNodeToTSNodeMap) {
+    return false;
+  }
+
+  let scope = sourceCode.getScope(node);
+  let binding;
+
+  while (scope && !binding) {
+    binding = scope.set.get(node.name);
+    scope = scope.upper;
+  }
+
+  const definition = binding?.defs[0];
+  const specifier = definition?.node;
+  const declaration = specifier?.parent;
+
+  if (definition?.type !== 'ImportBinding' || specifier.type !== 'ImportSpecifier') return false;
+  if (specifier.importKind === 'type' || declaration.importKind === 'type') return false;
+  if (!/^\.\/[^/]+\.prompt\.(?:js|ts)$/u.test(declaration.source.value)) return false;
+
+  const tsNode = services.esTreeNodeToTSNodeMap.get(node);
+
+  return (
+    Boolean(tsNode) && services.program.getTypeChecker().getTypeAtLocation(tsNode).isStringLiteral()
+  );
+}
+
 /** Each export of a statement as `{ node, name, shape }`, shape one of type/literal/code. */
-function describeExports(statement) {
+function describeExports(params) {
+  const { statement, sourceCode } = params;
+
   if (statement.type !== 'ExportNamedDeclaration') return [];
 
   const { declaration } = statement;
@@ -87,7 +122,13 @@ function describeExports(statement) {
   return declaration.declarations.map((declarator) => ({
     node: declarator,
     name: declarator.id.name,
-    shape: declarator.init && isLiteralValue(declarator.init) ? 'literal' : 'code',
+    shape:
+      declarator.init &&
+      (isLiteralValue(declarator.init) ||
+        (declaration.kind === 'const' &&
+          isImportedPromptLiteral({ node: declarator.init, sourceCode })))
+        ? 'literal'
+        : 'code',
   }));
 }
 
@@ -95,6 +136,7 @@ const VIOLATIONS = {
   types: { literal: 'valueInTypes', code: 'valueInTypes' },
   constants: { type: 'typeInConstants', code: 'codeInConstants' },
   code: { type: 'typeInCode', literal: 'literalInCode' },
+  prompt: { type: 'typeInCode' },
 };
 
 function isValueImport(statement) {
@@ -328,6 +370,9 @@ function checkPrivateLiterals(params) {
 /** Class and schema rules from the kind's `classes` / `schemas` policy, for one file. */
 function checkKindShape(params) {
   const { context, program, kind } = params;
+
+  if (kind === 'prompt') return;
+
   const {
     classes: classPolicy,
     schemas: schemaPolicy,
@@ -348,7 +393,7 @@ function checkKindShape(params) {
     }
 
     // A types or constants file has its own rule for exported values.
-    if (schemaPolicy !== 'allowed' && exportPolicy === 'code') {
+    if (schemaPolicy !== 'allowed' && ['code', 'prompt'].includes(exportPolicy)) {
       for (const { node, name } of schemas) {
         context.report({ node, messageId: 'schemaOutsideValidator', data: { name, kind } });
       }
@@ -360,12 +405,41 @@ function checkKindShape(params) {
   }
 }
 
+function checkPromptShape(params) {
+  const { context, program } = params;
+  const bindings = promptBindings(program);
+  const local = classesAndSchemas(program);
+
+  for (const statement of program.body) {
+    for (const { node, value, name } of promptExports(statement)) {
+      const localName = value?.type === 'Identifier' ? value.name : name;
+
+      if (local.classes.has(localName) || local.schemas.has(localName)) continue;
+      if (isPromptValue({ node: value, bindings })) continue;
+
+      context.report({ node, messageId: 'invalidPromptExport', data: { name } });
+    }
+
+    if (statement.declaration?.type === 'TSEnumDeclaration') {
+      context.report({
+        node: statement.declaration,
+        messageId: 'invalidPromptExport',
+        data: { name: statement.declaration.id.name },
+      });
+    }
+  }
+}
+
 /** What a file may export follows from its kind's `exports` policy. */
 export const kindContents = {
   meta: {
     type: 'suggestion',
     schema: [],
     messages: {
+      invalidPromptExport:
+        'A `*.prompt.ts` exports only text fragments, structured string prompt data or synchronous rendering functions with typed parameters and an explicit prompt return type. Move `{{name}}` to its owning types/constants/code file if it is not prompt content.',
+      promptDefinition:
+        'A `*.prompt.ts` holds no {{definition}} definitions, exported or private. Keep classes in their code kind and schemas/validation in a `*.validator.ts`; prompts only author text/data and render it.',
       valueInTypes:
         "`*.types.ts` holds only types. Move `{{name}}` to the module's constants file if it is a literal, else to its utils, helper or service file.",
       valueImportInTypes:
@@ -394,18 +468,51 @@ export const kindContents = {
     if (!kind) return {};
 
     const policy = FILE_KIND_POLICIES[kind].exports;
+    let schemaRoots = new Set();
+    const reportClass = (node) =>
+      context.report({ node, messageId: 'promptDefinition', data: { definition: 'class' } });
 
     return {
+      ...(kind === 'prompt'
+        ? {
+            ClassDeclaration: reportClass,
+            ClassExpression: reportClass,
+            VariableDeclarator(node) {
+              if (!node.init || !chainRoots(node.init).some((root) => schemaRoots.has(root))) {
+                return;
+              }
+
+              if (node.id.type === 'Identifier') schemaRoots.add(node.id.name);
+
+              context.report({
+                node,
+                messageId: 'promptDefinition',
+                data: { definition: 'schema' },
+              });
+            },
+          }
+        : {}),
       Program(program) {
+        if (kind === 'prompt') {
+          schemaRoots = new Set([...zodNames(program), ...classesAndSchemas(program).schemas]);
+        }
+
         checkKindShape({ context, program, kind });
         checkPrivateLiterals({ context, program, kind });
+
+        if (policy === 'prompt') checkPromptShape({ context, program });
 
         for (const statement of program.body) {
           if (policy === 'types' && isValueImport(statement)) {
             context.report({ node: statement, messageId: 'valueImportInTypes' });
           }
 
-          for (const { node, name, shape } of describeExports(statement)) {
+          const exports = describeExports({
+            statement,
+            sourceCode: policy === 'constants' ? context.sourceCode : undefined,
+          });
+
+          for (const { node, name, shape } of exports) {
             const messageId = VIOLATIONS[policy][shape];
 
             if (messageId) context.report({ node, messageId, data: { name, kind } });

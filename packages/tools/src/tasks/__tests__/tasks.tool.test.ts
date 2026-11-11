@@ -5,6 +5,7 @@ import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createTaskTools } from '../tasks.tool.js';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { taskStatusResponse } from '../tasks.prompt.js';
 
 const t1 = taskIdSchema.parse('t1');
 
@@ -24,6 +25,17 @@ function setup() {
 }
 
 describe('cancel_task and task_status', () => {
+  it('preserves factual snapshots and adds the exact guidance only while running', () => {
+    setup();
+    const content = 'prepared factual snapshot';
+
+    expect(taskStatusResponse({ content, running: false })).toBe(content);
+    expect(taskStatusResponse({ content, running: true })).toBe(
+      content +
+        '\nSnapshot only; inspect for requested updates or diagnosis, not waiting. Do not poll. Grouped results arrive together when all members finish. Finish independent work, then end your turn without tool calls to wait for required task results. Services do not need to exit before you finish.',
+    );
+  });
+
   it("cancel_task stops a task, and it isn't reported back as a completion", async () => {
     const { run } = setup();
 

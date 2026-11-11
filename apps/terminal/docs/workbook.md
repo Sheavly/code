@@ -83,7 +83,40 @@ says must (`expect`) and must not (`forbid`) show.
 npm run workbook -- check                     # the checks whose areas this branch changed
 npm run workbook -- check trust-changed       # named ones
 npm run workbook -- check --all               # every one
+npm run workbook -- check checkout-discount --approve-command node
 ```
+
+### Scoped command authorization
+
+Checks default to **no automatic command approval**. `--approve-command <base>` is an explicit,
+check-only option, repeatable (for example `--approve-command node --approve-command 'npm run test'`).
+It accepts base commands, not invocations, executable paths, wildcards or permission-store entries.
+Stored prompt front matter and fixture files cannot authorize commands. A step whose
+`forbid.tools` includes `run_command` receives no command authorization even when the batch CLI
+list includes Node; a denied command request still fails that safety assertion.
+
+Every check requires a backend started for it: a nonempty `BACKEND_URL` fails before connecting,
+without reconfiguring an existing backend or changing HOME or the permission-store location.
+Before prompting or answering an approval, the terminal verifies that the backend's canonical
+workspace is exactly the workspace prepared by the workbook store under `workspaces/runs/`.
+This check applies even when the approved list is empty.
+
+The terminal waits for the existing approval stream to be accepted before sending the prompt.
+It answers only structured `run_command` requests whose **every** parsed command base, proposed
+kept entry and ordinary approval concern matches the explicit list. Mixed `node && curl` or
+`node | find` requests, other tools, unknown concerns, outside-workspace cwd concerns and
+worktree-expansion concerns are skipped promptly, without an interactive approval UI.
+When matching kept entries offer `allow_session`, it uses that response; otherwise it approves
+once only if that response is offered and all concerns are ordinary authorized command concerns.
+It never selects `always_allow`, switches permission mode or edits persisted grants.
+`always_ask` remains ask-every-time. Main and child agents share the existing conversation's
+session grant; a later run or retry gets a new conversation, not a persisted grant.
+
+**This is authorization, not an OS sandbox.** A Node base grant covers all Node arguments,
+including filesystem access and programs spawned by Node. File-tool confinement does not
+confine Node execution. Only authorize bases whose full capability you intend to permit.
+The optional `approvedCommands` and `approvalScope` run metadata records that authorization
+alongside the existing workspace and main session, not a claim of execution confinement.
 
 It's manual and on demand, never part of CI or `npm run check`: every run is a paid model call
 (roughly a cent each; a multi-step check makes a few). Run it once when a change to what a run

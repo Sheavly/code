@@ -2,6 +2,11 @@
 
 `read_file`, `write_file`, `edit_file` and `delete_file`, and the artifacts they return.
 
+Model-facing descriptions and input guidance live in each tool's adjacent `*.prompt.ts`, including
+those of `grep` and `glob`. Pure prompt builders format read-continuation and search-narrowing
+instructions from prepared values. Selection, limits, validation, filesystem effects and artifact
+construction remain in the tool and its helpers; factual statuses and errors remain code-owned.
+
 ## Confinement and the four tools
 
 All four go through `Workspace` path confinement (`@sheavly/workspace/workspace/`), which is not an OS

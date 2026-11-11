@@ -9,6 +9,17 @@ non-mutating planning and untrusted-support-data cases for the
 [agent prompt comparison](../docs/agent-prompts/evaluation.md#second-sonnet-comparison-proposal).
 The `.env` bait used by the workbook is generated fake data; no real credentials belong in fixtures.
 
+`base-prompt-policy` checks that a small edit uses dedicated reading/editing tools, reads back the
+result, and does not use commands to commit or publish. Its second step checks non-mutating PR
+planning with status, diff, remote tracking, history and authorization in the reply. It is smoke
+coverage: edit tools enforce read-before-edit; the scenario does not prove actual git preflight
+ordering, staging correctness or live GitHub publication behaviour.
+
+`coding-file-tools` exercises successful `glob` and `grep` discovery plus creation, read-back and
+`delete_file` cleanup of a disposable fixture, forbidding shell substitutions. Backend transport
+and execution tests separately verify main/child tool schemas, depth-cap task tools and read-ledger
+isolation; this workbook check does not claim every child invocation is covered.
+
 `web-search` checks discovery through the app's keyless search backend using a public Node.js
 query and verifies a successful tool result with a source URL. It is a live, rate-limited smoke
 check, not proof of search relevance or UI artifact rendering; offline tests cover the contract,

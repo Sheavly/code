@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { assertRanToTheEnd, resolveSearchRoot, runRipgrep } from '../ripgrep/ripgrep.helper.js';
 import type { RipgrepToolDeps } from '../ripgrep/ripgrep.types.js';
-import { GREP_MODES, MAX_GREP_RESULTS } from './grep.constants.js';
+import { GREP_MODES } from './grep.constants.js';
+import { GREP_PROMPTS } from './grep.prompt.js';
 import { grepArgs } from './grep-args.utils.js';
 import { formatGrep } from './grep-format.utils.js';
 import { grepResult } from './grep-output.utils.js';
@@ -18,22 +19,13 @@ import { grepResult } from './grep-output.utils.js';
 export function createGrepTool({ workspace, processes, ripgrepPath = rgPath }: RipgrepToolDeps) {
   return defineTool({
     name: 'grep',
-    description:
-      'Search file contents with ripgrep (a regular expression). Searches the whole workspace, or ' +
-      'the file or folder in path (relative to the workspace root). Respects .gitignore; .env files ' +
-      'and .git are never searched. mode content (default) returns path:line:text, files only the ' +
-      'paths that match, count the number of matching lines per file. glob limits which files are ' +
-      `searched, e.g. "*.ts", and ignores case. At most ${MAX_GREP_RESULTS} results are returned and the output says ` +
-      'when more were cut, so narrow the search instead of repeating it.',
+    description: GREP_PROMPTS.description,
     inputSchema: z.object({
-      pattern: z.string().min(1).describe('Regular expression to search for (Rust regex syntax)'),
-      path: z
-        .string()
-        .optional()
-        .describe('File or folder to search, relative to the workspace root (default: all of it)'),
-      glob: z.string().optional().describe('Only search files matching this glob, e.g. "*.ts"'),
-      mode: z.enum(GREP_MODES).default('content').describe('What to return (default content)'),
-      caseInsensitive: z.boolean().optional().describe('Ignore case (default: case-sensitive)'),
+      pattern: z.string().min(1).describe(GREP_PROMPTS.pattern),
+      path: z.string().optional().describe(GREP_PROMPTS.path),
+      glob: z.string().optional().describe(GREP_PROMPTS.glob),
+      mode: z.enum(GREP_MODES).default('content').describe(GREP_PROMPTS.mode),
+      caseInsensitive: z.boolean().optional().describe(GREP_PROMPTS.caseInsensitive),
     }),
     execute: async ({ input, signal }) => {
       const { pattern, path: requested = '.', glob, mode, caseInsensitive } = input;

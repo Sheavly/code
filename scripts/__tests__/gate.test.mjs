@@ -27,6 +27,31 @@ describe('the quality gate', () => {
     expect(JSON.parse(read('.jscpd.json')).threshold).toBe(0);
   });
 
+  it('always runs prompt review outside affected-workspace filtering and caching', () => {
+    const { scripts } = JSON.parse(read('package.json'));
+    const turbo = JSON.parse(read('turbo.json').replace(/^\s*\/\/.*$/gm, ''));
+    const reviewStep = scripts['check:affected']
+      .split('&&')
+      .find((step) => step.includes('lint:prompt'));
+
+    expect(scripts.check).toContain('lint:prompt');
+    expect(reviewStep).toContain('turbo run lint:prompt');
+    expect(reviewStep).not.toMatch(/--affected|--filter/);
+    expect(turbo.tasks['//#lint:prompt']).toEqual({ cache: false, outputs: [] });
+    expect(scripts['lint:prompt']).toBe(
+      'npm exec -w @sheavly/host -- eslint src/instructions/instructions.prompt.ts',
+    );
+    expect(scripts['lint:prompt']).not.toContain('--cache');
+  });
+
+  it('connects the independent prompt check to the stop gate without report scoping', () => {
+    const hook = read('.cursor/hooks/check-on-stop.mjs');
+
+    expect(hook).toContain('promptReviewFailure({ scope, run: runNpmScript })');
+    expect(hook).toContain('if (promptFailure) failures.push(promptFailure)');
+    expect(hook).not.toContain('scoped(promptFailure)');
+  });
+
   // A test that only reads its own package.json repeats what the layout check already holds
   // every workspace to (its name, its domain): it is a test count, not a check.
   it('has no test that only checks its own manifest', () => {

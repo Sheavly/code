@@ -25,6 +25,7 @@ import {
   turboFilters,
 } from './gate-scope.utils.mjs';
 import { HookStateError, isMissingPath, ProjectReadError } from './hooks.errors.mjs';
+import { promptReviewFailure } from './prompt-review.utils.mjs';
 import { RUN_CHECK_KEY, runCheckMessage, runSourceFiles } from './run-check.utils.mjs';
 import { shellGuardFailure } from './shell-guard-stop.utils.mjs';
 import { snapshotProject } from './shell-writes.utils.mjs';
@@ -106,16 +107,8 @@ function chatScope(work) {
 
 const isFormattableFile = (file) => FORMATTABLE.test(file) && existsSync(file);
 
-/** Every gate step; returns a report section for each one that fails within `scope`. */
-function runGate(scope) {
-  const failures = [];
-  // A report cut to the scope, or the whole one for a chat recorded before files were kept.
-  const scoped = (output, cut = scopedReport) =>
-    scope ? cut({ output, scope, root: PROJECT_ROOT }) : output;
-
-  // Typecheck and ESLint per workspace, through turbo: the workspaces this chat's edits affect
-  // (or, unscoped, everything this branch and its uncommitted changes affect), and nothing whose
-  // inputs a cached run already passed.
+/** Cached checks for this chat's affected workspaces; prompt review runs separately. */
+function workspaceGateFailure(scope) {
   const filters = scope ? turboFilters(scope) : ['--affected'];
   const workspaces =
     filters.length > 0
@@ -127,11 +120,26 @@ function runGate(scope) {
           '--output-logs=errors-only',
         ])
       : { ok: true };
-  const turboReport = workspaces.ok ? null : formatTurboReport(workspaces.output);
-  const turboFailure =
-    turboReport && scope ? scopedTurboReport({ report: turboReport, scope }) : turboReport;
+  const report = workspaces.ok ? null : formatTurboReport(workspaces.output);
+
+  return report && scope ? scopedTurboReport({ report, scope }) : report;
+}
+
+/** Every gate step; returns a report section for each one that fails within `scope`. */
+function runGate(scope) {
+  const failures = [];
+  // A report cut to the scope, or the whole one for a chat recorded before files were kept.
+  const scoped = (output, cut = scopedReport) =>
+    scope ? cut({ output, scope, root: PROJECT_ROOT }) : output;
+
+  const turboFailure = workspaceGateFailure(scope);
 
   if (turboFailure) failures.push(`## Typecheck and ESLint (turbo)\n${turboFailure}`);
+
+  // A tool-only edit need not schedule host lint; don't scope away the prompt anchor's error.
+  const promptFailure = promptReviewFailure({ scope, run: runNpmScript });
+
+  if (promptFailure) failures.push(promptFailure);
 
   // Formatting: the files this chat edited (or, unscoped, the whole repo).
   const formattable = scope ? [...scope.files].filter(isFormattableFile) : ['.'];

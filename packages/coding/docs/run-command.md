@@ -4,6 +4,10 @@ Commands run without a shell through the workspace's `ProcessRunner`. The approv
 ([@sheavly/runtime](../../runtime/docs/approvals.md)) asks only about base commands, never options
 or file operands.
 
+The adjacent `run-command.prompt.ts` holds the tool description, input guidance and background-launch
+instructions. Its pure builders receive whether background work is enabled and the prepared launch
+facts; parsing, approval, safe Git configuration and process/task execution remain in runtime code.
+
 ## What a command is
 
 `parseCommand` splits a line into parsed argument arrays and `|`, `&&`, `||` or `;` connectors.

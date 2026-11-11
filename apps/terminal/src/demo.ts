@@ -22,12 +22,11 @@ import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { openSession } from './client/session.helper.js';
+import { DEFAULT_PROMPT } from './demo/demo.prompt.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
 import { shortId } from './render/render.utils.js';
 import { plainTerminalText } from './render/terminal-text.utils.js';
 
-/** What the demo asks with no prompt given. */
-const DEFAULT_PROMPT = 'Read package.json and tell me the project name.';
 const write = (text: string) => void process.stdout.write(text);
 const session = await openSession({
   env: process.env,

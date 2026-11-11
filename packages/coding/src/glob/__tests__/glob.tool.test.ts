@@ -5,7 +5,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
-import { MAX_GLOB_RESULTS } from '../glob.constants.js';
+import { MAX_GLOB_RESULTS, MAX_GLOB_SCANNED } from '../glob.constants.js';
 import { createGlobTool } from '../glob.tool.js';
 import { isGlobResult } from '../glob-format.utils.js';
 
@@ -52,6 +52,27 @@ const glob = (input: Record<string, unknown>, abort: AbortSignal = signal) =>
   });
 
 describe('glob', () => {
+  it('preserves the tool description and every input description', () => {
+    const tool = createGlobTool({ workspace: temp.workspace, processes });
+
+    expect(tool.description).toBe(
+      'Find files by name pattern, newest first. pattern is a glob such as "*.ts" or ' +
+        '"src/**/*.test.ts" (case-insensitive). Searches the whole workspace, or the folder in path ' +
+        '(relative to the workspace root). Respects .gitignore; .env files and .git are never listed. ' +
+        `At most ${MAX_GLOB_RESULTS} files are returned and the output says when more were cut, so ` +
+        `narrow the pattern instead of repeating it. A pattern matching over ${MAX_GLOB_SCANNED} files ` +
+        'is only sorted among the first ones found, so narrow it for a reliable newest-first.',
+    );
+    expect(
+      Object.fromEntries(
+        Object.entries(tool.inputSchema.shape).map(([name, schema]) => [name, schema.description]),
+      ),
+    ).toEqual({
+      pattern: 'Glob to match file paths against, e.g. "**/*.ts"',
+      path: 'Folder to search, relative to the workspace root (default: all of it)',
+    });
+  });
+
   it('lists matching files newest first', async () => {
     const result = await glob({ pattern: '*.ts', path: 'src' });
 

@@ -49,6 +49,30 @@ const grep = (input: Record<string, unknown>, abort: AbortSignal = signal) =>
   });
 
 describe('grep', () => {
+  it('preserves the tool description and every input description', () => {
+    const tool = createGrepTool({ workspace: temp.workspace, processes });
+
+    expect(tool.description).toBe(
+      'Search file contents with ripgrep (a regular expression). Searches the whole workspace, or ' +
+        'the file or folder in path (relative to the workspace root). Respects .gitignore; .env files ' +
+        'and .git are never searched. mode content (default) returns path:line:text, files only the ' +
+        'paths that match, count the number of matching lines per file. glob limits which files are ' +
+        `searched, e.g. "*.ts", and ignores case. At most ${MAX_GREP_RESULTS} results are returned and the output says ` +
+        'when more were cut, so narrow the search instead of repeating it.',
+    );
+    expect(
+      Object.fromEntries(
+        Object.entries(tool.inputSchema.shape).map(([name, schema]) => [name, schema.description]),
+      ),
+    ).toEqual({
+      pattern: 'Regular expression to search for (Rust regex syntax)',
+      path: 'File or folder to search, relative to the workspace root (default: all of it)',
+      glob: 'Only search files matching this glob, e.g. "*.ts"',
+      mode: 'What to return (default content)',
+      caseInsensitive: 'Ignore case (default: case-sensitive)',
+    });
+  });
+
   it('returns path:line:text for each match, sorted by path', async () => {
     const result = await grep({ pattern: 'needle', path: 'src' });
 

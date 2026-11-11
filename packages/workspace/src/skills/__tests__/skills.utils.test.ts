@@ -96,9 +96,11 @@ describe('formatSkillsInstructions', () => {
         skills: [skill('review'), skill('git', { manualOnly: true })],
       }) ?? '';
 
-    expect(text).toContain('read_skill');
-    expect(text).toContain('\n- review: What review is for.');
-    expect(text).not.toContain('git');
+    expect(text).toBe(
+      'Skills: instructions for specific tasks. When a skill fits the task, read it first with ' +
+        'read_skill (its SKILL.md, then the files it links to), and follow it. Read only what fits.\n' +
+        '- review: What review is for.',
+    );
   });
 
   it('says nothing when no skill is offered', () => {
@@ -123,6 +125,20 @@ describe('formatSkillsInstructions', () => {
 });
 
 describe('formatSkillRequest', () => {
+  it('uses singular guidance and preserves skill body and user whitespace verbatim', () => {
+    expect(
+      formatSkillRequest({
+        skills: [{ skill: skill('review'), body: '\n<rules>& keep this\n' }],
+        text: '  /review\n---\n<user>&\n',
+      }),
+    ).toBe(
+      "The user's message below runs this skill (/review). Follow its " +
+        "instructions; read the files they link to with read_skill (the skill's name, and the file " +
+        'relative to its folder).\n\n' +
+        '## Skill: review\n\n\n<rules>& keep this\n\n\n---\n\n  /review\n---\n<user>&\n',
+    );
+  });
+
   it('sends each skill’s instructions, then the user’s text as typed', () => {
     const text = formatSkillRequest({
       skills: [
@@ -132,9 +148,13 @@ describe('formatSkillRequest', () => {
       text: 'please /review this, then /git submit',
     });
 
-    expect(text).toMatch(/^The user's message below runs these skills \(\/git, \/review\)/);
-    expect(text).toContain('## Skill: git\n\nDo git.\n\n## Skill: review\n\nReview it.');
-    expect(text.endsWith('---\n\nplease /review this, then /git submit')).toBe(true);
+    expect(text).toBe(
+      "The user's message below runs these skills (/git, /review). Follow their " +
+        "instructions; read the files they link to with read_skill (the skill's name, and the file " +
+        'relative to its folder).\n\n' +
+        '## Skill: git\n\nDo git.\n\n## Skill: review\n\nReview it.\n\n' +
+        '---\n\nplease /review this, then /git submit',
+    );
   });
 });
 

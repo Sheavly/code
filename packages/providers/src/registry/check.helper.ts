@@ -3,11 +3,11 @@ import type { KeyCheck } from '@sheavly/protocol/model/model.types';
 import { ModelApiError } from '../errors/providers.errors.js';
 import {
   CHECK_MESSAGES,
-  CHECK_PROMPT,
   CHECK_RESPONSE_TIMEOUT_MS,
   CHECK_SERVER_ERROR_FROM,
 } from './registry.constants.js';
 import type { FailedCheck } from './registry.types.js';
+import { CHECK_PROMPT } from './registry.prompt.js';
 import { checkHttpMessage } from './check-message.utils.js';
 
 /** A failed check with its fixed message. */

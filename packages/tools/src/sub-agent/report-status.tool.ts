@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { reportStatusPrompts } from './report-status.prompt.js';
 
 /**
  * Given to every sub-agent: it reports its own live status ("editing core package"). This is
@@ -11,11 +12,9 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 export function createReportStatusTool({ sessions }: { sessions: SessionRegistry }) {
   return defineTool({
     name: 'report_status',
-    description:
-      'Report what you are doing right now in a few words, e.g. "reading files, reading core package". ' +
-      'The agent that started you and the user see it live. Call it before you start and at every new step.',
+    description: reportStatusPrompts.description,
     inputSchema: z.object({
-      status: z.string().min(1).max(120).describe('What you are doing now, present tense'),
+      status: z.string().min(1).max(120).describe(reportStatusPrompts.status),
     }),
     execute: async ({ input: { status }, context }) => {
       if (!context.session) {

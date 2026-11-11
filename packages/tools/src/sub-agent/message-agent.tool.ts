@@ -3,6 +3,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { messageAgentPrompts } from './message-agent.prompt.js';
 
 /**
  * `message_agent`: steers a running sub-agent without stopping it. The message waits in the
@@ -12,13 +13,10 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 export function createMessageAgentTool({ sessions }: { sessions: SessionRegistry }) {
   return defineTool({
     name: 'message_agent',
-    description:
-      'Send a message to a sub-agent you started, while it keeps working: new instructions, a ' +
-      'narrower focus, an answer it needs. It sees the message at its next step. Address it by ' +
-      'the session id start_agent returned.',
+    description: messageAgentPrompts.description,
     inputSchema: z.object({
-      session: sessionIdSchema.min(1).describe("The sub-agent's session id, from start_agent"),
-      message: z.string().min(1).describe('What to tell it'),
+      session: sessionIdSchema.min(1).describe(messageAgentPrompts.session),
+      message: z.string().min(1).describe(messageAgentPrompts.message),
     }),
     execute: async ({ input: { session: id, message }, context }) => {
       if (!context.session) {

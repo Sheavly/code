@@ -60,6 +60,8 @@ export const USAGE = `Usage: npm run workbook -- <command>
   continue [run] "<text>"  send a follow-up to a run (default: the last one), with its history
   check [prompt…] [--all]  run the real-model checks: the named prompts, else the ones whose
                            areas this branch changed (--all: every one). Costs model calls.
+    --approve-command <base> explicitly authorize a base for this check's conversations (repeatable;
+                           default: none; never persisted; no-command steps remain unapproved)
   list                     every stored prompt, and the last runs
   show [run]               a run's summary, result and files (default: the last one)
   step [run] [--from N]    walk a run's events one at a time (Enter: next, q: quit)

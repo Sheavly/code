@@ -7,6 +7,7 @@ import { parseCommand } from './allow-list.utils.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { formatResult, safeGitEnv, safeSteps } from './run-command.utils.js';
+import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt.js';
 
 export function createRunCommandTool({
   workspace,
@@ -16,44 +17,16 @@ export function createRunCommandTool({
   approvals,
   processes,
 }: RunCommandOptions) {
+  const prompts = runCommandPrompts({ backgroundEnabled: Boolean(tasks) });
+
   return defineTool({
     name: 'run_command',
-    description:
-      'Run a command in the workspace root (or in `cwd`: a folder of the workspace or of a sibling git worktree), without a shell. Chain commands with | && || and ;; ' +
-      'redirects (> <), $variables, `backticks`, parentheses and & are not supported, and inside ' +
-      "double quotes so is $ (use 'single quotes'; a backslash before other characters is literal, " +
-      'so grep -E \'a\\|b\' src and grep -E "a\\|b" src both pass a\\|b). The user is asked before ' +
-      'an unapproved base command runs. A session or workspace grant covers all its options and arguments, ' +
-      'including paths outside the workspace, secret files, editing/execution options and npx downloads. ' +
-      'Examples: find, sed, git diff, npm run test, npx eslint. Chained commands are approved independently. ' +
-      'There is no shell glob expansion. If the user skips a command, do not run it again; do what they say.' +
-      (tasks
-        ? ' Set background: true for slow finite work; set backgroundKind: "service" for persistent servers or watchers. Do not poll background work.'
-        : ''),
+    description: prompts.description,
     inputSchema: z.object({
-      command: z.string().min(1).describe('The command to run, e.g. `git status`'),
-      cwd: z
-        .string()
-        .min(1)
-        .optional()
-        .describe(
-          'Folder to run in, absolute or relative to the workspace root (default: the root). ' +
-            'It must be inside the workspace or a sibling git worktree of its repo.',
-        ),
-      background: z
-        .boolean()
-        .optional()
-        .describe(
-          'Return a task id immediately. Finite work keeps this prompt alive until its result is delivered. ' +
-            'Finish independent work, then end your turn without tool calls to wait. Do not poll task_status.',
-        ),
-      backgroundKind: z
-        .enum(['task', 'service'])
-        .default('task')
-        .describe(
-          'With background: true, task is finite work (builds, tests, CI waits) whose result is required. ' +
-            'Service is a persistent server or watcher that does not keep the prompt alive. Stop either with cancel_task.',
-        ),
+      command: z.string().min(1).describe(prompts.command),
+      cwd: z.string().min(1).optional().describe(prompts.cwd),
+      background: z.boolean().optional().describe(prompts.background),
+      backgroundKind: z.enum(['task', 'service']).default('task').describe(prompts.backgroundKind),
     }),
     execute: async ({ input: { command, cwd, background, backgroundKind }, signal, context }) => {
       const parsed = parseCommand(command);
@@ -108,19 +81,7 @@ export function createRunCommandTool({
             processes.runScript({ ...script, signal: taskSignal, onOutput }),
         });
 
-        const started = `Started background task ${task.id}: $ ${command}\n`;
-
-        if (backgroundKind === 'service') {
-          return (
-            started +
-            'This service does not keep this prompt alive. Use task_status only to inspect readiness or diagnose a problem, not to wait for exit. Stop it with cancel_task when finished.'
-          );
-        }
-
-        return (
-          started +
-          'This finite task keeps this prompt alive until its result is delivered automatically. Finish independent work, then end your turn without tool calls to wait. Do not poll task_status or repeat the command. Use cancel_task to stop it.'
-        );
+        return backgroundStartedPrompt({ taskId: task.id, command, backgroundKind });
       }
 
       const result = await processes.runScript({ ...script, timeoutMs, signal });

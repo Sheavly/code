@@ -9,7 +9,12 @@ import { SubAgentStoppedError } from '../errors/sub-agent.errors.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
 import { createMessageAgentTool } from './message-agent.tool.js';
-import { SUB_AGENT_INSTRUCTIONS } from './sub-agent.constants.js';
+import {
+  SUB_AGENT_INSTRUCTIONS,
+  subAgentDescription,
+  subAgentPrompts,
+  startedSubAgentPrompt,
+} from './sub-agent.prompt.js';
 import type { SubAgentOptions } from './sub-agent.types.js';
 import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
@@ -27,17 +32,10 @@ export function createSubAgentTool(options: SubAgentOptions) {
 
   return defineTool({
     name: 'start_agent',
-    description:
-      'Start a sub-agent on a self-contained task. It runs in the background; its complete ' +
-      'report comes to you automatically when it finishes. No need to poll: when you have nothing else ' +
-      'to do, end your turn and you will be woken with the reply. Steer it with message_agent, ' +
-      `stop it with cancel_task. Sub-agents nest at most ${MAX_SESSION_DEPTH} levels deep.`,
+    description: subAgentDescription(MAX_SESSION_DEPTH),
     inputSchema: z.object({
-      title: z.string().min(1).max(80).describe('A short name, e.g. "Update ESLint rules"'),
-      task: z
-        .string()
-        .min(1)
-        .describe('Everything the sub-agent needs: it does not see your conversation'),
+      title: z.string().min(1).max(80).describe(subAgentPrompts.title),
+      task: z.string().min(1).describe(subAgentPrompts.task),
     }),
     execute: async ({ input: { title, task }, context }) => {
       if (!context.session) {
@@ -71,12 +69,12 @@ export function createSubAgentTool(options: SubAgentOptions) {
           runChild({ options: childOptions, child, task, signal, onOutput }),
       });
 
-      return (
-        `Started sub-agent "${title}" as background task ${started.id} ` +
-        `(session ${child.id}, depth ${child.depth}). Its complete report comes to you automatically: ` +
-        "don't poll task_status for it; once you have nothing else to do, end your turn and wait. " +
-        'Use message_agent with its session id to steer it, cancel_task to stop it.'
-      );
+      return startedSubAgentPrompt({
+        title,
+        taskId: started.id,
+        sessionId: child.id,
+        depth: child.depth,
+      });
     },
   });
 }

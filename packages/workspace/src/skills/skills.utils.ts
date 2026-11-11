@@ -1,5 +1,6 @@
 import type { PromptPart } from '@sheavly/protocol/message/message.types';
 import { BLOCK_SCALAR } from './skills.constants.js';
+import { renderSkillRequest, renderSkillsInstructions } from './skills.prompt.js';
 import type { Skill, SkillCompletion, SkillMention } from './skills.types.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
 
@@ -98,12 +99,7 @@ export function formatSkillsInstructions(params: { skills: Skill[] }): string | 
 
   if (offered.length === 0) return undefined;
 
-  const intro =
-    'Skills: instructions for specific tasks. When a skill fits the task, read it first with ' +
-    'read_skill (its SKILL.md, then the files it links to), and follow it. Read only what fits.';
-  const descriptions = offered.map((skill) => `- ${skill.name}: ${skill.description}`);
-
-  return [intro, ...descriptions].join('\n');
+  return renderSkillsInstructions({ skills: offered });
 }
 
 /** A skill mention starts after the text's start, a space, or an opening bracket or quote. */
@@ -168,15 +164,11 @@ export function formatSkillRequest(params: {
   text: string;
 }): string {
   const { skills, text } = params;
-  const names = skills.map(({ skill }) => skill.name);
-  const sections = skills.map(({ skill, body }) => `## Skill: ${skill.name}\n\n${body}`);
-  const intro =
-    `The user's message below runs ${names.length === 1 ? 'this skill' : 'these skills'} ` +
-    `(${names.map((name) => `/${name}`).join(', ')}). Follow ${names.length === 1 ? 'its' : 'their'} ` +
-    "instructions; read the files they link to with read_skill (the skill's name, and the file " +
-    'relative to its folder).';
 
-  return `${intro}\n\n${sections.join('\n\n')}\n\n---\n\n${text}`;
+  return renderSkillRequest({
+    skills: skills.map(({ skill, body }) => ({ name: skill.name, body })),
+    text,
+  });
 }
 
 /**

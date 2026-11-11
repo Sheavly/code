@@ -18,6 +18,7 @@ locks and process runner), then composes:
 | What                                                  | From                 | Why                                                                                                                                      |
 | ----------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding`    | A coding agent works on files; all four share the run's `FileLocks` and `FileReads` (an edit needs a read first)                         |
+| `glob`, `grep`                                        | `@sheavly/coding`    | Discover workspace files and search their contents with dedicated, confined tools rather than shell discovery                            |
 | `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                                                     |
 | `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`                         |
 | `web_search`                                          | `@sheavly/tools`     | Bounded titles, URLs and snippets, with UI artifacts; keyless Tavily unless another backend is injected, omitted with `WEB_SEARCH=false` |
@@ -28,6 +29,9 @@ locks and process runner), then composes:
 | The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                                                     |
 | The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                     |
 
+Sub-agents receive the same file tools, including `glob`, `grep` and `delete_file`, and enabled web
+tools as the main agent. Their `task_status`, `cancel_task` and `await_tasks` operate on their own
+task registry, including at the nesting limit; only further delegation is disabled there.
 Sub-agents run commands on their own task registries with the same workspace permissions and
 approvals as the parent. They receive the same hooks, including `.sheavly/` hooks only when the
 workspace is trusted. A child's finite work keeps that child active before it reports to its parent.
@@ -52,7 +56,9 @@ and rules keep the user's own words and a trail of the files and commands the wo
 changes who writes the next summary; a sub-agent's uses its pinned model. A sub-agent's first
 message is the task its parent agent wrote, so its checkpoint lists it under "Task from the parent
 agent", never "What the user asked for" (`subAgentSummary`). A trail line is left out when its
-call's result was an error.
+call's result was an error. The parent-task heading is authored in the internal
+`harness/summary.prompt.ts`; provider selection, redaction and section wiring stay in
+`summary.helper.ts`.
 
 Summaries are on by default, so a long history, tool inputs and results included, is sent to the
 model that writes the summary: the same provider the conversation already uses, in an extra call.

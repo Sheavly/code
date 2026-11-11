@@ -6,6 +6,8 @@ A summarizer writes the sections of a checkpoint the loop appends when the conte
 window. This package holds the ones a UI can pick, built on `@sheavly/core` and
 `@sheavly/protocol` only, so a consumer without the loop can use them. It never learns what a
 file is: what a tool call means is passed in by the app.
+Authored model instructions, request wording and default section guidance live in the internal
+`model/summary.prompt.ts`; history rendering, redaction and truncation remain pure utilities.
 
 ```ts
 import { rulesSummarizer } from '@sheavly/summary/rules/rules.utils';

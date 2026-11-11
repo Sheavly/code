@@ -1,4 +1,5 @@
 import type { AgentEvent, EntryEvent } from '@sheavly/protocol/event/event.types';
+import { parentInboxText } from './sessions.prompt.js';
 import type {
   InboxMessage,
   SessionInfo,
@@ -32,10 +33,9 @@ export function toServerSentEvent(update: SessionUpdate): string {
 
 /** How a queued message reads to the session receiving it. */
 export function inboxText(message: InboxMessage): string {
-  return message.from === 'user'
-    ? message.content
-    : `Message from the agent that started you (session ${message.from}), sent while you were working. ` +
-        `It updates your task; follow it:\n${message.content}`;
+  if (message.from === 'user') return message.content;
+
+  return parentInboxText(message);
 }
 
 /** Whether a session in `state` is still open: running a prompt, or idle waiting for the next. */

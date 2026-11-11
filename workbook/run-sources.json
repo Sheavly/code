@@ -6,6 +6,7 @@
     "packages/core/src/",
     "packages/providers/src/",
     "packages/runtime/src/",
+    "packages/summary/src/",
     "packages/tools/src/",
     "packages/loop/src/",
     "packages/host/src/",

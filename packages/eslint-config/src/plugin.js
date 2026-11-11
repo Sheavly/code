@@ -12,7 +12,9 @@ import { noSilentCatch } from './rules/no-silent-catch.js';
 import { permissionStoreRoot } from './rules/permission-store-root.js';
 import { SYNTAX_RULES, syntaxRule } from './rules/syntax-rules.js';
 import { pureImports } from './rules/pure-imports.js';
+import { promptLocation } from './rules/prompt-location.js';
 import { singleDefinition } from './rules/single-definition.js';
+import { systemPromptReview } from './rules/system-prompt-review.js';
 
 /** The `harness/*` rules. */
 export const harnessPlugin = {
@@ -31,7 +33,9 @@ export const harnessPlugin = {
     'no-silent-catch': noSilentCatch,
     'permission-store-root': permissionStoreRoot,
     'pure-imports': pureImports,
+    'prompt-location': promptLocation,
     'single-definition': singleDefinition,
+    'system-prompt-review': systemPromptReview,
     ...Object.fromEntries(
       Object.entries(SYNTAX_RULES).map(([name, entries]) => [name, syntaxRule(entries)]),
     ),

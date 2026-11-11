@@ -1,5 +1,7 @@
 import { createDeleteFileTool } from '@sheavly/coding/delete-file/delete-file.tool';
 import { createEditFileTool } from '@sheavly/coding/edit-file/edit-file.tool';
+import { createGlobTool } from '@sheavly/coding/glob/glob.tool';
+import { createGrepTool } from '@sheavly/coding/grep/grep.tool';
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
 import { createReadSkillTool } from '@sheavly/coding/read-skill/read-skill.tool';
@@ -60,6 +62,8 @@ export async function createBackendHarness(
   const hooks = [agentsMd, skills, ...scratch, ...projectHooks.hooks];
   const fileTools = [
     createReadFileTool({ workspace, fileReads }),
+    createGlobTool({ workspace, processes }),
+    createGrepTool({ workspace, processes }),
     createWriteFileTool({ workspace, fileLocks, fileReads }),
     createEditFileTool({ workspace, fileLocks, fileReads }),
     createDeleteFileTool({ workspace, fileLocks, fileReads }),

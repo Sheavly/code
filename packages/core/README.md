@@ -38,6 +38,11 @@ previous formatting; grouped completions keep one wrapper wait-reason block and 
 Transient `running-tasks` snapshots render total/omitted counts, escaped one-line task IDs, titles
 and scalar group IDs, epoch start times and individually fenced agent-authored reasons as DATA.
 The formatter supplies the no-polling/wait handling policy, never commands or task output.
+Authored notice and checkpoint handling policies and the shared tool call-description guidance
+live in adjacent internal `*.prompt.ts` files, alongside pure typed renderers for the complete
+notice and checkpoint templates. Public utils formatters prepare and sanitize runtime data before
+calling those renderers; protocol validators retain validation. Renderer exports stay internal to
+core, with no public prompt subpaths.
 
 ## Docs
 

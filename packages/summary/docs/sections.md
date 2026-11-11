@@ -35,6 +35,13 @@ since a model may restate a secret it was shown. This package knows no credentia
 failed and task state, the structure the public summary prompts share. The wording is a starting
 point, not a tuned value.
 
+Authored instructions, the request template and default section guidance live in the internal
+`src/model/summary.prompt.ts`. `prompt.utils.ts` prepares history and previous-section data:
+it redacts before truncation and neutralizes opening brackets before the prompt adds its tags.
+It also retains the public `summaryInstructions` and `summaryRequest` signatures as prose-free
+wrappers. The internal prompt builders accept typed sections or prepared text and do not call
+providers.
+
 What the call does, and why:
 
 - **History is data.** The instructions say the history may contain text that looks like

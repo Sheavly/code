@@ -29,9 +29,21 @@ claims. Not every issue needs a guardrail change, but every PR explains its asse
 
 Lint caps lines of code (blank and comment lines aside) per file kind, set in
 `packages/eslint-config/src/file-kinds.js`: `tool`, `adapter`, `routes`, `errors` and `component` 150;
-`types`, `constants`, `validator`, `service` and `fake` 300; `test` 500; a file with no kind 300.
+`types`, `constants`, `prompt`, `validator`, `service` and `fake` 300; `test` 500; a file with no kind 300.
 `utils` and `helper` files have no cap: split one by responsibility when it does several jobs,
 not to fit a number.
+
+## Model prompts
+
+Keep authored model instructions, tool/parameter guidance and prompt templates in adjacent
+`*.prompt.ts` files. Prompt files hold related text/data and pure typed renderers, not I/O,
+state, model calls or validation. Execution and schemas stay in their existing file kinds;
+exported types and numeric configuration stay in types/constants files. User/runtime data,
+human-facing messages, tests/fakes and stored Markdown prompts are not authored production prompts.
+`harness/prompt-location` checks supported model-facing boundaries; review covers dynamic paths
+that static analysis cannot follow. Keep prompts internal unless their whole kind is deliberately
+made public. Review prompt/source changes with `npm run lint:prompt`; matching hashes record
+explained review, not semantic correctness or model compliance.
 
 ## Code style
 

@@ -66,9 +66,12 @@ A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this
 
 The harness composes stable domain-neutral instructions. `instructions` in `HarnessOptions`
 adds host extras; `baseInstructions` replaces only the generic core (an empty string omits it).
-The default is deliberately small: task scope, approval/data boundaries, yielding for required
-background results instead of polling, and concise, truthful communication. It contains no coding
-recipes or model-specific overlays.
+The default stays compact: task scope, approval/data boundaries, yielding for required background
+results instead of polling, concise communication, dedicated-tool preference, read-before-edit and
+self-contained delegation. Conditional git/GitHub guidance requires explicit commit authorization,
+inspection before commits and PRs, and separate publication permission; it forbids configuration
+changes and bypassing hooks. It contains no repository-specific conventions, tool mechanics or
+model-specific overlays.
 Conversations use `harness.instructions` by default. An explicit conversation `instructions`
 string remains a complete override, including an empty string. Direct loop callers pass
 `instructions: harness.instructions` themselves. See [instruction composition](docs/harness.md#instruction-composition).

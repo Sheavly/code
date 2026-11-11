@@ -16,6 +16,7 @@ import { DENIED_CASES } from '../shell-guard-cases.utils.mjs';
 import { shellGuardFailure } from '../shell-guard-stop.utils.mjs';
 import { changedFiles, isSanctionedWriter, snapshotProject } from '../shell-writes.utils.mjs';
 import { runEditHook, runHook } from './run-hook.utils.mjs';
+import { SHELL_OVERLAP_MS } from '../chat-files.utils.mjs';
 import { verifiedFormatterWrite, withoutFormatterWrites } from '../formatter-attribution.utils.mjs';
 
 let repo = '';
@@ -23,25 +24,27 @@ let stateDir = '';
 
 const readState = () => JSON.parse(readFileSync(path.join(stateDir, 'c1.json'), 'utf8'));
 
-const beforeShell = (command) =>
+const beforeShell = (command, now) =>
   runHook({
     script: 'guard-shell-commands.mjs',
     cwd: repo,
     stateDir,
     input: { conversation_id: 'c1', command, cwd: repo },
+    now,
   });
-const afterShell = (command) =>
+const afterShell = (command, now) =>
   runHook({
     script: 'record-shell-writes.mjs',
     cwd: repo,
     stateDir,
     input: { conversation_id: 'c1', tool_input: { command }, cwd: repo },
+    now,
   });
 
 /** Runs `command` the way Cursor does: the guard, then (if allowed) `write`, then the after-hook. */
 function runShell(params) {
-  const { command, write, during } = params;
-  const decision = beforeShell(command);
+  const { command, write, during, now } = params;
+  const decision = beforeShell(command, now);
 
   if (decision.permission !== 'allow') return { decision };
   write?.();
@@ -50,7 +53,7 @@ function runShell(params) {
 
   return {
     decision,
-    after: afterShell(command),
+    after: afterShell(command, now),
   };
 }
 
@@ -328,35 +331,42 @@ fs.writeFileSync(file, text.replaceAll('  ', ' '));
   });
 
   it('takes the file back when the edit tool’s hook finishes just after the command’s', async () => {
-    runShell({ command, write });
+    runShell({ command, write, now: 100 });
     expect(readState().unguardedCommands).toHaveLength(1);
 
-    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir, now: 101 });
 
     expect(readState().unguardedCommands).toEqual([]);
     expect(await shellGuardFailure({ state: readState(), projectRoot: repo })).toBeNull();
   });
 
   it('still blames the command for a file the edit tools edited before it started', () => {
-    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir, now: 99 });
 
-    const { after } = runShell({ command, write });
+    const { after } = runShell({ command, write, now: 100 });
 
     expect(after.additional_context).toMatch(/changed project files without the edit tools: a\.ts/);
     expect(readState().unguardedCommands).toHaveLength(1);
   });
 
-  it('keeps the files of the command that the edit tools did not edit', () => {
+  it.each([
+    { offset: SHELL_OVERLAP_MS, files: ['b.ts'] },
+    { offset: SHELL_OVERLAP_MS + 1, files: ['a.ts', 'b.ts'] },
+  ])('attributes mixed-file writes at overlap offset $offset', ({ offset, files }) => {
     const writeBoth = () => {
       write();
       writeFileSync(path.join(repo, 'b.ts'), 'x');
     };
 
-    runShell({ command, write: writeBoth });
-    runEditHook({ cwd: repo, file: 'a.ts', stateDir });
+    // Node startup can exceed the grace window on a busy CI runner; only logical time matters.
+    runShell({ command, write: writeBoth, now: 100 });
+    runEditHook({ cwd: repo, file: 'a.ts', stateDir, now: 100 + offset });
 
-    expect(readState().unguardedCommands).toEqual([
-      expect.objectContaining({ command, files: ['b.ts'] }),
+    const state = readState();
+
+    expect(state.toolEditedFiles['a.ts']).toBe(100 + offset);
+    expect(state.unguardedCommands).toEqual([
+      expect.objectContaining({ command, files, at: 100, endedAt: 100 }),
     ]);
   });
 });

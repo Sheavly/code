@@ -143,16 +143,36 @@ checkout root remain fail-closed; the command's working directory is never used 
 
 - **Per workspace:** every package has its own `typecheck`, `lint` and `test` scripts, which check
   only its files. Each runs after the same task in the packages it imports (`^typecheck`, …).
-- **The root** (`//#` tasks): `lint:root` and `test:root` check `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip` and `jscpd` check the
-  whole repo.
-- **Cache:** each result is cached in `.turbo/cache` (per checkout, so worktrees never share one)
-  by its inputs, so a second `npm run check` with no changes runs nothing. A change in
+- **The root** (`//#` tasks): `lint:root` and `test:root` check `scripts/`, `.cursor/hooks/` and the root configs; `format:check`, `knip`, `jscpd` and `layout` check the
+  whole repo. `lint:prompt` independently checks the base prompt's tool-contract review record.
+- **Cache:** results other than `lint:prompt` are cached in `.turbo/cache` (per checkout, so
+  worktrees never share one) by their inputs. A second `npm run check` reuses unchanged results,
+  but always rechecks prompt review. A change in
   `turbo.json`, `tsconfig.base.json`, `.prettierrc.json`, `vitest.config.ts`,
   `packages/eslint-config` or the lockfile invalidates every result.
 - **Affected only:** `npm run check:affected` runs the workspace tasks only for workspaces changed
   since `main` (committed or not) and those that depend on them, then the repo-wide checks in full.
   CI runs it on PRs and restores `.turbo/cache` from `main`'s last run; the stop hook runs the
-  affected typecheck and lint.
+  affected typecheck and lint, plus independent prompt review for tool, prompt, metadata and
+  review-tooling changes. Prompt failures remain visible even when only a tool is in scope.
+
+### System prompt review
+
+Authored model instructions, tool/parameter guidance and templates live in adjacent `*.prompt.ts`
+files. They hold related text/data and pure typed renderers; execution, schemas and runtime data
+stay in their existing kinds. Prompt files remain internal by default. `harness/prompt-location`
+checks supported model-facing boundaries rather than guessing whether arbitrary prose is a prompt.
+
+`npm run lint:prompt` checks the review record beside `BASE_AGENT_INSTRUCTIONS` in
+`packages/host/src/instructions/instructions.prompt.ts`. Production prompt/tool files and their sibling
+constants are discovered across workspaces; changes require a new review decision
+and explanation. The base prompt is hashed separately, excluding its review comment. A tool-only
+change can leave it unchanged when the revised mechanics belong in the tool's prompt description.
+
+This is an offline drift signal, not proof of semantic freshness or model compliance. It does
+not fetch Cursor's prompt or force tool descriptions into system instructions. Full and affected
+quality gates always run it without a cache. The review record is not a suppression baseline:
+missing, malformed and stale records fail. See [prompt review](packages/eslint-config/docs/rules.md#system-prompt-review).
 
 ```bash
 npx turbo run test --filter=@sheavly/providers   # one workspace's task (and what it imports)
@@ -225,7 +245,7 @@ on failure stay in the original checkout. Missing tools are setup failures, not 
 | `beforeSubmitPrompt`            | `.cursor/hooks/require-issue.mjs`      | A chat's first prompt must name its GitHub issue (`#123`, or check out its branch); `NO-ISSUE` opts out, Ask mode is exempt. Remembers the issues named (several for a stack), and "allow cherry-pick", per chat. See "Git workflow".                                                                                                                                                                                                                                                                                                                      |
 | `beforeShellExecution`          | `.cursor/hooks/guard-git-workflow.mjs` | Denies agent git/gh commands that break the git workflow: a branch not `<issue>-<name>` for one of the chat's issues, `git add -A`/`.`, `--force`, a non-squash merge, an unapproved cherry-pick, a commit message off the format, `gh issue create` without an `area/*` label, interactive `gh stack` forms.                                                                                                                                                                                                                                              |
 | `postToolUse` (matcher `Write`) | `.cursor/hooks/lint-edited-file.mjs`   | Formats the file the agent just edited with Prettier, then lints it, and returns notes and problems as `additional_context`, so they're fixed right away. The first edit of harness source in a chat also injects the skill's "Where code goes", and the first edit inside a workspace shows its README. The first edit of a file a skill governs (its `harness.json` `governs` globs) names that skill, once per chat. TypeScript written outside every workspace's `src/` is reported on the edit (`layout.utils.mjs`). Advisory: never blocks the edit. |
-| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), then Prettier check + knip + the layout check + jscpd (any clone fails: there is no baseline) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                                                                                                                                                         |
+| `stop` (`loop_limit: 3`)        | `.cursor/hooks/check-on-stop.mjs`      | When a turn finishes (`status: "completed"`), runs typecheck + ESLint for the affected workspaces (turbo, cached), independently checks prompt review for tool/prompt/metadata/tooling changes (uncached), then Prettier check + knip + the layout check + jscpd (any clone fails: there is no baseline) on the whole repo. On failure it returns a `followup_message` with the report, so the agent keeps fixing, at most 3 extra rounds.                                                                                                                 |
 
 Shared helpers (stdin/stdout JSON, edited-path lookup, running local binaries) are in
 `.cursor/hooks/hooks.utils.mjs`. Cursor reloads `hooks.json` on save; check the **Hooks**

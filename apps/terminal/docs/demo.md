@@ -3,6 +3,9 @@
 One prompt, a real model, every tool, printed as it happens: `npm run demo -- "your prompt"`. It calls the real API and costs money (a fraction of a cent for a short prompt). Its prompt waits
 for the background tasks it started before it ends (Ctrl+C stops waiting).
 
+With no prompt supplied, it asks "Read package.json and tell me the project name." The fallback
+is authored in `src/demo/demo.prompt.ts`; the CLI passes supplied prompt text through unchanged.
+
 ## Settings
 
 What a run includes and how it's set up are [the backend's settings](../../backend/docs/serve.md#settings),

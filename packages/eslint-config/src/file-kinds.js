@@ -26,6 +26,8 @@ export const FILE_KIND_POLICIES = {
   types: { exports: 'types', maxLines: LINES.DEFAULT },
   /** Literal values, `as const` objects. */
   constants: { exports: 'constants', maxLines: LINES.DEFAULT },
+  /** Model-facing text, structured prompt data and pure typed renderers. */
+  prompt: { exports: 'prompt', maxLines: LINES.DEFAULT, classes: 'forbidden' },
   /** Pure helpers: no I/O, no state. */
   utils: { exports: 'code', maxLines: LINES.UNLIMITED, constantsElsewhere: true },
   /**

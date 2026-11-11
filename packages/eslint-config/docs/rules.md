@@ -11,21 +11,22 @@ workspace uses in `base.js`. Each workspace's `eslint.config.js` is
 root lints every workspace with its own config. Each convention is its own rule ID, so an override
 switches off exactly one, on the files it is for, with a reason.
 
-| Kind        | Holds                                                    | May export                   | Max lines |
-| ----------- | -------------------------------------------------------- | ---------------------------- | --------- |
-| `types`     | shared shapes                                            | only types (imports `type`s) | 300       |
-| `constants` | literal values, `as const`                               | only literals                | 300       |
-| `utils`     | pure helpers: no I/O, no services                        | code                         | none      |
-| `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                | 300       |
-| `helper`    | stateless functions; may do I/O, call services           | code, no classes             | none      |
-| `service`   | code that owns state                                     | code, at least one class     | 300       |
-| `tool`      | one agent tool (`defineTool`)                            | code                         | 150       |
-| `adapter`   | one model backend (`defineAdapter`)                      | code                         | 150       |
-| `routes`    | one group of HTTP routes (a function building a `Hono`)  | code, no classes             | 150       |
-| `errors`    | error classes                                            | code                         | 150       |
-| `component` | one React view (`.tsx`), a function component            | code, no classes             | 150       |
-| `fake`      | test-only fakes in a `testing/` folder                   | code                         | 300       |
-| `test`      | Vitest files in `__tests__/` (`.test.tsx` for a view)    | code                         | 500       |
+| Kind        | Holds                                                    | May export                                     | Max lines |
+| ----------- | -------------------------------------------------------- | ---------------------------------------------- | --------- |
+| `types`     | shared shapes                                            | only types (imports `type`s)                   | 300       |
+| `constants` | literal values, `as const`                               | only literals                                  | 300       |
+| `prompt`    | authored model text, tables and pure typed renderers     | text/data, functions; no types/classes/schemas | 300       |
+| `utils`     | pure helpers: no I/O, no services                        | code                                           | none      |
+| `validator` | zod schemas for external input, `parse*` functions; pure | code, schemas                                  | 300       |
+| `helper`    | stateless functions; may do I/O, call services           | code, no classes                               | none      |
+| `service`   | code that owns state                                     | code, at least one class                       | 300       |
+| `tool`      | one agent tool (`defineTool`)                            | code                                           | 150       |
+| `adapter`   | one model backend (`defineAdapter`)                      | code                                           | 150       |
+| `routes`    | one group of HTTP routes (a function building a `Hono`)  | code, no classes                               | 150       |
+| `errors`    | error classes                                            | code                                           | 150       |
+| `component` | one React view (`.tsx`), a function component            | code, no classes                               | 150       |
+| `fake`      | test-only fakes in a `testing/` folder                   | code                                           | 300       |
+| `test`      | Vitest files in `__tests__/` (`.test.tsx` for a view)    | code                                           | 500       |
 
 Max lines counts lines of code (blank and comment lines aside), enforced by `max-lines`. `utils` and
 `helper` files have no cap: they are stateless functions that grow with their subject, so a long one
@@ -46,7 +47,7 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   string, regex or literal table moves to `*.constants.ts`. A `*.service.ts` exports a class, a
   `*.helper.ts` none, and only a `*.validator.ts` exports zod schemas. Unexported local types and
   schemas are fine.
-- `harness/pure-imports`: `*.utils.ts` and `*.validator.ts` import no I/O modules and no services, helpers, tools or adapters.
+- `harness/pure-imports`: `*.utils.ts`, `*.validator.ts` and `*.prompt.ts` import no I/O modules and no services, helpers, tools or adapters. Prompt files additionally reject mechanically recognizable direct I/O, model calls and state/side effects; pure rendering, local helpers and pure dependencies are allowed.
 - `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
   from the workspaces (a domain, named after its folder, no app or coding-from-generic edge, and
   a transport such as `@sheavly/client`, `sheavly.transport`, only from an app), and
@@ -128,6 +129,106 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `resolveDeletable` for a delete, since `resolveWritable` follows a symlink and would remove its
   target. The rule has accept and reject cases in
   `packages/eslint-config/src/__tests__/guard-env-write.test.js`.
+
+## Prompt extraction
+
+Authored model instructions/templates, tool descriptions and parameter guidance belong in an
+adjacent `*.prompt.ts`, not a constants file or an execution/schema file. A prompt file is
+TypeScript-only and capped at 300 lines of code. It exports named related strings, fragments,
+structured prompt data (for example description/parameter-guidance tables or model sections),
+and pure typed rendering functions. Keep local rendering helpers there too. Import types with
+`import type`; pure utilities, other prompts and configuration constants are allowed. Numeric
+limits may be interpolated into text from constants imports; unrelated numeric/business values,
+exported types, classes and schemas do not belong in prompt files. Execution, validation, state,
+environment access, I/O and model calls remain outside.
+
+Existing public constants may use a direct `const` alias of a named adjacent prompt import when
+TypeScript proves the imported value is a single string literal. `harness/kind-contents` rejects
+renderer/function aliases, general strings, non-text data, nonadjacent imports and aliases without
+type information; `src/__tests__/prompt-alias.test.js` covers these paths. The authored text stays
+in the internal prompt module, and the compatibility export can preserve its literal type.
+
+`harness/prompt-location` checks text at recognized model-facing boundaries, not English keywords
+or variables named “prompt”:
+
+- the imported `defineTool` binding's description and reachable input-schema `.describe` guidance,
+  including the shared tool-schema `withDescription` producer;
+- instruction/base-instruction and message options passed to imported harness/agent/composition
+  APIs, including `appendInstructionContext`;
+- typed model request options and `Provider.stream`, typed message/history content for authored
+  system/user messages, hook `addContext`/`addInstructions` and conversation `send`/`followup`;
+- typed `ModelSection` titles and guidance, not arbitrary UI titles or `RuleSection` metadata.
+
+Local/import aliases, workspace package/relative imports, static object properties/destructuring,
+concatenation, templates, arrays/join, static map projections and ordinary return builders are
+traced. Text from a `*.prompt.ts` import is extracted; caller parameters and unresolved runtime
+values remain legal. Role tags, tool names, section ids and other routing metadata are not prose
+sinks. Human UI/errors/status, unrelated human schema descriptions, tests/fakes (including
+metadata-marked test-only workspaces) and stored Markdown prompts are exempt.
+
+Import tracing reads only supported JavaScript/TypeScript sources inside the discovered lint root,
+with metadata and source ancestry checked before reads. Symlinked source files/ancestors and escaped
+source paths fail closed; unknown data-file imports stay opaque rather than being read or parsed.
+Discovery does not scan unrelated type-file contents. `src/__tests__/prompt-source-confinement.test.js`
+checks allowed relative/workspace imports and rejection paths with filesystem read spies. These are
+lint-analysis boundaries, not changes to agent command grants or workspace/worktree access.
+
+**Limits:** this is bounded static tracing, not a whole-program or natural-language analyzer. It
+follows initializers and ordinary return expressions, not later mutation, arbitrary computed
+property names, object-rest/nested parameter bindings, callback scheduling, runtime registries,
+reflection, external package bodies or all branch/loop execution. Unsupported parameter bindings
+remain opaque rather than crashing lint. Typed boundaries need TypeScript services and recognizable defining
+contracts; untyped lookalike `send`/`stream`/hook methods are intentionally not matched. A renderer
+whose output never reaches a supported sink cannot be identified just by its name. Fully dynamic
+user/caller data cannot be classified as authored instructions. Review must cover those paths;
+do not suppress violations with inline disables or a baseline.
+
+## System prompt review
+
+`harness/system-prompt-review` checks an explained review record beside the generic
+`BASE_AGENT_INSTRUCTIONS` declaration in `packages/host/src/instructions/instructions.prompt.ts`.
+It compares two SHA-256 hashes: the current base prompt source inside its backticks and a
+deterministic inventory of production `*.prompt.ts`, `*.tool.ts` and their sibling `*.constants.ts`
+files. The base is excluded from that inventory so its review comment cannot create a circular
+hash. Workspaces come from npm metadata, not a package-name list; test-only and tooling workspaces,
+tests and fakes are excluded. Workspace patterns and metadata ancestry are checked before reads;
+unsafe paths and symlinked manifests fail with path-only diagnostics, not JSON contents. Each lint
+root is independent. These inventory checks do not change agent command grants or workspace/worktree
+access permissions.
+The full watched source is a conservative signal: implementation and formatting edits can require
+review even when they do not change model-facing behaviour.
+
+The record is one JSON block comment marked `@system-prompt-review`, with `version: 1`, `sourcesHash`,
+`promptHash`, `decision` (`prompt-updated` or `prompt-unchanged`) and a nonempty `reason`. The rule
+rejects missing, malformed, duplicate and stale records. It reads the prompt from ESLint's current
+source, so an unsaved prompt edit also invalidates the record. It has no autofix: matching hashes
+without an explicit decision and explanation are not an accepted review record.
+
+When the rule reports drift:
+
+1. Compare the watched changes with the base policy and tool descriptions. Keep tool parameters,
+   limits and mechanics in their descriptions; update the system prompt only for cross-tool policy.
+2. Update the prompt if needed. Otherwise choose `prompt-unchanged` and explain why the existing
+   policy still applies.
+3. Run `npm run lint:prompt` to obtain the current hashes, then update the record with those hashes,
+   the decision and its explanation. Run the command again to verify it matches.
+4. Run the affected regression checks and relevant stored-prompt evaluation. Hashes verify source
+   correspondence, not that the explanation is sound or the model follows the policy.
+
+The dedicated anchor check runs without caching in both `npm run check` and
+`npm run check:affected`, outside workspace filtering. The stop hook invokes it independently for
+changed prompts, tools, constants, package metadata and review tooling; its error cannot be scoped away
+just because it names the host prompt rather than the changed tool. Acceptance/rejection tests
+live in `src/__tests__/system-prompt-review.test.js`; gate wiring is checked in
+`../../../scripts/__tests__/gate.test.mjs` and stop behaviour in
+`../../../.cursor/hooks/__tests__/prompt-review.utils.test.mjs`.
+
+**Limits:** this does not fetch or track changes to an upstream Cursor prompt, prove semantic
+freshness, or inspect the complete dependency graph. Imported helpers and schemas outside the
+watched files, provider transformations and runtime configuration can change behaviour without
+invalidating this inventory. Saved prompt/tool sources are read from disk; only the base prompt
+uses the current lint buffer. Reviewers still assess these changes and the explanation. The record is a reviewed
+source snapshot, not a violation-suppression baseline: every detected drift fails.
 
 ## The rest of the config
 

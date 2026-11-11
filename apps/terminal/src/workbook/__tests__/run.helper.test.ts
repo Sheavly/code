@@ -1,0 +1,300 @@
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fakeServer } from '@sheavly/client/testing/fake-server.fake';
+import {
+  approvalRequestSchema,
+  approvalResponseSchema,
+} from '@sheavly/protocol/approval/approval.validator';
+import {
+  conversationDetailsSchema,
+  conversationIdSchema,
+} from '@sheavly/protocol/server/server.validator';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { connectBackend } from '../../client/backend.helper.js';
+import { runWorkbook } from '../run.helper.js';
+import { WorkbookStore } from '../store.service.js';
+
+vi.mock('../../client/backend.helper.js', () => ({ connectBackend: vi.fn() }));
+// Metadata is the only Git caller in a named run; never invoke real Git in these tests.
+vi.mock('node:child_process', () => ({ execFileSync: vi.fn(() => '') }));
+
+const roots: string[] = [];
+const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
+const main = sessionIdSchema.parse('main');
+const request = {
+  name: 'fixture',
+  text: 'Check the fixture',
+  keep: false,
+  trust: false,
+  showModelCalls: false,
+};
+
+beforeEach(() => {
+  vi.stubEnv('BACKEND_URL', '');
+  vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+});
+
+afterEach(async () => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  vi.mocked(connectBackend).mockReset();
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+async function setup(
+  params: {
+    mismatch?: boolean;
+    command?: string;
+    failMessages?: boolean;
+    failStream?: boolean;
+  } = {},
+) {
+  const root = await mkdtemp(path.join(tmpdir(), 'workbook-run-'));
+
+  roots.push(root);
+
+  const store = new WorkbookStore(path.join(root, 'workbook'));
+  const generatedWorkspace = store.runWorkspaceDir(request.name);
+  const permissionFile = path.join(root, 'fake-home', 'permissions.json');
+  const permissionBefore = '{"mode":"ask","allow":[]}\n';
+
+  await mkdir(path.dirname(permissionFile), { recursive: true });
+  await writeFile(permissionFile, permissionBefore);
+
+  const promptStarted = Promise.withResolvers<undefined>();
+  const answered = Promise.withResolvers<undefined>();
+  const streamEnded = Promise.withResolvers<undefined>();
+  const responses: string[] = [];
+  const sessionGrants = new Set<string>();
+  let nodeExecutions = 0;
+  let closed = 0;
+  const server = fakeServer({
+    startConversation: () => ({ id }),
+    getConversation: () =>
+      conversationDetailsSchema.parse({
+        id,
+        title: 'fixture',
+        session: main,
+        running: false,
+        startedAt: 0,
+        workspace: params.mismatch ? root : generatedWorkspace,
+        profile: '00000000-0000-4000-8000-000000000003',
+        model: {
+          id: '00000000-0000-4000-8000-000000000002',
+          name: 'Fake',
+          adapter: 'openai',
+          model: 'fake',
+        },
+        models: [],
+        projectTrust: 'no_hooks',
+        permissionMode: 'ask',
+      }),
+    async *streamConversation({ body }) {
+      if ((body as { approvals?: boolean }).approvals) {
+        await promptStarted.promise;
+        yield {
+          seq: 0,
+          at: 0,
+          sessionId: main,
+          kind: 'approval',
+          update: {
+            type: 'approval_requested',
+            request: approvalRequestSchema.parse({
+              id: 'approval',
+              callId: 'call',
+              tool: 'run_command',
+              command: params.command ?? 'node check.mjs',
+              concerns: [
+                { argument: params.command ?? 'node check.mjs', reason: 'is not allowed yet' },
+              ],
+              options: ['approve', 'allow_session', 'always_allow', 'skip'],
+              keeps: ['node *'],
+            }),
+          },
+        } satisfies StreamEntry;
+
+        if (params.failStream) {
+          await answered.promise;
+          throw new Error('fake stream failure');
+        }
+      }
+
+      await streamEnded.promise;
+    },
+    async answerApproval({ body }) {
+      const response = approvalResponseSchema.parse((body as { response: unknown }).response);
+
+      responses.push(response.decision);
+      if (response.decision === 'always_allow') await writeFile(permissionFile, 'persistent grant');
+      if (response.decision === 'allow_session') sessionGrants.add('node');
+      answered.resolve(undefined);
+    },
+    async *sendPrompt() {
+      promptStarted.resolve(undefined);
+      await answered.promise;
+      if (params.failStream) await streamEnded.promise;
+      // The fake models the existing conversation-wide grant, shared with children, not a new store.
+      if (sessionGrants.has('node')) nodeExecutions += 3;
+      yield {
+        seq: 1,
+        at: 0,
+        sessionId: main,
+        kind: 'event',
+        event: {
+          seq: 1,
+          type: 'done',
+          reason: 'completed',
+          session: { id: main, rootId: main, depth: 1 },
+        },
+      } satisfies StreamEntry;
+    },
+    getMessages: () =>
+      params.failMessages
+        ? { refuse: { status: 500, code: 'internal', message: 'messages failed' } }
+        : { messages: [] },
+    closeConversation: () => {
+      closed++;
+      streamEnded.resolve(undefined);
+    },
+    stopPrompt: () => undefined,
+  });
+  const stop = vi.fn(async () => undefined);
+  const fetch: typeof globalThis.fetch = async (input, init) => {
+    init?.signal?.addEventListener('abort', () => streamEnded.resolve(undefined), { once: true });
+
+    return server.fetch(input, init);
+  };
+
+  vi.mocked(connectBackend).mockResolvedValue({
+    url: 'http://fake.test',
+    token: 'fake',
+    fetch,
+    stop,
+  });
+
+  return {
+    store,
+    permissionFile,
+    permissionBefore,
+    responses,
+    server,
+    stop,
+    closed: () => closed,
+    nodeExecutions: () => nodeExecutions,
+    sessionGrants,
+  };
+}
+
+describe('check workbook run on fake backend', () => {
+  it('answers through the typed API, reuses one session grant and never persists it', async () => {
+    const fake = await setup();
+    const result = await runWorkbook({
+      store: fake.store,
+      request,
+      checkContext: { approvedCommands: ['node'] },
+    });
+    const meta = await fake.store.meta(result.id);
+
+    expect(result.outcome).toBe('completed');
+    expect(fake.responses).toEqual(['allow_session']);
+    expect(fake.nodeExecutions()).toBe(3);
+    expect(meta).toMatchObject({
+      approvedCommands: ['node'],
+      approvalScope: 'conversation-session',
+      workspace: fake.store.runWorkspaceDir('fixture'),
+      mainSession: 'main',
+    });
+    expect(await readFile(fake.permissionFile, 'utf8')).toBe(fake.permissionBefore);
+    expect(fake.closed()).toBe(1);
+    expect(fake.stop).toHaveBeenCalledOnce();
+    const watcherIndex = fake.server.calls.findIndex(
+      ({ name, call }) =>
+        name === 'streamConversation' && (call.body as { approvals?: boolean }).approvals,
+    );
+    const promptIndex = fake.server.calls.findIndex(({ name }) => name === 'sendPrompt');
+
+    expect(watcherIndex).toBeGreaterThan(-1);
+    expect(promptIndex).toBeGreaterThan(watcherIndex);
+  });
+
+  it('a new attempt starts without the previous session grant', async () => {
+    const first = await setup();
+
+    await runWorkbook({
+      store: first.store,
+      request,
+      checkContext: { approvedCommands: ['node'] },
+    });
+
+    const second = await setup();
+
+    await runWorkbook({ store: second.store, request, checkContext: { approvedCommands: [] } });
+    expect(second.responses).toEqual(['skip']);
+    expect(second.nodeExecutions()).toBe(0);
+    expect(second.sessionGrants.size).toBe(0);
+    expect(await readFile(second.permissionFile, 'utf8')).toBe(second.permissionBefore);
+  });
+
+  it('denies mixed commands with no extra UI wait', async () => {
+    const fake = await setup({ command: 'node check.mjs && find .' });
+
+    await runWorkbook({ store: fake.store, request, checkContext: { approvedCommands: ['node'] } });
+    expect(fake.responses).toEqual(['skip']);
+    expect(fake.nodeExecutions()).toBe(0);
+  });
+
+  it('rejects the actual fixture mismatch before prompting or answering and closes everything', async () => {
+    const fake = await setup({ mismatch: true });
+
+    await expect(
+      runWorkbook({ store: fake.store, request, checkContext: { approvedCommands: ['node'] } }),
+    ).rejects.toThrow(/does not match/);
+    expect(fake.server.calls.map(({ name }) => name)).toEqual([
+      'startConversation',
+      'getConversation',
+      'closeConversation',
+    ]);
+    expect(fake.closed()).toBe(1);
+    expect(fake.stop).toHaveBeenCalledOnce();
+  });
+
+  it('fails before any backend connection if BACKEND_URL selects an existing backend', async () => {
+    const fake = await setup();
+
+    vi.stubEnv('BACKEND_URL', 'http://existing.test');
+    await expect(
+      runWorkbook({ store: fake.store, request, checkContext: { approvedCommands: [] } }),
+    ).rejects.toThrow(/own backend/);
+    expect(connectBackend).not.toHaveBeenCalled();
+    expect(fake.server.calls).toEqual([]);
+    expect((await fake.store.state()).runCount).toBe(0);
+  });
+
+  it('saves the stream failure cause without allowing late prompt events to report success', async () => {
+    const fake = await setup({ failStream: true });
+    const result = await runWorkbook({
+      store: fake.store,
+      request,
+      checkContext: { approvedCommands: ['node'] },
+    });
+
+    expect(result.outcome).toBe('failed');
+    expect(result.error).toContain('fake stream failure');
+    expect((await fake.store.result(result.id))?.outcome).toBe('failed');
+    expect(fake.closed()).toBe(1);
+    expect(fake.stop).toHaveBeenCalledOnce();
+  });
+
+  it('closes the conversation/backend when final message retrieval fails', async () => {
+    const fake = await setup({ failMessages: true });
+
+    await expect(
+      runWorkbook({ store: fake.store, request, checkContext: { approvedCommands: ['node'] } }),
+    ).rejects.toThrow(/messages failed/);
+    expect(fake.closed()).toBe(1);
+    expect(fake.stop).toHaveBeenCalledOnce();
+  });
+});

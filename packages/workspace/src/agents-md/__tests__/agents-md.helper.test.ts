@@ -89,9 +89,11 @@ describe('formatAgentsInstructions', () => {
       ],
     });
 
-    expect(text).toContain('## AGENTS.md\n\nUse npm.\n\n## src/AGENTS.md\n\nBe strict.');
-    expect(text).not.toContain('empty/AGENTS.md');
-    expect(text).toMatch(/more specific \(later\) one wins/);
+    expect(text).toBe(
+      'Project instructions from AGENTS.md files. Each applies to its folder and everything ' +
+        'below it; where they disagree, the more specific (later) one wins.\n\n' +
+        '## AGENTS.md\n\nUse npm.\n\n## src/AGENTS.md\n\nBe strict.',
+    );
   });
 
   it('returns undefined when there is nothing to say', () => {

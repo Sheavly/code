@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
+import { CALL_DESCRIPTION_GUIDANCE } from './tool.prompt.js';
 
 // The call description: added by the harness to every tool's input schema, filled in by the model.
 
@@ -8,13 +9,7 @@ import type { ToolCall } from '@sheavly/protocol/message/message.types';
  * ("reading index.ts"), so a UI can show intent instead of just the tool name.
  * Tools never see it: it is added to the schema here and stripped before `execute`.
  */
-const callDescription = z
-  .string()
-  .min(1)
-  .max(120)
-  .describe(
-    "Short plain-language summary of what you are doing, e.g. 'reading index.ts'. Shown to the user.",
-  );
+const callDescription = z.string().min(1).max(120).describe(CALL_DESCRIPTION_GUIDANCE);
 
 /** A tool's input schema with the call description in front, so the model states intent first. */
 export function withDescription(schema: z.ZodObject) {
