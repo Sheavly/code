@@ -78,6 +78,10 @@ export function createRunCommandTool({
         outsideCwd: outsideGrantedFolder({ workspace, commandCwd }),
       });
 
+      // Permission reads can finish after the loop has interrupted this call and cleaned up.
+      // Check before detaching a task: its fresh controller must not outlive an aborted launch.
+      signal.throwIfAborted();
+
       // The repo's git config can't make git run programs, whatever the command.
       const script = {
         steps: safeSteps(parsed.steps),
@@ -99,7 +103,7 @@ export function createRunCommandTool({
           description: context.description,
           callId: context.callId,
           sessionId: context.session?.id,
-          waitForCompletion: backgroundKind === 'task',
+          backgroundKind,
           run: ({ signal: taskSignal, onOutput }) =>
             processes.runScript({ ...script, signal: taskSignal, onOutput }),
         });

@@ -54,7 +54,6 @@ async function runTree(): Promise<{ sessions: SessionRegistry; entries: StreamEn
     tools: [startAgent],
     messages: [{ role: 'user', content: 'Main' }],
     tasks,
-    waitForTasks: true,
     session: { registry: sessions, ref: main },
   });
 

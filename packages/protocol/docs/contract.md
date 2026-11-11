@@ -75,6 +75,11 @@ read it from either and decides whether and how to show it.
   `outcome` how it ended (`RunOutcome`) and `report` what it wrote, whole and unbounded.
 - `task-finished`: a background task finished. `task` is its `TaskInfo`, whose `output` is still
   the bounded preview.
+- `tasks-finished`: one completion delivery, with an agent-authored `reason` string and a nonempty
+  ordered `notices` array of `agent-report` and/or `task-finished` snapshots. Nested groups and
+  transient notices are rejected. The reason is retained as data, not a model instruction; reports
+  remain whole and task outputs remain the existing bounded previews. Individual persistent kinds
+  remain readable in older histories and streams.
 
 A persistent notice is a snapshot at the moment it was written. Live state comes from the session
 stream, and a UI joins the two by session or task id. `history/` sits above `message/`,

@@ -3,6 +3,7 @@ import { harnessNoticeSchema, persistentNoticeSchema } from '../../notice/notice
 import { messageSchema } from '../../message/message.validator.js';
 import { entryEventSchema } from '../../event/event.validator.js';
 import { historyMessageSchema, noticeMessageSchema } from '../history.validator.js';
+import { streamEntrySchema } from '../../stream/stream.validator.js';
 
 const agent = {
   id: 'sub-1',
@@ -72,6 +73,53 @@ describe('persistent notices', () => {
     const event = { type: 'harness_notice', seq: 3, notice: report };
 
     expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+  });
+});
+
+describe('a completion group', () => {
+  const group = {
+    kind: 'tasks-finished',
+    reason: 'Compare the findings and tests',
+    notices: [report, finished],
+  };
+
+  it('preserves the reason and individual notices, including the whole report', () => {
+    expect(persistentNoticeSchema.parse(group)).toEqual(group);
+    expect(harnessNoticeSchema.parse(group)).toEqual(group);
+    expect(persistentNoticeSchema.parse({ ...group, notices: [finished] })).toEqual({
+      ...group,
+      notices: [finished],
+    });
+  });
+
+  it.each([
+    { notices: [] },
+    { notices: [{ kind: 'context-usage', context: { used: 1 } }] },
+    { notices: [{ kind: 'output-continuation', attempt: 1 }] },
+    { notices: [group] },
+    { notices: [report, { ...finished, task: { ...finished.task, output: null } }] },
+    { reason: undefined },
+    { reason: 123 },
+  ])('rejects empty, nested, transient or malformed groups: %j', (invalid) => {
+    expect(persistentNoticeSchema.safeParse({ ...group, ...invalid }).success).toBe(false);
+    expect(harnessNoticeSchema.safeParse({ ...group, ...invalid }).success).toBe(false);
+  });
+
+  it('stores one typed history entry without turning the reason into a user prompt', () => {
+    const entry = { role: 'notice', notice: group, at: 5 };
+
+    expect(historyMessageSchema.parse(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
+    expect(noticeMessageSchema.parse(entry)).toEqual(entry);
+    expect(messageSchema.safeParse(entry).success).toBe(false);
+    expect(noticeMessageSchema.parse({ ...entry, id: 'prompt' })).toEqual(entry);
+  });
+
+  it('roundtrips the identical ordered payload on the session stream', () => {
+    const event = { type: 'harness_notice', seq: 3, notice: group };
+    const entry = { seq: 8, at: 5, sessionId: 'main-1', kind: 'event', event };
+
+    expect(entryEventSchema.parse(event)).toEqual(event);
+    expect(streamEntrySchema.parse(JSON.parse(JSON.stringify(entry)))).toEqual(entry);
   });
 });
 

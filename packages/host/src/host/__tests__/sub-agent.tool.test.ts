@@ -336,7 +336,13 @@ describe('start_agent', () => {
 
     expect(built).toHaveLength(1);
     expect(built[0]).not.toBe(tasks);
-    expect(seenTools[0]).toEqual(['cancel_task', 'report_status', 'shell', 'task_status']);
+    expect(seenTools[0]).toEqual([
+      'await_tasks',
+      'cancel_task',
+      'report_status',
+      'shell',
+      'task_status',
+    ]);
   });
 
   it('cancels a command the sub-agent started through tasksTools when the sub-agent is cancelled', async () => {

@@ -67,7 +67,6 @@ export function createSubAgentTool(options: SubAgentOptions) {
         description: context.description,
         callId: context.callId,
         sessionId: context.session.id,
-        waitForCompletion: true,
         run: ({ signal, onOutput }) =>
           runChild({ options: childOptions, child, task, signal, onOutput }),
       });
@@ -116,7 +115,7 @@ async function runChild(params: {
         ...tools,
         ...(options.tasksTools?.(childTasks) ?? []),
         createReportStatusTool({ sessions }),
-        // Background-capable tools need task_status/cancel_task even where it can't nest.
+        // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
         ...(canNest || options.tasksTools ? createTaskTools(childTasks) : []),
         ...(canNest
           ? [
@@ -138,7 +137,6 @@ async function runChild(params: {
       ],
       signal,
       tasks: childTasks,
-      waitForTasks: true,
       session: { registry: sessions, ref: child },
       ...(summary && { summary }),
     });

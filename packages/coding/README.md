@@ -37,6 +37,8 @@ tools also use a shared scratch folder outside the repo; see
 `run_command` starts required finite work with `background: true`: the loop keeps the prompt alive
 until its result is delivered. Persistent servers and watchers use `backgroundKind: 'service'`
 instead. The agent can finish independent work, then yield without polling task status.
+The generic `await_tasks({ ids, reason })` tool can group results for delivery together; its reason
+preserves the dependent decision or next step for the agent after a summary.
 
 The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use

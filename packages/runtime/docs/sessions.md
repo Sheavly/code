@@ -87,8 +87,9 @@ parent steers a running sub-agent ("research dogs", then "focus specifically on 
   inbox and adds each message to history as a user message. A message from a parent says so, so
   the sub-agent knows it's an update to its task. Each one is a `message_received` event in that
   session's own ordered event stream.
-- **Idle sessions wake up:** a run waiting for background tasks (`waitForTasks`) also wakes on a
-  new message. A run about to finish takes one more turn if a message arrived meanwhile.
+- **Waiting runs wake up:** a run waiting for non-service background tasks also wakes on a
+  new message, without cancelling tasks or releasing held groups. A run about to finish takes
+  one more turn if a message arrived meanwhile.
 
 For the user steering a sub-agent through the main session: the user messages the main session,
 which decides whether to pass it on with `message_agent`. That keeps the main session in charge

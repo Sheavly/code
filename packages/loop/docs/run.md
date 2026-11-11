@@ -33,15 +33,23 @@ update; the original exception still ends iteration. Diagnostics never enter mod
    after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model
    called tools, the next turn starts. Without either, the run ends (or waits for a background
-   task). Tasks marked `waitForCompletion`, including sub-agents, always keep the run alive until
-   their results are delivered. `waitForTasks` also waits for ordinary background tasks.
+   task). A session cannot end normally while its non-service tasks, including sub-agents, are
+   running or have results ready to deliver. Tasks with `backgroundKind: 'service'` may outlive it.
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
 The automatic wait begins only after a turn without tool calls. Repeated status-tool calls keep
 starting model turns instead of waiting; the agent must finish independent work and yield.
-Required task completion wakes that wait and reaches history before the next model call, without
-another user prompt. Non-required tasks that outlive a run are reported at the next run.
+A task completion wakes that wait and reaches history before the next model call, without
+another user prompt. `await_tasks({ ids, reason })` returns immediately and holds those tasks'
+notices until every member finishes, then delivers one `tasks-finished` notice containing the
+reason and individual results. An ungrouped task is delivered on its own. Finishes during a model
+turn are reported at the next turn, never inserted into a call already in flight.
+
+A follow-up message wakes the existing inbox wait without cancelling tasks or releasing held
+groups. Cancelling a grouped task counts it as finished, but the combined notice waits for the
+remaining members and includes its cancelled status. Services that outlive a run are reported
+at the next prompt; grouping a service does not turn it into finite work.
 
 **A finished task is a persistent notice.** For each task that finished, the loop emits
 `task_completed` (the snapshot), then a `harness_notice` carrying a typed notice, and stores the
@@ -61,7 +69,11 @@ a sub-agent's activity in the same order as its parent's: a sub-agent's start co
 happens; one queued behind a pending tool result waits for it, as in the run's own stream.
 
 Aborting the signal stops cleanly at any point: unfinished tools get an "interrupted" result, so
-history stays valid. If the run fails, `onError` hooks are told and the error is rethrown; an
+history stays valid. Every running background task, including services and sub-agents, is cancelled
+before the session ends; sub-agents cancel their own running descendants. Unfinished work is not
+left running to return on a later prompt. Cancellation is registry-wide, so concurrent runs and
+parent/child loops must not share one `TaskRegistry`; the sub-agent factory creates a distinct
+registry for each child. If the run fails, `onError` hooks are told and the error is rethrown; an
 `onError` handler that fails is reported as a `hook_failed` event, never in place of that error. A
 model call that fails after it started tools (a cut-off stream, an error event) first stops those
 tools and emits their results, so every `tool_call_started` is answered, then fails the run.

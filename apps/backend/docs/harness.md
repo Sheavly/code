@@ -21,14 +21,15 @@ locks and process runner), then composes:
 | `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                             |
 | `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false` |
 | `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                  |
-| `task_status`, `cancel_task`                          | `@sheavly/tools`     | Background commands and sub-agents                                                                               |
-| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command`                             |
+| `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`     | Inspect or cancel background work, or group its completions with a reason                                        |
+| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, their own task registry and `run_command`, plus the shared hooks        |
 | The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                          |
 | The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                             |
 | The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                             |
 
-Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
-task, and commands are where the trust model has the most to lose.
+Sub-agents run commands on their own task registries with the same workspace permissions and
+approvals as the parent. They receive the same hooks, including `.sheavly/` hooks only when the
+workspace is trusted. A child's finite work keeps that child active before it reports to its parent.
 The backend explicitly passes `web_fetch` to sub-agents when enabled. The same tool instance
 shares the host's limits and domain policy, but each call has its own request and cancellation.
 See [web fetch](../../../packages/tools/docs/web-fetch.md) for address rules and defaults.
@@ -55,20 +56,21 @@ AGENTS.md and skill-list updates are appended as instruction context, not substi
 system prompt. Earlier messages remain unchanged, keeping Claude's signed reasoning valid.
 
 `servedConversation` wraps it as a conversation (`harnessConversation`: the workspace's skills,
-`MAX_TURNS`, `WAIT_FOR_TASKS`) and reports its run for `GET /conversations/:id`: the workspace,
+`MAX_TURNS`) and reports its run for `GET /conversations/:id`: the workspace,
 the model in use and the ones it can switch to, workspace trust and the permission mode (read when
 asked, since the user can change it while the conversation runs). A run's `run_command` reads its
 folder's permissions from the user's folder (`workspacePermissions`), so a mode or an allowed
 command applies to every conversation in that folder from its next command.
 
-Sub-agent replies always keep the prompt alive and resume the parent automatically when they
-finish. `WAIT_FOR_TASKS` additionally waits for ordinary background commands; it is not needed
-for sub-agent completion. An interrupted prompt is not restarted automatically.
+Finite background commands and sub-agent replies keep the prompt alive by default and resume
+the parent automatically when they finish. Persistent services (`backgroundKind: 'service'`)
+are exempt: they may outlive a prompt without keeping it active. Interrupting a prompt cancels
+its background work, including sub-agent descendants, and does not restart it automatically.
 
 `workspacePermissions` creates one `ConversationPermissions` per live conversation. Permanent
 entries still come from the workspace store; temporary `allow_session` entries live only in that
-object and are not restored on reopen. Tools sharing it reuse the grants. Default sub-agents
-still have no `run_command`; this does not expand their tool set.
+object and are not restored on reopen. Main and sub-agent command tools sharing it reuse the
+grants; sub-agent commands do not bypass permission checks.
 
 ## Models and keys
 
@@ -109,13 +111,11 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   reasoning behavior, cached-token reporting, cache billing or model quality; no live call was
   made to establish those properties. Resource hostnames and private connection settings are
   not catalogue defaults.
-- **Responses caching compatibility.** New `openai` and `azure-openai` models created through setup
-  store `explicitCache: true` by default; unsupported deployments must explicitly set it to false.
-  Saved definitions without this setting keep automatic caching (`explicitCache: false`) when
-  loaded, displayed or connection-checked, without rewriting their files or guessing from a model
-  or deployment name. Editing a legacy model does not enable it implicitly; set it to true to opt in.
-  Direct adapter consumers receive the adapter's default-on behavior and must opt out for unsupported
-  deployments. See [prompt caching](../../../packages/providers/docs/prompt-caching.md).
+- **Responses caching.** `openai` and `azure-openai` models use explicit caching unless their
+  definition sets `explicitCache: false`; the backend stores, shows and checks the definition as
+  given and never guesses from a model or deployment name. A deployment before GPT-5.6 rejects the
+  fields with a 400, so it must set `explicitCache: false`. See
+  [prompt caching](../../../packages/providers/docs/prompt-caching.md).
 - **A model that can't be used** (no key, a definition its adapter refuses) is left out with a
   note on the log, and never costs the user the others. A note says which model and why, never the
   key and never what a provider answered.

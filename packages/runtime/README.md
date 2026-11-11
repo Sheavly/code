@@ -4,9 +4,34 @@ The stateful services a run uses, with nothing about files or code: the session 
 inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) makes one of each per
 run; tools and the loop share them.
 
-Tasks started with `waitForCompletion: true` keep their calling run alive until the loop delivers
-their result. `TaskRegistry.hasRequiredTasks` includes running and unreported required tasks;
-ordinary background work remains non-blocking by default.
+Tasks default to `backgroundKind: 'task'`: finite work keeps its calling run alive until its
+completion is delivered. `backgroundKind: 'service'` exempts a running service from that rule;
+its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
+includes non-service running tasks, their held grouped results, and ready, undelivered completion
+notices. A finished finite member keeps its run alive until its group is delivered, even if only
+service members remain; a group containing only running services does not.
+
+`TaskRegistry.group({ ids, reason, sessionId? })` returns immediately and holds its members for
+one delivery when the last settles, including cancelled members. Unknown, duplicate, already
+grouped and unowned IDs throw `TaskError` without changing anything; empty groups are rejected.
+Already settled members join the group instead of producing separate undelivered notices.
+Membership persists after delivery until each task is released. Ordinary requested cancellations
+remain silent. Task observers still receive every start/end immediately, even for held groups.
+Registering an already-settled group also wakes `nextSettled` waiters, so a parked run can consume
+its new delivery without waiting for an unrelated task to finish.
+
+`takeDeliveries(sessionId?)` consumes ready `TaskDelivery` values (`{ tasks: TaskInfo[], reason?:
+string }`) once, in readiness order, with group members in requested ID order.
+`hasDeliveries(sessionId?)` checks readiness without consuming. Supplying a session filters all
+these queries and group validation by ownership, while allowing generic tasks with no session ID;
+a child cannot consume its parent's results. `cancelSession(sessionId)` cancels exact ownership
+only (descendant signals cascade separately); `cancelAll()` remains registry-wide for main-run
+shutdown. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
+
+A group's `sessionId` validates its members, not ownership of the group itself. A generic-only
+group remains shared with every session. Delivery to a scoped consumer requires every member
+to be compatible with that session; an unscoped group spanning different owned sessions needs
+an unscoped consumer, not either session's loop.
 
 ```ts
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
@@ -21,7 +46,7 @@ import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 | `approvals/` | `ApprovalRegistry`: requests a UI answers with `respond`                                                                                                                      |
 | `usage/`     | `UsageLedger`: cumulative usage across sessions, deduplicated by stream sequence                                                                                              |
 | `output/`    | `OutputBuffer`: bounded first/last lines and shortened long lines for process and task previews                                                                               |
-| `errors/`    | `SessionError`, the approval errors, and `errorMessage` / `isMissingPath`                                                                                                     |
+| `errors/`    | `SessionError`, `TaskError`, the approval errors, and `errorMessage` / `isMissingPath`                                                                                        |
 | `testing/`   | Fakes for tests: sessions, approvals, `startTaskTool`                                                                                                                         |
 
 ## Docs
@@ -46,7 +71,8 @@ removes an ended session and the sub-agents under it (it throws `session_running
 open), with their inboxes, last tokens and message ids; entries already in the combined stream
 stay. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
 request, with its output and report, and returns false for one still running or not yet reported;
-`releaseFinished()` does it for every such task.
+`releaseFinished()` does it for every such task. Held or ready-but-undelivered group members
+cannot be released, including cancelled members; after delivery, each member can be released.
 
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.
 - [Approvals](docs/approvals.md): how a tool asks the user, and how a UI answers.

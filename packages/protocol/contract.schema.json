@@ -65,25 +65,64 @@
       ]
     },
     "PersistentNotice": {
-      "oneOf": [
+      "anyOf": [
         {
-          "type": "object",
-          "properties": {
-            "kind": { "type": "string", "const": "agent-report" },
-            "agent": { "$ref": "#/$defs/AgentInfo" },
-            "taskId": { "$ref": "#/$defs/TaskId" },
-            "outcome": { "$ref": "#/$defs/RunOutcome" },
-            "report": { "type": "string" }
-          },
-          "required": ["kind", "agent", "taskId", "outcome", "report"]
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "const": "agent-report" },
+                "agent": { "$ref": "#/$defs/AgentInfo" },
+                "taskId": { "$ref": "#/$defs/TaskId" },
+                "outcome": { "$ref": "#/$defs/RunOutcome" },
+                "report": { "type": "string" }
+              },
+              "required": ["kind", "agent", "taskId", "outcome", "report"]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "const": "task-finished" },
+                "task": { "$ref": "#/$defs/TaskInfo" }
+              },
+              "required": ["kind", "task"]
+            }
+          ]
         },
         {
           "type": "object",
           "properties": {
-            "kind": { "type": "string", "const": "task-finished" },
-            "task": { "$ref": "#/$defs/TaskInfo" }
+            "kind": { "type": "string", "const": "tasks-finished" },
+            "reason": { "type": "string" },
+            "notices": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "const": "agent-report" },
+                      "agent": { "$ref": "#/$defs/AgentInfo" },
+                      "taskId": { "$ref": "#/$defs/TaskId" },
+                      "outcome": { "$ref": "#/$defs/RunOutcome" },
+                      "report": { "type": "string" }
+                    },
+                    "required": ["kind", "agent", "taskId", "outcome", "report"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "const": "task-finished" },
+                      "task": { "$ref": "#/$defs/TaskInfo" }
+                    },
+                    "required": ["kind", "task"]
+                  }
+                ]
+              }
+            }
           },
-          "required": ["kind", "task"]
+          "required": ["kind", "reason", "notices"]
         }
       ]
     },

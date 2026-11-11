@@ -11,9 +11,9 @@ import type { Conversation, ConversationOptions } from './conversation.types.js'
 /**
  * A conversation on the harness's main session. Every prompt runs `options.run` (the loop's
  * `streamAgent`) on the history so far with `keepSession`, so the session goes idle between
- * prompts instead of ending, and the next prompt resumes it. Background tasks outlive a prompt:
- * ordinary ones that finish meanwhile are reported at the next one, while required completions
- * (sub-agents) keep the prompt alive. An interrupted prompt leaves history
+ * prompts instead of ending, and the next prompt resumes it. Finite background tasks, including
+ * sub-agents, keep the prompt alive and wake the model with their completions; services may
+ * outlive it. An interrupted prompt leaves history
  * valid to continue from; a failed one keeps the completed work and the user's prompt too.
  */
 export function createConversation(options: ConversationOptions): Conversation {
@@ -76,7 +76,6 @@ export function createConversation(options: ConversationOptions): Conversation {
       session: { registry: sessions, ref: mainSession },
       keepSession: true,
       resumed: params.resumed,
-      ...(options.waitForTasks !== undefined && { waitForTasks: options.waitForTasks }),
       instructions: options.instructions ?? harness.instructions,
       ...(options.maxTurns !== undefined && { maxTurns: options.maxTurns }),
       ...(options.summary && { summary: options.summary }),

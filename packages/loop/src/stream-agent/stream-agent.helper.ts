@@ -152,6 +152,10 @@ async function drive(context: RunContext) {
     // earlier tool results or error hooks were queued. The original exception still reaches callers.
     await events.consumed();
     throw caughtError;
+  } finally {
+    // Task controllers are independent of tool calls. Abort must stop them before the session
+    // ends, including sub-agents whose own cleanup cancels their descendants.
+    if (signal.aborted) await options.tasks?.cancelAll();
   }
 
   finishSession({ session, outcome: reason, keep: options.keepSession });

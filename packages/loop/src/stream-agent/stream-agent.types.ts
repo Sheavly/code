@@ -33,14 +33,12 @@ export type AgentOptions = {
   /** The host's system instructions, sent with every model call (hooks may add more). */
   instructions?: string;
   signal?: AbortSignal;
-  /** Background tasks. Finished ones are reported to the model at the start of each turn. */
-  tasks?: TaskRegistry;
   /**
-   * When the model is done but background tasks are still running, wait for the next one to
-   * finish and give the model another turn (instead of ending the run). Required task completions
-   * always keep the run alive, even without this option. Abort to stop waiting.
+   * This run's background tasks, delivered at turn boundaries. Abort cancels the whole registry,
+   * including generic tasks and services: concurrent runs and parent/child loops must use
+   * distinct registries. The sub-agent factory creates a separate registry for each child.
    */
-  waitForTasks?: boolean;
+  tasks?: TaskRegistry;
   /**
    * Customize the loop: add context before turns, wrap tool calls. Run in this order. A sub-agent
    * gets only the hooks its parent passes it.

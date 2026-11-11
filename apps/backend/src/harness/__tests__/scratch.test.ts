@@ -62,7 +62,6 @@ describe('the scratch folder in a backend run', () => {
     folder = path.join(base, 'scratch', harness.mainSession.id);
 
     const conversation = createConversation({
-      waitForTasks: true,
       hooks: harness.hooks,
       harness,
       tools: harness.tools,

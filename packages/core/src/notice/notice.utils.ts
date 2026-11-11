@@ -5,6 +5,7 @@ import {
   CONTEXT_USAGE_NOTICE_TEXT,
   OUTPUT_CONTINUATION_NOTICE_TEXT,
   TASK_FINISHED_NOTICE_TEXT,
+  TASKS_FINISHED_NOTICE_TEXT,
 } from './notice.constants.js';
 
 const count = new Intl.NumberFormat('en-US');
@@ -28,9 +29,19 @@ export function formatHarnessNotice(notice: HarnessNotice): string {
         OUTPUT_CONTINUATION_NOTICE_TEXT.closing,
       ].join('\n');
     case 'agent-report':
-      return formatAgentReport(notice);
+      return [
+        AGENT_REPORT_NOTICE_TEXT.opening,
+        formatAgentReport(notice),
+        AGENT_REPORT_NOTICE_TEXT.closing,
+      ].join('\n');
     case 'task-finished':
-      return formatTaskFinished(notice);
+      return [
+        TASK_FINISHED_NOTICE_TEXT.opening,
+        formatTaskFinished(notice),
+        TASK_FINISHED_NOTICE_TEXT.closing,
+      ].join('\n');
+    case 'tasks-finished':
+      return formatTasksFinished(notice);
   }
 }
 
@@ -46,14 +57,12 @@ function formatAgentReport(notice: Extract<HarnessNotice, { kind: 'agent-report'
   const fence = fenceDashes(body);
 
   return [
-    AGENT_REPORT_NOTICE_TEXT.opening,
     AGENT_REPORT_NOTICE_TEXT.origin,
     `Sub-agent "${line(agent.title)}" (session ${line(agent.id)}, task ${line(taskId)}) ended: ${line(outcome)}.${status}`,
     AGENT_REPORT_NOTICE_TEXT.guidance,
     `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportOpening} ${fence}`,
     body,
     `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportClosing} ${fence}`,
-    AGENT_REPORT_NOTICE_TEXT.closing,
   ].join('\n');
 }
 
@@ -76,7 +85,6 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
   const fence = fenceDashes(body);
 
   return [
-    TASK_FINISHED_NOTICE_TEXT.opening,
     TASK_FINISHED_NOTICE_TEXT.origin,
     `[task ${line(task.id)} · ${parts.join(' · ')}] $ ${line(task.command)}`,
     ...(body
@@ -86,7 +94,28 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
           `${fence} ${TASK_FINISHED_NOTICE_TEXT.outputClosing} ${fence}`,
         ]
       : []),
-    TASK_FINISHED_NOTICE_TEXT.closing,
+  ].join('\n');
+}
+
+/** Reuses individual bodies without nesting trusted envelopes around agent-authored data. */
+function formatTasksFinished(notice: Extract<HarnessNotice, { kind: 'tasks-finished' }>): string {
+  const reason = escapeTags(notice.reason);
+  const fence = fenceDashes(reason);
+  const bodies = notice.notices.map((individual) => {
+    if (individual.kind === 'agent-report') return formatAgentReport(individual);
+
+    return formatTaskFinished(individual);
+  });
+
+  return [
+    TASKS_FINISHED_NOTICE_TEXT.opening,
+    TASKS_FINISHED_NOTICE_TEXT.origin,
+    TASKS_FINISHED_NOTICE_TEXT.reasonOrigin,
+    `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonOpening} ${fence}`,
+    reason,
+    `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonClosing} ${fence}`,
+    ...bodies,
+    TASKS_FINISHED_NOTICE_TEXT.closing,
   ].join('\n');
 }
 

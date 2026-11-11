@@ -29,9 +29,8 @@ import { plainTerminalText } from './render/terminal-text.utils.js';
 /** What the demo asks with no prompt given. */
 const DEFAULT_PROMPT = 'Read package.json and tell me the project name.';
 const write = (text: string) => void process.stdout.write(text);
-// A one-shot demo: its prompt waits for background tasks, to show them finish.
 const session = await openSession({
-  env: { ...process.env, WAIT_FOR_TASKS: 'true' },
+  env: process.env,
   args: process.argv.slice(2),
   write,
 });

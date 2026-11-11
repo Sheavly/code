@@ -1,4 +1,4 @@
-import { now } from '@sheavly/core/clock/clock.helper';
+import { reportFinishedTasks } from './task-delivery.helper.js';
 import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
@@ -8,7 +8,6 @@ import { joinInstructions } from '../hooks/hooks.utils.js';
 import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
 import { viewOf } from '../summary/summary.utils.js';
 import { sample } from './sample.helper.js';
-import { finishedTaskNotice } from './task-notice.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
@@ -155,8 +154,8 @@ async function finishTurn(params: {
 
   if (running.length > 0) return undefined;
 
-  // The model is done. A message that came in meanwhile gets another turn, as does a finished
-  // required background task (or any task with `waitForTasks`); otherwise the run ends.
+  // Follow-ups wake the model without touching tasks or groups. Otherwise finite work keeps
+  // this session alive until its results can be delivered; services may outlive the run.
   if (session.registry.hasMessages(session.ref.id)) return undefined;
 
   if (await awaitTask({ options, session, signal })) return undefined;
@@ -179,32 +178,6 @@ function deliverMessages(params: {
     events.enqueue({ type: 'message_received', message });
     // The message is stamped with when it was sent, not when this turn read it.
     messages.push({ role: 'user', content: inboxText(message), at: message.sentAt });
-  }
-}
-
-/** Tasks that finished since the last turn: shown in order, and told to the model before it runs. */
-function reportFinishedTasks(params: {
-  tasks: TaskRegistry | undefined;
-  session: RunSession;
-  messages: HistoryMessage[];
-  events: AgentEvents;
-}): void {
-  const { tasks, session, messages, events } = params;
-
-  if (!tasks) return;
-
-  for (const task of tasks.takeUnreported()) {
-    // The same payload goes to the stream and into history, so a UI sees it live and on reopening.
-    const notice = finishedTaskNotice({
-      task,
-      tasks,
-      sessions: session.registry,
-      parent: session.ref.id,
-    });
-
-    events.enqueue({ type: 'task_completed', task });
-    events.enqueue({ type: 'harness_notice', notice });
-    messages.push({ role: 'notice', notice, at: task.endedAt ?? now() });
   }
 }
 
@@ -245,8 +218,8 @@ async function releaseResults(params: {
 }
 
 /**
- * Required tasks always keep the run alive; waitForTasks also includes ordinary background work.
- * False if there's nothing left to wait for, or the run was aborted while waiting.
+ * Finite work keeps its session alive until results are delivered, individually or as a group.
+ * False if only services remain, or the run was aborted while waiting.
  */
 async function awaitTask(params: {
   options: AgentOptions;
@@ -254,13 +227,13 @@ async function awaitTask(params: {
   signal: AbortSignal;
 }): Promise<boolean> {
   const { options, session, signal } = params;
-  const { tasks, waitForTasks } = options;
+  const { tasks } = options;
   const { registry, ref } = session;
 
-  if (!tasks || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
+  if (!tasks) return false;
 
-  while (!tasks.hasUnreported && !registry.hasMessages(ref.id)) {
-    if (tasks.runningCount === 0 || (!waitForTasks && !tasks.hasRequiredTasks)) return false;
+  while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
+    if (!tasks.hasPendingTasks(ref.id)) return false;
     const woken = await waitForWake({ tasks, registry, id: ref.id, signal });
 
     if (!woken) return false;

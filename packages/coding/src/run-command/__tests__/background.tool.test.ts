@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
@@ -23,6 +23,7 @@ let tasks: TaskRegistry;
 
 afterEach(async () => {
   await tasks.cancelAll(); // never leave processes behind
+  vi.restoreAllMocks();
 });
 
 function setup() {
@@ -60,10 +61,80 @@ describe('background run_command', () => {
       description: 'call c1',
       status: 'running',
     });
-    expect(tasks.hasRequiredTasks).toBe(true);
+    expect(tasks.hasPendingTasks()).toBe(true);
     expect(result.role === 'tool' && result.content).toContain('end your turn without tool calls');
     expect(result.role === 'tool' && result.content).toContain('Do not poll');
   });
+
+  it.each([undefined, 'task', 'service'] as const)(
+    'forwards the background kind to the registry without legacy lifecycle flags: %s',
+    async (backgroundKind) => {
+      const { run } = setup();
+      const start = vi.spyOn(tasks, 'start');
+      const result = await run('kind', 'run_command', {
+        command: 'sleep 5',
+        background: true,
+        ...(backgroundKind && { backgroundKind }),
+      });
+
+      expect(result.isError).toBe(false);
+      expect(start).toHaveBeenCalledOnce();
+      expect(start.mock.calls[0]?.[0]).toMatchObject({
+        backgroundKind: backgroundKind ?? 'task',
+      });
+      expect(Object.keys(start.mock.calls[0]![0]).sort()).toEqual([
+        'backgroundKind',
+        'callId',
+        'command',
+        'description',
+        'run',
+        'sessionId',
+      ]);
+      expect(tasks.hasPendingTasks()).toBe(backgroundKind !== 'service');
+    },
+  );
+
+  it.each(['task', 'service'] as const)(
+    'does not launch a %s after an aborted permission lookup resolves past shutdown',
+    async (backgroundKind) => {
+      tasks = new TaskRegistry();
+      const permissions = testPermissions({ mode: 'allow_all' });
+      const permissionResult =
+        Promise.withResolvers<Awaited<ReturnType<typeof permissions.read>>>();
+      const read = vi.spyOn(permissions, 'read').mockReturnValue(permissionResult.promise);
+      const processes = testProcesses();
+      const launch = vi
+        .spyOn(processes, 'runScript')
+        .mockRejectedValue(new Error('Unexpected process launch'));
+      const start = vi.spyOn(tasks, 'start');
+      const controller = new AbortController();
+      const running = runTool({
+        tools: [createRunCommandTool({ workspace: temp.workspace, permissions, processes, tasks })],
+        call: {
+          id: callId,
+          name: 'run_command',
+          input: {
+            description: 'Delayed command',
+            command: 'echo never',
+            background: true,
+            backgroundKind,
+          },
+        },
+        signal: controller.signal,
+      });
+
+      await until(() => read.mock.calls.length === 1);
+      controller.abort();
+      await tasks.cancelAll();
+      permissionResult.resolve({ mode: 'allow_all', allow: [] });
+      const result = await running;
+
+      expect(result.isError).toBe(true);
+      expect(start).not.toHaveBeenCalled();
+      expect(launch).not.toHaveBeenCalled();
+      expect(tasks.list()).toEqual([]);
+    },
+  );
 
   it('rejects an unknown background kind before starting a process', async () => {
     const { run } = setup();
@@ -86,7 +157,7 @@ describe('background run_command', () => {
 
     expect(result.role === 'tool' && result.content).toContain('foreground');
     expect(tasks.list()).toEqual([]);
-    expect(tasks.hasRequiredTasks).toBe(false);
+    expect(tasks.hasPendingTasks()).toBe(false);
   });
 
   it('records exit code and output when the command finishes', async () => {

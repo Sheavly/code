@@ -30,7 +30,7 @@ it.each([
     definition: { deployment: 'arbitrary-legacy', baseUrl: 'https://azure.test/openai/v1' },
   },
 ])(
-  'preserves legacy $adapter settings while new setup defaults on',
+  'defaults $adapter to explicit caching without rewriting the stored definition',
   async ({ adapter, definition }) => {
     const registry = new ProfileRegistry({ root: home });
     const { fetch, requests } = fakeFetch([]);
@@ -50,10 +50,7 @@ it.each([
     await open.putSecrets({ id: legacyId, secrets: { apiKey: 'fake-key' } });
     await setup.checkCredential({ profile: profileId, model: legacyId });
 
-    expect(requests.at(-1)?.body).not.toHaveProperty('prompt_cache_options');
-    expect(
-      (await setup.model({ profile: profileId, model: legacyId })).definition.explicitCache,
-    ).toBe(false);
+    expect(requests.at(-1)?.body.prompt_cache_options).toEqual({ mode: 'explicit' });
     expect((await open.getModel(legacyId))?.definition).toEqual(definition);
 
     await setup.putModel({
@@ -62,7 +59,7 @@ it.each([
       model: { ...legacy, name: 'New model' },
     });
     await open.putSecrets({ id: newId, secrets: { apiKey: 'fake-key' } });
-    expect((await open.getModel(newId))?.definition.explicitCache).toBe(true);
+    expect((await open.getModel(newId))?.definition).toEqual(definition);
     await setup.checkCredential({ profile: profileId, model: newId });
     expect(requests.at(-1)?.body.prompt_cache_options).toEqual({ mode: 'explicit' });
 
@@ -71,7 +68,7 @@ it.each([
       id: legacyId,
       model: { ...legacy, name: 'Renamed' },
     });
-    expect((await open.getModel(legacyId))?.definition.explicitCache).toBe(false);
+    expect((await open.getModel(legacyId))?.definition).toEqual(definition);
 
     for (const explicitCache of [true, false]) {
       await setup.putModel({

@@ -258,7 +258,7 @@ backend caches, is in [prompt caching](../packages/providers/docs/prompt-caching
    A `tool_result` can carry `artifacts`, the tool's data for a UI (a file write's before and
    after, which lines a read covered); the model sees only the text, a UI renders these.
 4. `afterTurn` hooks run. If the model called tools, the next turn starts; otherwise the run ends
-   (or waits for a background task, with `waitForTasks`).
+   (or waits for its non-service background tasks and their completion notices).
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../packages/runtime/docs/sessions.md)).
 

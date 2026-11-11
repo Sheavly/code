@@ -75,7 +75,7 @@ describe('modelsOf', () => {
   });
 
   it.each([undefined, true, false])(
-    'respects explicitCache=%s for saved OpenAI and Azure definitions',
+    'sends explicit caching for saved OpenAI and Azure definitions unless explicitCache=false (got %s)',
     async (explicitCache) => {
       const stored = [azure, openai].map((model) => ({
         ...model,
@@ -105,11 +105,11 @@ describe('modelsOf', () => {
       }
 
       for (const request of requests) {
-        if (explicitCache === true) {
-          expect(request.body.prompt_cache_options).toEqual({ mode: 'explicit' });
-        } else {
+        if (explicitCache === false) {
           expect(request.body).not.toHaveProperty('prompt_cache_options');
           expect(JSON.stringify(request.body.input)).not.toContain('prompt_cache_breakpoint');
+        } else {
+          expect(request.body.prompt_cache_options).toEqual({ mode: 'explicit' });
         }
       }
     },

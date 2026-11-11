@@ -5,6 +5,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { createAwaitTasksTool } from './await-tasks.tool.js';
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 function createTaskStatusTool(tasks: TaskRegistry) {
@@ -12,7 +13,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
     name: 'task_status',
     description:
       "Show background tasks. With an id: that task's status and recent output, or, for a sub-agent, its complete report. Without: all tasks. " +
-      'Inspection only, not a wait tool. Do not poll: finished tasks are reported automatically. ' +
+      'Inspection only, for requested updates or diagnosis, not a wait tool. Do not poll: finished tasks are reported automatically (grouped results arrive together). ' +
       'Finish independent work, then end your turn without tool calls to wait for required task results.',
     inputSchema: z.object({
       id: taskIdSchema.optional().describe('Task id, e.g. t1. Omit to list all tasks.'),
@@ -53,7 +54,7 @@ function taskStatusResponse(params: { content: string; running: boolean }): stri
 
   return (
     content +
-    '\nSnapshot only; this tool does not wait. Do not poll. Finish independent work, then end your turn without tool calls to wait for required task results. Services do not need to exit before you finish.'
+    '\nSnapshot only; inspect for requested updates or diagnosis, not waiting. Do not poll. Grouped results arrive together when all members finish. Finish independent work, then end your turn without tool calls to wait for required task results. Services do not need to exit before you finish.'
   );
 }
 
@@ -84,7 +85,7 @@ function createCancelTaskTool(tasks: TaskRegistry) {
   });
 }
 
-/** The tools for checking on and stopping background tasks, sharing one registry with run_command. */
+/** The tools for inspecting, grouping and stopping background tasks on one shared registry. */
 export function createTaskTools(tasks: TaskRegistry) {
-  return [createTaskStatusTool(tasks), createCancelTaskTool(tasks)];
+  return [createTaskStatusTool(tasks), createCancelTaskTool(tasks), createAwaitTasksTool(tasks)];
 }

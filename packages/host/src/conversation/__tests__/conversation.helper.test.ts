@@ -157,7 +157,7 @@ describe('a conversation', () => {
 
   it('reports a background task from one prompt in the next', async () => {
     const { harness, conversation, requests } = setup([
-      callTool('t1', 'start_task', { ms: 20, output: 'built' }),
+      callTool('t1', 'start_task', { ms: 20, output: 'built', backgroundKind: 'service' }),
       say('started it'),
       say('it finished'),
     ]);
@@ -172,7 +172,7 @@ describe('a conversation', () => {
 
   it('makes every close() wait for the same cleanup', async () => {
     const { harness, conversation } = setup([
-      callTool('t1', 'start_task', { ms: 60_000 }),
+      callTool('t1', 'start_task', { ms: 60_000, backgroundKind: 'service' }),
       say('started'),
     ]);
 
@@ -189,7 +189,7 @@ describe('a conversation', () => {
 
   it('closing stops the running prompt and its tasks, and ends the session', async () => {
     const { harness, conversation, seen } = setup([
-      callTool('t1', 'start_task', { ms: 60_000 }),
+      callTool('t1', 'start_task', { ms: 60_000, backgroundKind: 'service' }),
       say('started'),
       callTool('b1', 'block'),
     ]);
