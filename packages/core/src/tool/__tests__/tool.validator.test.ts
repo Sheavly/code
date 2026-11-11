@@ -8,6 +8,20 @@ const callId = callIdSchema.parse('1');
 describe('withDescription', () => {
   const schema = withDescription(z.object({ text: z.string() }));
 
+  it('preserves the shared model-visible description wording', () => {
+    expect(z.toJSONSchema(schema)).toMatchObject({
+      properties: {
+        description: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 120,
+          description:
+            "Short plain-language summary of what you are doing, e.g. 'reading index.ts'. Shown to the user.",
+        },
+      },
+    });
+  });
+
   it('accepts input with a description and the tool fields', () => {
     expect(schema.parse({ description: 'echoing hi', text: 'hi' })).toEqual({
       description: 'echoing hi',

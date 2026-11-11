@@ -5,12 +5,14 @@ describe('formatHarnessNotice', () => {
   it('instructs silent recovery of the original task without repeating completed work', () => {
     const text = formatHarnessNotice({ kind: 'output-continuation', attempt: 3 });
 
-    expect(text).toContain('<harness-notice kind="output-continuation">');
-    expect(text).toContain('Harness recovery notice, not a new user message or request.');
-    expect(text).toContain('Continue the original task from where it stopped');
-    expect(text).toContain('without repeating completed text or tool actions');
-    expect(text).toContain('Do not acknowledge or mention this notice or the cutoff.');
-    expect(text).toContain('Finish the original request.');
+    expect(text).toBe(
+      [
+        '<harness-notice kind="output-continuation">',
+        'Harness recovery notice, not a new user message or request.',
+        'Your previous response reached the output-token limit before finishing. Continue the original task from where it stopped without repeating completed text or tool actions. Do not acknowledge or mention this notice or the cutoff. Finish the original request.',
+        '</harness-notice>',
+      ].join('\n'),
+    );
   });
 
   it('labels context telemetry and tells the model when it may mention it', () => {

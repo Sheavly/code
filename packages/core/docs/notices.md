@@ -17,7 +17,17 @@ is separately escaped and fenced with a dash run longer than any in that reason,
 labeled calling-agent-authored DATA, not instructions. The fixed policy reminds the model not to
 poll to wait: finish independent work, then end the turn without tool calls to wait for required
 background results, whose completions arrive automatically. Dynamic text cannot write a trusted
-envelope or end its own reason fence. All envelope and handling text lives in formatter constants.
+envelope or end its own reason fence. Envelope markup and data-fence labels stay in
+`src/notice/notice.constants.ts`; the internal `src/notice/notice.prompt.ts` imports those constants
+and owns handling policy and complete template assembly, including metadata labels and fences.
+The public utils formatter owns data preparation, escaping and collision-safe fence selection;
+pure typed renderers receive only prepared data. The notice-envelope guard exception applies
+only to the constants file, not the prompt file. Renderers are not public package APIs.
+
+Checkpoint formatting follows the same separation: `src/summary/summary.utils.ts` neutralizes
+section titles and bodies and keeps titles on one line before the internal
+`src/summary/summary.prompt.ts` renderer assembles section headings, policy and the envelope.
+Both public formatter signatures and their exact output remain unchanged.
 
 Protocol validation owns the 10-entry, 200-character title and 1000-character reason bounds and
 count consistency; formatting does not truncate, validate again or put the snapshot in persistent
