@@ -6,7 +6,8 @@ import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
-import { viewOf } from '../summary/summary.utils.js';
+import { viewWithoutCallReferences } from '../summary/summary.utils.js';
+import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
 import { sample } from './sample.helper.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
@@ -20,8 +21,9 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (signal.aborted) return 'interrupted';
 
-  reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+  // A follow-up already in the inbox belongs in the completion's messages-since snapshot.
   deliverMessages({ session, messages, events });
+  reportFinishedTasks({ tasks: options.tasks, session, messages, events });
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   await summarizeAtThreshold(context);
 
@@ -43,10 +45,11 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   // For this call only: `messages` stays the stored history, and the turn appends to that. The
   // model is sent the view (the newest checkpoint as text, then the messages it kept).
+  const source = viewWithoutCallReferences(messages);
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,
-    messages: viewOf(messages),
+    messages: source,
     context: state,
     signal,
     onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
@@ -67,7 +70,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
-    messages: sent,
+    messages: withNoticeCallReferences({ history: messages, source, messages: sent }),
     state,
     continuation,
     signal,

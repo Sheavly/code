@@ -40,6 +40,12 @@ for await (const event of streamAgent({
 | `errors/`       | `StreamEndedError` (the stream ended without `done`), `HookError`, `InvalidHistoryError` (a `beforeModelCall` result that breaks the history rules), `SummaryRejectedError` (a summary that broke the checkpoint rules) |
 | `summary/`      | The default summary policy and the pure policy: `shouldSummarize`, `chooseCut`, `viewOf` (what a model is sent for a history with checkpoints)                                                                          |
 
+Finished-task notices retain their reason, start time, duration and the count of stored user
+messages since the task began. Group deliveries include both aggregate and per-member context;
+ungrouped tasks use their launch description when no grouping reason was supplied. Counts come
+from append-only history, not the shortened model view. Starting-call references are shown only
+while that assistant tool call remains in the view; stored notice snapshots are never rewritten.
+
 Internal (closed in `exports`): `events/` (the event bodies), `queue/` (the `OrderedQueue` every
 event goes through), `hooks/` (running each hook point), `history/` (`assertValidHistory`, the
 one check for the messages a model call sends) and `abort/`.

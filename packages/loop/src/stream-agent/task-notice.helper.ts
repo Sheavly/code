@@ -3,6 +3,8 @@ import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { RunOutcome, SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import { taskCompletionContext } from './task-context.utils.js';
 
 /** The notices that go in history: the kinds the model has to remember. */
 type FinishedTaskNotice = Extract<HarnessNotice, { kind: 'agent-report' | 'task-finished' }>;
@@ -20,8 +22,17 @@ export function finishedTaskNotice(params: {
   sessions: SessionRegistry;
   /** The session whose tool started the task. */
   parent: SessionId;
+  /** Append-only history at delivery, before the notice itself is added. */
+  history: readonly HistoryMessage[];
 }): FinishedTaskNotice {
-  const { task, tasks, sessions, parent } = params;
+  const { task, tasks, sessions, parent, history } = params;
+  const context = taskCompletionContext({
+    reason: task.reason ?? task.description,
+    startedAt: task.startedAt,
+    endedAt: task.endedAt ?? task.startedAt,
+    history,
+    ...(task.callId !== undefined && { callId: task.callId }),
+  });
   const report = tasks.report(task.id);
   // No call id means no sub-agent: two undefined ids must not count as a match.
   const agent =
@@ -32,7 +43,7 @@ export function finishedTaskNotice(params: {
           .find((child) => 'startedByCall' in child && child.startedByCall === task.callId);
 
   if (report === undefined || !agent || !('parentId' in agent)) {
-    return { kind: 'task-finished', task };
+    return { kind: 'task-finished', task, context };
   }
 
   return {
@@ -41,6 +52,7 @@ export function finishedTaskNotice(params: {
     taskId: task.id,
     outcome: outcomeOf({ task, lastOutcome: agent.lastOutcome }),
     report,
+    context,
   };
 }
 

@@ -32,6 +32,7 @@ const task = (extra: Record<string, unknown> = {}) =>
 const registries = (report: string | undefined, children: object[]) => ({
   tasks: { report: () => report } as unknown as TaskRegistry,
   sessions: { children: () => children } as unknown as SessionRegistry,
+  history: [],
 });
 
 describe('finishedTaskNotice', () => {
