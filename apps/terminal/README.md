@@ -65,11 +65,9 @@ by default and validated by the backend; when connecting to an existing backend,
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.
 
-Follow-up messages reach the active run while it works or waits for a sub-agent, without
-cancelling background work. Chat commands remain queued in order; a message that misses the
-active run's acceptance window starts the next prompt instead. Acceptance waits at most five seconds;
-stop, queue drop, `/exit` and input EOF cancel a pending wait. An uncertain delivery is reported and
-never automatically replayed, while other queued lines still run in order. Plain input reads continuously too.
+Messages typed while the agent works wait in a FIFO queue, outside its history and summaries.
+Sending one asks the run to yield at its completion point without cancelling background work;
+queued lines then run in order as ordinary prompts. Plain input reads continuously too.
 
 Interactive chat uses React and Ink. `SHEAVLY_TUI=classic` selects the previous renderer;
 `SHEAVLY_PLAIN=1` keeps linear input and output. Both interactive renderers share the editor,
