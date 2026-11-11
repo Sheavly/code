@@ -32,8 +32,13 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 | `validation/`  | `parseOrThrow` / `validate`, which turn zod failures into an area's error                                       |
 | `errors/`      | `DefinitionError`, `ToolCallError`, `StoreError`                                                                |
 
+Completion notices render optional timing, intervening user-message counts and a starting tool
+call ID alongside a fenced agent-authored reason. Historical notices without context retain their
+previous formatting; grouped completions keep one wrapper wait-reason block and per-member context.
+
 ## Docs
 
+- [Model-facing notices](docs/notices.md): completion context, legacy history and safe data fences.
 - [Writing a tool](docs/tools.md): the `Tool` contract, and the artifacts a tool hands a UI.
 - [Hooks](docs/hooks.md): every hook point, and adding one.
 - [The provider contract](docs/providers.md): what a model backend implements.
