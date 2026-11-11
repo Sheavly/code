@@ -20,6 +20,7 @@ export class RunRecorder {
   readonly #transcript: WriteStream;
   #stopSse: AbortController | undefined;
   #sseWritten: Promise<void> = Promise.resolve();
+  #closed: Promise<void> | undefined;
   #counts = { events: 0, toolCalls: 0, toolErrors: 0 };
   #lastEvent: string | undefined;
   readonly #startedAt = now();
@@ -27,6 +28,19 @@ export class RunRecorder {
   constructor(private readonly paths: RunPaths) {
     this.#events = createWriteStream(paths.events);
     this.#transcript = createWriteStream(paths.transcript);
+  }
+
+  /** Closes recording even when setup failed before a result could be saved. */
+  async dispose(): Promise<void> {
+    this.#stopSse?.abort();
+    await this.#closeFiles();
+    await this.#sseWritten;
+  }
+
+  #closeFiles(): Promise<void> {
+    this.#closed ??= Promise.all([this.#events, this.#transcript].map(close)).then(() => undefined);
+
+    return this.#closed;
   }
 
   /** Writes `run.json`: what this run is, before anything happens. */
@@ -86,7 +100,7 @@ export class RunRecorder {
         new WorkbookStoreError({ file: this.paths.sessions, cause: caughtError }),
     );
 
-    await Promise.all([this.#events, this.#transcript].map(close));
+    await this.#closeFiles();
 
     const result: RunResult = {
       outcome,

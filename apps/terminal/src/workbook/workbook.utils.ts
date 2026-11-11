@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { parseCheckApprovalOptions } from './check-approval.validator.js';
 import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES, USAGE } from './workbook.constants.js';
 import type { Command, RunPaths, RunResult } from './workbook.types.js';
@@ -38,7 +39,8 @@ export function usage(): string {
 }
 
 /** The command line, parsed. Unknown commands show the usage instead of guessing. */
-export function parseCommand(argv: string[]): Command {
+export function parseCommand(input: string[]): Command {
+  const { argv, approvedCommands } = parseCheckApprovalOptions(input);
   const flags = new Set(argv.filter((arg) => arg.startsWith('--')));
   const valueOf = (flag: string) => {
     const index = argv.indexOf(flag);
@@ -75,7 +77,7 @@ export function parseCommand(argv: string[]): Command {
         ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust }
         : { name: 'continue', run: rest[0], text: rest.slice(1).join(' '), showModelCalls, trust };
     case 'check':
-      return { name: 'check', prompts: rest, all: flags.has('--all') };
+      return { name: 'check', prompts: rest, all: flags.has('--all'), approvedCommands };
     case 'list':
       return { name: 'list' };
     case 'show':

@@ -12,7 +12,11 @@ import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { RunRecorder } from './recorder.service.js';
 import { runEnv } from './run-env.utils.js';
 import type { WorkbookStore } from './store.service.js';
-import type { RunRequest, RunResult } from './workbook.types.js';
+import type { CheckContext, RunRequest, RunResult } from './workbook.types.js';
+import { CheckApprovals } from './check-approvals.service.js';
+import { assertCheckBackend, assertCheckWorkspace } from './check-isolation.helper.js';
+import { WorkbookCheckError } from './check.errors.js';
+import { parseApprovedCommands } from './check-approval.validator.js';
 import { runId } from './workbook.utils.js';
 
 /**
@@ -26,8 +30,23 @@ export async function runWorkbook(params: {
   request: RunRequest;
   /** Where trust is remembered: the user's store by default, a throwaway file for `check`. */
   trustFile?: string;
+  checkContext?: CheckContext;
 }): Promise<RunResult & { id: string }> {
   const { store, request, trustFile } = params;
+  const checkContext = params.checkContext && {
+    approvedCommands: parseApprovedCommands(params.checkContext.approvedCommands),
+  };
+
+  if (checkContext) {
+    assertCheckBackend(process.env);
+
+    if (request.continues) {
+      throw new WorkbookCheckError({
+        message: 'Checks cannot continue an arbitrary saved workspace.',
+      });
+    }
+  }
+
   const paths = await store.beginRun({
     prompt: request.name,
     id: (number) => runId({ number, prompt: request.name }),
@@ -42,24 +61,39 @@ export async function runWorkbook(params: {
     process.stdout.write(text);
     recorder.transcript(text);
   };
-  const backend = await connectBackend({
-    env: runEnv({
-      env: process.env,
-      request,
-      workspaceRoot: workspace.dir,
-      modelCalls: paths.modelCalls,
-      trustFile,
-    }),
-    // A fresh copy of a committed fixture is this repo's own code, so its hooks run. A kept or
-    // continued workspace the agent may have edited needs trust like any other: `--trust`.
-    args: workspace.fresh || request.trust ? ['--trust'] : [],
-    onOutput: write,
-  });
+  let backend: Awaited<ReturnType<typeof connectBackend>> | undefined;
 
   try {
-    return await streamRun({ store, request, history, paths, recorder, write, backend });
+    backend = await connectBackend({
+      env: runEnv({
+        env: process.env,
+        request,
+        workspaceRoot: workspace.dir,
+        modelCalls: paths.modelCalls,
+        trustFile,
+      }),
+      // Fresh committed fixture copies are trusted; kept workspaces require explicit trust.
+      args: workspace.fresh || request.trust ? ['--trust'] : [],
+      onOutput: write,
+    });
+
+    return await streamRun({
+      store,
+      request,
+      history,
+      paths,
+      recorder,
+      write,
+      backend,
+      checkContext,
+      workspaceRoot: workspace.dir,
+    });
   } finally {
-    await backend.stop();
+    try {
+      await backend?.stop();
+    } finally {
+      await recorder.dispose();
+    }
   }
 }
 
@@ -72,12 +106,41 @@ async function streamRun(params: {
   recorder: RunRecorder;
   write: (text: string) => void;
   backend: Awaited<ReturnType<typeof connectBackend>>;
+  checkContext: CheckContext | undefined;
+  workspaceRoot: string;
 }): Promise<RunResult & { id: string }> {
-  const { request, history, paths, recorder, write, backend } = params;
+  const { backend, history } = params;
   const conversation = await RemoteConversation.open({ backend, messages: history });
-  const details = await conversation.details();
-  const renderer = new Renderer(write, () => conversation.runningTasks);
   const stopStream = new AbortController();
+
+  try {
+    return await recordConversation({ ...params, conversation, stopStream });
+  } finally {
+    stopStream.abort();
+    await conversation.close();
+  }
+}
+
+async function recordConversation(
+  params: Parameters<typeof streamRun>[0] & {
+    conversation: RemoteConversation;
+    stopStream: AbortController;
+  },
+): Promise<RunResult & { id: string }> {
+  const { request, history, paths, recorder, write, conversation, stopStream, checkContext } =
+    params;
+  const details = await conversation.details();
+  const verifyWorkspace = () =>
+    assertCheckWorkspace({
+      store: params.store,
+      name: request.name,
+      workspaceRoot: params.workspaceRoot,
+      actualWorkspace: details.workspace,
+    });
+
+  if (checkContext) await verifyWorkspace();
+
+  const renderer = new Renderer(write, () => conversation.runningTasks);
 
   recorder.recordSessions(await conversation.rawStream(stopStream.signal), stopStream);
   await recorder.start({
@@ -90,6 +153,10 @@ async function streamRun(params: {
     model: details.model.model,
     workspace: details.workspace,
     mainSession: details.session,
+    ...(checkContext && {
+      approvedCommands: [...checkContext.approvedCommands],
+      approvalScope: 'conversation-session' as const,
+    }),
     ...gitCommit(),
   });
 
@@ -109,14 +176,37 @@ async function streamRun(params: {
   let error: string | undefined;
 
   try {
-    // Skills the prompt mentions (`/<name>` anywhere in it) run with it, as in the chat.
-    for await (const entry of conversation.send({ text: request.text, signal: interrupt.signal })) {
-      sessions.add(entry.sessionId);
-      if (entry.kind === 'event') recorder.event(entry.event);
-      renderer.entry(entry, details.session);
-      outcome = mainOutcome({ entry, mainSession: details.session }) ?? outcome;
+    const send = async (signal: AbortSignal) => {
+      const combined = AbortSignal.any([signal, interrupt.signal]);
+
+      combined.throwIfAborted();
+
+      // Skills mentioned by the prompt run with it, as in the chat.
+      for await (const entry of conversation.send({ text: request.text, signal: combined })) {
+        // A watcher failure races the prompt to close the conversation; its late events must
+        // not overwrite the saved failure or write to an already-closed recorder.
+        if (signal.aborted && !interrupt.signal.aborted) break;
+
+        sessions.add(entry.sessionId);
+        if (entry.kind === 'event') recorder.event(entry.event);
+        renderer.entry(entry, details.session);
+        outcome = mainOutcome({ entry, mainSession: details.session }) ?? outcome;
+      }
+    };
+
+    if (checkContext) {
+      const approvals = new CheckApprovals({
+        conversation,
+        approvedCommands: checkContext.approvedCommands,
+        verifyWorkspace,
+      });
+
+      await approvals.run({ operation: send, signal: interrupt.signal });
+    } else {
+      await send(interrupt.signal);
     }
   } catch (caughtError) {
+    outcome = interrupt.signal.aborted ? 'interrupted' : 'failed';
     error = caughtError instanceof Error ? caughtError.message : String(caughtError);
     write(`\n✗ Run failed: ${plainTerminalText(error)}\n`);
   } finally {
@@ -130,7 +220,6 @@ async function streamRun(params: {
     sessions: sessions.size,
   });
 
-  await conversation.close();
   process.stdout.write(`\n→ saved to ${paths.dir}\n`);
 
   return { ...result, id: paths.id };

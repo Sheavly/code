@@ -87,6 +87,7 @@ try {
         store,
         names: command.prompts,
         all: command.all,
+        approvedCommands: command.approvedCommands,
         write,
       });
 

@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { formatReport, judgeRun, touchesAreas } from '../check.utils.js';
+import { formatReport, isRunSource, judgeRun, touchesAreas } from '../check.utils.js';
+import { parsePromptFile } from '../workbook.validator.js';
 import { runSourcesSchema } from '../check.validator.js';
 import { appendToWorkspace, selectChecks } from '../check.helper.js';
 import { WorkbookStore } from '../store.service.js';
@@ -163,6 +164,28 @@ const sources = runSourcesSchema.parse(
 );
 
 describe('selectChecks', () => {
+  it('selects long-run-summary for summary source from the actual run-source list', () => {
+    const file = 'packages/summary/src/model/model.helper.ts';
+    const prompt = parsePromptFile({
+      name: 'long-run-summary',
+      source: readFileSync(
+        path.join(import.meta.dirname, '../../../../../workbook/prompts/long-run-summary.md'),
+        'utf8',
+      ),
+    });
+    const picked = selectChecks({
+      prompts: [prompt],
+      names: [],
+      all: false,
+      changed: [file],
+      sources,
+    });
+
+    expect(isRunSource({ sources, file })).toBe(true);
+    expect(picked.checks.map(({ name }) => name)).toEqual(['long-run-summary']);
+    expect(picked.uncovered).toEqual([]);
+  });
+
   const prompt = (name: string, areas?: string[]): StoredPrompt => ({
     name,
     text: 'x',
