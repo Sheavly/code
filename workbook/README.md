@@ -15,6 +15,11 @@ planning with status, diff, remote tracking, history and authorization in the re
 coverage: edit tools enforce read-before-edit; the scenario does not prove actual git preflight
 ordering, staging correctness or live GitHub publication behaviour.
 
+`coding-file-tools` exercises successful `glob` and `grep` discovery plus creation, read-back and
+`delete_file` cleanup of a disposable fixture, forbidding shell substitutions. Backend transport
+and execution tests separately verify main/child tool schemas, depth-cap task tools and read-ledger
+isolation; this workbook check does not claim every child invocation is covered.
+
 `web-search` checks discovery through the app's keyless search backend using a public Node.js
 query and verifies a successful tool result with a source URL. It is a live, rate-limited smoke
 check, not proof of search relevance or UI artifact rendering; offline tests cover the contract,
