@@ -105,6 +105,35 @@ When the run is over its session ends with the outcome (`completed`, `interrupte
 `max_tokens`, `context_window_exceeded`, `failed`). With `keepSession: true` it goes idle instead, keeping the outcome as `lastOutcome`, so
 a conversation's next prompt can resume it; the host ends it when the conversation closes.
 
+## Running tasks
+
+Immediately before each model call, after summaries and model-input hooks, the loop reads
+`TaskRegistry.runningTasks` for the calling session. A `running-tasks` notice contains the current
+running tasks, including services, but no settled tasks, command strings or output. It is absent
+when there is no visible running work. Generic tasks are visible; tasks owned by other sessions
+are not. A task that finishes during a call disappears from the next snapshot, independently of
+when its group's completion notice is delivered.
+
+The snapshot keeps the 10 most recent tasks by start time, with later registration breaking a tie.
+It reports `total` and `omitted`, so a large registry never silently loses the remaining count.
+Each entry carries `id`, a launch `title` (at most 200 characters), `reason` (at most 1,000),
+`startedAt` in epoch milliseconds, and optional `group`, the first requested member's task ID.
+Long titles and reasons end in an ellipsis within their limit. Reasons use the stored wait reason
+when the entire group is compatible with the caller, otherwise the launch description. If any
+member is owned by another session, the shared group reference and reason are hidden; compatible
+tasks remain visible. Membership still controls completion delivery as before.
+
+The model receives the notice beside `messages`, after context and recovery notices. The same
+payload is emitted through the ordered `harness_notice` event and session stream. Providers use
+core's formatter to frame titles and reasons as data, never instructions or a person's prompt.
+No notice is appended to history, `done.messages`, hook messages, or summarizer input. Since each
+snapshot comes from the registry, a summary between a task's start and finish cannot hide its
+purpose from the next model call. Retries and output continuations rebuild the snapshot too.
+
+Changing or removing this transient notice can invalidate Anthropic signed-thinking replay,
+although system instructions and retained history remain unchanged. See
+[provider replay costs](../../providers/docs/prompt-caching.md).
+
 ## Output-limit recovery
 
 Output truncation automatically continues the original task, with no continuation cap by default.

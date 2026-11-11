@@ -6,6 +6,7 @@ import { contextNotice } from '../context/context.utils.js';
 import type { ToolOutcome } from '../events/events.types.js';
 import { runToolCall } from '../hooks/hooks.helper.js';
 import { createReasoningActivity } from './reasoning-activity.helper.js';
+import { runningTasksNotice } from './running-tasks-notice.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
 import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 import type { DescribedCall } from '@sheavly/protocol/event/event.types';
@@ -29,9 +30,11 @@ export async function sample(context: SampleContext) {
   const { state } = context;
   const { window } = state;
   const notice = contextNotice(state);
+  const taskNotice = runningTasksNotice({ tasks: context.tasks, sessionId: context.session.id });
   const notices = [
     ...(notice ? [notice] : []),
     ...(context.continuation ? [context.continuation] : []),
+    ...(taskNotice ? [taskNotice] : []),
   ];
   let content = '';
   const toolCalls: ToolCall[] = [];
