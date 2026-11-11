@@ -53,6 +53,11 @@ contains no model instructions or UI presentation. Completion notices share `Tas
 (`reason`, `startedAt`, `durationMs`, `userMessagesSinceStart`, optional `callId`). Their `context`
 field is optional for old stored histories; new loop-produced completions supply it. `TaskInfo.reason`
 is the explicit `await_tasks` reason retained per grouped task, absent on ungrouped and legacy tasks.
+`running-tasks` is a transient, nonempty snapshot with at most 10 entries: task ID, title (max 200
+characters), agent-authored reason (max 1000 characters), epoch `startedAt`, and optional scalar
+`group` (the first requested member ID). `total` equals shown entries plus `omitted`; commands and
+output are forbidden. Limits are published in `notice/notice.constants.ts`; inferred types are
+`RunningTask` and `RunningTasksNotice`. Persistent history rejects this kind.
 See [harness notices](docs/contract.md#harness-notices).
 
 ## Docs

@@ -5,6 +5,33 @@ import { timestampSchema } from '../time/time.validator.js';
 import { agentInfoSchema, runOutcomeSchema } from '../session/session.validator.js';
 import { taskIdSchema, taskInfoSchema } from '../task/task.validator.js';
 import { tokenUsageSchema } from '../usage/usage.validator.js';
+import {
+  MAX_RUNNING_TASKS,
+  MAX_RUNNING_TASK_TITLE_CHARS,
+  MAX_RUNNING_TASK_REASON_CHARS,
+} from './notice.constants.js';
+
+/** A live task summary with no command or output; group is the first requested member's ID. */
+export const runningTaskSchema = z.strictObject({
+  id: taskIdSchema,
+  title: z.string().max(MAX_RUNNING_TASK_TITLE_CHARS),
+  reason: z.string().max(MAX_RUNNING_TASK_REASON_CHARS),
+  startedAt: timestampSchema,
+  group: taskIdSchema.exactOptional(),
+});
+
+/** A bounded snapshot, not a durable completion fact. */
+export const runningTasksNoticeSchema = z
+  .strictObject({
+    kind: z.literal('running-tasks'),
+    tasks: z.array(runningTaskSchema).min(1).max(MAX_RUNNING_TASKS),
+    total: z.number().int().nonnegative(),
+    omitted: z.number().int().nonnegative(),
+  })
+  .refine((notice) => notice.total === notice.tasks.length + notice.omitted, {
+    message: 'total must equal tasks.length + omitted',
+    path: ['total'],
+  });
 
 const contextStateSchema = z.union([
   z.object({
@@ -22,6 +49,7 @@ const contextStateSchema = z.union([
  * next call (a context count) or already carried by history (a continuation's partial reply).
  */
 const transientNoticeSchema = z.discriminatedUnion('kind', [
+  runningTasksNoticeSchema,
   z.object({ kind: z.literal('context-usage'), context: contextStateSchema }),
   z.object({
     kind: z.literal('output-continuation'),
