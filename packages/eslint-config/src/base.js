@@ -181,7 +181,7 @@ export function baseConfig(params) {
     { files: TYPED_FILES, rules: { 'max-lines': maxLines(DEFAULT_MAX_LINES) } },
     ...maxLinesPerKind,
     {
-      files: ['src/**/*.utils.ts', 'src/**/*.validator.ts'],
+      files: ['src/**/*.utils.ts', 'src/**/*.validator.ts', 'src/**/*.prompt.ts'],
       rules: { 'harness/pure-imports': 'error' },
     },
     // Ids in schemas (validators, and a tool's input schema) are branded zod schemas.
