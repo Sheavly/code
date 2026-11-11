@@ -2,22 +2,23 @@ import type { Renderer } from '../render/render.service.js';
 import type { RunningTool, Write } from '../render/render.types.js';
 import { defaultPalette } from '../theme/palette.utils.js';
 import type { Palette } from '../theme/theme.types.js';
-import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
+import { unknownPromptCommand } from './chat-prompt.helper.js';
 import { changesText } from '../changes/changes-text.utils.js';
 import type { LinkFile } from '../changes/changes.types.js';
 import { failuresText } from '../failures/failures-text.utils.js';
 import { CHAT_HELP, LINE_COLUMNS } from './chat.constants.js';
+import { ChatQueue } from './chat-queue.service.js';
 import type { ChatConversation, StopResult, TurnOutcome } from './chat.types.js';
-import { listModels, parseChatInput, pickModel, unknownCommand } from './chat.utils.js';
-import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
+import { parseChatInput } from './chat.utils.js';
+import { runModelCommand, runModeCommand } from './chat-model.helper.js';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /**
  * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
- * conversation's output comes out through `write`. A line sent while another runs waits its turn
- * and is shown by `onQueue`, so what was typed is never lost or sent out of order. A UI decides
- * what a key does (Ctrl+C is `stop`) and what to show; this only does it.
+ * conversation's output comes out through `write`. Prompt text entered during a run reaches its
+ * inbox; commands and messages arriving after completion wait their turn in `onQueue`. A UI
+ * decides what a key does (Ctrl+C is `stop`) and what to show; this only does it.
  *
  * The chat's commands (`/help`, `/model`, `/exit`) and skills (`/<name>`) are read here, so every
  * UI that has a text box treats them the same.
@@ -27,9 +28,10 @@ export class ChatSession {
   readonly #renderer: Renderer;
   readonly #mainSession: string;
   readonly #write: Write;
-  readonly #onQueue: (queue: readonly string[]) => void;
+  readonly #queue: ChatQueue;
   readonly #onBusy: (busy: boolean) => void;
   readonly #onSend: (text: string) => void;
+  readonly #onFollowup: (text: string) => void;
   readonly #onTurnEnd: (outcome: TurnOutcome) => void;
   readonly #onReplyComplete: () => void;
   readonly #linkFile: LinkFile;
@@ -41,10 +43,11 @@ export class ChatSession {
   readonly #onThinking: (thinking: boolean) => void;
   #reportedTools: readonly RunningTool[];
   #reportedThinking = false;
-  #queue: string[] = [];
+  #streamOpen = false;
   #current: AbortController | undefined;
   #draining = false;
   #ended = false;
+  #inputEnded = false;
   #idle: Promise<void> = Promise.resolve();
 
   constructor(params: {
@@ -59,6 +62,8 @@ export class ChatSession {
     onBusy?: (busy: boolean) => void;
     /** Told when a message starts running (not when it is queued), so a UI can show it. */
     onSend?: (text: string) => void;
+    /** A follow-up delivered to the active run, without starting another prompt or bell timer. */
+    onFollowup?: (text: string) => void;
     /** Told when a message has run to its end, after all its output was written. */
     onTurnEnd?: (outcome: TurnOutcome) => void;
     /** After all output, only for a backend-confirmed completed prompt, never errors or stops. */
@@ -83,9 +88,11 @@ export class ChatSession {
     this.#reportedTools = params.renderer.running;
     this.#mainSession = params.mainSession;
     this.#write = params.write;
-    this.#onQueue = params.onQueue ?? (() => undefined);
+    this.#queue = new ChatQueue(params.onQueue ?? (() => undefined));
     this.#onBusy = params.onBusy ?? (() => undefined);
     this.#onSend = params.onSend ?? (() => undefined);
+    this.#onFollowup =
+      params.onFollowup ?? ((text) => this.#write(`\n› ${plainTerminalText(text)}\n\n`));
     this.#onTurnEnd = params.onTurnEnd ?? (() => undefined);
     this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
     this.#linkFile = params.linkFile ?? ((path) => path);
@@ -102,19 +109,17 @@ export class ChatSession {
     return this.#draining;
   }
 
-  /** The lines waiting for the running one to finish, oldest first. */
+  /** Pending input, oldest first; text is forwarded when the active prompt accepts it. */
   get queued(): readonly string[] {
-    return this.#queue;
+    return this.#queue.queued;
   }
 
-  /**
-   * Takes a line the user entered: run now when nothing runs, else after what is running. After
-   * the user has asked to leave, lines are dropped, as they were never going to be sent.
-   */
+  /** Sends prompt text to the live run, or queues input for the next run when none is active. */
   submit(line: string): void {
     if (this.#ended) return;
     this.#queue.push(line);
-    this.#onQueue(this.#queue);
+    if (parseChatInput(line).kind === 'exit') this.#queue.cancelForwarding();
+    this.#forwardFollowups();
     if (!this.#draining) this.#idle = this.#drain();
   }
 
@@ -164,6 +169,7 @@ export class ChatSession {
    * waiting still run after it: stopping a prompt is not leaving.
    */
   stop(): StopResult {
+    this.#queue.cancelForwarding();
     if (!this.#current) return 'idle';
     if (this.#current.signal.aborted) return 'stopping';
     this.#current.abort();
@@ -171,10 +177,15 @@ export class ChatSession {
     return 'stopped';
   }
 
+  /** EOF ends live forwarding, not queued work; uncertain acceptance must not delay shutdown. */
+  finishInput(): void {
+    this.#inputEnded = true;
+    this.#queue.cancelForwarding();
+  }
+
   /** Drops the lines waiting, which a user who is leaving does not want sent. */
   dropQueued(): void {
-    this.#queue = [];
-    this.#onQueue(this.#queue);
+    this.#queue.drop();
   }
 
   async #drain(): Promise<void> {
@@ -182,8 +193,13 @@ export class ChatSession {
     this.#onBusy(true);
 
     try {
-      for (let line = this.#queue.shift(); line !== undefined; line = this.#queue.shift()) {
-        this.#onQueue(this.#queue);
+      while (true) {
+        const line = await this.#queue.take();
+
+        // Input can arrive after take() observes empty but before this continuation resumes.
+        // Recheck without yielding so idle covers every line accepted while draining.
+        if (line === undefined && this.#queue.queued.length > 0) continue;
+        if (line === undefined) break;
         if (!(await this.#handle(line))) break;
       }
     } finally {
@@ -213,10 +229,14 @@ export class ChatSession {
         this.#print(this.describeFailures(parsed.target));
         break;
       case 'model':
-        await this.#printCommand(() => this.#modelCommand(parsed.name));
+        await this.#printCommand(() =>
+          runModelCommand({ conversation: this.#conversation, typed: parsed.name }),
+        );
         break;
       case 'mode':
-        await this.#printCommand(() => this.#modeCommand(parsed.name));
+        await this.#printCommand(() =>
+          runModeCommand({ conversation: this.#conversation, typed: parsed.name }),
+        );
         break;
       case 'prompt':
         await this.#send(parsed.text);
@@ -254,16 +274,11 @@ export class ChatSession {
     let completed = false;
 
     this.#current = current;
+    this.#streamOpen = false;
     this.#onSend(text);
 
     try {
-      const known = new Set((await this.#conversation.skills()).map(({ name }) => name));
-      const unknown = unknownCommand({
-        text,
-        unknown: findSkillMentions(text)
-          .map(({ name }) => name)
-          .filter((name) => !known.has(name)),
-      });
+      const unknown = await unknownPromptCommand({ text, conversation: this.#conversation });
 
       if (unknown) {
         this.#print(`Unknown command /${unknown}; /help lists them.`);
@@ -295,8 +310,9 @@ export class ChatSession {
     let completed = false;
 
     for await (const entry of this.#conversation.send(params)) {
+      this.#streamOpen = true;
       if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
-      this.#renderer.entry(entry, this.#mainSession);
+      this.#showEntry(entry);
       this.#reportLiveState();
 
       if (
@@ -305,10 +321,41 @@ export class ChatSession {
         entry.event.type === 'done'
       ) {
         completed = entry.event.reason === 'completed';
+        this.#streamOpen = false;
       }
+
+      this.#forwardFollowups();
     }
 
     return completed;
+  }
+
+  #showEntry(entry: StreamEntry): void {
+    if (
+      entry.sessionId === this.#mainSession &&
+      entry.kind === 'event' &&
+      entry.event.type === 'message_received' &&
+      entry.event.message.from === 'user'
+    ) {
+      this.#onFollowup(entry.event.message.content);
+
+      return;
+    }
+
+    this.#renderer.entry(entry, this.#mainSession);
+  }
+
+  #forwardFollowups(): void {
+    if (!this.#current || !this.#streamOpen || this.#inputEnded) return;
+    this.#queue.forward({
+      signal: this.#current.signal,
+      send: (text, signal) => this.#conversation.followup(text, signal),
+      onError: (caughtError) => {
+        this.#write(
+          `\n✗ Follow-up delivery failed; it was not retried: ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
+        );
+      },
+    });
   }
 
   /** Tells the UI the running tools and whether the model thinks, for what changed since. */
@@ -329,57 +376,5 @@ export class ChatSession {
     if (this.#renderer.running === this.#reportedTools) return;
     this.#reportedTools = this.#renderer.running;
     this.#onTools(this.#reportedTools);
-  }
-
-  /**
-   * `/model` lists the models; `/model <id or name>` switches to one, from the next model call on.
-   * What is typed only finds the model (`pickModel`): the switch is made by its id.
-   */
-  async #modelCommand(typed: string | undefined): Promise<string> {
-    const { model, models } = await this.#conversation.details();
-
-    if (models.length === 0) {
-      return `Only ${model.adapter} / ${model.model} is set up in this profile: add another model to switch.`;
-    }
-
-    if (typed === undefined) return listModels({ choices: models, active: model.id });
-
-    const picked = pickModel({ choices: models, typed });
-
-    if (picked.kind === 'none') return `Unknown model ${typed}; /model lists them.`;
-
-    if (picked.kind === 'ambiguous') {
-      const same = listModels({ choices: picked.choices, active: model.id });
-
-      return `${String(picked.choices.length)} models are called ${typed}; use an id:\n${same}`;
-    }
-
-    const { choice } = picked;
-
-    if (!(await this.#conversation.useModel(choice.id))) {
-      return `Unknown model ${typed}; /model lists them.`;
-    }
-
-    const updated = await this.#conversation.details();
-
-    return `→ ${choice.name}: ${choice.adapter} / ${choice.model} · ${updated.model.mode ?? 'medium'}`;
-  }
-
-  async #modeCommand(typed: string | undefined): Promise<string> {
-    const { model } = await this.#conversation.details();
-
-    if (typed === undefined) {
-      return `${model.name} · ${model.mode ?? 'medium'}\nModes: low, medium, high, extreme`;
-    }
-
-    const mode = modelModeSchema.safeParse(typed.toLowerCase());
-
-    if (!mode.success) return 'Choose a mode: low, medium, high, extreme.';
-
-    if (!(await this.#conversation.useModel(model.id, mode.data))) {
-      return 'The selected model is no longer available.';
-    }
-
-    return `→ ${model.name} · ${mode.data}`;
   }
 }

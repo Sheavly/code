@@ -20,7 +20,7 @@ import type { ApprovalAnswer, ScreenChat } from './tui.types.js';
 
 /**
  * Runs the chat on the terminal's main screen: the conversation's text and the approvals it asks
- * for, a line that can be typed while it works (it queues), and a status line. Starts listening
+ * for, an editor that sends follow-ups while it works, and a status line. Starts listening
  * for approvals before it takes any line, so the first command that needs one waits for the user
  * instead of being refused.
  *
@@ -111,6 +111,7 @@ export async function startScreenChat(params: {
       bell.startTurn();
       screen.echo(text);
     },
+    onFollowup: (text) => screen.echo(text),
     onReplyComplete: () => bell.replyCompleted(),
     onTurnEnd: (outcome) => {
       bell.finishTurn();
