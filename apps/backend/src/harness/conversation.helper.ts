@@ -46,8 +46,8 @@ export function workspaceSkills(roots: SkillRoots): ConversationSkills {
 
 /**
  * One conversation on a backend harness: its tools and hooks, the
- * workspace's skills, at most `maxTurns` turns a prompt (no limit without it), each prompt's `done` waiting for its
- * background tasks with `waitForTasks`. Closing it stops its background commands. `messages` is
+ * workspace's skills, at most `maxTurns` turns a prompt (no limit without it). Finite background
+ * tasks keep each prompt active; services may outlive it. Closing it stops its background commands. `messages` is
  * history to continue from, and `run` what the app says the run is, the model it is on included.
  */
 export function harnessConversation(params: {
@@ -57,11 +57,10 @@ export function harnessConversation(params: {
   /** Where the host keeps this conversation (see `ConversationStorage`); none keeps nothing. */
   storage?: ConversationStorage | undefined;
   maxTurns?: number;
-  waitForTasks?: boolean;
   /** Summarize the history when the context nears the window; none never does. */
   summary?: SummaryOptions | undefined;
 }): LiveConversation {
-  const { harness, run, messages, storage, maxTurns, waitForTasks = false, summary } = params;
+  const { harness, run, messages, storage, maxTurns, summary } = params;
 
   return {
     harness,
@@ -71,7 +70,6 @@ export function harnessConversation(params: {
       tools: harness.tools,
       hooks: harness.hooks,
       ...(maxTurns !== undefined && { maxTurns }),
-      waitForTasks,
       ...(summary && { summary }),
       ...(messages && { messages }),
       ...(storage && {

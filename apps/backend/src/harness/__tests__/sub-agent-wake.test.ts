@@ -9,7 +9,7 @@ import { testBackend } from '../../testing/backend.fake.js';
 import { seedFakeModel } from '../../testing/seed-model.fake.js';
 
 describe('sub-agent completion over the terminal prompt stream', () => {
-  it('delivers both reviews and resumes the parent without a status message or WAIT_FOR_TASKS', async () => {
+  it('delivers both reviews and resumes the parent by default without a status message', async () => {
     const base = await mkdtemp(path.join(tmpdir(), 'sub-agent-wake-'));
     const workspace = path.join(base, 'project');
     const first = Promise.withResolvers<undefined>();

@@ -48,10 +48,9 @@ describe('parseServerEnv', () => {
 });
 
 describe('parseRunEnv', () => {
-  it('reads the run limits and files, with every switch off unless exactly "true"', () => {
+  it('reads the run limits and files with their default switches', () => {
     expect(parseRunEnv({})).toEqual({
       maxTurns: undefined,
-      waitForTasks: false,
       modelCallsFile: undefined,
       exitWithParent: false,
       webFetch: true,
@@ -61,13 +60,11 @@ describe('parseRunEnv', () => {
     expect(
       parseRunEnv({
         MAX_TURNS: '5',
-        WAIT_FOR_TASKS: 'true',
         MODEL_CALLS_FILE: '/tmp/calls.jsonl',
         SERVER_EXIT_WITH_PARENT: 'yes',
       }),
     ).toEqual({
       maxTurns: 5,
-      waitForTasks: true,
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
       webFetch: true,

@@ -17,7 +17,6 @@ routes, streams and errors are in [the API](api.md).
 | `SERVER_ALLOW_REMOTE_SETUP` | off           | `true`: take model keys and grant trust even when listening beyond this machine (`SERVER_HOST` not loopback); only behind TLS                              |
 | `WORKSPACE_ROOT`            | the folder    | The folder a conversation works in when its start names none: file tools, AGENTS.md, skills and `.sheavly/` hooks                                          |
 | `MAX_TURNS`                 | no limit      | Model calls a prompt may make, per session                                                                                                                 |
-| `WAIT_FOR_TASKS`            | off           | `true`: a prompt's `done` waits for its background tasks                                                                                                   |
 | `WEB_FETCH`                 | `true`        | `false`: omit public web reading from main and sub-agents; only `true` and `false` are accepted                                                            |
 | `SUMMARY`                   | `true`        | `false`: never summarize a long history, in the main run or a sub-agent; only `true` and `false` are accepted                                              |
 | `CONTEXT_WINDOW`            | each model's  | A whole number of tokens: the window every model is told it has, instead of its file's. For a check that must reach the summary trigger without a long run |

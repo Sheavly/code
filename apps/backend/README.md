@@ -24,10 +24,16 @@ The ordinary SSE stream also carries structured `harness_notice` events before m
 Every UI receives the shared protocol payload without a special endpoint or provider imports
 and chooses its own presentation. Notices are not assistant messages or model-facing prose.
 
+Finite background commands and sub-agents keep a prompt active until their completions arrive,
+without an opt-in setting. Persistent services (`backgroundKind: 'service'`) are exempt and may
+outlive a prompt; closing the conversation stops its remaining background work.
+
 A finished task or sub-agent is a persistent notice: the same typed payload (the sub-agent's card
 data and whole report, or the task's snapshot) is sent as a `harness_notice` event and stored in
 the conversation's history as a `notice` entry, so a reopened conversation returns it from
-`GET /conversations/:id/messages`. The backend adds nothing to it; the stores keep it as written.
+`GET /conversations/:id/messages`. With `await_tasks`, a `tasks-finished` notice retains the
+reason and member notices together, delivered only when the entire group finishes. The backend
+adds nothing to it; the stores keep it as written.
 
 | Folder     | What it holds                                                                                               |
 | ---------- | ----------------------------------------------------------------------------------------------------------- |

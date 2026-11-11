@@ -6,7 +6,7 @@
  * Each conversation runs on its workspace's profile: the models and keys in `~/.sheavly`
  * (`SHEAVLY_HOME` moves it), set up through the API, never `.env`. With none, a conversation is
  * refused with `not_set_up` and a UI onboards the user. Other settings: WORKSPACE_ROOT,
- * --trust, MAX_TURNS, WAIT_FOR_TASKS, WEB_FETCH, SUMMARY, CONTEXT_WINDOW, MODEL_CALLS_FILE,
+ * --trust, MAX_TURNS, WEB_FETCH, SUMMARY, CONTEXT_WINDOW, MODEL_CALLS_FILE,
  * SHOW_MODEL_CALLS, MODEL_RESPONSE_TIMEOUT_MS, MODEL_RETRIES, MODEL_RETRY_DELAY_MS. It listens on
  * SERVER_HOST:SERVER_PORT (127.0.0.1:4310 by
  * default; port 0 picks a free one) and needs SERVER_TOKEN on every request, as

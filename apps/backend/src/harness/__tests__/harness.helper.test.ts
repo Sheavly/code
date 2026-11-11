@@ -68,9 +68,8 @@ const startHelper: Script = () => [
 ];
 
 /**
- * Opens a harness on the scripts, sends the prompt `go` and runs it to its end, waiting for the
- * background sub-agents it starts (or the prompt can end, and `close` cancel them, before they
- * made their first call, which a busy machine makes likely). Returns every request the model got.
+ * Opens a harness on the scripts and sends `go`, keeping the prompt active until its finite
+ * sub-agents finish. Returns every request the model got.
  */
 async function runPrompt(
   scripts: Record<string, Script[]>,
@@ -83,7 +82,6 @@ async function runPrompt(
     run: streamAgent,
     tools: harness.tools,
     hooks: harness.hooks,
-    waitForTasks: true,
   });
 
   for await (const _event of conversation.send('go'));
@@ -107,6 +105,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'run_command',
       'task_status',
       'cancel_task',
+      'await_tasks',
       'start_agent',
       'message_agent',
     ]);
@@ -198,7 +197,6 @@ describe('createBackendHarness: what a backend run includes', () => {
       harness,
       run: streamAgent,
       tools: harness.tools,
-      waitForTasks: true,
     });
 
     for await (const _event of conversation.send('go'));
