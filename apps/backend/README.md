@@ -2,7 +2,9 @@
 
 The harness backend: it builds each conversation from its settings (provider and model, tools,
 hooks, workspace trust) and serves them to every UI over HTTP. This is where a run's choices
-live; a UI decides only how to show it, and none is built into the backend.
+live; a UI decides only how to show it, and none is built into the backend. Runs include
+`web_search` backed by free, rate-limited keyless Tavily without signup; `WEB_SEARCH=false`
+disables it. Embedding apps can inject a different search backend or a keyed Tavily backend.
 
 ```bash
 npm run serve -w @sheavly/backend                  # from source; prints the URL and a token

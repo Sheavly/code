@@ -53,7 +53,7 @@ function workspaceDeps(params) {
 /**
  * The layout, by workspace name, derived from the workspaces at `root`: `kind` from the folder,
  * `dependsOn` and `devDependsOn` from the manifest's dependencies on other workspaces, `domain`,
- * `testOnly` and `transport` from its `sheavly` field.
+ * `testOnly`, `transport` and `appOnlyModules` from its `sheavly` field.
  */
 export function readLayout(params) {
   const { root } = params;
@@ -71,6 +71,8 @@ export function readLayout(params) {
         // A way into the harness from outside its process (the HTTP server): only an app starts
         // one, so the library always runs in-process without it.
         transport: manifest.sheavly?.transport === true,
+        appOnlyModules:
+          manifest.sheavly?.appOnlyModules === undefined ? [] : manifest.sheavly.appOnlyModules,
         dependsOn: workspaceDeps({ deps: manifest.dependencies, names }),
         devDependsOn: workspaceDeps({ deps: manifest.devDependencies, names }),
         // The public surface: its package.json `exports`, by file kind (`./*.types`), its
@@ -181,6 +183,34 @@ function identityProblems(params) {
   return problems;
 }
 
+function appOnlyModuleProblems(params) {
+  const { name, entry } = params;
+  const modules = entry.appOnlyModules === undefined ? [] : entry.appOnlyModules;
+
+  if (!Array.isArray(modules)) {
+    return [`${name} sheavly.appOnlyModules must be an array of module folder names`];
+  }
+
+  const folders = new Set((entry.modules ?? []).map((module) => module.name));
+  const seen = new Set();
+
+  return modules.flatMap((module) => {
+    if (typeof module !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(module)) {
+      return [`${name} sheavly.appOnlyModules must name direct kebab-case src module folders`];
+    }
+
+    if (seen.has(module)) {
+      return [`${name} sheavly.appOnlyModules repeats ${module}: list each module once`];
+    }
+
+    seen.add(module);
+
+    return folders.has(module)
+      ? []
+      : [`${name} sheavly.appOnlyModules names ${module}, which is not a src module folder`];
+  });
+}
+
 /** What is wrong with one workspace's entry: its domain, its name and its edges. */
 export function entryProblems(params) {
   const { name, entry, layout } = params;
@@ -210,6 +240,7 @@ export function entryProblems(params) {
 
   return [
     ...identityProblems({ name, entry }),
+    ...appOnlyModuleProblems({ name, entry }),
     ...entry.dependsOn.map((dependency) => edgeProblem({ name, entry, dependency, layout })),
     ...devProblems,
     ...exportsProblems({ name, entry }),

@@ -16,6 +16,7 @@ import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
+import type { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
 import type { HarnessOptions } from '@sheavly/host/host/host.types';
 
 /** What the backend's command line and environment set for a run. */
@@ -36,6 +37,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   /** Public web reading, default on; false omits it for the main run and every sub-agent. */
   webFetch?: false | Parameters<typeof createWebFetchTool>[0];
+  /** Search defaults to keyless Tavily here; inject another backend or false for all sessions. */
+  webSearch?: false | Parameters<typeof createWebSearchTool>[0];
   /** Builds each sub-agent's summary from the provider it runs on; none means none summarize. */
   summarizeWith?: ((provider: Provider) => SummaryOptions) | undefined;
   title: string;

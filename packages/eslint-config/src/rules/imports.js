@@ -8,7 +8,9 @@
 // - a package only through its public API, the subpaths its package.json `exports` lists (plus
 //   `./testing/*`, its fakes, from tests only);
 // - in a package's source, no other workspace's `*.tool` module, unless it is a tool itself:
-//   which tools a run includes is the UI's choice, so only apps (and tests) put tools together.
+//   which tools a run includes is the UI's choice, so only apps (and tests) put tools together;
+// - modules marked by `sheavly.appOnlyModules` are app-selected: package value imports are
+//   rejected, except within that same marked module. Tests, fakes and erased types are allowed.
 import path from 'node:path';
 import { isExported } from '../exports.utils.js';
 import {
@@ -26,6 +28,17 @@ function toPosix(file) {
   return file.split(path.sep).join('/');
 }
 
+function isTypeOnly(node) {
+  if (node.importKind === 'type' || node.exportKind === 'type') return true;
+
+  return (
+    node.specifiers?.length > 0 &&
+    node.specifiers.every(
+      (specifier) => specifier.importKind === 'type' || specifier.exportKind === 'type',
+    )
+  );
+}
+
 export const importsRule = {
   meta: {
     type: 'problem',
@@ -33,6 +46,7 @@ export const importsRule = {
     messages: {
       notInGraph: `{{from}} may not import {{target}}: {{from}}'s package.json doesn't depend on it. {{why}}`,
       testOnly: `{{target}} is for tests and fakes only; source never imports it.`,
+      appOnlyModule: `{{target}}/{{module}} is marked app-only in sheavly.appOnlyModules: package source cannot select it. Take its contract as an option and let the app inject the implementation. Only the marked module itself may import its internal helpers.`,
       crossesWorkspace: `This relative import leaves {{from}} for {{target}}. Import it by package name (\`@sheavly/...\`), and depend on it in package.json.`,
       notExported: `{{specifier}} isn't part of {{target}}'s public API: its package.json \`exports\` doesn't export that file's kind. Import what it exports, or, if every file of that kind should be public, add the kind in review (\`npm run export -- <dir> <kind>\`).`,
       fakeInSource: `{{specifier}} is a fake ({{target}}'s \`testing/\`): only tests and other fakes import it.`,
@@ -67,12 +81,35 @@ export const importsRule = {
       return `If the dependency is real, add it: \`npm install ${target}@0.0.0${workspaceFlag(entry.dir)}\` (a dev dependency for tests).`;
     };
 
+    const checkAppOnlyModule = (params) => {
+      const { node, target, subpath } = params;
+
+      if (isTestCode || entry.testOnly || entry.kind !== 'package' || isTypeOnly(node)) {
+        return false;
+      }
+
+      const module = path.posix.normalize(subpath).split('/')[0];
+      const marked = layout[target].appOnlyModules;
+
+      if (!Array.isArray(marked) || !marked.includes(module)) return false;
+
+      const ownModule = toPosix(path.relative(path.join(from.dir, 'src'), file)).split('/')[0];
+
+      if (target === from.name && module === ownModule) return false;
+
+      context.report({ node, messageId: 'appOnlyModule', data: { target, module } });
+
+      return true;
+    };
+
     const checkPackage = (node, specifier) => {
       const target = Object.keys(layout).find(
         (name) => specifier === name || specifier.startsWith(`${name}/`),
       );
 
-      if (!target || target === from.name) return;
+      if (!target) return;
+      if (checkAppOnlyModule({ node, target, subpath: specifier.slice(target.length + 1) })) return;
+      if (target === from.name) return;
 
       if (layout[target].testOnly && !isTestCode) {
         context.report({ node, messageId: 'testOnly', data: { target } });
@@ -127,6 +164,14 @@ export const importsRule = {
           messageId: 'crossesWorkspace',
           data: { from: from.name, target: to?.name ?? toPosix(path.relative(root, resolved)) },
         });
+      } else if (
+        checkAppOnlyModule({
+          node,
+          target: from.name,
+          subpath: toPosix(path.relative(path.join(from.dir, 'src'), resolved)),
+        })
+      ) {
+        return;
       } else if (/\.tool(\.js)?$/.test(specifier) && composesRun()) {
         context.report({
           node,

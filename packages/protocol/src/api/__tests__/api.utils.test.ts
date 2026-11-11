@@ -58,6 +58,33 @@ describe('openApiDocument', () => {
     });
   });
 
+  it('sends followups with the prompt body and a JSON acceptance response, never SSE', () => {
+    expect(API_ROUTES.sendFollowup).toMatchObject({
+      effect: 'change',
+      method: 'post',
+      path: '/conversations/{id}/followups',
+      body: API_ROUTES.sendPrompt.body,
+      response: { status: 200 },
+    });
+    expect(API_ROUTES.sendFollowup.body).toBe(API_ROUTES.sendPrompt.body);
+    expect(openApiDocument().paths['/conversations/{id}/followups']?.post).toMatchObject({
+      operationId: 'sendFollowup',
+      requestBody: {
+        content: {
+          'application/json': { schema: { $ref: '#/components/schemas/SendPromptRequest' } },
+        },
+      },
+      responses: {
+        200: {
+          content: {
+            'application/json': { schema: { $ref: '#/components/schemas/SendFollowupResponse' } },
+          },
+        },
+      },
+    });
+    expect('stream' in API_ROUTES.sendFollowup.response).toBe(false);
+  });
+
   it('only references schemas it defines', () => {
     const document = openApiDocument();
     const names = refsIn(document).map((ref) => ref.replace('#/components/schemas/', ''));

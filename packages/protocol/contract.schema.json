@@ -1506,6 +1506,11 @@
         }
       ]
     },
+    "SendFollowupResponse": {
+      "type": "object",
+      "properties": { "accepted": { "type": "boolean" } },
+      "required": ["accepted"]
+    },
     "StreamQuery": {
       "type": "object",
       "properties": {

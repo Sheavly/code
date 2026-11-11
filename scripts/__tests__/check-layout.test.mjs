@@ -218,6 +218,49 @@ describe('the layout check', () => {
     ).not.toContainEqual(expect.stringContaining('tsconfig.build.json'));
   });
 
+  it.each([{ appOnlyModules: [] }, { appOnlyModules: ['base'] }])(
+    'passes valid app-only module metadata %j',
+    ({ appOnlyModules }) => {
+      expect(
+        problems(wellFormed('base', { sheavly: { domain: 'generic', appOnlyModules } })),
+      ).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['a string instead of an array', 'base'],
+    ['null instead of an array', null],
+    ['an object instead of an array', {}],
+    ['a non-string module', [1]],
+    ['an empty module name', ['']],
+    ['a non-kebab-case module name', ['Base']],
+    ['a nested module path', ['base/nested']],
+    ['a parent-relative module path', ['../base']],
+    ['an unknown module', ['missing']],
+    ['a duplicate module', ['base', 'base']],
+  ])('fails app-only module metadata with %s', (_, appOnlyModules) => {
+    expect(
+      problems({
+        ...wellFormed('base', { sheavly: { domain: 'generic', appOnlyModules } }),
+        'packages/base/src/Base/base.helper.ts': 'export const x = 1;\n',
+        'packages/base/src/base/nested/nested.helper.ts': 'export const x = 1;\n',
+      }),
+    ).toEqual(expect.arrayContaining([expect.stringContaining('appOnlyModules')]));
+  });
+
+  it('allows a generic runtime dependency on a package with app-only tools and backend modules', () => {
+    expect(
+      problems({
+        ...wellFormed('pieces', {
+          sheavly: { domain: 'generic', appOnlyModules: ['tools', 'backends'] },
+        }),
+        'packages/pieces/src/tools/tools.tool.ts': 'export const x = 1;\n',
+        'packages/pieces/src/backends/backends.helper.ts': 'export const x = 1;\n',
+        ...wellFormed('top', { dependencies: { '@sheavly/pieces': '0' } }),
+      }),
+    ).toEqual([]);
+  });
+
   it('fails a package that depends on a provider package at runtime; a dev dependency is fine', () => {
     const files = {
       ...wellFormed('models'),

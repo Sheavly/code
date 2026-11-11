@@ -16,7 +16,7 @@ import { matchesSearch, matchesTitle } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { PromptPart } from '@sheavly/protocol/message/message.types';
+import { preparePrompt } from './prompt.helper.js';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
@@ -297,26 +297,11 @@ export class Conversations {
   }): Promise<SentPrompt> {
     const { id, prompt, signal } = params;
     const { conversation, skills } = this.get(id);
-    const failure = this.#storageFailureOf(id);
 
-    if (failure) {
-      throw new ConversationsError({
-        reason: 'storage_failed',
-        message: `Conversation ${id} could not be stored (${failure.message}), so it takes no more prompts rather than carry on unrecorded`,
-        cause: failure,
-      });
-    }
+    this.#assertStorageHealthy(id);
+    const prepared = await preparePrompt({ prompt, skills, signal });
 
-    const prepared = skills
-      ? await skills.prepare({ prompt, signal })
-      : { text: 'text' in prompt ? prompt.text : textOf(prompt.parts) };
-
-    if ('unknown' in prepared) {
-      throw new ConversationsError({
-        reason: 'unknown_skill',
-        message: `No skill is called ${prepared.unknown.join(', ')}: refresh the skills list`,
-      });
-    }
+    this.#assertStorageHealthy(id);
 
     const stop = new AbortController();
     const events = conversation.send(prepared.text, {
@@ -331,6 +316,41 @@ export class Conversations {
       text: prepared.text,
       ...(prepared.parts && { parts: prepared.parts }),
     };
+  }
+
+  /**
+   * Prepares skills as for send, then synchronously attempts steering on the active run. A
+   * completion or stop during preparation returns false; callers may queue a normal prompt.
+   */
+  async followup(params: { id: ConversationId; prompt: SendPromptRequest }): Promise<boolean> {
+    const { id, prompt } = params;
+    const live = this.get(id);
+
+    this.#assertStorageHealthy(id);
+    if (!live.conversation.running || this.#running.get(id)?.signal.aborted) return false;
+    const stop = this.#running.get(id);
+    const prepared = await preparePrompt({ prompt, skills: live.skills });
+
+    this.#assertStorageHealthy(id);
+
+    // Do not redirect steering to a different prompt that began while skills were preparing.
+    if (this.get(id) !== live || this.#running.get(id) !== stop || stop?.signal.aborted) {
+      return false;
+    }
+
+    return live.conversation.followup(prepared.text);
+  }
+
+  #assertStorageHealthy(id: ConversationId): void {
+    const failure = this.#storageFailureOf(id);
+
+    if (!failure) return;
+
+    throw new ConversationsError({
+      reason: 'storage_failed',
+      message: `Conversation ${id} could not be stored (${failure.message}), so it takes no more prompts rather than carry on unrecorded`,
+      cause: failure,
+    });
   }
 
   /** Stops conversation `id`'s running prompt, if one runs; its history stays valid. */
@@ -407,12 +427,4 @@ export class Conversations {
       if (this.#running.get(id) === stop) this.#running.delete(id);
     }
   }
-}
-
-/**
- * Parts as text, for a conversation without skills: a skill part reads `/<name>` and runs
- * nothing, since there are no skills to run.
- */
-function textOf(parts: readonly PromptPart[]): string {
-  return parts.map((part) => (part.type === 'text' ? part.text : `/${part.name}`)).join('');
 }

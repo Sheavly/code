@@ -30,6 +30,7 @@ function thinkingChat(params: { entries: StreamEntry[]; failAfter?: boolean }) {
   const unused = () => Promise.reject(new Error('not needed'));
   const conversation: ChatConversation = {
     send,
+    followup: () => Promise.resolve(false),
     details: unused,
     useModel: unused,
     skills: () => Promise.resolve([]),

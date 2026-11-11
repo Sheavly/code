@@ -38,6 +38,11 @@ for await (const event of conversation.send(prompt, { signal })) render(event);
 await conversation.close();
 ```
 
+While a prompt is active, `conversation.followup(text)` synchronously returns whether user steering
+was accepted. It queues the main session's inbox and wakes finite-work waits without cancelling
+sub-agents. Idle or stopping runs return `false`; closed conversations throw `session_ended`.
+Accepted text is kept even when an interrupt or turn limit prevents its next model call.
+
 A host serving several conversations (the HTTP server, or a UI in-process) keeps them in a
 `Conversations`, built on a function the app gives that composes each one (provider, tools,
 hooks, skills, and the `run` it reports: workspace, models and trust, for `details` and
@@ -50,7 +55,12 @@ import { Conversations } from '@sheavly/host/conversations/conversations.service
 const conversations = new Conversations({ create: (options) => buildConversation(options) });
 const id = await conversations.start();
 const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
+// During that run: skills are prepared just as for send, then acceptance is rechecked.
+const accepted = await conversations.followup({ id, prompt: { text: 'Also check warnings.' } });
 ```
+
+If `accepted` is false, the UI can queue the original prompt for a normal `send` after the run.
+Follow-up skill expansion is persisted as text; the inbox does not carry original prompt parts.
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
 
@@ -82,9 +92,11 @@ store, nothing is kept and everything behaves as before.
 
 ## Docs
 
-New user messages have stable UUID `id`s, persisted in history and attached to stream entries as
-`messageId`. The ID is assigned before the resume update, so even early failures can be linked to
-the right prompt. Providers never send these IDs to the model.
+Normal prompts sent with `send` have stable UUID `id`s, persisted in history and attached to stream
+entries as `messageId`. The ID is assigned before the resume update, so even early failures can be
+linked to the right prompt. Follow-up inbox messages have no new UUID or original prompt parts;
+their stream activity remains associated with the active prompt's `messageId`. Providers never send
+these IDs to the model.
 
 - [The services a run shares](docs/harness.md): what `createHarness` makes, and how a UI composes
   a run on it.

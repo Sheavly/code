@@ -73,6 +73,8 @@ export function apiHandlers(
         skills: await conversations.skills({ id, search: body.search, signal: c.req.raw.signal }),
       }),
     sendPrompt: ({ c, id, body }) => sendPrompt({ c, id, body, conversations }),
+    sendFollowup: async ({ c, id, body }) =>
+      c.json({ accepted: await conversations.followup({ id, prompt: body }) }),
     stopPrompt: ({ c, id }) => {
       conversations.stop(id);
 

@@ -52,7 +52,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   a transport such as `@sheavly/client`, `sheavly.transport`, only from an app), and
   imports follow the graph: another workspace only if `package.json` depends on it (dev
   dependencies for tests), test-only workspaces only from tests and fakes, no relative import
-  across workspace roots.
+  across workspace roots. Modules marked by `sheavly.appOnlyModules` accept value imports only
+  from apps, tests, fakes and their own module internals; package tools cannot select them either.
+  Type-only imports are allowed. The check includes package subpaths (including self-imports),
+  relative imports, re-exports and literal dynamic imports; layout validates the metadata against
+  actual direct `src/` module folders.
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

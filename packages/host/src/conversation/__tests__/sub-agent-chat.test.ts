@@ -110,12 +110,17 @@ describe('sub-agent completion in a conversation', () => {
 
     try {
       await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
-      // Busy for the sub-agent: the user can't chat until it is done.
       expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
       expect(events.some((event) => event.type === 'done')).toBe(false);
+      expect(conversation.followup('Focus on parse().')).toBe(true);
+      await until(() => seen.length === 1);
+      expect(seen[0]).toContain('Focus on parse().');
+      expect(harness.tasks.runningCount).toBe(1);
+      expect(harness.sessions.children(harness.mainSession.id)[0]?.state).toBe('running');
+      expect(events.filter((event) => event.type === 'message_received')).toHaveLength(1);
       finish.resolve(undefined);
       await running;
-      expect(seen[0]).toContain('Findings: a bug in parse()');
+      expect(seen[1]).toContain('Findings: a bug in parse()');
       expect(harness.tasks.runningCount).toBe(0);
     } finally {
       finish.resolve(undefined);

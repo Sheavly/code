@@ -105,6 +105,21 @@ export class RemoteConversation {
   }
 
   /**
+   * Delivers text to the active prompt without interrupting its tasks. False means the prompt
+   * already ended or is stopping; the caller may send it as the next prompt instead. Cancellation
+   * aborts only acceptance waiting, not the prompt; a rejected response may still mean delivery.
+   */
+  async followup(text: string, signal?: AbortSignal): Promise<boolean> {
+    const response = await this.#client.call('sendFollowup', {
+      id: this.id,
+      body: { text },
+      ...(signal && { signal }),
+    });
+
+    return response.accepted;
+  }
+
+  /**
    * Sends `text` and yields its entries, every session's, to the main session's `done`. Aborting
    * `signal` stops the prompt on the backend; its entries still come, ending with that `done`.
    */

@@ -249,6 +249,21 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
       ).toEqual([]);
     });
 
+    it.skipIf(isApp(dir) || isTooling(dir))(
+      'keeps metadata-based import boundaries enabled on every package source file',
+      async () => {
+        expect(
+          await filesWithRuleOff({
+            dir,
+            rule: 'harness/imports',
+            allowed: /$^/,
+            sourceOnly: true,
+          }),
+          `${name} disables harness/imports for source. Keep marked app-only implementations injected by apps, including from package tools.`,
+        ).toEqual([]);
+      },
+    );
+
     it('has the scripts turbo runs', () => {
       const scripts = readJson(path.join(dir, 'package.json')).scripts ?? {};
 

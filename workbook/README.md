@@ -9,6 +9,11 @@ non-mutating planning and untrusted-support-data cases for the
 [agent prompt comparison](../docs/agent-prompts/evaluation.md#second-sonnet-comparison-proposal).
 The `.env` bait used by the workbook is generated fake data; no real credentials belong in fixtures.
 
+`web-search` checks discovery through the app's keyless search backend using a public Node.js
+query and verifies a successful tool result with a source URL. It is a live, rate-limited smoke
+check, not proof of search relevance or UI artifact rendering; offline tests cover the contract,
+artifacts, bounds and failures.
+
 `background-completion` checks delayed finite commands: both results arrive before the final reply,
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not

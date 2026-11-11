@@ -47,6 +47,15 @@ Decide where something lives before writing it. Which workspaces exist and what 
 ## The UI decides what a run includes
 
 - The packages provide pieces and the services a run shares; a UI picks the provider and composes the tools and hooks. No package picks a backend, a model, a tool or a hook for a run, and none reads settings. Enforced: `harness/imports` fails a package's source that imports a `*.tool` module other than from a tool (only apps and tests put tools together), and the layout check fails a package that depends at runtime on one holding model backends (`*.adapter.ts`).
+- Concrete implementations inside an otherwise generic package live in dedicated module folders
+  marked by its `sheavly.appOnlyModules` array. For example, select Tavily in an app from
+  `@sheavly/tools/web-search-backends/tavily-search.helper` and inject it into the provider-neutral
+  search tool. `harness/imports` rejects package-source value imports of marked modules (even
+  from tools), through package subpaths, relative paths, re-exports and literal dynamic imports.
+  Apps, tests, fakes and type-only imports are allowed; a marked module may import its own
+  internals, but not another marked module. `harness/layout` validates unique direct kebab-case
+  module folder names against `src/`. Set metadata through `npm pkg set`; generic dependencies
+  on the rest of that workspace stay allowed. The model-adapter package restriction is unchanged.
 - `createHarness` (`@sheavly/host/host/host.helper`) makes the session, task and approval registries around the provider the UI passed in. `createCodingHarness` (`@sheavly/coding/preset/coding.helper`) adds the opened `Workspace`, one `FileLocks` and one `ProcessRunner`. Neither adds a tool or a hook.
 - The UI builds them on those services: `createTaskTools`, `createSubAgentTool`, `createMessageAgentTool` (`@sheavly/tools`), the file tools and `createRunCommandTool` (`@sheavly/coding`), `createAgentsMdHook` and `loadProjectHooks` (`@sheavly/workspace`). The backend app does it in `createBackendHarness` (`apps/backend/src/harness/harness.helper.ts`), with its settings (`Profiles` for the models and keys in `~/.sheavly`, `trustStoreFor`, `MAX_TURNS`) next to it; the terminal and other UIs reach it over HTTP.
 - Generic code never needs a project on disk or a coding tool. The loop, `@sheavly/runtime` (sessions, tasks, approvals), `@sheavly/tools` (sub-agent, tasks) and `createHarness` (and their tests) import no workspace-bound service (`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) and no coding tool (`read-file`, `write-file`, `edit-file`, `files`, `run-command`). A generic test that needs a background task uses `startTaskTool` (`@sheavly/runtime/testing/start-task.fake`). See `docs/overview.md`, "The UI decides what a run includes".

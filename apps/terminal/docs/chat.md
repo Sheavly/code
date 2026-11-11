@@ -252,12 +252,23 @@ you` keeps its own words.
   a saved Node script grants `node *`; an old ESLint check scope grants `npx eslint *`. The
   stored file is not rewritten, but the UI shows the effective base-command scope. Different
   programs, Git/GitHub CLI subcommands and npm scripts still need their own approval.
-- **You can keep typing while it works.** What you send waits its turn and is shown as
-  `⏳ N queued`; it is sent in order when the prompt ends. The editor takes several lines
-  (`Shift+Enter`), keeps your history (`↑` at the top), completes `/` commands and skills with
-  `Tab`, and folds a large paste into one marker.
-- Background commands and sub-agents keep running between messages, and what finished meanwhile
-  is reported at the next one.
+- **You can send follow-ups while it works, including while it waits for a sub-agent.** Prompt
+  text reaches the active run's inbox and is handled at its next model call. A waiting parent
+  wakes immediately; its background tasks and sub-agents are not cancelled. Delivered follow-ups
+  are shown as user messages, without starting a second concurrent prompt. The editor takes
+  several lines (`Shift+Enter`), keeps your history (`↑` at the top), completes `/` commands and
+  skills with `Tab`, and folds a large paste into one marker.
+  Chat commands (`/model`, `/changes`, `/exit`, etc.) stay queued, and later messages do not bypass
+  them. If the active prompt ends or starts stopping before it accepts a follow-up, that message
+  runs as the next prompt instead. Pending input is shown as `⏳ N queued`.
+  Acceptance waits at most five seconds, independently of how long the model works. Stopping,
+  dropping queued input, submitting `/exit`, or reaching input EOF cancels that wait. A failed,
+  timed-out or cancelled delivery response is reported and not automatically retried, because the
+  backend may already have accepted it; check the conversation before resending. Other queued
+  lines keep their order. EOF disables live forwarding and waits for all submitted work, not for
+  an unresolved acceptance response.
+- Finite background commands and sub-agents keep the prompt active until their results arrive.
+  Persistent services can outlive it; their completions are reported at the next prompt.
 - A message has no turn limit: the model keeps working until it is done, so Ctrl+C is how you stop
   one that goes on (`MAX_TURNS` in the backend's environment sets a cap if you want one).
 - Ctrl+C stops the running message (and skips a question it waits on); history stays valid, and the
@@ -277,7 +288,8 @@ you` keeps its own words.
   at the start of the line, the chat's commands); press it twice to list them.
 - `/exit`, `/quit` or Ctrl+D (on an empty line) ends the conversation: it stops what it started
   (background commands, sub-agents) and ends the session. `/help` lists this.
-- Lines are read in order, so lines typed (or piped in) while a message runs are sent after it.
+- Plain and piped input keeps reading lines while a prompt runs, using the same ordered follow-up
+  delivery as the interactive editor. End of input waits for pending work to finish.
 - Closing the terminal window or `kill` (SIGHUP, SIGTERM) closes the conversation and the
   backend too, so its background commands don't outlive the chat. A `kill -9` can't be caught,
   but the backend still stops: its stdin, a pipe from the chat, closes.

@@ -54,6 +54,7 @@ describe('readLayout', () => {
       domain: 'coding',
       testOnly: false,
       transport: false,
+      appOnlyModules: [],
       dependsOn: ['@sheavly/base'],
       devDependsOn: [],
       exports: {},
@@ -82,6 +83,10 @@ describe('readLayout', () => {
   });
 });
 
+const markedRoot = repo({
+  'packages/marked': { sheavly: { domain: 'generic', appOnlyModules: ['missing'] } },
+});
+
 new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
   'layout',
   harnessPlugin.rules.layout,
@@ -94,6 +99,20 @@ new RuleTester({ languageOptions: { parser: tseslint.parser } }).run(
       { code: '', filename: at('tools/gen.ts'), options },
     ],
     invalid: [
+      {
+        code: '',
+        filename: path.join(markedRoot, 'packages/marked/src/main/main.helper.ts'),
+        options: [{ root: markedRoot }],
+        errors: [
+          {
+            messageId: 'broken',
+            data: {
+              problem:
+                '@sheavly/marked sheavly.appOnlyModules names missing, which is not a src module folder',
+            },
+          },
+        ],
+      },
       // A workspace without a domain: the message says how to set one.
       {
         code: '',

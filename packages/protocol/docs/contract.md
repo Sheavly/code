@@ -145,6 +145,7 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 | `GET /conversations/:id`                      | none                                   | `ConversationDetails`              |
 | `PUT /conversations/:id/model`                | `SwitchModelRequest`                   | nothing (`204`)                    |
 | `POST /conversations/:id/prompts`             | `SendPromptRequest`: `text` or `parts` | that prompt's `StreamEntry`s (SSE) |
+| `POST /conversations/:id/followups`           | `SendPromptRequest`: `text` or `parts` | `SendFollowupResponse` (JSON)      |
 | `QUERY /conversations/:id/stream`             | `StreamQuery`, and `Last-Event-ID`     | `StreamEntry`s (SSE)               |
 | `POST /conversations/:id/approvals/:approval` | `AnswerApprovalRequest`                | nothing (`204`)                    |
 | `POST /conversations/:id/stop`                | none                                   | nothing (`204`)                    |
@@ -152,10 +153,19 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 | `GET /conversations/:id/messages`             | none                                   | `MessagesResponse`                 |
 | `QUERY /conversations/:id/skills`             | `SkillsQuery`                          | `SkillsResponse`                   |
 
+`POST /conversations/:id/followups` reuses `SendPromptRequest` and returns JSON
+`SendFollowupResponse`: `{ accepted: boolean }`, not SSE. An active run accepts the followup;
+an idle or stopping run returns `accepted: false` without starting another prompt. Accepted
+followups arrive through the existing conversation stream and history. Invalid bodies and
+unknown conversation ids use the ordinary `bad_request` and `not_found` errors. Skill expansion is
+retained as text; follow-up inbox messages carry neither the original prompt parts nor a new user
+message UUID. Their stream entries remain associated with the active prompt's `messageId`.
+
 - A prompt is `text`, as a script types it (`/<name>` mentions in it run those skills), or
   `parts`, as a UI builds it (exactly the skills picked run). Not both.
-- A user message keeps `content`, what the model saw (with a skill's instructions), and `parts`,
-  what the user typed, for a UI to show the skills as chips. Providers send only `content`.
+- A normal prompt's user message keeps `content`, what the model saw (with a skill's
+  instructions), and may keep `parts`, what the user typed, for a UI to show the skills as chips.
+  Follow-ups keep only expanded text. Providers send only `content`.
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
 

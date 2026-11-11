@@ -53,9 +53,9 @@ export type ConversationOptions = {
    */
   resumed?: boolean;
   /**
-   * Told the history whenever a prompt starts (with the user's message on it) and whenever one
-   * ends or fails (the history as it is now). It must not throw or wait: a caller that keeps the
-   * history somewhere queues the write and reports a failure its own way.
+   * Told the history when a prompt starts and follow-ups are accepted (previous finished
+   * history plus this prompt and accepted text), then when it ends or fails (completed work
+   * included). It must not throw or wait: a caller queues writes and reports failures its own way.
    */
   keepHistory?: (messages: readonly HistoryMessage[]) => void;
 };
@@ -75,6 +75,12 @@ export type Conversation = {
     prompt: string,
     options?: { signal?: AbortSignal; parts?: PromptPart[] | undefined },
   ) => AsyncIterable<AgentEvent>;
+  /**
+   * Queues user steering on the main session without cancelling background work. Returns false
+   * when idle, interrupted or completing; throws `SessionError` (`session_ended`) once closed.
+   * Accepted messages are delivered at the next model call and kept even if interrupted first.
+   */
+  followup: (text: string) => boolean;
   /** The history so far: every finished prompt's, valid to continue from. */
   readonly messages: readonly HistoryMessage[];
   /** Whether a prompt is running now. */

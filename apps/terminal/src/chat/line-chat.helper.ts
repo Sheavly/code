@@ -58,7 +58,10 @@ export async function runLineChat(params: {
     mainSession: details.session,
     // Line mode is plain text: what `/changes` prints is styled for the screen, so drop that.
     write: (text) => write(stripVTControlCharacters(text)),
-    onExit: () => (quitting = true),
+    onExit: () => {
+      quitting = true;
+      input.close();
+    },
   });
 
   // Ctrl+C stops the running prompt; pressed again while it stops, it force-quits (stopping what the
@@ -88,18 +91,23 @@ export async function runLineChat(params: {
     input.close();
   });
 
-  if (firstPrompt) session.submit(firstPrompt);
-  await session.idle();
+  try {
+    if (firstPrompt) session.submit(firstPrompt);
 
-  input.setPrompt('› ');
-  if (inputOpen) input.prompt();
-
-  for (let next = await lines.next(); !next.done && !quitting; next = await lines.next()) {
-    session.submit(next.value);
-    await session.idle();
-    if (quitting) break;
+    input.setPrompt('› ');
     if (inputOpen) input.prompt();
-  }
 
-  input.close();
+    // Keep reading during a run: ChatSession decides which lines to forward and which to queue.
+    for (let next = await lines.next(); !next.done && !quitting; next = await lines.next()) {
+      session.submit(next.value);
+      if (quitting) break;
+      if (inputOpen) input.prompt();
+    }
+
+    // EOF ends input, not the conversation work already submitted (including queued commands).
+    session.finishInput();
+    await session.idle();
+  } finally {
+    input.close();
+  }
 }
