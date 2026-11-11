@@ -32,6 +32,19 @@ a child cannot consume its parent's results. `cancelSession(sessionId)` cancels 
 only (descendant signals cascade separately); `cancelAll()` remains registry-wide for main-run
 shutdown. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
 
+`TaskRegistry.runningTasks(sessionId?)` returns fresh metadata-only `RunningTask[]` snapshots
+(from the protocol's notice types) in task start order: `{ id, title, reason, startedAt, group? }`.
+It includes every compatible running task, including services, excludes settled tasks, and never
+consumes deliveries. `title` is the description; `reason` is the stored group reason or falls back
+to the description. `group` is the first requested member ID, stable even after that member settles,
+not an ID array. Returned arrays and entries share no mutable state with the registry. This query
+does not limit count or text; consumers bound snapshots when constructing a notice.
+
+Scoped snapshots include exact session ownership and generic tasks, not parent or child ownership.
+If a group has any member incompatible with the caller, its compatible running tasks remain visible,
+but their shared group ID and reason are hidden: the reason falls back to each description. This
+avoids exposing another owner's task ID or combined context. An unscoped caller sees all metadata.
+
 A group's `sessionId` validates its members, not ownership of the group itself. A generic-only
 group remains shared with every session. Delivery to a scoped consumer requires every member
 to be compatible with that session; an unscoped group spanning different owned sessions needs
