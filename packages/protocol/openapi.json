@@ -206,25 +206,19 @@
         }
       }
     },
-    "/conversations/{id}/followups": {
+    "/conversations/{id}/yield": {
       "post": {
-        "operationId": "sendFollowup",
-        "summary": "Queue a followup on the active run; idle or stopping runs do not accept it",
+        "operationId": "yieldPrompt",
+        "summary": "Ask the running prompt to end at its completion point without waiting for background work; nothing is interrupted or steered",
         "parameters": [
           { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": { "schema": { "$ref": "#/components/schemas/SendPromptRequest" } }
-          }
-        },
         "responses": {
           "200": {
             "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/SendFollowupResponse" }
+                "schema": { "$ref": "#/components/schemas/YieldPromptResponse" }
               }
             }
           },
@@ -2590,7 +2584,7 @@
           }
         ]
       },
-      "SendFollowupResponse": {
+      "YieldPromptResponse": {
         "type": "object",
         "properties": { "accepted": { "type": "boolean" } },
         "required": ["accepted"]

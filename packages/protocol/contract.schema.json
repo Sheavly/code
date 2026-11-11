@@ -1506,7 +1506,7 @@
         }
       ]
     },
-    "SendFollowupResponse": {
+    "YieldPromptResponse": {
       "type": "object",
       "properties": { "accepted": { "type": "boolean" } },
       "required": ["accepted"]

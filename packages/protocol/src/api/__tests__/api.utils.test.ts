@@ -58,31 +58,22 @@ describe('openApiDocument', () => {
     });
   });
 
-  it('sends followups with the prompt body and a JSON acceptance response, never SSE', () => {
-    expect(API_ROUTES.sendFollowup).toMatchObject({
+  it('has no route that delivers text to a running prompt', () => {
+    expect(Object.keys(API_ROUTES)).not.toContain('sendFollowup');
+    expect(Object.keys(openApiDocument().paths)).not.toContain('/conversations/{id}/followups');
+  });
+
+  it('yields a prompt with no body and a JSON acceptance response', () => {
+    expect(API_ROUTES.yieldPrompt).toMatchObject({
       effect: 'change',
       method: 'post',
-      path: '/conversations/{id}/followups',
-      body: API_ROUTES.sendPrompt.body,
+      path: '/conversations/{id}/yield',
       response: { status: 200 },
     });
-    expect(API_ROUTES.sendFollowup.body).toBe(API_ROUTES.sendPrompt.body);
-    expect(openApiDocument().paths['/conversations/{id}/followups']?.post).toMatchObject({
-      operationId: 'sendFollowup',
-      requestBody: {
-        content: {
-          'application/json': { schema: { $ref: '#/components/schemas/SendPromptRequest' } },
-        },
-      },
-      responses: {
-        200: {
-          content: {
-            'application/json': { schema: { $ref: '#/components/schemas/SendFollowupResponse' } },
-          },
-        },
-      },
+    expect('body' in API_ROUTES.yieldPrompt).toBe(false);
+    expect(openApiDocument().paths['/conversations/{id}/yield']?.post).toMatchObject({
+      operationId: 'yieldPrompt',
     });
-    expect('stream' in API_ROUTES.sendFollowup.response).toBe(false);
   });
 
   it('only references schemas it defines', () => {
