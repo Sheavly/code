@@ -111,7 +111,6 @@ export async function startScreenChat(params: {
       bell.startTurn();
       screen.echo(text);
     },
-    onFollowup: (text) => screen.echo(text),
     onReplyComplete: () => bell.replyCompleted(),
     onTurnEnd: (outcome) => {
       bell.finishTurn();

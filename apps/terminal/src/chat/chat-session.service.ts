@@ -6,7 +6,7 @@ import { unknownPromptCommand } from './chat-prompt.helper.js';
 import { changesText } from '../changes/changes-text.utils.js';
 import type { LinkFile } from '../changes/changes.types.js';
 import { failuresText } from '../failures/failures-text.utils.js';
-import { CHAT_HELP, LINE_COLUMNS } from './chat.constants.js';
+import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
 import type { ChatConversation, StopResult, TurnOutcome } from './chat.types.js';
 import { parseChatInput } from './chat.utils.js';
@@ -16,9 +16,10 @@ import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /**
  * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
- * conversation's output comes out through `write`. Prompt text entered during a run reaches its
- * inbox; commands and messages arriving after completion wait their turn in `onQueue`. A UI
- * decides what a key does (Ctrl+C is `stop`) and what to show; this only does it.
+ * conversation's output comes out through `write`. Input entered during a run waits its turn
+ * in `onQueue` and is never delivered to the active run, which is only asked to yield at its
+ * completion point rather than wait for background work. A UI decides what a key does (Ctrl+C
+ * is `stop`) and what to show; this only does it.
  *
  * The chat's commands (`/help`, `/model`, `/exit`) and skills (`/<name>`) are read here, so every
  * UI that has a text box treats them the same.
@@ -31,7 +32,6 @@ export class ChatSession {
   readonly #queue: ChatQueue;
   readonly #onBusy: (busy: boolean) => void;
   readonly #onSend: (text: string) => void;
-  readonly #onFollowup: (text: string) => void;
   readonly #onTurnEnd: (outcome: TurnOutcome) => void;
   readonly #onReplyComplete: () => void;
   readonly #linkFile: LinkFile;
@@ -43,11 +43,13 @@ export class ChatSession {
   readonly #onThinking: (thinking: boolean) => void;
   #reportedTools: readonly RunningTool[];
   #reportedThinking = false;
-  #streamOpen = false;
   #current: AbortController | undefined;
+  /** Whether the running prompt's stream has started, so the backend is running it. */
+  #streamOpen = false;
+  /** Settles when every yield request sent so far has been answered. */
+  #yielding: Promise<void> = Promise.resolve();
   #draining = false;
   #ended = false;
-  #inputEnded = false;
   #idle: Promise<void> = Promise.resolve();
 
   constructor(params: {
@@ -62,8 +64,6 @@ export class ChatSession {
     onBusy?: (busy: boolean) => void;
     /** Told when a message starts running (not when it is queued), so a UI can show it. */
     onSend?: (text: string) => void;
-    /** A follow-up delivered to the active run, without starting another prompt or bell timer. */
-    onFollowup?: (text: string) => void;
     /** Told when a message has run to its end, after all its output was written. */
     onTurnEnd?: (outcome: TurnOutcome) => void;
     /** After all output, only for a backend-confirmed completed prompt, never errors or stops. */
@@ -91,8 +91,6 @@ export class ChatSession {
     this.#queue = new ChatQueue(params.onQueue ?? (() => undefined));
     this.#onBusy = params.onBusy ?? (() => undefined);
     this.#onSend = params.onSend ?? (() => undefined);
-    this.#onFollowup =
-      params.onFollowup ?? ((text) => this.#write(`\n› ${plainTerminalText(text)}\n\n`));
     this.#onTurnEnd = params.onTurnEnd ?? (() => undefined);
     this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
     this.#linkFile = params.linkFile ?? ((path) => path);
@@ -109,18 +107,17 @@ export class ChatSession {
     return this.#draining;
   }
 
-  /** Pending input, oldest first; text is forwarded when the active prompt accepts it. */
+  /** Pending input, oldest first, outside the conversation's history until it runs. */
   get queued(): readonly string[] {
     return this.#queue.queued;
   }
 
-  /** Sends prompt text to the live run, or queues input for the next run when none is active. */
+  /** Queues input to run after the active prompt, which is asked to yield, not interrupted. */
   submit(line: string): void {
     if (this.#ended) return;
     this.#queue.push(line);
-    if (parseChatInput(line).kind === 'exit') this.#queue.cancelForwarding();
-    this.#forwardFollowups();
-    if (!this.#draining) this.#idle = this.#drain();
+    if (this.#draining) this.#requestYield();
+    else this.#idle = this.#drain();
   }
 
   /** What `/changes <target>` says: the files changed in this chat, or the diffs `target` names. */
@@ -169,18 +166,11 @@ export class ChatSession {
    * waiting still run after it: stopping a prompt is not leaving.
    */
   stop(): StopResult {
-    this.#queue.cancelForwarding();
     if (!this.#current) return 'idle';
     if (this.#current.signal.aborted) return 'stopping';
     this.#current.abort();
 
     return 'stopped';
-  }
-
-  /** EOF ends live forwarding, not queued work; uncertain acceptance must not delay shutdown. */
-  finishInput(): void {
-    this.#inputEnded = true;
-    this.#queue.cancelForwarding();
   }
 
   /** Drops the lines waiting, which a user who is leaving does not want sent. */
@@ -194,11 +184,8 @@ export class ChatSession {
 
     try {
       while (true) {
-        const line = await this.#queue.take();
+        const line = this.#queue.take();
 
-        // Input can arrive after take() observes empty but before this continuation resumes.
-        // Recheck without yielding so idle covers every line accepted while draining.
-        if (line === undefined && this.#queue.queued.length > 0) continue;
         if (line === undefined) break;
         if (!(await this.#handle(line))) break;
       }
@@ -273,11 +260,23 @@ export class ChatSession {
     let outcome: TurnOutcome = 'completed';
     let completed = false;
 
+    // Set first so Ctrl+C works while waiting: a yield still in flight for the previous prompt
+    // must land before this one starts, or it would end this prompt early instead.
     this.#current = current;
-    this.#streamOpen = false;
+    await Promise.race([
+      this.#yielding,
+      new Promise((resolve) => current.signal.addEventListener('abort', resolve, { once: true })),
+    ]);
     this.#onSend(text);
 
     try {
+      // Stopped while waiting for a yield answer: the prompt never reaches the backend.
+      if (current.signal.aborted) {
+        this.#onTurnEnd(outcome);
+
+        return;
+      }
+
       const unknown = await unknownPromptCommand({ text, conversation: this.#conversation });
 
       if (unknown) {
@@ -295,6 +294,7 @@ export class ChatSession {
       );
     } finally {
       this.#current = undefined;
+      this.#streamOpen = false;
       // A failure or a stop can end the stream without the result of a call that was running.
       this.#renderer.clearRunning();
       this.#reportLiveState();
@@ -310,9 +310,13 @@ export class ChatSession {
     let completed = false;
 
     for await (const entry of this.#conversation.send(params)) {
-      this.#streamOpen = true;
+      if (!this.#streamOpen) {
+        this.#streamOpen = true;
+        if (this.#queue.queued.length > 0) this.#requestYield();
+      }
+
       if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
-      this.#showEntry(entry);
+      this.#renderer.entry(entry, this.#mainSession);
       this.#reportLiveState();
 
       if (
@@ -321,41 +325,31 @@ export class ChatSession {
         entry.event.type === 'done'
       ) {
         completed = entry.event.reason === 'completed';
-        this.#streamOpen = false;
       }
-
-      this.#forwardFollowups();
     }
 
     return completed;
   }
 
-  #showEntry(entry: StreamEntry): void {
-    if (
-      entry.sessionId === this.#mainSession &&
-      entry.kind === 'event' &&
-      entry.event.type === 'message_received' &&
-      entry.event.message.from === 'user'
-    ) {
-      this.#onFollowup(entry.event.message.content);
+  /**
+   * Asks the running prompt to end at its completion point so queued input is not stuck behind
+   * background work. Only an open stream is asked: before it, the backend may not be running the
+   * prompt yet and would refuse, so `#showEntries` asks again at the first entry. A failed
+   * request is shown, not retried: the line still runs when the prompt ends.
+   */
+  #requestYield(): void {
+    if (!this.#streamOpen) return;
 
-      return;
-    }
-
-    this.#renderer.entry(entry, this.#mainSession);
-  }
-
-  #forwardFollowups(): void {
-    if (!this.#current || !this.#streamOpen || this.#inputEnded) return;
-    this.#queue.forward({
-      signal: this.#current.signal,
-      send: (text, signal) => this.#conversation.followup(text, signal),
-      onError: (caughtError) => {
+    const request = this.#conversation.yieldPrompt(AbortSignal.timeout(YIELD_REQUEST_MS)).then(
+      () => undefined,
+      (caughtError: unknown) => {
         this.#write(
-          `\n✗ Follow-up delivery failed; it was not retried: ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
+          `\n✗ Could not ask the agent to yield: ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
         );
       },
-    });
+    );
+
+    this.#yielding = Promise.all([this.#yielding, request]).then(() => undefined);
   }
 
   /** Tells the UI the running tools and whether the model thinks, for what changed since. */

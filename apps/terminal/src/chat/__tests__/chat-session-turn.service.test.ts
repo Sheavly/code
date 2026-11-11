@@ -38,7 +38,7 @@ function chat(params: {
   const completedWrites: number[] = [];
   const conversation = {
     runningTasks: 0,
-    followup: () => Promise.resolve(false),
+    yieldPrompt: () => Promise.resolve(false),
     skills: () =>
       Promise.resolve(
         (params.skills ?? []).map((name) => ({
