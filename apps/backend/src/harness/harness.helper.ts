@@ -1,3 +1,4 @@
+import { createDeleteFileTool } from '@sheavly/coding/delete-file/delete-file.tool';
 import { createEditFileTool } from '@sheavly/coding/edit-file/edit-file.tool';
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
@@ -58,6 +59,7 @@ export async function createBackendHarness(
     createReadFileTool({ workspace, fileReads }),
     createWriteFileTool({ workspace, fileLocks, fileReads }),
     createEditFileTool({ workspace, fileLocks, fileReads }),
+    createDeleteFileTool({ workspace, fileLocks, fileReads }),
     createReadSkillTool(skillRoots),
   ];
   const webTools = webFetch === false ? [] : [createWebFetchTool(webFetch)];

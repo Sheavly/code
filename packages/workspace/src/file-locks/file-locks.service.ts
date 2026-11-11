@@ -19,7 +19,8 @@ function waitTurn(params: { previous: Promise<void>; signal: AbortSignal }): Pro
  * Per-file locks for the tools that change files. Tool calls run in parallel, so without them
  * two edits to one file both read the old content and the second write loses the first. One
  * instance is shared by every writer that must not overlap (`createCodingHarness` makes one per
- * harness and gives it to write_file, edit_file and the sub-agents' copies); a test makes its own.
+ * harness and gives it to write_file, edit_file, delete_file and the sub-agents' copies); a test
+ * makes its own.
  */
 export class FileLocks {
   /** The last change queued on each file, by real path. */

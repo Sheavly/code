@@ -101,6 +101,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'read_file',
       'write_file',
       'edit_file',
+      'delete_file',
       'read_skill',
       'web_fetch',
       'run_command',
@@ -153,6 +154,9 @@ describe('createBackendHarness: what a backend run includes', () => {
     );
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
     expect(sub?.tools.map((tool) => tool.name)).toContain('web_fetch');
+    expect(sub?.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(['read_file', 'write_file', 'edit_file', 'delete_file']),
+    );
     const main = requests.find((request) => request.messages[0]?.content === 'go');
 
     expect(main?.instructions).toBeTruthy();

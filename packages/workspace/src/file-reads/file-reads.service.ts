@@ -22,7 +22,8 @@ type Seen = {
  * is there now.
  */
 export class FileReads {
-  readonly #seen = new Map<string, Seen>();
+  /** What each agent was shown, by the file's real path, then by agent. */
+  readonly #seen = new Map<string, Map<string, Seen>>();
 
   /**
    * Remembers that `agent` was shown `text` of `file`: what a read returned, or all of a file the
@@ -30,37 +31,38 @@ export class FileReads {
    */
   markRead(params: { agent: string; file: string; text: string; whole: boolean }): void {
     const { agent, file, text, whole } = params;
-    const key = keyOf({ agent, file });
+    const byAgent = this.agentsFor(file);
 
     if (whole) {
-      this.#seen.set(key, { chunks: [text], whole: true });
+      byAgent.set(agent, { chunks: [text], whole: true });
 
       return;
     }
 
-    const seen = this.#seen.get(key) ?? { chunks: [], whole: false };
+    const seen = byAgent.get(agent) ?? { chunks: [], whole: false };
 
     seen.chunks.push(text);
     // Dropping the oldest never drops a whole-file read: that one is `chunks[0]` and stays.
     if (seen.chunks.length > MAX_CHUNKS_PER_FILE) seen.chunks.splice(seen.whole ? 1 : 0, 1);
-    this.#seen.set(key, seen);
+    byAgent.set(agent, seen);
   }
 
   /** Whether `agent` was shown anything of `file`. */
   hasRead(params: { agent: string; file: string }): boolean {
-    return this.#seen.has(keyOf(params));
+    return this.#seen.get(params.file)?.has(params.agent) ?? false;
   }
 
   /** Whether some read showed `agent` the whole of `file`. */
   hasReadWhole(params: { agent: string; file: string }): boolean {
-    return this.#seen.get(keyOf(params))?.whole ?? false;
+    return this.#seen.get(params.file)?.get(params.agent)?.whole ?? false;
   }
 
   /** Whether `text` is inside one piece of `file` that `agent` was shown. */
   hasSeen(params: { agent: string; file: string; text: string }): boolean {
     const { text } = params;
+    const seen = this.#seen.get(params.file)?.get(params.agent);
 
-    return this.#seen.get(keyOf(params))?.chunks.some((chunk) => chunk.includes(text)) ?? false;
+    return seen?.chunks.some((chunk) => chunk.includes(text)) ?? false;
   }
 
   /**
@@ -75,7 +77,7 @@ export class FileReads {
     replaceAll: boolean;
   }): void {
     const { oldText, newText, replaceAll } = params;
-    const seen = this.#seen.get(keyOf(params));
+    const seen = this.#seen.get(params.file)?.get(params.agent);
 
     if (!seen) return;
 
@@ -83,8 +85,21 @@ export class FileReads {
       replaceAll ? chunk.replaceAll(oldText, () => newText) : chunk.replace(oldText, () => newText),
     );
   }
-}
 
-function keyOf(params: { agent: string; file: string }): string {
-  return JSON.stringify([params.agent, params.file]);
+  /**
+   * Forgets what every agent was shown of `file`, which is gone. A file created at that path
+   * afterwards holds other text, and what the old one said is exactly the memory an edit must not
+   * be made from.
+   */
+  markDeleted(params: { file: string }): void {
+    this.#seen.delete(params.file);
+  }
+
+  private agentsFor(file: string): Map<string, Seen> {
+    const byAgent = this.#seen.get(file) ?? new Map<string, Seen>();
+
+    this.#seen.set(file, byAgent);
+
+    return byAgent;
+  }
 }

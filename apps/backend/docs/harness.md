@@ -15,17 +15,17 @@ conversation it serves, for whichever UI, is built on it, by `servedConversation
 `createBackendHarness` opens the coding services (`createCodingHarness`: the workspace, file
 locks and process runner), then composes:
 
-| What                                   | From                 | Why                                                                                                               |
-| -------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `read_file`, `write_file`, `edit_file` | `@sheavly/coding`    | A coding agent works on files; all three share the run's `FileLocks` and `FileReads` (an edit needs a read first) |
-| `read_skill`                           | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                              |
-| `web_fetch`                            | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`  |
-| `run_command`                          | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                   |
-| `task_status`, `cancel_task`           | `@sheavly/tools`     | Background commands and sub-agents                                                                                |
-| `start_agent`, `message_agent`         | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command`                              |
-| The AGENTS.md hook                     | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                           |
-| The skills hook                        | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                              |
-| The `.sheavly/` hooks                  | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                              |
+| What                                                  | From                 | Why                                                                                                              |
+| ----------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding`    | A coding agent works on files; all four share the run's `FileLocks` and `FileReads` (an edit needs a read first) |
+| `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                             |
+| `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false` |
+| `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                  |
+| `task_status`, `cancel_task`                          | `@sheavly/tools`     | Background commands and sub-agents                                                                               |
+| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get the file tools, `read_skill`, AGENTS.md and skills, not `run_command`                             |
+| The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                          |
+| The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                             |
+| The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                             |
 
 Sub-agents get neither `run_command` nor the `.sheavly/` hooks: a sub-agent starts on a narrow
 task, and commands are where the trust model has the most to lose.

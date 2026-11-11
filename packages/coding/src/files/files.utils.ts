@@ -1,11 +1,17 @@
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { FileChange } from './files.types.js';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import type { FileChange, FileChangeVerb } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 
-/** True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). */
+/**
+ * True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). Windows drops trailing
+ * dots and spaces from a path component, so `.env ` names the same file there and is refused too.
+ */
 export function isEnvFile(filePath: string): boolean {
-  return /^\.env(\..*)?$/i.test(path.basename(filePath));
+  const name = path.basename(filePath).replace(/[. ]+$/, '');
+
+  return /^\.env(\..*)?$/i.test(name);
 }
 
 /** True if any part of `filePath` is `.git` (case-insensitive): `.git/config`, `sub/.git`. */
@@ -63,10 +69,10 @@ export function countOccurrences(params: { text: string; search: string }): numb
 
 /** A short summary of a change, for the model: e.g. "Edited src/a.ts (+3 −1 lines)". */
 export function describeChange(params: {
-  verb: string;
+  verb: FileChangeVerb;
   path: string;
   before: string | null;
-  after: string;
+  after: string | null;
 }): string {
   const { verb, path: file, before, after } = params;
   const lines = (text: string | null) =>
@@ -75,7 +81,16 @@ export function describeChange(params: {
   return `${verb} ${file} (${lines(before)} → ${lines(after)} lines)`;
 }
 
-/** True if `artifact` is the file change `write_file` or `edit_file` returned. */
+/** True if `artifact` is the file change a file tool returned. */
 export function isFileChange(artifact: ToolArtifact): artifact is FileChange {
   return artifact.kind === 'file_change';
+}
+
+/**
+ * Who a file tool's call is for, as `FileReads` names it: the session making the call, so the main
+ * agent and each sub-agent are told apart. A call with no session (a tool run on its own) is the
+ * only agent there is.
+ */
+export function agentOf(context: ToolContext): string {
+  return context.session?.id ?? 'no-session';
 }

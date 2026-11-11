@@ -1,6 +1,20 @@
+import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+
+/** The services the tools that change a file take from the run they are built in. */
+export type FileToolServices = {
+  workspace: Workspace;
+  fileLocks: FileLocks;
+  fileReads: FileReads;
+};
+
+/** The verb a file tool reports its change with, capitalised as the summary line starts. */
+export type FileChangeVerb = 'Created' | 'Edited' | 'Deleted';
+
 /**
- * The artifact `write_file` and `edit_file` return: a file they created or changed, enough for a
- * UI to render a diff. Rendering the diff is the UI's job.
+ * The artifact the file tools return: a file they created, changed or deleted, enough for a UI to
+ * render a diff. Rendering the diff is the UI's job.
  */
 export type FileChange = {
   kind: 'file_change';
@@ -8,5 +22,6 @@ export type FileChange = {
   path: string;
   /** The content before the change; `null` if the tool created the file. */
   before: string | null;
-  after: string;
+  /** The content after it; `null` if the tool deleted the file. */
+  after: string | null;
 };

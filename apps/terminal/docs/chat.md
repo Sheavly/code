@@ -175,12 +175,14 @@ you` keeps its own words.
   the environment.
 
 - **A file change shows as one collapsed line, and expands when you ask.** Under the result of
-  `write_file` and `edit_file` the chat prints `▸ +2 −1 · /changes 3`: the lines added and
-  removed, and the number of the change. Finished lines live in the terminal's scrollback, which a
+  `write_file`, `edit_file` and `delete_file` the chat prints `▸ +2 −1 · /changes 3`: the lines
+  added and removed, and the number of the change. A created file says `· new file` after the
+  counts and a deleted one `· deleted`. Finished lines live in the terminal's scrollback, which a
   program can't rewrite, so a diff is never expanded in place: asking prints it again, in full,
   below. Every change the chat made is kept, numbered from 1 in the order made, and shown with:
   - `/changes` lists the files changed, each once, with what all its changes came to and which
-    changes they were (`src/a.ts  +12 −3  #1 #3`, `new` for a created file).
+    changes they were (`src/a.ts  +12 −3  #1 #3`, `new` for a created file and `deleted` for one
+    removed).
   - `/changes #3` (or `3`) shows that one change; `/changes src/a.ts` (or the end of the path)
     shows the file's total, from before its first change to after its last; `/changes all` shows
     every file's total.
@@ -188,12 +190,13 @@ you` keeps its own words.
     change's diff, or the latest failure's message if that came after it.
 
   A diff has two lines of context, a line number, and `+`/`-` in green and red; the stretch
-  between two changes folds into `⋯ N unchanged lines`, and a new file is all `+`. It ends with
-  `… N more changed lines` after 500 rows. A line wider than the screen is cut with `…`, so it
-  never wraps away from its number, and terminal escapes in the file's text are dropped. A
-  rewrite too large to compare shows only how many lines it covers. Only the changes the terminal
-  has seen are kept: a conversation reopened with `--resume` starts with the ones made after it
-  opened. The plain log leaves file changes out; the plain line chat has `/changes` too, as text.
+  between two changes folds into `⋯ N unchanged lines`, a new file is all `+` and a deleted one
+  all `-`. It ends with `… N more changed lines` after 500 rows. A line wider than the screen is
+  cut with `…`, so it never wraps away from its number, and terminal escapes in the file's text
+  are dropped. A rewrite too large to compare shows only how many lines it covers. Only the
+  changes the terminal has seen are kept: a conversation reopened with `--resume` starts with the
+  ones made after it opened. The plain log leaves file changes out; the plain line chat has
+  `/changes` too, as text.
 
 - **A failed step shows its first line, and the rest when you ask.** A tool that failed prints
   `✗` and the first line of its message, cut at 100 characters. When the message says more (more

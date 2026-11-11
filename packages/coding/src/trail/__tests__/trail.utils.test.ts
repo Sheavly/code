@@ -16,6 +16,7 @@ describe('fileTrail', () => {
     expect(fileTrail(call('edit_file', { path: 'src/a.ts', oldText: 'a', newText: 'b' }))).toBe(
       'edited src/a.ts',
     );
+    expect(fileTrail(call('delete_file', { path: 'src/a.ts' }))).toBe('deleted src/a.ts');
     expect(fileTrail(call('read_file', { path: 'src/a.ts' }))).toBe('read src/a.ts');
   });
 

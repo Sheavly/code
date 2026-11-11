@@ -108,6 +108,24 @@ describe('FileReads', () => {
     expect(reads.hasRead({ agent: 'main', file: '/w/never.ts' })).toBe(false);
   });
 
+  it('forgets a file it was told was deleted, for every agent, and keeps the others', () => {
+    const reads = new FileReads();
+    const child = { agent: 'child', file: '/w/a.ts' };
+    const other = { agent: 'main', file: '/w/b.ts' };
+
+    read(reads, 'gone\n', true);
+    read(reads, 'gone\n', true, child);
+    read(reads, 'kept\n', true, other);
+
+    reads.markDeleted({ file: '/w/a.ts' });
+
+    expect(reads.hasRead(MAIN)).toBe(false);
+    expect(reads.hasReadWhole(MAIN)).toBe(false);
+    expect(reads.hasRead(child)).toBe(false);
+    expect(reads.hasRead(other)).toBe(true);
+    expect(reads.hasSeen({ ...other, text: 'kept' })).toBe(true);
+  });
+
   it('forgets the oldest pieces past a limit, but never a whole-file read', () => {
     const reads = new FileReads();
 

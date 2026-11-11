@@ -25,6 +25,18 @@ describe('collapsedChange', () => {
       '    ▸ +1 −1 · /changes 1\n',
     );
   });
+
+  it('marks a deleted file, with the lines it removed', () => {
+    const log = new ChangeLog();
+
+    log.keep({ kind: 'file_change', path: 'src/gone.ts', before: 'one\ntwo\n', after: null });
+
+    const [edit] = log.edits;
+
+    expect(edit && stripVTControlCharacters(collapsedChange({ edit }))).toBe(
+      '    ▸ +0 −2 · deleted · /changes 1\n',
+    );
+  });
 });
 
 describe('changesText', () => {
@@ -40,6 +52,25 @@ describe('changesText', () => {
         '  src/b.ts  +2 −0  #2  new',
         '/changes <file> or /changes #<n> shows a diff; /changes all shows every file.',
       ].join('\n'),
+    );
+  });
+
+  it('marks a deleted file in the list and shows all its lines removed', () => {
+    const log = new ChangeLog();
+
+    log.keep({ kind: 'file_change', path: 'src/a.ts', before: 'one\ntwo\n', after: 'one\nTWO\n' });
+    log.keep({ kind: 'file_change', path: 'src/gone.ts', before: 'one\ntwo\n', after: null });
+
+    expect(show(undefined, log)).toBe(
+      [
+        'File changes in this chat: 2 files, 2 edits, +1 −3',
+        '  src/a.ts     +1 −1  #1',
+        '  src/gone.ts  +0 −2  #2  deleted',
+        '/changes <file> or /changes #<n> shows a diff; /changes all shows every file.',
+      ].join('\n'),
+    );
+    expect(show('gone.ts', log)).toBe(
+      ['▾ src/gone.ts · #2 +0 −2', '    1 - one', '    2 - two'].join('\n'),
     );
   });
 

@@ -106,6 +106,6 @@ filesystem monitors and signature programs, and uses committed attributes. Git d
 retain `--no-ext-diff --no-textconv` driver protection. These do not add approval questions.
 
 There is no OS sandbox. Command approval grants the process access available to the user,
-including secrets and files outside the workspace. `read_file`, `write_file` and `edit_file`
-retain their separate confinement and secret-file rules; command permissions do not change
-those tools. See the [trust model](../../../docs/overview.md#trust-model).
+including secrets and files outside the workspace. `read_file`, `write_file`, `edit_file` and
+`delete_file` retain their separate confinement and secret-file rules; command permissions do not
+change those tools. See the [trust model](../../../docs/overview.md#trust-model).

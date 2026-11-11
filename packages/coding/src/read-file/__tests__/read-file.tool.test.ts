@@ -202,14 +202,22 @@ describe('read_file .env guard', () => {
 });
 
 describe('isEnvFile', () => {
-  it.each(['.env', '.env.local', '.env.production', '.env.example', '.ENV', '/a/b/.env.test'])(
-    'matches %s',
-    (p) => {
-      expect(isEnvFile(p)).toBe(true);
-    },
-  );
+  it.each([
+    '.env',
+    '.env.local',
+    '.env.production',
+    '.env.example',
+    '.ENV',
+    '/a/b/.env.test',
+    '.env ',
+    '.ENV ',
+    '.env.local ',
+    '.env.',
+  ])('matches %s', (p) => {
+    expect(isEnvFile(p)).toBe(true);
+  });
 
-  it.each(['env.ts', '.environment', 'src/.envy', 'dotenv.ts', 'my.env'])(
+  it.each(['env.ts', '.environment', 'src/.envy', 'dotenv.ts', 'my.env', 'env ', '.envrc '])(
     'does not match %s',
     (p) => {
       expect(isEnvFile(p)).toBe(false);

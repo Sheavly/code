@@ -18,13 +18,15 @@ export class ChangeLog {
 
   /**
    * Keeps `change` as the next numbered edit, and returns it. A change to an existing file that
-   * changed no line is not kept (`undefined`); a created file always is, even an empty one.
+   * changed no line is not kept (`undefined`); a file created or deleted always is, even an empty
+   * one.
    */
   keep(change: FileChange): FileEdit | undefined {
     const { path, before, after } = change;
     const counts = countChanges({ before, after });
+    const kept = before === null || after === null || counts.added > 0 || counts.removed > 0;
 
-    if (before !== null && counts.added === 0 && counts.removed === 0) return undefined;
+    if (!kept) return undefined;
 
     const edit = { number: this.#edits.length + 1, path, before, after, ...counts };
 

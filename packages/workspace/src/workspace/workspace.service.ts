@@ -10,7 +10,8 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 
 /**
  * The directory the agent is confined to. Every file tool resolves paths through
- * `resolveRead` / `resolveWrite`, which reject anything that ends up outside the root:
+ * `resolveRead` / `resolveWrite` / `resolveDelete`, which reject anything that ends up outside
+ * the root:
  * absolute paths, `../` tricks, and symlinks (to files or directories) that point out. The
  * exceptions are the optional scratch root, a shared folder outside the repo for temporary files,
  * and the other git worktrees of the root's repo, so a session in the main checkout can work on
@@ -102,6 +103,33 @@ export class Workspace {
   }
 
   /**
+   * Resolves an existing file to remove: inside the workspace, and a regular file. A folder is
+   * refused, since removing one takes files the caller never named, and so is a symlink,
+   * whichever way it points: `lstat` decides, so what a caller may remove is the file's own
+   * name, never the target a link names for it.
+   */
+  async resolveDelete(requested: string): Promise<string> {
+    const inside = this.insideCheck(requested);
+    const lexical = await inside(path.resolve(this.root, requested));
+    // Missing stays an ENOENT (callers say "not found"), as in `resolveRead`.
+    const existing = await checked({ requested, run: () => lstat(lexical) });
+
+    if (existing.isSymbolicLink()) {
+      throw new WorkspaceError(`Refusing to delete a symlink: ${requested}. Name the file itself.`);
+    }
+
+    if (!existing.isFile()) {
+      throw new WorkspaceError(`Refusing to delete ${requested}: not a regular file.`);
+    }
+
+    // The parent is canonicalized, so a symlinked folder that stays inside still works and the
+    // name is checked as the file's own, not through the link.
+    const realParent = await checked({ requested, run: () => realpath(path.dirname(lexical)) });
+
+    return inside(path.join(realParent, path.basename(lexical)));
+  }
+
+  /**
    * Paths are shown relative to the root in tool output, e.g. `src/index.ts`. A file in scratch
    * stays absolute: that is how the agent reaches it again.
    */
@@ -124,9 +152,10 @@ export class Workspace {
   }
 
   /**
-   * The check for one `resolveRead` / `resolveWrite` call. Worktrees are listed when a path
-   * first falls outside the root and kept for the rest of that call only, never across calls: a
-   * worktree removed mid-session must stop being reachable, and a new one must start being.
+   * The check for one `resolveRead` / `resolveWrite` / `resolveDelete` call. Worktrees are listed
+   * when a path first falls outside the root and kept for the rest of that call only, never
+   * across calls: a worktree removed mid-session must stop being reachable, and a new one must
+   * start being.
    */
   private insideCheck(requested: string): (absolute: string) => Promise<string> {
     let siblings: Promise<string[]> | undefined;

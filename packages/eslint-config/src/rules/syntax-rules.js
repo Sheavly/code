@@ -20,7 +20,7 @@ const FS_MODULES = '/^(node:)?fs(\\u002Fpromises)?$/';
 const FS_MUTATORS =
   '/^(writeFile|appendFile|rename|rm|rmdir|unlink|mkdir|mkdtemp|cp|copyFile|createWriteStream|truncate|ftruncate|symlink|link|chmod|chown|utimes|open|write|writev)(Sync)?$/';
 const FILE_WRITES_MESSAGE =
-  "Do not write, move or delete files by hand. The user's data goes through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, the stores): atomic, private, retried on Windows, and the path is checked. The agent's file tools write a project through `Workspace`. A justified exception is a `files:` override with a reason, in this workspace's eslint.config.js.";
+  "Do not write, move or delete files by hand. The user's data goes through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, the stores): atomic, private, retried on Windows, and the path is checked. The agent's file tools change a project's files through `packages/coding/src/files/files.helper.ts` (`resolveWritable`, `resolveDeletable`, `createParentFolder`, `writeText`, `removeFile`), which resolve through `Workspace`, its file locks and the `.env`/`.git` guards. A justified exception is a `files:` override with a reason, in this workspace's eslint.config.js.";
 
 /**
  * The credentials file as the last part of a path, in any case (macOS and Windows file systems

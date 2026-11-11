@@ -14,20 +14,13 @@
 const MESSAGE =
   'A call to `resolveRead` needs the `.env` guard on both sides, in the same function: `assertNotEnvFile({ filePath: <the requested path> })` before it, and `assertNotEnvFile({ filePath: <the variable it is assigned to> })` after it, each as a statement of its own (not in a branch), since a symlink can point at a `.env` file (`@sheavly/coding/files/files.utils`). See `read_file` or `resolveSearchRoot`.';
 
-import { calleeName, enclosingScope } from './call-scope.utils.js';
+import { assignedName, calleeName, enclosingScope, propertyText } from './call-scope.utils.js';
 
 /** The text of the `filePath` property of a guard call's options object, if it has one. */
 function guardedPath(params) {
   const { node, sourceCode } = params;
-  const [options] = node.arguments;
 
-  if (options?.type !== 'ObjectExpression') return undefined;
-
-  const property = options.properties.find(
-    (entry) => entry.type === 'Property' && !entry.computed && entry.key.name === 'filePath',
-  );
-
-  return property ? sourceCode.getText(property.value) : undefined;
+  return propertyText({ node, sourceCode, name: 'filePath' });
 }
 
 /** True if the call is a statement of its own directly in the scope's body, not in a branch. */
@@ -37,16 +30,6 @@ function isTopLevelStatement(params) {
   const body = scope.type === 'Program' ? scope : scope.body;
 
   return statement.type === 'ExpressionStatement' && statement.parent === body;
-}
-
-/** The name `const real = await x.resolveRead(...)` gives the real path, if it is assigned. */
-function assignedName(node) {
-  const value = node.parent.type === 'AwaitExpression' ? node.parent : node;
-  const declarator = value.parent;
-
-  return declarator.type === 'VariableDeclarator' && declarator.id.type === 'Identifier'
-    ? declarator.id.name
-    : undefined;
 }
 
 export const guardEnvRead = {

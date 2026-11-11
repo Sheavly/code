@@ -1,13 +1,12 @@
 import { z } from 'zod';
-import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { FileChange } from '../files/files.types.js';
-import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
-import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
-import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { agentOf, readIfExists, resolveWritable, writeText } from '../files/files.helper.js';
-import { describeChange } from '../files/files.utils.js';
-import { applyEdit } from './edit-file.utils.js';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
+import type { FileToolServices } from '../files/files.types.js';
+import { readForChange, writeText } from '../files/file-effects.helper.js';
+import { changeResult } from '../files/file-change.helper.js';
+import { resolveWritable } from '../files/files.helper.js';
+import { agentOf } from '../files/files.utils.js';
+import { applyEdit } from './edit-file.utils.js';
 
 /**
  * Replaces an exact piece of text in an existing file. The text must occur exactly once (or
@@ -19,15 +18,7 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
  * file must share one instance (the harness's), and a tool that made its own would silently let
  * a parallel write or edit overlap. `fileReads` is the harness's too, for the same reason.
  */
-export function createEditFileTool({
-  workspace,
-  fileLocks,
-  fileReads,
-}: {
-  workspace: Workspace;
-  fileLocks: FileLocks;
-  fileReads: FileReads;
-}) {
+export function createEditFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
   return defineTool({
     name: 'edit_file',
     description:
@@ -49,14 +40,12 @@ export function createEditFileTool({
         file: real,
         signal,
         change: async () => {
-          const before = await readIfExists({ file: real, signal });
-
-          if (before === null) {
-            throw new ToolCallError({
-              reason: 'not_found',
-              message: `File not found: ${requested}. Use write_file to create it.`,
-            });
-          }
+          const before = await readForChange({
+            file: real,
+            requested,
+            signal,
+            hint: 'Use write_file to create it.',
+          });
 
           if (!fileReads.hasRead({ agent, file: real })) {
             throw new ToolCallError({
@@ -88,12 +77,16 @@ export function createEditFileTool({
           // What the agent saw now holds the new text, so it can edit that place again unread.
           fileReads.markEdited({ agent, file: real, oldText, newText, replaceAll });
 
-          const relative = workspace.relative(real);
           const replaced = count > 1 ? `, ${count} replacements` : '';
-          const described = describeChange({ verb: 'Edited', path: relative, before, after });
-          const change: FileChange = { kind: 'file_change', path: relative, before, after };
 
-          return { content: `${described}${replaced}`, artifacts: [change] };
+          return changeResult({
+            workspace,
+            file: real,
+            verb: 'Edited',
+            before,
+            after,
+            suffix: replaced,
+          });
         },
       });
     },
