@@ -23,17 +23,20 @@ const tools = [
 ];
 ```
 
-| Module       | Tools                                                                          |
-| ------------ | ------------------------------------------------------------------------------ |
-| `tasks/`     | `task_status`, `cancel_task`: check on and stop background tasks               |
-| `sub-agent/` | `start_agent`, `report_status`, `message_agent`: sub-agents, and steering them |
-| `web-fetch/` | `web_fetch`: bounded public HTTP(S) reading, HTML as Markdown, no credentials  |
+| Module       | Tools                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `tasks/`     | `task_status`, `await_tasks`, `cancel_task`: inspect, group and stop background tasks |
+| `sub-agent/` | `start_agent`, `report_status`, `message_agent`: sub-agents, and steering them        |
+| `web-fetch/` | `web_fetch`: bounded public HTTP(S) reading, HTML as Markdown, no credentials         |
 
 ## Docs
 
 `task_status` returns an immediate snapshot for inspection, not a wait. Running snapshots remind
 the agent to finish independent work and yield without tool calls rather than poll. Required task
 results arrive automatically through the loop; services need not exit before a prompt finishes.
+`await_tasks({ ids, reason })` registers a group immediately and holds its completion notices until
+all members finish. Its required reason explains the dependent decision or next step to the agent's
+future self after a summary, rather than merely saying "waiting for results".
 
 - [Sub-agents](docs/sub-agents.md): starting them, what they get, status reporting.
 - [The task tools](docs/tasks.md): checking on and stopping background work.

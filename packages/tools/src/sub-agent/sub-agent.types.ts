@@ -20,7 +20,6 @@ export type RunNestedAgent = (options: {
   messages: HistoryMessage[];
   signal: AbortSignal;
   tasks: TaskRegistry;
-  waitForTasks: boolean;
   session: RunSession;
   summary?: SummaryOptions;
 }) => Promise<{ reason: string; messages: HistoryMessage[] }>;

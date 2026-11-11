@@ -10,10 +10,10 @@ sub-agent on one task, `{ title, task }`.
 - **A background task.** The sub-agent runs as a task in the parent's `TaskRegistry`, so the
   parent sees it with `task_status`, stops it with `cancel_task` (its session ends as
   `interrupted`), and is told its report when it finishes. Its task requires completion:
-  the parent prompt stays alive and resumes automatically with the report even without
-  `waitForTasks`. No user message or status polling is needed. Ordinary background commands can
-  still outlive a prompt. Stopping the prompt stops waiting; any unfinished sub-agent result is
-  then delivered on the next prompt, rather than restarting an interrupted run.
+  the parent prompt stays alive and resumes automatically with the report. No user message or
+  status polling is needed. The child's run also waits for its finite tasks by default; persistent
+  commands explicitly use `backgroundKind: 'service'` and can outlive a prompt. Interrupting the
+  parent's run cancels its background work, including unfinished sub-agents.
 - **Three levels, hard cap.** Main session → sub-agent → sub-agent (`MAX_SESSION_DEPTH = 3`).
   Below the cap a sub-agent gets `start_agent` too; at depth 3 it doesn't, and the registry
   refuses a fourth level regardless.
@@ -27,7 +27,7 @@ sub-agent on one task, `{ title, task }`.
 - **Tools that start background tasks.** `options.tasksTools(tasks)` builds tools (for example
   `run_command`) for each sub-agent on that sub-agent's own `TaskRegistry`, so it waits for and
   can cancel what it starts, and its background commands stop when it ends. A sub-agent with
-  `tasksTools` also gets `task_status` and `cancel_task` at the depth cap. Tools in
+  `tasksTools` also gets `task_status`, `await_tasks` and `cancel_task` at the depth cap. Tools in
   `options.tools` are shared and must not start tasks of their own.
 - **Approvals.** A sub-agent's tools ask the user through the same approval registry as the main
   session; the request carries the sub-agent's `sessionId`. A UI names the asker from the
