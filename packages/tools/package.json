@@ -12,7 +12,10 @@
   "type": "module",
   "license": "UNLICENSED",
   "sheavly": {
-    "domain": "generic"
+    "domain": "generic",
+    "appOnlyModules": [
+      "web-search-backends"
+    ]
   },
   "private": true,
   "dependencies": {
@@ -33,6 +36,21 @@
     "./*.tool": {
       "@sheavly/source": "./src/*.tool.ts",
       "default": "./dist/*.tool.js"
+    },
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
     }
   },
   "files": [
