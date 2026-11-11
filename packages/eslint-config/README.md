@@ -28,6 +28,19 @@ module declarations against actual source folders. See [The workspace layout](do
 A new convention is a rule here, derived from the code rather than a hand-kept list, with a
 message that says what to do instead, and RuleTester tests in `src/__tests__/`.
 
+Authored model instructions, templates, tool descriptions and parameter guidance live in
+first-class `*.prompt.ts` files: named text/table exports and pure typed rendering functions,
+300 lines of code maximum. `harness/prompt-location` traces recognized model-facing sinks through
+local bindings, workspace imports, properties and return builders; `harness/kind-contents` and
+`harness/pure-imports` enforce the prompt file's shape and mechanical purity. Runtime/user data,
+human UI text/errors/status, tests/fakes and stored Markdown prompts are not extraction targets.
+See [Prompt extraction](docs/rules.md#prompt-extraction) for supported flows and limitations.
+
+`harness/system-prompt-review` requires an explained review decision when production prompt/tool
+sources, their sibling constants, or the generic base prompt change. The dedicated `npm run lint:prompt`
+command runs uncached across affected-workspace boundaries. This catches unreviewed source drift,
+not semantic prompt correctness; see [System prompt review](docs/rules.md#system-prompt-review).
+
 Typed source checks include `.tsx` components and their tests. React hook rules also check
 ordinary source helpers; plain `.ts` tests and fakes are excluded because their lifecycle
 helpers use `use*` names too. JSX tests retain the hook rules. See [Rules](docs/rules.md).

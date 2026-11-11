@@ -145,11 +145,20 @@ export function baseConfig(params) {
         // A type a workspace package exports is defined there only; the packages and their types
         // are read from the workspace, so new ones are covered without editing the rule.
         'harness/single-definition': 'error',
+        // Only the canonical host prompt anchor reads tool sources and requires a review record.
+        'harness/system-prompt-review': 'error',
         // Every workspace holds together as the layout reads it from the workspaces.
         'harness/layout': 'error',
         // Imports follow the layout's graph; tests are checked too.
         'harness/imports': 'error',
       },
+    },
+
+    // Authored model-facing text has a reviewable home; runtime/user data stays at the caller.
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/prompt-location': 'error' },
     },
 
     // --- React: a hook is called only from a component or another hook, with its dependencies ---
