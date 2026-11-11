@@ -244,6 +244,7 @@ export class Conversations {
     return {
       storage: {
         entries: this.#store.entries(id),
+        shell: this.#store.shell(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
       },
     };

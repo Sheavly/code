@@ -1,6 +1,6 @@
 import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
-import type { EntryStore } from '@sheavly/core/store/store.types';
+import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -104,6 +104,8 @@ export type CreateConversation = (
  */
 export type ConversationStorage = {
   entries: EntryStore;
+  /** The conversation's `shell.json`, shared by its main session and sub-agents. */
+  shell: DocumentStore;
   keepHistory: (messages: readonly HistoryMessage[]) => void;
   resume?: StoredLog | undefined;
 };
