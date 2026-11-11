@@ -52,7 +52,9 @@ and rules keep the user's own words and a trail of the files and commands the wo
 changes who writes the next summary; a sub-agent's uses its pinned model. A sub-agent's first
 message is the task its parent agent wrote, so its checkpoint lists it under "Task from the parent
 agent", never "What the user asked for" (`subAgentSummary`). A trail line is left out when its
-call's result was an error.
+call's result was an error. The parent-task heading is authored in the internal
+`harness/summary.prompt.ts`; provider selection, redaction and section wiring stay in
+`summary.helper.ts`.
 
 Summaries are on by default, so a long history, tool inputs and results included, is sent to the
 model that writes the summary: the same provider the conversation already uses, in an extra call.

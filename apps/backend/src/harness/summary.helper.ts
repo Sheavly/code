@@ -5,6 +5,7 @@ import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.ut
 import { modelSummarizer } from '@sheavly/summary/model/model.helper';
 import { trailSection } from '@sheavly/summary/sections/trail.utils';
 import { userMessagesSection } from '@sheavly/summary/sections/user-messages.utils';
+import { SUB_AGENT_TASK_TITLE } from './summary.prompt.js';
 
 /**
  * What the backend summarizes a long history with: the model the conversation is on writes the
@@ -27,7 +28,7 @@ export function backendSummary(provider: Provider): SummaryOptions {
  * authority.
  */
 export function subAgentSummary(provider: Provider): SummaryOptions {
-  return summaryOn({ provider, userTitle: 'Task from the parent agent' });
+  return summaryOn({ provider, userTitle: SUB_AGENT_TASK_TITLE });
 }
 
 /** `userTitle` left out keeps the section's own heading, so it is named in one place. */
