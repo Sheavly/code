@@ -54,6 +54,7 @@ describe('parseRunEnv', () => {
       modelCallsFile: undefined,
       exitWithParent: false,
       webFetch: true,
+      webSearch: true,
       summary: true,
       contextWindow: undefined,
     });
@@ -68,6 +69,7 @@ describe('parseRunEnv', () => {
       modelCallsFile: '/tmp/calls.jsonl',
       exitWithParent: false,
       webFetch: true,
+      webSearch: true,
       summary: true,
       contextWindow: undefined,
     });
@@ -82,6 +84,19 @@ describe('parseRunEnv', () => {
 
     for (const value of ['1', 'yes', 'FALSE']) {
       expect(() => parseRunEnv({ WEB_FETCH: value })).toThrow();
+    }
+  });
+});
+
+describe('WEB_SEARCH', () => {
+  it('enables keyless search by default and accepts only explicit boolean switches', () => {
+    expect(parseRunEnv({}).webSearch).toBe(true);
+    expect(parseRunEnv({ WEB_SEARCH: '' }).webSearch).toBe(true);
+    expect(parseRunEnv({ WEB_SEARCH: 'true' }).webSearch).toBe(true);
+    expect(parseRunEnv({ WEB_SEARCH: 'false' }).webSearch).toBe(false);
+
+    for (const value of ['1', 'yes', 'FALSE']) {
+      expect(() => parseRunEnv({ WEB_SEARCH: value })).toThrow();
     }
   });
 });

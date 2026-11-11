@@ -95,6 +95,7 @@ export async function servedConversation(params: {
     env,
     trustWorkspace: settings.trustWorkspace,
     webFetch: settings.webFetch ? {} : false,
+    ...(!settings.webSearch && { webSearch: false }),
     home: homedir(),
     onModelCall,
     ...(storage && { entries: storage.entries, resume: storage.resume }),

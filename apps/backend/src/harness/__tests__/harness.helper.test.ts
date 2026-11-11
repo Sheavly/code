@@ -102,6 +102,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'delete_file',
       'read_skill',
       'web_fetch',
+      'web_search',
       'run_command',
       'task_status',
       'cancel_task',
@@ -153,6 +154,7 @@ describe('createBackendHarness: what a backend run includes', () => {
     );
     expect(sub?.tools.map((tool) => tool.name)).toContain('read_skill');
     expect(sub?.tools.map((tool) => tool.name)).toContain('web_fetch');
+    expect(sub?.tools.map((tool) => tool.name)).toContain('web_search');
     expect(sub?.tools.map((tool) => tool.name)).toEqual(
       expect.arrayContaining(['read_file', 'write_file', 'edit_file', 'delete_file']),
     );
@@ -181,7 +183,10 @@ describe('createBackendHarness: what a backend run includes', () => {
     expect(await subAgentSaw(true)).toContain('MARKER NOTE');
   });
 
-  it('can omit web_fetch from both the main run and its sub-agents', async () => {
+  it.each([
+    ['web_fetch', 'webFetch'],
+    ['web_search', 'webSearch'],
+  ] as const)('can omit %s from both the main run and its sub-agents', async (tool, option) => {
     const requests: ProviderRequest[] = [];
     const harness = await createBackendHarness({
       provider: routedProvider({ go: [startHelper, say('done')], help: [say('helped')] }),
@@ -190,7 +195,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       trustStore,
       env: {},
       permissions: askingPermissions(),
-      webFetch: false,
+      [option]: false,
       onModelCall: (request) => requests.push(request),
     });
     const conversation = createConversation({
@@ -202,12 +207,15 @@ describe('createBackendHarness: what a backend run includes', () => {
     for await (const _event of conversation.send('go'));
     await conversation.close();
 
-    expect(harness.tools.map((tool) => tool.name)).not.toContain('web_fetch');
-    expect(
-      requests
-        .find((request) => request.messages[0]?.content === 'help')
-        ?.tools.map((tool) => tool.name),
-    ).not.toContain('web_fetch');
+    const enabled = tool === 'web_search' ? 'web_fetch' : 'web_search';
+    const childTools = requests
+      .find((request) => request.messages[0]?.content === 'help')
+      ?.tools.map((item) => item.name);
+
+    expect(harness.tools.map((item) => item.name)).not.toContain(tool);
+    expect(harness.tools.map((item) => item.name)).toContain(enabled);
+    expect(childTools).not.toContain(tool);
+    expect(childTools).toContain(enabled);
   });
 
   describe('file locks', () => {

@@ -100,6 +100,7 @@ const runEnvSchema = z.object({
   MODEL_CALLS_FILE: optionalSetting,
   SERVER_EXIT_WITH_PARENT: optionalSetting,
   WEB_FETCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
+  WEB_SEARCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
   SUMMARY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
   // Plain digits only: `Number()` would also take `1e3` and `0x10`, which a prompt's front matter
   // (the other way to set it) does not.
@@ -121,6 +122,7 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
     modelCallsFile: parsed.MODEL_CALLS_FILE,
     exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
     webFetch: parsed.WEB_FETCH === 'true',
+    webSearch: parsed.WEB_SEARCH === 'true',
     summary: parsed.SUMMARY === 'true',
     contextWindow: parsed.CONTEXT_WINDOW,
   };

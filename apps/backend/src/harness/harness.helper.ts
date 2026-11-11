@@ -10,6 +10,8 @@ import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.t
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
+import { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
+import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { createScratchHook } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
@@ -17,9 +19,9 @@ import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
- * What a backend run includes, chosen here and nowhere else: the file tools, read_skill, optional web_fetch and
+ * What a backend run includes, chosen here and nowhere else: the file tools, read_skill, optional web tools and
  * run_command, the task tools, sub-agents (with the file tools, read_skill, run_command on their own
- * tasks, the same hooks as the main run and enabled web_fetch) and message_agent; the AGENTS.md hook,
+ * tasks, the same hooks as the main run and enabled web tools) and message_agent; the AGENTS.md hook,
  * the skills hook (the project's skills, and the user's when `home` is set), then the workspace's
  * `.sheavly/` hooks if it is trusted. The packages provide the pieces and the shared services,
  * never the choice. Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
@@ -34,6 +36,7 @@ export async function createBackendHarness(
     home,
     subAgentProvider,
     webFetch = {},
+    webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
     ...coding
   } = options;
@@ -62,7 +65,10 @@ export async function createBackendHarness(
     createDeleteFileTool({ workspace, fileLocks, fileReads }),
     createReadSkillTool(skillRoots),
   ];
-  const webTools = webFetch === false ? [] : [createWebFetchTool(webFetch)];
+  const webTools = [
+    ...(webFetch === false ? [] : [createWebFetchTool(webFetch)]),
+    ...(webSearch === false ? [] : [createWebSearchTool(webSearch)]),
+  ];
 
   return {
     ...harness,
