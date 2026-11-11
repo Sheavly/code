@@ -52,7 +52,7 @@ const call = (id: string, name: string, input: object = {}): StreamEvent => ({
   call: { id: callIdSchema.parse(id), name, input: { description: `calling ${name}`, ...input } },
 });
 
-/** Turn 1: reasoning, text and three calls (artifacts, an error, a background task). Turn 2: an answer. */
+/** Tool work, an independent answer, and an optional extra turn when the task finishes later. */
 const script: StreamEvent[][] = [
   [
     { type: 'reasoning', item: { source: 'test', data: { encrypted: 'x' } } },
@@ -64,6 +64,10 @@ const script: StreamEvent[][] = [
   ],
   [
     { type: 'text_delta', text: 'Done.' },
+    { type: 'done', stopReason: 'end_turn' },
+  ],
+  [
+    { type: 'text_delta', text: 'Task result received.' },
     { type: 'done', stopReason: 'end_turn' },
   ],
 ];
@@ -106,6 +110,8 @@ describe('the wire contract', () => {
         'tool_batch',
         'tool_result',
         'task_running',
+        'task_completed',
+        'harness_notice',
         'done',
       ]),
     );

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import type { StreamEvent } from '@sheavly/core/message/message.types';
@@ -24,13 +25,13 @@ const background = (
   id: string,
   ms: number,
   output = '',
-  waitForCompletion = false,
+  backgroundKind: 'task' | 'service' = 'task',
 ): StreamEvent => ({
   type: 'tool_call',
   call: {
     id: callIdSchema.parse(id),
     name: 'start_task',
-    input: { description: `bg ${id}`, ms, output, waitForCompletion },
+    input: { description: `bg ${id}`, ms, output, backgroundKind },
   },
 });
 const say = (text: string): StreamEvent[] => [
@@ -77,10 +78,10 @@ const lastUserMessage = (messages: Message[] | undefined) =>
   messages?.filter((m) => m.role === 'user').at(-1);
 
 describe('background tasks in the loop', () => {
-  it("a background command doesn't block the turn: it yields task_running and the run ends", async () => {
+  it("a service doesn't block the turn: it yields task_running and the run ends", async () => {
     tasks = new TaskRegistry();
     const { provider } = recordingProvider([
-      [background('c1', 2_000), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 2_000, '', 'service'), { type: 'done', stopReason: 'tool_use' }],
       say('Started it.'),
     ]);
 
@@ -118,7 +119,7 @@ describe('background tasks in the loop', () => {
       say('The build finished.'),
     ]);
 
-    const events = await collect(streamAgent(options(provider, { waitForTasks: true })));
+    const events = await collect(streamAgent(options(provider)));
 
     expect(types(events)).toEqual([
       'tool_call_started',
@@ -171,7 +172,6 @@ describe('background tasks in the loop', () => {
     tasks.start({
       command: 'CI',
       description: 'CI',
-      waitForCompletion: true,
       run: async ({ onOutput }) => {
         await finish.promise;
         onOutput('CI passed');
@@ -215,22 +215,32 @@ describe('background tasks in the loop', () => {
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
 
-  it('a completion that happens after the run is delivered at the start of the next run', async () => {
+  it('a service completion after the run is delivered at the start of the next prompt', async () => {
     tasks = new TaskRegistry();
+    const registry = new SessionRegistry();
+    const ref = registry.startMain({ title: 'Chat' });
+    const session = { registry, ref };
     const first = recordingProvider([
-      [background('c1', 0, 'quick'), { type: 'done', stopReason: 'tool_use' }],
+      [background('c1', 0, 'quick', 'service'), { type: 'done', stopReason: 'tool_use' }],
       say('Ok.'),
     ]);
-    const firstEvents = await collect(streamAgent(options(first.provider)));
+    const firstEvents = await collect(
+      streamAgent(options(first.provider, { session, keepSession: true })),
+    );
     const done = firstEvents.at(-1);
 
-    while (tasks.runningCount > 0) await new Promise((resolve) => setTimeout(resolve, 10));
+    await until(() => tasks.runningCount === 0);
+    registry.resume(ref.id);
 
     const second = recordingProvider([say('I saw it finish.')]);
     const history = done?.type === 'done' ? done.messages : [];
     const events = await collect(
       streamAgent(
-        options(second.provider, { messages: [...history, { role: 'user', content: 'status?' }] }),
+        options(second.provider, {
+          session,
+          resumed: true,
+          messages: [...history, { role: 'user', content: 'status?' }],
+        }),
       ),
     );
 
@@ -259,7 +269,7 @@ describe('background tasks in the loop', () => {
     ]);
 
     const started = performance.now();
-    const events = await collect(streamAgent(options(provider, { waitForTasks: true })));
+    const events = await collect(streamAgent(options(provider)));
 
     expect(performance.now() - started).toBeLessThan(1_500); // 0.8s overall, not 1.0s+ serially plus turns
     const completions = events.flatMap((e) =>
@@ -297,7 +307,7 @@ describe('background tasks in the loop', () => {
     ]);
 
     const started = performance.now();
-    const events = await collect(streamAgent(options(provider, { waitForTasks: true })));
+    const events = await collect(streamAgent(options(provider)));
 
     expect(performance.now() - started).toBeLessThan(2_000);
     expect(tasks.get(t1)?.status).toBe('cancelled');
@@ -312,7 +322,6 @@ describe('background tasks in the loop', () => {
     tasks.start({
       command: 'review',
       description: 'Review',
-      waitForCompletion: true,
       run: async ({ onOutput }) => {
         await finish.promise;
         onOutput('review findings');
@@ -321,7 +330,7 @@ describe('background tasks in the loop', () => {
       },
     });
     const { provider, requests } = recordingProvider([
-      [background('b', 60_000), { type: 'done', stopReason: 'tool_use' }],
+      [background('b', 60_000, '', 'service'), { type: 'done', stopReason: 'tool_use' }],
       say('Waiting for review.'),
       say('Review received.'),
     ]);
@@ -343,8 +352,8 @@ describe('background tasks in the loop', () => {
     tasks = new TaskRegistry();
     const { provider } = recordingProvider([
       [
-        background('a', 60_000, '', true),
-        background('b', 60_000),
+        background('a', 60_000),
+        background('b', 60_000, '', 'service'),
         { type: 'done', stopReason: 'tool_use' },
       ],
       say('Waiting for review.'),
@@ -362,20 +371,22 @@ describe('background tasks in the loop', () => {
     expect(tasks.runningCount).toBe(1);
   });
 
-  it.each([false, true])('an interrupt stops waiting, with required work: %s', async (required) => {
+  it('an interrupt stops waiting and cancels finite tasks and services', async () => {
     tasks = new TaskRegistry();
     const controller = new AbortController();
     const { provider } = recordingProvider([
-      [background('c1', 5_000, '', required), { type: 'done', stopReason: 'tool_use' }],
+      [
+        background('c1', 5_000),
+        background('server', 60_000, '', 'service'),
+        { type: 'done', stopReason: 'tool_use' },
+      ],
       say('Waiting.'),
     ]);
 
     setTimeout(() => controller.abort(), 200);
-    const events = await collect(
-      streamAgent(options(provider, { waitForTasks: !required, signal: controller.signal })),
-    );
+    const events = await collect(streamAgent(options(provider, { signal: controller.signal })));
 
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
-    expect(tasks.get(t1)?.status).toBe('running'); // the caller decides (the demo cancels on exit)
+    expect(tasks.list().map((task) => task.status)).toEqual(['cancelled', 'cancelled']);
   });
 });

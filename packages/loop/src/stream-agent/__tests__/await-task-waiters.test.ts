@@ -12,7 +12,7 @@ const startBackground = (id: string, ms: number) => [
     call: {
       id: callIdSchema.parse(id),
       name: 'start_task',
-      input: { description: `bg ${id}`, ms, output: '', waitForCompletion: false },
+      input: { description: `bg ${id}`, ms, output: '' },
     },
   },
   { type: 'done' as const, stopReason: 'tool_use' as const },
@@ -34,7 +34,6 @@ describe('a run waiting for background tasks', () => {
       tools: [startTaskTool(tasks)],
       messages: [{ role: 'user', content: 'go' }],
       tasks,
-      waitForTasks: true,
       session: { registry, ref },
       keepSession: true,
     });
