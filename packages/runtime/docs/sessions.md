@@ -86,7 +86,8 @@ parent steers a running sub-agent ("research dogs", then "focus specifically on 
 - **Delivery:** at the start of each turn, after finished tasks are reported, the loop takes the
   inbox and adds each message to history as a user message. A message from a parent says so, so
   the sub-agent knows it's an update to its task. Each one is a `message_received` event in that
-  session's own ordered event stream.
+  session's own ordered event stream. The public `inboxText` wrapper keeps user-origin content
+  unchanged; its parent-message guidance is rendered by the internal `sessions.prompt.ts` module.
 - **Waiting runs wake up:** a run waiting for non-service background tasks also wakes on a
   new message, without cancelling tasks or releasing held groups. A run about to finish takes
   one more turn if a message arrived meanwhile.
