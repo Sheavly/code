@@ -45,12 +45,20 @@ through the ordinary session stream without provider imports, text parsing or a 
 They decide whether and how to render it; model-facing wording and UI presentation stay separate.
 
 Those two kinds are transient: they travel in `request.notices` and are never stored. Persistent
-kinds (`agent-report`, `task-finished`) are facts the model must remember, so they are stored in
+kinds (`agent-report`, `task-finished`, `tasks-finished`) are facts the model must remember, so they are stored in
 history as a `notice` entry, and the loop shows them to the model as a user-role message holding
 `formatHarnessNotice`'s text. That message has no `id`, so it is never taken for a prompt. A
 sub-agent's report is inserted whole between fixed lines with only its angle brackets swapped, so
 it cannot close the envelope. The envelope is written only in core
 (`harness/no-handwritten-notice`).
+
+A `tasks-finished` group formats its nonempty ordered list using the same individual notice bodies
+inside exactly one trusted outer envelope. Its wait reason is explicitly attributed to the calling
+agent as agent-authored DATA, not an instruction. Reason, command, report and output payloads have
+angle brackets escaped; data fences outgrow dash runs in their payloads. Reports remain unbounded,
+while task output retains the supplied bounded preview. The summary model-view path also projects
+stored notices through this formatter, so retained groups use the same trust boundary after a
+checkpoint and when estimating or summarizing history.
 
 `notices` are not history, so an adapter appends their formatted text after it has built the history.
 The API may require a user-role message; the envelope distinguishes its actual origin. Each
