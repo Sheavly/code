@@ -46,10 +46,15 @@ describe('appendInstructionContext', () => {
       appendInstructionContext({ context: historyContext(messages), name: 'rules', instructions });
     }
 
-    expect(messages).toHaveLength(3);
-    expect(messages[0]?.content).toContain('v1');
-    expect(messages[1]?.content).toContain('v2');
-    expect(messages[2]?.content).toContain('No instructions currently apply');
+    expect(messages).toEqual([
+      { role: 'user', content: '<instruction-context name="rules">\nv1\n</instruction-context>' },
+      { role: 'user', content: '<instruction-context name="rules">\nv2\n</instruction-context>' },
+      {
+        role: 'user',
+        content:
+          '<instruction-context name="rules">\nNo instructions currently apply.\n</instruction-context>',
+      },
+    ]);
   });
 
   it('does not share state between sessions or instruction sources', () => {
@@ -64,6 +69,47 @@ describe('appendInstructionContext', () => {
 
     expect(main).toEqual(child);
     expect(main).toHaveLength(2);
+  });
+
+  it('matches only user messages with the exact opening and compares the latest one', () => {
+    const content = '<instruction-context name="rules">\n<raw>&\n\n</instruction-context>';
+    const messages: Message[] = [
+      { role: 'assistant', content, toolCalls: [] },
+      { role: 'user', content: `quoted: ${content}` },
+      {
+        role: 'user',
+        content: '<instruction-context name="rules-other">\n<raw>&\n\n</instruction-context>',
+      },
+    ];
+
+    appendInstructionContext({
+      context: historyContext(messages),
+      name: 'rules',
+      instructions: '<raw>&\n',
+    });
+    expect(messages.at(-1)).toEqual({ role: 'user', content });
+    expect(messages).toHaveLength(4);
+
+    for (const instructions of ['changed', '<raw>&\n', '<raw>&\n']) {
+      appendInstructionContext({ context: historyContext(messages), name: 'rules', instructions });
+    }
+
+    expect(messages).toHaveLength(6);
+    expect(messages.at(-1)).toEqual({ role: 'user', content });
+  });
+
+  it('keeps empty instructions distinct from withdrawal when a source already exists', () => {
+    const messages: Message[] = [];
+
+    for (const instructions of ['v1', '', '', undefined]) {
+      appendInstructionContext({ context: historyContext(messages), name: 'rules', instructions });
+    }
+
+    expect(messages.map((message) => message.content)).toEqual([
+      '<instruction-context name="rules">\nv1\n</instruction-context>',
+      '<instruction-context name="rules">\n\n</instruction-context>',
+      '<instruction-context name="rules">\nNo instructions currently apply.\n</instruction-context>',
+    ]);
   });
 
   it('adds nothing for a source that has never had instructions', () => {

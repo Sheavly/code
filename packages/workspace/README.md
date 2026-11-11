@@ -76,6 +76,15 @@ folder.
 | `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                                |
 | `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                                  |
 
+## Instruction rendering
+
+Authored model guidance lives in adjacent internal `*.prompt.ts` renderers for `agents-md/`,
+`skills/`, `scratch/` and `instruction-context/`. The existing public formatter and hook
+entrypoints keep their signatures and output: utilities prepare file/skill data, while helpers
+retain file access, history lookup/deduplication and hook execution. Prompt renderers perform no
+I/O or state changes; file contents, skill descriptions/bodies and user text remain runtime data.
+The instruction-context opening prefix has one pure definition shared by rendering and lookup.
+
 ## Docs
 
 - [AGENTS.md](docs/agents-md.md): which files the hook reads, and when.
