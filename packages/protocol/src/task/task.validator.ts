@@ -17,6 +17,8 @@ export const taskInfoSchema = z.object({
   callId: callIdSchema.exactOptional(),
   command: z.string(),
   description: z.string(),
+  /** Explicit await_tasks reason, absent until the task joins a delivery group. */
+  reason: z.string().exactOptional(),
   status: taskStatusSchema,
   startedAt: timestampSchema,
   endedAt: timestampSchema.exactOptional(),

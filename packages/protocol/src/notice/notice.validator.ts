@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { callIdSchema } from '../message/message.validator.js';
 import { contextWindowSchema } from '../model/model.validator.js';
+import { timestampSchema } from '../time/time.validator.js';
 import { agentInfoSchema, runOutcomeSchema } from '../session/session.validator.js';
 import { taskIdSchema, taskInfoSchema } from '../task/task.validator.js';
 import { tokenUsageSchema } from '../usage/usage.validator.js';
@@ -28,6 +30,15 @@ const transientNoticeSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+/** Completion-time facts; the reason is agent-authored data, not model instructions. */
+export const taskCompletionContextSchema = z.object({
+  reason: z.string(),
+  startedAt: timestampSchema,
+  durationMs: z.number().nonnegative(),
+  userMessagesSinceStart: z.number().int().nonnegative(),
+  callId: callIdSchema.exactOptional(),
+});
+
 /**
  * Notices the model must remember, so they are stored in history as typed data and shown to the
  * model through the core formatter. A UI reads the same data from history and the event stream and
@@ -44,9 +55,15 @@ const individualPersistentNoticeSchema = z.discriminatedUnion('kind', [
     outcome: runOutcomeSchema,
     /** What the sub-agent reported, whole: its final answer and nothing else. */
     report: z.string(),
+    /** Optional only so stored histories written without completion context remain readable. */
+    context: taskCompletionContextSchema.exactOptional(),
   }),
   /** A background task finished: its snapshot, whose `output` stays the bounded preview. */
-  z.object({ kind: z.literal('task-finished'), task: taskInfoSchema }),
+  z.object({
+    kind: z.literal('task-finished'),
+    task: taskInfoSchema,
+    context: taskCompletionContextSchema.exactOptional(),
+  }),
 ]);
 
 /** A completion delivery retains the agent-authored wait reason as data, not instructions. */
@@ -56,6 +73,7 @@ export const persistentNoticeSchema = z.union([
     kind: z.literal('tasks-finished'),
     reason: z.string(),
     notices: z.array(individualPersistentNoticeSchema).min(1),
+    context: taskCompletionContextSchema.exactOptional(),
   }),
 ]);
 

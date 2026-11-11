@@ -75,7 +75,8 @@
                 "agent": { "$ref": "#/$defs/AgentInfo" },
                 "taskId": { "$ref": "#/$defs/TaskId" },
                 "outcome": { "$ref": "#/$defs/RunOutcome" },
-                "report": { "type": "string" }
+                "report": { "type": "string" },
+                "context": { "$ref": "#/$defs/TaskCompletionContext" }
               },
               "required": ["kind", "agent", "taskId", "outcome", "report"]
             },
@@ -83,7 +84,8 @@
               "type": "object",
               "properties": {
                 "kind": { "type": "string", "const": "task-finished" },
-                "task": { "$ref": "#/$defs/TaskInfo" }
+                "task": { "$ref": "#/$defs/TaskInfo" },
+                "context": { "$ref": "#/$defs/TaskCompletionContext" }
               },
               "required": ["kind", "task"]
             }
@@ -106,7 +108,8 @@
                       "agent": { "$ref": "#/$defs/AgentInfo" },
                       "taskId": { "$ref": "#/$defs/TaskId" },
                       "outcome": { "$ref": "#/$defs/RunOutcome" },
-                      "report": { "type": "string" }
+                      "report": { "type": "string" },
+                      "context": { "$ref": "#/$defs/TaskCompletionContext" }
                     },
                     "required": ["kind", "agent", "taskId", "outcome", "report"]
                   },
@@ -114,17 +117,30 @@
                     "type": "object",
                     "properties": {
                       "kind": { "type": "string", "const": "task-finished" },
-                      "task": { "$ref": "#/$defs/TaskInfo" }
+                      "task": { "$ref": "#/$defs/TaskInfo" },
+                      "context": { "$ref": "#/$defs/TaskCompletionContext" }
                     },
                     "required": ["kind", "task"]
                   }
                 ]
               }
-            }
+            },
+            "context": { "$ref": "#/$defs/TaskCompletionContext" }
           },
           "required": ["kind", "reason", "notices"]
         }
       ]
+    },
+    "TaskCompletionContext": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string" },
+        "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "userMessagesSinceStart": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "callId": { "$ref": "#/$defs/CallId" }
+      },
+      "required": ["reason", "startedAt", "durationMs", "userMessagesSinceStart"]
     },
     "NoticeMessage": {
       "type": "object",
@@ -1155,6 +1171,7 @@
         "callId": { "$ref": "#/$defs/CallId" },
         "command": { "type": "string" },
         "description": { "type": "string" },
+        "reason": { "type": "string" },
         "status": { "$ref": "#/$defs/TaskStatus" },
         "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
