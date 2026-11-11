@@ -90,7 +90,13 @@ Output-continuation notices leave streamed replies open, with no continuation li
 The status line continues to use usage data; another UI can present notices differently without
 changing the backend or interpreting model-facing text. A persistent notice (a finished task, or a
 sub-agent's report) is ignored too: the task line and the sub-agent's own updates already show the
-finish, and its typed data stays in history for a UI that wants a card.
+finish, so the terminal does not add duplicate cards for individual or grouped completion notices.
+Typed completion context remains available in history and events for UIs that want to present it:
+the reason, start time (epoch milliseconds), duration, number of user messages since the task started,
+and optional originating call ID. Grouped notices retain their wait reason and each member's optional
+context; task snapshots can also carry a reason. Older notices without this context remain valid.
+The current terminal deliberately omits this timing, reason and conversation context from its output
+and does not let these notices change progress indicators.
 
 ## Docs
 
