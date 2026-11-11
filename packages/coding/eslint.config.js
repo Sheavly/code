@@ -15,6 +15,7 @@ export default defineConfig([
       'harness/guard-env-read': 'error',
       'harness/guard-env-write': 'error',
       'harness/guard-search-root': 'error',
+      'harness/guard-working-root': 'error',
     },
   },
   // The agent's file tools write a project through the filesystem effects in this one helper,
