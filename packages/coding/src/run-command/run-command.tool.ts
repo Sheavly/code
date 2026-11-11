@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { currentRoot } from '../files/working-root.helper.js';
 import { confirmCommand } from './command-approval.helper.js';
 import { outsideGrantedFolder, resolveCommandCwd } from './command-cwd.helper.js';
 import { parseCommand } from './allow-list.utils.js';
@@ -11,6 +12,7 @@ import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt
 
 export function createRunCommandTool({
   workspace,
+  workingRoots,
   permissions,
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
@@ -39,7 +41,8 @@ export function createRunCommandTool({
       }
 
       // Before asking the user: a folder the sandbox refuses should not cost them an approval.
-      const commandCwd = await resolveCommandCwd({ workspace, requested: cwd });
+      const root = await currentRoot(workingRoots);
+      const commandCwd = await resolveCommandCwd({ workspace, requested: cwd, root });
 
       await confirmCommand({
         command,

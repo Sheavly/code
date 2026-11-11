@@ -5,6 +5,7 @@ import type { FileToolServices } from '../files/files.types.js';
 import { fileSize, readForChange, removeFile } from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
 import { assertSameDeletable, resolveDeletable } from '../files/files.helper.js';
+import { currentRoot } from '../files/working-root.helper.js';
 import { MAX_DELETE_BYTES } from './delete-file.constants.js';
 import { DELETE_FILE_PROMPTS } from './delete-file.prompt.js';
 
@@ -23,7 +24,12 @@ import { DELETE_FILE_PROMPTS } from './delete-file.prompt.js';
  * `fileReads` is told the file is gone, so what an agent was shown of it can't let an edit through
  * a file later created at that path.
  */
-export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
+export function createDeleteFileTool({
+  workspace,
+  workingRoots,
+  fileLocks,
+  fileReads,
+}: FileToolServices) {
   return defineTool({
     name: 'delete_file',
     description: DELETE_FILE_PROMPTS.description,
@@ -31,7 +37,8 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
       path: z.string().min(1).describe(DELETE_FILE_PROMPTS.path),
     }),
     execute: async ({ input: { path: requested }, signal }) => {
-      const real = await resolveDeletable({ workspace, requested });
+      const root = await currentRoot(workingRoots);
+      const real = await resolveDeletable({ workspace, requested, root });
 
       return fileLocks.run({
         file: real,
@@ -39,7 +46,7 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
         change: async () => {
           // Resolved before the lock to queue on the file, then again under it: a path swapped
           // while the delete waited would otherwise be read or removed without the guards.
-          await assertSameDeletable({ workspace, requested, expected: real });
+          await assertSameDeletable({ workspace, requested, expected: real, root });
           await assertReadableSize({ requested, file: real });
 
           const before = await readForChange({
@@ -53,11 +60,18 @@ export function createDeleteFileTool({ workspace, fileLocks, fileReads }: FileTo
 
           // Node has no unlink-by-handle, so the unlink is a fresh path lookup after this check: a
           // parent swapped in that last moment is the one case neither check can close.
-          await assertSameDeletable({ workspace, requested, expected: real });
+          await assertSameDeletable({ workspace, requested, expected: real, root });
           await removeFile({ file: real, signal });
           fileReads.markDeleted({ file: real });
 
-          return changeResult({ workspace, file: real, verb: 'Deleted', before, after: null });
+          return changeResult({
+            workspace,
+            file: real,
+            verb: 'Deleted',
+            before,
+            after: null,
+            root,
+          });
         },
       });
     },

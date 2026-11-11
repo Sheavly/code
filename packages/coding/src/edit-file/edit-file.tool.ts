@@ -6,6 +6,7 @@ import { readForChange, writeText } from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
+import { currentRoot } from '../files/working-root.helper.js';
 import { applyEdit } from './edit-file.utils.js';
 import { EDIT_FILE_PROMPTS } from './edit-file.prompt.js';
 
@@ -19,7 +20,12 @@ import { EDIT_FILE_PROMPTS } from './edit-file.prompt.js';
  * file must share one instance (the harness's), and a tool that made its own would silently let
  * a parallel write or edit overlap. `fileReads` is the harness's too, for the same reason.
  */
-export function createEditFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
+export function createEditFileTool({
+  workspace,
+  workingRoots,
+  fileLocks,
+  fileReads,
+}: FileToolServices) {
   return defineTool({
     name: 'edit_file',
     description: EDIT_FILE_PROMPTS.description,
@@ -31,7 +37,8 @@ export function createEditFileTool({ workspace, fileLocks, fileReads }: FileTool
     }),
     execute: async ({ input, signal, context }) => {
       const { path: requested, oldText, newText, replaceAll = false } = input;
-      const real = await resolveWritable({ workspace, requested });
+      const root = await currentRoot(workingRoots);
+      const real = await resolveWritable({ workspace, requested, root });
       const agent = agentOf(context);
 
       return fileLocks.run({
@@ -84,6 +91,7 @@ export function createEditFileTool({ workspace, fileLocks, fileReads }: FileTool
             before,
             after,
             suffix: replaced,
+            root,
           });
         },
       });

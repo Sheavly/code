@@ -29,6 +29,7 @@ tools also use a shared scratch folder outside the repo; see
 | `delete-file/`  | `delete_file`: removes one file, through the workspace and the file lock                          |
 | `run-command/`  | `run_command`: base-command permissions, safe git config, approvals                               |
 | `trail/`        | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail            |
+| `working-root/` | `set_working_root` and the hook that tells the agent its root each turn                           |
 | `files/`        | What the file tools share: `resolveWritable` / `resolveDeletable`, the `.env` guard, `FileChange` |
 | `errors/`       | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it              |
 
@@ -54,7 +55,8 @@ These prompt modules are internal; schema validation, runtime effects and UI art
 The public `CODING_INSTRUCTIONS` constant remains at its existing constants subpath as a direct,
 typed alias, preserving both its value and literal type without duplicating the authored text.
 
-- [File tools](docs/file-tools.md): confinement, the four tools, and the artifacts they return.
+- [File tools](docs/file-tools.md): confinement, the four tools, the artifacts they return, and
+  the [working root](docs/file-tools.md#the-working-root) an agent can set for a worktree.
 - [Skills](../workspace/docs/skills.md): `read_skill` returns complete skill files without line or
   character caps, while preserving path confinement and `.env` protection. Ordinary `read_file`
   limits are unchanged.

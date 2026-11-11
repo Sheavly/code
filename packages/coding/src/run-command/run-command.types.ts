@@ -2,6 +2,7 @@ import type { AllowEntry, Permissions } from '@sheavly/protocol/permission/permi
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 
 /**
@@ -19,6 +20,8 @@ export type CommandPermissions = {
 
 export type RunCommandOptions = {
   workspace: Workspace;
+  /** Where a command starts when the agent chose a working root. Default: the workspace root. */
+  workingRoots?: WorkingRoots | undefined;
   /** What the user allows here: see `CommandPermissions`. */
   permissions: CommandPermissions;
   /** Applies to foreground commands. Background tasks run until they exit or are cancelled. */

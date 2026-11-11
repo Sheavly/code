@@ -21,24 +21,34 @@ describe('a sibling worktree', () => {
   it('lets a source file be written', async () => {
     const requested = path.join(repo.worktree, 'src/new.ts');
 
-    await expect(resolveWritable({ workspace, requested })).resolves.toBe(requested);
+    await expect(resolveWritable({ workspace, requested, root: undefined })).resolves.toBe(
+      requested,
+    );
   });
 
   it('refuses writing a .env file', async () => {
     await expect(
-      resolveWritable({ workspace, requested: path.join(repo.worktree, '.env') }),
+      resolveWritable({ workspace, requested: path.join(repo.worktree, '.env'), root: undefined }),
     ).rejects.toThrow(/\.env/);
   });
 
   it('refuses writing inside .git', async () => {
     await expect(
-      resolveWritable({ workspace, requested: path.join(repo.worktree, '.git/config') }),
+      resolveWritable({
+        workspace,
+        requested: path.join(repo.worktree, '.git/config'),
+        root: undefined,
+      }),
     ).rejects.toThrow(/\.git/);
   });
 
   it('refuses .git as a command cwd', async () => {
     await expect(
-      resolveCommandCwd({ workspace, requested: path.join(repo.worktree, '.git') }),
+      resolveCommandCwd({
+        workspace,
+        requested: path.join(repo.worktree, '.git'),
+        root: undefined,
+      }),
     ).rejects.toThrow(/Running a command inside \.git/);
   });
 });

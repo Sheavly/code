@@ -17,7 +17,12 @@ import { readFilePaths } from './glob-output.utils.js';
  * `MAX_GLOB_RESULTS` files are returned, with a note when there were more. `ripgrepPath` is the
  * binary to run; it defaults to the one `@vscode/ripgrep` ships.
  */
-export function createGlobTool({ workspace, processes, ripgrepPath = rgPath }: RipgrepToolDeps) {
+export function createGlobTool({
+  workspace,
+  workingRoots,
+  processes,
+  ripgrepPath = rgPath,
+}: RipgrepToolDeps) {
   return defineTool({
     name: 'glob',
     description: GLOB_PROMPTS.description,
@@ -28,12 +33,12 @@ export function createGlobTool({ workspace, processes, ripgrepPath = rgPath }: R
     execute: async ({ input, signal }) => {
       const { pattern, path: requested = '.' } = input;
 
-      const searched = await resolveSearchRoot({ workspace, requested });
+      const { searched, cwd } = await resolveSearchRoot({ workspace, workingRoots, requested });
       const run = await runRipgrep({
         processes,
         file: ripgrepPath,
         args: globArgs({ pattern, searchPath: searched }),
-        cwd: workspace.root,
+        cwd,
         signal,
       });
 
@@ -41,7 +46,7 @@ export function createGlobTool({ workspace, processes, ripgrepPath = rgPath }: R
 
       const found = readFilePaths(run.stdout);
       const scanned = found.slice(0, MAX_GLOB_SCANNED);
-      const newest = await sortNewestFirst({ root: workspace.root, files: scanned, signal });
+      const newest = await sortNewestFirst({ root: cwd, files: scanned, signal });
       const result: GlobResult = {
         kind: 'glob_files',
         pattern,

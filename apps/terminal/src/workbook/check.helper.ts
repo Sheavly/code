@@ -208,7 +208,7 @@ export async function appendToWorkspace(params: {
   const { store, prompt, append } = params;
   const workspace = await Workspace.open(store.runWorkspaceDir(prompt.name));
   // The file tools' own rules: inside the workspace, never a .env file, never inside .git.
-  const file = await resolveWritable({ workspace, requested: append.file });
+  const file = await resolveWritable({ workspace, requested: append.file, root: undefined });
 
   await appendFile(file, append.text);
 }

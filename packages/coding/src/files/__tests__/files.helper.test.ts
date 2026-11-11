@@ -15,7 +15,12 @@ describe('assertSameDeletable', () => {
     const real = await realpath(path.join(temp.root, 'a.txt'));
 
     await expect(
-      assertSameDeletable({ workspace: temp.workspace, requested: 'a.txt', expected: real }),
+      assertSameDeletable({
+        workspace: temp.workspace,
+        requested: 'a.txt',
+        expected: real,
+        root: undefined,
+      }),
     ).resolves.toBeUndefined();
   });
 
@@ -23,7 +28,12 @@ describe('assertSameDeletable', () => {
     const other = await realpath(path.join(temp.root, 'b.txt'));
 
     await expect(
-      assertSameDeletable({ workspace: temp.workspace, requested: 'a.txt', expected: other }),
+      assertSameDeletable({
+        workspace: temp.workspace,
+        requested: 'a.txt',
+        expected: other,
+        root: undefined,
+      }),
     ).rejects.toThrow('changed while the delete waited');
   });
 });
