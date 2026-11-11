@@ -5,6 +5,7 @@ import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
+import { READ_FILE_PROMPTS } from './read-file.prompt.js';
 import type { FileRead } from './read-file.types.js';
 import { agentOf, assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
 import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
@@ -23,18 +24,11 @@ export function createReadFileTool({
 }) {
   return defineTool({
     name: 'read_file',
-    description:
-      'Read a UTF-8 text file. Paths are relative to the workspace root. ' +
-      `Returns at most ${MAX_READ_LINES} lines per call; use startLine and endLine (1-based, inclusive) ` +
-      'to read a range. When a file is cut, a note at the end says which lines were shown and where to continue. ' +
-      'Files outside the workspace and .env files cannot be read.',
+    description: READ_FILE_PROMPTS.description,
     inputSchema: z.object({
-      path: z.string().min(1).describe('File path, relative to the workspace root'),
-      startLine: z.number().optional().describe('First line to read, 1-based (default 1)'),
-      endLine: z
-        .number()
-        .optional()
-        .describe(`Last line to read, inclusive (default: ${MAX_READ_LINES} lines from startLine)`),
+      path: z.string().min(1).describe(READ_FILE_PROMPTS.path),
+      startLine: z.number().optional().describe(READ_FILE_PROMPTS.startLine),
+      endLine: z.number().optional().describe(READ_FILE_PROMPTS.endLine),
     }),
     execute: async ({ input: { path: requested, startLine, endLine }, signal, context }) => {
       assertNotEnvFile({ filePath: requested, requested, action: 'Reading' }); // checked before touching the disk

@@ -6,6 +6,7 @@ import { createParentFolder, readIfExists, writeText } from '../files/file-effec
 import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
+import { WRITE_FILE_PROMPTS } from './write-file.prompt.js';
 
 /**
  * Creates a new UTF-8 text file inside the workspace (creating parent folders), and refuses a
@@ -20,13 +21,10 @@ import { agentOf } from '../files/files.utils.js';
 export function createWriteFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
   return defineTool({
     name: 'write_file',
-    description:
-      'Create a new file. Paths are relative to the workspace root; missing folders are ' +
-      'created. It refuses a file that already exists: read it with read_file and change it ' +
-      'with edit_file.',
+    description: WRITE_FILE_PROMPTS.description,
     inputSchema: z.object({
-      path: z.string().min(1).describe('File path, relative to the workspace root'),
-      content: z.string().describe('The complete content of the new file'),
+      path: z.string().min(1).describe(WRITE_FILE_PROMPTS.path),
+      content: z.string().describe(WRITE_FILE_PROMPTS.content),
     }),
     execute: async ({ input: { path: requested, content }, signal, context }) => {
       const real = await resolveWritable({ workspace, requested });

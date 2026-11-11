@@ -1,5 +1,6 @@
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { GlobResult } from './glob.types.js';
+import { globTruncationPrompt } from './glob.prompt.js';
 
 /**
  * The text the model reads: one path per line, newest first, then notes for what the list leaves
@@ -7,11 +8,7 @@ import type { GlobResult } from './glob.types.js';
  */
 export function formatGlob(result: GlobResult): string {
   const notes = [
-    ...(result.truncated
-      ? [
-          `Showing the newest of the files found, ${result.files.length} in all; there are more. Narrow the pattern or path.`,
-        ]
-      : []),
+    ...(result.truncated ? [globTruncationPrompt(result.files.length)] : []),
     ...(result.skipped
       ? [`Some folders could not be read, so results may be incomplete: ${result.skipped}`]
       : []),

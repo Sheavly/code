@@ -1,5 +1,6 @@
 import type { FileRead, ShownLines } from './read-file.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import { pastEndPrompt, shownLinesPrompt } from './read-file.prompt.js';
 
 /** A text file as lines, without the final empty "line" a trailing newline leaves. */
 type Lines = { lines: string[]; endsWithNewline: boolean };
@@ -106,7 +107,7 @@ export function selectLines(params: {
     return {
       content: '',
       lines: { start, end: start - 1, total, whole: false },
-      note: `[The file has ${total} lines; startLine ${start} is past the end, so there is nothing to show. Use startLine 1–${total}.]`,
+      note: pastEndPrompt({ total, start }),
     };
   }
 
@@ -134,14 +135,10 @@ export function selectLines(params: {
 
   if (whole && notes.length === 0) return { content, lines: shown };
 
-  const next = reachedEnd
-    ? 'That is the end of the file.'
-    : `To read on, call ${tool} with startLine ${end + 1}.`;
-
   return {
     content,
     lines: shown,
-    note: `[Showing lines ${start}–${end} of ${total}. ${[...notes, next].join(' ')}]`,
+    note: shownLinesPrompt({ start, end, total, notes, reachedEnd, tool }),
   };
 }
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { createCodingHarness } from '../coding.helper.js';
-import { CODING_INSTRUCTIONS } from '../../instructions/coding-instructions.constants.js';
+import { CODING_INSTRUCTIONS } from '../../instructions/coding-instructions.prompt.js';
 
 let root: string;
 

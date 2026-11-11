@@ -7,6 +7,7 @@ import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
 import { applyEdit } from './edit-file.utils.js';
+import { EDIT_FILE_PROMPTS } from './edit-file.prompt.js';
 
 /**
  * Replaces an exact piece of text in an existing file. The text must occur exactly once (or
@@ -21,15 +22,12 @@ import { applyEdit } from './edit-file.utils.js';
 export function createEditFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
   return defineTool({
     name: 'edit_file',
-    description:
-      'Replace exact text in an existing file. `oldText` must match the file exactly ' +
-      '(including whitespace) and occur once, unless `replaceAll` is true. You must read the ' +
-      'file with read_file first; to create a file, use write_file.',
+    description: EDIT_FILE_PROMPTS.description,
     inputSchema: z.object({
-      path: z.string().min(1).describe('File path, relative to the workspace root'),
-      oldText: z.string().min(1).describe('The exact text to replace'),
-      newText: z.string().describe('The text to put in its place'),
-      replaceAll: z.boolean().optional().describe('Replace every occurrence (default: only one)'),
+      path: z.string().min(1).describe(EDIT_FILE_PROMPTS.path),
+      oldText: z.string().min(1).describe(EDIT_FILE_PROMPTS.oldText),
+      newText: z.string().describe(EDIT_FILE_PROMPTS.newText),
+      replaceAll: z.boolean().optional().describe(EDIT_FILE_PROMPTS.replaceAll),
     }),
     execute: async ({ input, signal, context }) => {
       const { path: requested, oldText, newText, replaceAll = false } = input;

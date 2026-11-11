@@ -48,6 +48,11 @@ Coding guidance excludes routine investigation of secret-bearing files and forbi
 bypassing protected-file rules. Tool guards still enforce those rules independently.
 The coding section is a short reminder to inspect first, fit the surrounding code, preserve
 existing work and verify changed behavior; detailed procedures stay in tools and project instructions.
+Its source is the internal `src/instructions/coding-instructions.prompt.ts`. Each tool's adjacent
+`*.prompt.ts` owns its model-facing description and input guidance, plus instructional output notes.
+These prompt modules are internal; schema validation, runtime effects and UI artifacts stay in code.
+The public `CODING_INSTRUCTIONS` constant remains at its existing constants subpath as a direct,
+typed alias, preserving both its value and literal type without duplicating the authored text.
 
 - [File tools](docs/file-tools.md): confinement, the four tools, and the artifacts they return.
 - [Skills](../workspace/docs/skills.md): `read_skill` returns complete skill files without line or
