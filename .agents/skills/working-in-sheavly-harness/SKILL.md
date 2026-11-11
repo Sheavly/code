@@ -83,15 +83,17 @@ packages/coding/src/run-command/
   run-command.tool.ts        the tool (code only)
   run-command.types.ts       exported types only
   run-command.constants.ts   exported literal constants only
+  run-command.prompt.ts      authored model guidance and pure prompt rendering
   run-command.utils.ts       pure helpers (no I/O, no services)
   command-approval.helper.ts stateless functions that call the approval registry
   __tests__/run-command.tool.test.ts
 ```
 
-Kinds: `types`, `constants`, `utils`, `validator`, `helper`, `service`, `tool`, `adapter`, `routes` (one group of HTTP routes), `errors`, `component` (one React view, `<name>.component.tsx`, in an app; its props type goes in `*.types.ts`), `fake` (a `testing/` folder), `test`. Policies (exports, classes, schemas, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there. Which of the code kinds a file is, lint decides:
+Kinds: `types`, `constants`, `prompt`, `utils`, `validator`, `helper`, `service`, `tool`, `adapter`, `routes` (one group of HTTP routes), `errors`, `component` (one React view, `<name>.component.tsx`, in an app; its props type goes in `*.types.ts`), `fake` (a `testing/` folder), `test`. Policies (exports, classes, schemas, max lines) are in `packages/eslint-config/src/file-kinds.js`; a genuinely new kind is added there. Which of the code kinds a file is, lint decides:
 
 - `utils`: pure, no I/O, no services. `validator`: pure too, and only validation: zod schemas for external input (files, env, API events, hook exports) and the `parse*` functions that turn `unknown` into typed data. Validate with `parseOrThrow` / `validate` from `@sheavly/core/validation/validation.validator`, passing your area's typed error.
 - `helper`: stateless functions that may do I/O or call services; it exports no class. `service`: owns state, so it exports a class. State with order or a lifecycle (queues, live processes) lives in a service the host creates and injects, never at module level, so tests don't share it.
+- `prompt`: authored model instructions, tool/parameter guidance and prompt templates, beside the owning module. Export strings, related prompt data or pure typed renderers; no I/O, environment reads, state, model calls, exported types/classes/schemas or unrelated numeric configuration. Keep execution and validation in their existing kinds. User/runtime data, human-facing messages and test fixtures are not authored prompts. `harness/prompt-location` checks supported model-facing boundaries; moving prose into a constants file does not satisfy it. Prompt files remain internal unless the whole kind is deliberately exported.
 
 - A code file never exports a type, and never holds a literal constant, exported or not (a number, string, regex or literal table): move it to the module's `*.types.ts` / `*.constants.ts`. A `*.service.ts` without a class, a `*.helper.ts` with one, and an exported zod schema outside a `*.validator.ts` fail too (`harness/kind-contents`). Unexported local types and schemas may stay; fakes and tests keep their own fixture values.
 - `*.types.ts` imports only with `import type`; derive schema types there with `z.infer<typeof xSchema>`.
@@ -150,6 +152,7 @@ npm run check -- --force # bypass the turbo cache
 npx turbo run test --filter=@sheavly/core   # one workspace's task (or `npm run test -w @sheavly/core`)
 npm run lint:fix   # ESLint auto-fixes, then Prettier (in that order)
 npm run format     # Prettier only
+npm run lint:prompt # verify the explained prompt/source review record, without caching
 ```
 
 Every workspace has its own `typecheck`, `lint` and `test` scripts that check only its files; a new package needs all three. Results are cached in `.turbo/cache` by their inputs, so a change reruns only its workspace and the ones that import it.

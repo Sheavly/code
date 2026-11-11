@@ -8,7 +8,7 @@
     "test:watch": "vitest --mode all",
     "lint": "turbo run lint lint:root",
     "lint:fix": "eslint . --fix && prettier --write . --log-level warn",
-    "check": "turbo run typecheck lint lint:root test test:root format:check knip jscpd layout",
+    "check": "turbo run typecheck lint lint:root lint:prompt test test:root format:check knip jscpd layout",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
@@ -17,13 +17,14 @@
     "demo": "tsx --conditions=@sheavly/source apps/terminal/src/demo.ts",
     "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
     "test:root": "vitest run",
-    "check:affected": "turbo run typecheck lint lint:root test test:root --affected && turbo run format:check knip jscpd layout",
+    "check:affected": "turbo run typecheck lint lint:root test test:root --affected && turbo run lint:prompt format:check knip jscpd layout",
     "layout": "node scripts/check-layout.mjs",
     "new": "node scripts/new-workspace.mjs",
     "graph": "node scripts/graph.mjs",
     "export": "node scripts/export.mjs",
     "dev:terminal": "tsx --tsconfig apps/terminal/tsconfig.json --conditions=@sheavly/source apps/terminal/src/chat.ts",
-    "theme:smoke": "tsx --conditions=@sheavly/source scripts/theme-smoke.mjs"
+    "theme:smoke": "tsx --conditions=@sheavly/source scripts/theme-smoke.mjs",
+    "lint:prompt": "npm exec -w @sheavly/host -- eslint src/instructions/instructions.prompt.ts"
   },
   "type": "module",
   "devDependencies": {

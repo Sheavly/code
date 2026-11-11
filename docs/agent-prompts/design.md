@@ -41,21 +41,22 @@ Implemented module paths:
 
 ```text
 packages/host/src/instructions/
-  instructions.constants.ts
+  instructions.prompt.ts
   instructions.helper.ts
   __tests__/instructions.helper.test.ts
 
 packages/coding/src/instructions/
-  coding-instructions.constants.ts
+  coding-instructions.prompt.ts
 
 packages/tools/src/sub-agent/
-  sub-agent.constants.ts
+  sub-agent.prompt.ts
 ```
 
-Use named exported template strings in constants files, one responsibility per fragment.
-Assembly belongs in a helper; its public option types remain in the host's types file. Follow the existing
-workspace file-kind limits and documentation/export rules rather than inventing a prompt file kind.
-Create only files and exports required by the chosen implementation.
+Use named exported text, related prompt data and pure typed renderers in adjacent `*.prompt.ts`
+files, one responsibility per fragment. Runtime assembly belongs in a helper; its public option
+types remain in the host's types file. Prompt files use the adopted 300-line file-kind policy and
+stay internal unless their whole kind is deliberately exported. Create only files and exports
+required by the implementation.
 
 | Owner                     | Owns                                                                           | Does not own                                                                          |
 | ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -72,7 +73,7 @@ the generic host cannot reach into coding to discover that extension.
 
 ### Why template strings
 
-They match existing constants modules, ship through the normal TypeScript build, work in-process
+They live in dedicated prompt modules, ship through the normal TypeScript build, work in-process
 without filesystem reads, and need no asset copying or loader. Exact text is easy to capture and
 test. Review the prose as carefully as code and keep formatting changes intentional.
 
@@ -192,15 +193,15 @@ and existing permission/file guards remain independent of this wording.
 
 ### Shared core
 
-[`BASE_AGENT_INSTRUCTIONS`](../../packages/host/src/instructions/instructions.constants.ts)
+[`BASE_AGENT_INSTRUCTIONS`](../../packages/host/src/instructions/instructions.prompt.ts)
 
 ### Coding extension
 
-[`CODING_INSTRUCTIONS`](../../packages/coding/src/instructions/coding-instructions.constants.ts)
+[`CODING_INSTRUCTIONS`](../../packages/coding/src/instructions/coding-instructions.prompt.ts)
 
 ### Child role
 
-[`SUB_AGENT_INSTRUCTIONS`](../../packages/tools/src/sub-agent/sub-agent.constants.ts)
+[`SUB_AGENT_INSTRUCTIONS`](../../packages/tools/src/sub-agent/sub-agent.prompt.ts)
 
 ### Minimal ablation candidate
 

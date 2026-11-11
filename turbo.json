@@ -30,6 +30,10 @@
     "//#lint:root": { "outputs": [] },
     "//#test:root": { "outputs": [] },
 
+    // Cross-workspace tool changes must always recheck the prompt review record, even when
+    // affected-only filtering would not schedule host lint. Never restore a cached review.
+    "//#lint:prompt": { "cache": false, "outputs": [] },
+
     // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the workspaces out, and
     // an explicit glob ignores .gitignore, so a workspace's tracked files are named: its top-level
     // files and `src/` (not its node_modules, dist or .turbo, which runs and builds write), for
