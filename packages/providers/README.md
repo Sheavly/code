@@ -34,8 +34,8 @@ usage deltas are cumulative; its cache tokens are added to ordinary input. Respo
 is already part of its input total, so it is not counted twice. No provider guesses prices.
 
 All three protocols format an ordered array of typed harness notices with the core's shared formatter.
-Context telemetry and output-continuation notices coexist and are explicitly labeled harness data
-rather than user requests, even when an API requires a user role,
+Context telemetry, running-task snapshots and output-continuation notices coexist and are explicitly
+labeled harness data rather than user requests, even when an API requires a user role,
 and never mutate conversation history or system instructions. See
 [harness notices](../core/docs/providers.md#harness-notices).
 
@@ -55,7 +55,11 @@ An explicit `max_tokens` termination with an open block retains streamed text an
 calls, but discards unfinished tools and thinking so the loop can request continuation. Other open
 block endings fail with the stop reason and block types, never their content.
 Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
-is omitted without losing text or tool calls. See [Model effort modes](docs/backends.md#model-effort-modes).
+is omitted without losing text or tool calls. Transient task notices can invalidate the generating
+reply's thinking even with stable system instructions and history, and affect later dependent
+prefixes without discarding earlier matching replies. See
+[the replay tradeoff](docs/prompt-caching.md#signed-thinking-replay-and-transient-notices) and
+[Model effort modes](docs/backends.md#model-effort-modes).
 
 Azure Claude supports `thinkingMode: 'adaptive'`, budgeted `'enabled'` thinking, and `'disabled'`.
 Adaptive thinking takes no fixed budget; `maxTokens` limits output per reply, not the context

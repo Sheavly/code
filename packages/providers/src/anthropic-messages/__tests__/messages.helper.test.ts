@@ -8,6 +8,7 @@ import type { MessagesThinkingMode } from '../messages.types.js';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import { RUNNING_TASKS_NOTICE } from '../../testing/running-tasks.fake.js';
 
 const c1 = callIdSchema.parse('c1');
 const request = providerRequest;
@@ -253,7 +254,7 @@ describe('createMessagesProvider', () => {
     },
   );
 
-  it('puts the request notice in the last user message, or in one of its own after a reply', async () => {
+  it('formats running tasks with other notices after unchanged history in either last role', async () => {
     const { fetch, requests } = replies([STOP]);
     const sent = provider({ fetch });
     const reply = {
@@ -264,7 +265,7 @@ describe('createMessagesProvider', () => {
 
     const notice: HarnessNotice = { kind: 'context-usage', context: { window: 5 } };
     const continuation: HarnessNotice = { kind: 'output-continuation', attempt: 1 };
-    const notices = [notice, continuation];
+    const notices = [notice, RUNNING_TASKS_NOTICE, continuation];
     const input = request({ notices, instructions: 'Use npm.' });
     const original = structuredClone(input.messages);
 
@@ -278,6 +279,7 @@ describe('createMessagesProvider', () => {
         content: [
           { type: 'text', text: 'hi', cache_control: { type: 'ephemeral' } },
           { type: 'text', text: formatHarnessNotice(notice) },
+          { type: 'text', text: formatHarnessNotice(RUNNING_TASKS_NOTICE) },
           { type: 'text', text: formatHarnessNotice(continuation) },
         ],
       },
