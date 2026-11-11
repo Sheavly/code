@@ -109,13 +109,11 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   reasoning behavior, cached-token reporting, cache billing or model quality; no live call was
   made to establish those properties. Resource hostnames and private connection settings are
   not catalogue defaults.
-- **Responses caching compatibility.** New `openai` and `azure-openai` models created through setup
-  store `explicitCache: true` by default; unsupported deployments must explicitly set it to false.
-  Saved definitions without this setting keep automatic caching (`explicitCache: false`) when
-  loaded, displayed or connection-checked, without rewriting their files or guessing from a model
-  or deployment name. Editing a legacy model does not enable it implicitly; set it to true to opt in.
-  Direct adapter consumers receive the adapter's default-on behavior and must opt out for unsupported
-  deployments. See [prompt caching](../../../packages/providers/docs/prompt-caching.md).
+- **Responses caching.** `openai` and `azure-openai` models use explicit caching unless their
+  definition sets `explicitCache: false`; the backend stores, shows and checks the definition as
+  given and never guesses from a model or deployment name. A deployment before GPT-5.6 rejects the
+  fields with a 400, so it must set `explicitCache: false`. See
+  [prompt caching](../../../packages/providers/docs/prompt-caching.md).
 - **A model that can't be used** (no key, a definition its adapter refuses) is left out with a
   note on the log, and never costs the user the others. A note says which model and why, never the
   key and never what a provider answered.
