@@ -1,9 +1,10 @@
-import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { HarnessNotice, TaskCompletionContext } from '@sheavly/protocol/notice/notice.types';
 import { escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
 import {
   AGENT_REPORT_NOTICE_TEXT,
   CONTEXT_USAGE_NOTICE_TEXT,
   OUTPUT_CONTINUATION_NOTICE_TEXT,
+  TASK_COMPLETION_CONTEXT_TEXT,
   TASK_FINISHED_NOTICE_TEXT,
   TASKS_FINISHED_NOTICE_TEXT,
 } from './notice.constants.js';
@@ -59,6 +60,7 @@ function formatAgentReport(notice: Extract<HarnessNotice, { kind: 'agent-report'
   return [
     AGENT_REPORT_NOTICE_TEXT.origin,
     `Sub-agent "${line(agent.title)}" (session ${line(agent.id)}, task ${line(taskId)}) ended: ${line(outcome)}.${status}`,
+    ...formatCompletionContext(notice.context),
     AGENT_REPORT_NOTICE_TEXT.guidance,
     `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportOpening} ${fence}`,
     body,
@@ -87,6 +89,7 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
   return [
     TASK_FINISHED_NOTICE_TEXT.origin,
     `[task ${line(task.id)} · ${parts.join(' · ')}] $ ${line(task.command)}`,
+    ...formatCompletionContext(notice.context),
     ...(body
       ? [
           `${fence} ${TASK_FINISHED_NOTICE_TEXT.outputOpening} ${fence}`,
@@ -114,9 +117,42 @@ function formatTasksFinished(notice: Extract<HarnessNotice, { kind: 'tasks-finis
     `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonOpening} ${fence}`,
     reason,
     `${fence} ${TASKS_FINISHED_NOTICE_TEXT.reasonClosing} ${fence}`,
+    ...formatCompletionMetrics(notice.context),
     ...bodies,
     TASKS_FINISHED_NOTICE_TEXT.closing,
   ].join('\n');
+}
+
+/** Keep the calling agent's reason fenced separately from trusted completion measurements. */
+function formatCompletionContext(context: TaskCompletionContext | undefined): string[] {
+  if (!context) return [];
+
+  const reason = escapeTags(context.reason);
+  const fence = fenceDashes(reason);
+
+  return [
+    ...formatCompletionMetrics(context),
+    TASK_COMPLETION_CONTEXT_TEXT.reasonOrigin,
+    `${fence} ${TASK_COMPLETION_CONTEXT_TEXT.reasonOpening} ${fence}`,
+    reason,
+    `${fence} ${TASK_COMPLETION_CONTEXT_TEXT.reasonClosing} ${fence}`,
+  ];
+}
+
+function formatCompletionMetrics(context: TaskCompletionContext | undefined): string[] {
+  if (!context) return [];
+
+  const parts = [
+    `startedAt ${String(context.startedAt)} (epoch milliseconds)`,
+    `duration ${String(context.durationMs)}ms`,
+    `user messages since start ${String(context.userMessagesSinceStart)}`,
+  ];
+
+  if (context.callId !== undefined) {
+    parts.push(`starting tool call ID ${line(context.callId)}`);
+  }
+
+  return [`Completion context: ${parts.join(' · ')}`];
 }
 
 function contextDescription(

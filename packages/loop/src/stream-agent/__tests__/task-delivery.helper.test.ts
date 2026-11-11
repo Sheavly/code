@@ -63,12 +63,21 @@ it('preserves every whole report when a synchronous completion listener releases
       grouped.notice.kind === 'tasks-finished' &&
       grouped.notice.notices,
   ).toMatchObject([
-    { kind: 'agent-report', report: reports[0] },
-    { kind: 'agent-report', report: reports[1] },
+    {
+      kind: 'agent-report',
+      report: reports[0],
+      context: { reason: 'Compare reviews', userMessagesSinceStart: 0 },
+    },
+    {
+      kind: 'agent-report',
+      report: reports[1],
+      context: { reason: 'Compare reviews', userMessagesSinceStart: 0 },
+    },
   ]);
   expect(single?.role === 'notice' && single.notice).toMatchObject({
     kind: 'agent-report',
     report: reports[2],
+    context: { reason: 'Review', userMessagesSinceStart: 0 },
   });
   expect(released.filter((event) => event.type === 'task_completed')).toHaveLength(3);
   expect(released.filter((event) => event.type === 'harness_notice')).toHaveLength(2);

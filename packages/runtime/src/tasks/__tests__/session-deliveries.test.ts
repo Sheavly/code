@@ -149,6 +149,7 @@ describe('session-filtered task deliveries', () => {
     expect(request).toThrow(
       expect.objectContaining({ reason: 'task_not_owned', taskId: foreign.task.id }),
     );
+    expect(registry.list().every((task) => task.reason === undefined)).toBe(true);
     expect(registry.takeDeliveries(owner)).toEqual([{ tasks: [registry.get(generic.task.id)] }]);
 
     registry.group({

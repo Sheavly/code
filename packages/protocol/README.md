@@ -49,7 +49,11 @@ measurements are omitted so clients cannot confuse missing counts with an empty 
 
 Before each model call with known context data, a `harness_notice` event carries the same typed
 notice the model receives. UIs can display or ignore it through the ordinary stream; the payload
-contains no model instructions or UI presentation. See [harness notices](docs/contract.md#harness-notices).
+contains no model instructions or UI presentation. Completion notices share `TaskCompletionContext`
+(`reason`, `startedAt`, `durationMs`, `userMessagesSinceStart`, optional `callId`). Their `context`
+field is optional for old stored histories; new loop-produced completions supply it. `TaskInfo.reason`
+is the explicit `await_tasks` reason retained per grouped task, absent on ungrouped and legacy tasks.
+See [harness notices](docs/contract.md#harness-notices).
 
 ## Docs
 

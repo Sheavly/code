@@ -15,8 +15,8 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 `streamAgent(options)` returns an async iterable of events, each with a gap-free `seq`:
 
 1. `sessionStart` hooks run (they may add context).
-2. Each turn: finished background tasks are reported, messages sent to the session meanwhile
-   (steering) are added, a summary is written if the `summary` option is set and the context
+2. Each turn: messages sent to the session meanwhile (steering) are added, finished background
+   tasks are reported, a summary is written if the `summary` option is set and the context
    nears the window ([Summaries](#summaries)), `beforeTurn` hooks run (they may add
    context and this turn's system instructions), `beforeModelCall` hooks run (they may replace
    the messages this one call sends), then the model is called. Text and reasoning stream out as
@@ -61,6 +61,29 @@ message holding the core formatter's text inside the `<harness-notice>` envelope
 person's prompt, so it is not pinned as the latest request and a summary treats it like any older
 message. A UI reads the same data from the event or from history. See
 [harness notices](../../protocol/docs/contract.md#harness-notices).
+
+Every new completion notice includes a `context` snapshot: the explicit grouping reason (or
+an ungrouped task's launch description), `startedAt`, `durationMs` and `userMessagesSinceStart`.
+The count includes stored user-role messages with timestamps strictly after the task started,
+including entries hidden by summaries; untimed legacy entries are not guessed, and rendered
+notices or checkpoints are never counted as user messages. Pending inbox messages are added
+before the snapshot, so a follow-up arriving with a completion is included. Counts stop at
+notice delivery; a task's duration stops at its own settlement even when its group waits longer.
+A group's context spans its earliest start to its latest settlement and counts messages since
+that earliest start. Every member also keeps its own timing and count.
+
+The context's `callId` is included only if the starting assistant tool call is visible at
+delivery. If a later checkpoint hides that call but keeps the notice, the model formatter's
+view omits the pointer without changing stored history or the arrival-time measurements. This
+also handles a summary written in the same turn as delivery. Task and agent snapshots still
+retain their identity links for UIs. Older notices without context stay readable.
+
+`beforeModelCall` hooks receive completion text without provisional starting-call pointers.
+After all hooks finish, the loop restores pointers only for unchanged, known notice entries
+whose starting assistant call remains in the final input. Hook-edited text stays as the hook
+wrote it. If a stored user message is indistinguishable from a rendered notice, both stay
+pointer-free rather than rewriting the person's words. No notice envelope is parsed from user
+or hook-authored text, and stored snapshots remain unchanged.
 
 Each event also joins its session tree's combined stream the moment it is released
 (`sessions.publish`), so a UI following every session at once (`sessions.subscribeEntries`) sees

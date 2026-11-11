@@ -254,6 +254,8 @@ describe('atomic task group validation', () => {
 
       expect(request).toThrow(TaskError);
       expect(request).toThrow(expect.objectContaining({ reason }));
+      expect(tasks.get(first.info.id)).not.toHaveProperty('reason');
+      expect(tasks.get(second.info.id)).not.toHaveProperty('reason');
       expect(tasks.takeDeliveries()).toEqual([{ tasks: [tasks.get(first.info.id)] }]);
       tasks.group({ ids: [first.info.id, second.info.id], reason: 'Valid retry' });
 
@@ -278,6 +280,8 @@ describe('atomic task group validation', () => {
     expect(() =>
       tasks.group({ ids: [newMember.info.id, member.info.id], reason: 'Invalid' }),
     ).toThrow(expect.objectContaining({ reason: 'task_grouped' }));
+    expect(tasks.get(member.info.id)?.reason).toBe('Original');
+    expect(tasks.get(newMember.info.id)).not.toHaveProperty('reason');
     await newMember.finish();
 
     expect(tasks.takeDeliveries()).toEqual([{ tasks: [tasks.get(newMember.info.id)] }]);

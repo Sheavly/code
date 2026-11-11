@@ -16,5 +16,7 @@ evidence that completion delivery works. The check does not grant command permis
 
 `grouped-tasks` additionally requires a successful `await_tasks` call with future-self context,
 independent work, and both delayed outputs without polling. It needs the same command approval.
-Its smoke assertions do not verify notice count or ordering; the registry and loop regression tests
-check those details, including held cancellations and grouping across summaries.
+It also asks the model to report the delivered completion reason, start, duration and user-message
+count before emitting `COMPLETION_CONTEXT_CONFIRMED`. These reply assertions are smoke coverage,
+not proof of accurate measurements, notice count or ordering; the registry, formatter and loop
+regressions check those details, including held cancellations and grouping across summaries.

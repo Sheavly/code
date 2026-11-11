@@ -81,6 +81,24 @@ read it from either and decides whether and how to show it.
   remain whole and task outputs remain the existing bounded previews. Individual persistent kinds
   remain readable in older histories and streams.
 
+All three completion kinds carry `context: TaskCompletionContext`, defined by
+`taskCompletionContextSchema` in `notice/notice.validator.ts` and inferred in `notice/notice.types.ts`:
+
+- `reason`: the completion's reason as data, not instructions.
+- `startedAt`: epoch milliseconds, using `timestampSchema`.
+- `durationMs`: nonnegative elapsed milliseconds (not restricted to whole numbers).
+- `userMessagesSinceStart`: a nonnegative integer count of user messages since launch.
+- Optional `callId`: the originating tool call, when known.
+
+The `context` field is optional on the wire solely for compatibility: old stored histories and
+streams without it remain valid, and parsing does not invent missing context. New loop-produced
+completion notices supply it on individual notices and groups. A group's existing `reason` and
+ordered `notices` shape are unchanged; each member retains its own context alongside the group's.
+`TaskInfo.reason` separately retains the explicit `await_tasks` reason on every grouped task,
+including tasks that settled before grouping. It is absent for ungrouped tasks and old task
+snapshots; when there is no explicit wait reason, the loop uses the task's description for
+completion context rather than changing the task's launch semantics.
+
 A persistent notice is a snapshot at the moment it was written. Live state comes from the session
 stream, and a UI joins the two by session or task id. `history/` sits above `message/`,
 `session/` and `task/` because an entry that carries their data would otherwise make `message/`

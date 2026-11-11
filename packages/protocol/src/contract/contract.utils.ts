@@ -110,7 +110,11 @@ import { JSON_SCHEMA_DIALECT } from './contract.constants.js';
 import type { ContractJsonSchema } from './contract.types.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 import { modelUsageSchema, tokenUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
-import { harnessNoticeSchema, persistentNoticeSchema } from '../notice/notice.validator.js';
+import {
+  harnessNoticeSchema,
+  persistentNoticeSchema,
+  taskCompletionContextSchema,
+} from '../notice/notice.validator.js';
 
 /** Every schema of the contract, by the name its TypeScript type has. */
 function contractSchemas(): Record<string, z.ZodType> {
@@ -118,6 +122,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     TokenUsage: tokenUsageSchema,
     HarnessNotice: harnessNoticeSchema,
     PersistentNotice: persistentNoticeSchema,
+    TaskCompletionContext: taskCompletionContextSchema,
     NoticeMessage: noticeMessageSchema,
     AgentInfo: agentInfoSchema,
     ModelUsage: modelUsageSchema,

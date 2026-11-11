@@ -6,6 +6,7 @@ import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
 import { CHARS_PER_TOKEN } from './summary.constants.js';
 import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
+import { noticeForView, visibleCallIds } from './notice-view.utils.js';
 
 /** A rough token count (characters over four): no tokenizer, and only ever used to compare. */
 export function estimateTokens(message: HistoryMessage): number {
@@ -80,7 +81,13 @@ function liveStart(history: readonly HistoryMessage[]): number {
  * and a stored notice becomes a user-role message holding its formatted text. It carries no `id`,
  * so it is never taken for a prompt a person typed (see `pinnedBefore`).
  */
-function withoutCheckpoints(messages: readonly HistoryMessage[]): Message[] {
+function withoutCheckpoints(params: {
+  messages: readonly HistoryMessage[];
+  hideCallReferences?: boolean;
+}): Message[] {
+  const { messages, hideCallReferences } = params;
+  const callIds = hideCallReferences ? new Set<never>() : visibleCallIds(messages);
+
   return messages.flatMap((message): Message[] => {
     if (message.role === 'summary') return [];
 
@@ -88,7 +95,7 @@ function withoutCheckpoints(messages: readonly HistoryMessage[]): Message[] {
       return [
         {
           role: 'user',
-          content: formatHarnessNotice(message.notice),
+          content: formatHarnessNotice(noticeForView({ notice: message.notice, callIds })),
           ...(message.at !== undefined && { at: message.at }),
         },
       ];
@@ -134,9 +141,22 @@ function pinnedIndices(params: { history: readonly HistoryMessage[]; start: numb
  * history. Stored history is not changed.
  */
 export function viewOf(history: readonly HistoryMessage[]): Message[] {
+  return projectHistory({ history });
+}
+
+/** Hooks receive no provisional call pointers; the final model input resolves them after hooks. */
+export function viewWithoutCallReferences(history: readonly HistoryMessage[]): Message[] {
+  return projectHistory({ history, hideCallReferences: true });
+}
+
+function projectHistory(params: {
+  history: readonly HistoryMessage[];
+  hideCallReferences?: boolean;
+}): Message[] {
+  const { history, hideCallReferences = false } = params;
   const latest = latestCheckpoint(history);
 
-  if (!latest) return withoutCheckpoints(history);
+  if (!latest) return withoutCheckpoints({ messages: history, hideCallReferences });
 
   const { checkpoint } = latest;
   const start = liveStart(history);
@@ -146,7 +166,11 @@ export function viewOf(history: readonly HistoryMessage[]): Message[] {
     ...(checkpoint.at !== undefined && { at: checkpoint.at }),
   };
 
-  return [text, ...pinnedBefore({ history, start }), ...withoutCheckpoints(history.slice(start))];
+  return [
+    text,
+    ...pinnedBefore({ history, start }),
+    ...withoutCheckpoints({ messages: history.slice(start), hideCallReferences }),
+  ];
 }
 
 /**
@@ -213,6 +237,6 @@ export function spanToSummarize(params: { history: readonly HistoryMessage[]; cu
 
   return {
     previous: latest && { sections: latest.checkpoint.sections },
-    messages: withoutCheckpoints(history.slice(liveStart(history), cut)),
+    messages: withoutCheckpoints({ messages: history.slice(liveStart(history), cut) }),
   };
 }
