@@ -4,14 +4,20 @@ import path from 'node:path';
 
 const HOOKS = path.resolve(import.meta.dirname, '..');
 
-/** Runs `script` in `cwd` with `input`, its chat state in `stateDir`; returns its response. */
+/** Runs a hook with isolated chat state; optional `now` pins its subprocess-only test clock. */
 export function runHook(params) {
-  const { script, cwd, input, stateDir, hooksRoot = HOOKS } = params;
-  const run = spawnSync(process.execPath, [path.join(hooksRoot, script)], {
+  const { script, cwd, input, stateDir, hooksRoot = HOOKS, now } = params;
+  const clock = import.meta.resolve('./hook-clock.fake.mjs');
+  const args = [...(now === undefined ? [] : ['--import', clock]), path.join(hooksRoot, script)];
+  const run = spawnSync(process.execPath, args, {
     cwd,
     input: JSON.stringify(input),
     encoding: 'utf8',
-    env: { ...process.env, SHEAVLY_HOOK_STATE_DIR: stateDir },
+    env: {
+      ...process.env,
+      SHEAVLY_HOOK_STATE_DIR: stateDir,
+      ...(now === undefined ? {} : { SHEAVLY_TEST_HOOK_NOW: String(now) }),
+    },
   });
 
   if (run.status !== 0) {
@@ -23,13 +29,14 @@ export function runHook(params) {
 
 /** Runs the postToolUse hook for an edit of `file` in `cwd`, in chat `chat`; returns its response. */
 export function runEditHook(params) {
-  const { cwd, file, chat = 'c1', stateDir } = params;
+  const { cwd, file, chat = 'c1', stateDir, now } = params;
 
   return runHook({
     script: 'lint-edited-file.mjs',
     cwd,
     input: { conversation_id: chat, tool_input: { path: file } },
     stateDir,
+    now,
   });
 }
 
