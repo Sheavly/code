@@ -113,7 +113,6 @@ describe('message_agent: steering a running sub-agent', () => {
         tools,
         messages: [{ role: 'user', content: 'Research dogs for me' }],
         tasks,
-        waitForTasks: true,
         session: { registry: sessions, ref: main },
       })) {
         events.push(event);
@@ -179,7 +178,6 @@ describe('message_agent: steering a running sub-agent', () => {
       tools: [],
       messages: [{ role: 'user', content: 'Idle' }],
       tasks: childTasks,
-      waitForTasks: true,
       maxTurns: 2,
       session: { registry: sessions, ref: child },
     });

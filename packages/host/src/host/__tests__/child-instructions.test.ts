@@ -69,7 +69,6 @@ describe('shared child instructions', () => {
       messages: [{ role: 'user', content: 'parent task' }],
       tasks: harness.tasks,
       session: { registry: harness.sessions, ref: harness.mainSession },
-      waitForTasks: true,
     });
 
     expect(result.reason).toBe('completed');

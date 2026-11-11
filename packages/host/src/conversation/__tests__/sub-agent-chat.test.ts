@@ -14,7 +14,7 @@ import { createHarness } from '../../host/host.helper.js';
 import { createConversation } from '../conversation.helper.js';
 
 /** A conversation whose one sub-agent works until `finish` resolves; `seen` is what the main session's model was sent. */
-function conversationWithSlowSubAgent(options: { waitForTasks?: boolean } = {}) {
+function conversationWithSlowSubAgent() {
   const finish = Promise.withResolvers<undefined>();
   const seen: string[] = [];
   const answer = (text: string) => (request: ProviderRequest) => {
@@ -45,7 +45,6 @@ function conversationWithSlowSubAgent(options: { waitForTasks?: boolean } = {}) 
     harness,
     run: streamAgent,
     tools: [tool],
-    ...(options.waitForTasks !== undefined && { waitForTasks: options.waitForTasks }),
   });
   const prompt = async (text: string) => {
     const events: AgentEvent[] = [];
@@ -59,7 +58,7 @@ function conversationWithSlowSubAgent(options: { waitForTasks?: boolean } = {}) 
 }
 
 describe('sub-agent completion in a conversation', () => {
-  it('keeps an interrupted prompt idle and delivers unfinished replies on the next user message', async () => {
+  it('cancels unfinished sub-agents on interruption and keeps the next prompt usable', async () => {
     const { harness, conversation, prompt, finish, seen, tool } = conversationWithSlowSubAgent();
 
     try {
@@ -75,26 +74,26 @@ describe('sub-agent completion in a conversation', () => {
 
       expect(started.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
       expect(conversation.running).toBe(false);
-      expect(harness.tasks.runningCount).toBe(1);
+      expect(harness.tasks.runningCount).toBe(0);
+      expect(harness.tasks.list()[0]?.status).toBe('cancelled');
+      expect(harness.sessions.children(harness.mainSession.id)[0]?.state).toBe('interrupted');
 
       const told = conversation.messages.find((message) => message.role === 'tool')?.content;
 
       expect(told).toContain('Its complete report comes to you automatically');
 
-      // It finishes while the conversation is idle: nothing wakes the model, the reply waits.
+      // Releasing the interrupted provider must not resume the idle parent or invent a report.
       finish.resolve(undefined);
-      await until(() => harness.tasks.runningCount === 0);
-      // Give a wrongly woken model time to be called before saying that it was not.
-      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(seen).toHaveLength(0);
-      expect(harness.tasks.hasUnreported).toBe(true);
+      // Explicit cancellation is silent: the next prompt must not receive a fabricated report.
+      expect(harness.tasks.hasUnreported).toBe(false);
 
-      // The user's next turn is what brings it into the chat.
       const next = await prompt('what did it find?');
 
       expect(seen).toHaveLength(1);
-      expect(seen[0]).toContain('Findings: a bug in parse()');
-      expect(next.filter((event) => event.type === 'task_completed')).toHaveLength(1);
+      expect(seen[0]).not.toContain('Findings: a bug in parse()');
+      expect(next.filter((event) => event.type === 'task_completed')).toHaveLength(0);
+      expect(next.filter((event) => event.type === 'harness_notice')).toHaveLength(0);
       expect(harness.tasks.hasUnreported).toBe(false);
     } finally {
       finish.resolve(undefined);
@@ -102,30 +101,26 @@ describe('sub-agent completion in a conversation', () => {
     }
   });
 
-  it.each([false, true])(
-    'keeps a prompt alive for sub-agents with waitForTasks: %s',
-    async (waitForTasks) => {
-      const { harness, conversation, finish, seen } = conversationWithSlowSubAgent({
-        waitForTasks,
-      });
-      const events: AgentEvent[] = [];
-      const running = (async () => {
-        for await (const event of conversation.send('review')) events.push(event);
-      })();
+  it('keeps a prompt alive for sub-agents by default', async () => {
+    const { harness, conversation, finish, seen } = conversationWithSlowSubAgent();
+    const events: AgentEvent[] = [];
+    const running = (async () => {
+      for await (const event of conversation.send('review')) events.push(event);
+    })();
 
-      try {
-        await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
-        // Busy for the sub-agent: the user can't chat until it is done.
-        expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
-        finish.resolve(undefined);
-        await running;
-        expect(seen[0]).toContain('Findings: a bug in parse()');
-        expect(harness.tasks.runningCount).toBe(0);
-      } finally {
-        finish.resolve(undefined);
-        await running;
-        await conversation.close();
-      }
-    },
-  );
+    try {
+      await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
+      // Busy for the sub-agent: the user can't chat until it is done.
+      expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
+      expect(events.some((event) => event.type === 'done')).toBe(false);
+      finish.resolve(undefined);
+      await running;
+      expect(seen[0]).toContain('Findings: a bug in parse()');
+      expect(harness.tasks.runningCount).toBe(0);
+    } finally {
+      finish.resolve(undefined);
+      await running;
+      await conversation.close();
+    }
+  });
 });

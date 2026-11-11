@@ -23,9 +23,9 @@ const harness = createHarness({ provider, title: prompt });
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`. A failed prompt
 keeps the user's message and completed tool work, rather than rolling back history while leaving
-the tool effects on disk. Required task completions, including sub-agent replies, keep the prompt
-running and wake the model automatically. Ordinary background tasks can outlive it unless
-`waitForTasks` is enabled. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
+the tool effects on disk. Finite background tasks, including sub-agent replies, keep the prompt
+running and wake the model automatically with their completions. Persistent services may outlive
+the prompt without keeping it active. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
 every prompt's run, so the loop summarizes the history when the context nears the window; the
 host never picks a summarizer, the app does.
 

@@ -24,7 +24,6 @@ export type RunPrompt = (options: {
   keepSession: true;
   /** Every prompt after the first: the session already ran its `sessionStart` hooks. */
   resumed: boolean;
-  waitForTasks?: boolean;
   instructions?: string;
   maxTurns?: number;
   summary?: SummaryOptions;
@@ -40,8 +39,6 @@ export type ConversationOptions = {
   /** Complete override of harness instructions; an empty string intentionally omits them. */
   instructions?: string;
   maxTurns?: number;
-  /** Also wait for ordinary background tasks. Required completions, such as sub-agents, always wait. */
-  waitForTasks?: boolean;
   /** Summarize the history when the context nears the window; passed to every prompt's run. */
   summary?: SummaryOptions;
   /**
