@@ -3,7 +3,7 @@ import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
-import type { EntryStore } from '@sheavly/core/store/store.types';
+import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
@@ -59,6 +59,11 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
   /** Where the run's combined stream is kept (see `HarnessOptions.entries`); none keeps it in memory. */
   entries?: EntryStore | undefined;
+  /**
+   * The conversation's `shell.json`, where its agents' working root is kept so the main session
+   * and its sub-agents share it. None keeps it in memory for the run.
+   */
+  shell?: DocumentStore | undefined;
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */

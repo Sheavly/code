@@ -16,6 +16,7 @@ const sharedNames = [
   'write_file',
   'edit_file',
   'delete_file',
+  'set_working_root',
   'read_skill',
   'web_fetch',
   'web_search',
