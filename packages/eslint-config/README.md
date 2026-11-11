@@ -21,6 +21,10 @@ export default baseConfig({ tsconfigRootDir: import.meta.dirname });
 | `layout.utils.js` | `readLayout`: the workspaces, their graph and domains, read from disk        |
 | `rule-hints.js`   | `RULE_HINTS`: what to do, added to lint messages that only say what's wrong  |
 
+`harness/imports` also keeps modules marked by `sheavly.appOnlyModules` app-selected, while
+allowing packages to depend on the workspace's generic API. `harness/layout` validates those
+module declarations against actual source folders. See [The workspace layout](docs/layout.md).
+
 A new convention is a rule here, derived from the code rather than a hand-kept list, with a
 message that says what to do instead, and RuleTester tests in `src/__tests__/`.
 

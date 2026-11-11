@@ -59,6 +59,15 @@ Every package is treated as published, so `exports` is its semver contract:
 
 - `harness/imports` fails a package's source that imports a `*.tool` module other than from a
   tool: only apps and tests put tools together.
+- Mark app-selected implementations within a mixed package with `sheavly.appOnlyModules`, an
+  array of unique direct kebab-case `src/` module folder names. Set it through npm, for example
+  `npm pkg set 'sheavly.appOnlyModules=["web-search-backends"]' --json -w packages/tools`.
+  `harness/layout` and the layout check reject malformed, duplicate or missing folders.
+  `harness/imports` rejects package-source value imports of marked modules through package
+  subpaths, relative paths, re-exports and literal dynamic imports. Apps, tests, fakes and
+  type-only imports are allowed, as are a marked module's imports of its own internals.
+  A package may still depend on the generic API in the same workspace; metadata does not ban
+  whole-package dependencies.
 - The layout check fails a package that depends at runtime on one holding model backends
   (`*.adapter.ts`): a package takes a `Provider`, and the app builds it.
 - Only an app reads env, prints or does terminal I/O; the coverage test checks every package
