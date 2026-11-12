@@ -132,6 +132,9 @@ export type ConversationStorage = {
   resume?: StoredLog | undefined;
 };
 
+/** What the service builds a conversation on: the storage when the host keeps anything, else none. */
+export type StorageOf = { storage?: ConversationStorage };
+
 /** One prompt's events, and the text and parts it sent. */
 export type SentPrompt = {
   events: AsyncIterable<AgentEvent>;

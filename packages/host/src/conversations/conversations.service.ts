@@ -8,11 +8,11 @@ import { ConversationQueues } from './queues.service.js';
 import { readStoredConversation } from './stored-conversation.helper.js';
 import { ModelChanges } from './model-changes.service.js';
 import type {
-  ConversationStorage,
   CreateConversation,
   LiveConversation,
   SentPrompt,
   StartConversationParams,
+  StorageOf,
 } from './conversations.types.js';
 import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
@@ -248,9 +248,7 @@ export class Conversations {
   }
 
   /** What the app builds conversation `id` on so it is kept: its stream's store and its history. */
-  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): {
-    storage?: ConversationStorage;
-  } {
+  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): StorageOf {
     const { keeper, id } = params;
 
     const store = this.#store;
