@@ -96,6 +96,26 @@ describe('assertValidHistory: latest user message', () => {
   });
 });
 
+describe('assertValidHistory: latest request', () => {
+  const run = (messages: Message[], latestRequest?: Message) => () =>
+    assertValidHistory({ messages, latestRequest, source: 'Summarizer test' });
+
+  it('accepts a request that a notice, sent as a user message, follows', () => {
+    const request = user('do it');
+
+    expect(
+      run([request, user('<harness-notice kind="task-finished">'), assistant()], request),
+    ).not.toThrow();
+  });
+
+  it('rejects a view that lost or reworded the request, whatever follows it', () => {
+    expect(run([user('notice text')], user('do it'))).toThrow(
+      'the latest user message was removed or changed',
+    );
+    expect(run([user('d0 it'), user('notice text')], user('do it'))).toThrow(InvalidHistoryError);
+  });
+});
+
 describe('countChanges', () => {
   const none = { added: 0, removed: 0, edited: 0 };
 

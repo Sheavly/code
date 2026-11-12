@@ -57,7 +57,7 @@ export function buildCheckpoint(params: {
 
   assertValidHistory({
     messages: viewOf([...history, checkpoint]),
-    latestUser: history.findLast((message): message is Message => message.role === 'user'),
+    latestRequest: history.findLast((message): message is Message => message.role === 'user'),
     source: `Summarizer ${summarizer}`,
   });
 
@@ -87,7 +87,7 @@ export function assertValidStoredHistory(history: readonly HistoryMessage[]): vo
 
   assertValidHistory({
     messages: viewOf(history),
-    latestUser: history.findLast((message): message is Message => message.role === 'user'),
+    latestRequest: history.findLast((message): message is Message => message.role === 'user'),
     source: 'Stored history',
   });
 }
