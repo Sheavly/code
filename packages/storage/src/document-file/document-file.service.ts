@@ -28,7 +28,8 @@ export class DocumentFile {
    * empty, since the next write would replace it.
    */
   async load(): Promise<unknown> {
-    return readJsonFile({ file: this.file, schema: documentSchema });
+    // A document may hold private text (a queued prompt), so a parse error never quotes it.
+    return readJsonFile({ file: this.file, schema: documentSchema, holdsSecrets: true });
   }
 
   /**
