@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
-import { MAX_RETRIES, REQUEST, SERVER } from './harness.constants.js';
+import {
+  DEFAULT_WEB_SEARCH_BACKENDS,
+  MAX_RETRIES,
+  REQUEST,
+  SERVER,
+  WEB_SEARCH_BACKEND_NAMES,
+} from './harness.constants.js';
 
 /** An empty setting (`SERVER_HOST=`) means "not set". */
 const optionalSetting = z
@@ -101,6 +107,15 @@ const runEnvSchema = z.object({
   SERVER_EXIT_WITH_PARENT: optionalSetting,
   WEB_FETCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
   WEB_SEARCH: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
+  /** Comma-separated search backends in the order they are tried, e.g. `exa,tinyfish`. */
+  WEB_SEARCH_BACKENDS: optionalSetting
+    .transform((value) => value?.split(',').map((name) => name.trim()))
+    .pipe(
+      z
+        .array(z.enum(WEB_SEARCH_BACKEND_NAMES))
+        .min(1)
+        .default([...DEFAULT_WEB_SEARCH_BACKENDS]),
+    ),
   SUMMARY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
   // Plain digits only: `Number()` would also take `1e3` and `0x10`, which a prompt's front matter
   // (the other way to set it) does not.
@@ -123,6 +138,7 @@ export function parseRunEnv(env: Record<string, string | undefined>) {
     exitWithParent: parsed.SERVER_EXIT_WITH_PARENT === 'true',
     webFetch: parsed.WEB_FETCH === 'true',
     webSearch: parsed.WEB_SEARCH === 'true',
+    webSearchBackends: parsed.WEB_SEARCH_BACKENDS,
     summary: parsed.SUMMARY === 'true',
     contextWindow: parsed.CONTEXT_WINDOW,
   };

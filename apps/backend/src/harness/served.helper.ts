@@ -11,6 +11,7 @@ import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
+import { createSearchChain } from './search-chain.helper.js';
 import type { ServedSettings } from './harness.types.js';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import { startOnRequestedModel } from './starting-model.helper.js';
@@ -104,7 +105,9 @@ export async function servedConversation(params: {
     env,
     trustWorkspace: settings.trustWorkspace,
     webFetch: settings.webFetch ? {} : false,
-    ...(!settings.webSearch && { webSearch: false }),
+    webSearch: settings.webSearch
+      ? { backend: createSearchChain(settings.webSearchBackends) }
+      : false,
     home: homedir(),
     onModelCall,
     ...(storage && {
