@@ -57,6 +57,25 @@ describe('backendSummary', () => {
     expect(body('trail')).toBe('- edited src/total.ts');
   });
 
+  it('carries the output reference of a summarized command result, so its full output stays reachable', async () => {
+    const ref = '44444444-4444-4444-8444-444444444444';
+    const { summarizer } = backendSummary(answering('{"goal": "Build."}').provider);
+    const result = await summarizer.summarize({
+      messages: [
+        {
+          role: 'tool',
+          toolCallId: callIdSchema.parse('c1'),
+          isError: false,
+          content: `$ npm run build\n[exit code 1]\nFull output: output_ref=${ref} (9000 bytes stored, complete)`,
+        },
+      ],
+      signal,
+    });
+    const section = result.sections.find((candidate) => candidate.id === 'output-refs');
+
+    expect(section?.body).toBe(`- output_ref=${ref} $ npm run build`);
+  });
+
   it('titles a sub-agent’s task as the parent agent’s, not the user’s', async () => {
     const task = [
       {

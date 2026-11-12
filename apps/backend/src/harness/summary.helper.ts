@@ -3,6 +3,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import { modelSummarizer } from '@sheavly/summary/model/model.helper';
+import { outputRefsSection } from '@sheavly/summary/sections/output-refs.utils';
 import { trailSection } from '@sheavly/summary/sections/trail.utils';
 import { userMessagesSection } from '@sheavly/summary/sections/user-messages.utils';
 import { SUB_AGENT_TASK_TITLE } from './summary.prompt.js';
@@ -43,6 +44,7 @@ function summaryOn(params: { provider: Provider; userTitle?: string }): SummaryO
       ruleSections: [
         userMessagesSection(userTitle === undefined ? {} : { title: userTitle }),
         trailSection({ extract: fileTrail }),
+        outputRefsSection(),
       ],
     }),
   };

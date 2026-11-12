@@ -16,6 +16,9 @@ export const HISTORY_FILE = 'history.json';
 /** Where the conversation's agents work from, shared by the main session and its sub-agents. */
 export const SHELL_FILE = 'shell.json';
 
+/** The folder in a conversation's folder that holds its complete command output logs. */
+export const OUTPUTS_FOLDER = 'outputs';
+
 /** The folder in a conversation's folder that holds each sub-agent's history. */
 export const AGENTS_FOLDER = 'agents';
 

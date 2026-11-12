@@ -57,8 +57,13 @@ export function safeSteps(steps: ScriptParams['steps']): ScriptParams['steps'] {
 }
 
 /** The tool result for a finished foreground command. */
-export function formatResult(params: { command: string; result: ProcessResult }): string {
-  const { command, result } = params;
+export function formatResult(params: {
+  command: string;
+  result: ProcessResult;
+  /** Where the complete output is kept, shown after the preview. */
+  outputLines?: readonly string[];
+}): string {
+  const { command, result, outputLines = [] } = params;
   const { exitCode, output, timedOut } = result;
   const status = timedOut ? 'timed out' : `exit code ${exitCode ?? 'unknown'}`;
   const body =
@@ -66,5 +71,5 @@ export function formatResult(params: { command: string; result: ProcessResult })
       ? `${output.slice(0, MAX_OUTPUT_CHARS)}\n[output truncated]`
       : output;
 
-  return `$ ${command}\n[${status}]\n${body}`.trimEnd();
+  return [`$ ${command}`, `[${status}]`, body.trimEnd(), ...outputLines].filter(Boolean).join('\n');
 }

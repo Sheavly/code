@@ -1,3 +1,4 @@
+import type { OutputWriter } from '@sheavly/core/output/output.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskInfo, TaskUpdate } from '@sheavly/protocol/task/task.types';
@@ -9,6 +10,12 @@ export type StartTask = {
   callId?: CallId;
   /** The session whose tool started it: its start and end go in that session's stream. */
   sessionId?: SessionId | undefined;
+  /**
+   * Where the complete output goes. The registry appends every chunk, shows the log's reference
+   * and completeness on the task (`TaskInfo.outputLog`) while it runs, and closes it when the
+   * task ends, so the output of a failed or cancelled task stays readable.
+   */
+  capture?: OutputWriter | undefined;
   /** Finite work keeps its run alive until delivered; services do not. Defaults to task. */
   backgroundKind?: 'task' | 'service';
   /**

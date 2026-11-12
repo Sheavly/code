@@ -25,6 +25,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 | `summary/`     | `Summarizer`, `SummaryOptions` and `SummaryPolicy` (what writes a checkpoint, and when), and `formatCheckpoint` |
 | `text/`        | `neutralize`, `escapeTags`, `oneLine`: keep model-written text from opening or closing an envelope              |
 | `adapter/`     | `Adapter` types and `defineAdapter`, for model backends                                                         |
+| `output/`      | `OutputStore`: a conversation's complete command output, and the lines that tell the model where it is          |
 | `store/`       | `ConversationStore` and `EntryStore` (where past conversations are kept), `toStoreError`                        |
 | `clock/`       | `now()`: the one place a package reads the time, as epoch milliseconds                                          |
 | `message/`     | `StreamEvent` and what a provider streams                                                                       |

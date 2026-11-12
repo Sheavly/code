@@ -2,6 +2,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
@@ -65,6 +66,11 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
    * and its sub-agents share it. None keeps it in memory for the run.
    */
   shell?: DocumentStore | undefined;
+  /**
+   * The conversation's complete command output store. With it `run_command` keeps every command's
+   * whole output and the run gets `read_output` and `search_output`. None keeps previews only.
+   */
+  outputs?: OutputStore | undefined;
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */

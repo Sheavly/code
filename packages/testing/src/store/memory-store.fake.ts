@@ -1,5 +1,7 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
+import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import { MemoryOutputStore } from './memory-output.fake.js';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -19,6 +21,7 @@ export class MemoryConversationStore implements ConversationStore {
   readonly #agentMessages = new Map<ConversationId, Map<SessionId, HistoryMessage[]>>();
   readonly #index = new Map<ConversationId, StoredConversation>();
   readonly #shells = new Map<ConversationId, unknown>();
+  readonly #outputs = new Map<ConversationId, OutputStore>();
   #failure: Error | undefined;
 
   /** Every following write rejects with a `StoreError` caused by `error`; `undefined` mends it. */
@@ -43,6 +46,18 @@ export class MemoryConversationStore implements ConversationStore {
         if (next !== undefined) this.#shells.set(id, structuredClone(next));
       },
     };
+  }
+
+  outputs(id: ConversationId): OutputStore {
+    const known = this.#outputs.get(id);
+
+    if (known) return known;
+
+    const store = new MemoryOutputStore();
+
+    this.#outputs.set(id, store);
+
+    return store;
   }
 
   async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
@@ -92,6 +107,7 @@ export class MemoryConversationStore implements ConversationStore {
     this.#messages.delete(id);
     this.#agentMessages.delete(id);
     this.#shells.delete(id);
+    this.#outputs.delete(id);
     this.#index.delete(id);
   }
 

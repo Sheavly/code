@@ -11,7 +11,16 @@ export default defineConfig([
   // Nothing else here (or anywhere) calls the file system's write functions
   // (`harness/no-direct-file-writes`).
   {
-    files: ['src/json-file/**', 'src/jsonl-file/**', 'src/safe-path/**'],
+    // `output-store/` appends a command's output to its log as it arrives, privately, under a
+    // folder it names by a UUID (`namedPath`): a stream too large for an atomic whole-file write.
+    files: [
+      'src/json-file/**',
+      'src/jsonl-file/**',
+      'src/safe-path/**',
+      'src/output-store/output-store.service.ts',
+      'src/output-store/output-writer.service.ts',
+      'src/output-store/__tests__/**',
+    ],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
 ]);

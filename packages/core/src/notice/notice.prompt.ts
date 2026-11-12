@@ -132,9 +132,11 @@ export function renderTaskFinished(params: {
   command: string;
   body: string;
   fence: string;
+  /** Where the complete output is kept; trusted harness text, outside the output fence. */
+  outputReference: readonly string[];
   context: readonly string[];
 }): string {
-  const { id, status, exitCode, elapsed, command, body, fence, context } = params;
+  const { id, status, exitCode, elapsed, command, body, fence, outputReference, context } = params;
   const parts = [status];
 
   if (exitCode !== undefined) parts.push(`exit code ${exitCode}`);
@@ -151,6 +153,7 @@ export function renderTaskFinished(params: {
           `${fence} ${TASK_FINISHED_NOTICE_TEXT.outputClosing} ${fence}`,
         ]
       : []),
+    ...outputReference,
   ].join('\n');
 }
 

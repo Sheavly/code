@@ -99,7 +99,8 @@ const CREDENTIAL_STORE_FILES = /^packages[/\\]storage[/\\]src[/\\]credential-sto
 const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
 /**
  * The only source files that may write a file by hand: the storage primitives every store writes
- * through, the agent's file-tool helper, the backend's model-call debug log, and the terminal's
+ * through (and the output store's two files, which append a command's output as it arrives), the
+ * agent's file-tool helper, the backend's model-call debug log, and the terminal's
  * developer tooling (its workbook and demo), and the workspace's two scratch helpers, which create
  * the shared scratch folder and remove its stale entries (no user data; the same folder is exempt
  * in `packages/workspace/eslint.config.js`). Anything else goes through `@sheavly/storage`.
@@ -107,6 +108,7 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
 const FILE_WRITERS = new RegExp(
   [
     '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path)[/\\\\]',
+    '^packages[/\\\\]storage[/\\\\]src[/\\\\]output-store[/\\\\]output-(store|writer)\\.service\\.ts$',
     '^packages[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]file-effects\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',
     '^apps[/\\\\]backend[/\\\\]src[/\\\\]harness[/\\\\]model-calls\\.helper\\.ts$',

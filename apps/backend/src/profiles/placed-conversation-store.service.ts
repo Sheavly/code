@@ -1,4 +1,5 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
+import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
@@ -72,6 +73,17 @@ export class PlacedConversationStore implements ConversationStore {
     return {
       load: async () => (await this.#placed(id)).store.shell(id).load(),
       update: async (change) => (await this.#placed(id)).store.shell(id).update(change),
+    };
+  }
+
+  outputs(id: ConversationId): OutputStore {
+    const placed = () => this.#placed(id).then((home) => home.store.outputs(id));
+
+    return {
+      create: async () => (await placed()).create(),
+      log: async (ref) => (await placed()).log(ref),
+      read: async (params) => (await placed()).read(params),
+      search: async (params) => (await placed()).search(params),
     };
   }
 

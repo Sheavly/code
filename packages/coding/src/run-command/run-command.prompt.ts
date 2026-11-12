@@ -1,11 +1,14 @@
-export function runCommandPrompts(params: { backgroundEnabled: boolean }): {
+export function runCommandPrompts(params: {
+  backgroundEnabled: boolean;
+  outputsEnabled?: boolean;
+}): {
   description: string;
   command: string;
   cwd: string;
   background: string;
   backgroundKind: string;
 } {
-  const { backgroundEnabled } = params;
+  const { backgroundEnabled, outputsEnabled = false } = params;
 
   return {
     description:
@@ -17,6 +20,9 @@ export function runCommandPrompts(params: { backgroundEnabled: boolean }): {
       'including paths outside the workspace, secret files, editing/execution options and npx downloads. ' +
       'Examples: find, sed, git diff, npm run test, npx eslint. Chained commands are approved independently. ' +
       'There is no shell glob expansion. If the user skips a command, do not run it again; do what they say.' +
+      (outputsEnabled
+        ? ' Output shown is a bounded preview: long output is cut in the middle. The complete output is stored and the result gives its output_ref; use read_output or search_output on it instead of rerunning the command.'
+        : '') +
       (backgroundEnabled
         ? ' Set background: true for slow finite work; set backgroundKind: "service" for persistent servers or watchers. Do not poll background work.'
         : ''),
@@ -38,9 +44,12 @@ export function backgroundStartedPrompt(params: {
   taskId: string;
   command: string;
   backgroundKind: 'task' | 'service';
+  outputLines?: readonly string[];
 }): string {
-  const { taskId, command, backgroundKind } = params;
-  const started = `Started background task ${taskId}: $ ${command}\n`;
+  const { taskId, command, backgroundKind, outputLines = [] } = params;
+  const started = [`Started background task ${taskId}: $ ${command}`, ...outputLines, ''].join(
+    '\n',
+  );
 
   if (backgroundKind === 'service') {
     return (

@@ -78,7 +78,14 @@ overwrite newer live totals. Missing counts and unpriced calls remain explicit, 
 `OutputBuffer` keeps at most 30 initial lines and 70 final lines within its character budget,
 shortening each line to 1,000 characters with both ends visible. Omission markers label lost lines.
 
-A task's output is that bounded preview: progress, never a result to rely on. A task whose result
+A task started with a `capture` (an `OutputWriter` from the conversation's output store) also keeps
+its complete output: the registry appends every chunk, shows the log's reference and completeness
+as `TaskInfo.outputLog` while it runs, and closes the log before the task settles, so a failed or
+cancelled task's output stays readable. `formatTask` and the task-finished notice print the
+`output_ref` and, when the preview is shorter than the log, tell the model to use `read_output` or
+`search_output` instead of rerunning the command.
+
+A task's `output` is that bounded preview: progress, never a result to rely on. A task whose result
 is a document, such as a sub-agent's report, returns it as `report` from `run`. The registry keeps
 it whole, outside `OutputBuffer` and outside `TaskInfo`, so no limit applies and no task event
 carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in place of the output.

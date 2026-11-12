@@ -252,6 +252,7 @@ export class Conversations {
       storage: {
         entries: this.#store.entries(id),
         shell: this.#store.shell(id),
+        outputs: this.#store.outputs(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
       },
     };
