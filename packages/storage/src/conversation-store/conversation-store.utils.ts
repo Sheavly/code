@@ -38,14 +38,19 @@ export function conversationFolder(params: { conversations: string; id: string }
 export function agentHistoryFile(params: { folder: string; session: SessionId }): string {
   const { folder, session } = params;
 
-  if (!lowercaseUuidSchema.safeParse(session).success) {
-    throw new StoreError({
-      reason: 'failed',
-      message: `Session id ${JSON.stringify(session)} is not safe to name a file after: only a lowercase UUID is`,
-    });
-  }
+  assertSafeSessionName(session);
 
   return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_SUFFIX}`);
+}
+
+/** Throws a `StoreError` unless `session` is a lowercase UUID, the only shape that names a file. */
+function assertSafeSessionName(session: SessionId): void {
+  if (lowercaseUuidSchema.safeParse(session).success) return;
+
+  throw new StoreError({
+    reason: 'failed',
+    message: `Session id ${JSON.stringify(session)} is not safe to name a file after: only a lowercase UUID is`,
+  });
 }
 
 /**
@@ -57,10 +62,9 @@ export function historyLogFile(params: { folder: string; session: SessionId | un
 
   if (session === undefined) return path.join(folder, HISTORY_LOG_FILE);
 
-  return agentHistoryFile({ folder, session }).replace(
-    AGENT_HISTORY_SUFFIX,
-    AGENT_HISTORY_LOG_SUFFIX,
-  );
+  assertSafeSessionName(session);
+
+  return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_LOG_SUFFIX}`);
 }
 
 /**
