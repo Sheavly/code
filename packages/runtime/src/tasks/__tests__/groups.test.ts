@@ -7,11 +7,12 @@ import type { TaskObserver } from '../tasks.types.js';
 
 const clock = useFixedClock();
 
-function controlledTask(tasks: TaskRegistry) {
+function controlledTask(tasks: TaskRegistry, backgroundKind?: 'task' | 'service') {
   const result = Promise.withResolvers<{ exitCode: number | null }>();
   const info = tasks.start({
     command: 'check',
     description: 'Check',
+    ...(backgroundKind && { backgroundKind }),
     run: ({ signal }) => {
       signal.addEventListener('abort', () => result.resolve({ exitCode: null }), { once: true });
 
@@ -220,6 +221,42 @@ describe('task group deliveries', () => {
         tasks: [tasks.get(running.info.id), tasks.get(cancelled.info.id)],
       },
     ]);
+  });
+});
+
+describe('grouping services and counting pending members', () => {
+  it('rejects a service atomically, leaving the finite members ungrouped', () => {
+    const tasks = new TaskRegistry();
+    const finite = controlledTask(tasks);
+    const service = controlledTask(tasks, 'service');
+    const request = () =>
+      tasks.group({ ids: [finite.info.id, service.info.id], reason: 'With service' });
+
+    expect(request).toThrow(TaskError);
+    expect(request).toThrow(
+      expect.objectContaining({ reason: 'service_task', taskId: service.info.id }),
+    );
+    expect(tasks.get(finite.info.id)).not.toHaveProperty('reason');
+    expect(tasks.groupedPendingCount()).toBe(0);
+  });
+
+  it('counts only running members of undelivered groups, falling as they end', async () => {
+    const tasks = new TaskRegistry();
+    const first = controlledTask(tasks);
+    const second = controlledTask(tasks);
+
+    controlledTask(tasks);
+    controlledTask(tasks, 'service');
+
+    expect(tasks.groupedPendingCount()).toBe(0);
+    tasks.group({ ids: [first.info.id, second.info.id], reason: 'Both' });
+    expect(tasks.groupedPendingCount()).toBe(2);
+
+    await first.finish();
+    expect(tasks.groupedPendingCount()).toBe(1);
+
+    await second.finish();
+    expect(tasks.groupedPendingCount()).toBe(0);
   });
 });
 

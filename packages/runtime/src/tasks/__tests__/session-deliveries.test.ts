@@ -170,41 +170,36 @@ describe('session-filtered task deliveries', () => {
   });
 });
 
-describe('session-scoped pending work and cancellation', () => {
-  it('keeps finite results pending while a service still holds their combined delivery', async () => {
+describe('session-scoped services and grouped counts', () => {
+  it('rejects an owned service, and reports a foreign one as foreign, not as a service', () => {
     const registry = new TaskRegistry();
     const finite = sessionTask({ registry, sessionId: owner });
     const service = sessionTask({ registry, sessionId: owner, backgroundKind: 'service' });
+    const foreign = sessionTask({ registry, sessionId: other, backgroundKind: 'service' });
 
-    registry.group({
-      ids: [finite.task.id, service.task.id],
-      reason: 'Compare outcomes',
-      sessionId: owner,
-    });
-    await finite.complete();
-
-    expect(registry.hasDeliveries(owner)).toBe(false);
-    expect(registry.hasPendingTasks(owner)).toBe(true);
-    expect(registry.hasPendingTasks(other)).toBe(false);
-
-    await service.complete();
-    registry.takeDeliveries(owner);
-
-    expect(registry.hasPendingTasks(owner)).toBe(false);
+    expect(() =>
+      registry.group({ ids: [finite.task.id, service.task.id], reason: 'x', sessionId: owner }),
+    ).toThrow(expect.objectContaining({ reason: 'service_task' }));
+    expect(() => registry.group({ ids: [foreign.task.id], reason: 'x', sessionId: owner })).toThrow(
+      expect.objectContaining({ reason: 'task_not_owned' }),
+    );
+    expect(registry.groupedPendingCount(owner)).toBe(0);
   });
 
-  it('does not keep a service-only group alive before it is ready', async () => {
+  it('counts only the asking session’s grouped tasks', () => {
     const registry = new TaskRegistry();
-    const service = sessionTask({ registry, sessionId: owner, backgroundKind: 'service' });
+    const mine = sessionTask({ registry, sessionId: owner });
+    const theirs = sessionTask({ registry, sessionId: other });
 
-    registry.group({ ids: [service.task.id], reason: 'Server exit', sessionId: owner });
-    expect(registry.hasPendingTasks(owner)).toBe(false);
-    await service.complete();
-    expect(registry.hasPendingTasks(owner)).toBe(true);
-    registry.takeDeliveries(owner);
-    expect(registry.hasPendingTasks(owner)).toBe(false);
+    registry.group({ ids: [mine.task.id], reason: 'Mine', sessionId: owner });
+    registry.group({ ids: [theirs.task.id], reason: 'Theirs', sessionId: other });
+
+    expect(registry.groupedPendingCount(owner)).toBe(1);
+    expect(registry.groupedPendingCount(other)).toBe(1);
   });
+});
 
+describe('session-scoped pending work and cancellation', () => {
   it('counts default finite work and completed services, but exempts running services by session', async () => {
     const registry = new TaskRegistry();
     const foreign = sessionTask({ registry, sessionId: other });
