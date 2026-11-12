@@ -31,12 +31,11 @@ export function entryText(entry: HistoryMessage): string {
 }
 
 /**
- * One line of context around the first match of `query` in `text`, tags swapped so it cannot open
- * an envelope. `query` must occur in `text`, ignoring case.
+ * One line of context around the match at index `at` of `text` (from `matchIndex`), tags swapped
+ * so it cannot open an envelope.
  */
-export function excerptAround(params: { text: string; query: string }): string {
-  const { text, query } = params;
-  const at = text.toLowerCase().indexOf(query.toLowerCase());
+export function excerptAround(params: { text: string; at: number }): string {
+  const { text, at } = params;
   const start = Math.max(0, at - Math.floor(EXCERPT_CHARS / 2));
   const cut = text.slice(start, start + EXCERPT_CHARS);
 
@@ -60,7 +59,7 @@ const cursorSchema = z.object({
 export function entryPartNote(params: { offset: number; length: number; total: number }): string {
   const { offset, length, total } = params;
 
-  if (offset >= total && total > 0) {
+  if (offset > 0 && offset >= total) {
     return `\n(offset ${String(offset)} is past the end: the entry has ${String(total)} characters)`;
   }
 

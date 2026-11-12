@@ -256,6 +256,14 @@ describe('read_history_entry', () => {
     expect(result.content).toContain('the entry has 29 characters');
   });
 
+  it('says an offset into an empty entry is past the end, not an inverted range', async () => {
+    await keepOnlyEntry('');
+
+    const result = await call('read_history_entry', { session: main.id, seq: 0, offset: 5 });
+
+    expect(result.content).toContain('offset 5 is past the end: the entry has 0 characters');
+  });
+
   it('finds a match by the original characters, so its offset slices the same text', async () => {
     const text = `${'İ'.repeat(50)} needle here`;
 

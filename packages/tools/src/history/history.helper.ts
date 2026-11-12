@@ -58,7 +58,6 @@ async function searchSession(params: {
 }> {
   const { options, info, span, query, room, budget, signal } = params;
   const log = options.logOf({ session: info.id, main: !('parentId' in info) });
-  const wanted = query.toLowerCase();
   const hits: SearchHit[] = [];
   let scanned = 0;
   let last: number | undefined;
@@ -72,14 +71,16 @@ async function searchSession(params: {
     last = record.seq;
 
     const text = entryText(record.entry);
+    // One matcher for the hit, its offset and its excerpt, so they can never disagree.
+    const at = matchIndex({ text, query });
 
-    if (text.toLowerCase().includes(wanted)) {
+    if (at >= 0) {
       hits.push({
         session: info.id,
         seq: record.seq,
         role: record.entry.role,
-        at: matchIndex({ text, query }),
-        excerpt: excerptAround({ text, query }),
+        at,
+        excerpt: excerptAround({ text, at }),
       });
     }
 
