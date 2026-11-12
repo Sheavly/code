@@ -1,7 +1,7 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { hiddenToolResult } from './mask.prompt.js';
 import {
-  MASK_KEEP_RESULTS,
+  MASK_KEEP_SHARE,
   MASK_MIN_CHARS,
   MASK_START_SHARE,
   MASK_STEP_RESULTS,
@@ -14,11 +14,29 @@ function referenceLine(content: string): string | undefined {
 }
 
 /**
- * How many of the oldest tool results are hidden, among `count`: none until more than the newest
- * `MASK_KEEP_RESULTS`, then a whole number of steps, so the count grows in jumps.
+ * How many of the oldest tool results are hidden: those older than the newest ones that fit in
+ * `MASK_KEEP_SHARE` of the window, rounded down to whole steps, so the count grows in jumps and
+ * the prompt prefix a provider caches changes only every few results. The newest result is always
+ * kept, however large.
  */
-function hiddenCount(count: number): number {
-  return Math.floor(Math.max(0, count - MASK_KEEP_RESULTS) / MASK_STEP_RESULTS) * MASK_STEP_RESULTS;
+function hiddenCount(params: { view: readonly Message[]; window: number }): number {
+  const { view, window } = params;
+  const results = view.filter((message) => message.role === 'tool');
+  let kept = 0;
+  let tokens = 0;
+
+  for (const result of results.toReversed()) {
+    tokens += estimateTokens(result);
+
+    if (kept > 0 && tokens > window * MASK_KEEP_SHARE) break;
+
+    kept += 1;
+  }
+
+  // A step of eight suits many small results; with a few large ones it would never be reached.
+  const step = Math.min(MASK_STEP_RESULTS, Math.max(1, Math.floor(kept / 2)));
+
+  return Math.floor((results.length - kept) / step) * step;
 }
 
 /**
@@ -42,7 +60,7 @@ export function maskOldToolOutput(params: {
 
   if (tokens < window * MASK_START_SHARE) return view;
 
-  const hidden = hiddenCount(view.filter((message) => message.role === 'tool').length);
+  const hidden = hiddenCount({ view, window });
 
   if (hidden === 0) return view;
 

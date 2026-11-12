@@ -32,8 +32,8 @@ export const CHECKPOINT_RESERVE_SHARE = 0.1;
  */
 export const MASK_START_SHARE = 0.4;
 
-/** ...the newest this many tool results always stay whole... */
-export const MASK_KEEP_RESULTS = 10;
+/** ...the newest tool results that fit in this share of the window always stay whole... */
+export const MASK_KEEP_SHARE = 0.25;
 
 /**
  * ...and older ones are hidden this many at a time, so what a model is sent changes only every few

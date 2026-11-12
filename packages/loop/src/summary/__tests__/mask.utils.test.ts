@@ -23,6 +23,16 @@ const pairs = (count: number, size: number): Message[] =>
 const prompt: Message = { role: 'user', content: 'go' };
 const contentOf = (message: Message | undefined) =>
   message?.role === 'tool' ? message.content : '';
+const isHidden = (message: Message | undefined) => contentOf(message).startsWith('[An earlier');
+
+/** The tool results of `view` after masking at a 30k window, and how many were hidden. */
+function masked(view: readonly Message[]) {
+  const tools = maskOldToolOutput({ view, window: 30_000 }).filter(
+    (message) => message.role === 'tool',
+  );
+
+  return { tools, hidden: tools.filter(isHidden).length };
+}
 
 describe('maskOldToolOutput', () => {
   it('hides nothing below the start share of the window, or with no known window', () => {
@@ -32,15 +42,29 @@ describe('maskOldToolOutput', () => {
     expect(maskOldToolOutput({ view, window: undefined })).toBe(view);
   });
 
-  it('hides the oldest results in whole steps and keeps the newest ten whole', () => {
-    const view = [prompt, ...pairs(30, 2_000)];
-    const masked = maskOldToolOutput({ view, window: 30_000 });
-    const tools = masked.filter((message) => message.role === 'tool');
+  it('hides the oldest results in whole steps and keeps the newest quarter of the window whole', () => {
+    const { tools, hidden } = masked([prompt, ...pairs(30, 2_000)]);
 
-    // 30 results: the newest 10 stay; of the other 20, a whole number of steps of 8 is hidden.
-    expect(tools.filter((message) => contentOf(message).startsWith('[An earlier')).length).toBe(16);
-    expect(contentOf(tools[16])).toContain('result 16');
+    // A quarter of 30k tokens holds the newest 14 results (about 500 tokens each); of the other
+    // 16, a whole number of steps (half the kept count, 7) is hidden: 14.
+    expect(hidden).toBe(14);
+    expect(contentOf(tools[14])).toContain('result 14');
     expect(contentOf(tools[29])).toContain('result 29');
+  });
+
+  it('always keeps the newest result whole, even when it alone is bigger than the keep share', () => {
+    const { tools, hidden } = masked([prompt, ...pairs(12, 20_000)]);
+
+    expect(contentOf(tools.at(-1))).toContain('result 11');
+    // Only the newest is kept, so every older one is hidden, one step at a time.
+    expect(hidden).toBe(11);
+  });
+
+  it('hides old results when there are only a few large ones, in smaller steps', () => {
+    const { tools, hidden } = masked([prompt, ...pairs(8, 8_000)]);
+
+    expect(hidden).toBeGreaterThan(0);
+    expect(contentOf(tools.at(-1))).toContain('result 7');
   });
 
   it('keeps every call paired with its result, in order, and the error flag', () => {
