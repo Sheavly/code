@@ -228,10 +228,8 @@ export function chooseCut(params: {
 
   let cut = tailStart({ history, keepTokens });
 
-  // A result belongs with the assistant message that called it, so the tail starts at the call.
-  while (cut > 0 && history[cut]?.role === 'tool') cut -= 1;
-
-  cut = shrinkOversizedTail({ history, cut, maxTailTokens });
+  cut = alignToCalls({ history, cut });
+  cut = alignToCalls({ history, cut: shrinkOversizedTail({ history, cut, maxTailTokens }) });
 
   const pinned = new Set(pinnedIndices({ history, start: cut }));
   const floor = liveStart(history);
@@ -240,6 +238,37 @@ export function chooseCut(params: {
     .filter((message, offset) => message.role !== 'summary' && !pinned.has(floor + offset));
 
   return summarizable.length > 0 ? cut : undefined;
+}
+
+/**
+ * Moves `cut` back until no tool result in the tail has its call before the cut: a result belongs
+ * with the assistant message that called it, even when something else (a stored notice) sits
+ * between them.
+ */
+function alignToCalls(params: { history: readonly HistoryMessage[]; cut: number }): number {
+  const { history } = params;
+  let { cut } = params;
+  let moved = true;
+
+  while (moved) {
+    moved = false;
+
+    for (const message of history.slice(cut)) {
+      if (message.role !== 'tool') continue;
+
+      const call = history.findIndex(
+        (each) =>
+          each.role === 'assistant' && each.toolCalls.some(({ id }) => id === message.toolCallId),
+      );
+
+      if (call !== -1 && call < cut) {
+        cut = call;
+        moved = true;
+      }
+    }
+  }
+
+  return cut;
 }
 
 /**
