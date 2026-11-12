@@ -136,8 +136,9 @@ export function statusText(params: { info: StatusInfo; palette?: Palette }): str
   const mode = info.mode === 'allow_all' ? status.error('allow all') : info.mode;
 
   const effort = info.modelMode ? ` · ${info.modelMode}` : '';
+  const branch = info.workingBranch ? ` · ⎇ ${plainTerminalText(info.workingBranch)}` : '';
 
   const usage = ` · ${usageText({ context: info.contextUsage, usage: info.usage })}`;
 
-  return `${state}${text.secondary(` · ${plainTerminalText(info.model)}${effort} · mode: `)}${mode}${text.secondary(tasks + usage)}`;
+  return `${state}${text.secondary(` · ${plainTerminalText(info.model)}${effort}${branch} · mode: `)}${mode}${text.secondary(tasks + usage)}`;
 }

@@ -274,6 +274,15 @@ describe('statusText', () => {
     );
   });
 
+  it('shows the working branch once, and nothing when there is none', () => {
+    const base = { state: 'ready', model: 'Deep', mode: 'ask', tasks: 0 } as const;
+
+    expect(plain(statusOf({ ...base, workingBranch: '238-agent-working-root' }))).toBe(
+      '● ready · Deep · ⎇ 238-agent-working-root · mode: ask · context ?',
+    );
+    expect(plain(statusOf(base))).not.toContain('⎇');
+  });
+
   it('counts background tasks only when some run', () => {
     expect(plain(statusOf({ state: 'ready', model: 'Fast', mode: 'ask', tasks: 2 }))).toContain(
       '2 running in background',
