@@ -22,16 +22,16 @@ import {
  * says, throws a `StorageFileError` that names the file: a stored file is never taken for empty.
  * A leading byte-order mark is ignored, as some Windows editors add one to a file saved by hand.
  *
- * `holdsSecrets` is for a file with keys in it: the parser's own message quotes the text around
- * the fault, which there could be a key, so a file that is not JSON is reported without it (and
- * without the error behind it as `cause`).
+ * `holdsSecrets` is required so each reader decides. True for a file with keys or private text in
+ * it: the parser's own message quotes the text around the fault, so a file that is not JSON is
+ * reported without it (and without the error behind it as `cause`).
  */
 export async function readJsonFile<TSchema extends z.ZodType>(params: {
   file: string;
   schema: TSchema;
-  holdsSecrets?: boolean;
+  holdsSecrets: boolean;
 }): Promise<z.infer<TSchema> | undefined> {
-  const { file, schema, holdsSecrets = false } = params;
+  const { file, schema, holdsSecrets } = params;
   let text: string;
 
   try {

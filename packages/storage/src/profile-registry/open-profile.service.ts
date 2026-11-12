@@ -155,6 +155,7 @@ export class OpenProfile {
       const file = await readJsonFile({
         file: path.join(folder, WORKSPACE_FILE),
         schema: workspaceFileSchema,
+        holdsSecrets: false,
       });
       const reason = workspaceFileProblem({ file, key });
 

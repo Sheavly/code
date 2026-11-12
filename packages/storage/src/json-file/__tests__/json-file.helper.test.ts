@@ -23,7 +23,10 @@ describe('writeJsonFile and readJsonFile', () => {
   it('writes a file, creating its folders, and reads back what was written', async () => {
     await writeJsonFile({ file, value: { name: 'a', count: 1 } });
 
-    expect(await readJsonFile({ file, schema })).toEqual({ name: 'a', count: 1 });
+    expect(await readJsonFile({ file, schema, holdsSecrets: false })).toEqual({
+      name: 'a',
+      count: 1,
+    });
   });
 
   it('writes readable JSON ending in a newline, so a person can open and edit it', async () => {
@@ -45,7 +48,10 @@ describe('writeJsonFile and readJsonFile', () => {
     await writeJsonFile({ file, value: { name: 'old', count: 1 } });
     await writeJsonFile({ file, value: { name: 'new', count: 2 } });
 
-    expect(await readJsonFile({ file, schema })).toEqual({ name: 'new', count: 2 });
+    expect(await readJsonFile({ file, schema, holdsSecrets: false })).toEqual({
+      name: 'new',
+      count: 2,
+    });
     expect(await readdir(path.dirname(file))).toEqual(['thing.json']);
   });
 
@@ -54,7 +60,7 @@ describe('writeJsonFile and readJsonFile', () => {
 
     await Promise.all(values.map((value) => writeJsonFile({ file, value })));
 
-    expect(values).toContainEqual(await readJsonFile({ file, schema }));
+    expect(values).toContainEqual(await readJsonFile({ file, schema, holdsSecrets: false }));
     expect(await readdir(path.dirname(file))).toEqual(['thing.json']);
   });
 
@@ -75,11 +81,15 @@ describe('writeJsonFile and readJsonFile', () => {
 
 describe('readJsonFile', () => {
   it('says there is nothing for a file that is not there, or a folder that is not either', async () => {
-    expect(await readJsonFile({ file, schema })).toBeUndefined();
+    expect(await readJsonFile({ file, schema, holdsSecrets: false })).toBeUndefined();
     await writeFile(path.join(temp.path(), 'plain'), 'x');
     // A file where a folder should be is "not there" too, as on any system.
     expect(
-      await readJsonFile({ file: path.join(temp.path(), 'plain', 'x.json'), schema }),
+      await readJsonFile({
+        file: path.join(temp.path(), 'plain', 'x.json'),
+        schema,
+        holdsSecrets: false,
+      }),
     ).toBeUndefined();
   });
 
@@ -87,15 +97,17 @@ describe('readJsonFile', () => {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, '{ not json');
 
-    await expect(readJsonFile({ file, schema })).rejects.toThrow(StorageFileError);
-    await expect(readJsonFile({ file, schema })).rejects.toThrow(file);
+    await expect(readJsonFile({ file, schema, holdsSecrets: false })).rejects.toThrow(
+      StorageFileError,
+    );
+    await expect(readJsonFile({ file, schema, holdsSecrets: false })).rejects.toThrow(file);
   });
 
   it('refuses JSON that is not what the schema says, naming the file and the field', async () => {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, JSON.stringify({ name: 'a', count: 'many' }));
 
-    const failure = await readJsonFile({ file, schema }).catch(
+    const failure = await readJsonFile({ file, schema, holdsSecrets: false }).catch(
       (caughtError: unknown) => caughtError,
     );
 
@@ -107,14 +119,19 @@ describe('readJsonFile', () => {
   it('does not take a folder for a missing file', async () => {
     await mkdir(file, { recursive: true });
 
-    await expect(readJsonFile({ file, schema })).rejects.toThrow(StorageFileError);
+    await expect(readJsonFile({ file, schema, holdsSecrets: false })).rejects.toThrow(
+      StorageFileError,
+    );
   });
 
   it('reads a file saved by hand on Windows: with a byte-order mark and CRLF line ends', async () => {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, '\uFEFF{\r\n  "name": "a",\r\n  "count": 1\r\n}\r\n');
 
-    expect(await readJsonFile({ file, schema })).toEqual({ name: 'a', count: 1 });
+    expect(await readJsonFile({ file, schema, holdsSecrets: false })).toEqual({
+      name: 'a',
+      count: 1,
+    });
   });
 });
 

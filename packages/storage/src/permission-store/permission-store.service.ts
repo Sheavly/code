@@ -68,7 +68,7 @@ export class PermissionStore {
       extension: '.json',
       shape: workspaceKeySchema,
     });
-    const stored = await readJsonFile({ file, schema: permissionFileSchema });
+    const stored = await readJsonFile({ file, schema: permissionFileSchema, holdsSecrets: false });
 
     if (!stored) return { file, permissions: { mode: DEFAULT_PERMISSIONS.mode, allow: [] } };
 

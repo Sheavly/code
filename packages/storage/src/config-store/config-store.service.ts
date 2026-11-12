@@ -28,7 +28,9 @@ export class ConfigStore {
   /** The config; none stored yet is an empty one: no default profile, no bindings. */
   async read(): Promise<Config> {
     return (
-      (await readJsonFile({ file: this.#file, schema: configFileSchema })) ?? { workspaces: {} }
+      (await readJsonFile({ file: this.#file, schema: configFileSchema, holdsSecrets: false })) ?? {
+        workspaces: {},
+      }
     );
   }
 
