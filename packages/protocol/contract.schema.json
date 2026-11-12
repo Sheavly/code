@@ -464,6 +464,16 @@
         {
           "type": "object",
           "properties": {
+            "type": { "type": "string", "const": "run_state" },
+            "state": { "type": "string", "enum": ["working", "waiting"] },
+            "groupedTasks": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["type", "state", "groupedTasks"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
             "type": { "type": "string", "const": "context_added" },
             "hook": { "type": "string" },
             "content": { "type": "string" }
@@ -726,6 +736,16 @@
             "message": { "$ref": "#/$defs/InboxMessage" }
           },
           "required": ["seq", "type", "message"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+            "type": { "type": "string", "const": "run_state" },
+            "state": { "type": "string", "enum": ["working", "waiting"] },
+            "groupedTasks": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+          },
+          "required": ["seq", "type", "state", "groupedTasks"]
         },
         {
           "type": "object",

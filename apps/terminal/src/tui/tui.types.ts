@@ -31,7 +31,13 @@ export type ScreenChat = {
 
 /** What the line under the conversation says. */
 export type StatusInfo = {
-  state: 'ready' | 'working' | 'waiting';
+  /**
+   * `waiting` is for the user's approval; `awaiting_tasks` is the run held open for the
+   * `awaitedTasks` tasks the agent grouped, with no spinner.
+   */
+  state: 'ready' | 'working' | 'waiting' | 'awaiting_tasks';
+  /** Grouped tasks the held run still waits on; only read in `awaiting_tasks`. */
+  awaitedTasks?: number;
   model: string;
   modelMode?: ModelMode;
   mode: PermissionMode;

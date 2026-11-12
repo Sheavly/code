@@ -2,7 +2,12 @@ import type { TaskId } from '@sheavly/protocol/task/task.types';
 
 /** Why a task group was refused. */
 type TaskFailure =
-  'empty_group' | 'unknown_task' | 'duplicate_task' | 'task_grouped' | 'task_not_owned';
+  | 'empty_group'
+  | 'unknown_task'
+  | 'duplicate_task'
+  | 'task_grouped'
+  | 'task_not_owned'
+  | 'service_task';
 
 /** A group request was refused without changing any task or delivery. */
 export class TaskError extends Error {

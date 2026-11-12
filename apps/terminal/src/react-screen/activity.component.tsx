@@ -26,7 +26,11 @@ export function Activity(props: ActivityProps) {
   });
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   const working = state === 'working';
-  const label = statusLabel({ state, thinking: props.thinking });
+  const label = statusLabel({
+    state,
+    thinking: props.thinking,
+    awaitedTasks: props.awaitedTasks,
+  });
   const icon = working && !reducedMotion ? frames[frame % frames.length] : '●';
   // Read on every tick: tool elapsed times advance even without the spinner.
   const running = working ? runningToolsText({ tools, at: now() }) : undefined;

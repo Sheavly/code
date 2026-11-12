@@ -88,7 +88,7 @@ describe('bounded running-task snapshots', () => {
     const members = Array.from({ length: MAX_RUNNING_TASKS + 3 }, () => {
       clock.advance(1);
 
-      return activeTask({ tasks, title, service: true }).task;
+      return activeTask({ tasks, title }).task;
     });
 
     tasks.group({ ids: members.map((task) => task.id), reason });
@@ -318,8 +318,10 @@ it('coexists with context and output recovery notices while a service runs', asy
 
 it('rebuilds running tasks for a retry after an overflow summary', async () => {
   const tasks = new TaskRegistry();
-  const service = activeTask({ tasks, title: 'Watch release logs', service: true });
+  const service = activeTask({ tasks, title: 'Watch release logs' });
   const { provider, requests } = recording([overflow, answer]);
+  // A grouped finite task holds the run open, so the run is asked to yield once it is grouped.
+  const yielding = new AbortController();
 
   try {
     await runSession({
@@ -328,11 +330,13 @@ it('rebuilds running tasks for a retry after an overflow summary', async () => {
       tools: [],
       messages: history(),
       summary,
+      yieldSignal: yielding.signal,
       hooks: [
         defineHook({
           name: 'group-during-summary',
           afterSummary: async () => {
             tasks.group({ ids: [service.task.id], reason: 'Watch for rollback errors.' });
+            yielding.abort();
           },
         }),
       ],

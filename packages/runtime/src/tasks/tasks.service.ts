@@ -11,6 +11,7 @@ import { TaskError } from '../errors/tasks.errors.js';
 import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
+import { groupMemberError } from './group-member.helper.js';
 
 type Delivery = { ids: TaskId[]; reason?: string; delivered: boolean };
 type Entry = {
@@ -232,6 +233,20 @@ export class TaskRegistry {
     );
   }
 
+  /**
+   * Running members of groups whose notice is not yet delivered: the tasks a run holds for when it
+   * waits on `await_tasks`. Ungrouped tasks do not count.
+   */
+  groupedPendingCount(sessionId?: SessionId): number {
+    return [...this.#tasks.values()].filter(
+      ({ info, group }) =>
+        info.status === 'running' &&
+        group !== undefined &&
+        !group.delivered &&
+        this.#ownsDelivery({ delivery: group, sessionId }),
+    ).length;
+  }
+
   /** Forgets settled, delivered tasks or silent singles. Held group members cannot be released. */
   release(id: TaskId): boolean {
     const entry = this.#tasks.get(id);
@@ -333,29 +348,15 @@ export class TaskRegistry {
     const { id, seen, sessionId } = params;
     const entry = this.#entry(id);
 
-    if (seen.has(id)) {
-      throw new TaskError({
-        reason: 'duplicate_task',
-        taskId: id,
-        message: `Duplicate task ${id}`,
-      });
-    }
+    const error = groupMemberError({
+      id,
+      duplicate: seen.has(id),
+      grouped: entry.group !== undefined,
+      service: entry.backgroundKind === 'service',
+      owned: this.#owns({ entry, sessionId }),
+    });
 
-    if (entry.group) {
-      throw new TaskError({
-        reason: 'task_grouped',
-        taskId: id,
-        message: `Task ${id} already belongs to a group`,
-      });
-    }
-
-    if (!this.#owns({ entry, sessionId })) {
-      throw new TaskError({
-        reason: 'task_not_owned',
-        taskId: id,
-        message: `Task ${id} belongs to another session`,
-      });
-    }
+    if (error) throw error;
   }
 
   #enqueueSettledGroup(group: Delivery): boolean {

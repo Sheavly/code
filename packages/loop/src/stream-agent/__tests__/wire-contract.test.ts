@@ -111,6 +111,7 @@ describe('the wire contract', () => {
         'tool_result',
         'task_running',
         'task_completed',
+        'run_state',
         'harness_notice',
         'done',
       ]),

@@ -116,8 +116,16 @@ export function runningToolsText(params: {
 export function statusLabel(params: {
   state: StatusInfo['state'];
   thinking: boolean | undefined;
+  awaitedTasks?: number | undefined;
 }): string {
   if (params.state === 'waiting') return 'waiting for you';
+
+  if (params.state === 'awaiting_tasks') {
+    const count = params.awaitedTasks ?? 0;
+
+    return `waiting on ${String(count)} ${count === 1 ? 'task' : 'tasks'} · follow-ups are queued`;
+  }
+
   if (params.state === 'working' && params.thinking) return 'thinking...';
 
   return params.state;
@@ -131,6 +139,9 @@ export function statusText(params: { info: StatusInfo; palette?: Palette }): str
     ready: status.success('● ready'),
     working: status.warning(`● ${statusLabel({ state: 'working', thinking: info.thinking })}`),
     waiting: status.warning('● waiting for you'),
+    awaiting_tasks: status.warning(
+      `● ${statusLabel({ state: 'awaiting_tasks', thinking: undefined, awaitedTasks: info.awaitedTasks })}`,
+    ),
   }[info.state];
   const tasks = info.tasks > 0 ? ` · ${String(info.tasks)} running in background` : '';
   const mode = info.mode === 'allow_all' ? status.error('allow all') : info.mode;

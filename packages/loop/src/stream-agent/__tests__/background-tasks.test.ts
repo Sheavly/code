@@ -132,6 +132,8 @@ describe('background tasks in the loop', () => {
       'text_delta', // the model kept going while the task ran
       'usage',
       'turn_end',
+      'run_state', // held for the task: waiting on none, so ready
+      'run_state', // the task finished, so the run works again
       'task_completed', // released at the turn boundary, before the next model call
       'harness_notice', // the same facts as typed data, also stored in history
       'text_delta',

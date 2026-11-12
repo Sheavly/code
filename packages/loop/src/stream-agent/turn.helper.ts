@@ -164,7 +164,7 @@ async function finishTurn(params: {
   // A requested yield outranks task completions: their results stay delivered to the next run.
   if (options.yieldSignal?.aborted) return 'completed';
 
-  if (await awaitTask({ options, session, signal })) return undefined;
+  if (await awaitTask({ options, session, signal, events: context.events })) return undefined;
 
   return signal.aborted ? 'interrupted' : 'completed';
 }
@@ -225,23 +225,27 @@ async function releaseResults(params: {
 
 /**
  * Finite work keeps its session alive until results are delivered, individually or as a group.
- * False if only services remain, or the run was aborted while waiting.
+ * False if only services remain, or the run was aborted while waiting. While it waits, the run
+ * says so with `run_state`, and says it works again when a delivery or message ends the wait.
  */
 async function awaitTask(params: {
   options: AgentOptions;
   session: RunSession;
   signal: AbortSignal;
+  events: AgentEvents;
 }): Promise<boolean> {
-  const { options, session, signal } = params;
+  const { options, session, signal, events } = params;
   const { tasks } = options;
   const { registry, ref } = session;
 
   if (!tasks) return false;
 
   const { yieldSignal } = options;
+  let reported: number | undefined;
 
   while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
     if (!tasks.hasPendingTasks(ref.id)) return false;
+    reported = reportWaiting({ groupedTasks: tasks.groupedPendingCount(ref.id), reported, events });
     const woken = await waitForWake({ tasks, registry, id: ref.id, signal, yieldSignal });
 
     if (!woken) return false;
@@ -251,7 +255,28 @@ async function awaitTask(params: {
   }
 
   // A yield that raced a delivery wins over continuing.
-  return !yieldSignal?.aborted;
+  if (yieldSignal?.aborted) return false;
+
+  if (reported !== undefined) {
+    events.enqueue({ type: 'run_state', state: 'working', groupedTasks: 0 });
+  }
+
+  return true;
+}
+
+/** Tells a UI the run waits on this many grouped tasks, unless it was last told the same. */
+function reportWaiting(params: {
+  groupedTasks: number;
+  reported: number | undefined;
+  events: AgentEvents;
+}): number {
+  const { groupedTasks, reported, events } = params;
+
+  if (groupedTasks !== reported) {
+    events.enqueue({ type: 'run_state', state: 'waiting', groupedTasks });
+  }
+
+  return groupedTasks;
 }
 
 /**
