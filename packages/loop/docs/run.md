@@ -46,9 +46,12 @@ notices until every member finishes, then delivers one `tasks-finished` notice c
 reason and individual results. An ungrouped task is delivered on its own. Finishes during a model
 turn are reported at the next turn, never inserted into a call already in flight.
 
-A follow-up message wakes the existing inbox wait without cancelling tasks or releasing held
-groups. Normal completion rechecks the inbox after the final asynchronous task check, so a
-follow-up accepted at that boundary is handled instead of stranded in an idle session. Cancelling a grouped task counts it as finished, but the combined notice waits for the
+A message sent to the session (a parent agent's) wakes the existing inbox wait without cancelling
+tasks or releasing held groups. Normal completion rechecks the inbox after the final asynchronous
+task check, so a message accepted at that boundary is handled instead of stranded in an idle
+session. Aborting `yieldSignal` ends the run as `completed` at its completion point instead of
+waiting for tasks: it wakes the wait and takes precedence over pending deliveries, which stay for
+the next run. It never interrupts a model call or tools. Cancelling a grouped task counts it as finished, but the combined notice waits for the
 remaining members and includes its cancelled status. Services that outlive a run are reported
 at the next prompt; grouping a service does not turn it into finite work.
 
@@ -68,7 +71,7 @@ an ungrouped task's launch description), `startedAt`, `durationMs` and `userMess
 The count includes stored user-role messages with timestamps strictly after the task started,
 including entries hidden by summaries; untimed legacy entries are not guessed, and rendered
 notices or checkpoints are never counted as user messages. Pending inbox messages are added
-before the snapshot, so a follow-up arriving with a completion is included. Counts stop at
+before the snapshot, so a message arriving with a completion is included. Counts stop at
 notice delivery; a task's duration stops at its own settlement even when its group waits longer.
 A group's context spans its earliest start to its latest settlement and counts messages since
 that earliest start. Every member also keeps its own timing and count.

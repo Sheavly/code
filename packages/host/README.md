@@ -38,10 +38,11 @@ for await (const event of conversation.send(prompt, { signal })) render(event);
 await conversation.close();
 ```
 
-While a prompt is active, `conversation.followup(text)` synchronously returns whether user steering
-was accepted. It queues the main session's inbox and wakes finite-work waits without cancelling
-sub-agents. Idle or stopping runs return `false`; closed conversations throw `session_ended`.
-Accepted text is kept even when an interrupt or turn limit prevents its next model call.
+A prompt cannot be given more text while it runs. A UI that queues what the user types calls
+`conversation.yieldPrompt()` so the running prompt ends as `completed` at its completion point
+instead of waiting for background tasks or sub-agents (their results reach the next prompt), then
+sends the queued text with `send`. It returns `false` for an idle or stopping prompt, and
+closed conversations throw `session_ended`.
 
 A host serving several conversations (the HTTP server, or a UI in-process) keeps them in a
 `Conversations`, built on a function the app gives that composes each one (provider, tools,
@@ -55,12 +56,9 @@ import { Conversations } from '@sheavly/host/conversations/conversations.service
 const conversations = new Conversations({ create: (options) => buildConversation(options) });
 const id = await conversations.start();
 const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
-// During that run: skills are prepared just as for send, then acceptance is rechecked.
-const accepted = await conversations.followup({ id, prompt: { text: 'Also check warnings.' } });
+// A UI with more input waiting asks the run to end at its completion point, then sends it.
+conversations.yieldPrompt(id);
 ```
-
-If `accepted` is false, the UI can queue the original prompt for a normal `send` after the run.
-Follow-up skill expansion is persisted as text; the inbox does not carry original prompt parts.
 
 A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
 
@@ -97,9 +95,7 @@ store, nothing is kept and everything behaves as before.
 
 Normal prompts sent with `send` have stable UUID `id`s, persisted in history and attached to stream
 entries as `messageId`. The ID is assigned before the resume update, so even early failures can be
-linked to the right prompt. Follow-up inbox messages have no new UUID or original prompt parts;
-their stream activity remains associated with the active prompt's `messageId`. Providers never send
-these IDs to the model.
+linked to the right prompt. Providers never send these IDs to the model.
 
 - [The services a run shares](docs/harness.md): what `createHarness` makes, and how a UI composes
   a run on it.

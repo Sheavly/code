@@ -22,6 +22,8 @@ export type RunPrompt = (options: {
   tasks: TaskRegistry;
   session: RunSession;
   keepSession: true;
+  /** Aborted by `Conversation.yieldPrompt`: end as completed at the next completion point. */
+  yieldSignal: AbortSignal;
   /** Every prompt after the first: the session already ran its `sessionStart` hooks. */
   resumed: boolean;
   instructions?: string;
@@ -53,9 +55,8 @@ export type ConversationOptions = {
    */
   resumed?: boolean;
   /**
-   * Told the history when a prompt starts and follow-ups are accepted (previous finished
-   * history plus this prompt and accepted text), then when it ends or fails (completed work
-   * included). It must not throw or wait: a caller queues writes and reports failures its own way.
+   * Told the history when a prompt starts (previous finished history plus this prompt), then
+   * when it ends or fails (completed work included). It must not throw or wait: a caller queues writes and reports failures its own way.
    */
   keepHistory?: (messages: readonly HistoryMessage[]) => void;
 };
@@ -76,11 +77,12 @@ export type Conversation = {
     options?: { signal?: AbortSignal; parts?: PromptPart[] | undefined },
   ) => AsyncIterable<AgentEvent>;
   /**
-   * Queues user steering on the main session without cancelling background work. Returns false
-   * when idle, interrupted or completing; throws `SessionError` (`session_ended`) once closed.
-   * Accepted messages are delivered at the next model call and kept even if interrupted first.
+   * Asks the running prompt to end as completed at its next completion point, without waiting
+   * for background tasks or sub-agents (their results stay for the next prompt). Nothing is
+   * interrupted or steered. False when no prompt runs or it is stopping; throws `SessionError`
+   * (`session_ended`) once closed.
    */
-  followup: (text: string) => boolean;
+  yieldPrompt: () => boolean;
   /** The history so far: every finished prompt's, valid to continue from. */
   readonly messages: readonly HistoryMessage[];
   /** Whether a prompt is running now. */

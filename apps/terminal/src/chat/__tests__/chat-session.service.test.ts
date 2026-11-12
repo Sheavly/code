@@ -41,7 +41,7 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
 
   const conversation: ChatConversation = {
     runningTasks: 0,
-    followup: () => Promise.resolve(false),
+    yieldPrompt: () => Promise.resolve(false),
     skills: () =>
       Promise.resolve(
         skills.map((name) => ({
@@ -203,7 +203,7 @@ describe('ChatSession: running tools', () => {
     const told: string[][] = [];
     const conversation: ChatConversation = {
       runningTasks: 0,
-      followup: () => Promise.resolve(false),
+      yieldPrompt: () => Promise.resolve(false),
       skills: () => Promise.resolve([]),
       details: () => Promise.reject(new Error('not needed')),
       useModel: () => Promise.resolve(false),

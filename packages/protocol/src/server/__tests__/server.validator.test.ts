@@ -5,7 +5,7 @@ import {
   conversationDetailsSchema,
   conversationsResponseSchema,
   messagesResponseSchema,
-  sendFollowupResponseSchema,
+  yieldPromptResponseSchema,
   sendPromptRequestSchema,
   serverErrorSchema,
   skillsResponseSchema,
@@ -134,14 +134,14 @@ describe('the other requests', () => {
   });
 });
 
-describe('sendFollowupResponseSchema', () => {
+describe('yieldPromptResponseSchema', () => {
   it('requires a boolean acceptance result, including false', () => {
     for (const accepted of [true, false]) {
-      expect(sendFollowupResponseSchema.parse({ accepted })).toEqual({ accepted });
+      expect(yieldPromptResponseSchema.parse({ accepted })).toEqual({ accepted });
     }
 
     for (const body of [{}, { accepted: 'true' }, { accepted: 1 }, null]) {
-      expect(sendFollowupResponseSchema.safeParse(body).success).toBe(false);
+      expect(yieldPromptResponseSchema.safeParse(body).success).toBe(false);
     }
   });
 });

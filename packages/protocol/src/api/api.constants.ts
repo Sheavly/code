@@ -3,7 +3,7 @@ import {
   conversationDetailsSchema,
   conversationsResponseSchema,
   messagesResponseSchema,
-  sendFollowupResponseSchema,
+  yieldPromptResponseSchema,
   sendPromptRequestSchema,
   skillsQuerySchema,
   skillsResponseSchema,
@@ -115,13 +115,13 @@ export const API_ROUTES = {
     body: sendPromptRequestSchema,
     response: { status: 200, stream: streamEntrySchema },
   },
-  sendFollowup: {
+  yieldPrompt: {
     effect: 'change',
     method: 'post',
-    path: '/conversations/{id}/followups',
-    summary: 'Queue a followup on the active run; idle or stopping runs do not accept it',
-    body: sendPromptRequestSchema,
-    response: { status: 200, schema: sendFollowupResponseSchema },
+    path: '/conversations/{id}/yield',
+    summary:
+      'Ask the running prompt to end at its completion point without waiting for background work; nothing is interrupted or steered',
+    response: { status: 200, schema: yieldPromptResponseSchema },
   },
   stopPrompt: {
     effect: 'change',

@@ -105,18 +105,14 @@ export class RemoteConversation {
   }
 
   /**
-   * Delivers text to the active prompt without interrupting its tasks. False means the prompt
-   * already ended or is stopping; the caller may send it as the next prompt instead. Cancellation
-   * aborts only acceptance waiting, not the prompt; a rejected response may still mean delivery.
+   * Asks the active prompt to end at its completion point instead of waiting for background
+   * work, so the caller can send the next prompt. Nothing is interrupted or delivered to it.
+   * False means no prompt is running or it is already stopping. Aborting `signal` gives up
+   * waiting for the answer, not the request's effect if the backend already got it.
    */
-  async followup(text: string, signal?: AbortSignal): Promise<boolean> {
-    const response = await this.#client.call('sendFollowup', {
-      id: this.id,
-      body: { text },
-      ...(signal && { signal }),
-    });
-
-    return response.accepted;
+  async yieldPrompt(signal?: AbortSignal): Promise<boolean> {
+    return (await this.#client.call('yieldPrompt', { id: this.id, ...(signal && { signal }) }))
+      .accepted;
   }
 
   /**

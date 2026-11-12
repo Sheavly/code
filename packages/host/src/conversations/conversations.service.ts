@@ -318,27 +318,11 @@ export class Conversations {
     };
   }
 
-  /**
-   * Prepares skills as for send, then synchronously attempts steering on the active run. A
-   * completion or stop during preparation returns false; callers may queue a normal prompt.
-   */
-  async followup(params: { id: ConversationId; prompt: SendPromptRequest }): Promise<boolean> {
-    const { id, prompt } = params;
-    const live = this.get(id);
-
-    this.#assertStorageHealthy(id);
-    if (!live.conversation.running || this.#running.get(id)?.signal.aborted) return false;
-    const stop = this.#running.get(id);
-    const prepared = await preparePrompt({ prompt, skills: live.skills });
-
+  /** Asks conversation `id`'s running prompt to end at its completion point; false if none runs. */
+  yieldPrompt(id: ConversationId): boolean {
     this.#assertStorageHealthy(id);
 
-    // Do not redirect steering to a different prompt that began while skills were preparing.
-    if (this.get(id) !== live || this.#running.get(id) !== stop || stop?.signal.aborted) {
-      return false;
-    }
-
-    return live.conversation.followup(prepared.text);
+    return this.get(id).conversation.yieldPrompt();
   }
 
   #assertStorageHealthy(id: ConversationId): void {

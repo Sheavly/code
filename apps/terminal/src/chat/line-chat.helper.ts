@@ -105,7 +105,6 @@ export async function runLineChat(params: {
     }
 
     // EOF ends input, not the conversation work already submitted (including queued commands).
-    session.finishInput();
     await session.idle();
   } finally {
     input.close();

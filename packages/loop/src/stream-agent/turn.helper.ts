@@ -157,9 +157,12 @@ async function finishTurn(params: {
 
   if (running.length > 0) return undefined;
 
-  // Follow-ups wake the model without touching tasks or groups. Otherwise finite work keeps
+  // Messages from a parent agent wake the model without touching tasks or groups. Otherwise finite work keeps
   // this session alive until its results can be delivered; services may outlive the run.
   if (session.registry.hasMessages(session.ref.id)) return undefined;
+
+  // A requested yield outranks task completions: their results stay delivered to the next run.
+  if (options.yieldSignal?.aborted) return 'completed';
 
   if (await awaitTask({ options, session, signal })) return undefined;
 
@@ -167,7 +170,7 @@ async function finishTurn(params: {
 }
 
 /**
- * Messages sent to this session while it worked (user steering, or its parent's): put in
+ * Messages sent to this session while it worked (its parent's, for example): put in
  * history as user messages before the model call, and shown in order, like finished tasks.
  */
 function deliverMessages(params: {
@@ -235,15 +238,20 @@ async function awaitTask(params: {
 
   if (!tasks) return false;
 
+  const { yieldSignal } = options;
+
   while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
     if (!tasks.hasPendingTasks(ref.id)) return false;
-    const woken = await waitForWake({ tasks, registry, id: ref.id, signal });
+    const woken = await waitForWake({ tasks, registry, id: ref.id, signal, yieldSignal });
 
     if (!woken) return false;
+    // An aborted yield resolves every further wait at once, so it must end the loop here.
+    if (yieldSignal?.aborted) return false;
     // Loop again: a task cancelled on request settles silently, with nothing to report.
   }
 
-  return true;
+  // A yield that raced a delivery wins over continuing.
+  return !yieldSignal?.aborted;
 }
 
 /**
@@ -256,10 +264,12 @@ async function waitForWake(params: {
   registry: RunSession['registry'];
   id: RunSession['ref']['id'];
   signal: AbortSignal;
+  /** Aborting it also ends the wait; the caller decides what a yield means. */
+  yieldSignal: AbortSignal | undefined;
 }): Promise<boolean> {
-  const { tasks, registry, id, signal } = params;
+  const { tasks, registry, id, signal, yieldSignal } = params;
   const done = new AbortController();
-  const waits = AbortSignal.any([signal, done.signal]);
+  const waits = AbortSignal.any([signal, done.signal, ...(yieldSignal ? [yieldSignal] : [])]);
 
   try {
     await Promise.race([tasks.nextSettled(waits), registry.nextMessage(id, waits)]);

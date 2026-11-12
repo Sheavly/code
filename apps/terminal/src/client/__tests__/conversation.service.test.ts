@@ -107,50 +107,22 @@ describe('RemoteConversation', () => {
     });
   });
 
-  it.each([true, false])('returns follow-up acceptance %s from the backend', async (accepted) => {
-    const { conversation, server } = await open({ sendFollowup: () => ({ accepted }) });
+  it.each([true, false])('returns yield acceptance %s from the backend', async (accepted) => {
+    const { conversation, server } = await open({ yieldPrompt: () => ({ accepted }) });
 
-    expect(await conversation.followup('Also check the deployment.')).toBe(accepted);
-    expect(server.calls.find(({ name }) => name === 'sendFollowup')?.call).toEqual({
+    expect(await conversation.yieldPrompt()).toBe(accepted);
+    expect(server.calls.find(({ name }) => name === 'yieldPrompt')?.call).toEqual({
       params: { id: ID },
-      body: { text: 'Also check the deployment.' },
     });
     expect(server.calls.some(({ name }) => name === 'stopPrompt')).toBe(false);
   });
 
-  it('passes follow-up cancellation to the HTTP transport without stopping the prompt', async () => {
-    const server = fakeServer({
-      startConversation: () => ({ id: ID }),
-      sendFollowup: () => ({ accepted: true }),
-    });
-    let request: Request | undefined;
-    const conversation = await RemoteConversation.open({
-      backend: {
-        url: 'http://backend.test',
-        token: 't',
-        stop: async () => undefined,
-        fetch: (input, init) => {
-          request = new Request(input, init);
-
-          return server.fetch(input, init);
-        },
-      },
-    });
-    const cancelled = new AbortController();
-
-    expect(await conversation.followup('Follow up', cancelled.signal)).toBe(true);
-    expect(request?.signal.aborted).toBe(false);
-    cancelled.abort();
-    expect(request?.signal.aborted).toBe(true);
-    expect(server.calls.some(({ name }) => name === 'stopPrompt')).toBe(false);
-  });
-
-  it('reports a failed follow-up request instead of treating it as idle', async () => {
+  it('reports a failed yield request instead of treating it as idle', async () => {
     const { conversation } = await open({
-      sendFollowup: () => ({ refuse: { status: 404, code: 'not_found' } }),
+      yieldPrompt: () => ({ refuse: { status: 404, code: 'not_found' } }),
     });
 
-    await expect(conversation.followup('Follow up')).rejects.toMatchObject({
+    await expect(conversation.yieldPrompt()).rejects.toMatchObject({
       name: 'RefusedError',
       code: 'not_found',
     });

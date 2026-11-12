@@ -20,7 +20,7 @@ export type ChatInput =
 /** What the chat needs of a conversation: a `RemoteConversation`, or a stand-in for a test. */
 export type ChatConversation = Pick<
   RemoteConversation,
-  'send' | 'followup' | 'skills' | 'details' | 'useModel' | 'runningTasks'
+  'send' | 'yieldPrompt' | 'skills' | 'details' | 'useModel' | 'runningTasks'
 >;
 
 /** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
