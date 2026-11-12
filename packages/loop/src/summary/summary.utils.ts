@@ -5,7 +5,13 @@ import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
 import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
-import { CHARS_PER_TOKEN } from './summary.constants.js';
+import {
+  CHARS_PER_TOKEN,
+  CHECKPOINT_RESERVE_SHARE,
+  TARGET_MAX_SHARE,
+  TARGET_MIN_SHARE,
+  TARGET_RATIO,
+} from './summary.constants.js';
 import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 import { noticeForView, visibleCallIds } from './notice-view.utils.js';
 
@@ -38,6 +44,31 @@ export function shouldSummarize(params: { context: ContextState; policy: Summary
   const buffer = Math.min(Math.max(window * policy.freeShare, policy.minFreeTokens), window / 2);
 
   return window - used < buffer;
+}
+
+/**
+ * How many tokens of the newest messages stay word for word, so the context lands between 15% and
+ * 50% of the window after the summary: a share of what it used when it summarized, clamped to
+ * those bounds, less room for the checkpoint and the pinned entries. Never below one token, so
+ * the tail is never empty (`chooseCut` always keeps the newest message). `fallback` is for a
+ * window nobody knows.
+ */
+export function keepTokensFor(params: {
+  window: number | undefined;
+  used: number | undefined;
+  fallback: number;
+}): number {
+  const { window, fallback } = params;
+
+  if (window === undefined) return fallback;
+
+  const basis = params.used ?? window;
+  const target = Math.min(
+    Math.max(basis * TARGET_RATIO, window * TARGET_MIN_SHARE),
+    window * TARGET_MAX_SHARE,
+  );
+
+  return Math.max(1, Math.round(target - window * CHECKPOINT_RESERVE_SHARE));
 }
 
 /**

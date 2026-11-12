@@ -8,11 +8,36 @@ import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { DEFAULT_SUMMARY_POLICY } from '../summary.constants.js';
 import {
   chooseCut,
+  keepTokensFor,
   latestCheckpoint,
   shouldSummarize,
   spanToSummarize,
   viewOf,
 } from '../summary.utils.js';
+
+describe('keepTokensFor', () => {
+  const WINDOW = 100_000;
+
+  it('lands the context between 15% and 50% of the window, less room for the checkpoint', () => {
+    const keep = (used: number) => keepTokensFor({ window: WINDOW, used, fallback: 15_000 });
+
+    // 35% of 90k is 31.5k, less the 10k reserve.
+    expect(keep(90_000)).toBe(21_500);
+    // A nearly empty context still keeps the 15% floor, less the reserve.
+    expect(keep(1_000)).toBe(5_000);
+    // A context beyond the window cannot ask for more than the 50% ceiling, less the reserve.
+    expect(keep(400_000)).toBe(40_000);
+  });
+
+  it('works without a reported usage, from the window alone, and never keeps nothing', () => {
+    expect(keepTokensFor({ window: WINDOW, used: undefined, fallback: 15_000 })).toBe(25_000);
+    expect(keepTokensFor({ window: 10, used: 1, fallback: 15_000 })).toBeGreaterThanOrEqual(1);
+  });
+
+  it('uses the fixed tail where the window is unknown', () => {
+    expect(keepTokensFor({ window: undefined, used: 5_000, fallback: 15_000 })).toBe(15_000);
+  });
+});
 
 /** 40 characters: ten tokens by the estimate. */
 const TEXT = 'x'.repeat(40);
@@ -49,8 +74,17 @@ describe('shouldSummarize', () => {
     expect(at(255_001)).toBe(true);
   });
 
-  it('uses the minimum free room on a small window, but never more than half of it', () => {
+  it('triggers at 85% of a small window too, with no extra floor by default', () => {
     const small = (used: number) => shouldSummarize({ context: { window: 20_000, used }, policy });
+
+    expect(small(17_000)).toBe(false);
+    expect(small(17_001)).toBe(true);
+  });
+
+  it('uses a minimum free room a UI asks for, but never more than half of the window', () => {
+    const floored = { ...policy, minFreeTokens: 16_000 };
+    const small = (used: number) =>
+      shouldSummarize({ context: { window: 20_000, used }, policy: floored });
 
     expect(small(10_000)).toBe(false);
     expect(small(10_001)).toBe(true);

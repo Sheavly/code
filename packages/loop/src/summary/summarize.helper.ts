@@ -15,6 +15,7 @@ import { runAfterSummary, runBeforeSummary } from '../hooks/hooks.helper.js';
 import {
   chooseCut,
   estimateTokens,
+  keepTokensFor,
   mergeSections,
   shouldSummarize,
   spanToSummarize,
@@ -96,7 +97,15 @@ export async function summarizeHistory(params: {
   if (!config) return false;
 
   const policy = { ...DEFAULT_SUMMARY_POLICY, ...config.policy };
-  const cut = chooseCut({ history: messages, keepTokens: policy.keepTokens });
+  // A tail the UI chose is kept as chosen; otherwise it follows the window and how full it was.
+  const keepTokens =
+    config.policy?.keepTokens ??
+    keepTokensFor({
+      window: options.provider.contextWindow,
+      used,
+      fallback: policy.keepTokens,
+    });
+  const cut = chooseCut({ history: messages, keepTokens });
 
   if (cut === undefined) return false;
 
