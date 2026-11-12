@@ -29,18 +29,37 @@ const options = (summarizer: Summarizer) => ({
 });
 const types = (events: AgentEvent[]) => events.map((event) => event.type);
 
-async function runNearWindow(summarizer: Summarizer) {
+async function runNearWindow(
+  summarizer: Summarizer,
+  extra: { signal?: AbortSignal; onEvent?: (event: AgentEvent) => void } = {},
+) {
   const { provider, requests } = recording([toolTurn(95_000), answer]);
   const events: AgentEvent[] = [];
-  const { messages } = await runSession({
+  const { messages, reason } = await runSession({
     provider,
     tools: [probe],
     messages: history(),
     summary: options(summarizer),
-    onEvent: (event) => events.push(event),
+    ...(extra.signal && { signal: extra.signal }),
+    onEvent: (event) => {
+      events.push(event);
+      extra.onEvent?.(event);
+    },
   });
 
-  return { events, messages, requests };
+  return { events, messages, requests, reason };
+}
+
+/** Aborts the run the moment its summary starts, as a user stopping it mid-summary would. */
+function abortWhenSummaryStarts() {
+  const controller = new AbortController();
+
+  return {
+    signal: controller.signal,
+    onEvent: (event: AgentEvent) => {
+      if (event.type === 'summary_started') controller.abort();
+    },
+  };
 }
 
 describe('summarizing in the loop', () => {
@@ -190,7 +209,6 @@ describe('summarizing in the loop', () => {
 
   it('reports an aborted summary as kind cancellation, without retrying', async () => {
     let calls = 0;
-    const controller = new AbortController();
     const stuck: Summarizer = {
       name: 'stuck',
       summarize: () => {
@@ -199,20 +217,7 @@ describe('summarizing in the loop', () => {
         return new Promise(() => undefined);
       },
     };
-    const { provider } = recording([toolTurn(95_000), answer]);
-    const events: AgentEvent[] = [];
-
-    await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(stuck),
-      signal: controller.signal,
-      onEvent: (event) => {
-        events.push(event);
-        if (event.type === 'summary_started') controller.abort();
-      },
-    });
+    const { events } = await runNearWindow(stuck, abortWhenSummaryStarts());
 
     expect(calls).toBeLessThanOrEqual(1);
     expect(events.find((event) => event.type === 'summary_failed')).toMatchObject({
@@ -258,20 +263,10 @@ describe('summarizing in the loop', () => {
 
   it('ends interrupted and closes the summary when aborted while a summarizer ignores its signal', async () => {
     const stuck: Summarizer = { name: 'stuck', summarize: () => new Promise(() => undefined) };
-    const { provider, requests } = recording([toolTurn(95_000), answer]);
-    const controller = new AbortController();
-    const events: AgentEvent[] = [];
-    const { reason, messages } = await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(stuck),
-      signal: controller.signal,
-      onEvent: (event) => {
-        events.push(event);
-        if (event.type === 'summary_started') controller.abort();
-      },
-    });
+    const { events, messages, requests, reason } = await runNearWindow(
+      stuck,
+      abortWhenSummaryStarts(),
+    );
 
     expect(reason).toBe('interrupted');
     expect(types(events).filter((type) => type.startsWith('summary_'))).toEqual([
@@ -407,17 +402,7 @@ describe('summarizing in the loop', () => {
       // A UI's summarizer may be plain JavaScript, so its result is not trusted to be typed.
       summarize: async () => undefined as never,
     };
-    const { provider } = recording([toolTurn(95_000), answer]);
-    const events: AgentEvent[] = [];
-
-    await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(empty),
-      onEvent: (event) => events.push(event),
-    });
-
+    const { events } = await runNearWindow(empty);
     const failed = events.find((event) => event.type === 'summary_failed');
 
     expect(failed?.type === 'summary_failed' && failed.error).toContain('returned no result');
