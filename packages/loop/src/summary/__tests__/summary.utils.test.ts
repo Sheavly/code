@@ -155,7 +155,40 @@ describe('chooseCut', () => {
     expect(chooseCut({ history, keepTokens: 1_500 })).toBe(3);
     // Over the cap the older group is summarized; the newest is kept, since a tail is never empty.
     expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 1_500 })).toBe(5);
+    // A newest group over the cap by itself is still kept: the older history is what shrinks.
     expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 500 })).toBe(5);
+  });
+
+  it('counts the pinned prompt against the tail cap', () => {
+    const bigPrompt = user('p'.repeat(4_000));
+    const history = [bigPrompt, assistant('c1'), result('c1'), assistant('c2'), result('c2')];
+
+    // Everything fits keepTokens, so nothing is older than the tail and there is nothing to summarize.
+    expect(chooseCut({ history, keepTokens: 5_000, maxTailTokens: 5_000 })).toBeUndefined();
+    // The prompt (about 1,000 tokens) is over a 500 cap, so the cut moves up to the newest group.
+    expect(chooseCut({ history, keepTokens: 5_000, maxTailTokens: 500 })).toBe(3);
+  });
+
+  it('caps a tail after an earlier checkpoint, keeping at least the newest group', () => {
+    const big: HistoryMessage = {
+      role: 'tool',
+      toolCallId: callIdSchema.parse('c2'),
+      content: 'y'.repeat(2_000),
+      isError: false,
+    };
+    const history = [
+      user(),
+      assistant(),
+      checkpoint({ kept: 2 }),
+      assistant('c2'),
+      big,
+      assistant('c3'),
+      result('c3'),
+    ];
+    const cut = chooseCut({ history, keepTokens: 1_000, maxTailTokens: 100 });
+
+    expect(cut).toBe(5);
+    expect(history.length - (cut ?? 0)).toBeGreaterThanOrEqual(1);
   });
 
   it('derives the tail cap from the window: its post-summary ceiling less the checkpoint room', () => {

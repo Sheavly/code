@@ -216,7 +216,10 @@ function projectHistory(params: {
 export function chooseCut(params: {
   history: readonly HistoryMessage[];
   keepTokens: number;
-  /** A tail larger than this is summarized too, even the newest call and its results. */
+  /**
+   * A tail (with the pinned messages shown before it) larger than this is summarized too, except
+   * the newest call and its results. Leave it out when a UI or hook chose `keepTokens`.
+   */
   maxTailTokens?: number | undefined;
 }): number | undefined {
   const { history, keepTokens, maxTailTokens } = params;
@@ -250,11 +253,23 @@ export function maxTailTokensFor(window: number | undefined): number | undefined
   return Math.max(1, Math.round(window * (TARGET_MAX_SHARE - CHECKPOINT_RESERVE_SHARE)));
 }
 
+/** What a tail starting at `from` costs in the view: its messages and the user messages pinned before it. */
+function tailWithPinned(params: { history: readonly HistoryMessage[]; from: number }): number {
+  const { history, from } = params;
+  const pinned = pinnedIndices({ history, start: from }).flatMap((index) => history[index] ?? []);
+  const shown = [...pinned, ...history.slice(from)];
+
+  return shown.reduce(
+    (sum, message) => sum + (message.role === 'summary' ? 0 : estimateTokens(message)),
+    0,
+  );
+}
+
 /**
  * Moves `cut` forward, one call group at a time, until the tail it leaves fits `maxTailTokens`.
  * Stops at the newest call group, never leaving an empty tail: a checkpoint keeps at least one
- * message (`kept` is positive). A newest group that alone exceeds the cap is left to the size
- * check, which rejects a summary that does not shrink the view.
+ * message (`kept` is positive). A newest group over the cap is still kept: with enough older
+ * history the summary shrinks the view anyway, and `assertViewShrinks` rejects one that cannot.
  */
 function shrinkOversizedTail(params: {
   history: readonly HistoryMessage[];
@@ -266,19 +281,11 @@ function shrinkOversizedTail(params: {
 
   if (maxTailTokens === undefined) return cut;
 
-  const tailTokens = (from: number) =>
-    history
-      .slice(from)
-      .reduce(
-        (sum, message) => sum + (message.role === 'summary' ? 0 : estimateTokens(message)),
-        0,
-      );
-
   let newestGroup = history.length - 1;
 
   while (newestGroup > 0 && history[newestGroup]?.role === 'tool') newestGroup -= 1;
 
-  while (cut < newestGroup && tailTokens(cut) > maxTailTokens) {
+  while (cut < newestGroup && tailWithPinned({ history, from: cut }) > maxTailTokens) {
     cut += 1;
 
     while (cut < newestGroup && history[cut]?.role === 'tool') cut += 1;

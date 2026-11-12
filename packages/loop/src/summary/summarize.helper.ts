@@ -120,7 +120,11 @@ export async function summarizeHistory(params: {
   const cut = chooseCut({
     history: messages,
     keepTokens,
-    maxTailTokens: maxTailTokensFor(options.provider.contextWindow),
+    // A tail the UI chose is kept as chosen, so only a computed one is capped.
+    maxTailTokens:
+      config.policy?.keepTokens === undefined
+        ? maxTailTokensFor(options.provider.contextWindow)
+        : undefined,
   });
 
   if (cut === undefined) return false;
@@ -232,11 +236,7 @@ async function writeCheckpoint(params: {
   const cut =
     change.keepTokens === undefined
       ? params.cut
-      : (chooseCut({
-          history: messages,
-          keepTokens: change.keepTokens,
-          maxTailTokens: maxTailTokensFor(options.provider.contextWindow),
-        }) ?? params.cut);
+      : (chooseCut({ history: messages, keepTokens: change.keepTokens }) ?? params.cut);
   const body = await callSummarizer({
     summarizer: config.summarizer,
     span: spanToSummarize({ history: messages, cut }),
