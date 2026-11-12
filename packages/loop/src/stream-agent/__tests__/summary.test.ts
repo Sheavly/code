@@ -225,6 +225,42 @@ describe('summarizing in the loop', () => {
     });
   });
 
+  it('ends context_window_exceeded, history untouched, when no summary helps and the view fills the window', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    // The prompt alone is estimated at more than the whole window (4 characters a token). The
+    // first turn reports usage, so the second finds the threshold crossed, the summary failing,
+    // and nothing that could shrink the view: it stops instead of calling the model again.
+    const { provider, requests } = recording([toolTurn(95_000), answer]);
+    const { reason, messages } = await runSession({
+      provider,
+      tools: [probe],
+      messages: [{ role: 'user', content: 'x'.repeat(4 * WINDOW + 400), at: 1 }],
+      summary: options(failing),
+    });
+
+    expect(reason).toBe('context_window_exceeded');
+    expect(requests).toHaveLength(1);
+    expect(messages.some((m) => m.role === 'summary')).toBe(false);
+  });
+
+  it('carries on unchanged when a summary fails but the next request still fits', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    const { events, reason } = await runNearWindow(failing);
+
+    expect(reason).toBe('completed');
+    expect(types(events)).toContain('summary_failed');
+  });
+
   it('rejects a summary that is not smaller, appending no checkpoint', async () => {
     // About 350 tokens against the 300 it would replace.
     const { events, messages } = await runNearWindow(writer('y'.repeat(1_400)));

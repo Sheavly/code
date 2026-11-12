@@ -25,7 +25,9 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   deliverMessages({ session, messages, events });
   reportFinishedTasks({ tasks: options.tasks, session, messages, events });
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
-  await summarizeAtThreshold(context);
+  // No summary could make room and the view fills the window: stop here, recoverably (the history
+  // is untouched and valid), rather than send a call the provider is sure to reject.
+  if ((await summarizeAtThreshold(context)) === 'full') return 'context_window_exceeded';
 
   if (signal.aborted) return 'interrupted';
 

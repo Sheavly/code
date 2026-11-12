@@ -55,25 +55,36 @@ function doneEvent(params: {
  * nothing without the `summary` option, once threshold summaries have failed `maxFailures` times
  * in a row this run, or while the last call's usage is unknown. The caller reads the context
  * state again afterwards: a checkpoint clears the session's last reported tokens.
+ *
+ * Returns `'full'` when the context is past the threshold, no summary could shrink it (one
+ * failed, was not tried again, or left nothing to summarize) and what a model would be sent is
+ * estimated to fill the whole window: carrying on would only end in a provider error, so the
+ * caller stops with a recoverable `context_window_exceeded`. Otherwise `'ok'`, and the run goes
+ * on with the view unchanged.
  */
-export async function summarizeAtThreshold(context: TurnContext): Promise<void> {
+export async function summarizeAtThreshold(context: TurnContext): Promise<'ok' | 'full'> {
   const { options, session, summaryFailures } = context;
   const config = options.summary;
 
-  if (!config) return;
+  if (!config) return 'ok';
 
   const policy = { ...DEFAULT_SUMMARY_POLICY, ...config.policy };
-
-  if (summaryFailures.count >= policy.maxFailures) return;
-
   const state = contextState({
     window: options.provider.contextWindow,
     lastTokens: session.registry.lastTokens(session.ref.id),
   });
 
-  if (!shouldSummarize({ context: state, policy })) return;
+  if (!shouldSummarize({ context: state, policy })) return 'ok';
 
-  await summarizeHistory({ context, reason: 'threshold', used: state.used });
+  const gaveUp = summaryFailures.count >= policy.maxFailures;
+  const summarized =
+    !gaveUp && (await summarizeHistory({ context, reason: 'threshold', used: state.used }));
+
+  if (summarized) return 'ok';
+
+  const { window } = state;
+
+  return window !== undefined && viewTokens(context) >= window ? 'full' : 'ok';
 }
 
 /**
