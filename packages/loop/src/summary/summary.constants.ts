@@ -26,5 +26,23 @@ export const TARGET_RATIO = 0.35;
 /** Share of the window left for the checkpoint and the entries pinned in front of the tail. */
 export const CHECKPOINT_RESERVE_SHARE = 0.1;
 
+/**
+ * Old tool results are hidden from what a model is sent once the unmasked view is estimated to fill
+ * this share of the window (hiding old output is cheaper than a summary and loses no decision)...
+ */
+export const MASK_START_SHARE = 0.4;
+
+/** ...the newest this many tool results always stay whole... */
+export const MASK_KEEP_RESULTS = 10;
+
+/**
+ * ...and older ones are hidden this many at a time, so what a model is sent changes only every few
+ * results and its cached prompt prefix survives the turns in between.
+ */
+export const MASK_STEP_RESULTS = 8;
+
+/** A result shorter than this is not worth hiding: the note about it would be as long. */
+export const MASK_MIN_CHARS = 400;
+
 /** The token estimate for text with no tokenizer: one token per this many characters. */
 export const CHARS_PER_TOKEN = 4;
