@@ -4,6 +4,7 @@ import { toStoreError } from '@sheavly/core/store/store.utils';
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
 /**
@@ -22,6 +23,8 @@ export class ConversationKeeper {
   #kept = 0;
   /** The log's length minus the history's, for what reopening repaired; 0 otherwise. */
   #offset = 0;
+  /** How many entries of each sub-agent's history are queued or written to its log. */
+  readonly #agentKept = new Map<SessionId, number>();
 
   constructor(params: { store: ConversationStore; id: ConversationId }) {
     this.#store = params.store;
@@ -82,6 +85,36 @@ export class ConversationKeeper {
         .history({ id: this.#id })
         .append(fresh.map((entry, index) => ({ seq: first + offset + index, entry })));
       await this.#touchIndex({});
+    });
+  }
+
+  /**
+   * A sub-agent's history as it is now: like `keepHistory`, only entries after those already kept
+   * go to that session's log. A sub-agent's history is never repaired on reopening, so no offset.
+   */
+  keepAgentHistory(params: { session: SessionId; messages: readonly HistoryMessage[] }): void {
+    const { session, messages } = params;
+    const first = this.#agentKept.get(session) ?? 0;
+
+    if (messages.length < first) {
+      this.#queue(async () => {
+        throw new StoreError({
+          reason: 'failed',
+          message: `History of sub-agent ${session} in conversation ${this.#id} shrank from ${String(first)} to ${String(messages.length)} entries`,
+        });
+      });
+
+      return;
+    }
+
+    this.#agentKept.set(session, messages.length);
+
+    const fresh = messages.slice(first);
+
+    this.#queue(async () => {
+      await this.#store
+        .history({ id: this.#id, session })
+        .append(fresh.map((entry, index) => ({ seq: first + index, entry })));
     });
   }
 

@@ -49,6 +49,7 @@ describe('conversation usage over the API', () => {
       sessions: new SessionRegistry(),
       storage: {
         keepHistory: () => undefined,
+        keepAgentHistory: () => undefined,
         shell: memoryShellStore(),
         outputs: new MemoryOutputStore(),
         resume: { next: 3, tail: [oldTurn], sessions: [], lastTokens: [] },
@@ -91,6 +92,7 @@ describe('conversation usage over the API', () => {
       sessions: new SessionRegistry(),
       storage: {
         keepHistory: () => undefined,
+        keepAgentHistory: () => undefined,
         shell: memoryShellStore(),
         outputs: new MemoryOutputStore(),
         resume: { next: 2, tail: [turnEnd], sessions: [], lastTokens: [] },

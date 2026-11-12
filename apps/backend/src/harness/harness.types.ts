@@ -71,6 +71,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
    * whole output and the run gets `read_output` and `search_output`. None keeps previews only.
    */
   outputs?: OutputStore | undefined;
+  /** Keeps each sub-agent's history durably (see `SubAgentOptions.keepHistory`); none keeps nothing. */
+  keepAgentHistory?: Parameters<typeof createSubAgentTool>[0]['keepHistory'];
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */

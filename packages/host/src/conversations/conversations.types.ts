@@ -15,6 +15,7 @@ import type {
   ConversationSummary,
   SendPromptRequest,
 } from '@sheavly/protocol/server/server.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
@@ -121,6 +122,8 @@ export type ConversationStorage = {
   /** The conversation's complete command output, kept with it and readable after a reopen. */
   outputs: OutputStore;
   keepHistory: (messages: readonly HistoryMessage[]) => void;
+  /** A sub-agent's history so far, whole: only what is new is appended to that session's log. */
+  keepAgentHistory: (params: { session: SessionId; messages: readonly HistoryMessage[] }) => void;
   resume?: StoredLog | undefined;
 };
 

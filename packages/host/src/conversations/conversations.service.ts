@@ -257,6 +257,7 @@ export class Conversations {
         shell: this.#store.shell(id),
         outputs: this.#store.outputs(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
+        keepAgentHistory: (params) => keeper.keepAgentHistory(params),
       },
     };
   }

@@ -45,6 +45,7 @@ export async function createBackendHarness(
     webFetch = {},
     webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
+    keepAgentHistory,
     shell = memoryShellStore(),
     outputs,
     ...coding
@@ -116,6 +117,7 @@ export async function createBackendHarness(
         baseInstructions: harness.instructions,
         ...(subAgentProvider && { selectProvider: subAgentProvider }),
         ...(summarizeWith && { summarizeWith }),
+        ...(keepAgentHistory && { keepHistory: keepAgentHistory }),
         runAgent: runSession,
         tools: [...fileTools, ...webTools, ...outputTools],
         tasksTools: (childTasks) => [
