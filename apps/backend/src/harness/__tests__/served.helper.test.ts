@@ -298,13 +298,24 @@ describe('a conversation the backend keeps', () => {
 
     const found = await readdir(path.join(home, 'profiles'), { recursive: true });
     const kept = found.filter((name) => name.includes(`conversations${path.sep}${id}${path.sep}`));
-    const history = kept.find((name) => name.endsWith('history.json')) ?? '';
+    const history = kept.find((name) => name.endsWith('history.jsonl')) ?? '';
 
     expect(kept.map((name) => path.basename(name))).toEqual(
-      expect.arrayContaining(['history.json', 'index.json', 'stream.jsonl']),
+      expect.arrayContaining(['history.jsonl', 'index.json', 'stream.jsonl']),
     );
-    expect(JSON.parse(await readFile(path.join(home, 'profiles', history), 'utf8'))).toEqual(
-      expect.arrayContaining([expect.objectContaining({ role: 'user', content: 'hi' })]),
+
+    const records = (await readFile(path.join(home, 'profiles', history), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as unknown);
+
+    expect(records).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          seq: 0,
+          entry: expect.objectContaining({ role: 'user', content: 'hi' }),
+        }),
+      ]),
     );
   });
 

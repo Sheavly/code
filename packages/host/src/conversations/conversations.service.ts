@@ -91,7 +91,10 @@ export class Conversations {
       });
     }
 
-    const { stored, messages, resume } = await readStoredConversation({ store: this.#store, id });
+    const { stored, logged, messages, resume } = await readStoredConversation({
+      store: this.#store,
+      id,
+    });
     const keeper = this.#keeperFor(id);
     const storage = this.#storageOf({ keeper, id }).storage;
     const live = await this.#create({
@@ -107,7 +110,7 @@ export class Conversations {
 
     this.#live.set(id, live);
     keeper?.begin({ ...stored, status: 'open' });
-    keeper?.keepHistory(messages);
+    keeper?.resumeAt({ logged, history: messages.length });
 
     return id;
   }

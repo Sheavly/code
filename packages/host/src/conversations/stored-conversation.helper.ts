@@ -1,4 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
+import { readHistoryEntries } from '@sheavly/core/store/history-log.helper';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
@@ -24,9 +25,12 @@ export async function readStoredConversation(params: {
     });
   }
 
+  const logged = await readHistoryEntries(store.history({ id }));
+
   return {
     stored,
-    messages: repairHistory({ messages: await store.readMessages(id), at: now() }),
+    logged: logged.length,
+    messages: repairHistory({ messages: logged, at: now() }),
     resume: await SessionRegistry.readStoredLog(store.entries(id)),
   };
 }

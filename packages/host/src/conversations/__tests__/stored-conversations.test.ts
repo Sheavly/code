@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StoreError } from '@sheavly/core/errors/store.errors';
+import { readHistoryEntries } from '@sheavly/core/store/history-log.helper';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
@@ -66,7 +67,9 @@ describe('Conversations with a store', () => {
       { id, title: 'Chat', modelId: FAST_ID, status: 'open' },
     ]);
     expect(
-      (await store.readMessages(id)).flatMap((m) => ('content' in m ? [[m.role, m.content]] : [])),
+      (await readHistoryEntries(store.history({ id }))).flatMap((m) =>
+        'content' in m ? [[m.role, m.content]] : [],
+      ),
     ).toEqual([
       ['user', 'hi'],
       ['assistant', 'hello'],
@@ -93,7 +96,7 @@ describe('Conversations with a store', () => {
     await conversations.close(id);
 
     expect(await conversations.listStored()).toMatchObject([{ id, status: 'closed' }]);
-    expect(await store.readMessages(id)).toHaveLength(2);
+    expect(await readHistoryEntries(store.history({ id }))).toHaveLength(2);
   });
 
   it('lists an open conversation no live one owns as interrupted: its process ended', async () => {
@@ -122,7 +125,9 @@ describe('Conversations with a store', () => {
     // The model saw what came before, then the new prompt.
     expect(second.sent[0]?.map((m) => m.content)).toEqual(['first', 'one', 'second']);
     expect(
-      (await store.readMessages(id)).flatMap((m) => ('content' in m ? [m.content] : [])),
+      (await readHistoryEntries(store.history({ id }))).flatMap((m) =>
+        'content' in m ? [m.content] : [],
+      ),
     ).toEqual(['first', 'one', 'second', 'two']);
     expect(await second.conversations.listStored()).toMatchObject([{ id, status: 'open' }]);
   });
@@ -155,7 +160,10 @@ describe('Conversations with a store', () => {
       at: 2,
     };
 
-    await store.writeMessages({ id, messages: [{ role: 'user', content: 'go', at: 1 }, asking] });
+    await store.history({ id }).append([
+      { seq: 0, entry: { role: 'user', content: 'go', at: 1 } },
+      { seq: 1, entry: asking },
+    ]);
     await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 2 });
     await store.entries(id).append({
       seq: 0,
@@ -183,6 +191,18 @@ describe('Conversations with a store', () => {
 
     expect(messages.map((m) => m.role)).toEqual(['user', 'assistant', 'tool']);
     expect(messages.at(-1)).toMatchObject({ role: 'tool', isError: true });
+
+    // The placeholder is not logged (reopening makes it again), so later entries must follow the
+    // logged ones with no gap and no repeat.
+    await collect((await conversations.send({ id, prompt: { text: 'next' } })).events);
+    await settled(conversations, id);
+
+    const seqs: number[] = [];
+
+    for await (const record of store.history({ id }).read()) seqs.push(record.seq);
+
+    expect(seqs).toEqual(seqs.map((_, index) => index));
+    expect(seqs.length).toBeGreaterThan(2);
   });
 
   it('refuses a reopen of a conversation the store does not have', async () => {
@@ -283,7 +303,9 @@ describe('Conversations with a store', () => {
       const store = new MemoryConversationStore();
 
       await store.writeIndex({ ...indexOf(KEPT, 1), workspace: REPO, profile: OTHER });
-      await store.writeMessages({ id: KEPT, messages: [{ role: 'user', content: 'hi', at: 1 }] });
+      await store
+        .history({ id: KEPT })
+        .append([{ seq: 0, entry: { role: 'user', content: 'hi', at: 1 } }]);
 
       const { conversations, created } = setup({ store, replies: [] });
 

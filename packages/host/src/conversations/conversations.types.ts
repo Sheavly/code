@@ -135,6 +135,8 @@ export type SentPrompt = {
 export type StoredConversationState = {
   /** Its index entry as stored. */
   stored: StoredConversation;
+  /** How many entries its history log holds: `messages` may be longer by the placeholders. */
+  logged: number;
   /** Its history, with a placeholder for every tool call that never returned. */
   messages: HistoryMessage[];
   /** Its stream, to carry on from. */
