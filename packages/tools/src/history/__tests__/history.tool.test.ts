@@ -151,16 +151,16 @@ describe('search_history within a span', () => {
 
     expect(first.content).toContain('entry 2');
 
-    const next = await call('search_history', {
-      query: 'needle',
-      session: main.id,
-      from: 2,
-      to: 3,
-      cursor,
-    });
+    // The cursor remembers the session and span, so the continuation names neither.
+    const next = await call('search_history', { query: 'needle', cursor });
 
     // Entry 4 matches too, but lies outside the span.
     expect(next.content).toBe('No recorded entry matches.');
+
+    const widened = await call('search_history', { query: 'needle', session: main.id, cursor });
+
+    expect(widened.isError).toBe(true);
+    expect(widened.content).toContain('different session or span');
   });
 });
 

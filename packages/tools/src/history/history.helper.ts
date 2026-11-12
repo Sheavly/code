@@ -3,8 +3,14 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionInfo } from '@sheavly/protocol/session/session.types';
 import { MAX_SCAN_ENTRIES, MAX_SEARCH_LIMIT } from './history.constants.js';
-import type { HistoryCursor, HistoryToolOptions, SearchHit, SearchPage } from './history.types.js';
-import { entryText, excerptAround } from './history.utils.js';
+import type {
+  HistoryCursor,
+  HistoryToolOptions,
+  SearchHit,
+  SearchPage,
+  SearchScope,
+} from './history.types.js';
+import { entryText, excerptAround, sameScope } from './history.utils.js';
 
 /**
  * The sessions a search looks through, in order: `session` alone, or all of them, starting at the
@@ -102,8 +108,12 @@ export async function searchHistory(params: {
   cursor?: HistoryCursor | undefined;
   signal: AbortSignal;
 }): Promise<SearchPage> {
-  const { options, query, session, cursor, signal } = params;
-  const { from = 0, to } = params.span ?? {};
+  const { options, query, cursor, signal } = params;
+  const asked: SearchScope = { session: params.session, ...params.span };
+
+  assertCursorScope({ cursor, asked });
+
+  const { session, from = 0, to } = cursor?.scope ?? asked;
 
   assertValidSpan({ session, from, to });
 
@@ -128,11 +138,35 @@ export async function searchHistory(params: {
     scanned += page.scanned;
 
     if (page.stopped !== 'end' && page.last !== undefined) {
-      return { hits, scanned, next: { session: info.id, seq: page.last } };
+      return {
+        hits,
+        scanned,
+        next: { session: info.id, seq: page.last, scope: { session, from, to } },
+      };
     }
   }
 
   return { hits, scanned };
+}
+
+/**
+ * A cursor carries the session and span its search began with. A call that names a different one
+ * is refused rather than silently ignored; one that names none continues the original.
+ */
+function assertCursorScope(params: {
+  cursor: HistoryCursor | undefined;
+  asked: SearchScope;
+}): void {
+  const { cursor, asked } = params;
+  const named = asked.session !== undefined || asked.from !== undefined || asked.to !== undefined;
+
+  if (cursor && named && !sameScope({ a: cursor.scope, b: asked })) {
+    throw new ToolCallError({
+      reason: 'invalid_input',
+      message:
+        'This cursor belongs to a search over a different session or span: leave session, from and to out to continue it, or start a new search without the cursor',
+    });
+  }
 }
 
 /** A span names entries of one session, so it needs one, and cannot end before it begins. */

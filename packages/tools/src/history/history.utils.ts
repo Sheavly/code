@@ -4,8 +4,9 @@ import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import { escapeTags, oneLine } from '@sheavly/core/text/text.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
-import { CURSOR_SEPARATOR, EXCERPT_CHARS } from './history.constants.js';
-import type { HistoryCursor } from './history.types.js';
+import { z } from 'zod';
+import { EXCERPT_CHARS } from './history.constants.js';
+import type { HistoryCursor, SearchScope } from './history.types.js';
 
 /** The text of an entry that a search looks through, whatever its role. */
 export function entryText(entry: HistoryMessage): string {
@@ -42,23 +43,41 @@ export function excerptAround(params: { text: string; query: string }): string {
   return `${start > 0 ? '…' : ''}${escapeTags(oneLine(cut))}${start + EXCERPT_CHARS < text.length ? '…' : ''}`;
 }
 
-/** A cursor as the text the agent passes back. */
+const cursorSchema = z.object({
+  session: sessionIdSchema,
+  seq: z.number().int().nonnegative(),
+  scope: z.object({
+    session: sessionIdSchema.optional(),
+    from: z.number().int().nonnegative().optional(),
+    to: z.number().int().nonnegative().optional(),
+  }),
+});
+
+/** A cursor as the opaque text the agent passes back. */
 export function encodeCursor(cursor: HistoryCursor): string {
-  return `${cursor.session}${CURSOR_SEPARATOR}${String(cursor.seq)}`;
+  return Buffer.from(JSON.stringify(cursor)).toString('base64url');
 }
 
 /** The cursor in `text`, or a `ToolCallError` for one the agent made up. */
 export function decodeCursor(text: string): HistoryCursor {
-  const at = text.lastIndexOf(CURSOR_SEPARATOR);
-  const session = sessionIdSchema.safeParse(text.slice(0, at));
-  const seq = Number(text.slice(at + 1));
+  try {
+    const parsed = cursorSchema.safeParse(JSON.parse(Buffer.from(text, 'base64url').toString()));
 
-  if (at < 1 || !session.success || !Number.isInteger(seq) || seq < 0) {
-    throw new ToolCallError({
-      reason: 'invalid_input',
-      message: 'That cursor is not one a search gave: pass it back exactly as shown',
-    });
+    if (parsed.success) return parsed.data;
+  } catch (caughtError) {
+    // Text that is not JSON is a cursor the agent made up, refused below; any other failure is not.
+    if (!(caughtError instanceof SyntaxError)) throw caughtError;
   }
 
-  return { session: session.data, seq };
+  throw new ToolCallError({
+    reason: 'invalid_input',
+    message: 'That cursor is not one a search gave: pass it back exactly as shown',
+  });
+}
+
+/** Whether `a` and `b` limit a search to the same session and span. */
+export function sameScope(params: { a: SearchScope; b: SearchScope }): boolean {
+  const { a, b } = params;
+
+  return a.session === b.session && (a.from ?? 0) === (b.from ?? 0) && a.to === b.to;
 }

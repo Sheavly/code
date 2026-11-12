@@ -15,6 +15,3 @@ export const EXCERPT_CHARS = 300;
 
 /** Characters of one entry `read_history_entry` returns before it says it cut the rest. */
 export const MAX_ENTRY_CHARS = 8_000;
-
-/** Separates a session id from an entry's `seq` in a cursor. */
-export const CURSOR_SEPARATOR = '#';

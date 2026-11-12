@@ -28,5 +28,15 @@ export type SearchHit = {
  */
 export type SearchPage = { hits: SearchHit[]; scanned: number; next?: HistoryCursor };
 
-/** Where a search resumes: just after entry `seq` of `session`. */
-export type HistoryCursor = { session: SessionId; seq: number };
+/** What a search was limited to: one session, and a span of its entries. All absent: everything. */
+export type SearchScope = {
+  session?: SessionId | undefined;
+  from?: number | undefined;
+  to?: number | undefined;
+};
+
+/**
+ * Where a search resumes: just after entry `seq` of `session`, inside the `scope` the search
+ * began with. The scope travels with the cursor so a continued search cannot widen or move it.
+ */
+export type HistoryCursor = { session: SessionId; seq: number; scope: SearchScope };
