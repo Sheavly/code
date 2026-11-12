@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { HistoryLog } from '@sheavly/core/store/store.types';
+import type { ConversationStorage } from '@sheavly/host/conversations/conversations.types';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
@@ -24,6 +25,27 @@ const emptyLog: HistoryLog = {
     [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }),
   }),
 };
+
+/** The storage a host hands a conversation, whose stream holds `entries` and resumes from `resume`. */
+function storageThatReads(params: {
+  entries: StreamEntry[];
+  resume: NonNullable<ConversationStorage['resume']>;
+}): ConversationStorage {
+  return {
+    keepHistory: () => undefined,
+    keepAgentHistory: () => undefined,
+    logOf: () => emptyLog,
+    shell: memoryShellStore(),
+    outputs: new MemoryOutputStore(),
+    resume: params.resume,
+    entries: {
+      append: async () => undefined,
+      async *read() {
+        yield* params.entries;
+      },
+    },
+  };
+}
 
 afterEach(async () => {
   if (root) await rm(root, { recursive: true, force: true });
@@ -56,20 +78,10 @@ describe('conversation usage over the API', () => {
     const oldTurn: StreamEntry = { ...turn, seq: 2 };
     const tracked = await trackConversationUsage({
       sessions: new SessionRegistry(),
-      storage: {
-        keepHistory: () => undefined,
-        keepAgentHistory: () => undefined,
-        logOf: () => emptyLog,
-        shell: memoryShellStore(),
-        outputs: new MemoryOutputStore(),
+      storage: storageThatReads({
+        entries: [usage, turn, oldTurn],
         resume: { next: 3, tail: [oldTurn], sessions: [], lastTokens: [] },
-        entries: {
-          append: async () => undefined,
-          async *read() {
-            yield* [usage, turn, oldTurn];
-          },
-        },
-      },
+      }),
     });
 
     expect(tracked.ledger.snapshot).toMatchObject({
@@ -100,20 +112,10 @@ describe('conversation usage over the API', () => {
     const turnEnd = entry(1, { seq: 1, type: 'turn_end', turn: 1, stopReason: 'end_turn' });
     const tracked = await trackConversationUsage({
       sessions: new SessionRegistry(),
-      storage: {
-        keepHistory: () => undefined,
-        keepAgentHistory: () => undefined,
-        logOf: () => emptyLog,
-        shell: memoryShellStore(),
-        outputs: new MemoryOutputStore(),
+      storage: storageThatReads({
+        entries: [summaryUsage, turnEnd],
         resume: { next: 2, tail: [turnEnd], sessions: [], lastTokens: [] },
-        entries: {
-          append: async () => undefined,
-          async *read() {
-            yield* [summaryUsage, turnEnd];
-          },
-        },
-      },
+      }),
     });
 
     expect(tracked.ledger.snapshot).toMatchObject({
