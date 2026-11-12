@@ -2,7 +2,7 @@
 description: A long run on a small window is summarized several times; no summary fails, and facts given at the start survive every one
 workspace: basic
 maxTurns: 40
-contextWindow: 30000
+contextWindow: 16000
 check:
   {
     'areas':

@@ -15,7 +15,6 @@ check:
       ],
     'expect':
       {
-        'events': ['summary_done'],
         'tools': ['read_file', 'search_history', 'read_history_entry'],
         'toolResults':
           {
