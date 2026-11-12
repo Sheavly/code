@@ -76,7 +76,9 @@ export function renderPreviousSummary(params: {
   const { previous, redact } = params;
 
   return previous?.sections.length
-    ? previous.sections.map(({ id, body }) => `"${id}":\n${neutralize(redact(body))}`).join('\n\n')
+    ? previous.sections
+        .map(({ title, body }) => `## ${neutralize(title)}\n${neutralize(redact(body))}`)
+        .join('\n\n')
     : undefined;
 }
 

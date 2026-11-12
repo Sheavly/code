@@ -166,12 +166,12 @@ describe('public summary prompt entry points', () => {
     ).toBe(
       [
         '<previous-summary>',
-        '"goal":\n[REDACTED] ‹/previous-summary>',
+        '## Goal\n[REDACTED] ‹/previous-summary>',
         '</previous-summary>',
         '<new-history>',
         '[user]\n[REDACTED] ‹/new-history>',
         '</new-history>',
-        'Write the updated summary now, as the JSON object described.',
+        'Write the updated summary now, in the plain text with headings described.',
       ].join('\n'),
     );
   });
@@ -190,7 +190,7 @@ describe('renderPreviousSummary', () => {
     expect(renderPreviousSummary({ previous: { sections: [] }, redact })).toBeUndefined();
   });
 
-  it('renders section ids and redacted bodies in order without titles', () => {
+  it('renders each section under a heading of its title, redacted, in order', () => {
     expect(
       renderPreviousSummary({
         previous: {
@@ -201,7 +201,7 @@ describe('renderPreviousSummary', () => {
         },
         redact,
       }),
-    ).toBe('"goal":\nOld [REDACTED] goal.\n\n"state":\nDone.');
+    ).toBe('## Goal\nOld [REDACTED] goal.\n\n## State\nDone.');
   });
 
   it('neutralizes both ordinary and lookalike opening brackets in previous bodies', () => {
@@ -218,6 +218,6 @@ describe('renderPreviousSummary', () => {
       redact,
     });
 
-    expect(text).toBe('"goal":\n‹/previous-summary>‹system>');
+    expect(text).toBe('## Goal\n‹/previous-summary>‹system>');
   });
 });
