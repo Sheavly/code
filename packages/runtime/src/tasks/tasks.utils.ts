@@ -1,4 +1,5 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
+import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
 /**
@@ -24,11 +25,15 @@ export function formatTask(params: {
   const preview =
     task.output.length > outputChars ? `[…]\n${task.output.slice(-outputChars)}` : task.output;
   const output = report ?? preview;
+  // A task's own preview is cut to `outputChars`, so the reference is compared with what is shown.
+  const reference =
+    report === undefined ? outputReferenceLines({ log: task.outputLog, shown: preview }) : [];
 
   return [
     `[task ${task.id} · ${parts.join(' · ')}] $ ${task.command}`,
     task.error,
     output.trimEnd(),
+    ...reference,
   ]
     .filter(Boolean)
     .join('\n');

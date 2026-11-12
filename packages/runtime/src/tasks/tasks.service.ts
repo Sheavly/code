@@ -10,6 +10,7 @@ import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskError } from '../errors/tasks.errors.js';
 import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
+import { closeTaskCapture } from './capture.helper.js';
 
 type Delivery = { ids: TaskId[]; reason?: string; delivered: boolean };
 type Entry = {
@@ -39,6 +40,7 @@ export class TaskRegistry {
     callId,
     sessionId,
     backgroundKind = 'task',
+    capture,
     run,
   }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
@@ -64,19 +66,31 @@ export class TaskRegistry {
     const onOutput = (chunk: string) => {
       output.push(chunk);
       info.output = output.text;
+      capture?.append(chunk);
+      if (capture) info.outputLog = capture.log;
+    };
+
+    if (capture) info.outputLog = capture.log;
+
+    // The log is closed before the task settles, so its final state is what a notice reports. That
+    // waits for queued writes, which are bounded in bytes, so a stalled disk delays settling.
+    const closeCapture = async () => {
+      if (capture) info.outputLog = await closeTaskCapture(capture);
     };
 
     entry.settled = run({ signal: controller.signal, onOutput }).then(
-      ({ exitCode, report }) => {
+      async ({ exitCode, report }) => {
+        await closeCapture();
         this.#settle({
           entry,
           status: exitCode === 0 ? 'completed' : 'failed',
           result: { exitCode, ...(report !== undefined && { report }) },
         });
       },
-      (caughtError: unknown) => {
+      async (caughtError: unknown) => {
         const error = caughtError instanceof Error ? caughtError.message : String(caughtError);
 
+        await closeCapture();
         this.#settle({ entry, status: 'failed', result: { error } });
       },
     );
