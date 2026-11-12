@@ -41,6 +41,34 @@ public HTTP(S) URL without embedded credentials, and snippet. Honour `signal`, a
 credential discovery, and do not put transport metadata, raw response bodies or credentials into
 results. The tool validates even custom backend output and enforces output limits independently.
 
+## Keyless backends and fallback
+
+Besides Tavily, `web-search-backends/` has keyless backends for TinyFish, Exa, Parallel and
+Firecrawl (`keyless-search.helper`) and Wikipedia (`wikipedia-search.helper`). The four providers
+are called with one plain JSON-RPC `tools/call` POST (no MCP session or handshake), and the reply
+may be JSON or server-sent events. Each takes an optional `apiKey`, supplied only by the app:
+
+| Backend   | Endpoint                     | Tool               | Keyless access                    |
+| --------- | ---------------------------- | ------------------ | --------------------------------- |
+| TinyFish  | `agent.tinyfish.ai/mcp`      | `search`           | `X-TinyFish-Access-Mode: keyless` |
+| Exa       | `mcp.exa.ai/mcp`             | `web_search_exa`   | no header                         |
+| Parallel  | `search.parallel.ai/mcp`     | `web_search`       | no header                         |
+| Firecrawl | `mcp.firecrawl.dev/v2/mcp`   | `firecrawl_search` | no header; replies are large      |
+| Wikipedia | `en.wikipedia.org/w/api.php` | n/a                | key-free, covers only Wikipedia   |
+
+Keyless limits for Exa, Parallel and Firecrawl are undocumented and can change.
+
+`createFallbackSearchBackend({ backends })` tries them in order and moves on after a failure,
+timeout or rate limit (`WebSearchRateLimitError`). Each backend gets its own timeout
+(`backendTimeoutMs`, 8s) inside the call's overall timeout. A rate-limited backend is skipped for its
+`Retry-After` seconds, or `defaultCooldownMs` (60s); when all are cooling down the call fails at
+once. A caller abort stops the chain. The error names the failed backends, nothing else. The
+cooldowns live in the chain instance, so share one. The backend app orders it with
+`WEB_SEARCH_BACKENDS` (default `tavily,tinyfish,exa,parallel,wikipedia`).
+
+To check the real endpoints, run `LIVE_SEARCH=true npx vitest run live-search` in this package.
+It is off by default, so CI never uses the network; a rate-limited endpoint counts as reachable.
+
 ## Results and limits
 
 Model input is only `query`: trimmed, nonempty and at most 2,000 characters. Model calls cannot
