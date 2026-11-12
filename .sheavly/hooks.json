@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "hooks": [
+    { "path": "hooks/session-start.mjs" },
+    { "path": "hooks/edit-feedback.mjs" },
+    { "path": "hooks/shell-guard.mjs" }
+  ]
+}
