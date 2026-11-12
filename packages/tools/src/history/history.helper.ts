@@ -1,4 +1,5 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionInfo } from '@sheavly/protocol/session/session.types';
@@ -70,7 +71,9 @@ async function searchSession(params: {
     scanned += 1;
     last = record.seq;
 
-    const text = entryText(record.entry);
+    // Stored history can hold a secret a person or a command printed; retrieval must not bring it
+    // back into the model's context, events and logs.
+    const text = redactDiagnosticText(entryText(record.entry));
     // One matcher for the hit, its offset and its excerpt, so they can never disagree.
     const at = matchIndex({ text, query });
 
@@ -196,8 +199,9 @@ function assertValidSpan(params: {
 }
 
 /**
- * Entry `seq` of `session`, exactly as stored; a `ToolCallError` when there is none. The text is
- * whole: cutting it to a readable length is the caller's job (see `offset` of the tool).
+ * Entry `seq` of `session`, as stored but with credential forms redacted; a `ToolCallError` when
+ * there is none. The text is whole: cutting it to a readable length is the caller's job (see
+ * `offset` of the tool).
  */
 export async function readHistoryEntry(params: {
   options: HistoryToolOptions;
@@ -215,7 +219,9 @@ export async function readHistoryEntry(params: {
   for await (const record of log.read(seq)) {
     signal.throwIfAborted();
 
-    if (record.seq === seq) return { role: record.entry.role, text: entryText(record.entry) };
+    if (record.seq === seq) {
+      return { role: record.entry.role, text: redactDiagnosticText(entryText(record.entry)) };
+    }
 
     break;
   }

@@ -2,7 +2,13 @@ import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { escapeTags, fenceDashes } from '@sheavly/core/text/text.utils';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
-import { DEFAULT_SEARCH_LIMIT, MAX_ENTRY_CHARS, MAX_SEARCH_LIMIT } from './history.constants.js';
+import {
+  DEFAULT_SEARCH_LIMIT,
+  MAX_CURSOR_CHARS,
+  MAX_ENTRY_CHARS,
+  MAX_QUERY_CHARS,
+  MAX_SEARCH_LIMIT,
+} from './history.constants.js';
 import { readHistoryEntry, searchHistory } from './history.helper.js';
 import {
   readHistoryEntryPrompts,
@@ -18,7 +24,7 @@ function createSearchHistoryTool(options: HistoryToolOptions) {
     name: 'search_history',
     description: searchHistoryPrompts.description,
     inputSchema: z.object({
-      query: z.string().min(1).describe(searchHistoryPrompts.query),
+      query: z.string().min(1).max(MAX_QUERY_CHARS).describe(searchHistoryPrompts.query),
       session: sessionIdSchema.optional().describe(searchHistoryPrompts.session),
       limit: z
         .number()
@@ -29,7 +35,7 @@ function createSearchHistoryTool(options: HistoryToolOptions) {
         .describe(searchHistoryPrompts.limit),
       from: z.number().int().nonnegative().optional().describe(searchHistoryPrompts.from),
       to: z.number().int().nonnegative().optional().describe(searchHistoryPrompts.to),
-      cursor: z.string().optional().describe(searchHistoryPrompts.cursor),
+      cursor: z.string().max(MAX_CURSOR_CHARS).optional().describe(searchHistoryPrompts.cursor),
     }),
     execute: async ({ input, signal }) => {
       const { hits, scanned, next } = await searchHistory({

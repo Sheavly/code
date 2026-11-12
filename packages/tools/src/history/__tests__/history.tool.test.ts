@@ -211,6 +211,29 @@ describe('search_history scan budget', () => {
   });
 });
 
+describe('retrieved credentials and oversized input', () => {
+  const secret = 'sk-abcdefghijklmnopqrstuvwx';
+
+  it('redacts a credential in a search excerpt and in a read entry', async () => {
+    await keepOnlyEntry(`deploy marker with api_key=${secret} inside`);
+
+    const found = await call('search_history', { query: 'deploy marker', session: main.id });
+    const read = await call('read_history_entry', { session: main.id, seq: 0 });
+
+    expect(found.content).toContain('deploy marker');
+    expect(found.content).not.toContain(secret);
+    expect(read.content).toContain('deploy marker');
+    expect(read.content).not.toContain(secret);
+  });
+
+  it('refuses a query or cursor far longer than any real one', async () => {
+    expect((await call('search_history', { query: 'q'.repeat(501) })).isError).toBe(true);
+    expect((await call('search_history', { query: 'x', cursor: 'c'.repeat(2_001) })).isError).toBe(
+      true,
+    );
+  });
+});
+
 describe('read_history_entry', () => {
   it('reads one entry whole with its provenance, framed as data', async () => {
     const result = await call('read_history_entry', { session: child.id, seq: 0 });

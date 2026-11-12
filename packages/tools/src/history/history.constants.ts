@@ -10,6 +10,10 @@ export const MAX_SEARCH_LIMIT = 25;
  */
 export const MAX_SCAN_ENTRIES = 2_000;
 
+/** The longest search text and cursor accepted: far past anything a real search or cursor needs. */
+export const MAX_QUERY_CHARS = 500;
+export const MAX_CURSOR_CHARS = 2_000;
+
 /** Characters of context shown around a match in a search result. */
 export const EXCERPT_CHARS = 300;
 
