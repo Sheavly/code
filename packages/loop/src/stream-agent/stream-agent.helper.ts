@@ -120,6 +120,9 @@ async function drive(context: RunContext) {
     for (let turn = 1; turn <= maxTurns; turn++) {
       const ended = await runTurn({ ...context, turn, messages, outputRecovery, summaryFailures });
 
+      // Each turn's work is recorded as it happens, not only when the run ends.
+      options.keepHistory?.(messages);
+
       // A follow-up can arrive while runTurn resolves its final async task check. Do not close
       // normal completion with accepted input still waiting in the inbox.
       const followedUp = ended === 'completed' && session.registry.hasMessages(session.ref.id);

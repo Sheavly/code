@@ -73,6 +73,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       tasks,
       session: { registry: sessions, ref: mainSession },
       keepSession: true,
+      ...(options.keepHistory && { keepHistory: options.keepHistory }),
       yieldSignal: params.yieldSignal,
       resumed: params.resumed,
       instructions: options.instructions ?? harness.instructions,

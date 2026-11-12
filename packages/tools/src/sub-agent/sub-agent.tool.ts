@@ -139,6 +139,10 @@ async function runChild(params: {
         extra: instructions,
       }),
       messages: first,
+      ...(options.keepHistory && {
+        keepHistory: (kept: readonly HistoryMessage[]) =>
+          options.keepHistory?.({ session: child.id, messages: kept }),
+      }),
       signal,
       tasks: childTasks,
       session: { registry: sessions, ref: child },
