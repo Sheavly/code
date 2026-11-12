@@ -8,14 +8,17 @@
   // The cache stays in this checkout (turbo would otherwise share the main worktree's), so a
   // worktree never writes into another one.
   "cacheDir": ".turbo/cache",
-  // A change in a shared config or the lockfile invalidates every cached result.
+  // A change in a shared config or the lockfile invalidates every cached result. The ESLint
+  // config's own tests are left out: they change no rule, and the package's own `test` task still
+  // hashes them. Its `testing/` fakes stay in, since the root's tests import them too.
   "globalDependencies": [
     "tsconfig.base.json",
     ".prettierrc.json",
     "vitest.config.ts",
     "package-lock.json",
     "packages/eslint-config/package.json",
-    "packages/eslint-config/src/**"
+    "packages/eslint-config/src/**",
+    "!packages/eslint-config/src/**/__tests__/**"
   ],
   // Some tests make throwaway git repos and commits; CI gives them an identity.
   "globalPassThroughEnv": ["GIT_AUTHOR_*", "GIT_COMMITTER_*"],
