@@ -29,6 +29,13 @@ export const startConversationRequestSchema = z.object({
   messages: z.array(clientHistoryMessageSchema).exactOptional(),
   workspace: z.string().min(1).exactOptional(),
   profile: profileIdSchema.exactOptional(),
+  /**
+   * The model this conversation starts on: one of its profile's models, by id or by name (a unique
+   * part of its name or model is enough). Left out, it starts on the profile's last one. It is for
+   * this conversation only: unlike `PUT /conversations/:id/model` it is not remembered for the
+   * profile's next one.
+   */
+  model: z.string().trim().min(1).max(200).exactOptional(),
 });
 
 export const startConversationResponseSchema = z.object({ id: conversationIdSchema });

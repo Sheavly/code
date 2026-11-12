@@ -2473,7 +2473,8 @@
             }
           },
           "workspace": { "type": "string", "minLength": 1 },
-          "profile": { "$ref": "#/components/schemas/ModelId" }
+          "profile": { "$ref": "#/components/schemas/ModelId" },
+          "model": { "type": "string", "minLength": 1, "maxLength": 200 }
         }
       },
       "StartConversationResponse": {

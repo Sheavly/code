@@ -1402,7 +1402,8 @@
           }
         },
         "workspace": { "type": "string", "minLength": 1 },
-        "profile": { "$ref": "#/$defs/ModelId" }
+        "profile": { "$ref": "#/$defs/ModelId" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 }
       }
     },
     "StartConversationResponse": {
