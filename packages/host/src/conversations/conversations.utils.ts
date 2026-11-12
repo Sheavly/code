@@ -5,7 +5,7 @@ import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { INTERRUPTED_CALL } from './conversations.constants.js';
 
 /** Whether `stored`'s title has `search`, ignoring case. */
-export function matchesTitle(params: { stored: StoredConversation; search: string }): boolean {
+function matchesTitle(params: { stored: StoredConversation; search: string }): boolean {
   const { stored, search } = params;
 
   return stored.title.toLowerCase().includes(search.toLowerCase());
