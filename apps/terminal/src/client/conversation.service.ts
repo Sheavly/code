@@ -43,11 +43,17 @@ export class RemoteConversation {
     backend: Backend;
     messages?: ClientHistoryMessage[];
     workspace?: string;
+    /** The model to start on, by id or name; the profile's own choice when omitted. */
+    model?: string | undefined;
   }): Promise<RemoteConversation> {
-    const { backend, messages, workspace } = params;
+    const { backend, messages, workspace, model } = params;
     const client = clientFor(backend);
     const { id } = await client.call('startConversation', {
-      body: { ...(messages && { messages }), ...(workspace && { workspace }) },
+      body: {
+        ...(messages && { messages }),
+        ...(workspace && { workspace }),
+        ...(model && { model }),
+      },
     });
 
     return new RemoteConversation(client, id);

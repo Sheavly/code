@@ -10,7 +10,7 @@
  *
  * Every run is saved in workbook/runs/<id>/ as it happens. See apps/terminal/docs/workbook.md.
  * Each run starts its own backend, which runs on the models in the user's profile (~/.sheavly),
- * like the demo.
+ * like the demo: the profile's own choice, or `--model` / `WORKBOOK_MODEL` for this run only.
  */
 import path from 'node:path';
 import { checkWorkbook } from './check.helper.js';
@@ -18,11 +18,13 @@ import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';
 import { WorkbookStore } from './store.service.js';
 import { WORKBOOK_DIR } from './workbook.constants.js';
-import { parseCommand, usage } from './workbook.utils.js';
+import { parseCommand, usage, workbookModel } from './workbook.utils.js';
 
 const store = new WorkbookStore(path.resolve(WORKBOOK_DIR));
 const write = (text: string) => void process.stdout.write(text);
 const command = parseCommand(process.argv.slice(2));
+const modelFor = (parsed: { model?: string | undefined }) =>
+  workbookModel({ flag: parsed.model, env: process.env });
 
 try {
   switch (command.name) {
@@ -40,6 +42,7 @@ try {
           keep: !command.fresh,
           showModelCalls: command.showModelCalls,
           trust: command.trust,
+          model: modelFor(command),
         },
       });
 
@@ -56,6 +59,7 @@ try {
           keep: false,
           showModelCalls: command.showModelCalls,
           trust: command.trust,
+          model: modelFor(command),
         },
       });
 
@@ -75,6 +79,7 @@ try {
           keep: true,
           showModelCalls: command.showModelCalls,
           trust: command.trust,
+          model: modelFor(command),
         },
       });
 
@@ -88,6 +93,7 @@ try {
         names: command.prompts,
         all: command.all,
         approvedCommands: command.approvedCommands,
+        model: modelFor(command),
         write,
       });
 

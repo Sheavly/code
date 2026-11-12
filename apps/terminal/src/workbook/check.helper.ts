@@ -138,6 +138,7 @@ async function attempt(params: {
   store: WorkbookStore;
   prompt: CheckedPrompt;
   approvedCommands: readonly string[];
+  model: string | undefined;
 }): Promise<{ problems: string[]; runs: string[]; interrupted: boolean }> {
   const { store, prompt } = params;
   // A fresh trust store per attempt, outside every repo: a check never touches the user's own.
@@ -176,6 +177,7 @@ async function attempt(params: {
           keep: step.run.keep,
           trust: step.run.trust,
           showModelCalls: false,
+          model: params.model,
         },
       });
 
@@ -218,6 +220,7 @@ async function runCheck(params: {
   store: WorkbookStore;
   prompt: CheckedPrompt;
   approvedCommands: readonly string[];
+  model: string | undefined;
 }): Promise<CheckOutcome> {
   const attempts: string[][] = [];
   const runs: string[] = [];
@@ -252,11 +255,13 @@ export async function checkWorkbook(params: {
   names: string[];
   all: boolean;
   approvedCommands?: readonly string[];
+  /** The model every run of every check starts on (id or name); the profile's own when omitted. */
+  model?: string | undefined;
   write: (text: string) => void;
 }): Promise<boolean> {
   assertCheckBackend(process.env);
   const approvedCommands = parseApprovedCommands(params.approvedCommands ?? []);
-  const { store, names, all, write } = params;
+  const { store, names, all, write, model } = params;
   const changed = names.length > 0 || all ? [] : changedFiles();
   const { checks, uncovered, unknown } = selectChecks({
     prompts: await store.prompts(),
@@ -287,7 +292,7 @@ export async function checkWorkbook(params: {
   const outcomes: CheckOutcome[] = [];
 
   for (const prompt of checks) {
-    const outcome = await runCheck({ store, prompt, approvedCommands });
+    const outcome = await runCheck({ store, prompt, approvedCommands, model });
 
     outcomes.push(outcome);
     // Ctrl+C stops the paid runs: nothing more starts after a stopped one.

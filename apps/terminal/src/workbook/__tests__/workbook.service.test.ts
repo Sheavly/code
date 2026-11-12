@@ -7,7 +7,13 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
-import { diffResults, mergeTextDeltas, parseCommand, runId } from '../workbook.utils.js';
+import {
+  diffResults,
+  mergeTextDeltas,
+  parseCommand,
+  runId,
+  workbookModel,
+} from '../workbook.utils.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
@@ -47,6 +53,21 @@ describe('runId', () => {
   });
 });
 
+describe('workbookModel', () => {
+  it('uses --model, else WORKBOOK_MODEL, else none', () => {
+    expect(workbookModel({ flag: 'opus', env: { WORKBOOK_MODEL: 'deepseek' } })).toBe('opus');
+    expect(workbookModel({ flag: undefined, env: { WORKBOOK_MODEL: 'deepseek' } })).toBe(
+      'deepseek',
+    );
+    expect(workbookModel({ flag: undefined, env: {} })).toBeUndefined();
+  });
+
+  it('treats an empty value as none, so a default can be cleared for one run', () => {
+    expect(workbookModel({ flag: '', env: { WORKBOOK_MODEL: '' } })).toBeUndefined();
+    expect(workbookModel({ flag: '  ', env: { WORKBOOK_MODEL: 'deepseek' } })).toBe('deepseek');
+  });
+});
+
 describe('parseCommand', () => {
   it('parses each command and its flags', () => {
     expect(parseCommand(['run', 'guards', '--continue', 'last', '--model-calls'])).toEqual({
@@ -81,6 +102,51 @@ describe('parseCommand', () => {
       from: 30,
     });
     expect(parseCommand(['diff', '1', '2'])).toEqual({ name: 'diff', a: '1', b: '2' });
+  });
+
+  it('reads --model for every command that runs, and never mistakes its value for a word', () => {
+    expect(parseCommand(['run', 'guards', '--model', 'deepseek'])).toMatchObject({
+      prompt: 'guards',
+      model: 'deepseek',
+    });
+    expect(parseCommand(['--model', 'deepseek', 'ask', 'hello', 'there'])).toMatchObject({
+      text: 'hello there',
+      model: 'deepseek',
+    });
+    expect(parseCommand(['check', 'working-root', '--model', 'deepseek'])).toMatchObject({
+      prompts: ['working-root'],
+      model: 'deepseek',
+    });
+    expect(parseCommand(['continue', '3', 'and then', '--model', 'opus'])).toMatchObject({
+      run: '3',
+      text: 'and then',
+      model: 'opus',
+    });
+    expect(parseCommand(['run', 'guards'])).toMatchObject({ model: undefined });
+  });
+
+  it('drops a flag value by position, so a value equal to a prompt name keeps the prompt', () => {
+    expect(parseCommand(['run', 'guards', '--model', 'guards'])).toMatchObject({
+      name: 'run',
+      prompt: 'guards',
+      model: 'guards',
+    });
+    expect(parseCommand(['continue', '3', 'and then', '--model', '3'])).toMatchObject({
+      run: '3',
+      text: 'and then',
+      model: '3',
+    });
+  });
+
+  it('shows help for a --model with no value of its own, instead of ignoring it', () => {
+    for (const argv of [
+      ['run', 'guards', '--model'],
+      ['run', 'guards', '--model', '--keep'],
+      ['ask', 'hello', '--model='],
+      ['run', 'guards', '--model=deepseek'],
+    ]) {
+      expect(parseCommand(argv)).toEqual({ name: 'help' });
+    }
   });
 
   it('shows help for anything incomplete or unknown', () => {

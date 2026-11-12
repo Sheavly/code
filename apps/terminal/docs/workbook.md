@@ -14,6 +14,32 @@ npm run workbook -- diff 0003 0007             # compare two runs
 
 Runs use the real model, on your profile's models, like the demo.
 
+## Choosing the model
+
+A run starts on the model your profile last used. To run on another of the profile's models
+without changing that, name it:
+
+```bash
+npm run workbook -- run write-and-edit --model deepseek     # this run only
+npm run workbook -- check --model deepseek                  # every run of every check
+export WORKBOOK_MODEL=deepseek                              # a default of your own
+```
+
+- **`--model <id|name>`**, else **`WORKBOOK_MODEL`** from the environment, else the profile's own
+  choice. An empty value means none, so `WORKBOOK_MODEL= npm run workbook -- …` clears a default
+  for one command.
+- **What it matches:** an id, a name in any case, or a part of a name or model that only one of the
+  profile's models has (`deepseek`, `1017`). A name that matches none, or more than one, is refused
+  with the profile's models listed, rather than guessing and running the wrong one.
+- **A conversation that is reopened** keeps the model it was saved with and ignores `model`.
+- **It is for that run only.** Unlike `/model` in the chat, it never changes the model the profile
+  remembers for its next conversation. A `continue` or `--continue` starts on the model you name
+  now, not the earlier run's.
+- **Checks:** an `expect.adapter` still has to hold, so a check written for one transport fails
+  clearly on a model that uses another (`deepseek-chat` needs `azure-chat`).
+- **Underneath** it is the optional `model` of `POST /conversations`
+  ([API](../../backend/docs/api.md)), so any UI can start a conversation on a model too.
+
 ## Layout
 
 ```

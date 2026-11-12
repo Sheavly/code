@@ -31,16 +31,30 @@ export type Command =
       fresh: boolean;
       showModelCalls: boolean;
       trust: boolean;
+      model?: string | undefined;
     }
-  | { name: 'ask'; text: string; showModelCalls: boolean; trust: boolean }
+  | {
+      name: 'ask';
+      text: string;
+      showModelCalls: boolean;
+      trust: boolean;
+      model?: string | undefined;
+    }
   | {
       name: 'continue';
       run?: string | undefined;
       text: string;
       showModelCalls: boolean;
       trust: boolean;
+      model?: string | undefined;
     }
-  | { name: 'check'; prompts: string[]; all: boolean; approvedCommands: string[] }
+  | {
+      name: 'check';
+      prompts: string[];
+      all: boolean;
+      approvedCommands: string[];
+      model?: string | undefined;
+    }
   | { name: 'list' }
   | { name: 'show'; run?: string | undefined }
   | { name: 'step'; run?: string | undefined; from?: number | undefined }
@@ -66,4 +80,9 @@ export type RunRequest = {
   showModelCalls: boolean;
   /** `--trust`: trust the workspace's `.sheavly/` hooks, whether or not it's a fresh fixture copy. */
   trust: boolean;
+  /**
+   * The model to run on, by id or name: `--model`, else `WORKBOOK_MODEL`, else the profile's own
+   * choice. For this run only; it never changes the model the profile remembers.
+   */
+  model?: string | undefined;
 };
