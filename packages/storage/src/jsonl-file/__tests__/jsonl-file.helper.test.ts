@@ -149,8 +149,48 @@ describe('a line over the length cap', () => {
   });
 });
 
+describe('a line over the cap that spans many chunks', () => {
+  const log = () => file.replace('deep', '.');
+
+  it('is refused, with multibyte text, however the chunks cut it', async () => {
+    // Over 64KB a chunk, so the file is read in several; the 3-byte euro sign meets chunk edges.
+    await writeFile(log(), `{"n":1,"text":"${'€'.repeat(100_000)}"}\n`);
+
+    const failure = await failureOf(async () => {
+      for await (const _line of readJsonLines({ file: log(), schema, maxLineChars: 80_000 }));
+    });
+
+    expect(failure).toBeInstanceOf(StorageFileError);
+    expect((failure as Error).message).toContain('longer than 80000');
+  });
+
+  it('is read whole when it fits, however the chunks cut it', async () => {
+    const text = '€'.repeat(100_000);
+
+    await writeFile(log(), `{"n":1,"text":"${text}"}\n{"n":2,"text":"b"}\n`);
+
+    const read = [];
+
+    for await (const line of readJsonLines({ file: log(), schema })) read.push(line);
+
+    expect(read).toEqual([
+      { n: 1, text },
+      { n: 2, text: 'b' },
+    ]);
+  });
+});
+
 describe('trimPartialLine', () => {
   const log = () => file.replace('deep', '.');
+
+  it('finds the last newline when the half-written tail is longer than one block', async () => {
+    const tail = 'x'.repeat(200_000);
+
+    await writeFile(log(), `{"n":1,"text":"a"}\n${tail}`);
+
+    expect(await trimPartialLine({ file: log() })).toBe(tail.length);
+    expect(await readFile(log(), 'utf8')).toBe('{"n":1,"text":"a"}\n');
+  });
 
   it('cuts a half-written last line, so the next line does not join onto it', async () => {
     await writeFile(log(), '{"n":1,"text":"a"}\n{"n":2,"te');
