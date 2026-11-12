@@ -67,6 +67,16 @@ export const modelChoiceSchema = z.object({
 });
 
 /**
+ * The folder a conversation's agents work from, when they chose one (a git worktree, usually):
+ * its absolute path, and the branch checked out there (left out on a detached HEAD). A UI shows the
+ * branch once instead of repeating the path.
+ */
+const workingRootSchema = z.object({
+  root: z.string(),
+  branch: z.string().exactOptional(),
+});
+
+/**
  * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
  * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
  * whether the workspace's `.sheavly/` hooks run, and why not; `permissionMode`, how
@@ -83,6 +93,8 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
   models: z.array(modelChoiceSchema),
   projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
   permissionMode: permissionModeSchema,
+  /** Read each time, like `permissionMode`: the agents can choose another while it runs. */
+  workingRoot: workingRootSchema.exactOptional(),
 });
 
 /**
