@@ -43,6 +43,48 @@ export default {
   hook may import only files inside `.sheavly/` and Node built-ins, since nothing else is covered
   by that trust. See [Workspace trust](#workspace-trust), below.
 
+## This repo's own hooks
+
+The repo's `.sheavly/` gives a Sheavly run the development guardrails a Cursor chat gets from
+`.cursor/hooks/`: `hooks/session-start.mjs` (the `sheavly` skill pointer, and the issue rule when
+the opening prompt names none), `hooks/edit-feedback.mjs` (Prettier, ESLint and the first-edit
+hints, appended to a file tool's result) and `hooks/shell-guard.mjs` (the shell and git guards on
+`run_command`, which fail closed). A hook may import only `.sheavly/` and Node built-ins, so each
+runs the Cursor script as a process through `hooks/cursor-bridge.mjs` instead of copying its logic.
+
+- What a project hook cannot do yet: the stop gate, the docs and guide nudges and the subagent
+  link need a hook that continues a run and hook points for sub-agents; those stay Cursor-only.
+- A hook is not told its conversation, so the scripts' per-chat state (hints shown once, the
+  issue a chat named) is one per backend process: once any conversation names an issue, the
+  issue rule stays quiet for the rest of that process.
+- The shell guard fails closed (only an explicit `allow` runs a command; a guard that cannot run
+  blocks it), but covers only `run_command`. A command started with `background: true` is checked
+  before it runs and not compared afterwards, parallel commands share one snapshot state, and a
+  workspace that is not trusted loads no project hook at all, so it has no guard.
+- The post-edit hook only checks formatting; unlike a Cursor chat it never rewrites the file,
+  because a rewrite after the tool returned would leave the agent's copy stale. It tells the
+  agent to run Prettier and re-read the file.
+- Known and accepted for now: the trust fingerprint covers `.sheavly/` only, but these hooks run
+  `.cursor/hooks/*.mjs`, `packages/eslint-config` and the project's Prettier and ESLint with its
+  configs. A change to any of those runs with the user's rights in a workspace that was trusted
+  before it, outside the process runner and its approvals.
+  The agent can trigger that itself: it can edit `eslint.config.js` or `.cursor/hooks/*` with the
+  file tools, and the next file edit then runs the changed code. "No API keys" in the child's
+  environment does not put secrets under the user's home folder out of reach of those scripts.
+- Other known limits, not fixed here: the shell guard reads the command and a `cwd` as given, and
+  the `run_command` tool resolves a relative `cwd` against the working root, which the hook does
+  not know; a file that is a symlink, or outside the project, is not linted, and the check-only
+  formatting note can name a symlink wrongly; a script's absolute paths can appear in an error the
+  agent sees; state files under the user's cache are not cleaned up or written atomically; the
+  group kill covers a timeout or an abort only, and is POSIX-only.
+- Each script runs as a child process with an allow-listed environment (no API keys), a timeout
+  and the run's abort signal, and its whole process group is killed on either.
+- Trust costs while developing: the fingerprint covers every file in `.sheavly/`, so each edit
+  there needs the workspace trusted again (`--trust`), and each worktree is trusted on its own.
+  The backend loads hooks from its `workspace.root`, so a hook only applies to a run in that
+  checkout. Tests are in `scripts/__tests__/sheavly-hooks*.test.mjs`, outside `.sheavly/`, so
+  editing one does not change the fingerprint.
+
 ## Loading them
 
 ```
