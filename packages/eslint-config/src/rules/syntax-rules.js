@@ -177,7 +177,7 @@ export const SYNTAX_RULES = {
       selector:
         "CallExpression[callee.property.name=/^findLast(Index)?$/]:has(BinaryExpression[operator='==='][left.property.name='role'][right.value='user'])",
       message:
-        "Do not look up the latest user message by hand. For stored history use `latestRequest`, `latestRequestIndex` or `latestPromptIndex` (`@sheavly/core/history/history.utils`): a request is a stored `user` entry and a notice never is one. Code that works on the messages a model is sent (a `beforeModelCall` hook's input, a request log) is a model view, where notices are `user` messages too: say so with a `files:` override and its reason in this workspace's eslint.config.js.",
+        "Do not look up the latest user message by hand with `findLast`/`findLastIndex`. For stored history use `latestRequest`, `latestRequestIndex` or `latestPromptIndex` (`@sheavly/core/history/history.utils`): a request is a stored `user` entry and a notice never is one. This rule recognises only that call shape; the same lookup written another way (a loop, `filter(...).at(-1)`) is not caught, so use the helpers anyway. Code that works on the messages a model is sent (a `beforeModelCall` hook's input, a request log) is a model view, where notices are `user` messages too: say so with a `files:` override and its reason in this workspace's eslint.config.js.",
     },
   ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
