@@ -90,6 +90,7 @@ export async function createBackendHarness(
 
   return {
     ...harness,
+    workingRoots,
     tools: [
       ...fileTools,
       ...webTools,

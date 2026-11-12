@@ -12,6 +12,8 @@ import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import { reportedWorkingRoot } from './working-root-report.helper.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
 import { sharedScratchRoot } from './scratch.helper.js';
@@ -126,6 +128,12 @@ export async function servedConversation(params: {
           projectTrust: harness.projectTrust,
         }),
         permissionMode: async () => (await permissions.read()).mode,
+        workingRoot: () =>
+          reportedWorkingRoot({
+            workingRoots: harness.workingRoots,
+            onFailure: (caughtError) =>
+              log(`Could not read the working root for the header: ${errorMessage(caughtError)}\n`),
+          }),
         useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
       },
     }),

@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
@@ -11,6 +12,7 @@ import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 import { createBackendHarness } from '../harness.helper.js';
+import { reportedWorkingRoot } from '../working-root-report.helper.js';
 
 const repo = useTempRepo({ prefix: 'working-root-resume-', perTest: true });
 const ID = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
@@ -70,6 +72,38 @@ describe('the working root of a resumed conversation', () => {
     await expect(turnNotes(reopened)).resolves.toEqual([
       expect.stringContaining(`Working root: ${repo.worktree} (branch feature)`),
     ]);
+  });
+
+  it('is reported with its branch while it can be used, and not once it is gone', async () => {
+    const store = new FileConversationStore({
+      folder: path.join(repo.base, 'store'),
+      onProblem: () => undefined,
+    });
+    const harness = await open(store);
+    const { workingRoots } = harness;
+
+    await expect(reportedWorkingRoot({ workingRoots })).resolves.toBeUndefined();
+
+    await workingRoots.set(repo.worktree);
+    await expect(reportedWorkingRoot({ workingRoots })).resolves.toEqual({
+      root: repo.worktree,
+      branch: 'feature',
+    });
+
+    await rm(repo.worktree, { recursive: true });
+    await expect(reportedWorkingRoot({ workingRoots })).resolves.toBeUndefined();
+  });
+
+  it('leaves the header detail out, and says why, when it cannot be read', async () => {
+    const heard: unknown[] = [];
+    const failing = {
+      state: () => Promise.reject(new Error('git timed out')),
+    } as unknown as Parameters<typeof reportedWorkingRoot>[0]['workingRoots'];
+
+    await expect(
+      reportedWorkingRoot({ workingRoots: failing, onFailure: (caught) => heard.push(caught) }),
+    ).resolves.toBeUndefined();
+    expect(heard).toEqual([expect.objectContaining({ message: 'git timed out' })]);
   });
 
   it('is not set in a conversation that never chose one', async () => {

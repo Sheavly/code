@@ -13,6 +13,7 @@ import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hook
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
@@ -72,6 +73,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
 
 /** A run on the backend: the coding services, and the tools and hooks it includes. */
 export type BackendHarness = CodingHarness & {
+  /** The conversation's working root, shared by its main session and sub-agents. */
+  workingRoots: WorkingRoots;
   tools: Tool[];
   hooks: Hook[];
   /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */
