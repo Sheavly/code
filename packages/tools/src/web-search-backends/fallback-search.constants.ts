@@ -1,0 +1,3 @@
+export const FALLBACK_DEFAULT_BACKEND_TIMEOUT_MS = 8_000;
+export const FALLBACK_DEFAULT_COOLDOWN_MS = 60_000;
+export const FALLBACK_BACKEND_NAME = 'fallback';
