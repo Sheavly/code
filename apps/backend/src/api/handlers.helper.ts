@@ -52,6 +52,7 @@ export function apiHandlers(
             messages: body.messages,
             workspace: body.workspace,
             profile: body.profile,
+            model: body.model,
           }),
         },
         201,

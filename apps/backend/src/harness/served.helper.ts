@@ -13,6 +13,7 @@ import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import { startOnRequestedModel } from './starting-model.helper.js';
 import { reportedWorkingRoot } from './working-root-report.helper.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
@@ -69,6 +70,12 @@ export async function servedConversation(params: {
     request: parseRequestEnv(env),
     contextWindow: settings.contextWindow,
   });
+
+  // A new conversation that names a model runs on it, for this conversation only. A resumed one
+  // keeps its own selection below and never looks the name up, so a stale name cannot fail it.
+  if (asked.model && !asked.modelSelection) {
+    startOnRequestedModel({ models: workspace.models, requested: asked.model });
+  }
 
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
