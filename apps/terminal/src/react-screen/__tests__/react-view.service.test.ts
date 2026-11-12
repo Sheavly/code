@@ -319,6 +319,31 @@ describe('ReactView', () => {
     }
   });
 
+  it('shows the count of grouped tasks a held run waits on, with no stop hint', async () => {
+    const { view, stdout } = open(24, true, 120, true);
+    let output = '';
+
+    stdout.setEncoding('utf8');
+    stdout.on('data', (chunk: string) => (output += chunk));
+    view.setStatus({
+      state: 'awaiting_tasks',
+      awaitedTasks: 2,
+      model: 'Fast',
+      mode: 'ask',
+      tasks: 2,
+    });
+
+    try {
+      view.start();
+      await vi.waitFor(() =>
+        expect(stripVTControlCharacters(output)).toContain('waiting on 2 tasks'),
+      );
+      expect(stripVTControlCharacters(output)).not.toContain('Ctrl+C to stop');
+    } finally {
+      view.stop();
+    }
+  });
+
   it('removes ANSI styling when NO_COLOR is set, including an empty value', () => {
     vi.stubEnv('NO_COLOR', '');
 

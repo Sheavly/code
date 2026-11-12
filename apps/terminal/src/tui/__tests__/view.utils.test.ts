@@ -268,6 +268,16 @@ describe('statusText', () => {
     expect(plain(statusOf({ ...base, thinking: false, state: 'working' }))).toContain('● working');
   });
 
+  it('says how many grouped tasks a held run waits on, apart from waiting for you', () => {
+    const base = { state: 'awaiting_tasks', model: 'Fast', mode: 'ask', tasks: 0 } as const;
+
+    expect(plain(statusOf({ ...base, awaitedTasks: 2 }))).toContain(
+      '● waiting on 2 tasks · follow-ups are queued',
+    );
+    expect(plain(statusOf({ ...base, awaitedTasks: 1 }))).toContain('● waiting on 1 task ·');
+    expect(plain(statusOf({ ...base, awaitedTasks: 1 }))).not.toContain('waiting for you');
+  });
+
   it('names the model and the permission mode', () => {
     expect(plain(statusOf({ state: 'ready', model: 'Deep', mode: 'always_ask', tasks: 0 }))).toBe(
       '● ready · Deep · mode: always_ask · context ?',

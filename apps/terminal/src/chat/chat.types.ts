@@ -28,3 +28,6 @@ export type StopResult = 'stopped' | 'stopping' | 'idle';
 
 /** How a message ended: its prompt ran (even if stopped), or failed with an error that was shown. */
 export type TurnOutcome = 'completed' | 'failed';
+
+/** The main run's `run_state` event, as the chat tells a UI. */
+export type RunState = { state: 'working' | 'waiting'; groupedTasks: number };

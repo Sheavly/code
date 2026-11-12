@@ -8,7 +8,7 @@ import type { LinkFile } from '../changes/changes.types.js';
 import { failuresText } from '../failures/failures-text.utils.js';
 import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
-import type { ChatConversation, StopResult, TurnOutcome } from './chat.types.js';
+import type { ChatConversation, RunState, StopResult, TurnOutcome } from './chat.types.js';
 import { parseChatInput } from './chat.utils.js';
 import { runModelCommand, runModeCommand } from './chat-model.helper.js';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -41,6 +41,7 @@ export class ChatSession {
   readonly #columns: () => number;
   readonly #palette: Palette;
   readonly #onThinking: (thinking: boolean) => void;
+  readonly #onRunState: (state: RunState) => void;
   #reportedTools: readonly RunningTool[];
   #reportedThinking = false;
   #current: AbortController | undefined;
@@ -74,6 +75,11 @@ export class ChatSession {
     onTools?: (tools: readonly RunningTool[]) => void;
     /** Told when the main session's model starts or stops signalling reasoning. */
     onThinking?: (thinking: boolean) => void;
+    /**
+     * Told when the main run says it works, or is held open waiting on this many grouped tasks
+     * (0 when only ungrouped tasks or services remain, so a follow-up can be sent).
+     */
+    onRunState?: (state: RunState) => void;
     /** Usage entries from every session, including sub-agents; seq allows replay deduplication. */
     onUsage?: (entry: StreamEntry) => void;
     /** Told once, when the user asked to leave. */
@@ -96,6 +102,7 @@ export class ChatSession {
     this.#linkFile = params.linkFile ?? ((path) => path);
     this.#onTools = params.onTools ?? (() => undefined);
     this.#onThinking = params.onThinking ?? (() => undefined);
+    this.#onRunState = params.onRunState ?? (() => undefined);
     this.#onUsage = params.onUsage ?? (() => undefined);
     this.#onExit = params.onExit;
     this.#columns = params.columns ?? (() => LINE_COLUMNS);
@@ -316,6 +323,15 @@ export class ChatSession {
       }
 
       if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
+
+      if (
+        entry.kind === 'event' &&
+        entry.sessionId === this.#mainSession &&
+        entry.event.type === 'run_state'
+      ) {
+        this.#onRunState({ state: entry.event.state, groupedTasks: entry.event.groupedTasks });
+      }
+
       this.#renderer.entry(entry, this.#mainSession);
       this.#reportLiveState();
 

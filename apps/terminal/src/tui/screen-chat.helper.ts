@@ -16,7 +16,8 @@ import { ReactView } from '../react-screen/react-view.service.js';
 import { paletteFromEnv } from '../theme/theme.helper.js';
 import { createClassicView } from './classic-view.helper.js';
 import { ChatScreen } from './chat-screen.service.js';
-import type { ApprovalAnswer, ScreenChat } from './tui.types.js';
+import type { RunState } from '../chat/chat.types.js';
+import type { ApprovalAnswer, ScreenChat, StatusInfo } from './tui.types.js';
 
 /**
  * Runs the chat on the terminal's main screen: the conversation's text and the approvals it asks
@@ -123,6 +124,7 @@ export async function startScreenChat(params: {
       screen.setStatus({ tools });
     },
     onThinking: (thinking) => screen.setStatus({ thinking }),
+    onRunState: (run) => screen.setStatus(statusOfRun(run)),
     onUsage: keepUsage,
     onBusy: (busy) => {
       screen.setStatus({ state: busy ? 'working' : 'ready', ...(busy ? {} : { thinking: false }) });
@@ -173,6 +175,20 @@ export async function startScreenChat(params: {
       screen.stop();
     },
   };
+}
+
+/**
+ * What the status line says for a held run: waiting on grouped tasks, `ready` when none are
+ * grouped (a follow-up is queued and releases the run), `working` once it runs again.
+ */
+export function statusOfRun(
+  run: RunState,
+): Pick<StatusInfo, 'state' | 'awaitedTasks' | 'thinking'> {
+  if (run.state === 'working') return { state: 'working' };
+  // Not working, so a stale "thinking..." must not return with the next turn.
+  if (run.groupedTasks === 0) return { state: 'ready', thinking: false };
+
+  return { state: 'awaiting_tasks', awaitedTasks: run.groupedTasks, thinking: false };
 }
 
 /** The branch to show for the working root: its name, or "detached HEAD"; none without a root. */
