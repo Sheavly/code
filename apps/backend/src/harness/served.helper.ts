@@ -107,7 +107,12 @@ export async function servedConversation(params: {
     ...(!settings.webSearch && { webSearch: false }),
     home: homedir(),
     onModelCall,
-    ...(storage && { entries: storage.entries, resume: storage.resume, shell: storage.shell }),
+    ...(storage && {
+      entries: storage.entries,
+      resume: storage.resume,
+      shell: storage.shell,
+      outputs: storage.outputs,
+    }),
   });
   const skills = skillsNotice(await findSkills(harness.skills));
 

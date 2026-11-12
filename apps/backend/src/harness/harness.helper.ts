@@ -14,6 +14,7 @@ import { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool'
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { createOutputTools } from '@sheavly/tools/output/output.tool';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
@@ -45,6 +46,7 @@ export async function createBackendHarness(
     webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
     shell = memoryShellStore(),
+    outputs,
     ...coding
   } = options;
   const harness = await createCodingHarness(coding);
@@ -88,13 +90,24 @@ export async function createBackendHarness(
     ...(webSearch === false ? [] : [createWebSearchTool(webSearch)]),
   ];
 
+  const outputTools = outputs ? createOutputTools(outputs) : [];
+
   return {
     ...harness,
     workingRoots,
     tools: [
       ...fileTools,
       ...webTools,
-      createRunCommandTool({ workspace, workingRoots, permissions, tasks, approvals, processes }),
+      createRunCommandTool({
+        workspace,
+        workingRoots,
+        permissions,
+        tasks,
+        approvals,
+        processes,
+        outputs,
+      }),
+      ...outputTools,
       ...createTaskTools(tasks),
       createSubAgentTool({
         sessions,
@@ -104,7 +117,7 @@ export async function createBackendHarness(
         ...(subAgentProvider && { selectProvider: subAgentProvider }),
         ...(summarizeWith && { summarizeWith }),
         runAgent: runSession,
-        tools: [...fileTools, ...webTools],
+        tools: [...fileTools, ...webTools, ...outputTools],
         tasksTools: (childTasks) => [
           createRunCommandTool({
             workspace,
@@ -113,6 +126,7 @@ export async function createBackendHarness(
             tasks: childTasks,
             approvals,
             processes,
+            outputs,
           }),
         ],
         // The same hook objects as the main run, each sub-agent running its own `sessionStart`:

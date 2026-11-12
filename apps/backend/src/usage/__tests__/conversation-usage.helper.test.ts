@@ -10,6 +10,7 @@ import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
 import { trackConversationUsage } from '../conversation-usage.helper.js';
 
@@ -49,6 +50,7 @@ describe('conversation usage over the API', () => {
       storage: {
         keepHistory: () => undefined,
         shell: memoryShellStore(),
+        outputs: new MemoryOutputStore(),
         resume: { next: 3, tail: [oldTurn], sessions: [], lastTokens: [] },
         entries: {
           append: async () => undefined,
@@ -90,6 +92,7 @@ describe('conversation usage over the API', () => {
       storage: {
         keepHistory: () => undefined,
         shell: memoryShellStore(),
+        outputs: new MemoryOutputStore(),
         resume: { next: 2, tail: [turnEnd], sessions: [], lastTokens: [] },
         entries: {
           append: async () => undefined,
