@@ -28,6 +28,16 @@ export const historyMessageSchema = z.discriminatedUnion('role', [
 ]);
 
 /**
+ * One line of a session's durable history log: an entry with the `seq` that names it for good.
+ * Sequence numbers start at 0 and have no gaps, so a checkpoint can say which entries it covers
+ * by `seq`, and a lost write shows as a gap.
+ */
+export const historyRecordSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  entry: historyMessageSchema,
+});
+
+/**
  * The history a client may start a conversation from: everything but notices. A notice is written
  * by the harness alone, so a request cannot carry one and gain the harness's framing.
  */
