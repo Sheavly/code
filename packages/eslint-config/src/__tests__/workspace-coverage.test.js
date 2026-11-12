@@ -28,8 +28,28 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8'));
 }
 
+const eslintByDir = new Map();
+const configByFile = new Map();
+
+/**
+ * The resolved config of a file, computed once per file for the whole run: the tests of a workspace
+ * ask about the same files, and resolving a config is what makes this suite slow. Safe to share,
+ * as nothing here changes a config file while the tests run.
+ */
+function configFor(dir, file) {
+  if (!eslintByDir.has(dir)) eslintByDir.set(dir, new ESLint({ cwd: dir }));
+
+  const key = `${dir}\0${file}`;
+
+  if (!configByFile.has(key)) {
+    configByFile.set(key, eslintByDir.get(dir).calculateConfigForFile(file));
+  }
+
+  return configByFile.get(key);
+}
+
 async function enabledRules(dir) {
-  const config = await new ESLint({ cwd: dir }).calculateConfigForFile(path.join(dir, PROBE));
+  const config = await configFor(dir, path.join(dir, PROBE));
   const severity = (entry) => (Array.isArray(entry) ? entry[0] : entry);
 
   return Object.entries(config?.rules ?? {})
@@ -108,14 +128,13 @@ function typescriptFiles(dir) {
  */
 async function filesWithRuleOff(params) {
   const { dir, rule, allowed, sourceOnly = false } = params;
-  const eslint = new ESLint({ cwd: dir });
   const off = [];
   const files = sourceOnly
     ? sourceFiles(path.join(dir, 'src'))
     : typescriptFiles(path.join(dir, 'src'));
 
   for (const file of files) {
-    const { rules } = await eslint.calculateConfigForFile(file);
+    const { rules } = await configFor(dir, file);
 
     if (!isOn(rules[rule])) off.push(path.relative(REPO_ROOT, file));
   }
@@ -190,12 +209,11 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
     it.skipIf(isApp(dir) || isTestOnly(dir) || isTooling(dir))(
       'keeps env, the terminal and printing out of every source file',
       async () => {
-        const eslint = new ESLint({ cwd: dir });
         const files = sourceFiles(path.join(dir, 'src'));
         const off = [];
 
         for (const file of files) {
-          const { rules } = await eslint.calculateConfigForFile(file);
+          const { rules } = await configFor(dir, file);
 
           for (const rule of APP_ONLY_RULES) {
             if (!isOn(rules[rule])) off.push(`${path.relative(dir, file)}: ${rule}`);

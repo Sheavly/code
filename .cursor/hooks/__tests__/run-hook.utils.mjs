@@ -3,6 +3,10 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 const HOOKS = path.resolve(import.meta.dirname, '..');
+// Each case spawns a fresh node that recompiles the hook's modules; a shared compile cache (keyed
+// by file content, so it can't serve stale code) cuts a start from about 0.24s to 0.16s. It lives
+// in the checkout's ignored `node_modules`, not a fixed `/tmp` path another local user could seed.
+const COMPILE_CACHE = path.resolve(HOOKS, '../../node_modules/.cache/sheavly-hook-compile-cache');
 
 /** Runs a hook with isolated chat state; optional `now` pins its subprocess-only test clock. */
 export function runHook(params) {
@@ -15,6 +19,7 @@ export function runHook(params) {
     encoding: 'utf8',
     env: {
       ...process.env,
+      NODE_COMPILE_CACHE: COMPILE_CACHE,
       SHEAVLY_HOOK_STATE_DIR: stateDir,
       ...(now === undefined ? {} : { SHEAVLY_TEST_HOOK_NOW: String(now) }),
     },

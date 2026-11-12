@@ -2,8 +2,11 @@ name: Check
 
 # The full quality gate (typecheck, ESLint, Prettier, knip, jscpd, tests; `turbo.json`) on every
 # PR, whatever its base, so the lint rules (layer boundaries, `harness/no-terminal-io`: no UI
-# outside the named front-end files) block a merge, not just a Cursor session. A PR runs only the
-# workspaces its changes affect (`npm run check:affected`); the repo-wide checks always run.
+# outside the named front-end files) block a merge, not just a Cursor session. It runs as six
+# parallel jobs (`check:repo`, `check:typecheck`, `check:lint`, `check:test`,
+# `check:eslint-config`, `check:root`) that together are `npm run check`.
+# A PR runs the workspace and root tasks only for what its changes affect (`--affected`, as in
+# `npm run check:affected`); the repo-wide checks always run.
 # Pushes to main run it too, so PRs restore a turbo cache from main (a PR's own cache is scoped to
 # its branch).
 on:
@@ -20,39 +23,89 @@ permissions:
   contents: read
 
 jobs:
+  # Parallel jobs instead of one long one: the cheap repo-wide checks report a failure within about
+  # a minute, and the slow groups no longer share one 4-vCPU runner. Together they run exactly
+  # what `npm run check` runs.
   check:
-    name: npm run check
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: repo checks
+            script: check:repo
+            affected: false
+          - name: typecheck
+            script: check:typecheck
+            affected: true
+          - name: lint
+            script: check:lint
+            affected: true
+          - name: workspace tests
+            script: check:test
+            affected: true
+          # Its tests are the longest task of the gate, so they get a runner of their own.
+          - name: eslint-config tests
+            script: check:eslint-config
+            affected: true
+          - name: root
+            script: check:root
+            affected: true
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # `--affected` compares with the base branch; a shallow clone would rerun everything.
-          fetch-depth: 0
+          # A push to main runs every task unfiltered, so it needs no history. The depths are
+          # strings: `&&`/`||` return their operands and a number 0 is falsy, so `&& 0 || 1` is 1.
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
+      # With audit and fund off, `npm ci` takes about 6s on a warm npm cache; with them on it took
+      # about 48s. Caching `node_modules` itself would save only those 6s and add a cache that
+      # must never be poisoned, so it is not cached.
       - name: Install
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       # Results keyed by inputs, so a restored entry is only reused where nothing changed.
       - name: Restore the turbo cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .turbo/cache
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: turbo-${{ runner.os }}-
+          key: turbo-${{ runner.os }}-${{ matrix.script }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-${{ matrix.script }}-
 
       # Some tests make throwaway git repos and commits; give them an identity. Main runs every
       # task, so the cache it saves is complete.
       - name: Check
-        run: npm run ${{ github.event_name == 'push' && 'check' || 'check:affected' }}
+        run: npm run ${{ matrix.script }}${{ matrix.affected && github.event_name == 'pull_request' && ' -- --affected' || '' }}
         env:
           GIT_AUTHOR_NAME: ci
           GIT_AUTHOR_EMAIL: ci@example.invalid
           GIT_COMMITTER_NAME: ci
           GIT_COMMITTER_EMAIL: ci@example.invalid
+          # Turbo could not find the base branch on its own ("unable to detect git range") and ran
+          # every task on every PR. Passed as env, never into the script text.
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+          # Per-task hashes and cache status, to find out why tasks miss the cache.
+          TURBO_RUN_SUMMARY: 'true'
+
+      - name: Upload the turbo run summary
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Not `matrix.script`: its colon is not allowed in an artifact name.
+          name: turbo-summary-${{ matrix.name }}
+          path: .turbo/runs
+          # `.turbo` is a hidden folder, which upload-artifact skips unless asked; a miss should show as a warning.
+          include-hidden-files: true
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 7
