@@ -16,6 +16,12 @@ export default defineConfig([
     files: ['src/harness/model-calls.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // The model-call log shows the last `user` message of the request a model is sent, a model view
+  // where notices are `user` messages too, so it is not a lookup of the stored request.
+  {
+    files: ['src/harness/model-calls.utils.ts'],
+    rules: { 'harness/no-adhoc-latest-request': 'off' },
+  },
   // A repo's worktrees share one mode and allow list, so every call on the permission store is
   // keyed by `permissionRoot`, never by a folder's own path. Every source file, so moving a call
   // cannot take it out of the rule's reach.

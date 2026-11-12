@@ -110,6 +110,12 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-handwritten-notice': 'error' },
     },
+    // --- The latest request in stored history is found through the core helpers, not by hand ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-adhoc-latest-request': 'error' },
+    },
     // --- Files are written through storage (or a tool, on the agent's project): not in tests ---
     {
       files: SOURCE_FILES,

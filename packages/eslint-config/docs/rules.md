@@ -87,6 +87,13 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
   `harness/no-brand-cast` (type-aware, tests included) fails `as` to a branded type: a value gets
   its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
+- **The latest request** (`harness/no-adhoc-latest-request`, source files): no
+  `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
+  history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`
+  (`@sheavly/core/history/history.utils`): a stored `user` entry, never a notice, which only becomes
+  a `user`-role message in what a model is sent. Code that works on a model's input says so with a
+  `files:` override and its reason. It sees only this call shape, so a lookup written another way
+  (a loop, a reversed copy) is left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.
