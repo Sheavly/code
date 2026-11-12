@@ -44,6 +44,14 @@ proves the run still answers from what it kept. To see the masking itself, count
 `grep -c "was hidden to save room" workbook/runs/<run>/model-calls.jsonl` (four in each of four runs
 on DeepSeek V4.1). Zero means the window was too large for the reads to reach the threshold.
 
+`summary-quality` measures what summaries keep, not whether they succeed. A decision with its owner
+and reason, an error code and the next step are in two small notes read first; four full passes over
+a large file force several summaries; the reply must then give all four facts from memory, with no
+re-read and no history search. It runs on a 24k window: at 16k the fixed prompt leaves too little
+room and a run can stop with `context_window_exceeded`. Six runs on DeepSeek V4.1 passed first try
+with four or five summaries each. The reply may say `UNKNOWN` in prose, so the check does not
+forbid the word; it requires the four facts instead.
+
 `background-completion` checks delayed finite commands: both results arrive before the final reply,
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
