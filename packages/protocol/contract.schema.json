@@ -1549,7 +1549,7 @@
         "queued": {
           "maxItems": 100,
           "type": "array",
-          "items": { "type": "string", "minLength": 1 }
+          "items": { "type": "string", "minLength": 1, "maxLength": 20000 }
         }
       },
       "required": ["queued"]

@@ -31,7 +31,7 @@ describe('the queue of a conversation over HTTP', () => {
     const { request, start } = testApi({ hi: [reply('hello')] });
     const id = await start();
 
-    for (const queued of [[''], 'text', [1]]) {
+    for (const queued of [[''], 'text', [1], ['x'.repeat(20_001)]]) {
       const response = await request(`/conversations/${id}/queue`, {
         method: 'PUT',
         body: { queued },
