@@ -53,9 +53,14 @@ A stacked PR lands with `gh stack merge`, which also lands every layer below it;
      branch checked out in a worktree can't be deleted, so the worktree goes first.
    - the remote branch, if `--delete-branch` did not already remove it:
      `git push origin --delete 123-<name>`.
-   - then update `main`: `git fetch origin main`, and `git merge --ff-only origin/main` only in a
-     checkout that is already on `main`. Never switch branches in a checkout that is on something
-     else or has uncommitted changes; say it is behind instead.
+   - then update `main` without switching branches. Find where `main` is checked out
+     (`git worktree list`):
+     - in a checkout with no uncommitted changes: `git -C <that path> pull --ff-only origin main`.
+     - nowhere: `git fetch origin main:main`, which only fast-forwards the local ref.
+     - in a checkout with uncommitted changes, or the update is refused: leave it and say `main`
+       is behind.
+
+     Never run `git switch` in a checkout that is on something else.
 
    Only this issue's own branch and worktree are removed: never `main`, another branch, another
    worktree or the user's own checkout. The git guard does not check deletions, so this rests on
