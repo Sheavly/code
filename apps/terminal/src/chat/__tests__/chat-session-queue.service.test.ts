@@ -79,6 +79,34 @@ function holdingChat(params: { yieldReply?: Promise<boolean> } = {}) {
   return { session, sent, opened, signals, yields, releases, queues };
 }
 
+describe('ChatSession: lines kept from an earlier run', () => {
+  it('shows restored lines as waiting and runs none of them by itself', async () => {
+    const { session, sent, queues } = holdingChat();
+
+    session.restoreQueued(['left over', 'also left']);
+
+    expect(session.queued).toEqual(['left over', 'also left']);
+    expect(queues.at(-1)).toEqual(['left over', 'also left']);
+    // Nothing was submitted, so nothing runs: reopening never dispatches pending input.
+    await session.idle();
+    expect(sent).toEqual([]);
+  });
+
+  it('runs restored lines ahead of a new one once the user submits something', async () => {
+    const { session, sent, releases } = holdingChat();
+
+    session.restoreQueued(['left over']);
+    session.submit('new');
+    await until(() => sent.length === 1);
+    releases[0]?.();
+    await until(() => sent.length === 2);
+    releases[1]?.();
+    await session.idle();
+
+    expect(sent).toEqual(['left over', 'new']);
+  });
+});
+
 describe('ChatSession: queued messages', () => {
   it('keeps ordinary messages pending in order, never starting another prompt while one runs', async () => {
     const { session, sent, releases } = holdingChat();

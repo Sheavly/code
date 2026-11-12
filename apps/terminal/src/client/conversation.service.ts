@@ -91,6 +91,16 @@ export class RemoteConversation {
     return (await this.#client.call('getMessages', { id: this.id })).messages;
   }
 
+  /** The lines kept as queued behind a prompt, oldest first: pending input, outside the history. */
+  async queue(): Promise<string[]> {
+    return (await this.#client.call('getQueue', { id: this.id })).queued;
+  }
+
+  /** Keeps `queued` as the conversation's pending lines, replacing what was kept. */
+  setQueue(queued: readonly string[]): Promise<void> {
+    return this.#client.send('setQueue', { id: this.id, body: { queued: [...queued] } });
+  }
+
   /** Switches to the model with this id, from the next model call; false when the conversation hasn't it. */
   async useModel(modelId: ModelId, mode?: ModelMode): Promise<boolean> {
     try {
