@@ -54,7 +54,7 @@ jobs:
             script: check:root
             affected: true
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           # `--affected` compares with the base branch; a shallow clone would rerun everything.
@@ -62,13 +62,16 @@ jobs:
           # strings: `&&`/`||` return their operands and a number 0 is falsy, so `&& 0 || 1` is 1.
           fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
 
+      # With audit and fund off, `npm ci` takes about 6s on a warm npm cache; with them on it took
+      # about 48s. Caching `node_modules` itself would save only those 6s and add a cache that
+      # must never be poisoned, so it is not cached.
       - name: Install
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       # Results keyed by inputs, so a restored entry is only reused where nothing changed.
       - name: Restore the turbo cache
@@ -96,12 +99,12 @@ jobs:
       - name: Upload the turbo run summary
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           # Not `matrix.script`: its colon is not allowed in an artifact name.
           name: turbo-summary-${{ matrix.name }}
           path: .turbo/runs
-          # `.turbo` is a hidden folder, which v4 skips unless asked; a miss should show as a warning.
+          # `.turbo` is a hidden folder, which upload-artifact skips unless asked; a miss should show as a warning.
           include-hidden-files: true
           if-no-files-found: warn
           overwrite: true

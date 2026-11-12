@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -105,13 +105,29 @@ describe('the quality gate', () => {
     expect(live).toContain(
       "TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}",
     );
-    // The turbo summary lives in the hidden `.turbo` folder, which upload-artifact v4 skips unless
+    // The turbo summary lives in the hidden `.turbo` folder, which upload-artifact skips unless
     // told otherwise; without this the diagnostic would silently upload nothing.
     expect(live).toContain("TURBO_RUN_SUMMARY: 'true'");
     expect(live).toContain('path: .turbo/runs');
     expect(live).toContain('include-hidden-files: true');
     // An artifact name may not contain a colon, which every `matrix.script` has.
     expect(live).toContain('name: turbo-summary-${{ matrix.name }}');
+    // `npm ci` always runs, without the audit and fund network calls that made it take 48s instead
+    // of 6s. `node_modules` itself is not cached: it would save 6s and add a cache to keep clean.
+    expect(live).toMatch(/name: Install\n\s+run: npm ci --no-audit --no-fund\n/);
+    expect(live).not.toContain('actions/cache/save');
+    expect(live).not.toMatch(/^\s+(?:path: \|?\s*)?\S*node_modules\S*$/m);
+
+    // Every action is pinned to a full commit SHA, in every workflow. Local (`./`) actions have no
+    // ref to pin.
+    for (const file of readdirSync(path.join(REPO_ROOT, '.github/workflows'))) {
+      const uses = read(`.github/workflows/${file}`).match(/^\s*(?:- )?uses: \S+/gm) ?? [];
+
+      for (const line of uses.filter((entry) => !entry.includes('uses: ./'))) {
+        expect(line, `${file} must pin actions to a commit SHA`).toMatch(/@[0-9a-f]{40}$/);
+      }
+    }
+
     // Exactly one entry per group, so a duplicate unfiltered or filtered one can't slip in.
     expect(live.match(/^\s+script: /gm)).toHaveLength(GROUPS.length);
     // The whole step line: filtered only on a PR, so a push to main runs (and caches) every task.
