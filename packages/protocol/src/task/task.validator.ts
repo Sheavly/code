@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
+import { outputLogSchema } from '../output/output.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 export const taskStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled']);
@@ -25,6 +26,8 @@ export const taskInfoSchema = z.object({
   exitCode: z.number().int().nullable().exactOptional(),
   /** Combined stdout/stderr so far (the most recent part, if it was long). */
   output: z.string(),
+  /** Where the complete output is kept, when it is captured: `output` stays a bounded preview. */
+  outputLog: outputLogSchema.exactOptional(),
   error: z.string().exactOptional(),
 });
 

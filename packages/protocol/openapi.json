@@ -2262,6 +2262,16 @@
             ]
           },
           "output": { "type": "string" },
+          "outputLog": {
+            "type": "object",
+            "properties": {
+              "ref": { "$ref": "#/components/schemas/ModelId" },
+              "bytes": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "status": { "type": "string", "enum": ["capturing", "complete", "incomplete"] },
+              "reason": { "type": "string" }
+            },
+            "required": ["ref", "bytes", "status"]
+          },
           "error": { "type": "string" }
         },
         "required": ["id", "command", "description", "status", "startedAt", "output"]
