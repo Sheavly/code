@@ -59,6 +59,37 @@ describe('parseSectionReply by heading', () => {
     expect(parse('## Goal\nOne.\n## Task state\nS.\n## Goal\nTwo.').get('goal')).toBe('One.\nTwo.');
   });
 
+  it('never splits inside a code fence: a heading-like line there is text', () => {
+    const written = parse(
+      '## Goal\nFix it, like this:\n```md\n## Task state\nnot a heading\n```\nthen stop.\n\n## Task state\nReal.',
+    );
+
+    expect(written.get('goal')).toBe(
+      'Fix it, like this:\n```md\n## Task state\nnot a heading\n```\nthen stop.',
+    );
+    expect(written.get('state')).toBe('Real.');
+  });
+
+  it('reads a very long line in linear time and never as a heading', () => {
+    const long = `# ${' '.repeat(2_000_000)}x`;
+    const started = performance.now();
+    const written = parse(`## Goal\nFix it.\n${long}\nmore`);
+
+    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(written.get('goal')).toContain('more');
+  });
+
+  it('matches a title with marks in it, and one written with different spacing', () => {
+    const sections = [{ id: 'cs', title: 'C# notes', guidance: 'x' }];
+    const written = parseSectionReply({
+      summarizer: 'model',
+      reply: '##   C#   notes  \nText.',
+      sections,
+    });
+
+    expect(written.get('cs')).toBe('Text.');
+  });
+
   it('does not take a line that merely mentions a title for its heading', () => {
     const written = parse('## Goal\nThe Goal is to fix the total.\nGoal\nstill text');
 
@@ -78,6 +109,12 @@ describe('parseSectionReply by JSON, when a model answers in it anyway', () => {
 
   it('reads the object inside a code fence', () => {
     expect(parse('```json\n{"goal": "Fix it."}\n```').get('goal')).toBe('Fix it.');
+  });
+
+  it('falls through to headings when the object holds text for none of the asked ids', () => {
+    // Not one JSON object (text follows it), so it is read by heading.
+    expect(parse('{"other": "x"}\n## Goal\nFix it.').get('goal')).toBe('Fix it.');
+    expect(() => parse('{"other": "x"}')).toThrow(SummaryReplyError);
   });
 
   it('skips a value that is not text, and keeps the others', () => {

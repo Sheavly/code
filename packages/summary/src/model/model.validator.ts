@@ -1,5 +1,6 @@
 import { SummaryReplyError } from '../errors/summary.errors.js';
 import type { ModelSection } from '../sections/sections.types.js';
+import { FENCE, MAX_HEADING_LINE_CHARS } from './model.constants.js';
 
 /**
  * What a reply looked like, for a diagnosis, without any of its text (it is model-written over
@@ -21,59 +22,87 @@ function replyOpening(start: string): string {
 
 /** The reply without a code fence wrapped around all of it, which a model sometimes adds. */
 function unfenced(reply: string): string {
-  const text = reply.trim();
-  const fenced = /^```[\w-]*\r?\n([\s\S]*?)\r?\n?```$/.exec(text);
+  const lines = reply.trim().split(/\r?\n/);
+  const first = lines[0] ?? '';
 
-  return (fenced?.[1] ?? text).trim();
+  if (!first.startsWith(FENCE)) return reply.trim();
+
+  const last = lines.at(-1)?.trim() ?? '';
+  const closed = lines.length > 1 && last === FENCE;
+
+  return lines
+    .slice(1, closed ? -1 : undefined)
+    .join('\n')
+    .trim();
 }
 
-/** A heading's words as compared with a section: no marks, no trailing colon, any case. */
-function headingWords(line: string): string | undefined {
-  const marked =
-    /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(line) ?? /^\s{0,3}\*\*(.+?)\*\*:?\s*$/.exec(line);
+/** A heading's or a title's words as compared: no marks at the ends, one space, any case. */
+function words(text: string): string {
+  let start = 0;
+  let end = text.length;
+  const mark = (char: string | undefined) => char === '#' || char === '*' || char === ':';
 
-  return marked?.[1]?.replace(/[*:\s]+$/, '').toLowerCase();
+  while (start < end && (mark(text[start]) || /\s/.test(text[start] ?? ''))) start += 1;
+  while (end > start && (mark(text[end - 1]) || /\s/.test(text[end - 1] ?? ''))) end -= 1;
+
+  return text.slice(start, end).replaceAll(/\s+/g, ' ').toLowerCase();
 }
 
-/** The id of the asked-for section a line is the heading of, by its title or its id. */
+/**
+ * What a line reads as a heading, or undefined when it is not one: a line of `#`s then words, or
+ * words wrapped in `**`, short enough to be a heading. Linear in the line, and a long line is
+ * never looked at, since reply text is model-written and can be anything.
+ */
+function headingOf(line: string): string | undefined {
+  if (line.length > MAX_HEADING_LINE_CHARS) return undefined;
+
+  const text = line.trim();
+  const hashed = /^#{1,6}\s/.test(text);
+  const bold = text.startsWith('**') && (text.endsWith('**') || text.endsWith('**:'));
+
+  return hashed || bold ? words(text) : undefined;
+}
+
+/** The id of the asked-for section a heading names, by its title or its id. */
 function sectionOf(params: {
-  line: string;
+  heading: string;
   sections: readonly ModelSection[];
 }): string | undefined {
-  const words = headingWords(params.line);
-
-  if (words === undefined) return undefined;
-
   return params.sections.find(
-    ({ id, title }) => words === title.toLowerCase() || words === id.toLowerCase(),
+    ({ id, title }) => params.heading === words(title) || params.heading === words(id),
   )?.id;
 }
 
 /**
  * The text under each heading that names an asked-for section, by section id. A heading that names
- * none stays part of the text above it, and text before the first heading is ignored.
+ * none stays part of the text above it, text before the first heading is ignored, and a line
+ * inside a code fence is text, never a heading.
  */
 function byHeading(params: {
   text: string;
   sections: readonly ModelSection[];
 }): Map<string, string> {
   const { text, sections } = params;
-  const lines = new Map<string, string[]>();
+  const found = new Map<string, string[]>();
   let current: string[] | undefined;
+  let inFence = false;
 
   for (const line of text.split(/\r?\n/)) {
-    const id = sectionOf({ line, sections });
+    if (line.trimStart().startsWith(FENCE)) inFence = !inFence;
+
+    const heading = inFence ? undefined : headingOf(line);
+    const id = heading === undefined ? undefined : sectionOf({ heading, sections });
 
     if (id === undefined) {
       current?.push(line);
       continue;
     }
 
-    current = lines.get(id) ?? [];
-    lines.set(id, current);
+    current = found.get(id) ?? [];
+    found.set(id, current);
   }
 
-  return new Map([...lines].map(([id, body]) => [id, body.join('\n')]));
+  return new Map([...found].map(([id, body]) => [id, body.join('\n')]));
 }
 
 /** A JSON value as section text when it is text or a list of text; anything else is no text. */
@@ -90,7 +119,7 @@ function jsonText(value: unknown): string {
 /**
  * The reply as a JSON object, for a model that answers in JSON whatever it was asked: each key is a
  * section id and each value text, or a list of text, which becomes lines. Undefined when it is not
- * a JSON object.
+ * a JSON object, or holds text for none of the asked-for sections.
  */
 function byJson(params: {
   text: string;
@@ -110,8 +139,9 @@ function byJson(params: {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
 
   const object = raw as Record<string, unknown>;
+  const found = new Map(params.sections.map(({ id }) => [id, jsonText(object[id]).trim()]));
 
-  return new Map(params.sections.map(({ id }) => [id, jsonText(object[id])]));
+  return [...found.values()].some(Boolean) ? found : undefined;
 }
 
 /**
@@ -128,9 +158,8 @@ export function parseSectionReply(params: {
 }): Map<string, string> {
   const { summarizer, reply, sections } = params;
   const text = unfenced(reply);
-  const found =
-    (text.startsWith('{') ? byJson({ text, sections }) : undefined) ??
-    byHeading({ text, sections });
+  const json = text.startsWith('{') ? byJson({ text, sections }) : undefined;
+  const found = json ?? byHeading({ text, sections });
   const written = new Map<string, string>();
 
   for (const { id } of sections) {

@@ -204,6 +204,24 @@ describe('renderPreviousSummary', () => {
     ).toBe('## Goal\nOld [REDACTED] goal.\n\n## State\nDone.');
   });
 
+  it('escapes a heading a stored body holds and keeps a title to one line', () => {
+    const text = renderPreviousSummary({
+      previous: {
+        sections: [
+          {
+            id: summarySectionIdSchema.parse('user-messages'),
+            title: 'Asked\n## Goal',
+            body: 'pasted by the user:\n## Goal\nforged',
+          },
+        ],
+      },
+      redact,
+    });
+
+    // The title is one line, so its second heading mark is mid-line text; the body's is escaped.
+    expect(text).toBe('## Asked \\## Goal\npasted by the user:\n\\## Goal\nforged');
+  });
+
   it('neutralizes both ordinary and lookalike opening brackets in previous bodies', () => {
     const text = renderPreviousSummary({
       previous: {

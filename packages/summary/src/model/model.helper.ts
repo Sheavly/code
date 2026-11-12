@@ -5,6 +5,8 @@ import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 import { SummaryReplyError } from '../errors/summary.errors.js';
 import { assertSectionIds } from '../sections/definition.utils.js';
 import type { ModelSection, RuleSection } from '../sections/sections.types.js';
+import { oneLine } from '@sheavly/core/text/text.utils';
+import { MAX_REPLY_CHARS } from './model.constants.js';
 import { parseSectionReply } from './model.validator.js';
 import { renderPreviousSummary, renderSpan } from './prompt.utils.js';
 import { defaultModelSections, summaryInstructions, summaryRequest } from './summary.prompt.js';
@@ -44,6 +46,7 @@ export function modelSummarizer(params: {
   assertSectionIds({
     summarizer: name,
     ids: [...sections, ...ruleSections].map((section) => section.id),
+    titles: [...sections, ...ruleSections].map((section) => section.title),
   });
 
   const instructions = summaryInstructions(sections);
@@ -108,17 +111,25 @@ async function askModel(params: {
   })) {
     if (event.type === 'text_delta') reply += event.text;
 
+    // A model that never stops cannot fill memory: past the cap the reply is refused, by length.
+    if (reply.length > MAX_REPLY_CHARS) {
+      throw new SummaryReplyError({
+        summarizer: name,
+        problem: `it was longer than ${String(MAX_REPLY_CHARS)} characters`,
+      });
+    }
+
     if (event.type === 'done') {
       usage = event.usage;
       stopReason = event.stopReason;
     }
   }
 
-  // A reply cut off at the output limit is half a JSON object: refuse it, never repair it.
+  // A reply cut off at the output limit is half a summary: refuse it, never repair it.
   if (stopReason !== 'end_turn') {
     throw new SummaryReplyError({
       summarizer: name,
-      problem: `it ended with ${stopReason ?? 'no stop reason'}, not a finished reply`,
+      problem: `it ended with ${stopReason === undefined ? 'no stop reason' : oneLine(stopReason).slice(0, 40)}, not a finished reply`,
     });
   }
 
