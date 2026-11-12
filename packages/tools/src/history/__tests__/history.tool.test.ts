@@ -24,6 +24,12 @@ async function keep(params: { session?: SessionRef; entries: HistoryMessage[] })
     .append(params.entries.map((entry, seq) => ({ seq, entry })));
 }
 
+/** Replaces the store with one holding a single main-session entry of `text`. */
+async function keepOnlyEntry(text: string) {
+  store = new MemoryConversationStore();
+  await store.history({ id: conversation }).append([{ seq: 0, entry: user(text) }]);
+}
+
 async function call(name: string, input: unknown) {
   const tools = createHistoryTools({
     sessions,
@@ -216,11 +222,7 @@ describe('read_history_entry', () => {
   });
 
   it('shows a very long entry in parts, and says where to read on', async () => {
-    await keep({ session: main, entries: [] });
-    const long = new MemoryConversationStore();
-
-    await long.history({ id: conversation }).append([{ seq: 0, entry: user('x'.repeat(20_000)) }]);
-    store = long;
+    await keepOnlyEntry('x'.repeat(20_000));
 
     const result = await call('read_history_entry', { session: main.id, seq: 0 });
 
@@ -228,11 +230,7 @@ describe('read_history_entry', () => {
   });
 
   it('reads past the cut with an offset, so a match deep in a long entry can be read', async () => {
-    const text = `${'x'.repeat(15_000)} the deep needle ${'y'.repeat(2_000)}`;
-    const long = new MemoryConversationStore();
-
-    await long.history({ id: conversation }).append([{ seq: 0, entry: user(text) }]);
-    store = long;
+    await keepOnlyEntry(`${'x'.repeat(15_000)} the deep needle ${'y'.repeat(2_000)}`);
 
     const found = await call('search_history', { query: 'deep needle', session: main.id });
 
@@ -248,6 +246,24 @@ describe('read_history_entry', () => {
     expect(around.content).toContain('deep needle');
     expect(around.content).toContain('characters 14900 to 17017 of 17017');
     expect(around.content).not.toContain('read on with offset');
+  });
+
+  it('says so when the offset is past the end of the entry', async () => {
+    const result = await call('read_history_entry', { session: child.id, seq: 0, offset: 5_000 });
+
+    expect(result.isError).toBe(false);
+    expect(result.content).toContain('offset 5000 is past the end');
+    expect(result.content).toContain('the entry has 29 characters');
+  });
+
+  it('finds a match by the original characters, so its offset slices the same text', async () => {
+    const text = `${'İ'.repeat(50)} needle here`;
+
+    await keepOnlyEntry(text);
+
+    const found = await call('search_history', { query: 'needle', session: main.id });
+
+    expect(found.content).toContain(`at character ${String(text.indexOf('needle'))}`);
   });
 
   it('refuses an entry or session that is not there', async () => {

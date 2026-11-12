@@ -11,7 +11,7 @@ import {
   searchMore,
 } from './history.prompt.js';
 import type { HistoryToolOptions } from './history.types.js';
-import { decodeCursor, encodeCursor } from './history.utils.js';
+import { decodeCursor, encodeCursor, entryPartNote } from './history.utils.js';
 
 function createSearchHistoryTool(options: HistoryToolOptions) {
   return defineTool({
@@ -71,14 +71,13 @@ function createReadHistoryEntryTool(options: HistoryToolOptions) {
     execute: async ({ input, signal }) => {
       const { offset = 0, ...where } = input;
       const entry = await readHistoryEntry({ options, ...where, signal });
-      const end = offset + MAX_ENTRY_CHARS;
-      const shown = escapeTags(entry.text.slice(offset, end));
+      const shown = escapeTags(entry.text.slice(offset, offset + MAX_ENTRY_CHARS));
       const fence = fenceDashes(shown);
-      const total = entry.text.length;
-      const note =
-        offset > 0 || end < total
-          ? `\n(characters ${String(offset)} to ${String(Math.min(end, total))} of ${String(total)}${end < total ? `; read on with offset ${String(end)}` : ''})`
-          : '';
+      const note = entryPartNote({
+        offset,
+        length: MAX_ENTRY_CHARS,
+        total: entry.text.length,
+      });
 
       return `${retrievedHeader(1)}\nsession ${input.session}, entry ${String(input.seq)} (${entry.role})\n${fence} entry ${fence}\n${shown}\n${fence} end of entry ${fence}${note}`;
     },

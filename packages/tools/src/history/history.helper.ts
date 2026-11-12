@@ -10,7 +10,7 @@ import type {
   SearchPage,
   SearchScope,
 } from './history.types.js';
-import { entryText, excerptAround, sameScope } from './history.utils.js';
+import { entryText, excerptAround, matchIndex, sameScope } from './history.utils.js';
 
 /**
  * The sessions a search looks through, in order: `session` alone, or all of them, starting at the
@@ -78,7 +78,7 @@ async function searchSession(params: {
         session: info.id,
         seq: record.seq,
         role: record.entry.role,
-        at: text.toLowerCase().indexOf(wanted),
+        at: matchIndex({ text, query }),
         excerpt: excerptAround({ text, query }),
       });
     }

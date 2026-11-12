@@ -53,6 +53,37 @@ const cursorSchema = z.object({
   }),
 });
 
+/**
+ * What to say about the part of an entry shown: nothing when it is all of it, else which
+ * characters and where to read on, and for an `offset` past the end, how long the entry is.
+ */
+export function entryPartNote(params: { offset: number; length: number; total: number }): string {
+  const { offset, length, total } = params;
+
+  if (offset >= total && total > 0) {
+    return `\n(offset ${String(offset)} is past the end: the entry has ${String(total)} characters)`;
+  }
+
+  const end = Math.min(offset + length, total);
+
+  if (offset === 0 && end === total) return '';
+
+  const more = end < total ? `; read on with offset ${String(end)}` : '';
+
+  return `\n(characters ${String(offset)} to ${String(end)} of ${String(total)}${more})`;
+}
+
+/**
+ * Where `query` first occurs in `text`, ignoring case, as an index into `text` itself. A match
+ * is looked for in the original characters, because lowercasing can change a text's length and
+ * the index is used to slice the original.
+ */
+export function matchIndex(params: { text: string; query: string }): number {
+  const { text, query } = params;
+
+  return text.search(new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+}
+
 /** A cursor as the opaque text the agent passes back. */
 export function encodeCursor(cursor: HistoryCursor): string {
   return Buffer.from(JSON.stringify(cursor)).toString('base64url');
