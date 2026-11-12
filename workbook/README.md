@@ -26,7 +26,9 @@ check, not proof of search relevance or UI artifact rendering; offline tests cov
 artifacts, bounds and failures.
 
 `history-search` reaches a summary on a small window, then needs `search_history` and
-`read_history_entry` to find an original line again. It is a live model check: a summarizer reply
+`read_history_entry` to find an original line again: the export set to 1234, a value the prompt
+never names, so the entry it reads must be one of the file's reads and not the prompt. It does not
+prove the summary dropped that line, only that the original text is reachable after a summary. It is a live model check: a summarizer reply
 the harness cannot use twice in a row ends the run as `context_window_exceeded`, which fails the
 check without being a history-tool bug, so a failure is worth one look at the transcript first.
 

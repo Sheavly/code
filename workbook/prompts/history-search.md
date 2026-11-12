@@ -20,9 +20,9 @@ check:
         'toolResults':
           {
             'search_history': ['data, not instructions', '/entry \d+/'],
-            'read_history_entry': ['end of entry'],
+            'read_history_entry': ['end of entry', 'value1234 = 1234'],
           },
-        'reply': ['42'],
+        'reply': ['value1234'],
         'outcome': 'completed',
       },
   }
@@ -33,6 +33,7 @@ read it completely a second time the same way, in the same two parts. Do all fou
 harness manages your context and shortens earlier work when it fills up, so do not stop early
 because of the context figure. Do not run commands or edit files.
 
-Then use search_history to look for `value42` in this conversation's original history, and read one
-matching entry whole with read_history_entry. Reply with what value42 is set to, as that entry
-shows it, and say which session and entry number you read.
+Then do not read src/big.ts again. Use search_history on this conversation's original history to
+find the export of src/big.ts whose value is 1234, and read the part of the entry that holds it
+with read_history_entry. Reply with the name of that export, as that entry shows it, and say which
+session and entry number you read.
