@@ -25,6 +25,11 @@ query and verifies a successful tool result with a source URL. It is a live, rat
 check, not proof of search relevance or UI artifact rendering; offline tests cover the contract,
 artifacts, bounds and failures.
 
+`history-search` reaches a summary on a small window, then needs `search_history` and
+`read_history_entry` to find an original line again. It is a live model check: a summarizer reply
+the harness cannot use twice in a row ends the run as `context_window_exceeded`, which fails the
+check without being a history-tool bug, so a failure is worth one look at the transcript first.
+
 `background-completion` checks delayed finite commands: both results arrive before the final reply,
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
