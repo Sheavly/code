@@ -30,6 +30,14 @@ async function pastConversation(store: MemoryConversationStore) {
   return id;
 }
 
+/** An assistant message that called the `block` tool `callId` and was never answered. */
+const unansweredCall = (callId: string): Message => ({
+  role: 'assistant',
+  content: '',
+  toolCalls: [{ id: callIdSchema.parse(callId), name: 'block', input: {} }],
+  at: 2,
+});
+
 /** Lets the host's queued writes finish, as an app waits for its disk. */
 const settled = async (
   conversations: Conversations,
@@ -152,16 +160,10 @@ describe('Conversations with a store', () => {
   it('repairs a history cut off mid-tool-call, so a model can continue from it', async () => {
     const store = new MemoryConversationStore();
     const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000cc');
-    const asking: Message = {
-      role: 'assistant',
-      content: '',
-      toolCalls: [{ id: callIdSchema.parse('b1'), name: 'block', input: {} }],
-      at: 2,
-    };
 
     await store.history({ id }).append([
       { seq: 0, entry: { role: 'user', content: 'go', at: 1 } },
-      { seq: 1, entry: asking },
+      { seq: 1, entry: unansweredCall('b1') },
     ]);
     await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 2 });
     await seedMainSession({ store, id, state: 'running' });
@@ -193,18 +195,12 @@ describe('Conversations with a store', () => {
   it('refuses to reopen a log whose unanswered tool call is followed by later entries', async () => {
     const store = new MemoryConversationStore();
     const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000ce');
-    const asking: Message = {
-      role: 'assistant',
-      content: '',
-      toolCalls: [{ id: callIdSchema.parse('b2'), name: 'block', input: {} }],
-      at: 2,
-    };
 
     // A call with no result, then a user message: only a damaged log looks like this, and a
     // repair would have to insert into the middle of an append-only log.
     await store.history({ id }).append([
       { seq: 0, entry: { role: 'user', content: 'go', at: 1 } },
-      { seq: 1, entry: asking },
+      { seq: 1, entry: unansweredCall('b2') },
       { seq: 2, entry: { role: 'user', content: 'again', at: 3 } },
     ]);
     await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 3 });
