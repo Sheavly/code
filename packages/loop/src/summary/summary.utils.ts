@@ -216,8 +216,10 @@ function projectHistory(params: {
 export function chooseCut(params: {
   history: readonly HistoryMessage[];
   keepTokens: number;
+  /** A tail larger than this is summarized too, even the newest call and its results. */
+  maxTailTokens?: number | undefined;
 }): number | undefined {
-  const { history, keepTokens } = params;
+  const { history, keepTokens, maxTailTokens } = params;
 
   if (!history.some((message) => message.role === 'user')) return undefined;
 
@@ -226,6 +228,8 @@ export function chooseCut(params: {
   // A result belongs with the assistant message that called it, so the tail starts at the call.
   while (cut > 0 && history[cut]?.role === 'tool') cut -= 1;
 
+  cut = shrinkOversizedTail({ history, cut, maxTailTokens });
+
   const pinned = new Set(pinnedIndices({ history, start: cut }));
   const floor = liveStart(history);
   const summarizable = history
@@ -233,6 +237,54 @@ export function chooseCut(params: {
     .filter((message, offset) => message.role !== 'summary' && !pinned.has(floor + offset));
 
   return summarizable.length > 0 ? cut : undefined;
+}
+
+/**
+ * The most the kept tail may hold: the post-summary ceiling of the window, less room for the
+ * checkpoint. A single call group (an assistant message and its results) is never split, so one
+ * larger than this would otherwise be kept whole and make the view bigger than it was.
+ */
+export function maxTailTokensFor(window: number | undefined): number | undefined {
+  if (window === undefined) return undefined;
+
+  return Math.max(1, Math.round(window * (TARGET_MAX_SHARE - CHECKPOINT_RESERVE_SHARE)));
+}
+
+/**
+ * Moves `cut` forward, one call group at a time, until the tail it leaves fits `maxTailTokens`.
+ * Stops at the newest call group, never leaving an empty tail: a checkpoint keeps at least one
+ * message (`kept` is positive). A newest group that alone exceeds the cap is left to the size
+ * check, which rejects a summary that does not shrink the view.
+ */
+function shrinkOversizedTail(params: {
+  history: readonly HistoryMessage[];
+  cut: number;
+  maxTailTokens: number | undefined;
+}): number {
+  const { history, maxTailTokens } = params;
+  let { cut } = params;
+
+  if (maxTailTokens === undefined) return cut;
+
+  const tailTokens = (from: number) =>
+    history
+      .slice(from)
+      .reduce(
+        (sum, message) => sum + (message.role === 'summary' ? 0 : estimateTokens(message)),
+        0,
+      );
+
+  let newestGroup = history.length - 1;
+
+  while (newestGroup > 0 && history[newestGroup]?.role === 'tool') newestGroup -= 1;
+
+  while (cut < newestGroup && tailTokens(cut) > maxTailTokens) {
+    cut += 1;
+
+    while (cut < newestGroup && history[cut]?.role === 'tool') cut += 1;
+  }
+
+  return cut;
 }
 
 /**

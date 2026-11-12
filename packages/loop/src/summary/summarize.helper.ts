@@ -16,6 +16,7 @@ import {
   chooseCut,
   estimateTokens,
   keepTokensFor,
+  maxTailTokensFor,
   mergeSections,
   shouldSummarize,
   spanToSummarize,
@@ -116,7 +117,11 @@ export async function summarizeHistory(params: {
       used,
       fallback: policy.keepTokens,
     });
-  const cut = chooseCut({ history: messages, keepTokens });
+  const cut = chooseCut({
+    history: messages,
+    keepTokens,
+    maxTailTokens: maxTailTokensFor(options.provider.contextWindow),
+  });
 
   if (cut === undefined) return false;
 
@@ -227,7 +232,11 @@ async function writeCheckpoint(params: {
   const cut =
     change.keepTokens === undefined
       ? params.cut
-      : (chooseCut({ history: messages, keepTokens: change.keepTokens }) ?? params.cut);
+      : (chooseCut({
+          history: messages,
+          keepTokens: change.keepTokens,
+          maxTailTokens: maxTailTokensFor(options.provider.contextWindow),
+        }) ?? params.cut);
   const body = await callSummarizer({
     summarizer: config.summarizer,
     span: spanToSummarize({ history: messages, cut }),
@@ -235,11 +244,41 @@ async function writeCheckpoint(params: {
     events,
   });
 
-  return buildCheckpoint({
+  const checkpoint = buildCheckpoint({
     summarizer: config.summarizer.name,
     body: { sections: mergeSections({ written: body.sections, added: change.sections }) },
     history: messages,
     cut,
     at: now(),
+  });
+
+  assertViewShrinks({ context, checkpoint, summarizer: config.summarizer.name });
+
+  return checkpoint;
+}
+
+/**
+ * A checkpoint is smaller than the span it replaces, but the tail it keeps counts too: one that
+ * leaves the whole view bigger than before has made room for nothing, so it is rejected as a size
+ * failure rather than reported as done.
+ */
+function assertViewShrinks(params: {
+  context: TurnContext;
+  checkpoint: SummaryMessage;
+  summarizer: string;
+}): void {
+  const { context, checkpoint, summarizer } = params;
+  const before = viewTokens(context);
+  const after = viewOf([...context.messages, checkpoint]).reduce(
+    (sum, message) => sum + estimateTokens(message),
+    0,
+  );
+
+  if (after < before) return;
+
+  throw new SummaryRejectedError({
+    summarizer,
+    problem: `the view would be about ${after} tokens, not smaller than the ${before} it is now`,
+    kind: 'size',
   });
 }

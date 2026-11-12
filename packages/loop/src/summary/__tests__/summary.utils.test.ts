@@ -10,6 +10,7 @@ import {
   chooseCut,
   keepTokensFor,
   latestCheckpoint,
+  maxTailTokensFor,
   shouldSummarize,
   spanToSummarize,
   viewOf,
@@ -131,6 +132,35 @@ describe('chooseCut', () => {
     // The tail holds the last two rounds; everything between the prompt and it is summarized.
     expect(chooseCut({ history, keepTokens: 40 })).toBe(9);
     expect(spanToSummarize({ history, cut: 9 }).messages).toHaveLength(9);
+  });
+
+  it('summarizes a newest call group larger than the tail cap instead of keeping it whole', () => {
+    const big = (call: string): HistoryMessage => ({
+      role: 'tool',
+      toolCallId: callIdSchema.parse(call),
+      content: 'y'.repeat(4_000),
+      isError: false,
+    });
+    const history = [
+      user(),
+      assistant(),
+      user(),
+      assistant('c1'),
+      big('c1'),
+      assistant('c2'),
+      big('c2'),
+    ];
+
+    // Two groups of about 1,000 tokens each are kept whole when nothing caps the tail.
+    expect(chooseCut({ history, keepTokens: 1_500 })).toBe(3);
+    // Over the cap the older group is summarized; the newest is kept, since a tail is never empty.
+    expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 1_500 })).toBe(5);
+    expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 500 })).toBe(5);
+  });
+
+  it('derives the tail cap from the window: its post-summary ceiling less the checkpoint room', () => {
+    expect(maxTailTokensFor(100_000)).toBe(40_000);
+    expect(maxTailTokensFor(undefined)).toBeUndefined();
   });
 
   it('is undefined when only the pinned prompt lies before the tail', () => {
