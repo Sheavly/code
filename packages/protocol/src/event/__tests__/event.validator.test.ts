@@ -14,6 +14,7 @@ describe('agentEventSchema', () => {
       { type: 'harness_notice', notice: { kind: 'context-usage', context: { used: 100 } } },
       { type: 'reasoning', item: { source: 'openai:gpt', data: { encrypted: 'x' } } },
       { type: 'reasoning_activity', active: true },
+      { type: 'run_state', state: 'waiting', groupedTasks: 2 },
       { type: 'tool_call_started', ...CALL },
       { type: 'turn_end', turn: 1, stopReason: 'interrupted' },
       { type: 'tool_batch', calls: [CALL] },
@@ -62,6 +63,17 @@ describe('agentEventSchema', () => {
     for (const extra of [{ text: 'secret' }, { encrypted_content: 'x' }, { item: {} }]) {
       expect(agentEventBodySchema.safeParse({ ...activity, ...extra }).success).toBe(false);
     }
+  });
+
+  it('rejects a run_state with an unknown state or a negative or missing count', () => {
+    const state = { seq: 0, type: 'run_state', state: 'working', groupedTasks: 0 };
+
+    expect(agentEventSchema.safeParse(state).success).toBe(true);
+    expect(agentEventSchema.safeParse({ ...state, state: 'ready' }).success).toBe(false);
+    expect(agentEventSchema.safeParse({ ...state, groupedTasks: -1 }).success).toBe(false);
+    expect(
+      agentEventSchema.safeParse({ seq: 0, type: 'run_state', state: 'working' }).success,
+    ).toBe(false);
   });
 
   it('rejects a summary event with an unknown reason or a negative count', () => {

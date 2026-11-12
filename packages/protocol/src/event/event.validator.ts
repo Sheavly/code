@@ -119,6 +119,18 @@ const stepEventSchemas = [
    * started it), added to history before this turn's model call.
    */
   z.object({ type: z.literal('message_received'), message: inboxMessageSchema }),
+  /**
+   * Live and never kept in history. The run is `working` (the model or a tool runs) or `waiting`
+   * (its turn is over and it is held open for tasks). `groupedTasks` is how many running tasks
+   * grouped with `await_tasks` it still waits on, and 0 when `working`; `waiting` with 0 means
+   * only ungrouped tasks or services remain, so the run is ready for a follow-up. Sent on every
+   * change, so the newest one is the current state.
+   */
+  z.strictObject({
+    type: z.literal('run_state'),
+    state: z.enum(['working', 'waiting']),
+    groupedTasks: z.number().int().nonnegative(),
+  }),
   /** A hook's `beforeTurn` added this context to history; the model sees it from this turn on. */
   z.object({ type: z.literal('context_added'), hook: z.string(), content: z.string() }),
   /**

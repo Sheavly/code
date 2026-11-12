@@ -93,6 +93,7 @@ export class Renderer {
       case 'usage':
       case 'harness_notice':
       case 'output_continuation':
+      case 'run_state':
         // Notices are not transcript output. Other UIs can display recovery or telemetry;
         // this terminal keeps continuations seamless and uses usage events in its status line.
         // A persistent notice (a finished task, a sub-agent's report) is ignored here on purpose:
