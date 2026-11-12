@@ -46,8 +46,17 @@ export type ConversationSkills = {
  * time, since the user can change it while the conversation runs). The host only passes it on.
  */
 export type ConversationRun = {
-  details: () => Omit<ConversationDetails, keyof ConversationSummary | 'permissionMode'>;
+  details: () => Omit<
+    ConversationDetails,
+    keyof ConversationSummary | 'permissionMode' | 'workingRoot'
+  >;
   permissionMode: () => Promise<PermissionMode>;
+  /**
+   * The folder the conversation's agents work from now, when they chose one: read each time, like
+   * `permissionMode`, since they can choose another while it runs. An app with no such notion
+   * leaves it out.
+   */
+  workingRoot?: () => Promise<ConversationDetails['workingRoot']>;
   /** Switches to the model with this id, from the next model call; false when there is none. */
   useModel: (id: ModelId, mode?: ModelMode) => boolean | Promise<boolean>;
 };

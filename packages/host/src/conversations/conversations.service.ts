@@ -170,8 +170,14 @@ export class Conversations {
    */
   async details(id: ConversationId): Promise<ConversationDetails> {
     const { run } = this.get(id);
+    const workingRoot = await run.workingRoot?.();
 
-    return { ...this.#summary(id), ...run.details(), permissionMode: await run.permissionMode() };
+    return {
+      ...this.#summary(id),
+      ...run.details(),
+      permissionMode: await run.permissionMode(),
+      ...(workingRoot && { workingRoot }),
+    };
   }
 
   /**
