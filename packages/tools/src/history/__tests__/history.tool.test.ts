@@ -109,6 +109,87 @@ describe('search_history', () => {
   });
 });
 
+describe('search_history within a span', () => {
+  beforeEach(async () => {
+    // Main already holds entries 0 and 1; entries 2 to 5 follow, two of them matching.
+    await store.history({ id: conversation }).append(
+      ['needle early', 'filler', 'needle late', 'filler'].map((text, offset) => ({
+        seq: 2 + offset,
+        entry: user(text),
+      })),
+    );
+  });
+
+  it('searches only the entries from and to, inclusive, of one session', async () => {
+    const result = await call('search_history', {
+      query: 'needle',
+      session: main.id,
+      from: 4,
+      to: 5,
+    });
+
+    expect(result.content).toContain('entry 4');
+    expect(result.content).not.toContain('entry 2');
+  });
+
+  it('needs a session for a span, and refuses a span that ends before it begins', async () => {
+    expect((await call('search_history', { query: 'needle', from: 1 })).isError).toBe(true);
+    expect(
+      (await call('search_history', { query: 'needle', session: main.id, from: 5, to: 2 })).isError,
+    ).toBe(true);
+  });
+
+  it('keeps a continued search inside the span', async () => {
+    const first = await call('search_history', {
+      query: 'needle',
+      session: main.id,
+      from: 2,
+      to: 3,
+      limit: 1,
+    });
+    const cursor = /cursor "([^"]+)"/.exec(first.content)?.[1];
+
+    expect(first.content).toContain('entry 2');
+
+    const next = await call('search_history', {
+      query: 'needle',
+      session: main.id,
+      from: 2,
+      to: 3,
+      cursor,
+    });
+
+    // Entry 4 matches too, but lies outside the span.
+    expect(next.content).toBe('No recorded entry matches.');
+  });
+});
+
+describe('search_history scan budget', () => {
+  it('stops after a bounded number of entries and gives a cursor to carry on from', async () => {
+    const filler = Array.from({ length: 2_500 }, (_, offset) => ({
+      seq: 2 + offset,
+      entry: user(offset === 2_400 ? 'the rare needle' : 'filler'),
+    }));
+
+    await store.history({ id: conversation }).append(filler);
+
+    const first = await call('search_history', { query: 'rare needle', session: main.id });
+    const cursor = /cursor "([^"]+)"/.exec(first.content)?.[1];
+
+    // The match lies beyond the budget: the call says what it examined and how to continue.
+    expect(first.content).toContain('Examined 2000 entries');
+    expect(cursor).toBeDefined();
+
+    const second = await call('search_history', {
+      query: 'rare needle',
+      session: main.id,
+      cursor,
+    });
+
+    expect(second.content).toContain('entry 2402');
+  });
+});
+
 describe('read_history_entry', () => {
   it('reads one entry whole with its provenance, framed as data', async () => {
     const result = await call('read_history_entry', { session: child.id, seq: 0 });

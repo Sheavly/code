@@ -22,5 +22,11 @@ export type SearchHit = {
   excerpt: string;
 };
 
+/**
+ * What one search call found: the matches, how many entries it examined, and `next` when it
+ * stopped before the end (it had enough matches, or reached its scan budget): where to resume.
+ */
+export type SearchPage = { hits: SearchHit[]; scanned: number; next?: HistoryCursor };
+
 /** Where a search resumes: just after entry `seq` of `session`. */
 export type HistoryCursor = { session: SessionId; seq: number };

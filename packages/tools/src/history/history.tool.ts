@@ -8,6 +8,7 @@ import {
   readHistoryEntryPrompts,
   retrievedHeader,
   searchHistoryPrompts,
+  searchMore,
 } from './history.prompt.js';
 import type { HistoryToolOptions } from './history.types.js';
 import { decodeCursor, encodeCursor } from './history.utils.js';
@@ -26,24 +27,31 @@ function createSearchHistoryTool(options: HistoryToolOptions) {
         .max(MAX_SEARCH_LIMIT)
         .optional()
         .describe(searchHistoryPrompts.limit),
+      from: z.number().int().nonnegative().optional().describe(searchHistoryPrompts.from),
+      to: z.number().int().nonnegative().optional().describe(searchHistoryPrompts.to),
       cursor: z.string().optional().describe(searchHistoryPrompts.cursor),
     }),
     execute: async ({ input, signal }) => {
-      const { hits, next } = await searchHistory({
+      const { hits, scanned, next } = await searchHistory({
         options,
         query: input.query,
         session: input.session,
+        span: { from: input.from, to: input.to },
         limit: input.limit ?? DEFAULT_SEARCH_LIMIT,
         cursor: input.cursor === undefined ? undefined : decodeCursor(input.cursor),
         signal,
       });
+      const more = next ? searchMore({ cursor: encodeCursor(next), scanned }) : '';
 
-      if (hits.length === 0) return 'No recorded entry matches.';
+      if (hits.length === 0) {
+        return next
+          ? `No match in the ${String(scanned)} entries examined so far.${more}`
+          : 'No recorded entry matches.';
+      }
 
       const lines = hits.map(
         (hit) => `- session ${hit.session}, entry ${String(hit.seq)} (${hit.role}): ${hit.excerpt}`,
       );
-      const more = next ? `\nMore may follow: pass cursor "${encodeCursor(next)}".` : '';
 
       return `${retrievedHeader(hits.length)}\n${lines.join('\n')}${more}`;
     },
