@@ -1,6 +1,11 @@
 import path from 'node:path';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type {
+  ConversationStore,
+  DocumentStore,
+  EntryStore,
+  HistoryLog,
+} from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
@@ -22,9 +27,15 @@ import {
   OUTPUTS_FOLDER,
   SHELL_FILE,
 } from './conversation-store.constants.js';
-import { agentHistoryFile, asStoreError, conversationFolder } from './conversation-store.utils.js';
+import {
+  agentHistoryFile,
+  asStoreError,
+  conversationFolder,
+  historyLogFile,
+} from './conversation-store.utils.js';
 import { historySchema } from './conversation-store.validator.js';
 import { EntryFile } from './entry-file.service.js';
+import { HistoryFile } from './history-file.service.js';
 
 /**
  * A workspace's conversations on disk: `<workspace folder>/conversations/<conversation-id>/`, one
@@ -42,6 +53,8 @@ export class FileConversationStore implements ConversationStore {
   readonly #streams = new Map<ConversationId, EntryFile>();
   readonly #shells = new Map<ConversationId, DocumentStore>();
   readonly #outputs = new Map<ConversationId, FileOutputStore>();
+  /** Each session's history log, by `<conversation>/<session>`, so one queue orders its appends. */
+  readonly #logs = new Map<string, HistoryFile>();
 
   /**
    * `folder` is the workspace's folder (`<profile folder>/workspaces/<workspace-key>`), which an
@@ -64,6 +77,27 @@ export class FileConversationStore implements ConversationStore {
     this.#streams.set(id, stream);
 
     return stream;
+  }
+
+  history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog {
+    const { id, session } = params;
+    const key = `${id}/${session ?? ''}`;
+    const known = this.#logs.get(key);
+
+    if (known) return known;
+
+    const folder = this.#folderOf(id);
+    const log = new HistoryFile({
+      file: historyLogFile({ folder, session }),
+      legacyFile:
+        session === undefined
+          ? path.join(folder, HISTORY_FILE)
+          : agentHistoryFile({ folder, session }),
+    });
+
+    this.#logs.set(key, log);
+
+    return log;
   }
 
   shell(id: ConversationId): DocumentStore {
@@ -190,6 +224,7 @@ export class FileConversationStore implements ConversationStore {
       await outputs.retire();
       await this.#streams.get(id)?.forget();
       await removeFolder({ root: this.#folder, folder });
+      await this.#forgetLogs(id);
       this.#streams.delete(id);
       this.#shells.delete(id);
       // The retired store stays: a new `outputs(id)` must not hand out a store that could make
@@ -198,6 +233,15 @@ export class FileConversationStore implements ConversationStore {
       // Nothing was deleted, so the conversation keeps storing output.
       outputs.resume();
       throw asStoreError(caughtError);
+    }
+  }
+
+  async #forgetLogs(id: ConversationId): Promise<void> {
+    for (const [key, log] of this.#logs) {
+      if (!key.startsWith(`${id}/`)) continue;
+
+      await log.forget();
+      this.#logs.delete(key);
     }
   }
 

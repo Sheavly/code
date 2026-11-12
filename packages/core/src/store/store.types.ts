@@ -1,6 +1,6 @@
 import type { OutputStore } from '../output/output.types.js';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { HistoryMessage, HistoryRecord } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -14,6 +14,18 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 export type EntryStore = {
   append(entry: StreamEntry): Promise<void>;
   read(from?: number): AsyncIterable<StreamEntry>;
+};
+
+/**
+ * One session's durable history: an append-only log of entries, each with a permanent `seq`
+ * starting at 0 with no gaps. `append` takes the next records in order and rejects with a
+ * `StoreError` for any other `seq`, so a lost write can never be hidden by a later one; a crash
+ * may keep only the first records of one `append`, never a gap. `read` yields the records from
+ * `from` (default 0). Entries are never rewritten or removed.
+ */
+export type HistoryLog = {
+  append(records: readonly HistoryRecord[]): Promise<void>;
+  read(from?: number): AsyncIterable<HistoryRecord>;
 };
 
 /**
@@ -58,6 +70,13 @@ export type ConversationStore = {
     session: SessionId;
     messages: readonly HistoryMessage[];
   }): Promise<void>;
+  /**
+   * The durable history log of conversation `id`'s main session, or of sub-agent `session`'s when
+   * given. A history stored whole before logs existed is imported into the log the first time it
+   * is used, once, keeping every entry in order. `session` is held to the same rule as
+   * `readAgentMessages`'s.
+   */
+  history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog;
   /**
    * Conversation `id`'s shell state (`shell.json`): where its agents work from. The same document
    * for every call with one `id`, so the main session and its sub-agents share it, and kept with

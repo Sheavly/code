@@ -4,7 +4,12 @@ import { toStoreError } from '@sheavly/core/store/store.utils';
 import { lowercaseUuidSchema } from '@sheavly/protocol/id/id.validator';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
-import { AGENT_HISTORY_SUFFIX, AGENTS_FOLDER } from './conversation-store.constants.js';
+import {
+  AGENT_HISTORY_LOG_SUFFIX,
+  AGENT_HISTORY_SUFFIX,
+  AGENTS_FOLDER,
+  HISTORY_LOG_FILE,
+} from './conversation-store.constants.js';
 
 /**
  * The folder of conversation `id` inside `conversations`. An id is typed, but a type proves nothing
@@ -41,6 +46,21 @@ export function agentHistoryFile(params: { folder: string; session: SessionId })
   }
 
   return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_SUFFIX}`);
+}
+
+/**
+ * The file of a session's history log in a conversation's folder: the main session's, or
+ * sub-agent `session`'s, held to the same rule as `agentHistoryFile` (only a UUID names a file).
+ */
+export function historyLogFile(params: { folder: string; session: SessionId | undefined }): string {
+  const { folder, session } = params;
+
+  if (session === undefined) return path.join(folder, HISTORY_LOG_FILE);
+
+  return agentHistoryFile({ folder, session }).replace(
+    AGENT_HISTORY_SUFFIX,
+    AGENT_HISTORY_LOG_SUFFIX,
+  );
 }
 
 /**

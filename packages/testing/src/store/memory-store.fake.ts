@@ -1,9 +1,14 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type {
+  ConversationStore,
+  DocumentStore,
+  EntryStore,
+  HistoryLog,
+} from '@sheavly/core/store/store.types';
 import { MemoryOutputStore } from './memory-output.fake.js';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { HistoryMessage, HistoryRecord } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -22,6 +27,8 @@ export class MemoryConversationStore implements ConversationStore {
   readonly #index = new Map<ConversationId, StoredConversation>();
   readonly #shells = new Map<ConversationId, unknown>();
   readonly #outputs = new Map<ConversationId, OutputStore>();
+  /** Durable history logs by `<conversation>/<session>`. */
+  readonly #logs = new Map<string, HistoryRecord[]>();
   #failure: Error | undefined;
 
   /** Every following write rejects with a `StoreError` caused by `error`; `undefined` mends it. */
@@ -34,6 +41,35 @@ export class MemoryConversationStore implements ConversationStore {
       append: async (entry) => this.#append({ id, entry }),
       read: (from = 0) => this.#read({ id, from }),
     };
+  }
+
+  history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog {
+    const key = `${params.id}/${params.session ?? ''}`;
+
+    return {
+      append: async (records) => {
+        const stored = this.#logs.get(key) ?? [];
+
+        this.#assertWritable();
+
+        records.forEach((record, offset) => {
+          if (record.seq !== stored.length + offset) {
+            throw new StoreError({
+              reason: 'out_of_order',
+              message: `History ${key} expected record ${String(stored.length + offset)}, got ${String(record.seq)}`,
+            });
+          }
+        });
+        this.#logs.set(key, [...stored, ...structuredClone([...records])]);
+      },
+      read: (from = 0) => this.#readLog({ key, from }),
+    };
+  }
+
+  async *#readLog(params: { key: string; from: number }): AsyncGenerator<HistoryRecord> {
+    yield* (this.#logs.get(params.key) ?? [])
+      .slice(params.from)
+      .map((record) => structuredClone(record));
   }
 
   shell(id: ConversationId): DocumentStore {
@@ -108,6 +144,11 @@ export class MemoryConversationStore implements ConversationStore {
     this.#agentMessages.delete(id);
     this.#shells.delete(id);
     this.#outputs.delete(id);
+
+    for (const key of [...this.#logs.keys()]) {
+      if (key.startsWith(`${id}/`)) this.#logs.delete(key);
+    }
+
     this.#index.delete(id);
   }
 

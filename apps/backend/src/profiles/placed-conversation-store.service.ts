@@ -1,6 +1,11 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type {
+  ConversationStore,
+  DocumentStore,
+  EntryStore,
+  HistoryLog,
+} from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
@@ -85,6 +90,25 @@ export class PlacedConversationStore implements ConversationStore {
       read: async (params) => (await placed()).read(params),
       search: async (params) => (await placed()).search(params),
     };
+  }
+
+  history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog {
+    const placed = async () => (await this.#placed(params.id)).store.history(params);
+
+    return {
+      append: async (records) => (await placed()).append(records),
+      read: (from) => this.#readHistory({ ...params, from }),
+    };
+  }
+
+  async *#readHistory(params: {
+    id: ConversationId;
+    session?: SessionId | undefined;
+    from: number | undefined;
+  }) {
+    const home = await this.#homeOf(params.id);
+
+    if (home) yield* home.store.history(params).read(params.from);
   }
 
   async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
