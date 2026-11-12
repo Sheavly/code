@@ -25,6 +25,9 @@ export const SHELL_FILE = 'shell.json';
 /** The folder in a conversation's folder that holds its complete command output logs. */
 export const OUTPUTS_FOLDER = 'outputs';
 
+/** The lines queued behind a running prompt: outside history, kept across a restart. */
+export const QUEUE_FILE = 'queue.json';
+
 /** The folder in a conversation's folder that holds each sub-agent's history. */
 export const AGENTS_FOLDER = 'agents';
 

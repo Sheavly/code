@@ -243,6 +243,26 @@ export function describeConversationStore(params: { name: string; make: () => Co
       expect(await seqsOfLog()).toEqual([0, 1, 2]);
     });
 
+    it('keeps a conversation’s queue apart from its history, and drops it with the conversation', async () => {
+      const store = make();
+
+      expect(await store.queue(id).load()).toBeUndefined();
+      await store.queue(id).update(() => ({ queued: ['one', 'two'] }));
+      await store.queue(other).update(() => ({ queued: ['other'] }));
+
+      expect(await store.queue(id).load()).toEqual({ queued: ['one', 'two'] });
+      expect(await store.queue(other).load()).toEqual({ queued: ['other'] });
+
+      const records: number[] = [];
+
+      for await (const record of store.history({ id }).read()) records.push(record.seq);
+      expect(records).toEqual([]);
+
+      await store.delete(id);
+      expect(await store.queue(id).load()).toBeUndefined();
+      expect(await store.queue(other).load()).toEqual({ queued: ['other'] });
+    });
+
     it('deletes a conversation with its history logs, so it starts again from record 0', async () => {
       const store = make();
       const first = { seq: 0, entry: { role: 'user' as const, content: 'hi' } };

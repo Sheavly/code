@@ -89,6 +89,12 @@ export type ConversationStore = {
    * `not_found` in it.
    */
   outputs(id: ConversationId): OutputStore;
+  /**
+   * Conversation `id`'s pending queue (`queue.json`): lines a person queued behind a running
+   * prompt. Kept apart from history so it never reaches model input or summaries, and survives a
+   * restart; reopening never sends it. Goes when the conversation is deleted.
+   */
+  queue(id: ConversationId): DocumentStore;
   /** Every stored conversation's index entry, oldest first. */
   list(): Promise<StoredConversation[]>;
   /** Writes `conversation`'s index entry, replacing the one stored for its `id`. */

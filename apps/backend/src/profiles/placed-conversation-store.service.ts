@@ -92,6 +92,13 @@ export class PlacedConversationStore implements ConversationStore {
     };
   }
 
+  queue(id: ConversationId): DocumentStore {
+    return {
+      load: async () => (await this.#placed(id)).store.queue(id).load(),
+      update: async (change) => (await this.#placed(id)).store.queue(id).update(change),
+    };
+  }
+
   history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog {
     const placed = async () => (await this.#placed(params.id)).store.history(params);
 

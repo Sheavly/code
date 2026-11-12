@@ -27,6 +27,7 @@ export class MemoryConversationStore implements ConversationStore {
   readonly #index = new Map<ConversationId, StoredConversation>();
   readonly #shells = new Map<ConversationId, unknown>();
   readonly #outputs = new Map<ConversationId, OutputStore>();
+  readonly #queues = new Map<ConversationId, unknown>();
   /** Durable history logs by `<conversation>/<session>`. */
   readonly #logs = new Map<string, HistoryRecord[]>();
   #failure: Error | undefined;
@@ -73,13 +74,23 @@ export class MemoryConversationStore implements ConversationStore {
   }
 
   shell(id: ConversationId): DocumentStore {
-    return {
-      load: async () => structuredClone(this.#shells.get(id)),
-      update: async (change) => {
-        this.#assertWritable();
-        const next = change(structuredClone(this.#shells.get(id)));
+    return this.#documentOf({ documents: this.#shells, id });
+  }
 
-        if (next !== undefined) this.#shells.set(id, structuredClone(next));
+  queue(id: ConversationId): DocumentStore {
+    return this.#documentOf({ documents: this.#queues, id });
+  }
+
+  #documentOf(params: { documents: Map<ConversationId, unknown>; id: ConversationId }) {
+    const { documents, id } = params;
+
+    return {
+      load: async () => structuredClone(documents.get(id)),
+      update: async (change: (current: unknown) => unknown) => {
+        this.#assertWritable();
+        const next = change(structuredClone(documents.get(id)));
+
+        if (next !== undefined) documents.set(id, structuredClone(next));
       },
     };
   }
@@ -144,6 +155,7 @@ export class MemoryConversationStore implements ConversationStore {
     this.#agentMessages.delete(id);
     this.#shells.delete(id);
     this.#outputs.delete(id);
+    this.#queues.delete(id);
 
     for (const key of [...this.#logs.keys()]) {
       if (key.startsWith(`${id}/`)) this.#logs.delete(key);
