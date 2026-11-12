@@ -32,6 +32,12 @@ prove the summary dropped that line, only that the original text is reachable af
 the harness cannot use twice in a row ends the run as `context_window_exceeded`, which fails the
 check without being a history-tool bug, so a failure is worth one look at the transcript first.
 
+`summary-stress` forces several summaries in one long run on a small window, plants a code word at
+the start, and fails if any summary fails (`couldn't summarize`) or the code word is lost. A model
+sometimes decides one pass is enough and skips the re-reads, so no second summary happens; that
+fails the first try, not the summarizer, and the retry usually passes. Run it several times to
+measure how often summaries fail: `for i in 1 2 3 4 5 6; do npm run workbook -- check summary-stress; done`.
+
 `background-completion` checks delayed finite commands: both results arrive before the final reply,
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
