@@ -8,7 +8,7 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { replaceFile } from '../json-file/json-file.helper.js';
 import { PRIVATE_FILE_MODE, PRIVATE_FOLDER_MODE } from '../json-file/json-file.constants.js';
-import { NEWLINE } from './jsonl-file.constants.js';
+import { MAX_LINE_CHARS, NEWLINE } from './jsonl-file.constants.js';
 
 /**
  * Adds `value` to the end of `file` as one JSON line, creating the file and its folders, private to
@@ -56,12 +56,15 @@ export async function writeJsonLines(params: {
  * held whole. No file yields nothing. Throws a `StorageFileError` naming the file and the line for
  * a line that is not JSON or not what `schema` says, and never quotes it: a conversation holds
  * private text. A last line with no newline after it is a write that was cut off, and is not read.
+ * A line longer than `maxLineChars` (default `MAX_LINE_CHARS`) is refused the same way, before
+ * more of it is read, so a file without newlines cannot fill memory.
  */
 export async function* readJsonLines<TSchema extends z.ZodType>(params: {
   file: string;
   schema: TSchema;
+  maxLineChars?: number;
 }): AsyncGenerator<z.infer<TSchema>> {
-  const { file, schema } = params;
+  const { file, schema, maxLineChars = MAX_LINE_CHARS } = params;
   let pending = '';
   let lineNumber = 0;
 
@@ -71,9 +74,12 @@ export async function* readJsonLines<TSchema extends z.ZodType>(params: {
 
       for (let end = pending.indexOf('\n'); end !== -1; end = pending.indexOf('\n')) {
         lineNumber += 1;
+        assertShortLine({ length: end, maxLineChars, file, lineNumber });
         yield parseLine({ text: pending.slice(0, end), schema, file, lineNumber });
         pending = pending.slice(end + 1);
       }
+
+      assertShortLine({ length: pending.length, maxLineChars, file, lineNumber: lineNumber + 1 });
     }
   } catch (caughtError) {
     if (isMissingPath(caughtError)) return;
@@ -107,6 +113,24 @@ export async function trimPartialLine(params: { file: string }): Promise<number>
     if (isMissingPath(caughtError)) return 0;
     throw new StorageFileError({ file, cause: caughtError });
   }
+}
+
+/** Refuses a line of `length` characters when it is over `maxLineChars`; names it, never shows it. */
+function assertShortLine(params: {
+  length: number;
+  maxLineChars: number;
+  file: string;
+  lineNumber: number;
+}): void {
+  const { length, maxLineChars, file, lineNumber } = params;
+
+  if (length <= maxLineChars) return;
+
+  throw new StorageFileError({
+    file,
+    cause: undefined,
+    reason: `line ${String(lineNumber)} is longer than ${String(maxLineChars)} characters (it is not shown: a conversation is private)`,
+  });
 }
 
 /** One line as a `schema` value; the error names the line and does not show it. */

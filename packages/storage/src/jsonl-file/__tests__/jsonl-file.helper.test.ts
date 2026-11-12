@@ -123,6 +123,32 @@ describe('a log with a damaged line', () => {
   });
 });
 
+describe('a line over the length cap', () => {
+  const log = () => file.replace('deep', '.');
+  const readAll = async () => {
+    for await (const _line of readJsonLines({ file: log(), schema, maxLineChars: 50 }));
+  };
+
+  it('is refused before the rest is read, naming the line and not showing it', async () => {
+    await writeFile(log(), `{"n":1,"text":"a"}\n${SECRET.repeat(20)}`);
+
+    const failure = await failureOf(readAll);
+
+    expect(failure).toBeInstanceOf(StorageFileError);
+    expect((failure as Error).message).toContain('line 2');
+    expect((failure as Error).message).toContain('longer than 50');
+    expect((failure as Error).message).not.toContain(SECRET);
+  });
+
+  it('is refused when its newline does arrive, and a line at the cap is read', async () => {
+    await writeFile(log(), `{"n":1,"text":"${'x'.repeat(30)}"}\n`);
+    await expect(readAll()).resolves.toBeUndefined();
+
+    await writeFile(log(), `{"n":1,"text":"${'x'.repeat(60)}"}\n`);
+    expect(await failureOf(readAll)).toBeInstanceOf(StorageFileError);
+  });
+});
+
 describe('trimPartialLine', () => {
   const log = () => file.replace('deep', '.');
 
