@@ -15,3 +15,9 @@ export const OUTPUT_REF_LABEL_CHARS = 120;
 
 /** A user message longer than this is cut and marked in the user-messages section. */
 export const USER_MESSAGE_MAX_CHARS = 600;
+
+/**
+ * The conversation's first message is cut later: it is where the rules usually are, and it is
+ * kept for good, so a rule at its end must not be lost to the ordinary cut.
+ */
+export const USER_OPENING_MAX_CHARS = 2_000;

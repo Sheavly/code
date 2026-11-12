@@ -43,6 +43,40 @@ describe('mergeEntries', () => {
     expect(merged.length).toBe(10);
   });
 
+  it('keeps pinned leading entries whole and drops from the middle when the text does not fit', () => {
+    const merged = mergeEntries({
+      previous: '- rule\n- aaaa\n- bbbb',
+      added: ['cccc'],
+      maxChars: 20,
+      pin: 1,
+    });
+
+    expect(merged).toBe('- rule\n- bbbb\n- cccc');
+    expect(merged.length).toBeLessThanOrEqual(20);
+  });
+
+  it('pins the first added entry when there is no previous text, and never repeats it', () => {
+    const merged = mergeEntries({
+      previous: undefined,
+      added: ['rule', 'x', 'rule'],
+      maxChars: 100,
+      pin: 1,
+    });
+
+    expect(merged).toBe('- rule\n- x');
+  });
+
+  it('cuts a pinned entry that alone is longer than the section, and keeps nothing else', () => {
+    const merged = mergeEntries({
+      previous: undefined,
+      added: ['r'.repeat(50), 'new'],
+      maxChars: 10,
+      pin: 1,
+    });
+
+    expect(merged).toBe(`- ${'r'.repeat(7)}…`);
+  });
+
   it('returns an empty string when there is nothing', () => {
     expect(mergeEntries({ previous: undefined, added: [], maxChars: 10 })).toBe('');
   });

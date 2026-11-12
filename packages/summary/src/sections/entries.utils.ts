@@ -17,35 +17,60 @@ export function entriesOf(text: string | undefined): string[] {
   return text.split(/\n(?=- )/).filter((entry) => entry.startsWith('- '));
 }
 
+/** `entry` cut so it fits in `room` characters, marked, when it does not fit whole. */
+function fitted(params: { entry: string; room: number }): string {
+  const { entry, room } = params;
+
+  return entry.length <= room ? entry : `${entry.slice(0, Math.max(0, room - 1))}${ELLIPSIS}`;
+}
+
 /**
  * The previous entries followed by the new ones, without repeats (a repeated entry keeps its
- * newest place), then trimmed from the oldest end until the text fits in `maxChars`. An entry
- * too long to fit alone is cut and marked, so the newest thing said is never dropped whole.
+ * newest place), then trimmed until the text fits in `maxChars`: from the oldest end, except that
+ * the first `pin` entries are kept and the ones after them go instead. An entry too long to fit
+ * alone is cut and marked, so the newest thing said (or the pinned one) is never dropped whole.
  */
 export function mergeEntries(params: {
   previous: string | undefined;
   added: readonly string[];
   maxChars: number;
+  /** How many of the oldest entries are never dropped for room. Default none. */
+  pin?: number;
 }): string {
-  const { previous, added, maxChars } = params;
+  const { previous, added, maxChars, pin = 0 } = params;
   const all = [...entriesOf(previous), ...added.map(formatEntry)];
-  const unique = all.filter((entry, index) => all.lastIndexOf(entry) === index);
+  const head = all.slice(0, pin).filter((entry, index, list) => list.indexOf(entry) === index);
+  const rest = all
+    .slice(pin)
+    .filter((entry, index, list) => list.lastIndexOf(entry) === index && !head.includes(entry));
   const kept: string[] = [];
   let size = 0;
 
-  for (const entry of unique.reverse()) {
+  for (const entry of head) {
     const room = maxChars - size - (kept.length > 0 ? 1 : 0);
 
+    kept.push(fitted({ entry, room }));
+    size += kept.at(-1)?.length ?? 0;
+
+    if (entry.length > room) return kept.join('\n');
+  }
+
+  const tail: string[] = [];
+
+  for (const entry of rest.reverse()) {
+    const room = maxChars - size - (kept.length + tail.length > 0 ? 1 : 0);
+
     if (entry.length <= room) {
-      kept.unshift(entry);
-      size += entry.length + (kept.length > 1 ? 1 : 0);
+      tail.unshift(entry);
+      size += entry.length + (kept.length + tail.length > 1 ? 1 : 0);
       continue;
     }
 
-    // Only the newest entry is cut to fit; anything older that does not fit is dropped.
-    if (kept.length === 0) kept.unshift(`${entry.slice(0, Math.max(0, room - 1))}${ELLIPSIS}`);
+    // Only the newest entry is cut to fit, and only when nothing is kept yet; anything older that
+    // does not fit is dropped.
+    if (kept.length + tail.length === 0) tail.unshift(fitted({ entry, room }));
     break;
   }
 
-  return kept.join('\n');
+  return [...kept, ...tail].join('\n');
 }
