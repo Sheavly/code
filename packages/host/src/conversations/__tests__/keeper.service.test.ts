@@ -40,6 +40,19 @@ describe('ConversationKeeper sub-agent history', () => {
     expect(await readHistoryEntries(store.history({ id, session: agent }))).toHaveLength(2);
   });
 
+  it('writes nothing when a turn added nothing, and does not fail', async () => {
+    const store = new MemoryConversationStore();
+    const keeper = new ConversationKeeper({ store, id });
+
+    keeper.keepHistory([user('a')]);
+    keeper.keepHistory([user('a')]);
+    keeper.keepHistory([user('a')]);
+    await keeper.flush();
+
+    expect(keeper.failure).toBeUndefined();
+    expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a')]);
+  });
+
   it('stops writing after the first failure, so nothing later is recorded out of order', async () => {
     const store = new MemoryConversationStore();
     const keeper = new ConversationKeeper({ store, id });

@@ -77,6 +77,9 @@ export class ConversationKeeper {
       return;
     }
 
+    // A turn that added nothing writes nothing: no empty append, and the index is left alone.
+    if (fresh.length === 0) return;
+
     this.#kept = messages.length;
     this.#queue(async () => {
       await this.#store

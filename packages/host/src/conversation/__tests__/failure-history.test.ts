@@ -60,6 +60,10 @@ describe('failed conversation history', () => {
 
     expect(last?.role === 'tool' && last.content).toContain('edited');
     expect(kept.at(-1)).toEqual(conversation.messages);
+    // The keeper fails storage on a shorter history, so none handed to it may be shorter.
+    const sizes = kept.map((messages) => messages.length);
+
+    expect(sizes).toEqual([...sizes].sort((a, b) => a - b));
     expect(conversation.running).toBe(false);
 
     await collect(conversation.send('Continue'));
