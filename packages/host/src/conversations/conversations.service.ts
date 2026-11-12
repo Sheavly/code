@@ -64,6 +64,7 @@ export class Conversations {
       messages: params.messages,
       workspace: params.workspace,
       profile: params.profile,
+      model: params.model,
       ...(keeper && this.#storageOf({ keeper, id })),
     });
 

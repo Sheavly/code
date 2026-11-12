@@ -84,6 +84,8 @@ export type StartConversationParams = {
   messages?: HistoryMessage[] | undefined;
   workspace?: string | undefined;
   profile?: ProfileId | undefined;
+  /** The model a new conversation starts on (an id or a name): for the app to resolve and act on. */
+  model?: string | undefined;
   /** An explicitly resumed selection, not the profile's last-used preference. */
   modelSelection?: ModelSelection | undefined;
 };
