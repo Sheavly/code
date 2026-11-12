@@ -1,7 +1,8 @@
 import type { SummaryBody } from '@sheavly/core/summary/summary.types';
 import { summaryMessageSchema } from '@sheavly/protocol/message/message.validator';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
+import { latestRequest } from '@sheavly/core/history/history.utils';
+import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
 import { InvalidHistoryError, SummaryRejectedError } from '../errors/loop.errors.js';
 import { assertValidHistory } from '../history/history.utils.js';
 import {
@@ -57,7 +58,7 @@ export function buildCheckpoint(params: {
 
   assertValidHistory({
     messages: viewOf([...history, checkpoint]),
-    latestRequest: history.findLast((message): message is Message => message.role === 'user'),
+    latestRequest: latestRequest(history),
     source: `Summarizer ${summarizer}`,
   });
 
@@ -87,7 +88,7 @@ export function assertValidStoredHistory(history: readonly HistoryMessage[]): vo
 
   assertValidHistory({
     messages: viewOf(history),
-    latestRequest: history.findLast((message): message is Message => message.role === 'user'),
+    latestRequest: latestRequest(history),
     source: 'Stored history',
   });
 }

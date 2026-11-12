@@ -1,4 +1,5 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
+import { latestPromptIndex, latestRequestIndex } from '@sheavly/core/history/history.utils';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
 import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
@@ -126,8 +127,8 @@ export function pinnedBefore(params: {
 /** Where the pinned user messages older than `start` are, oldest first. */
 function pinnedIndices(params: { history: readonly HistoryMessage[]; start: number }): number[] {
   const { history, start } = params;
-  const prompt = history.findLastIndex((message) => message.role === 'user' && message.id);
-  const latestUser = history.findLastIndex((message) => message.role === 'user');
+  const prompt = latestPromptIndex(history);
+  const latestUser = latestRequestIndex(history);
 
   return [...new Set([prompt, latestUser])]
     .filter((index) => index >= 0 && index < start)
