@@ -49,6 +49,7 @@ export async function startScreenChat(params: {
     model: details.model.name,
     modelMode: details.model.mode ?? 'medium',
     mode: details.permissionMode,
+    ...branchOf(details),
     tasks: 0,
     usage: usage.snapshot,
     contextUsage: context.snapshot,
@@ -135,6 +136,8 @@ export async function startScreenChat(params: {
             screen.setStatus({
               model: details.model.name,
               modelMode: details.model.mode ?? 'medium',
+              // Cleared when the root was, so the badge never outlives it.
+              workingBranch: branchOf(details).workingBranch,
               usage: usage.snapshot,
               contextUsage: context.snapshot,
             });
@@ -170,6 +173,15 @@ export async function startScreenChat(params: {
       screen.stop();
     },
   };
+}
+
+/** The branch to show for the working root: its name, or "detached HEAD"; none without a root. */
+function branchOf(details: ConversationDetails): { workingBranch?: string } {
+  const { workingRoot } = details;
+
+  if (!workingRoot) return {};
+
+  return { workingBranch: workingRoot.branch ?? 'detached HEAD' };
 }
 
 /** What an approval update means for the screen: one asked appears, one gone disappears. */

@@ -65,6 +65,7 @@ folder.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)               |
 | `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                        |
+| `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in `shell.json`; `anchorToRoot`, `showFromRoot`    |
 | `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell                           |
 | `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                       |
 | `file-reads/`          | `FileReads`: which files each agent has seen, so an edit to one it never read is refused; a deleted file is forgotten |

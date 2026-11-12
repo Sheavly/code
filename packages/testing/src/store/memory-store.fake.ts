@@ -1,5 +1,5 @@
 import { StoreError } from '@sheavly/core/errors/store.errors';
-import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
+import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -18,6 +18,7 @@ export class MemoryConversationStore implements ConversationStore {
   /** Sub-agents' histories: conversation, then session, so two conversations never share one. */
   readonly #agentMessages = new Map<ConversationId, Map<SessionId, HistoryMessage[]>>();
   readonly #index = new Map<ConversationId, StoredConversation>();
+  readonly #shells = new Map<ConversationId, unknown>();
   #failure: Error | undefined;
 
   /** Every following write rejects with a `StoreError` caused by `error`; `undefined` mends it. */
@@ -29,6 +30,18 @@ export class MemoryConversationStore implements ConversationStore {
     return {
       append: async (entry) => this.#append({ id, entry }),
       read: (from = 0) => this.#read({ id, from }),
+    };
+  }
+
+  shell(id: ConversationId): DocumentStore {
+    return {
+      load: async () => structuredClone(this.#shells.get(id)),
+      update: async (change) => {
+        this.#assertWritable();
+        const next = change(structuredClone(this.#shells.get(id)));
+
+        if (next !== undefined) this.#shells.set(id, structuredClone(next));
+      },
     };
   }
 
@@ -78,6 +91,7 @@ export class MemoryConversationStore implements ConversationStore {
     this.#entries.delete(id);
     this.#messages.delete(id);
     this.#agentMessages.delete(id);
+    this.#shells.delete(id);
     this.#index.delete(id);
   }
 

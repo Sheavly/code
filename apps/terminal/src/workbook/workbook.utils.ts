@@ -38,6 +38,46 @@ export function usage(): string {
   return USAGE;
 }
 
+/**
+ * The model a workbook run starts on: `--model`, else `WORKBOOK_MODEL` from the environment (a
+ * default of your own, so every run and check uses it), else none, and the backend uses the
+ * profile's own choice. An empty value means none, so `WORKBOOK_MODEL=` clears a default.
+ */
+export function workbookModel(params: {
+  flag: string | undefined;
+  env: Record<string, string | undefined>;
+}): string | undefined {
+  const { flag, env } = params;
+
+  return [flag, env.WORKBOOK_MODEL].find((value) => value !== undefined && value.trim() !== '');
+}
+
+const VALUE_FLAGS = new Set(['--continue', '--from', '--model']);
+
+/**
+ * The words of the command line: not the flags, and not the one word after a flag that takes a
+ * value. Dropped by position, so a value that equals a prompt name (`run guards --model guards`)
+ * never takes that word with it.
+ */
+function wordsOf(argv: string[]): string[] {
+  const values = new Set(argv.flatMap((arg, index) => (VALUE_FLAGS.has(arg) ? [index + 1] : [])));
+
+  return argv.filter((arg, index) => !arg.startsWith('--') && !values.has(index));
+}
+
+/**
+ * Whether `--model` is absent or has a value of its own. None, another flag in its place, or the
+ * `--model=x` form would otherwise run on the profile's model without a word, so they are refused.
+ */
+function hasUsableModelFlag(argv: string[]): boolean {
+  if (argv.some((arg) => arg.startsWith('--model='))) return false;
+
+  const at = argv.indexOf('--model');
+  const value = argv[at + 1];
+
+  return at === -1 || (value !== undefined && !value.startsWith('--'));
+}
+
 /** The command line, parsed. Unknown commands show the usage instead of guessing. */
 export function parseCommand(input: string[]): Command {
   const { argv, approvedCommands } = parseCheckApprovalOptions(input);
@@ -47,8 +87,11 @@ export function parseCommand(input: string[]): Command {
 
     return index === -1 ? undefined : argv[index + 1];
   };
-  const flagValues = new Set([valueOf('--continue'), valueOf('--from')].filter(Boolean));
-  const words = argv.filter((arg) => !arg.startsWith('--') && !flagValues.has(arg));
+  const model = valueOf('--model');
+  const words = wordsOf(argv);
+
+  if (!hasUsableModelFlag(argv)) return { name: 'help' };
+
   const [name, ...rest] = words;
   const showModelCalls = flags.has('--model-calls');
   const trust = flags.has('--trust');
@@ -63,21 +106,35 @@ export function parseCommand(input: string[]): Command {
             fresh: !flags.has('--keep'),
             showModelCalls,
             trust,
+            model,
           }
         : { name: 'help' };
     case 'ask':
       return rest.length > 0
-        ? { name: 'ask', text: rest.join(' '), showModelCalls, trust }
+        ? { name: 'ask', text: rest.join(' '), showModelCalls, trust, model }
         : { name: 'help' };
     case 'continue':
       // `continue "text"` (the last run) or `continue <run> "text"`.
       if (rest.length === 0) return { name: 'help' };
 
       return rest.length === 1
-        ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust }
-        : { name: 'continue', run: rest[0], text: rest.slice(1).join(' '), showModelCalls, trust };
+        ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust, model }
+        : {
+            name: 'continue',
+            run: rest[0],
+            text: rest.slice(1).join(' '),
+            showModelCalls,
+            trust,
+            model,
+          };
     case 'check':
-      return { name: 'check', prompts: rest, all: flags.has('--all'), approvedCommands };
+      return {
+        name: 'check',
+        prompts: rest,
+        all: flags.has('--all'),
+        approvedCommands,
+        model,
+      };
     case 'list':
       return { name: 'list' };
     case 'show':

@@ -110,7 +110,11 @@ async function streamRun(params: {
   workspaceRoot: string;
 }): Promise<RunResult & { id: string }> {
   const { backend, history } = params;
-  const conversation = await RemoteConversation.open({ backend, messages: history });
+  const conversation = await RemoteConversation.open({
+    backend,
+    messages: history,
+    model: params.request.model,
+  });
   const stopStream = new AbortController();
 
   try {

@@ -102,6 +102,7 @@ describe('createBackendHarness: what a backend run includes', () => {
       'write_file',
       'edit_file',
       'delete_file',
+      'set_working_root',
       'read_skill',
       'web_fetch',
       'web_search',
@@ -119,7 +120,7 @@ describe('createBackendHarness: what a backend run includes', () => {
 
     expect(harness.projectTrust).toBe('untrusted');
     expect(harness.projectHooks).toEqual([]);
-    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills']);
+    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills', 'working-root']);
   });
 
   it('runs the AGENTS.md and skills hooks first, then a trusted workspace’s .sheavly/ hooks', async () => {
@@ -127,7 +128,12 @@ describe('createBackendHarness: what a backend run includes', () => {
     const harness = await open(true, (request) => requests.push(request));
 
     expect(harness.projectTrust).toBe('trusted');
-    expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills', 'marker']);
+    expect(harness.hooks.map((hook) => hook.name)).toEqual([
+      'agents-md',
+      'skills',
+      'working-root',
+      'marker',
+    ]);
 
     await runAgent({
       provider: harness.provider,

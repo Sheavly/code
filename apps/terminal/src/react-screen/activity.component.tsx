@@ -7,7 +7,17 @@ import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /** Real state takes priority over motion; cancellation is always visible while working. */
 export function Activity(props: ActivityProps) {
-  const { state, model, modelMode, mode, tasks, tools = [], colors, reducedMotion = false } = props;
+  const {
+    state,
+    model,
+    modelMode,
+    workingBranch,
+    mode,
+    tasks,
+    tools = [],
+    colors,
+    reducedMotion = false,
+  } = props;
   const secondary = colors.text.secondary;
   // Reduced motion still ticks once a second so elapsed times do not freeze.
   const { frame, time } = useAnimation({
@@ -31,7 +41,8 @@ export function Activity(props: ActivityProps) {
       <Text color={secondary}>
         {' '}
         · {plainTerminalText(model)}
-        {modelMode ? ` · ${modelMode}` : ''} · mode:{' '}
+        {modelMode ? ` · ${modelMode}` : ''}
+        {workingBranch ? ` · ⎇ ${plainTerminalText(workingBranch)}` : ''} · mode:{' '}
       </Text>
       <Text {...(mode === 'allow_all' ? { color: colors.status.error } : {})}>{mode}</Text>
       {tasks > 0 && <Text color={secondary}> · {tasks} background</Text>}

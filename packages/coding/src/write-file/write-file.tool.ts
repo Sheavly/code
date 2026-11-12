@@ -6,6 +6,7 @@ import { createParentFolder, readIfExists, writeText } from '../files/file-effec
 import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
+import { currentRoot } from '../files/working-root.helper.js';
 import { WRITE_FILE_PROMPTS } from './write-file.prompt.js';
 
 /**
@@ -18,7 +19,12 @@ import { WRITE_FILE_PROMPTS } from './write-file.prompt.js';
  * tool that made its own would silently let a parallel write or edit overlap. `fileReads` is the
  * harness's too: what the agent creates counts as seen, so it can edit it without reading it back.
  */
-export function createWriteFileTool({ workspace, fileLocks, fileReads }: FileToolServices) {
+export function createWriteFileTool({
+  workspace,
+  workingRoots,
+  fileLocks,
+  fileReads,
+}: FileToolServices) {
   return defineTool({
     name: 'write_file',
     description: WRITE_FILE_PROMPTS.description,
@@ -27,7 +33,8 @@ export function createWriteFileTool({ workspace, fileLocks, fileReads }: FileToo
       content: z.string().describe(WRITE_FILE_PROMPTS.content),
     }),
     execute: async ({ input: { path: requested, content }, signal, context }) => {
-      const real = await resolveWritable({ workspace, requested });
+      const root = await currentRoot(workingRoots);
+      const real = await resolveWritable({ workspace, requested, root });
 
       return fileLocks.run({
         file: real,
@@ -55,6 +62,7 @@ export function createWriteFileTool({ workspace, fileLocks, fileReads }: FileToo
             verb: 'Created',
             before: null,
             after: content,
+            root,
           });
         },
       });

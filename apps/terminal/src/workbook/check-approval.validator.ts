@@ -52,8 +52,17 @@ export function parseCheckApprovalOptions(argv: string[]): {
     index++;
   }
 
-  if (argv[0] === 'check' && remaining.some((word) => word.startsWith('--') && word !== '--all')) {
+  if (
+    argv[0] === 'check' &&
+    remaining.some((word) => word.startsWith('--') && word !== '--all' && word !== '--model')
+  ) {
     throw new WorkbookCheckError({ message: 'Unknown workbook check flag.' });
+  }
+
+  const modelAt = remaining.indexOf('--model');
+
+  if (argv[0] === 'check' && modelAt !== -1 && !remaining[modelAt + 1]?.trim()) {
+    throw new WorkbookCheckError({ message: 'Use check --model <id|name>.' });
   }
 
   return { argv: remaining, approvedCommands: [...new Set(parseApprovedCommands(approved))] };

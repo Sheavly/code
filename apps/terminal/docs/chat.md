@@ -55,8 +55,9 @@ start it in (the default workspace), and calls the real API, so it costs money. 
   up into the terminal's own history, so its scrollback, search and text selection keep working,
   and only the bottom is redrawn (the line being written, a question waiting for you, queued
   messages, a status line and the editor). The status line says what it is doing (`ready`,
-  `working`, `waiting for you`), the model, the folder's permission mode (`allow all` in red) and
-  how many background tasks run. Without a terminal (piped input, or `SHEAVLY_PLAIN=1`) it reads
+  `working`, `waiting for you`), the model, the branch of the working root once the agents chose
+  one (`⎇ <branch>`, refreshed after each turn), the folder's permission mode (`allow all` in red)
+  and how many background tasks run. Without a terminal (piped input, or `SHEAVLY_PLAIN=1`) it reads
   and writes lines, as it always did.
 - **React and Ink draw the screen.** Completed lines are committed once with Ink's static output;
   the bounded live footer shows activity, elapsed time and `Ctrl+C to stop` while working.

@@ -3,7 +3,7 @@ import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
-import type { EntryStore } from '@sheavly/core/store/store.types';
+import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
@@ -13,6 +13,7 @@ import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hook
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
@@ -59,6 +60,11 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
   /** Where the run's combined stream is kept (see `HarnessOptions.entries`); none keeps it in memory. */
   entries?: EntryStore | undefined;
+  /**
+   * The conversation's `shell.json`, where its agents' working root is kept so the main session
+   * and its sub-agents share it. None keeps it in memory for the run.
+   */
+  shell?: DocumentStore | undefined;
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */
@@ -67,6 +73,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
 
 /** A run on the backend: the coding services, and the tools and hooks it includes. */
 export type BackendHarness = CodingHarness & {
+  /** The conversation's working root, shared by its main session and sub-agents. */
+  workingRoots: WorkingRoots;
   tools: Tool[];
   hooks: Hook[];
   /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */

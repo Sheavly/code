@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
 
@@ -11,14 +12,15 @@ import { assertNotEnvFile, assertNotGitDir } from './files.utils.js';
 export function resolveWritable(params: {
   workspace: Workspace;
   requested: string;
+  root: string | undefined;
 }): Promise<string> {
-  const { workspace, requested } = params;
+  const { workspace, requested, root } = params;
 
   return resolveGuarded({
     workspace,
     requested,
     action: 'Writing',
-    resolve: (asking) => workspace.resolveWrite(asking),
+    resolve: (asking) => workspace.resolveWrite(anchorToRoot({ requested: asking, root })),
   });
 }
 
@@ -31,14 +33,15 @@ export function resolveWritable(params: {
 export function resolveDeletable(params: {
   workspace: Workspace;
   requested: string;
+  root: string | undefined;
 }): Promise<string> {
-  const { workspace, requested } = params;
+  const { workspace, requested, root } = params;
 
   return resolveGuarded({
     workspace,
     requested,
     action: 'Deleting',
-    resolve: (asking) => resolveExisting({ workspace, requested: asking }),
+    resolve: (asking) => resolveExisting({ workspace, requested: asking, root }),
   });
 }
 
@@ -52,9 +55,10 @@ export async function assertSameDeletable(params: {
   workspace: Workspace;
   requested: string;
   expected: string;
+  root: string | undefined;
 }): Promise<void> {
-  const { workspace, requested, expected } = params;
-  const current = await resolveDeletable({ workspace, requested });
+  const { workspace, requested, expected, root } = params;
+  const current = await resolveDeletable({ workspace, requested, root });
 
   if (current !== expected) {
     throw new ToolCallError({
@@ -68,11 +72,13 @@ export async function assertSameDeletable(params: {
 async function resolveExisting(params: {
   workspace: Workspace;
   requested: string;
+  root: string | undefined;
 }): Promise<string> {
-  const { workspace, requested } = params;
+  const { workspace, requested, root } = params;
+  const anchored = anchorToRoot({ requested, root });
 
   try {
-    return await workspace.resolveDelete(requested);
+    return await workspace.resolveDelete(anchored);
   } catch (caughtError) {
     // ENOENT is the one failure expected here: there is no file at the path to delete.
     if ((caughtError as NodeJS.ErrnoException).code !== 'ENOENT') throw caughtError;

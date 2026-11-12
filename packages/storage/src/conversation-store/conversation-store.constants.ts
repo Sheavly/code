@@ -13,6 +13,9 @@ export const ERRORS_FILE = 'errors.jsonl';
 /** The conversation's own history, the main session's. */
 export const HISTORY_FILE = 'history.json';
 
+/** Where the conversation's agents work from, shared by the main session and its sub-agents. */
+export const SHELL_FILE = 'shell.json';
+
 /** The folder in a conversation's folder that holds each sub-agent's history. */
 export const AGENTS_FOLDER = 'agents';
 

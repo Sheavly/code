@@ -1402,7 +1402,8 @@
           }
         },
         "workspace": { "type": "string", "minLength": 1 },
-        "profile": { "$ref": "#/$defs/ModelId" }
+        "profile": { "$ref": "#/$defs/ModelId" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 200 }
       }
     },
     "StartConversationResponse": {
@@ -1466,7 +1467,12 @@
           "type": "string",
           "enum": ["trusted", "untrusted", "changed", "no_hooks"]
         },
-        "permissionMode": { "$ref": "#/$defs/PermissionMode" }
+        "permissionMode": { "$ref": "#/$defs/PermissionMode" },
+        "workingRoot": {
+          "type": "object",
+          "properties": { "root": { "type": "string" }, "branch": { "type": "string" } },
+          "required": ["root"]
+        }
       },
       "required": [
         "id",

@@ -35,6 +35,11 @@ export type StatusInfo = {
   model: string;
   modelMode?: ModelMode;
   mode: PermissionMode;
+  /**
+   * The branch of the folder the agents work in, once they chose one: shown once here so paths
+   * need not repeat the worktree. A detached HEAD shows as its own label.
+   */
+  workingBranch?: string | undefined;
   /** Background tasks still running. */
   tasks: number;
   /** Tool calls the prompt waits on now, which a screen that can animate shows with their time. */

@@ -6,6 +6,10 @@ import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
 import { createReadSkillTool } from '@sheavly/coding/read-skill/read-skill.tool';
 import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
+import { createSetWorkingRootTool } from '@sheavly/coding/working-root/set-working-root.tool';
+import { createWorkingRootHook } from '@sheavly/coding/working-root/working-root-hook.helper';
+import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
+import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
@@ -40,11 +44,14 @@ export async function createBackendHarness(
     webFetch = {},
     webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
+    shell = memoryShellStore(),
     ...coding
   } = options;
   const harness = await createCodingHarness(coding);
   const { workspace, fileLocks, fileReads, processes, tasks, approvals, sessions, provider } =
     harness;
+  // One per conversation, over its `shell.json`: the main session and every sub-agent share it.
+  const workingRoots = new WorkingRoots({ store: shell, workspace, env: options.env });
   // A broken `.sheavly` hook stops the run here, with the file and the reason. An untrusted
   // workspace loads none: `projectTrust` says why, for a UI to show.
   const projectHooks = await loadProjectHooks({
@@ -59,14 +66,21 @@ export async function createBackendHarness(
   const scratch = workspace.scratchRoot
     ? [createScratchHook({ workspace, agentId: harness.mainSession.id })]
     : [];
-  const hooks = [agentsMd, skills, ...scratch, ...projectHooks.hooks];
+  const hooks = [
+    agentsMd,
+    skills,
+    ...scratch,
+    createWorkingRootHook({ workingRoots }),
+    ...projectHooks.hooks,
+  ];
   const fileTools = [
-    createReadFileTool({ workspace, fileReads }),
-    createGlobTool({ workspace, processes }),
-    createGrepTool({ workspace, processes }),
-    createWriteFileTool({ workspace, fileLocks, fileReads }),
-    createEditFileTool({ workspace, fileLocks, fileReads }),
-    createDeleteFileTool({ workspace, fileLocks, fileReads }),
+    createReadFileTool({ workspace, workingRoots, fileReads }),
+    createGlobTool({ workspace, workingRoots, processes }),
+    createGrepTool({ workspace, workingRoots, processes }),
+    createWriteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
+    createEditFileTool({ workspace, workingRoots, fileLocks, fileReads }),
+    createDeleteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
+    createSetWorkingRootTool({ workingRoots }),
     createReadSkillTool(skillRoots),
   ];
   const webTools = [
@@ -76,10 +90,11 @@ export async function createBackendHarness(
 
   return {
     ...harness,
+    workingRoots,
     tools: [
       ...fileTools,
       ...webTools,
-      createRunCommandTool({ workspace, permissions, tasks, approvals, processes }),
+      createRunCommandTool({ workspace, workingRoots, permissions, tasks, approvals, processes }),
       ...createTaskTools(tasks),
       createSubAgentTool({
         sessions,
@@ -91,7 +106,14 @@ export async function createBackendHarness(
         runAgent: runSession,
         tools: [...fileTools, ...webTools],
         tasksTools: (childTasks) => [
-          createRunCommandTool({ workspace, permissions, tasks: childTasks, approvals, processes }),
+          createRunCommandTool({
+            workspace,
+            workingRoots,
+            permissions,
+            tasks: childTasks,
+            approvals,
+            processes,
+          }),
         ],
         // The same hook objects as the main run, each sub-agent running its own `sessionStart`:
         // a hook must keep no state of its own across sessions.

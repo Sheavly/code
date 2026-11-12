@@ -12,6 +12,9 @@ import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
 import type { ServedSettings } from './harness.types.js';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import { startOnRequestedModel } from './starting-model.helper.js';
+import { reportedWorkingRoot } from './working-root-report.helper.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
 import { sharedScratchRoot } from './scratch.helper.js';
@@ -68,6 +71,12 @@ export async function servedConversation(params: {
     contextWindow: settings.contextWindow,
   });
 
+  // A new conversation that names a model runs on it, for this conversation only. A resumed one
+  // keeps its own selection below and never looks the name up, so a stale name cannot fail it.
+  if (asked.model && !asked.modelSelection) {
+    startOnRequestedModel({ models: workspace.models, requested: asked.model });
+  }
+
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
     workspace.models.switch.use(asked.modelSelection.modelId);
@@ -98,7 +107,7 @@ export async function servedConversation(params: {
     ...(!settings.webSearch && { webSearch: false }),
     home: homedir(),
     onModelCall,
-    ...(storage && { entries: storage.entries, resume: storage.resume }),
+    ...(storage && { entries: storage.entries, resume: storage.resume, shell: storage.shell }),
   });
   const skills = skillsNotice(await findSkills(harness.skills));
 
@@ -126,6 +135,12 @@ export async function servedConversation(params: {
           projectTrust: harness.projectTrust,
         }),
         permissionMode: async () => (await permissions.read()).mode,
+        workingRoot: () =>
+          reportedWorkingRoot({
+            workingRoots: harness.workingRoots,
+            onFailure: (caughtError) =>
+              log(`Could not read the working root for the header: ${errorMessage(caughtError)}\n`),
+          }),
         useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
       },
     }),

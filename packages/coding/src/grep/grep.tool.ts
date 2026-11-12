@@ -16,7 +16,12 @@ import { grepResult } from './grep-output.utils.js';
  * Results are cut at `MAX_GREP_RESULTS` with a note saying so. `ripgrepPath` is the binary to
  * run; it defaults to the one `@vscode/ripgrep` ships.
  */
-export function createGrepTool({ workspace, processes, ripgrepPath = rgPath }: RipgrepToolDeps) {
+export function createGrepTool({
+  workspace,
+  workingRoots,
+  processes,
+  ripgrepPath = rgPath,
+}: RipgrepToolDeps) {
   return defineTool({
     name: 'grep',
     description: GREP_PROMPTS.description,
@@ -30,12 +35,12 @@ export function createGrepTool({ workspace, processes, ripgrepPath = rgPath }: R
     execute: async ({ input, signal }) => {
       const { pattern, path: requested = '.', glob, mode, caseInsensitive } = input;
 
-      const searched = await resolveSearchRoot({ workspace, requested });
+      const { searched, cwd } = await resolveSearchRoot({ workspace, workingRoots, requested });
       const run = await runRipgrep({
         processes,
         file: ripgrepPath,
         args: grepArgs({ pattern, mode, searchPath: searched, glob, caseInsensitive }),
-        cwd: workspace.root,
+        cwd,
         signal,
       });
 

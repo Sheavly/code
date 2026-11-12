@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
+import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';
+import { currentRoot, displayPath } from '../files/working-root.helper.js';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
@@ -17,9 +20,11 @@ import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
  */
 export function createReadFileTool({
   workspace,
+  workingRoots,
   fileReads,
 }: {
   workspace: Workspace;
+  workingRoots?: WorkingRoots | undefined;
   fileReads: FileReads;
 }) {
   return defineTool({
@@ -32,7 +37,11 @@ export function createReadFileTool({
     }),
     execute: async ({ input: { path: requested, startLine, endLine }, signal, context }) => {
       assertNotEnvFile({ filePath: requested, requested, action: 'Reading' }); // checked before touching the disk
-      const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
+      const root = await currentRoot(workingRoots);
+      const anchored = anchorToRoot({ requested, root });
+
+      assertNotEnvFile({ filePath: anchored, requested, action: 'Reading' }); // the path as it will be opened
+      const real = await workspace.resolveRead(anchored); // rejects escapes, follows symlinks
 
       assertNotEnvFile({ filePath: real, requested, action: 'Reading' }); // a symlink pointing at a .env file
 
@@ -60,7 +69,7 @@ export function createReadFileTool({
 
       const read: FileRead = {
         kind: 'file_read',
-        path: workspace.relative(real),
+        path: displayPath({ workspace, root, absolute: real }),
         startLine: lines.start,
         endLine: lines.end,
         totalLines: lines.total,

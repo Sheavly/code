@@ -92,10 +92,39 @@ Shared pieces live in `@sheavly/coding/files/`: `files.helper.ts` holds `resolve
 `createParentFolder`, `removeFile`, `fileSize`); and `file-change.helper.ts` builds the result a
 tool returns.
 
+## The working root
+
+An agent working on a branch in a separate git worktree can call `set_working_root` once with that
+folder. From then on a relative path in `read_file`, `write_file`, `edit_file`, `delete_file`,
+`grep`, `glob`, and the `cwd` of `run_command` starts there, and paths in results are shown
+relative to it. It is a default base, not a sandbox: absolute paths and `../` still go through
+`Workspace`, which decides what is reachable, and the `.env` and `.git` rules still hold.
+
+- **Kept per conversation.** The root is in the conversation's `shell.json`, next to its history,
+  so the main session and its sub-agents share it, a restart or a resume keeps it, and deleting the
+  conversation deletes it. It never moves the user's terminal or the process's own cwd.
+- **What it must be.** `set_working_root` takes a folder the workspace can reach (its root,
+  scratch or a verified sibling worktree) that is a git work tree. `.git`, a folder inside it, a
+  bare repo and a `.env` folder are refused, and the branch is read from git, never from the agent.
+  `set` resolves a relative path against the workspace root, not against the current root.
+- **A root that is gone** (its worktree was removed) is never read as "unset": relative paths in
+  the file tools and `run_command` fail with a message telling the agent to set another, so a
+  write meant for the worktree cannot land in the main checkout. Each turn's note says so too.
+- **Where it is read.** A tool reads the root once per call with `currentRoot`
+  (`files/working-root.helper.ts`), which checks the folder is still reachable but runs no git. The
+  per-turn note (`working-root/working-root-hook.helper.ts`) and the UI's details also ask git for
+  the branch.
+- **Enforced by** `harness/guard-working-root`: a call to `resolveRead`, `resolveWrite` or
+  `resolveDelete` in this package must take a path that went through `anchorToRoot`, a process is
+  never started with `cwd: workspace.root`, and no helper is handed a literal `root: undefined`.
+  What the rule cannot see (that the `root` is the current one, and the cwd of a process built some
+  other way) rests on `working-root.tool.test.ts`.
+
 ## Searching with `grep`
 
 `grep` searches file contents with ripgrep, using the binary `@vscode/ripgrep` ships so nothing
-has to be installed. It runs through the harness's `ProcessRunner`, in the workspace root.
+has to be installed. It runs through the harness's `ProcessRunner`, in the workspace root (or the
+working root, when one is set).
 
 - **Input:** `pattern` (a regex), optional `path` (a file or folder, default the whole workspace),
   `glob`, `mode` and `caseInsensitive`.

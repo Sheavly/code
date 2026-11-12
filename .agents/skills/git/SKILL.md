@@ -86,7 +86,10 @@ If the request fits several rows (for example "commit and submit"), run them in 
   `gh stack merge <pr> --yes --squash` for a stack.
 - `git cherry-pick` only after the user wrote "allow cherry-pick" in this chat; ask first, naming
   the commits and where they go.
-- No destructive commands (`reset --hard`, `clean`, branch deletion) without asking first.
+- No destructive commands (`reset --hard`, `clean`, branch deletion) without asking first. The one
+  exception is the cleanup after a merge the user confirmed: that issue's remote branch, local
+  branch and worktree, with a worktree removed without `--force` and the branch checked against
+  the PR's head first ([merge.md](merge.md)).
 - Issues are changed only when the user asks (a comment, a label, a status, closing); the merge
   closing it through `Closes #123` is the one automatic change (a stack's lower layers say
   `Part of #123` and leave it open) ([issues.md](issues.md)).

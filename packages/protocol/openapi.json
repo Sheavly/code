@@ -2473,7 +2473,8 @@
             }
           },
           "workspace": { "type": "string", "minLength": 1 },
-          "profile": { "$ref": "#/components/schemas/ModelId" }
+          "profile": { "$ref": "#/components/schemas/ModelId" },
+          "model": { "type": "string", "minLength": 1, "maxLength": 200 }
         }
       },
       "StartConversationResponse": {
@@ -2540,7 +2541,12 @@
             "type": "string",
             "enum": ["trusted", "untrusted", "changed", "no_hooks"]
           },
-          "permissionMode": { "$ref": "#/components/schemas/PermissionMode" }
+          "permissionMode": { "$ref": "#/components/schemas/PermissionMode" },
+          "workingRoot": {
+            "type": "object",
+            "properties": { "root": { "type": "string" }, "branch": { "type": "string" } },
+            "required": ["root"]
+          }
         },
         "required": [
           "id",

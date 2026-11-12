@@ -13,22 +13,22 @@ client, built from the same table.
 Every route is under `/conversations`, `/stored-conversations` (the ones kept on disk, live or
 not), or one of the setup roots listed below. Every request carries `Authorization: Bearer <token>`.
 
-| Request                                                            | Answer                                                                                                                         |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /conversations`                                               | `{ conversations }`: each live one, oldest first                                                                               |
-| `POST /conversations`, `{ messages?, workspace?, profile? }`       | `201 { id }`: a new conversation, continuing `messages`, in `workspace` on `profile`                                           |
-| `GET /conversations/:id`                                           | its run: workspace, models, trust, the permission mode                                                                         |
-| `PUT /conversations/:id/model`, `{ id }`                           | `204`: one of its models, by id, from the next model call                                                                      |
-| `POST /conversations/:id/prompts`                                  | the prompt's entries as SSE, ending with its `done`                                                                            |
-| `POST /conversations/:id/yield`                                    | `200 { accepted }`: the running prompt ends at its completion point, background work left running; false when idle or stopping |
-| `QUERY /conversations/:id/stream`                                  | every entry, as SSE, while the client stays                                                                                    |
-| `POST /conversations/:id/stop`                                     | `204`: the running prompt stops; history stays valid                                                                           |
-| `POST /conversations/:id/approvals/:approval`                      | `204`: the waiting approval is answered                                                                                        |
-| `GET /conversations/:id/messages`                                  | `{ messages }`: the history, valid to continue from                                                                            |
-| `QUERY /conversations/:id/skills`, `{ search? }`                   | `{ skills }`: what a prompt can run, for a `/` menu                                                                            |
-| `DELETE /conversations/:id`                                        | `204`: its prompts, tasks and processes stop; it's gone                                                                        |
-| `QUERY /stored-conversations`, `{ search?, workspace?, profile? }` | `{ conversations }`: every folder's and profile's, or those a title matches or that belong to one                              |
-| `POST /stored-conversations/:id/reopen`                            | `{ id }`: a kept one is live again, from its history                                                                           |
+| Request                                                              | Answer                                                                                                                                                                  |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /conversations`                                                 | `{ conversations }`: each live one, oldest first                                                                                                                        |
+| `POST /conversations`, `{ messages?, workspace?, profile?, model? }` | `201 { id }`: a new conversation, continuing `messages`, in `workspace` on `profile`, starting on `model` (an id or a name; for this conversation only, not remembered) |
+| `GET /conversations/:id`                                             | its run: workspace, models, trust, the permission mode, the working root                                                                                                |
+| `PUT /conversations/:id/model`, `{ id }`                             | `204`: one of its models, by id, from the next model call                                                                                                               |
+| `POST /conversations/:id/prompts`                                    | the prompt's entries as SSE, ending with its `done`                                                                                                                     |
+| `POST /conversations/:id/yield`                                      | `200 { accepted }`: the running prompt ends at its completion point, background work left running; false when idle or stopping                                          |
+| `QUERY /conversations/:id/stream`                                    | every entry, as SSE, while the client stays                                                                                                                             |
+| `POST /conversations/:id/stop`                                       | `204`: the running prompt stops; history stays valid                                                                                                                    |
+| `POST /conversations/:id/approvals/:approval`                        | `204`: the waiting approval is answered                                                                                                                                 |
+| `GET /conversations/:id/messages`                                    | `{ messages }`: the history, valid to continue from                                                                                                                     |
+| `QUERY /conversations/:id/skills`, `{ search? }`                     | `{ skills }`: what a prompt can run, for a `/` menu                                                                                                                     |
+| `DELETE /conversations/:id`                                          | `204`: its prompts, tasks and processes stop; it's gone                                                                                                                 |
+| `QUERY /stored-conversations`, `{ search?, workspace?, profile? }`   | `{ conversations }`: every folder's and profile's, or those a title matches or that belong to one                                                                       |
+| `POST /stored-conversations/:id/reopen`                              | `{ id }`: a kept one is live again, from its history                                                                                                                    |
 
 ### Setting the backend up
 

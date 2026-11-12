@@ -1,18 +1,24 @@
 import path from 'node:path';
-import type { ConversationStore, EntryStore } from '@sheavly/core/store/store.types';
+import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { storedConversationSchema } from '@sheavly/protocol/store/store.validator';
+import { DocumentFile } from '../document-file/document-file.service.js';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { listFolderNames } from '../listing/listing.helper.js';
 import type { FileProblem, ListedFile } from '../listing/listing.types.js';
 import { splitListed } from '../listing/listing.utils.js';
 import { assertSafeRoot, removeFolder } from '../safe-path/safe-path.helper.js';
-import { CONVERSATIONS_FOLDER, HISTORY_FILE, INDEX_FILE } from './conversation-store.constants.js';
+import {
+  CONVERSATIONS_FOLDER,
+  HISTORY_FILE,
+  INDEX_FILE,
+  SHELL_FILE,
+} from './conversation-store.constants.js';
 import { agentHistoryFile, asStoreError, conversationFolder } from './conversation-store.utils.js';
 import { historySchema } from './conversation-store.validator.js';
 import { EntryFile } from './entry-file.service.js';
@@ -31,6 +37,7 @@ export class FileConversationStore implements ConversationStore {
   readonly #folder: string;
   readonly #onProblem: (problem: FileProblem) => void;
   readonly #streams = new Map<ConversationId, EntryFile>();
+  readonly #shells = new Map<ConversationId, DocumentStore>();
 
   /**
    * `folder` is the workspace's folder (`<profile folder>/workspaces/<workspace-key>`), which an
@@ -53,6 +60,35 @@ export class FileConversationStore implements ConversationStore {
     this.#streams.set(id, stream);
 
     return stream;
+  }
+
+  shell(id: ConversationId): DocumentStore {
+    const known = this.#shells.get(id);
+
+    if (known) return known;
+
+    // One `DocumentFile` per conversation, so every agent's change goes through its one queue.
+    const file = new DocumentFile({ file: path.join(this.#folderOf(id), SHELL_FILE) });
+    const shell: DocumentStore = {
+      load: async () => {
+        try {
+          return await file.load();
+        } catch (caughtError) {
+          throw asStoreError(caughtError);
+        }
+      },
+      update: async (change) => {
+        try {
+          await file.update(change);
+        } catch (caughtError) {
+          throw asStoreError(caughtError);
+        }
+      },
+    };
+
+    this.#shells.set(id, shell);
+
+    return shell;
   }
 
   async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
@@ -129,6 +165,7 @@ export class FileConversationStore implements ConversationStore {
       await this.#streams.get(id)?.forget();
       await removeFolder({ root: this.#folder, folder });
       this.#streams.delete(id);
+      this.#shells.delete(id);
     } catch (caughtError) {
       throw asStoreError(caughtError);
     }

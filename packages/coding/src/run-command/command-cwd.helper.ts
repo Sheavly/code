@@ -4,6 +4,7 @@ import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
+import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';
 import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
 
 /**
@@ -31,26 +32,34 @@ export function outsideGrantedFolder(params: {
 export async function resolveCommandCwd(params: {
   workspace: Workspace;
   requested: string | undefined;
+  root: string | undefined;
 }): Promise<string> {
-  const { workspace, requested } = params;
+  const { workspace, requested, root } = params;
 
-  if (requested === undefined) return workspace.root;
+  if (requested === undefined && root === undefined) return workspace.root;
+
+  // With a working root, "no cwd" means the root, and a relative cwd starts from it. The root
+  // goes through the same check as any requested folder, so it can't widen what is reachable.
+  const asked = requested ?? '.';
 
   try {
-    return await resolveRequestedCommandCwd({ workspace, requested });
+    return await resolveRequestedCommandCwd({ workspace, requested: asked, root });
   } catch (caughtError) {
-    throw cwdError({ requested, caughtError });
+    throw cwdError({ requested: asked, caughtError });
   }
 }
 
 async function resolveRequestedCommandCwd(params: {
   workspace: Workspace;
   requested: string;
+  root: string | undefined;
 }): Promise<string> {
-  const { workspace, requested } = params;
+  const { workspace, requested, root } = params;
+  const anchored = anchorToRoot({ requested, root });
 
   assertNotEnvFile({ filePath: requested, requested, action: 'Running a command in' });
-  const real = await workspace.resolveRead(requested);
+  assertNotEnvFile({ filePath: anchored, requested, action: 'Running a command in' });
+  const real = await workspace.resolveRead(anchored);
 
   assertNotEnvFile({ filePath: real, requested, action: 'Running a command in' });
 

@@ -64,6 +64,7 @@ export class Conversations {
       messages: params.messages,
       workspace: params.workspace,
       profile: params.profile,
+      model: params.model,
       ...(keeper && this.#storageOf({ keeper, id })),
     });
 
@@ -170,8 +171,14 @@ export class Conversations {
    */
   async details(id: ConversationId): Promise<ConversationDetails> {
     const { run } = this.get(id);
+    const workingRoot = await run.workingRoot?.();
 
-    return { ...this.#summary(id), ...run.details(), permissionMode: await run.permissionMode() };
+    return {
+      ...this.#summary(id),
+      ...run.details(),
+      permissionMode: await run.permissionMode(),
+      ...(workingRoot && { workingRoot }),
+    };
   }
 
   /**
@@ -244,6 +251,7 @@ export class Conversations {
     return {
       storage: {
         entries: this.#store.entries(id),
+        shell: this.#store.shell(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
       },
     };

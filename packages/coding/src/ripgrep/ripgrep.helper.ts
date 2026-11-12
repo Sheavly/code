@@ -1,32 +1,71 @@
+import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { Writable } from 'node:stream';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
+import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
+import { currentRoot } from '../files/working-root.helper.js';
 import { GREP_TIMEOUT_MS, MAX_GREP_RAW_CHARS } from './ripgrep.constants.js';
 import type { RipgrepRun } from './ripgrep.types.js';
 
+/** `real` relative to the search folder; scratch stays absolute, as the workspace shows it. */
+function relativeToSearchCwd(params: { workspace: Workspace; cwd: string; real: string }): string {
+  const { workspace, cwd, real } = params;
+
+  if (workspace.inScratch(real) && !isInside({ folder: cwd, target: real })) return real;
+
+  return path.relative(cwd, real) || '.';
+}
+
 /**
- * The folder or file a search starts from, relative to the workspace root. ripgrep applies its
+ * Where a search runs and what it searches: `cwd` is the working root when one is set (else the
+ * workspace root) and `searched` is the folder or file, relative to it. ripgrep applies its
  * excludes to what it walks, never to a root path it is given, so the path is checked here, by
  * name and after symlinks. Throws if it is outside the workspace, a `.env` file or inside `.git`.
  */
 export async function resolveSearchRoot(params: {
   workspace: Workspace;
+  workingRoots: WorkingRoots | undefined;
   requested: string;
-}): Promise<string> {
-  const { workspace, requested } = params;
+}): Promise<{ searched: string; cwd: string }> {
+  const { workspace, workingRoots, requested } = params;
+  const root = await currentRoot(workingRoots);
+  const cwd = root ?? workspace.root;
 
   assertNotEnvFile({ filePath: requested, requested, action: 'Searching' });
   assertNotGitDir({ relativePath: requested, requested, action: 'Searching' });
-  const real = await workspace.resolveRead(requested); // rejects escapes, follows symlinks
-  const searched = workspace.relative(real);
+  const anchored = anchorToRoot({ requested, root });
+
+  assertNotEnvFile({ filePath: anchored, requested, action: 'Searching' });
+  const real = await workspace.resolveRead(anchored); // rejects escapes, follows symlinks
+  const searched = relativeToSearchCwd({ workspace, cwd, real });
 
   assertNotEnvFile({ filePath: real, requested, action: 'Searching' });
-  assertNotGitDir({ relativePath: searched, requested, action: 'Searching' });
+  assertSearchOutsideGit({ workspace, requested, paths: { searched, real, cwd } });
 
-  return searched;
+  return { searched, cwd };
+}
+
+/**
+ * Refuses a search that starts in or reaches `.git`. `searched` is relative to the working root,
+ * so a root inside `.git` would hide it there: the workspace-relative path and the folder ripgrep
+ * starts in are checked as well.
+ */
+function assertSearchOutsideGit(params: {
+  workspace: Workspace;
+  requested: string;
+  paths: { searched: string; real: string; cwd: string };
+}): void {
+  const { workspace, requested, paths } = params;
+  const action = 'Searching';
+
+  assertNotGitDir({ relativePath: paths.searched, requested, action });
+  assertNotGitDir({ relativePath: workspace.relative(paths.real), requested, action });
+  assertNotGitDir({ relativePath: workspace.relative(paths.cwd), requested, action });
 }
 
 /**

@@ -68,6 +68,9 @@ export const USAGE = `Usage: npm run workbook -- <command>
   diff <run-a> <run-b>     compare two runs: outcome, counts, tools used, final answer
 
   --model-calls            also print every model call (tools, system prompt, latest message)
+  --model <id|name>        run on this one of your profile's models, for this run only (never
+                           remembered). Default: WORKBOOK_MODEL from the environment, else the
+                           profile's own choice. A name only needs to be unique, e.g. "deepseek".
   --trust                  trust the workspace's .sheavly/ hooks (a fresh fixture copy already is)
 
 Runs are saved in workbook/runs/<id>/ as they happen; "last" means the most recent run.`;
