@@ -11,11 +11,11 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createConversation } from '../../conversation/conversation.helper.js';
 import { createHarness } from '../../host/host.helper.js';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
+import { loggedSeqs, seedMainSession } from '../../testing/stored-conversation.fake.js';
 import { DEEP_ID, FAST_ID, TEST_PROFILE_ID, twoModelRun } from '../../testing/run.fake.js';
 import { Conversations } from '../conversations.service.js';
 
@@ -152,7 +152,6 @@ describe('Conversations with a store', () => {
   it('repairs a history cut off mid-tool-call, so a model can continue from it', async () => {
     const store = new MemoryConversationStore();
     const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000cc');
-    const main = sessionIdSchema.parse('main');
     const asking: Message = {
       role: 'assistant',
       content: '',
@@ -165,23 +164,7 @@ describe('Conversations with a store', () => {
       { seq: 1, entry: asking },
     ]);
     await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 2 });
-    await store.entries(id).append({
-      seq: 0,
-      at: 1,
-      sessionId: main,
-      kind: 'update',
-      update: {
-        type: 'session_started',
-        session: {
-          id: main,
-          rootId: main,
-          depth: 1,
-          title: 'Chat',
-          state: 'running',
-          startedAt: 1,
-        },
-      },
-    });
+    await seedMainSession({ store, id, state: 'running' });
 
     const { conversations } = setup({ store, replies: [say('recovered')] });
 
@@ -197,9 +180,7 @@ describe('Conversations with a store', () => {
     await collect((await conversations.send({ id, prompt: { text: 'next' } })).events);
     await settled(conversations, id);
 
-    const seqs: number[] = [];
-
-    for await (const record of store.history({ id }).read()) seqs.push(record.seq);
+    const seqs = await loggedSeqs({ store, id });
 
     expect(seqs).toEqual(seqs.map((_, index) => index));
     expect(seqs.length).toBeGreaterThan(2);

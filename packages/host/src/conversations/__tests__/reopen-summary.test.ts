@@ -5,12 +5,11 @@ import { indexOf } from '@sheavly/testing/store/store-contract.fake';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { say, scriptedConversations as setup } from '../../testing/conversations.fake.js';
 import { FAST_ID } from '../../testing/run.fake.js';
+import { loggedSeqs, seedMainSession } from '../../testing/stored-conversation.fake.js';
 
 const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000dd');
-const main = sessionIdSchema.parse('main');
 const user = (content: string, at: number): HistoryMessage => ({ role: 'user', content, at });
 const reply = (content: string, at: number): HistoryMessage => ({
   role: 'assistant',
@@ -43,16 +42,7 @@ async function keptWithCheckpoint() {
   await store.history({ id }).append(stored.map((entry, seq) => ({ seq, entry })));
   await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 6 });
   // The conversation ended well: its main session is idle, so it can take the next prompt.
-  await store.entries(id).append({
-    seq: 0,
-    at: 1,
-    sessionId: main,
-    kind: 'update',
-    update: {
-      type: 'session_started',
-      session: { id: main, rootId: main, depth: 1, title: 'Chat', state: 'idle', startedAt: 1 },
-    },
-  });
+  await seedMainSession({ store, id, state: 'idle' });
 
   return store;
 }
@@ -83,9 +73,7 @@ describe('reopening a conversation that holds a checkpoint', () => {
     expect(first).toContain('third');
     expect(first).not.toContain('first');
 
-    const seqs: number[] = [];
-
-    for await (const record of store.history({ id }).read()) seqs.push(record.seq);
+    const seqs = await loggedSeqs({ store, id });
 
     // The originals and the checkpoint stay, and new entries follow with no gap or repeat.
     expect(seqs).toEqual(seqs.map((_, index) => index));
