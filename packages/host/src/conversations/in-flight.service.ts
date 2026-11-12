@@ -16,7 +16,8 @@ export class InFlight<TKey, TResult> {
     try {
       return await running;
     } finally {
-      this.#running.delete(key);
+      // A waiter that resumes late must not drop a newer call registered after this one settled.
+      if (this.#running.get(key) === running) this.#running.delete(key);
     }
   }
 }
