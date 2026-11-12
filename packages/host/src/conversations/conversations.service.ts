@@ -113,7 +113,10 @@ export class Conversations {
 
     this.#live.set(id, live);
     keeper?.begin({ ...stored, status: 'open' });
-    keeper?.resumeAt({ logged, history: messages.length });
+    keeper?.resumeAt(logged);
+    // A placeholder repair made for a call that never returned is written now, once, so the log and
+    // the history agree and reopening again finds nothing to repair.
+    if (messages.length > logged) keeper?.keepHistory(messages);
 
     return id;
   }

@@ -21,8 +21,6 @@ export class ConversationKeeper {
   #failure: StoreError | undefined;
   /** How many entries of the history are queued or written to the log. */
   #kept = 0;
-  /** The log's length minus the history's, for what reopening repaired; 0 otherwise. */
-  #offset = 0;
   /** How many entries of each sub-agent's history are queued or written to its log. */
   readonly #agentKept = new Map<SessionId, number>();
 
@@ -48,14 +46,12 @@ export class ConversationKeeper {
   }
 
   /**
-   * Says that a reopened conversation's first `history` entries are already kept, and that the log
-   * holds `logged` of them. They differ by the placeholders `repairHistory` made for calls with no
-   * result: they are not written, since reopening makes them again the same way, so later entries
-   * land in the log that many places before their place in the history.
+   * Says that a reopened conversation's log already holds its first `logged` entries. What
+   * `repairHistory` added after them (a placeholder for a call that never returned) is not in the
+   * log yet: the next `keepHistory` appends it, so log numbers and history positions stay the same.
    */
-  resumeAt(params: { logged: number; history: number }): void {
-    this.#kept = params.history;
-    this.#offset = params.logged - params.history;
+  resumeAt(logged: number): void {
+    this.#kept = logged;
   }
 
   /**
@@ -66,7 +62,6 @@ export class ConversationKeeper {
   keepHistory(messages: readonly HistoryMessage[]): void {
     const fresh = messages.slice(this.#kept);
     const first = this.#kept;
-    const offset = this.#offset;
 
     if (messages.length < this.#kept) {
       this.#queue(async () => {
@@ -83,7 +78,7 @@ export class ConversationKeeper {
     this.#queue(async () => {
       await this.#store
         .history({ id: this.#id })
-        .append(fresh.map((entry, index) => ({ seq: first + offset + index, entry })));
+        .append(fresh.map((entry, index) => ({ seq: first + index, entry })));
       await this.#touchIndex({});
     });
   }

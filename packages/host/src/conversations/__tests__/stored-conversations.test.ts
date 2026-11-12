@@ -175,15 +175,44 @@ describe('Conversations with a store', () => {
     expect(messages.map((m) => m.role)).toEqual(['user', 'assistant', 'tool']);
     expect(messages.at(-1)).toMatchObject({ role: 'tool', isError: true });
 
-    // The placeholder is not logged (reopening makes it again), so later entries must follow the
-    // logged ones with no gap and no repeat.
+    // The placeholder is written to the log at once, so a log number is its history position and
+    // reopening again finds nothing left to repair.
+    await settled(conversations, id);
+    expect(await loggedSeqs({ store, id })).toEqual([0, 1, 2]);
+
+    // Later entries follow with no gap and no repeat.
     await collect((await conversations.send({ id, prompt: { text: 'next' } })).events);
     await settled(conversations, id);
 
     const seqs = await loggedSeqs({ store, id });
 
     expect(seqs).toEqual(seqs.map((_, index) => index));
-    expect(seqs.length).toBeGreaterThan(2);
+    expect(seqs.length).toBeGreaterThan(3);
+  });
+
+  it('refuses to reopen a log whose unanswered tool call is followed by later entries', async () => {
+    const store = new MemoryConversationStore();
+    const id = conversationIdSchema.parse('00000000-0000-4000-8000-0000000000ce');
+    const asking: Message = {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: callIdSchema.parse('b2'), name: 'block', input: {} }],
+      at: 2,
+    };
+
+    // A call with no result, then a user message: only a damaged log looks like this, and a
+    // repair would have to insert into the middle of an append-only log.
+    await store.history({ id }).append([
+      { seq: 0, entry: { role: 'user', content: 'go', at: 1 } },
+      { seq: 1, entry: asking },
+      { seq: 2, entry: { role: 'user', content: 'again', at: 3 } },
+    ]);
+    await store.writeIndex({ ...indexOf(id, 1), modelId: FAST_ID, updatedAt: 3 });
+    await seedMainSession({ store, id, state: 'idle' });
+
+    const { conversations } = setup({ store, replies: [] });
+
+    await expect(conversations.reopen(id)).rejects.toMatchObject({ reason: 'storage_failed' });
   });
 
   it('refuses a reopen of a conversation the store does not have', async () => {
