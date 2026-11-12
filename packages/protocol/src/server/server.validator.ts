@@ -124,6 +124,13 @@ export const sendPromptRequestSchema = z.xor([
   z.object({ parts: z.array(promptPartSchema).min(1) }),
 ]);
 
+/**
+ * `GET`/`PUT /conversations/:id/queue`: the lines a person queued while a prompt ran, oldest
+ * first. Pending input is kept with the conversation so it survives a restart, but it is outside
+ * history, model input and summaries until a UI sends it as a prompt; reopening never sends it.
+ */
+export const queuedPromptsSchema = z.object({ queued: z.array(z.string().min(1)).max(100) });
+
 /** `POST /conversations/:id/yield`: whether the active, non-stopping run accepted the request. */
 export const yieldPromptResponseSchema = z.object({ accepted: z.boolean() });
 

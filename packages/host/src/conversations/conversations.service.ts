@@ -3,6 +3,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import { ConversationKeeper } from './keeper.service.js';
+import { ConversationQueues } from './queues.service.js';
 import { readStoredConversation } from './stored-conversation.helper.js';
 import { ModelChanges } from './model-changes.service.js';
 import type {
@@ -12,7 +13,7 @@ import type {
   SentPrompt,
   StartConversationParams,
 } from './conversations.types.js';
-import { matchesSearch, matchesTitle } from './conversations.utils.js';
+import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -46,10 +47,12 @@ export class Conversations {
   /** Each conversation's running prompt's stop switch. */
   readonly #running = new Map<ConversationId, AbortController>();
   readonly #modelChanges = new ModelChanges();
+  readonly #queues: ConversationQueues;
 
   constructor(params: { create: CreateConversation; store?: ConversationStore }) {
     this.#create = params.create;
     this.#store = params.store;
+    this.#queues = new ConversationQueues({ store: params.store });
   }
 
   /**
@@ -129,14 +132,8 @@ export class Conversations {
       profile?: string | undefined;
     } = {},
   ): Promise<StoredConversation[]> {
-    const { search, workspace, profile } = params;
     const stored = (await this.#store?.list()) ?? [];
-    const wanted = stored.filter(
-      (each) =>
-        (!search || matchesTitle({ stored: each, search })) &&
-        (workspace === undefined || each.workspace === workspace) &&
-        (profile === undefined || each.profile === profile),
-    );
+    const wanted = stored.filter((each) => matchesStored({ stored: each, ...params }));
 
     return wanted.map((conversation) =>
       conversation.status === 'open' && !this.#live.has(conversation.id)
@@ -364,6 +361,23 @@ export class Conversations {
     const { id, approval, response } = params;
 
     this.get(id).harness.approvals.respond({ id: approval, response });
+  }
+
+  /**
+   * The lines queued behind conversation `id`'s running prompt, oldest first. Pending input is
+   * outside history, model input and summaries; with a store it survives a restart, and reopening
+   * a conversation never sends it. `not_found` when the conversation is not live.
+   */
+  async queue(id: ConversationId): Promise<string[]> {
+    this.get(id);
+
+    return this.#queues.read(id);
+  }
+
+  /** Replaces conversation `id`'s queued lines, whole. */
+  async setQueue(params: { id: ConversationId; queued: readonly string[] }): Promise<void> {
+    this.get(params.id);
+    await this.#queues.replace(params);
   }
 
   /** The history so far, valid to continue from. */

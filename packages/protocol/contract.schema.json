@@ -1535,6 +1535,17 @@
       "properties": { "accepted": { "type": "boolean" } },
       "required": ["accepted"]
     },
+    "QueuedPrompts": {
+      "type": "object",
+      "properties": {
+        "queued": {
+          "maxItems": 100,
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "required": ["queued"]
+    },
     "StreamQuery": {
       "type": "object",
       "properties": {

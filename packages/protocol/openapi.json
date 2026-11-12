@@ -231,6 +231,51 @@
         }
       }
     },
+    "/conversations/{id}/queue": {
+      "get": {
+        "operationId": "getQueue",
+        "summary": "The lines queued behind the running prompt, kept across a restart and never sent by reopening",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/QueuedPrompts" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setQueue",
+        "summary": "Replace the queued lines; they stay outside history, model input and summaries",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/QueuedPrompts" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{id}/stop": {
       "post": {
         "operationId": "stopPrompt",
@@ -2612,6 +2657,17 @@
         "type": "object",
         "properties": { "accepted": { "type": "boolean" } },
         "required": ["accepted"]
+      },
+      "QueuedPrompts": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "maxItems": 100,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "required": ["queued"]
       },
       "StreamQuery": {
         "type": "object",
