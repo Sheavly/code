@@ -38,6 +38,12 @@ sometimes decides one pass is enough and skips the re-reads, so no second summar
 fails the first try, not the summarizer, and the retry usually passes. Run it several times to
 measure how often summaries fail: `for i in 1 2 3 4 5 6; do npm run workbook -- check summary-stress; done`.
 
+`mask-old-output` reads a large file in eight parts on a small window, so old tool output is hidden
+from the model before any summary is needed. A check cannot read the saved model calls, so it only
+proves the run still answers from what it kept. To see the masking itself, count the notes:
+`grep -c "was hidden to save room" workbook/runs/<run>/model-calls.jsonl` (four in each of four runs
+on DeepSeek V4.1). Zero means the window was too large for the reads to reach the threshold.
+
 `background-completion` checks delayed finite commands: both results arrive before the final reply,
 without any status polling. It complements `background-tasks`, which explicitly requests a snapshot.
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
