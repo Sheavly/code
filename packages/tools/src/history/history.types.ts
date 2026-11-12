@@ -19,6 +19,8 @@ export type SearchHit = {
   session: SessionId;
   seq: number;
   role: HistoryMessage['role'];
+  /** Where the first match starts in the entry's text, to read around it with `offset`. */
+  at: number;
   excerpt: string;
 };
 

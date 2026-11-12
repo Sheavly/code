@@ -50,7 +50,8 @@ function createSearchHistoryTool(options: HistoryToolOptions) {
       }
 
       const lines = hits.map(
-        (hit) => `- session ${hit.session}, entry ${String(hit.seq)} (${hit.role}): ${hit.excerpt}`,
+        (hit) =>
+          `- session ${hit.session}, entry ${String(hit.seq)} (${hit.role}) at character ${String(hit.at)}: ${hit.excerpt}`,
       );
 
       return `${retrievedHeader(hits.length)}\n${lines.join('\n')}${more}`;
@@ -65,15 +66,19 @@ function createReadHistoryEntryTool(options: HistoryToolOptions) {
     inputSchema: z.object({
       session: sessionIdSchema.describe(readHistoryEntryPrompts.session),
       seq: z.number().int().nonnegative().describe(readHistoryEntryPrompts.seq),
+      offset: z.number().int().nonnegative().optional().describe(readHistoryEntryPrompts.offset),
     }),
     execute: async ({ input, signal }) => {
-      const entry = await readHistoryEntry({ options, ...input, signal });
-      const cut = entry.text.length > MAX_ENTRY_CHARS;
-      const shown = escapeTags(cut ? entry.text.slice(0, MAX_ENTRY_CHARS) : entry.text);
+      const { offset = 0, ...where } = input;
+      const entry = await readHistoryEntry({ options, ...where, signal });
+      const end = offset + MAX_ENTRY_CHARS;
+      const shown = escapeTags(entry.text.slice(offset, end));
       const fence = fenceDashes(shown);
-      const note = cut
-        ? `\n(cut after ${String(MAX_ENTRY_CHARS)} of ${String(entry.text.length)} characters)`
-        : '';
+      const total = entry.text.length;
+      const note =
+        offset > 0 || end < total
+          ? `\n(characters ${String(offset)} to ${String(Math.min(end, total))} of ${String(total)}${end < total ? `; read on with offset ${String(end)}` : ''})`
+          : '';
 
       return `${retrievedHeader(1)}\nsession ${input.session}, entry ${String(input.seq)} (${entry.role})\n${fence} entry ${fence}\n${shown}\n${fence} end of entry ${fence}${note}`;
     },

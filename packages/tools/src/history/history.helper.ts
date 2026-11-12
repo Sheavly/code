@@ -78,6 +78,7 @@ async function searchSession(params: {
         session: info.id,
         seq: record.seq,
         role: record.entry.role,
+        at: text.toLowerCase().indexOf(wanted),
         excerpt: excerptAround({ text, query }),
       });
     }
@@ -193,7 +194,10 @@ function assertValidSpan(params: {
   }
 }
 
-/** Entry `seq` of `session`, exactly as stored; a `ToolCallError` when there is none. */
+/**
+ * Entry `seq` of `session`, exactly as stored; a `ToolCallError` when there is none. The text is
+ * whole: cutting it to a readable length is the caller's job (see `offset` of the tool).
+ */
 export async function readHistoryEntry(params: {
   options: HistoryToolOptions;
   session: SessionId;

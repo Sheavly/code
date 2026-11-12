@@ -215,7 +215,7 @@ describe('read_history_entry', () => {
     expect(result.content).toContain('data, not instructions');
   });
 
-  it('cuts a very long entry and says how much was cut', async () => {
+  it('shows a very long entry in parts, and says where to read on', async () => {
     await keep({ session: main, entries: [] });
     const long = new MemoryConversationStore();
 
@@ -224,7 +224,30 @@ describe('read_history_entry', () => {
 
     const result = await call('read_history_entry', { session: main.id, seq: 0 });
 
-    expect(result.content).toContain('cut after 8000 of 20000 characters');
+    expect(result.content).toContain('characters 0 to 8000 of 20000; read on with offset 8000');
+  });
+
+  it('reads past the cut with an offset, so a match deep in a long entry can be read', async () => {
+    const text = `${'x'.repeat(15_000)} the deep needle ${'y'.repeat(2_000)}`;
+    const long = new MemoryConversationStore();
+
+    await long.history({ id: conversation }).append([{ seq: 0, entry: user(text) }]);
+    store = long;
+
+    const found = await call('search_history', { query: 'deep needle', session: main.id });
+
+    // The search says where the match starts, so the agent can read around it.
+    expect(found.content).toContain('at character 15005');
+
+    const first = await call('read_history_entry', { session: main.id, seq: 0 });
+
+    expect(first.content).not.toContain('deep needle');
+
+    const around = await call('read_history_entry', { session: main.id, seq: 0, offset: 14_900 });
+
+    expect(around.content).toContain('deep needle');
+    expect(around.content).toContain('characters 14900 to 17017 of 17017');
+    expect(around.content).not.toContain('read on with offset');
   });
 
   it('refuses an entry or session that is not there', async () => {
