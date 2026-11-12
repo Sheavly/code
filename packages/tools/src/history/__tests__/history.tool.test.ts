@@ -76,6 +76,21 @@ describe('search_history', () => {
     expect(second.content).not.toContain(`session ${main.id}, entry 0`);
   });
 
+  it('refuses a crafted cursor: an unknown session, a path, or a scope of another session', async () => {
+    const forge = (cursor: object) => Buffer.from(JSON.stringify(cursor)).toString('base64url');
+
+    for (const cursor of [
+      { session: 'f'.repeat(8), seq: 0, scope: {} },
+      { session: '../x', seq: 0, scope: {} },
+      { session: main.id, seq: 0, scope: { session: 'f'.repeat(8), from: 1 } },
+      { session: main.id, seq: -1, scope: {} },
+    ]) {
+      const result = await call('search_history', { query: 'blue', cursor: forge(cursor) });
+
+      expect(result.isError).toBe(true);
+    }
+  });
+
   it('limits a search to one session', async () => {
     const result = await call('search_history', { query: 'blue key', session: child.id });
 
