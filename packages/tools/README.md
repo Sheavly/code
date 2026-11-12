@@ -30,6 +30,7 @@ const tools = [
 | Module                 | Tools                                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `tasks/`               | `task_status`, `await_tasks`, `cancel_task`: inspect, group and stop background tasks                                              |
+| `output/`              | `read_output`, `search_output`: read ranges of, and search, a command's stored complete output                                     |
 | `sub-agent/`           | `start_agent`, `report_status`, `message_agent`: sub-agents, and steering them                                                     |
 | `web-fetch/`           | `web_fetch`: bounded public HTTP(S) reading, HTML as Markdown, no credentials                                                      |
 | `web-search/`          | `web_search`, `SearchBackend`, `WebSearchArtifact`, `isWebSearchArtifact`: provider-neutral search with bounded structured results |
@@ -58,6 +59,17 @@ results arrive automatically through the loop; services need not exit before a p
 `await_tasks({ ids, reason })` registers a group immediately and holds its completion notices until
 all members finish. Its required reason explains the dependent decision or next step to the agent's
 future self after a summary, rather than merely saying "waiting for results".
+
+`read_output` and `search_output` (`createOutputTools(store)`) read a command's complete stored
+output by `output_ref`, which `run_command`, `task_status` and the task-finished notice print next
+to the bounded preview. Give them the one conversation's `OutputStore`: a reference that is not in
+it is `not_found`, so a call cannot reach another conversation's logs, and a reference is a UUID,
+never a path. `read_output` returns up to 64 KiB from a byte offset on character boundaries with
+`next_offset` until the end, so even one huge line is retrievable in pieces. `search_output` is a
+literal, case-sensitive scan that returns offsets and snippets and a `next_offset` when it stopped
+early. A log still capturing grows; an `INCOMPLETE` one says why. Returned text is data the
+command printed, fenced with angle brackets escaped. Missing or unreadable output is an explicit
+error, never an empty result.
 
 - [Sub-agents](docs/sub-agents.md): starting them, what they get, status reporting.
 - [The task tools](docs/tasks.md): checking on and stopping background work.
