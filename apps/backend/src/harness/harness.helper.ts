@@ -12,6 +12,7 @@ import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.h
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import { createHistoryTools } from '@sheavly/tools/history/history.tool';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import { createOutputTools } from '@sheavly/tools/output/output.tool';
@@ -46,6 +47,7 @@ export async function createBackendHarness(
     webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
     keepAgentHistory,
+    logOf,
     shell = memoryShellStore(),
     outputs,
     ...coding
@@ -136,6 +138,8 @@ export async function createBackendHarness(
         hooks,
       }),
       createMessageAgentTool({ sessions }),
+      // Only a kept conversation has logs to search.
+      ...(logOf ? createHistoryTools({ sessions, logOf }) : []),
     ],
     hooks,
     skills: skillRoots,

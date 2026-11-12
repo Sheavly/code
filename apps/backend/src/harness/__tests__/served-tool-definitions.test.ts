@@ -205,6 +205,8 @@ function checkDefinitions(params: {
     (name) => (webSearch || name !== 'web_search') && (webFetch || name !== 'web_fetch'),
   );
 
+  // Only the main run searches the conversation's history; sub-agents get no history tools.
+  if (depth === 1) expected.push('search_history', 'read_history_entry');
   if (depth > 1) expected.push('report_status');
   if (depth < 3) expected.push('start_agent', 'message_agent');
 

@@ -17,6 +17,7 @@ import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import type { HistoryToolOptions } from '@sheavly/tools/history/history.types';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import type { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
 import type { HarnessOptions } from '@sheavly/host/host/host.types';
@@ -73,6 +74,8 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   outputs?: OutputStore | undefined;
   /** Keeps each sub-agent's history durably (see `SubAgentOptions.keepHistory`); none keeps nothing. */
   keepAgentHistory?: Parameters<typeof createSubAgentTool>[0]['keepHistory'];
+  /** Where each session's durable history log is; with it the agent gets the history tools. */
+  logOf?: HistoryToolOptions['logOf'];
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */

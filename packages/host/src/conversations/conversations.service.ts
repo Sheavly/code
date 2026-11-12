@@ -249,15 +249,18 @@ export class Conversations {
   } {
     const { keeper, id } = params;
 
-    if (!keeper || !this.#store) return {};
+    const store = this.#store;
+
+    if (!keeper || !store) return {};
 
     return {
       storage: {
-        entries: this.#store.entries(id),
-        shell: this.#store.shell(id),
-        outputs: this.#store.outputs(id),
+        entries: store.entries(id),
+        shell: store.shell(id),
+        outputs: store.outputs(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
         keepAgentHistory: (params) => keeper.keepAgentHistory(params),
+        logOf: ({ session, main }) => store.history({ id, session: main ? undefined : session }),
       },
     };
   }

@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { HistoryLog } from '@sheavly/core/store/store.types';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
@@ -15,6 +16,14 @@ import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.h
 import { trackConversationUsage } from '../conversation-usage.helper.js';
 
 let root = '';
+
+/** A history log with nothing in it: these tests only read the stream, never the history. */
+const emptyLog: HistoryLog = {
+  append: async () => undefined,
+  read: () => ({
+    [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }),
+  }),
+};
 
 afterEach(async () => {
   if (root) await rm(root, { recursive: true, force: true });
@@ -50,6 +59,7 @@ describe('conversation usage over the API', () => {
       storage: {
         keepHistory: () => undefined,
         keepAgentHistory: () => undefined,
+        logOf: () => emptyLog,
         shell: memoryShellStore(),
         outputs: new MemoryOutputStore(),
         resume: { next: 3, tail: [oldTurn], sessions: [], lastTokens: [] },
@@ -93,6 +103,7 @@ describe('conversation usage over the API', () => {
       storage: {
         keepHistory: () => undefined,
         keepAgentHistory: () => undefined,
+        logOf: () => emptyLog,
         shell: memoryShellStore(),
         outputs: new MemoryOutputStore(),
         resume: { next: 2, tail: [turnEnd], sessions: [], lastTokens: [] },

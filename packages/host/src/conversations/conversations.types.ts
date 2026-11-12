@@ -1,7 +1,7 @@
 import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type { DocumentStore, EntryStore, HistoryLog } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -124,6 +124,11 @@ export type ConversationStorage = {
   keepHistory: (messages: readonly HistoryMessage[]) => void;
   /** A sub-agent's history so far, whole: only what is new is appended to that session's log. */
   keepAgentHistory: (params: { session: SessionId; messages: readonly HistoryMessage[] }) => void;
+  /**
+   * The durable history log of a session of this conversation: the main session's when `main`,
+   * else sub-agent `session`'s. What the history tools search and read.
+   */
+  logOf: (params: { session: SessionId; main: boolean }) => HistoryLog;
   resume?: StoredLog | undefined;
 };
 

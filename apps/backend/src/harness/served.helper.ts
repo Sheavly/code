@@ -113,6 +113,7 @@ export async function servedConversation(params: {
       shell: storage.shell,
       outputs: storage.outputs,
       keepAgentHistory: storage.keepAgentHistory,
+      logOf: storage.logOf,
     }),
   });
   const skills = skillsNotice(await findSkills(harness.skills));
