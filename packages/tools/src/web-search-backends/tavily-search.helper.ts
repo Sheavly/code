@@ -1,5 +1,6 @@
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import { WebSearchError } from '../errors/web-search.errors.js';
+import { WebSearchError, WebSearchRateLimitError } from '../errors/web-search.errors.js';
+import { parseRetryAfterMs } from './retry-after.utils.js';
 import { readBoundedBody } from '../web-fetch/body.helper.js';
 import { TAVILY_KEYLESS_HEADERS, TAVILY_SEARCH_URL } from './tavily-search.constants.js';
 import { withAbort } from '../web-fetch/abort.helper.js';
@@ -78,6 +79,13 @@ async function readTavilyResults(params: {
 
   if (!response.ok) {
     await response.body?.cancel();
+
+    if (response.status === 429 || response.status === 432) {
+      throw new WebSearchRateLimitError(tavilyHttpFailure(response.status), {
+        retryAfterMs: parseRetryAfterMs(response.headers.get('retry-after')),
+      });
+    }
+
     throw new WebSearchError(tavilyHttpFailure(response.status));
   }
 
