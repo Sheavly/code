@@ -5,7 +5,7 @@ How this workspace works inside, why it is built this way, and how to extend it.
 ## Chat diagnostics
 
 `FileConversationStore` keeps a private, failure-only `errors.jsonl` beside `stream.jsonl` and
-`history.json`. Records include `at`, `seq`, `conversationId`, `sessionId` and `messageId`, plus
+`history.jsonl`. Records include `at`, `seq`, `conversationId`, `sessionId` and `messageId`, plus
 model selection, tool-call or hook identity and structured run-error details when available.
 Join `messageId` to a user message's `id` in history and `seq` to the exact stream event. Background
 sessions retain their originating message even when the parent starts another prompt. Old records
@@ -20,9 +20,35 @@ Logs use private file and folder permissions. Only selected exception fields are
 request/response objects, authentication headers or tool inputs. Common credential forms in error
 text are redacted, but paths and error messages can still be private: review logs before sharing.
 
+## History logs
+
+`FileConversationStore.history({ id, session? })` is a session's durable history: an append-only
+`history.jsonl` (the main session's) or `agents/<session-id>.history.jsonl` (a sub-agent's), one
+record a line, `{ seq, entry }`. `seq` starts at 0, has no gaps and names an entry for good, so a
+checkpoint can say what it covers and a lost write shows as a gap. Entries are never rewritten or
+removed, so original messages stay retrievable after a summary.
+
+`HistoryFile` follows `EntryFile`: the next `seq` is counted from the file once, after a line cut
+off by a crash is trimmed, and appends go one at a time through a queue. An append at any other
+`seq` is refused (`out_of_order`) and a file with a gap is refused when read, rather than hidden.
+
+A history stored whole before logs existed (`history.json`, `agents/<session-id>.history.json`) is
+imported the first time its log is used and the log has no file yet. The log is written in one
+atomic step, so a crash leaves either no log (imported again next time) or the complete one. The
+old file stays as the record of what was imported and is never read again once the log exists.
+The old whole-file `readMessages`/`writeMessages` methods remain only for that legacy shape.
+
+## The queue
+
+`FileConversationStore.queue(id)` is a conversation's `queue.json`: the lines a person queued
+behind a running prompt, `{ queued: string[] }`. It is a separate document from the history logs,
+so pending input never reaches model input or a summary, and it survives a restart. Reopening a
+conversation reads it and never sends it; a UI decides when a line becomes a prompt. It shares the
+`DocumentStore` wrapper with the shell state and is removed with the conversation.
+
 ## Shell state
 
-`FileConversationStore.shell(id)` is a conversation's `shell.json`, beside its `history.json`: one
+`FileConversationStore.shell(id)` is a conversation's `shell.json`, beside its history logs: one
 JSON document that its main session and sub-agents share. The harness keeps the agents' working
 root in it (`@sheavly/workspace`'s `WorkingRoots`); storage holds no opinion about what is in it.
 Every call for one id gets the same `DocumentFile`, so changes by several agents go through one

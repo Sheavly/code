@@ -5,10 +5,29 @@ import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { INTERRUPTED_CALL } from './conversations.constants.js';
 
 /** Whether `stored`'s title has `search`, ignoring case. */
-export function matchesTitle(params: { stored: StoredConversation; search: string }): boolean {
+function matchesTitle(params: { stored: StoredConversation; search: string }): boolean {
   const { stored, search } = params;
 
   return stored.title.toLowerCase().includes(search.toLowerCase());
+}
+
+/**
+ * Whether `stored` passes a listing's filters: its title has `search` (ignoring case), it was
+ * kept in `workspace`, and on `profile`. A filter left out keeps everything.
+ */
+export function matchesStored(params: {
+  stored: StoredConversation;
+  search?: string | undefined;
+  workspace?: string | undefined;
+  profile?: string | undefined;
+}): boolean {
+  const { stored, search, workspace, profile } = params;
+
+  return (
+    (!search || matchesTitle({ stored, search })) &&
+    (workspace === undefined || stored.workspace === workspace) &&
+    (profile === undefined || stored.profile === profile)
+  );
 }
 
 /** Whether `skill` matches `search`: its name or description has it, ignoring case. */

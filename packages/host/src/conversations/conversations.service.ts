@@ -3,16 +3,18 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import { ConversationKeeper } from './keeper.service.js';
+import { InFlight } from './in-flight.service.js';
+import { ConversationQueues } from './queues.service.js';
 import { readStoredConversation } from './stored-conversation.helper.js';
 import { ModelChanges } from './model-changes.service.js';
 import type {
-  ConversationStorage,
   CreateConversation,
   LiveConversation,
   SentPrompt,
   StartConversationParams,
+  StorageOf,
 } from './conversations.types.js';
-import { matchesSearch, matchesTitle } from './conversations.utils.js';
+import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -46,10 +48,13 @@ export class Conversations {
   /** Each conversation's running prompt's stop switch. */
   readonly #running = new Map<ConversationId, AbortController>();
   readonly #modelChanges = new ModelChanges();
+  readonly #queues: ConversationQueues;
+  readonly #reopening = new InFlight<ConversationId, ConversationId>();
 
   constructor(params: { create: CreateConversation; store?: ConversationStore }) {
     this.#create = params.create;
     this.#store = params.store;
+    this.#queues = new ConversationQueues({ store: params.store });
   }
 
   /**
@@ -84,6 +89,11 @@ export class Conversations {
   async reopen(id: ConversationId): Promise<ConversationId> {
     if (this.#live.has(id)) return id;
 
+    // Two reopens at once would both log the repair placeholder: they share one.
+    return this.#reopening.run({ key: id, start: () => this.#reopenStored(id) });
+  }
+
+  async #reopenStored(id: ConversationId): Promise<ConversationId> {
     if (!this.#store) {
       throw new ConversationsError({
         reason: 'not_found',
@@ -91,7 +101,10 @@ export class Conversations {
       });
     }
 
-    const { stored, messages, resume } = await readStoredConversation({ store: this.#store, id });
+    const { stored, logged, messages, resume } = await readStoredConversation({
+      store: this.#store,
+      id,
+    });
     const keeper = this.#keeperFor(id);
     const storage = this.#storageOf({ keeper, id }).storage;
     const live = await this.#create({
@@ -107,7 +120,7 @@ export class Conversations {
 
     this.#live.set(id, live);
     keeper?.begin({ ...stored, status: 'open' });
-    keeper?.keepHistory(messages);
+    keeper?.resumeWith({ logged, messages });
 
     return id;
   }
@@ -126,14 +139,8 @@ export class Conversations {
       profile?: string | undefined;
     } = {},
   ): Promise<StoredConversation[]> {
-    const { search, workspace, profile } = params;
     const stored = (await this.#store?.list()) ?? [];
-    const wanted = stored.filter(
-      (each) =>
-        (!search || matchesTitle({ stored: each, search })) &&
-        (workspace === undefined || each.workspace === workspace) &&
-        (profile === undefined || each.profile === profile),
-    );
+    const wanted = stored.filter((each) => matchesStored({ stored: each, ...params }));
 
     return wanted.map((conversation) =>
       conversation.status === 'open' && !this.#live.has(conversation.id)
@@ -241,19 +248,21 @@ export class Conversations {
   }
 
   /** What the app builds conversation `id` on so it is kept: its stream's store and its history. */
-  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): {
-    storage?: ConversationStorage;
-  } {
+  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): StorageOf {
     const { keeper, id } = params;
 
-    if (!keeper || !this.#store) return {};
+    const store = this.#store;
+
+    if (!keeper || !store) return {};
 
     return {
       storage: {
-        entries: this.#store.entries(id),
-        shell: this.#store.shell(id),
-        outputs: this.#store.outputs(id),
+        entries: store.entries(id),
+        shell: store.shell(id),
+        outputs: store.outputs(id),
         keepHistory: (messages) => keeper.keepHistory(messages),
+        keepAgentHistory: (params) => keeper.keepAgentHistory(params),
+        logOf: ({ session, main }) => store.history({ id, session: main ? undefined : session }),
       },
     };
   }
@@ -267,14 +276,13 @@ export class Conversations {
     const live = this.get(id);
     const summary = this.#summary(id);
     const { model, workspace, profile } = live.run.details();
-    const modelId = model.id;
     const mode = model.mode ?? 'medium';
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId: model.id, mode });
     keeper?.begin({
       id,
       title: summary.title,
-      modelId,
+      modelId: model.id,
       mode,
       workspace,
       profile,
@@ -357,6 +365,23 @@ export class Conversations {
     const { id, approval, response } = params;
 
     this.get(id).harness.approvals.respond({ id: approval, response });
+  }
+
+  /**
+   * The lines queued behind conversation `id`'s running prompt, oldest first. Pending input is
+   * outside history, model input and summaries; with a store it survives a restart, and reopening
+   * a conversation never sends it. `not_found` when the conversation is not live.
+   */
+  async queue(id: ConversationId): Promise<string[]> {
+    this.get(id);
+
+    return this.#queues.read(id);
+  }
+
+  /** Replaces conversation `id`'s queued lines, whole. */
+  async setQueue(params: { id: ConversationId; queued: readonly string[] }): Promise<void> {
+    this.get(params.id);
+    await this.#queues.replace(params);
   }
 
   /** The history so far, valid to continue from. */

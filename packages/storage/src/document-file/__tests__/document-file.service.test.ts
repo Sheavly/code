@@ -93,6 +93,21 @@ describe('DocumentFile', () => {
     expect(await readFile(document.file, 'utf8')).toBe('{ nope');
   });
 
+  it('does not quote the text of a damaged document in its error: it may be private', async () => {
+    const document = open();
+
+    await mkdir(path.dirname(document.file), { recursive: true });
+    await writeFile(document.file, '{ "queued": ["my secret token sk-abc123" nope }');
+
+    const failure = await document.load().then(
+      () => undefined,
+      (caughtError: unknown) => caughtError as Error,
+    );
+
+    expect(failure).toBeInstanceOf(StorageFileError);
+    expect(JSON.stringify([failure?.message, failure?.cause])).not.toContain('sk-abc123');
+  });
+
   it.skipIf(!canChmod)(
     'writes it private to the user, in a folder private to the user',
     async () => {

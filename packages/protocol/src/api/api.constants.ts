@@ -3,6 +3,7 @@ import {
   conversationDetailsSchema,
   conversationsResponseSchema,
   messagesResponseSchema,
+  queuedPromptsSchema,
   yieldPromptResponseSchema,
   sendPromptRequestSchema,
   skillsQuerySchema,
@@ -122,6 +123,22 @@ export const API_ROUTES = {
     summary:
       'Ask the running prompt to end at its completion point without waiting for background work; nothing is interrupted or steered',
     response: { status: 200, schema: yieldPromptResponseSchema },
+  },
+  getQueue: {
+    effect: 'read',
+    method: 'get',
+    path: '/conversations/{id}/queue',
+    summary:
+      'The lines queued behind the running prompt, kept across a restart and never sent by reopening',
+    response: { status: 200, schema: queuedPromptsSchema },
+  },
+  setQueue: {
+    effect: 'change',
+    method: 'put',
+    path: '/conversations/{id}/queue',
+    summary: 'Replace the queued lines; they stay outside history, model input and summaries',
+    body: queuedPromptsSchema,
+    response: { status: 204 },
   },
   stopPrompt: {
     effect: 'change',

@@ -211,6 +211,72 @@ export function describeConversationStore(params: { name: string; make: () => Co
       ]);
     });
 
+    it('appends history records in seq order, reads from any seq, and keeps sessions apart', async () => {
+      const store = make();
+      const record = (seq: number) => ({
+        seq,
+        entry: { role: 'user' as const, content: `m${String(seq)}`, at: seq },
+      });
+      const seqsOfLog = async (session?: typeof reader, from?: number) => {
+        const seqs: number[] = [];
+
+        for await (const each of store.history({ id, session }).read(from)) seqs.push(each.seq);
+
+        return seqs;
+      };
+
+      await store.history({ id }).append([record(0), record(1)]);
+      await store.history({ id }).append([record(2)]);
+      await store.history({ id, session: reader }).append([record(0)]);
+
+      expect(await seqsOfLog()).toEqual([0, 1, 2]);
+      expect(await seqsOfLog(undefined, 2)).toEqual([2]);
+      expect(await seqsOfLog(reader)).toEqual([0]);
+
+      for (const seqs of [[0], [4], [3, 5]]) {
+        await expect(store.history({ id }).append(seqs.map(record))).rejects.toMatchObject({
+          name: 'StoreError',
+          reason: 'out_of_order',
+        });
+      }
+
+      expect(await seqsOfLog()).toEqual([0, 1, 2]);
+    });
+
+    it('keeps a conversation’s queue apart from its history, and drops it with the conversation', async () => {
+      const store = make();
+
+      expect(await store.queue(id).load()).toBeUndefined();
+      await store.queue(id).update(() => ({ queued: ['one', 'two'] }));
+      await store.queue(other).update(() => ({ queued: ['other'] }));
+
+      expect(await store.queue(id).load()).toEqual({ queued: ['one', 'two'] });
+      expect(await store.queue(other).load()).toEqual({ queued: ['other'] });
+
+      const records: number[] = [];
+
+      for await (const record of store.history({ id }).read()) records.push(record.seq);
+      expect(records).toEqual([]);
+
+      await store.delete(id);
+      expect(await store.queue(id).load()).toBeUndefined();
+      expect(await store.queue(other).load()).toEqual({ queued: ['other'] });
+    });
+
+    it('deletes a conversation with its history logs, so it starts again from record 0', async () => {
+      const store = make();
+      const first = { seq: 0, entry: { role: 'user' as const, content: 'hi' } };
+
+      await store.history({ id }).append([first]);
+      await store.delete(id);
+
+      const left: number[] = [];
+
+      for await (const each of store.history({ id }).read()) left.push(each.seq);
+      expect(left).toEqual([]);
+      await store.history({ id }).append([first]);
+    });
+
     it('deletes a conversation with its entries, history, sub-agents’ histories and index, and no other', async () => {
       const store = make();
 

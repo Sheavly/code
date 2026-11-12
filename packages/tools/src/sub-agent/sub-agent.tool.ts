@@ -18,6 +18,7 @@ import {
 import type { SubAgentOptions } from './sub-agent.types.js';
 import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /**
@@ -106,6 +107,15 @@ async function runChild(params: {
     if (update.type === 'session_message') onOutput(`[message] ${update.message.content}\n`);
   });
 
+  // An id marks the one message the sub-agent's own work is asked for: the agent that started
+  // it wrote the task, and no one else can message a sub-agent as a user.
+  const first: HistoryMessage[] = [
+    { role: 'user', id: messageIdSchema.parse(randomUUID()), content: task, at: now() },
+  ];
+
+  // Kept before the run, so a crash mid-run does not lose what the agent was asked.
+  options.keepHistory?.({ session: child.id, messages: first });
+
   try {
     const { reason, messages } = await runAgent({
       provider,
@@ -128,16 +138,19 @@ async function runChild(params: {
         rules: SUB_AGENT_INSTRUCTIONS,
         extra: instructions,
       }),
-      // An id marks the one message the sub-agent's own work is asked for: the agent that started
-      // it wrote the task, and no one else can message a sub-agent as a user.
-      messages: [
-        { role: 'user', id: messageIdSchema.parse(randomUUID()), content: task, at: now() },
-      ],
+      messages: first,
+      ...(options.keepHistory && {
+        keepHistory: (kept: readonly HistoryMessage[]) =>
+          options.keepHistory?.({ session: child.id, messages: kept }),
+      }),
       signal,
       tasks: childTasks,
       session: { registry: sessions, ref: child },
       ...(summary && { summary }),
     });
+
+    // Kept whatever the reason: work a stopped run did stays in the record.
+    options.keepHistory?.({ session: child.id, messages });
 
     // A run that did not finish has no report: its last message is work in progress. Throwing
     // fails the task with the reason, so the parent is told it failed and why, not handed text.

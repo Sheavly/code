@@ -75,6 +75,12 @@ export function apiHandlers(
       }),
     sendPrompt: ({ c, id, body }) => sendPrompt({ c, id, body, conversations }),
     yieldPrompt: ({ c, id }) => c.json({ accepted: conversations.yieldPrompt(id) }),
+    getQueue: async ({ c, id }) => c.json({ queued: await conversations.queue(id) }),
+    setQueue: async ({ c, id, body }) => {
+      await conversations.setQueue({ id, queued: body.queued });
+
+      return c.body(null, 204);
+    },
     stopPrompt: ({ c, id }) => {
       conversations.stop(id);
 

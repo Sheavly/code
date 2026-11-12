@@ -8,11 +8,37 @@ import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { DEFAULT_SUMMARY_POLICY } from '../summary.constants.js';
 import {
   chooseCut,
+  keepTokensFor,
   latestCheckpoint,
+  maxTailTokensFor,
   shouldSummarize,
   spanToSummarize,
   viewOf,
 } from '../summary.utils.js';
+
+describe('keepTokensFor', () => {
+  const WINDOW = 100_000;
+
+  it('lands the context between 15% and 50% of the window, less room for the checkpoint', () => {
+    const keep = (used: number) => keepTokensFor({ window: WINDOW, used, fallback: 15_000 });
+
+    // 35% of 90k is 31.5k, less the 10k reserve.
+    expect(keep(90_000)).toBe(21_500);
+    // A nearly empty context still keeps the 15% floor, less the reserve.
+    expect(keep(1_000)).toBe(5_000);
+    // A context beyond the window cannot ask for more than the 50% ceiling, less the reserve.
+    expect(keep(400_000)).toBe(40_000);
+  });
+
+  it('works without a reported usage, from the window alone, and never keeps nothing', () => {
+    expect(keepTokensFor({ window: WINDOW, used: undefined, fallback: 15_000 })).toBe(25_000);
+    expect(keepTokensFor({ window: 10, used: 1, fallback: 15_000 })).toBeGreaterThanOrEqual(1);
+  });
+
+  it('uses the fixed tail where the window is unknown', () => {
+    expect(keepTokensFor({ window: undefined, used: 5_000, fallback: 15_000 })).toBe(15_000);
+  });
+});
 
 /** 40 characters: ten tokens by the estimate. */
 const TEXT = 'x'.repeat(40);
@@ -49,8 +75,17 @@ describe('shouldSummarize', () => {
     expect(at(255_001)).toBe(true);
   });
 
-  it('uses the minimum free room on a small window, but never more than half of it', () => {
+  it('triggers at 85% of a small window too, with no extra floor by default', () => {
     const small = (used: number) => shouldSummarize({ context: { window: 20_000, used }, policy });
+
+    expect(small(17_000)).toBe(false);
+    expect(small(17_001)).toBe(true);
+  });
+
+  it('uses a minimum free room a UI asks for, but never more than half of the window', () => {
+    const floored = { ...policy, minFreeTokens: 16_000 };
+    const small = (used: number) =>
+      shouldSummarize({ context: { window: 20_000, used }, policy: floored });
 
     expect(small(10_000)).toBe(false);
     expect(small(10_001)).toBe(true);
@@ -97,6 +132,68 @@ describe('chooseCut', () => {
     // The tail holds the last two rounds; everything between the prompt and it is summarized.
     expect(chooseCut({ history, keepTokens: 40 })).toBe(9);
     expect(spanToSummarize({ history, cut: 9 }).messages).toHaveLength(9);
+  });
+
+  it('summarizes a newest call group larger than the tail cap instead of keeping it whole', () => {
+    const big = (call: string): HistoryMessage => ({
+      role: 'tool',
+      toolCallId: callIdSchema.parse(call),
+      content: 'y'.repeat(4_000),
+      isError: false,
+    });
+    const history = [
+      user(),
+      assistant(),
+      user(),
+      assistant('c1'),
+      big('c1'),
+      assistant('c2'),
+      big('c2'),
+    ];
+
+    // Two groups of about 1,000 tokens each are kept whole when nothing caps the tail.
+    expect(chooseCut({ history, keepTokens: 1_500 })).toBe(3);
+    // Over the cap the older group is summarized; the newest is kept, since a tail is never empty.
+    expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 1_500 })).toBe(5);
+    // A newest group over the cap by itself is still kept: the older history is what shrinks.
+    expect(chooseCut({ history, keepTokens: 1_500, maxTailTokens: 500 })).toBe(5);
+  });
+
+  it('counts the pinned prompt against the tail cap', () => {
+    const bigPrompt = user('p'.repeat(4_000));
+    const history = [bigPrompt, assistant('c1'), result('c1'), assistant('c2'), result('c2')];
+
+    // Everything fits keepTokens, so nothing is older than the tail and there is nothing to summarize.
+    expect(chooseCut({ history, keepTokens: 5_000, maxTailTokens: 5_000 })).toBeUndefined();
+    // The prompt (about 1,000 tokens) is over a 500 cap, so the cut moves up to the newest group.
+    expect(chooseCut({ history, keepTokens: 5_000, maxTailTokens: 500 })).toBe(3);
+  });
+
+  it('caps a tail after an earlier checkpoint, keeping at least the newest group', () => {
+    const big: HistoryMessage = {
+      role: 'tool',
+      toolCallId: callIdSchema.parse('c2'),
+      content: 'y'.repeat(2_000),
+      isError: false,
+    };
+    const history = [
+      user(),
+      assistant(),
+      checkpoint({ kept: 2 }),
+      assistant('c2'),
+      big,
+      assistant('c3'),
+      result('c3'),
+    ];
+    const cut = chooseCut({ history, keepTokens: 1_000, maxTailTokens: 100 });
+
+    expect(cut).toBe(5);
+    expect(history.length - (cut ?? 0)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('derives the tail cap from the window: its post-summary ceiling less the checkpoint room', () => {
+    expect(maxTailTokensFor(100_000)).toBe(40_000);
+    expect(maxTailTokensFor(undefined)).toBeUndefined();
   });
 
   it('is undefined when only the pinned prompt lies before the tail', () => {

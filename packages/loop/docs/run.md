@@ -176,12 +176,16 @@ the UI passes them.
   a very large pasted prompt stays in every view, and if the view alone fills the window no cut
   can shrink it.
 - **When.** After finished tasks and received messages are added, before `beforeTurn`: threshold,
-  when less than the free buffer is left (a share of the window, at least a minimum, never more
-  than half of it; unknown window or usage means no summary). Also once per model call when the
+  when less than the free buffer is left (15% of the window by default, so at 85% used; a UI may
+  add a minimum in tokens, never more than half of the window; unknown window or usage means no
+  summary). Also once per model call when the
   provider rejects the call as too long (`context_window_exceeded`): one summary, then a retry,
   and the run ends `context_window_exceeded` as before if that fails or happens again.
 - **The cut.** `chooseCut` keeps about `keepTokens` of the newest messages, never splits a tool
-  call from its result. It may cut past the latest user message, which the view pins, and finds
+  call from its result. Unless the UI set `keepTokens`, `keepTokensFor` sizes the tail from the
+  window and how full the context was, so the context lands between 15% and 50% of the window
+  after the summary (aiming at 35% of what it used, less room for the checkpoint and the pinned
+  request) and the tail is never empty, even in a conversation of one prompt. It may cut past the latest user message, which the view pins, and finds
   nothing to summarize only when nothing but pinned messages lies before the tail. The
   summarizer is given the newest checkpoint's sections and the messages since its tail began,
   the pinned prompt included, since it needs the request to write the goal, so each pass is small
@@ -190,7 +194,27 @@ the UI passes them.
 - **Events.** `summary_started`, then exactly one `summary_done` or `summary_failed`, through the
   ordered queue. A failure (the summarizer threw, the run aborted, the result was rejected) is
   redacted like `run_failed`, appends nothing and never fails the run; threshold summaries stop
-  being tried for the run after `maxFailures` in a row.
+  being tried for the run after `maxFailures` in a row. A summary gets one initial attempt and one
+  retry inside the same `summary_started`/`summary_done` pair (a cancelled run is not retried),
+  and `summary_failed` carries a `kind`: `generation` (the summarizer or a hook produced nothing
+  usable), `preservation` (the result would break the request or tool pairing),
+  `size` (not smaller than what it replaces) or `cancellation`.
+- **Coverage.** Each checkpoint records `covered` (where its coverage ends, which is where its
+  own tail begins) and `incorporated` (the position of the checkpoint it folded in), so
+  successive summaries advance from the beginning without skipping or repeating entries. Stored
+  history is held to it (`assertValidStoredHistory`): a checkpoint that does not end at its own
+  tail, does not fold in exactly the one before it, or covers less than it is refused. A
+  checkpoint stored before coverage was recorded carries neither field and is not held to it.
+- **No room.** When the context is past the threshold, no summary helped (one failed, was not
+  tried again, or there was nothing to summarize) and what a model would be sent is estimated to
+  fill the whole window, the run ends `context_window_exceeded` before calling the model, with
+  history untouched and valid. If the next request still fits, a failed summary leaves the run
+  going on the unchanged view.
+- **The request.** A request is a stored `user` entry, found with `latestRequest`
+  (`@sheavly/core/history/history.utils`); a notice is its own role in history and only becomes a
+  `user` message in what a model is sent, so a notice after the request never fails the check
+  that the request is still shown word for word. `harness/no-adhoc-latest-request` keeps other
+  code from looking it up by hand.
 - **Hooks.** `beforeSummary` runs after `summary_started`, in hook order, and may move the cut
   (`keepTokens`) or add sections (`runBeforeSummary`); its result is parsed, and a bad one is a
   `SummaryHookError`, and a throw a `HookError`, in the text of a `summary_failed`, like any other

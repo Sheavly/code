@@ -7,6 +7,7 @@ import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelSelection } from '@sheavly/protocol/model/model.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 /**
  * Runs one nested agent loop to its end. The host passes the loop's `runSession` here (tools
@@ -55,4 +56,11 @@ export type SubAgentOptions = {
    * user switched to since. Passed on to the sub-agents it starts; none means no summaries.
    */
   summarizeWith?: (provider: Provider) => SummaryOptions;
+  /**
+   * Keeps a sub-agent's history durably: told with the history so far, whole, before the run (so a
+   * crash does not lose the task) and again with the full history when the run ends. Each call
+   * holds every entry so far, so the receiver appends only what is new. Passed on to the
+   * sub-agents it starts; none keeps nothing.
+   */
+  keepHistory?: (params: { session: SessionId; messages: readonly HistoryMessage[] }) => void;
 };

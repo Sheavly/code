@@ -71,7 +71,8 @@ export type Look = {
   }) => string;
   summaryStarted: () => string;
   summaryDone: (params: { tokensBefore: number; tokensAfter: number }) => string;
-  summaryFailed: (error: string) => string;
+  /** `cancelled` is a summary stopped by the person, which needs no word of its own. */
+  summaryFailed: (params: { error: string; cancelled: boolean }) => string;
   runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   turnEnd: (params: {

@@ -1,10 +1,17 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
+import { latestPromptIndex, latestRequestIndex } from '@sheavly/core/history/history.utils';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import { formatCheckpoint } from '@sheavly/core/summary/summary.utils';
 import type { SummaryBody, SummarySection } from '@sheavly/core/summary/summary.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message, SummaryMessage } from '@sheavly/protocol/message/message.types';
-import { CHARS_PER_TOKEN } from './summary.constants.js';
+import {
+  CHARS_PER_TOKEN,
+  CHECKPOINT_RESERVE_SHARE,
+  TARGET_MAX_SHARE,
+  TARGET_MIN_SHARE,
+  TARGET_RATIO,
+} from './summary.constants.js';
 import type { SummaryPolicy } from '@sheavly/core/summary/summary.types';
 import { noticeForView, visibleCallIds } from './notice-view.utils.js';
 
@@ -37,6 +44,31 @@ export function shouldSummarize(params: { context: ContextState; policy: Summary
   const buffer = Math.min(Math.max(window * policy.freeShare, policy.minFreeTokens), window / 2);
 
   return window - used < buffer;
+}
+
+/**
+ * How many tokens of the newest messages stay word for word, so the context lands between 15% and
+ * 50% of the window after the summary: a share of what it used when it summarized, clamped to
+ * those bounds, less room for the checkpoint and the pinned entries. Never below one token, so
+ * the tail is never empty (`chooseCut` always keeps the newest message). `fallback` is for a
+ * window nobody knows.
+ */
+export function keepTokensFor(params: {
+  window: number | undefined;
+  used: number | undefined;
+  fallback: number;
+}): number {
+  const { window, fallback } = params;
+
+  if (window === undefined) return fallback;
+
+  const basis = params.used ?? window;
+  const target = Math.min(
+    Math.max(basis * TARGET_RATIO, window * TARGET_MIN_SHARE),
+    window * TARGET_MAX_SHARE,
+  );
+
+  return Math.max(1, Math.round(target - window * CHECKPOINT_RESERVE_SHARE));
 }
 
 /**
@@ -126,8 +158,8 @@ export function pinnedBefore(params: {
 /** Where the pinned user messages older than `start` are, oldest first. */
 function pinnedIndices(params: { history: readonly HistoryMessage[]; start: number }): number[] {
   const { history, start } = params;
-  const prompt = history.findLastIndex((message) => message.role === 'user' && message.id);
-  const latestUser = history.findLastIndex((message) => message.role === 'user');
+  const prompt = latestPromptIndex(history);
+  const latestUser = latestRequestIndex(history);
 
   return [...new Set([prompt, latestUser])]
     .filter((index) => index >= 0 && index < start)
@@ -184,15 +216,20 @@ function projectHistory(params: {
 export function chooseCut(params: {
   history: readonly HistoryMessage[];
   keepTokens: number;
+  /**
+   * A tail (with the pinned messages shown before it) larger than this is summarized too, except
+   * the newest call and its results. Leave it out when a UI or hook chose `keepTokens`.
+   */
+  maxTailTokens?: number | undefined;
 }): number | undefined {
-  const { history, keepTokens } = params;
+  const { history, keepTokens, maxTailTokens } = params;
 
   if (!history.some((message) => message.role === 'user')) return undefined;
 
   let cut = tailStart({ history, keepTokens });
 
-  // A result belongs with the assistant message that called it, so the tail starts at the call.
-  while (cut > 0 && history[cut]?.role === 'tool') cut -= 1;
+  cut = alignToCalls({ history, cut });
+  cut = alignToCalls({ history, cut: shrinkOversizedTail({ history, cut, maxTailTokens }) });
 
   const pinned = new Set(pinnedIndices({ history, start: cut }));
   const floor = liveStart(history);
@@ -201,6 +238,89 @@ export function chooseCut(params: {
     .filter((message, offset) => message.role !== 'summary' && !pinned.has(floor + offset));
 
   return summarizable.length > 0 ? cut : undefined;
+}
+
+/**
+ * Moves `cut` back until no tool result in the tail has its call before the cut: a result belongs
+ * with the assistant message that called it, even when something else (a stored notice) sits
+ * between them.
+ */
+function alignToCalls(params: { history: readonly HistoryMessage[]; cut: number }): number {
+  const { history } = params;
+  let { cut } = params;
+  let moved = true;
+
+  while (moved) {
+    moved = false;
+
+    for (const message of history.slice(cut)) {
+      if (message.role !== 'tool') continue;
+
+      const call = history.findIndex(
+        (each) =>
+          each.role === 'assistant' && each.toolCalls.some(({ id }) => id === message.toolCallId),
+      );
+
+      if (call !== -1 && call < cut) {
+        cut = call;
+        moved = true;
+      }
+    }
+  }
+
+  return cut;
+}
+
+/**
+ * The most the kept tail may hold: the post-summary ceiling of the window, less room for the
+ * checkpoint. A single call group (an assistant message and its results) is never split, so one
+ * larger than this would otherwise be kept whole and make the view bigger than it was.
+ */
+export function maxTailTokensFor(window: number | undefined): number | undefined {
+  if (window === undefined) return undefined;
+
+  return Math.max(1, Math.round(window * (TARGET_MAX_SHARE - CHECKPOINT_RESERVE_SHARE)));
+}
+
+/** What a tail starting at `from` costs in the view: its messages and the user messages pinned before it. */
+function tailWithPinned(params: { history: readonly HistoryMessage[]; from: number }): number {
+  const { history, from } = params;
+  const pinned = pinnedIndices({ history, start: from }).flatMap((index) => history[index] ?? []);
+  const shown = [...pinned, ...history.slice(from)];
+
+  return shown.reduce(
+    (sum, message) => sum + (message.role === 'summary' ? 0 : estimateTokens(message)),
+    0,
+  );
+}
+
+/**
+ * Moves `cut` forward, one call group at a time, until the tail it leaves fits `maxTailTokens`.
+ * Stops at the newest call group, never leaving an empty tail: a checkpoint keeps at least one
+ * message (`kept` is positive). A newest group over the cap is still kept: with enough older
+ * history the summary shrinks the view anyway, and `assertViewShrinks` rejects one that cannot.
+ */
+function shrinkOversizedTail(params: {
+  history: readonly HistoryMessage[];
+  cut: number;
+  maxTailTokens: number | undefined;
+}): number {
+  const { history, maxTailTokens } = params;
+  let { cut } = params;
+
+  if (maxTailTokens === undefined) return cut;
+
+  let newestGroup = history.length - 1;
+
+  while (newestGroup > 0 && history[newestGroup]?.role === 'tool') newestGroup -= 1;
+
+  while (cut < newestGroup && tailWithPinned({ history, from: cut }) > maxTailTokens) {
+    cut += 1;
+
+    while (cut < newestGroup && history[cut]?.role === 'tool') cut += 1;
+  }
+
+  return cut;
 }
 
 /**

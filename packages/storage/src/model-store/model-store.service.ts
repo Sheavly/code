@@ -88,7 +88,7 @@ export class ModelStore {
 
   async #read(id: ModelId): Promise<Model | undefined> {
     const file = this.#fileOf(id);
-    const stored = await readJsonFile({ file, schema: modelFileSchema });
+    const stored = await readJsonFile({ file, schema: modelFileSchema, holdsSecrets: false });
 
     if (!stored) return undefined;
 

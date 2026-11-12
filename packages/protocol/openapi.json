@@ -231,6 +231,51 @@
         }
       }
     },
+    "/conversations/{id}/queue": {
+      "get": {
+        "operationId": "getQueue",
+        "summary": "The lines queued behind the running prompt, kept across a restart and never sent by reopening",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/QueuedPrompts" } }
+            }
+          },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "setQueue",
+        "summary": "Replace the queued lines; they stay outside history, model input and summaries",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/QueuedPrompts" } }
+          }
+        },
+        "responses": {
+          "204": { "description": "Done" },
+          "default": {
+            "description": "Refused: its `code` says why",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
+            }
+          }
+        }
+      }
+    },
     "/conversations/{id}/stop": {
       "post": {
         "operationId": "stopPrompt",
@@ -1562,6 +1607,10 @@
             "properties": {
               "type": { "type": "string", "const": "summary_failed" },
               "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "kind": {
+                "type": "string",
+                "enum": ["generation", "preservation", "size", "cancellation"]
+              },
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
@@ -1854,6 +1903,10 @@
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "type": { "type": "string", "const": "summary_failed" },
               "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "kind": {
+                "type": "string",
+                "enum": ["generation", "preservation", "size", "cancellation"]
+              },
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
@@ -2016,6 +2069,8 @@
               },
               "kept": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
               "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "covered": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
+              "incorporated": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "summarizer": { "type": "string", "minLength": 1 },
               "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
@@ -2494,6 +2549,16 @@
                       "maximum": 9007199254740991
                     },
                     "summarized": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+                    "covered": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "incorporated": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "summarizer": { "type": "string", "minLength": 1 },
                     "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
                   },
@@ -2624,6 +2689,17 @@
         "type": "object",
         "properties": { "accepted": { "type": "boolean" } },
         "required": ["accepted"]
+      },
+      "QueuedPrompts": {
+        "type": "object",
+        "properties": {
+          "queued": {
+            "maxItems": 100,
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 20000 }
+          }
+        },
+        "required": ["queued"]
       },
       "StreamQuery": {
         "type": "object",

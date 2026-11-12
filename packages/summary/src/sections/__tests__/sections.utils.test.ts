@@ -39,17 +39,48 @@ describe('userMessagesSection', () => {
     expect(body).toBe('- Fix the total.\n- And update the docs.');
   });
 
-  it('cuts a long message, and drops the oldest when the section is full', () => {
-    const section = userMessagesSection({ maxMessageChars: 10, maxChars: 30 });
+  it('cuts a long message, and drops from the middle when the section is full', () => {
+    const section = userMessagesSection({ maxMessageChars: 10, maxOpeningChars: 10, maxChars: 30 });
     const body = section.write({
       messages: [user('a'.repeat(40)), user('b'.repeat(40)), user('c'.repeat(40))],
       previous: undefined,
     });
 
-    expect(body).not.toContain('a');
+    // The opening message and the newest survive; the one between them is dropped.
+    expect(body).toContain('a');
+    expect(body).not.toContain('b');
     expect(body).toContain('c');
     expect(body.length).toBeLessThanOrEqual(30);
     expect(body).toContain('…');
+  });
+
+  it('keeps the opening message, where the rules usually are, across a long chat', () => {
+    const rule = 'Never touch the production database. Use Python 3.11.';
+    let body = userMessagesSection().write({ messages: [user(rule)], previous: undefined });
+
+    for (let turn = 0; turn < 60; turn += 1) {
+      body = userMessagesSection().write({
+        messages: [user(`Request number ${String(turn)}: ${'x'.repeat(300)}`)],
+        previous: body,
+      });
+    }
+
+    expect(body.startsWith(`- ${rule}`)).toBe(true);
+    expect(body).toContain('Request number 59');
+    expect(body.length).toBeLessThanOrEqual(6_000);
+  });
+
+  it('cuts the opening message later than the rest, so a rule at its end survives', () => {
+    const opening = `${'Context. '.repeat(120)}Never delete the backups.`;
+    const body = userMessagesSection().write({ messages: [user(opening)], previous: undefined });
+
+    expect(body).toContain('Never delete the backups.');
+    expect(
+      userMessagesSection().write({
+        messages: [user('first'), user(opening)],
+        previous: undefined,
+      }),
+    ).not.toContain('Never delete the backups.');
   });
 
   it('does not count a user message the harness added: task output could carry injected text', () => {

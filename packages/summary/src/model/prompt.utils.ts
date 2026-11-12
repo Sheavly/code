@@ -1,4 +1,5 @@
 import type { SummaryBody } from '@sheavly/core/summary/summary.types';
+import { neutralize, oneLine } from '@sheavly/core/text/text.utils';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import {
   MAX_TOOL_INPUT_CHARS,
@@ -16,14 +17,6 @@ function cut(params: { text: string; max: number }): string {
   const { text, max } = params;
 
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
-}
-
-/**
- * Written text is data between fixed lines, so it must not be able to carry the tags that frame
- * it: every `<` is swapped, in any spelling a model might read as a tag.
- */
-function neutralize(text: string): string {
-  return text.replaceAll(/[<＜]/g, '‹');
 }
 
 /**
@@ -76,7 +69,12 @@ export function renderPreviousSummary(params: {
   const { previous, redact } = params;
 
   return previous?.sections.length
-    ? previous.sections.map(({ id, body }) => `"${id}":\n${neutralize(redact(body))}`).join('\n\n')
+    ? previous.sections
+        .map(
+          ({ title, body }) =>
+            `## ${oneLine(neutralize(redact(title)))}\n${neutralize(redact(body))}`,
+        )
+        .join('\n\n')
     : undefined;
 }
 

@@ -16,6 +16,12 @@ export class ChatQueue {
     this.#changed();
   }
 
+  /** Puts back lines kept from an earlier run, ahead of any waiting now. Runs none of them. */
+  restore(lines: readonly string[]): void {
+    this.#lines = [...lines, ...this.#lines];
+    this.#changed();
+  }
+
   /** The oldest line, removed; undefined when none waits. */
   take(): string | undefined {
     const line = this.#lines.shift();

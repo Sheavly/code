@@ -33,6 +33,16 @@ function answering(reply: string, stopReason: 'end_turn' | 'max_tokens' = 'end_t
 }
 
 const signal = new AbortController().signal;
+
+/** What summarizing throws when the model answers `reply`. */
+async function failureOf(reply: string): Promise<unknown> {
+  const { provider } = answering(reply);
+
+  return modelSummarizer({ provider, redact: (text) => text })
+    .summarize({ messages: [{ role: 'user', content: 'a' }], signal })
+    .catch((caughtError: unknown) => caughtError);
+}
+
 /** The app's redactor, stood in for by one it can be checked against. */
 const redact = (text: string) => text.replaceAll('hunter2', '[REDACTED]');
 /** A message a person typed: the host gives it an id. */
@@ -191,10 +201,7 @@ describe('modelSummarizer', () => {
   });
 
   it('refuses an unusable reply with a typed error that does not quote it', async () => {
-    const { provider } = answering('sk-abcdefghijklmnopqrstuvwxyz is not JSON');
-    const failure = await modelSummarizer({ provider, redact })
-      .summarize({ messages: [user('a')], signal })
-      .catch((caughtError: unknown) => caughtError);
+    const failure = await failureOf('sk-abcdefghijklmnopqrstuvwxyz has no heading');
 
     expect(failure).toBeInstanceOf(SummaryReplyError);
     expect(failure instanceof Error && failure.message).not.toContain('abcdefghijklmnop');
@@ -206,6 +213,49 @@ describe('modelSummarizer', () => {
     await expect(
       modelSummarizer({ provider, redact }).summarize({ messages: [user('a')], signal }),
     ).rejects.toThrow('max_tokens');
+  });
+
+  it('reads a reply of plain text under headings, attaching each id and title itself', async () => {
+    const { provider } = answering(
+      '## Goal\n- fix the total\n- keep "tax" as is\n\n## Task state\nStarted.',
+    );
+    const result = await modelSummarizer({ provider, redact }).summarize({
+      messages: [user('Fix the total.')],
+      signal,
+    });
+
+    expect(result.sections.map(({ id, title, body }) => [id, title, body])).toEqual([
+      ['goal', 'Goal', '- fix the total\n- keep "tax" as is'],
+      ['state', 'Task state', 'Started.'],
+    ]);
+  });
+
+  it('refuses a reply longer than the cap as it arrives, saying only its length', async () => {
+    const failure = await failureOf(`## Goal\n${'x'.repeat(200_001)}`);
+
+    expect(failure).toBeInstanceOf(SummaryReplyError);
+    expect(failure instanceof Error && failure.message).toContain('longer than 200000');
+    expect(failure instanceof Error && failure.message).not.toContain('xxxx');
+  });
+
+  it('refuses sections whose titles or ids would make a heading ambiguous', () => {
+    const { provider } = answering('');
+    const section = (id: string, title: string) => ({ id, title, guidance: 'x' });
+
+    expect(() =>
+      modelSummarizer({ provider, redact, sections: [section('a', 'Same'), section('b', 'same')] }),
+    ).toThrow('two sections share a title');
+    expect(() =>
+      modelSummarizer({ provider, redact, sections: [section('a', 'B'), section('b', 'Other')] }),
+    ).toThrow("a section's title is another section's id");
+    expect(() =>
+      modelSummarizer({
+        provider,
+        redact,
+        sections: [section('goal', 'Goal')],
+        ruleSections: [{ ...windowSection, title: 'Goal' }],
+      }),
+    ).toThrow('two sections share a title');
   });
 
   it('refuses a definition with no sections or a repeated id', () => {

@@ -113,6 +113,22 @@ ruleTester.run('no-dotdot-prefix', harnessPlugin.rules['no-dotdot-prefix'], {
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
 
+ruleTester.run('no-adhoc-latest-request', harnessPlugin.rules['no-adhoc-latest-request'], {
+  valid: [
+    "import { latestRequest } from '@sheavly/core/history/history.utils'; const request = latestRequest(history);",
+    // Other lookups are not about the request.
+    "const last = history.findLastIndex((entry) => entry.role === 'summary');",
+    "const reply = messages.findLast((m) => m.role === 'assistant');",
+    "const found = history.find((entry) => entry.role === 'user');",
+  ],
+  invalid: [
+    "const latest = history.findLast((entry) => entry.role === 'user');",
+    "const at = history.findLastIndex((message) => message.role === 'user');",
+    "const typed = history.findLastIndex((m) => m.role === 'user' && m.id);",
+    "const latestUser = messages.findLast((message): message is Message => message.role === 'user');",
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
 ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
   valid: [
     "import { now } from '@sheavly/core/clock/clock.helper'; const startedAt = now();",

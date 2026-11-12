@@ -57,9 +57,15 @@ What the call does, and why:
 - **Temperature zero, as a hint.** `ProviderRequest.temperature` is sent only where the API accepts
   it beside the call's other settings (see the providers' backends doc), and left out otherwise. The
   prompt is the other guard against a different summary each time.
-- **One JSON object back.** Parsed with zod. Anything else, or a reply cut off at the output limit,
-  throws a `SummaryReplyError` that names the problem and never quotes the reply (model-written text
-  over material that may hold secrets). The loop reports it as a failed summary and carries on.
+- **Plain text under headings back.** The prompt asks for a heading line per section (its title)
+  with the text under it, and our code attaches each section's id and title: the model produces no
+  structure to get wrong. Lists, quotes and code are ordinary text; a line inside a code fence is
+  never a heading; a heading that names no asked-for section stays part of the text above it; and a
+  JSON object keyed by id is still read. Section titles and ids must be unique together
+  (`assertSectionIds`). A reply with no text under any heading, one cut off at the output limit, or
+  longer than the cap throws a `SummaryReplyError` that names the problem and its shape (length and
+  how it starts) and never quotes the reply (model-written text over material that may hold
+  secrets). The loop reports it as a failed summary and carries on.
 - **Usage is returned.** The summarizer returns the call's usage; the loop emits it as a `usage`
   event tagged `summary`, which the ledger counts and the session's last tokens ignore.
 

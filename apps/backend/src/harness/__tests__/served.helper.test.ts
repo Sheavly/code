@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { historyRecordSchema } from '@sheavly/protocol/history/history.validator';
 import type { Model } from '@sheavly/protocol/model/model.types';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { collect, fakeFetch, fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
@@ -298,14 +299,21 @@ describe('a conversation the backend keeps', () => {
 
     const found = await readdir(path.join(home, 'profiles'), { recursive: true });
     const kept = found.filter((name) => name.includes(`conversations${path.sep}${id}${path.sep}`));
-    const history = kept.find((name) => name.endsWith('history.json')) ?? '';
+    const history = kept.find((name) => name.endsWith('history.jsonl')) ?? '';
 
     expect(kept.map((name) => path.basename(name))).toEqual(
-      expect.arrayContaining(['history.json', 'index.json', 'stream.jsonl']),
+      expect.arrayContaining(['history.jsonl', 'index.json', 'stream.jsonl']),
     );
-    expect(JSON.parse(await readFile(path.join(home, 'profiles', history), 'utf8'))).toEqual(
-      expect.arrayContaining([expect.objectContaining({ role: 'user', content: 'hi' })]),
-    );
+
+    const records = (await readFile(path.join(home, 'profiles', history), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as unknown);
+
+    const parsed = historyRecordSchema.array().parse(records);
+
+    expect(parsed[0]).toMatchObject({ seq: 0, entry: { role: 'user', content: 'hi' } });
+    expect(parsed.map((record) => record.seq)).toEqual(parsed.map((_, index) => index));
   });
 
   it('is not stored when there is no profile: the conversation is refused first', async () => {

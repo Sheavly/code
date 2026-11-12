@@ -4,7 +4,12 @@ import { toStoreError } from '@sheavly/core/store/store.utils';
 import { lowercaseUuidSchema } from '@sheavly/protocol/id/id.validator';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
-import { AGENT_HISTORY_SUFFIX, AGENTS_FOLDER } from './conversation-store.constants.js';
+import {
+  AGENT_HISTORY_LOG_SUFFIX,
+  AGENT_HISTORY_SUFFIX,
+  AGENTS_FOLDER,
+  HISTORY_LOG_FILE,
+} from './conversation-store.constants.js';
 
 /**
  * The folder of conversation `id` inside `conversations`. An id is typed, but a type proves nothing
@@ -33,14 +38,33 @@ export function conversationFolder(params: { conversations: string; id: string }
 export function agentHistoryFile(params: { folder: string; session: SessionId }): string {
   const { folder, session } = params;
 
-  if (!lowercaseUuidSchema.safeParse(session).success) {
-    throw new StoreError({
-      reason: 'failed',
-      message: `Session id ${JSON.stringify(session)} is not safe to name a file after: only a lowercase UUID is`,
-    });
-  }
+  assertSafeSessionName(session);
 
   return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_SUFFIX}`);
+}
+
+/** Throws a `StoreError` unless `session` is a lowercase UUID, the only shape that names a file. */
+function assertSafeSessionName(session: SessionId): void {
+  if (lowercaseUuidSchema.safeParse(session).success) return;
+
+  throw new StoreError({
+    reason: 'failed',
+    message: `Session id ${JSON.stringify(session)} is not safe to name a file after: only a lowercase UUID is`,
+  });
+}
+
+/**
+ * The file of a session's history log in a conversation's folder: the main session's, or
+ * sub-agent `session`'s, held to the same rule as `agentHistoryFile` (only a UUID names a file).
+ */
+export function historyLogFile(params: { folder: string; session: SessionId | undefined }): string {
+  const { folder, session } = params;
+
+  if (session === undefined) return path.join(folder, HISTORY_LOG_FILE);
+
+  assertSafeSessionName(session);
+
+  return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_LOG_SUFFIX}`);
 }
 
 /**

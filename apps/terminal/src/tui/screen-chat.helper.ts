@@ -118,7 +118,15 @@ export async function startScreenChat(params: {
       bell.finishTurn();
       screen.endTurn(outcome);
     },
-    onQueue: (queue) => screen.setQueue(queue),
+    onQueue: (queue) => {
+      screen.setQueue(queue);
+      // Kept with the conversation so a restart does not lose it; a failure is shown, not fatal.
+      void conversation
+        .setQueue(queue)
+        .catch((caughtError: unknown) =>
+          screen.notice(`Could not keep the queue: ${String(caughtError)}`),
+        );
+    },
     onTools: (tools) => {
       bell.watchTools(tools);
       screen.setStatus({ tools });
@@ -163,6 +171,8 @@ export async function startScreenChat(params: {
   });
 
   screen.start();
+  // Lines queued before a restart are shown as waiting and not sent: reopening never runs them.
+  session.restoreQueued(await conversation.queue());
   if (firstPrompt) session.submit(firstPrompt);
 
   return {

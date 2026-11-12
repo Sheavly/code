@@ -10,4 +10,10 @@ export default defineConfig([
     files: ['src/scratch/scratch-root.helper.ts', 'src/scratch/scratch.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // Looks through the messages a `beforeTurn` hook is handed (a model view) for the context it
+  // added earlier, matched by its text; it is not looking for the request in stored history.
+  {
+    files: ['src/instruction-context/instruction-context.helper.ts'],
+    rules: { 'harness/no-adhoc-latest-request': 'off' },
+  },
 ]);

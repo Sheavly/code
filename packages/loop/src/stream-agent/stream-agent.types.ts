@@ -26,6 +26,12 @@ export type AgentOptions = {
    * checkpoint (one already in `messages` is still applied to what the model sees).
    */
   summary?: SummaryOptions;
+  /**
+   * Called with the whole stored history after every turn (reply, tool results and any
+   * checkpoint in it), so a long run is on disk as it goes and a search can find what it did.
+   * History only grows between calls. Must return at once: the loop does not wait for it.
+   */
+  keepHistory?: (messages: readonly HistoryMessage[]) => void;
   /** Model calls before the run stops with `max_turns`. Without it a run goes on until it is done or stopped. */
   maxTurns?: number;
   /** Extra calls after output truncation, unlimited by default. Set to zero to stop immediately. */

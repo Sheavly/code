@@ -69,6 +69,33 @@ describe('a stored notice in the model view', () => {
     expect(pinned).toEqual([prompt, latest]);
   });
 
+  it('never leaves a tail that starts on a result whose call was summarized, notice between them', () => {
+    const call = historyMessageSchema.parse({
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: 'c1', name: 'read_file', input: {} }],
+      at: 2,
+    });
+    const result = historyMessageSchema.parse({
+      role: 'tool',
+      toolCallId: 'c1',
+      content: 'r'.repeat(400),
+      isError: false,
+      at: 3,
+    });
+    const history: HistoryMessage[] = [user('go'), user('again'), call, notice, result];
+
+    for (const keepTokens of [1, 10, 50, 150]) {
+      for (const maxTailTokens of [undefined, 1, 60]) {
+        const cut = chooseCut({ history, keepTokens, maxTailTokens });
+
+        // The call is at 2 and its result at 4: the cut keeps both (at or before the call) or
+        // neither (after the result), never the result alone.
+        if (cut !== undefined) expect(cut <= 2 || cut > 4).toBe(true);
+      }
+    }
+  });
+
   it('is summarized like any older message, since it is a plain entry before the cut', () => {
     const history: HistoryMessage[] = [user('go'), notice, notice, user('y'.repeat(2_000))];
 

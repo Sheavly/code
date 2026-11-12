@@ -1,7 +1,7 @@
 import type { Harness } from '../host/host.types.js';
 import type { Conversation } from '../conversation/conversation.types.js';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type { DocumentStore, EntryStore, HistoryLog } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -15,6 +15,7 @@ import type {
   ConversationSummary,
   SendPromptRequest,
 } from '@sheavly/protocol/server/server.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 
@@ -121,8 +122,18 @@ export type ConversationStorage = {
   /** The conversation's complete command output, kept with it and readable after a reopen. */
   outputs: OutputStore;
   keepHistory: (messages: readonly HistoryMessage[]) => void;
+  /** A sub-agent's history so far, whole: only what is new is appended to that session's log. */
+  keepAgentHistory: (params: { session: SessionId; messages: readonly HistoryMessage[] }) => void;
+  /**
+   * The durable history log of a session of this conversation: the main session's when `main`,
+   * else sub-agent `session`'s. What the history tools search and read.
+   */
+  logOf: (params: { session: SessionId; main: boolean }) => HistoryLog;
   resume?: StoredLog | undefined;
 };
+
+/** What the service builds a conversation on: the storage when the host keeps anything, else none. */
+export type StorageOf = { storage?: ConversationStorage };
 
 /** One prompt's events, and the text and parts it sent. */
 export type SentPrompt = {
@@ -135,6 +146,8 @@ export type SentPrompt = {
 export type StoredConversationState = {
   /** Its index entry as stored. */
   stored: StoredConversation;
+  /** How many entries its history log holds: `messages` may be longer by the placeholders. */
+  logged: number;
   /** Its history, with a placeholder for every tool call that never returned. */
   messages: HistoryMessage[];
   /** Its stream, to carry on from. */

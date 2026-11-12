@@ -98,7 +98,11 @@ through the `OrderedQueue` like every other, and carried on the combined session
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------- |
 | `summary_started` | `reason`: `threshold`, `manual` or `overflow`; `tokensBefore`, `messagesBefore`                                              | "Summarizing…"       |
 | `summary_done`    | token and message counts (`tokensAfter` an estimate), `summarized`, `kept`, `summarizer`, a section index (id, title, chars) | "Summarized chat"    |
-| `summary_failed`  | `reason`, `error` (redacted like `run_failed`), `retriesLeft`                                                                | "Couldn't summarize" |
+| `summary_failed`  | `reason`, `kind`, `error` (redacted like `run_failed`), `retriesLeft`                                                        | a calm "carrying on" |
+
+The chat shows a failed summary as one dim line with no error text: the person needs to know the
+chat carries on, not a model's internal error. The cause stays in the event, so it is stored in
+the stream and printed by the plain log (the demo and the workbook), where it is read for diagnosis.
 
 `summary_done` carries data only: the text is the `summary` message in history.
 

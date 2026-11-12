@@ -39,7 +39,6 @@
   ],
   "dependencies": {
     "@sheavly/core": "^0.0.0",
-    "@sheavly/protocol": "^0.0.0",
-    "zod": "^4.6.7"
+    "@sheavly/protocol": "^0.0.0"
   }
 }

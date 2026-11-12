@@ -82,7 +82,7 @@ export class ProfileStore {
 
   async #read(id: ProfileId): Promise<Profile | undefined> {
     const file = path.join(this.folderOf(id), PROFILE_FILE);
-    const stored = await readJsonFile({ file, schema: storedProfileSchema });
+    const stored = await readJsonFile({ file, schema: storedProfileSchema, holdsSecrets: false });
 
     if (!stored) return undefined;
 

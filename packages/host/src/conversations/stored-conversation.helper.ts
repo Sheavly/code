@@ -1,5 +1,7 @@
 import { now } from '@sheavly/core/clock/clock.helper';
+import { readHistoryEntries } from '@sheavly/core/store/history-log.helper';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
@@ -24,9 +26,36 @@ export async function readStoredConversation(params: {
     });
   }
 
+  const logged = await readHistoryEntries(store.history({ id }));
+  const messages = repairHistory({ messages: logged, at: now() });
+
+  assertRepairOnlyAppended({ id, logged, messages });
+
   return {
     stored,
-    messages: repairHistory({ messages: await store.readMessages(id), at: now() }),
+    logged: logged.length,
+    messages,
     resume: await SessionRegistry.readStoredLog(store.entries(id)),
   };
+}
+
+/**
+ * Repair may only add entries after the logged ones, since the log is append-only and a
+ * placeholder is written to it at the end. A call with no result that is followed by more history
+ * would put one in the middle: that is a damaged or hand-edited log, refused rather than numbered
+ * wrongly.
+ */
+function assertRepairOnlyAppended(params: {
+  id: ConversationId;
+  logged: readonly HistoryMessage[];
+  messages: readonly HistoryMessage[];
+}): void {
+  const { id, logged, messages } = params;
+
+  if (logged.every((entry, index) => messages[index] === entry)) return;
+
+  throw new ConversationsError({
+    reason: 'storage_failed',
+    message: `The stored history of conversation ${id} has a tool call with no result before later entries, which cannot be repaired in an append-only log`,
+  });
 }

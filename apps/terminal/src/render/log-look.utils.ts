@@ -31,7 +31,7 @@ export const logLook: Look = {
   summaryStarted: () => '\n… summarizing\n',
   summaryDone: ({ tokensBefore, tokensAfter }) =>
     `\n✓ summarized chat (${tokensBefore} → ${tokensAfter} tokens)\n`,
-  summaryFailed: (error) => `\n✗ couldn't summarize: ${error}\n`,
+  summaryFailed: ({ error }) => `\n✗ couldn't summarize: ${error}\n`,
   runFailed: (error) => `\n✗ Model run failed: ${error}\n`,
   hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
   turnEnd: ({ stopReason, waiting }) => {

@@ -2,7 +2,7 @@
 description: One prompt and a long tool loop reach the summary trigger on a small window, and the run still finishes (a first summary may be rejected as not smaller, since the fixed tail is half of this window)
 workspace: basic
 maxTurns: 12
-contextWindow: 30000
+contextWindow: 16000
 check:
   {
     'areas':

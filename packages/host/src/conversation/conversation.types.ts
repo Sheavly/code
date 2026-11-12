@@ -22,6 +22,8 @@ export type RunPrompt = (options: {
   tasks: TaskRegistry;
   session: RunSession;
   keepSession: true;
+  /** Given the whole history after every turn, so a long run is stored as it goes. */
+  keepHistory: (messages: readonly HistoryMessage[]) => void;
   /** Aborted by `Conversation.yieldPrompt`: end as completed at the next completion point. */
   yieldSignal: AbortSignal;
   /** Every prompt after the first: the session already ran its `sessionStart` hooks. */

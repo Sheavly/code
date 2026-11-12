@@ -108,6 +108,18 @@ export const summaryMessageSchema = z.object({
   kept: z.number().int().positive(),
   /** How many messages this checkpoint newly summarized (the span since the previous one). */
   summarized: z.number().int().nonnegative(),
+  /**
+   * Where coverage ends: the entries before this position in history are incorporated (pinned
+   * requests aside, which the view still shows). Equals this checkpoint's own position minus
+   * `kept`, and never goes back past the previous checkpoint's. Optional only so a checkpoint
+   * stored before coverage was recorded still reads.
+   */
+  covered: z.number().int().positive().exactOptional(),
+  /**
+   * The position of the earlier checkpoint this one folded in, so a summary is never taken from
+   * scratch and none is skipped. Absent for the first checkpoint (and for legacy ones).
+   */
+  incorporated: z.number().int().nonnegative().exactOptional(),
   /** The name of what wrote it. */
   summarizer: z.string().min(1),
   at: messageTimeSchema,

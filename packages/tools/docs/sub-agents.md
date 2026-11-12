@@ -37,6 +37,25 @@ sub-agent on one task, `{ title, task }`.
 - `start_agent`, `report_status` and `message_agent` only work inside a session: called without
   one (`context.session` unset), they fail with a `ToolCallError` (`reason: 'unavailable'`).
 
+## Keeping a sub-agent's history
+
+`options.keepHistory({ session, messages })` is how the app records a sub-agent's history. It is
+called with the history so far, whole, before the run (so a crash does not lose the task) and again
+when the run ends, whatever the reason, and is passed on to the sub-agents it starts. The tool
+stores nothing itself; the receiver appends only what is new. The backend sends it to the
+conversation's per-session history log.
+
+## Searching the history
+
+`createHistoryTools({ sessions, logOf })` (`@sheavly/tools/history/`) gives the agent
+`search_history` and `read_history_entry`: the way back to original entries a summary replaced,
+across the main session and its sub-agents. A search is bounded (default 10, at most 25) and
+paginated by a cursor; each result carries its session and entry number, and `read_history_entry`
+returns one entry whole (cut with a note when very long). Everything retrieved is recorded data:
+excerpts have tag characters swapped and a read is fenced and framed as data, never as an
+instruction. The app decides which sessions exist and where their logs are; the backend adds the
+tools to a kept conversation's main run only.
+
 ## Reports
 
 What a sub-agent reports is its final answer, and the parent gets it whole, with no size limit.

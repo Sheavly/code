@@ -6,6 +6,7 @@ import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
+import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { viewWithoutCallReferences } from '../summary/summary.utils.js';
 import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
 import { sample } from './sample.helper.js';
@@ -25,9 +26,14 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   deliverMessages({ session, messages, events });
   reportFinishedTasks({ tasks: options.tasks, session, messages, events });
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
-  await summarizeAtThreshold(context);
+  // No summary could make room and the view fills the window: stop here, recoverably (the history
+  // is untouched and valid), rather than send a call the provider is sure to reject.
+  const room = await summarizeAtThreshold(context);
 
+  // An abort during the summary ends the run as interrupted, whatever the view's size.
   if (signal.aborted) return 'interrupted';
+
+  if (room === 'full') return 'context_window_exceeded';
 
   // Read once, so the hooks, the agent and the usage event all see the same numbers.
   const state = contextState({
@@ -45,7 +51,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   // For this call only: `messages` stays the stored history, and the turn appends to that. The
   // model is sent the view (the newest checkpoint as text, then the messages it kept).
-  const source = viewWithoutCallReferences(messages);
+  // Old large tool results are hidden here too when a summary is configured: it is the cheaper
+  // first step, and it delays the summary instead of replacing it.
+  const full = viewWithoutCallReferences(messages);
+  const source = options.summary
+    ? maskOldToolOutput({ view: full, window: options.provider.contextWindow })
+    : full;
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,

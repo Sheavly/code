@@ -1,6 +1,10 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { mergeEntries } from './entries.utils.js';
-import { USER_MESSAGE_MAX_CHARS, USER_MESSAGES_MAX_CHARS } from './sections.constants.js';
+import {
+  USER_MESSAGE_MAX_CHARS,
+  USER_MESSAGES_MAX_CHARS,
+  USER_OPENING_MAX_CHARS,
+} from './sections.constants.js';
 import type { RuleSection } from './sections.types.js';
 
 /**
@@ -14,6 +18,11 @@ import type { RuleSection } from './sections.types.js';
  * injected text pass for the user's words. An app that tells prompts apart another way passes
  * `include`, and one whose "user" is another agent (a sub-agent's task) passes `title`, so the
  * heading does not claim a person wrote it.
+ *
+ * The conversation's first message is kept for good and cut later than the rest: the rules a
+ * person sets usually come first, and a summary must not drop them as the chat grows. When the
+ * section is full, the messages between that opening and the newest go instead. Which messages
+ * are rules is not for code to guess, so nothing else is pinned.
  */
 export function userMessagesSection(
   options: {
@@ -21,6 +30,7 @@ export function userMessagesSection(
     title?: string;
     maxChars?: number;
     maxMessageChars?: number;
+    maxOpeningChars?: number;
   } = {},
 ): RuleSection {
   const {
@@ -28,12 +38,15 @@ export function userMessagesSection(
     title = 'What the user asked for',
     maxChars = USER_MESSAGES_MAX_CHARS,
     maxMessageChars = USER_MESSAGE_MAX_CHARS,
+    maxOpeningChars = USER_OPENING_MAX_CHARS,
   } = options;
 
   return {
     id: 'user-messages',
     title,
     write: ({ messages, previous }) => {
+      // With no earlier entries the first message written here is the conversation's opening.
+      let opening = !previous;
       const added = messages.flatMap((message) => {
         if (message.role !== 'user' || !include(message)) return [];
 
@@ -41,10 +54,14 @@ export function userMessagesSection(
 
         if (!text) return [];
 
-        return [text.length > maxMessageChars ? `${text.slice(0, maxMessageChars - 1)}…` : text];
+        const limit = opening ? maxOpeningChars : maxMessageChars;
+
+        opening = false;
+
+        return [text.length > limit ? `${text.slice(0, limit - 1)}…` : text];
       });
 
-      return mergeEntries({ previous, added, maxChars });
+      return mergeEntries({ previous, added, maxChars, pin: 1 });
     },
   };
 }

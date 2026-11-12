@@ -113,21 +113,44 @@ function findLatestUserProblem(params: {
 }
 
 /**
+ * A request a person typed must still be shown word for word. A view may end with harness notices,
+ * which a model is sent as `user` messages too, so the request is looked for anywhere in the
+ * view rather than as its last `user` message.
+ */
+function findLatestRequestProblem(params: {
+  messages: readonly Message[];
+  latestRequest: Message | undefined;
+}): string | undefined {
+  const { messages, latestRequest } = params;
+
+  if (!latestRequest) return undefined;
+
+  const kept = messages.some((message) => isDeepStrictEqual(message, latestRequest));
+
+  return kept ? undefined : 'the latest user message was removed or changed';
+}
+
+/**
  * Throws an `InvalidHistoryError` naming `source` when `messages` can't be sent to a model: a
- * tool call without its result (or the reverse), or, when `latestUser` is given, a last user
- * message that is not that message unchanged. One check for every place that builds the messages
- * a model sees, so each fails the same way.
+ * tool call without its result (or the reverse), or a missing expectation. `latestUser` is the
+ * last `user` message of the input and must be that message unchanged (for a hook, which sees
+ * notices as user messages). `latestRequest` is the latest message a person typed in stored
+ * history, which must still be in `messages` unchanged wherever notices fall after it (for a
+ * checkpoint's view). One check for every place that builds the messages a model sees, so each
+ * fails the same way.
  */
 export function assertValidHistory(params: {
   messages: readonly Message[];
   latestUser?: Message | undefined;
+  latestRequest?: Message | undefined;
   source: string;
 }): void {
-  const { messages, latestUser, source } = params;
+  const { messages, latestUser, latestRequest, source } = params;
   const problem =
     findEmptyProblem(messages) ??
     findPairingProblem(messages) ??
-    findLatestUserProblem({ messages, latestUser });
+    findLatestUserProblem({ messages, latestUser }) ??
+    findLatestRequestProblem({ messages, latestRequest });
 
   if (problem !== undefined) throw new InvalidHistoryError({ source, problem });
 }

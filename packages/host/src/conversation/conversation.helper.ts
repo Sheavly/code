@@ -56,6 +56,10 @@ export function createConversation(options: ConversationOptions): Conversation {
     const { user } = params;
 
     runSignal = signal;
+    // The longest history handed to `keepHistory` so far: it only grows, so if the run ends before
+    // `done` or `onError` gave us one (it failed before its first turn), this is the truth, and
+    // it holds the prompt that was already recorded.
+    let latest: readonly HistoryMessage[] = [...messages, user];
     const events = run({
       provider,
       tools,
@@ -73,6 +77,10 @@ export function createConversation(options: ConversationOptions): Conversation {
       tasks,
       session: { registry: sessions, ref: mainSession },
       keepSession: true,
+      keepHistory: (kept) => {
+        latest = kept;
+        options.keepHistory?.(kept);
+      },
       yieldSignal: params.yieldSignal,
       resumed: params.resumed,
       instructions: options.instructions ?? harness.instructions,
@@ -107,6 +115,9 @@ export function createConversation(options: ConversationOptions): Conversation {
 
       running = false;
       runSignal = undefined;
+
+      if (messages.length < latest.length) messages = [...latest];
+
       // Provider failures do not undo tool effects, so their completed work must stay in history.
       options.keepHistory?.(messages);
     }

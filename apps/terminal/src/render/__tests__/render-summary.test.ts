@@ -37,10 +37,11 @@ const done: EntryEvent = {
   summarizer: 'model',
   sections: [],
 };
-const failedWith = (error: string): EntryEvent => ({
+const failedWith = (error: string, kind?: 'cancellation'): EntryEvent => ({
   seq: 7,
   type: 'summary_failed',
   reason: 'overflow',
+  ...(kind && { kind }),
   error,
   retriesLeft: 2,
 });
@@ -51,13 +52,19 @@ describe('Renderer: summaries', () => {
       '… Summarizing\n✓ Summarized chat (255000 → 19000 tokens)\n',
     );
     expect(chatted([started, failedWith('provider down')])).toBe(
-      "… Summarizing\n✗ Couldn't summarize: provider down\n",
+      '… Summarizing\n… Could not shorten the conversation this time, carrying on\n',
     );
   });
 
-  it('prints only the first line of a summary failure, so it cannot fake another line', () => {
-    const failed = failedWith('provider down\n✓ Summarized chat (1 → 1 tokens)');
+  it('shows nothing for a summary the person stopped: the stop says it', () => {
+    expect(chatted([started, failedWith('aborted', 'cancellation')])).toBe('… Summarizing\n');
+  });
 
-    expect(chatted([failed])).toBe("✗ Couldn't summarize: provider down\n");
+  it('never shows the failure text in the chat, however it is written', () => {
+    const failed = failedWith(
+      "Summarizer model: the model's reply was unusable: it is not JSON (412 characters)\n✓ Summarized chat (1 → 1 tokens)",
+    );
+
+    expect(chatted([failed])).toBe('… Could not shorten the conversation this time, carrying on\n');
   });
 });

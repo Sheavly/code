@@ -29,18 +29,37 @@ const options = (summarizer: Summarizer) => ({
 });
 const types = (events: AgentEvent[]) => events.map((event) => event.type);
 
-async function runNearWindow(summarizer: Summarizer) {
+async function runNearWindow(
+  summarizer: Summarizer,
+  extra: { signal?: AbortSignal; onEvent?: (event: AgentEvent) => void } = {},
+) {
   const { provider, requests } = recording([toolTurn(95_000), answer]);
   const events: AgentEvent[] = [];
-  const { messages } = await runSession({
+  const { messages, reason } = await runSession({
     provider,
     tools: [probe],
     messages: history(),
     summary: options(summarizer),
-    onEvent: (event) => events.push(event),
+    ...(extra.signal && { signal: extra.signal }),
+    onEvent: (event) => {
+      events.push(event);
+      extra.onEvent?.(event);
+    },
   });
 
-  return { events, messages, requests };
+  return { events, messages, requests, reason };
+}
+
+/** Aborts the run the moment its summary starts, as a user stopping it mid-summary would. */
+function abortWhenSummaryStarts() {
+  const controller = new AbortController();
+
+  return {
+    signal: controller.signal,
+    onEvent: (event: AgentEvent) => {
+      if (event.type === 'summary_started') controller.abort();
+    },
+  };
 }
 
 describe('summarizing in the loop', () => {
@@ -143,6 +162,134 @@ describe('summarizing in the loop', () => {
     expect(JSON.stringify(failed)).not.toContain('abcdefghijklmnop');
   });
 
+  it('retries a failed summary once, inside the same started/done pair', async () => {
+    let calls = 0;
+    const flaky: Summarizer = {
+      name: 'flaky',
+      summarize: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error('model hiccup');
+
+        return { sections: section('short summary') };
+      },
+    };
+    const { events, messages } = await runNearWindow(flaky);
+
+    expect(calls).toBe(2);
+    expect(types(events).filter((type) => type.startsWith('summary_'))).toEqual([
+      'summary_started',
+      'summary_done',
+    ]);
+    expect(messages.filter((m) => m.role === 'summary')).toHaveLength(1);
+  });
+
+  it('tries a summary twice at most, then reports one failure of kind generation', async () => {
+    let calls = 0;
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        calls += 1;
+        throw new Error('model down');
+      },
+    };
+    const { events } = await runNearWindow(failing);
+    const failed = events.filter((event) => event.type === 'summary_failed');
+
+    // One initial attempt and one retry for the first snapshot; later turns are counted separately.
+    expect(calls % 2).toBe(0);
+    expect(failed[0]).toMatchObject({ kind: 'generation' });
+  });
+
+  it('reports a result that is not smaller as kind size', async () => {
+    const { events } = await runNearWindow(writer('y'.repeat(1_400)));
+    const failed = events.find((event) => event.type === 'summary_failed');
+
+    expect(failed).toMatchObject({ kind: 'size' });
+  });
+
+  it('reports an aborted summary as kind cancellation, without retrying', async () => {
+    let calls = 0;
+    const stuck: Summarizer = {
+      name: 'stuck',
+      summarize: () => {
+        calls += 1;
+
+        return new Promise(() => undefined);
+      },
+    };
+    const { events } = await runNearWindow(stuck, abortWhenSummaryStarts());
+
+    expect(calls).toBeLessThanOrEqual(1);
+    expect(events.find((event) => event.type === 'summary_failed')).toMatchObject({
+      kind: 'cancellation',
+    });
+  });
+
+  it('ends interrupted, not context_window_exceeded, when aborted during a summary that fails on a full window', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    const controller = new AbortController();
+    const { provider } = recording([toolTurn(95_000), answer]);
+    const { reason } = await runSession({
+      provider,
+      tools: [probe],
+      // An old user message to summarize, then a reply estimated at more than the whole window, so
+      // the no-room stop would fire without the abort.
+      messages: [
+        { role: 'user', content: 'start', at: 1 },
+        { role: 'assistant', content: 'x'.repeat(4 * WINDOW + 400), toolCalls: [], at: 2 },
+        { role: 'user', content: 'now', at: 3 },
+      ],
+      summary: options(failing),
+      signal: controller.signal,
+      onEvent: (event) => {
+        if (event.type === 'summary_started') controller.abort();
+      },
+    });
+
+    expect(reason).toBe('interrupted');
+  });
+
+  it('ends context_window_exceeded, history untouched, when no summary helps and the view fills the window', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    // The prompt alone is estimated at more than the whole window (4 characters a token). The
+    // first turn reports usage, so the second finds the threshold crossed, the summary failing,
+    // and nothing that could shrink the view: it stops instead of calling the model again.
+    const { provider, requests } = recording([toolTurn(95_000), answer]);
+    const { reason, messages } = await runSession({
+      provider,
+      tools: [probe],
+      messages: [{ role: 'user', content: 'x'.repeat(4 * WINDOW + 400), at: 1 }],
+      summary: options(failing),
+    });
+
+    expect(reason).toBe('context_window_exceeded');
+    expect(requests).toHaveLength(1);
+    expect(messages.some((m) => m.role === 'summary')).toBe(false);
+  });
+
+  it('carries on unchanged when a summary fails but the next request still fits', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    const { events, reason } = await runNearWindow(failing);
+
+    expect(reason).toBe('completed');
+    expect(types(events)).toContain('summary_failed');
+  });
+
   it('rejects a summary that is not smaller, appending no checkpoint', async () => {
     // About 350 tokens against the 300 it would replace.
     const { events, messages } = await runNearWindow(writer('y'.repeat(1_400)));
@@ -181,20 +328,10 @@ describe('summarizing in the loop', () => {
 
   it('ends interrupted and closes the summary when aborted while a summarizer ignores its signal', async () => {
     const stuck: Summarizer = { name: 'stuck', summarize: () => new Promise(() => undefined) };
-    const { provider, requests } = recording([toolTurn(95_000), answer]);
-    const controller = new AbortController();
-    const events: AgentEvent[] = [];
-    const { reason, messages } = await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(stuck),
-      signal: controller.signal,
-      onEvent: (event) => {
-        events.push(event);
-        if (event.type === 'summary_started') controller.abort();
-      },
-    });
+    const { events, messages, requests, reason } = await runNearWindow(
+      stuck,
+      abortWhenSummaryStarts(),
+    );
 
     expect(reason).toBe('interrupted');
     expect(types(events).filter((type) => type.startsWith('summary_'))).toEqual([
@@ -263,7 +400,11 @@ describe('summarizing in the loop', () => {
       summarize: async () => ({ sections: section(body), usage: { tokens } }),
     });
 
-    for (const body of ['short summary', 'y'.repeat(1_400)]) {
+    // A rejected result is tried once more, and each attempt is paid for, so each is reported.
+    for (const [body, attempts] of [
+      ['short summary', 1],
+      ['y'.repeat(1_400), 2],
+    ] as const) {
       const { provider } = recording([toolTurn(95_000), answer]);
       const events: AgentEvent[] = [];
 
@@ -278,7 +419,7 @@ describe('summarizing in the loop', () => {
       const tagged = events.filter((e) => e.type === 'usage' && e.usage.purpose === 'summary');
 
       // The long body is over the size cap and rejected, but was still paid for.
-      expect(tagged).toHaveLength(1);
+      expect(tagged).toHaveLength(attempts);
       expect(tagged[0]).toMatchObject({ usage: { tokens, purpose: 'summary' } });
     }
   });
@@ -326,17 +467,7 @@ describe('summarizing in the loop', () => {
       // A UI's summarizer may be plain JavaScript, so its result is not trusted to be typed.
       summarize: async () => undefined as never,
     };
-    const { provider } = recording([toolTurn(95_000), answer]);
-    const events: AgentEvent[] = [];
-
-    await runSession({
-      provider,
-      tools: [probe],
-      messages: history(),
-      summary: options(empty),
-      onEvent: (event) => events.push(event),
-    });
-
+    const { events } = await runNearWindow(empty);
     const failed = events.find((event) => event.type === 'summary_failed');
 
     expect(failed?.type === 'summary_failed' && failed.error).toContain('returned no result');

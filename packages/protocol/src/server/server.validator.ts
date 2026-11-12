@@ -10,6 +10,7 @@ import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 import { contextUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
+import { MAX_QUEUED_LINE_CHARS } from './server.constants.js';
 
 /**
  * A conversation's id on a server: a UUID in lowercase, which names its folder on disk and is
@@ -123,6 +124,15 @@ export const sendPromptRequestSchema = z.xor([
   z.object({ text: z.string().min(1) }),
   z.object({ parts: z.array(promptPartSchema).min(1) }),
 ]);
+
+/**
+ * `GET`/`PUT /conversations/:id/queue`: the lines a person queued while a prompt ran, oldest
+ * first. Pending input is kept with the conversation so it survives a restart, but it is outside
+ * history, model input and summaries until a UI sends it as a prompt; reopening never sends it.
+ */
+export const queuedPromptsSchema = z.object({
+  queued: z.array(z.string().min(1).max(MAX_QUEUED_LINE_CHARS)).max(100),
+});
 
 /** `POST /conversations/:id/yield`: whether the active, non-stopping run accepted the request. */
 export const yieldPromptResponseSchema = z.object({ accepted: z.boolean() });

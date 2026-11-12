@@ -180,6 +180,14 @@ export class ChatSession {
     return 'stopped';
   }
 
+  /**
+   * Shows lines kept from an earlier run as waiting, without running them: reopening a
+   * conversation never sends pending input by itself. They run when the user next submits a line.
+   */
+  restoreQueued(lines: readonly string[]): void {
+    this.#queue.restore(lines);
+  }
+
   /** Drops the lines waiting, which a user who is leaving does not want sent. */
   dropQueued(): void {
     this.#queue.drop();

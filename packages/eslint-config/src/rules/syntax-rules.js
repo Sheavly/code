@@ -167,6 +167,19 @@ export const SYNTAX_RULES = {
         'Do not write a `<harness-notice` envelope by hand. Add the notice as a kind of `harnessNoticeSchema` (`@sheavly/protocol/notice/notice.validator`) and format it in `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`), whose wording lives in `notice.constants.ts`: it frames the text as harness data, not a user message, and escapes what is inserted inside it.',
     },
   ],
+  // What counts as the request in stored history is decided once, in `@sheavly/core`'s history
+  // helpers: a stored `user` entry, never a notice, which only becomes a `user`-role message in
+  // what a model is sent. A lookup of "the last user message" written by hand reads a model view
+  // as if it were history, which is how a notice after the request once failed a summary. Code that
+  // really works on a model's input (hooks, request logging) says so with a `files:` override.
+  'no-adhoc-latest-request': [
+    {
+      selector:
+        "CallExpression[callee.property.name=/^findLast(Index)?$/]:has(BinaryExpression[operator='==='][left.property.name='role'][right.value='user'])",
+      message:
+        "Do not look up the latest user message by hand with `findLast`/`findLastIndex`. For stored history use `latestRequest`, `latestRequestIndex` or `latestPromptIndex` (`@sheavly/core/history/history.utils`): a request is a stored `user` entry and a notice never is one. This rule recognises only that call shape; the same lookup written another way (a loop, `filter(...).at(-1)`) is not caught, so use the helpers anyway. Code that works on the messages a model is sent (a `beforeModelCall` hook's input, a request log) is a model view, where notices are `user` messages too: say so with a `files:` override and its reason in this workspace's eslint.config.js.",
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

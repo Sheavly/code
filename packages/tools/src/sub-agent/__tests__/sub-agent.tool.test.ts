@@ -14,6 +14,74 @@ afterEach(async () => {
   await tasks.cancelAll();
 });
 
+describe('start_agent history keeping', () => {
+  const provider: Provider = {
+    async *stream() {
+      yield { type: 'done', stopReason: 'end_turn' };
+    },
+  };
+
+  async function startWith(params: { runAgent: RunNestedAgent; keepHistory: () => void }) {
+    tasks = new TaskRegistry();
+    const sessions = new SessionRegistry();
+    const parent = sessions.startMain({ title: 'Main' });
+    const kept: { session: string; count: number }[] = [];
+
+    await runTool({
+      tools: [
+        createSubAgentTool({
+          sessions,
+          tasks,
+          provider,
+          runAgent: params.runAgent,
+          tools: [],
+          keepHistory: (call) => {
+            params.keepHistory();
+            kept.push({ session: call.session, count: call.messages.length });
+          },
+        }),
+      ],
+      call: {
+        id: callIdSchema.parse('child'),
+        name: 'start_agent',
+        input: { description: 'd', title: 'Review', task: 'Review the patch.' },
+      },
+      signal: new AbortController().signal,
+      session: parent,
+    });
+    await tasks.nextSettled();
+
+    return kept;
+  }
+
+  it('keeps the task before the run and the whole history after it', async () => {
+    const order: string[] = [];
+    const runAgent = vi.fn<RunNestedAgent>(async ({ messages }) => {
+      order.push('run');
+
+      return {
+        reason: 'completed',
+        messages: [...messages, { role: 'assistant', content: 'done', toolCalls: [] }],
+      };
+    });
+    const kept = await startWith({ runAgent, keepHistory: () => order.push('keep') });
+
+    expect(order).toEqual(['keep', 'run', 'keep']);
+    expect(kept.map((each) => each.count)).toEqual([1, 2]);
+    expect(new Set(kept.map((each) => each.session)).size).toBe(1);
+  });
+
+  it('keeps the work of a run that did not complete', async () => {
+    const runAgent = vi.fn<RunNestedAgent>(async ({ messages }) => ({
+      reason: 'interrupted',
+      messages: [...messages, { role: 'assistant', content: 'half', toolCalls: [] }],
+    }));
+    const kept = await startWith({ runAgent, keepHistory: () => undefined });
+
+    expect(kept.map((each) => each.count)).toEqual([1, 2]);
+  });
+});
+
 describe('start_agent task lifecycle', () => {
   it('starts finite work by default and gives the child all task tools', async () => {
     tasks = new TaskRegistry();

@@ -1,13 +1,17 @@
 import path from 'node:path';
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
+import type {
+  ConversationStore,
+  DocumentStore,
+  EntryStore,
+  HistoryLog,
+} from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import { storedConversationSchema } from '@sheavly/protocol/store/store.validator';
-import { DocumentFile } from '../document-file/document-file.service.js';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { listFolderNames } from '../listing/listing.helper.js';
@@ -20,11 +24,19 @@ import {
   HISTORY_FILE,
   INDEX_FILE,
   OUTPUTS_FOLDER,
+  QUEUE_FILE,
   SHELL_FILE,
 } from './conversation-store.constants.js';
-import { agentHistoryFile, asStoreError, conversationFolder } from './conversation-store.utils.js';
+import {
+  agentHistoryFile,
+  asStoreError,
+  conversationFolder,
+  historyLogFile,
+} from './conversation-store.utils.js';
 import { historySchema } from './conversation-store.validator.js';
+import { documentStoreOf } from './document-store.helper.js';
 import { EntryFile } from './entry-file.service.js';
+import { HistoryFile } from './history-file.service.js';
 
 /**
  * A workspace's conversations on disk: `<workspace folder>/conversations/<conversation-id>/`, one
@@ -42,6 +54,9 @@ export class FileConversationStore implements ConversationStore {
   readonly #streams = new Map<ConversationId, EntryFile>();
   readonly #shells = new Map<ConversationId, DocumentStore>();
   readonly #outputs = new Map<ConversationId, FileOutputStore>();
+  readonly #queues = new Map<ConversationId, DocumentStore>();
+  /** Each session's history log, by `<conversation>/<session>`, so one queue orders its appends. */
+  readonly #logs = new Map<string, HistoryFile>();
 
   /**
    * `folder` is the workspace's folder (`<profile folder>/workspaces/<workspace-key>`), which an
@@ -66,29 +81,34 @@ export class FileConversationStore implements ConversationStore {
     return stream;
   }
 
+  history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog {
+    const { id, session } = params;
+    const key = `${id}/${session ?? ''}`;
+    const known = this.#logs.get(key);
+
+    if (known) return known;
+
+    const folder = this.#folderOf(id);
+    const log = new HistoryFile({
+      file: historyLogFile({ folder, session }),
+      legacyFile:
+        session === undefined
+          ? path.join(folder, HISTORY_FILE)
+          : agentHistoryFile({ folder, session }),
+    });
+
+    this.#logs.set(key, log);
+
+    return log;
+  }
+
   shell(id: ConversationId): DocumentStore {
     const known = this.#shells.get(id);
 
     if (known) return known;
 
-    // One `DocumentFile` per conversation, so every agent's change goes through its one queue.
-    const file = new DocumentFile({ file: path.join(this.#folderOf(id), SHELL_FILE) });
-    const shell: DocumentStore = {
-      load: async () => {
-        try {
-          return await file.load();
-        } catch (caughtError) {
-          throw asStoreError(caughtError);
-        }
-      },
-      update: async (change) => {
-        try {
-          await file.update(change);
-        } catch (caughtError) {
-          throw asStoreError(caughtError);
-        }
-      },
-    };
+    // One store per conversation, so every agent's change goes through its one queue.
+    const shell = documentStoreOf(path.join(this.#folderOf(id), SHELL_FILE));
 
     this.#shells.set(id, shell);
 
@@ -110,6 +130,18 @@ export class FileConversationStore implements ConversationStore {
     this.#outputs.set(id, store);
 
     return store;
+  }
+
+  queue(id: ConversationId): DocumentStore {
+    const known = this.#queues.get(id);
+
+    if (known) return known;
+
+    const queue = documentStoreOf(path.join(this.#folderOf(id), QUEUE_FILE));
+
+    this.#queues.set(id, queue);
+
+    return queue;
   }
 
   async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
@@ -190,14 +222,25 @@ export class FileConversationStore implements ConversationStore {
       await outputs.retire();
       await this.#streams.get(id)?.forget();
       await removeFolder({ root: this.#folder, folder });
+      await this.#forgetLogs(id);
       this.#streams.delete(id);
       this.#shells.delete(id);
+      this.#queues.delete(id);
       // The retired store stays: a new `outputs(id)` must not hand out a store that could make
       // the folder again. A conversation id is a fresh UUID each time, so it is never reused.
     } catch (caughtError) {
       // Nothing was deleted, so the conversation keeps storing output.
       outputs.resume();
       throw asStoreError(caughtError);
+    }
+  }
+
+  async #forgetLogs(id: ConversationId): Promise<void> {
+    for (const [key, log] of this.#logs) {
+      if (!key.startsWith(`${id}/`)) continue;
+
+      await log.forget();
+      this.#logs.delete(key);
     }
   }
 

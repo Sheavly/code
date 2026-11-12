@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { readHistoryEntries } from '@sheavly/core/store/history-log.helper';
 import { FileConversationStore } from '@sheavly/storage/conversation-store/conversation-store.service';
 import { diagnosticRecordSchema } from '@sheavly/storage/conversation-store/diagnostic-record.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
@@ -42,7 +43,7 @@ describe('correlated chat diagnostics through the API', () => {
       }
 
       await api.conversations.close(id);
-      const history = await store.readMessages(id);
+      const history = await readHistoryEntries(store.history({ id }));
       const users = history.filter((message) => message.role === 'user');
       const log = await readFile(path.join(root, 'conversations', id, 'errors.jsonl'), 'utf8');
       const record = diagnosticRecordSchema.parse(JSON.parse(log.trim()));
