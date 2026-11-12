@@ -16,9 +16,10 @@ export const azureChatAdapter = defineChatCompletionsAdapter({
       .min(1)
       .meta({ title: 'Deployment', description: 'The deployment name from the Azure portal' }),
     apiVersion: azureApiVersionSchema.optional(),
-    maxTokens: z.number().int().positive().default(8192).meta({
+    maxTokens: z.number().int().positive().optional().meta({
       title: 'Maximum output tokens',
-      description: 'Per reply, including thinking; bounds model-call output',
+      description:
+        'Per reply, including thinking. Leave empty for a model-aware default (384000 for recognized DeepSeek names); an unrecognized deployment sends no limit and the server decides.',
     }),
     replayReasoning: z.boolean().default(false).meta({
       title: 'Replay plain reasoning',

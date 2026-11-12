@@ -14,10 +14,10 @@ const parse = (config: object) =>
 
 describe('azureAnthropicAdapter', () => {
   it.each([
-    ['claude-sonnet-5-5', 32768],
-    ['claude-opus-5-5', 32768],
-    ['claude-fable-5-1', 32768],
-    ['claude-haiku-5-5', 32768],
+    ['claude-sonnet-5-5', 128_000],
+    ['claude-opus-5-5', 128_000],
+    ['claude-fable-5-1', 128_000],
+    ['claude-haiku-5-5', 128_000],
     ['custom-deployment', 8192],
     ['constructor', 8192],
   ])('uses a safe default for %s when maxTokens is omitted', async (deployment, maxTokens) => {
@@ -46,7 +46,7 @@ describe('azureAnthropicAdapter', () => {
 
     expect(azureAnthropicAdapter.configSchema.safeParse(config).success).toBe(true);
     expect(
-      azureAnthropicAdapter.configSchema.safeParse({ ...config, thinkingBudget: 32768 }).success,
+      azureAnthropicAdapter.configSchema.safeParse({ ...config, thinkingBudget: 128_000 }).success,
     ).toBe(false);
     const request = await requestSentBy({
       adapter: azureAnthropicAdapter,

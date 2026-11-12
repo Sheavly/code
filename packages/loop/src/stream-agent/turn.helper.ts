@@ -120,7 +120,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     signal,
   });
 
-  return finishTurn({ context, stopReason, running });
+  return finishTurn({ context, stopReason, running, reply: message });
 }
 
 /**
@@ -157,14 +157,24 @@ async function finishTurn(params: {
   context: TurnContext;
   stopReason: TurnStopReason;
   running: readonly RunningCall[];
+  reply: HistoryMessage;
 }): Promise<DoneReason | undefined> {
-  const { context, stopReason, running } = params;
+  const { context, stopReason, running, reply } = params;
   const { signal, session, options } = context;
 
   if (signal.aborted) return 'interrupted';
 
   if (stopReason === 'context_window_exceeded') return 'context_window_exceeded';
-  if (stopReason === 'max_tokens') return continueAfterOutputLimit(context);
+
+  if (stopReason === 'max_tokens') {
+    // Reasoning alone is not progress: a provider drops unfinished thinking, so only text or a
+    // tool call proves the next attempt can get further than this one.
+    const progressed = reply.role === 'assistant' && (reply.content !== '' || running.length > 0);
+
+    return continueAfterOutputLimit({ context, progressed });
+  }
+
+  context.outputRecovery.fruitless = 0;
 
   if (running.length > 0) return undefined;
 

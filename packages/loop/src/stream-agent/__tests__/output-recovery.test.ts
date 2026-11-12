@@ -10,11 +10,28 @@ import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionUpdateSchema } from '@sheavly/protocol/session/session.validator';
 import { runSession } from '../stream-agent.helper.js';
+import { MAX_FRUITLESS_CONTINUATIONS } from '../stream-agent.constants.js';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 
 const capped: StreamEvent[] = [{ type: 'done', stopReason: 'max_tokens' }];
+const partial: StreamEvent[] = [{ type: 'text_delta', text: 'Part. ' }, ...capped];
+const thinkingOnly: StreamEvent[] = [
+  { type: 'reasoning', item: { source: 'test', data: 'thinking only' } },
+  ...capped,
+];
+const normal: StreamEvent[] = [
+  {
+    type: 'tool_call',
+    call: {
+      id: callIdSchema.parse('unknown-1'),
+      name: 'unknown',
+      input: { description: 'Look' },
+    },
+  },
+  { type: 'done', stopReason: 'tool_use' },
+];
 const complete: StreamEvent[] = [
   { type: 'text_delta', text: 'Finished.' },
   { type: 'done', stopReason: 'end_turn' },
@@ -104,7 +121,7 @@ describe('output-limit recovery', () => {
     const registry = new SessionRegistry();
     const ref = registry.startMain({ title: 'Automatic recovery' });
     const events: AgentEvent[] = [];
-    const { provider, requests } = keepRequests([capped, capped, capped, complete]);
+    const { provider, requests } = keepRequests([partial, partial, partial, complete]);
     const result = await runSession({
       provider,
       tools: [],
@@ -125,6 +142,56 @@ describe('output-limit recovery', () => {
 
     expect(session).toMatchObject({ state: 'idle', lastOutcome: 'completed' });
     expect(sessionUpdateSchema.safeParse({ type: 'session_idle', session }).success).toBe(true);
+  });
+
+  it('ends as max_tokens when replies keep being cut off before saying anything', async () => {
+    const events: AgentEvent[] = [];
+    // More cut-offs are scripted than the guard may use, so a missing guard would not end the run.
+    const { provider, requests } = keepRequests(Array.from({ length: 20 }, () => thinkingOnly));
+    const result = await runSession({
+      provider,
+      tools: [],
+      messages: initial,
+      onEvent: (event) => events.push(event),
+    });
+
+    expect(result.reason).toBe('max_tokens');
+    expect(requests).toHaveLength(MAX_FRUITLESS_CONTINUATIONS);
+    expect(notices(events)).toHaveLength(MAX_FRUITLESS_CONTINUATIONS - 1);
+  });
+
+  it('counts only consecutive fruitless cut-offs, so a reply with text resets the guard', async () => {
+    const result = await runSession({
+      provider: scriptedProvider([
+        thinkingOnly,
+        thinkingOnly,
+        partial,
+        thinkingOnly,
+        thinkingOnly,
+        complete,
+      ]),
+      tools: [],
+      messages: initial,
+    });
+
+    expect(result.reason).toBe('completed');
+  });
+
+  it('resets the guard after a normal tool turn', async () => {
+    const result = await runSession({
+      provider: scriptedProvider([
+        thinkingOnly,
+        thinkingOnly,
+        normal,
+        thinkingOnly,
+        thinkingOnly,
+        complete,
+      ]),
+      tools: [],
+      messages: initial,
+    });
+
+    expect(result.reason).toBe('completed');
   });
 
   it.each([
@@ -194,15 +261,6 @@ describe('output-limit recovery', () => {
 
   it('keeps an explicitly requested run-wide recovery budget across normal tool turns', async () => {
     const events: AgentEvent[] = [];
-    const call = {
-      id: callIdSchema.parse('unknown-1'),
-      name: 'unknown',
-      input: { description: 'Look' },
-    };
-    const normal: StreamEvent[] = [
-      { type: 'tool_call', call },
-      { type: 'done', stopReason: 'tool_use' },
-    ];
     const result = await runSession({
       provider: scriptedProvider([capped, normal, capped, capped]),
       tools: [],

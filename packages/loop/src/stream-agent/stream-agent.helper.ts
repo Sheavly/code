@@ -87,7 +87,11 @@ async function drive(context: RunContext) {
   const { options, session, events, signal } = context;
   const { maxTurns = Infinity, hooks = [] } = options;
   const messages = [...options.messages];
-  const outputRecovery: TurnContext['outputRecovery'] = { attempts: 0, pending: undefined };
+  const outputRecovery: TurnContext['outputRecovery'] = {
+    attempts: 0,
+    fruitless: 0,
+    pending: undefined,
+  };
   const summaryFailures = { count: 0, overflowTried: false };
   // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
   let reason: DoneReason = 'max_turns';

@@ -42,7 +42,7 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
       maxTokens: z.number().int().positive().optional().meta({
         title: 'Max tokens',
         description:
-          'Output tokens per reply, including thinking. Leave empty for a model-aware default (32768 for current Claude IDs, 8192 for unknown deployments). Explicit values must fit the deployment’s output limit.',
+          'Output tokens per reply, including thinking. Leave empty for a model-aware default (128000, the documented limit, for current Claude IDs; 8192 for unknown deployments). Explicit values must fit the deployment’s output limit.',
       }),
       thinkingMode: z.enum(['adaptive', 'enabled', 'disabled']).optional().meta({
         title: 'Thinking mode',

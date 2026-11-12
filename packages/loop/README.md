@@ -22,7 +22,8 @@ summarizers. See [running tasks](docs/run.md#running-tasks).
 Output truncation automatically continues the task by default. A transient `output-continuation`
 notice accompanies context telemetry on the next request and is emitted to every UI through the
 same event stream. Partial replies and completed tools stay in history; recovery instructions do
-not. Cancellation and explicitly configured run limits still apply. See [output-limit recovery](docs/run.md#output-limit-recovery).
+not. Cancellation and explicitly configured run limits still apply, and repeated cut-offs that
+keep no text or tool call end the run as `max_tokens`. See [output-limit recovery](docs/run.md#output-limit-recovery).
 
 ```ts
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';

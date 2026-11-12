@@ -89,7 +89,10 @@ never appends `/responses` to a Chat endpoint. The Responses adapter rejects Cha
 before sending a request, with a message naming the appropriate protocol.
 
 Chat requests use native `messages`, nested function tools and streamed deltas. `maxTokens`
-defaults to 8192 and bounds total reply output. `replayReasoning: true` retains plain
+bounds total reply output. Left empty it defaults to the documented 384000 for the recognized
+DeepSeek names (`deepseek-flash`, `deepseek-v4-flash`, `deepseek-v4.1-flash-1017`,
+`deepseek-v4-pro`, matched case-insensitively; [pricing page](https://api-docs.deepseek.com/quick_start/pricing)),
+and for any other deployment the request sends no `max_tokens`, so the server's own limit applies. `replayReasoning: true` retains plain
 `reasoning_content` from every assistant reply, including replies without tool calls, across
 parallel tools, further tool calls and subsequent user turns. Replay uses full operation URL
 (including API version) and model provenance: other endpoints, models, encrypted Responses
@@ -229,10 +232,12 @@ thinking budget or adaptive mode), since thinking requires the default temperatu
 sends it only when the model's `reasoning` is off and no effort is set, since reasoning models
 reject it. Nothing retries after a rejection: the fallback is to omit the field.
 
-Azure Claude's `maxTokens` defaults to 32768 for the recognized Foundry IDs `claude-sonnet-5-5`,
+Azure Claude's `maxTokens` defaults to 128000 for the recognized Foundry IDs `claude-sonnet-5-5`,
 `claude-opus-5-5`, `claude-haiku-5-5` and `claude-fable-5-1`, whose documented output limit is 128K
-([model specifications](https://platform.claude.com/docs/en/models/overview)). Unknown or custom
-deployment names retain a conservative 8192 default; the adapter does not guess their capabilities.
+([model specifications](https://platform.claude.com/docs/en/models/overview)). The value is a
+ceiling, not a target: only generated tokens are billed. Unknown or custom
+deployment names keep a conservative 8192 default, because the Messages API requires
+`max_tokens` and the adapter does not guess their capabilities.
 Explicit limits, including those already saved in model files, remain unchanged. To use an
 automatic default for an existing model, remove its explicit `maxTokens` in advanced setup.
 Effort modes do not alter the resolved output limit. The Messages API's `max_tokens` and

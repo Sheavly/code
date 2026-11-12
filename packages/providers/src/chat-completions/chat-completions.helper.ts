@@ -5,6 +5,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { chatRequestBody } from './request.utils.js';
 import { readChatReply } from './chat-stream.helper.js';
+import { chatMaxTokens } from './output-tokens.utils.js';
 import type {
   ChatAdapterConfig,
   ChatEndpoint,
@@ -13,13 +14,8 @@ import type {
 
 /** Native Chat Completions; it does not reuse Responses request, event or reasoning formats. */
 export function createChatCompletionsProvider(config: ChatProviderConfig): Provider {
-  const {
-    endpoint,
-    replayReasoning = false,
-    maxTokens = 8192,
-    thinkingMode,
-    effortProfile = 'openai',
-  } = config;
+  const { endpoint, replayReasoning = false, thinkingMode, effortProfile = 'openai' } = config;
+  const maxTokens = chatMaxTokens({ model: endpoint.model, maxTokens: config.maxTokens });
   const source = `chat:${endpoint.url}#${endpoint.model}`;
 
   return {

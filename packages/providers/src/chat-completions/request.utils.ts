@@ -13,7 +13,8 @@ export function chatRequestBody(params: {
   endpoint: ChatEndpoint;
   source: string;
   replayReasoning: boolean;
-  maxTokens: number;
+  /** Omitted from the request when undefined: the server's own limit applies. */
+  maxTokens: number | undefined;
   thinkingMode: ChatThinkingMode | undefined;
   effortProfile: ChatEffortProfile;
 }): Record<string, unknown> {
@@ -41,7 +42,7 @@ export function chatRequestBody(params: {
         },
       })),
     }),
-    max_tokens: maxTokens,
+    ...(maxTokens !== undefined && { max_tokens: maxTokens }),
     stream: true,
     stream_options: { include_usage: true },
     ...(thinkingMode && { thinking: { type: thinkingMode } }),

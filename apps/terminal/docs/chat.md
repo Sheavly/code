@@ -313,13 +313,14 @@ when a profile already works.
 2. Choose an existing model or add one. For a new model, choose a provider from the backend's
    installed adapters. The form asks the context size ("300K" or "1M"), then only for required
    fields, using provider defaults for optional ones. It derives a display name from the model/deployment; use Edit model settings
-   to rename it or change advanced values. Claude's output limit defaults to 8192. Reasoning
+   to rename it or change advanced values. Claude's output limit defaults to the model's documented 128000 for recognized IDs. Reasoning
    effort defaults to medium until you select a mode.
 3. Enter the settings and API key. The key is masked, including paste, and sent only to the
    write-only credential route. Existing keys are never loaded into an input or shown again.
    For Azure Claude models requiring adaptive thinking, choose **adaptive** under Thinking mode
    and leave Thinking budget empty. Max tokens is the output limit per reply, not the context
-   window; use a value supported by the deployment, such as 8192.
+   window; leave it empty for the model's default, and set one only to lower it. A low value
+   can cut off adaptive thinking before any text or tool call.
 4. Choose **Save and start chatting**, or **Test connection** to make a small provider API call.
    A failed check lets you replace the key or edit the model settings in the same screen.
 

@@ -95,6 +95,8 @@ export type TurnContext = RunContext & {
   /** Counts output-limit recoveries across the whole run, including tool turns. */
   outputRecovery: {
     attempts: number;
+    /** Truncated replies in a row that kept no text and no tool call. */
+    fruitless: number;
     pending: Extract<HarnessNotice, { kind: 'output-continuation' }> | undefined;
   };
   /** The run's stored history; the turn appends to it, and a summary appends a checkpoint. */

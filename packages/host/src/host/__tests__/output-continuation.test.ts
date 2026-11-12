@@ -154,7 +154,7 @@ describe('provider output continuation through the real loop', () => {
 
     for (const request of requests) {
       expect(request.body).toMatchObject({
-        max_tokens: 32768,
+        max_tokens: 128_000,
         system: 'Apply once, then explain.',
         thinking: { type: 'adaptive' },
         output_config: { effort: 'high' },

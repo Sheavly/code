@@ -140,7 +140,11 @@ although system instructions and retained history remain unchanged. See
 
 ## Output-limit recovery
 
-Output truncation automatically continues the original task, with no continuation cap by default.
+Output truncation automatically continues the original task, with no total continuation cap by
+default. A reply that is cut off while keeping no text and no tool call (reasoning alone does not
+count, since a provider drops unfinished thinking) is fruitless: asking again repeats the cut-off.
+After `MAX_FRUITLESS_CONTINUATIONS` such replies in a row the run ends `max_tokens`; a reply that
+keeps text or a tool call, or any normal turn, resets the count.
 `maxOutputContinuations` optionally bounds recoveries across the whole run, including truncated
 tool turns; zero disables recovery. Recovery never bypasses `maxTurns` or an abort. Partial replies,
 reasoning and completed tool results stay in history, and completed tools are not rerun by the loop.
