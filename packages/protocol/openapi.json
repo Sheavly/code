@@ -1552,6 +1552,10 @@
             "properties": {
               "type": { "type": "string", "const": "summary_failed" },
               "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "kind": {
+                "type": "string",
+                "enum": ["generation", "preservation", "size", "cancellation"]
+              },
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
@@ -1834,6 +1838,10 @@
               "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "type": { "type": "string", "const": "summary_failed" },
               "reason": { "type": "string", "enum": ["threshold", "manual", "overflow"] },
+              "kind": {
+                "type": "string",
+                "enum": ["generation", "preservation", "size", "cancellation"]
+              },
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },

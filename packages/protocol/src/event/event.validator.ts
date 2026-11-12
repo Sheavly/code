@@ -42,6 +42,13 @@ export const errorDetailsSchema = errorCauseSchema.omit({ message: true }).exten
 /** Why a summary ran: the context neared its window, a user asked, or a call overflowed it. */
 const summaryReasonSchema = z.enum(['threshold', 'manual', 'overflow']);
 
+/**
+ * Why a summary failed: the summarizer or a hook did not produce one (`generation`), what it
+ * produced would not keep the request, tool pairing or history valid (`preservation`), it was not
+ * smaller than what it replaces (`size`), or the run was aborted (`cancellation`).
+ */
+const summaryFailureKindSchema = z.enum(['generation', 'preservation', 'size', 'cancellation']);
+
 export const doneReasonSchema = z.enum([
   'completed',
   'interrupted',
@@ -175,6 +182,8 @@ const stepEventSchemas = [
   z.object({
     type: z.literal('summary_failed'),
     reason: summaryReasonSchema,
+    /** Optional only so streams stored before failures were classified still read. */
+    kind: summaryFailureKindSchema.exactOptional(),
     /** Redacted like `run_failed`. */
     error: z.string(),
     /** Further tries this run before summaries stop being attempted. */
