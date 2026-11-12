@@ -29,7 +29,7 @@ check:
 Remember this code word, it matters at the end: PELICAN-7421.
 
 First start this finite check in the background with run_command:
-`node -e 'setTimeout(() => console.log("BG_DONE_9913"), 45000)'`
+`sleep 45 && echo BG_DONE_9913`
 
 Then use start_agent to start one sub-agent titled "Owner lookup" with exactly this task: Read
 notes/decisions.md with read_file, then reply with SUB_DONE_5530 and the name of the person who owns
