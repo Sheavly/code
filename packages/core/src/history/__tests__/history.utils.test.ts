@@ -16,14 +16,14 @@ const notice = historyMessageSchema.parse({
   notice: {
     kind: 'task-finished',
     task: {
-      id: 't1',
-      command: 'ls',
-      description: 'listing',
+      output: 'all green',
       status: 'completed',
+      id: 't9',
+      description: 'running the suite',
+      command: 'npm test',
       exitCode: 0,
-      startedAt: 1,
-      endedAt: 2,
-      output: 'a',
+      endedAt: 40,
+      startedAt: 30,
     },
   },
 });
