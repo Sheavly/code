@@ -20,6 +20,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `config-store/`       | `ConfigStore`: profile bindings and global terminal preferences; `workspaceKey` hashes a real path        |
 | `permission-store/`   | `PermissionStore`: what `run_command` may do in each workspace, a file each under `permissions/`          |
 | `conversation-store/` | `FileConversationStore`: a workspace's conversations, a folder each with its stream, history and index    |
+| `output-store/`       | `FileOutputStore`: a conversation's complete command output, one private log file per command             |
 | `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |
 | `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
 | `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
@@ -40,5 +41,22 @@ fails. Records include conversation, session and originating user-message IDs, t
 sequence and relevant tool-call IDs. Run errors include a bounded stack and cause chain. Prompts,
 tool inputs and successful outputs are not copied. Common credential forms in exception text are
 redacted. The first write after reopening repairs missing diagnostics from the authoritative stream.
+
+Complete command output (`ConversationStore.outputs(id)`, `FileOutputStore`) is kept under
+`<conversation>/outputs/<output-ref>.log` (the bytes as captured, stdout and stderr in arrival order)
+with `<output-ref>.json` written when the capture ends. A reference is a UUID, never a path, and a
+store only opens its own conversation's folder, so another conversation's reference is `not_found`.
+Retention: a log lives as long as its conversation, so it survives a reopen and a summary, and goes
+when the conversation is deleted; nothing else removes it. Deleting a conversation first ends its
+running captures and refuses new ones, so a command still printing cannot recreate the folder.
+Capture never blocks the command and holds at most 8 MiB waiting for the disk; a log keeps at most
+128 MiB, and one conversation at most 1 GiB and 5,000 logs, counted from what is already on disk
+when the conversation is reopened. Past a size limit, or after a failed write, the log is marked
+`incomplete` with the reason and later output is dropped, so a partial log is never shown as whole.
+Past the log count a new command still runs, and its result says its full output is not stored.
+Closing a log waits at most 5 seconds for queued writes: a stalled disk marks it `incomplete` (the
+end may be missing) instead of holding the task or a cancel. A log with no final record (the
+process died mid-capture) is reported `incomplete`. Reads are by byte range and search is a literal
+scan in bounded windows, so neither holds a whole log in memory.
 
 - [Design](docs/design.md): how it works, and how to extend it.

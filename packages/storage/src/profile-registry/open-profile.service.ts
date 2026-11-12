@@ -40,6 +40,8 @@ export class OpenProfile {
   readonly #credentials: CredentialStore;
   /** One store per workspace, so every conversation in it shares its streams' write queues. */
   readonly #conversations = new Map<string, FileConversationStore>();
+  /** Stores being created, so concurrent callers for one workspace share the one creation. */
+  readonly #opening = new Map<string, Promise<FileConversationStore>>();
 
   constructor(params: { id: ProfileId; profiles: ProfileStore }) {
     const { id, profiles } = params;
@@ -69,6 +71,27 @@ export class OpenProfile {
 
     if (known) return known;
 
+    // One creation per workspace at a time: two callers must never build two stores over one
+    // folder, since each would count its own quota and live captures.
+    const opening =
+      this.#opening.get(key) ?? this.#createConversations({ key, realPath, onProblem });
+
+    this.#opening.set(key, opening);
+
+    try {
+      return await opening;
+    } finally {
+      this.#opening.delete(key);
+    }
+  }
+
+  async #createConversations(params: {
+    key: ReturnType<typeof workspaceKey>;
+    realPath: string;
+    onProblem: (problem: FileProblem) => void;
+  }): Promise<FileConversationStore> {
+    const { key, realPath, onProblem } = params;
+
     await this.#assertProfile();
 
     const folder = namedPath({
@@ -76,7 +99,7 @@ export class OpenProfile {
       id: key,
       shape: workspaceKeySchema,
     });
-    const store = new FileConversationStore({ folder, onProblem });
+    const store = this.#conversations.get(key) ?? new FileConversationStore({ folder, onProblem });
 
     await writeJsonFile({ file: path.join(folder, WORKSPACE_FILE), value: { root: realPath } });
     this.#conversations.set(key, store);

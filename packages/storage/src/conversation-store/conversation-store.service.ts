@@ -1,4 +1,5 @@
 import path from 'node:path';
+import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { ConversationStore, DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
@@ -13,10 +14,12 @@ import { listFolderNames } from '../listing/listing.helper.js';
 import type { FileProblem, ListedFile } from '../listing/listing.types.js';
 import { splitListed } from '../listing/listing.utils.js';
 import { assertSafeRoot, removeFolder } from '../safe-path/safe-path.helper.js';
+import { FileOutputStore } from '../output-store/output-store.service.js';
 import {
   CONVERSATIONS_FOLDER,
   HISTORY_FILE,
   INDEX_FILE,
+  OUTPUTS_FOLDER,
   SHELL_FILE,
 } from './conversation-store.constants.js';
 import { agentHistoryFile, asStoreError, conversationFolder } from './conversation-store.utils.js';
@@ -38,6 +41,7 @@ export class FileConversationStore implements ConversationStore {
   readonly #onProblem: (problem: FileProblem) => void;
   readonly #streams = new Map<ConversationId, EntryFile>();
   readonly #shells = new Map<ConversationId, DocumentStore>();
+  readonly #outputs = new Map<ConversationId, FileOutputStore>();
 
   /**
    * `folder` is the workspace's folder (`<profile folder>/workspaces/<workspace-key>`), which an
@@ -89,6 +93,23 @@ export class FileConversationStore implements ConversationStore {
     this.#shells.set(id, shell);
 
     return shell;
+  }
+
+  /** Conversation `id`'s output store; after `delete(id)` it is the retired one, never a new one. */
+  outputs(id: ConversationId): OutputStore {
+    return this.#outputStore(id);
+  }
+
+  #outputStore(id: ConversationId): FileOutputStore {
+    const known = this.#outputs.get(id);
+
+    if (known) return known;
+
+    const store = new FileOutputStore({ folder: path.join(this.#folderOf(id), OUTPUTS_FOLDER) });
+
+    this.#outputs.set(id, store);
+
+    return store;
   }
 
   async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
@@ -161,12 +182,21 @@ export class FileConversationStore implements ConversationStore {
   async delete(id: ConversationId): Promise<void> {
     const folder = this.#folderOf(id);
 
+    // Made if need be: a store that was never opened must still be the retired one afterwards.
+    const outputs = this.#outputStore(id);
+
     try {
+      // First: a command still printing must not recreate the folder that is about to go.
+      await outputs.retire();
       await this.#streams.get(id)?.forget();
       await removeFolder({ root: this.#folder, folder });
       this.#streams.delete(id);
       this.#shells.delete(id);
+      // The retired store stays: a new `outputs(id)` must not hand out a store that could make
+      // the folder again. A conversation id is a fresh UUID each time, so it is never reused.
     } catch (caughtError) {
+      // Nothing was deleted, so the conversation keeps storing output.
+      outputs.resume();
       throw asStoreError(caughtError);
     }
   }
