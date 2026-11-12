@@ -3,6 +3,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import { ConversationKeeper } from './keeper.service.js';
+import { InFlight } from './in-flight.service.js';
 import { ConversationQueues } from './queues.service.js';
 import { readStoredConversation } from './stored-conversation.helper.js';
 import { ModelChanges } from './model-changes.service.js';
@@ -48,6 +49,7 @@ export class Conversations {
   readonly #running = new Map<ConversationId, AbortController>();
   readonly #modelChanges = new ModelChanges();
   readonly #queues: ConversationQueues;
+  readonly #reopening = new InFlight<ConversationId, ConversationId>();
 
   constructor(params: { create: CreateConversation; store?: ConversationStore }) {
     this.#create = params.create;
@@ -87,6 +89,11 @@ export class Conversations {
   async reopen(id: ConversationId): Promise<ConversationId> {
     if (this.#live.has(id)) return id;
 
+    // Two reopens at once would both log the repair placeholder: they share one.
+    return this.#reopening.run({ key: id, start: () => this.#reopenStored(id) });
+  }
+
+  async #reopenStored(id: ConversationId): Promise<ConversationId> {
     if (!this.#store) {
       throw new ConversationsError({
         reason: 'not_found',
@@ -113,10 +120,7 @@ export class Conversations {
 
     this.#live.set(id, live);
     keeper?.begin({ ...stored, status: 'open' });
-    keeper?.resumeAt(logged);
-    // A placeholder repair made for a call that never returned is written now, once, so the log and
-    // the history agree and reopening again finds nothing to repair.
-    if (messages.length > logged) keeper?.keepHistory(messages);
+    keeper?.resumeWith({ logged, messages });
 
     return id;
   }
@@ -274,14 +278,13 @@ export class Conversations {
     const live = this.get(id);
     const summary = this.#summary(id);
     const { model, workspace, profile } = live.run.details();
-    const modelId = model.id;
     const mode = model.mode ?? 'medium';
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId: model.id, mode });
     keeper?.begin({
       id,
       title: summary.title,
-      modelId,
+      modelId: model.id,
       mode,
       workspace,
       profile,

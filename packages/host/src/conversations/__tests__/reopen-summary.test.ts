@@ -58,6 +58,20 @@ describe('reopening a conversation that holds a checkpoint', () => {
     expect(conversations.messages(id)).toEqual(stored);
   });
 
+  it('is safe to reopen twice at once: one conversation, nothing logged twice', async () => {
+    const store = await keptWithCheckpoint();
+    const { conversations } = setup({ store, replies: [] });
+
+    await Promise.all([conversations.reopen(id), conversations.reopen(id)]);
+    await conversations.get(id).harness.sessions.flushStore();
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(conversations.list()).toHaveLength(1);
+    expect(await loggedSeqs({ store, id })).toEqual(stored.map((_, index) => index));
+    // No write failed, so the conversation still takes a prompt.
+    await expect(conversations.send({ id, prompt: { text: 'next' } })).resolves.toBeDefined();
+  });
+
   it('shows a model the checkpoint and the tail, and logs the next entries after the last one', async () => {
     const store = await keptWithCheckpoint();
     const { conversations, sent } = setup({ store, replies: [say('again')] });

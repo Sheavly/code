@@ -46,12 +46,15 @@ export class ConversationKeeper {
   }
 
   /**
-   * Says that a reopened conversation's log already holds its first `logged` entries. What
-   * `repairHistory` added after them (a placeholder for a call that never returned) is not in the
-   * log yet: the next `keepHistory` appends it, so log numbers and history positions stay the same.
+   * Resumes a reopened conversation whose log already holds `logged` entries and whose repaired
+   * history is `messages`. What `repairHistory` added after the logged entries (a placeholder for
+   * a call that never returned) is appended now, once, so log numbers and history positions agree
+   * and reopening again finds nothing to repair.
    */
-  resumeAt(logged: number): void {
-    this.#kept = logged;
+  resumeWith(params: { logged: number; messages: readonly HistoryMessage[] }): void {
+    this.#kept = params.logged;
+
+    if (params.messages.length > params.logged) this.keepHistory(params.messages);
   }
 
   /**
