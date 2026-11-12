@@ -1,3 +1,4 @@
+import type { OutputStore, OutputWriter } from '@sheavly/core/output/output.types';
 import type { AllowEntry, Permissions } from '@sheavly/protocol/permission/permission.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
@@ -18,6 +19,9 @@ export type CommandPermissions = {
   allowSession?(entry: AllowEntry): Promise<void>;
 };
 
+/** A capture that started, or the reason none did. The command runs either way. */
+export type Capture = { writer: OutputWriter } | { unavailable: string } | undefined;
+
 export type RunCommandOptions = {
   workspace: Workspace;
   /** Where a command starts when the agent chose a working root. Default: the workspace root. */
@@ -34,6 +38,11 @@ export type RunCommandOptions = {
    * refused.
    */
   approvals?: ApprovalRegistry | undefined;
+  /**
+   * This conversation's complete-output store. With it every command's captured output is kept
+   * whole and its result carries an `output_ref`; without it only the bounded preview exists.
+   */
+  outputs?: OutputStore | undefined;
   /**
    * Runs the commands and stops any still running when the process exits: pass the harness's
    * one runner, built from the environment the app passed in.

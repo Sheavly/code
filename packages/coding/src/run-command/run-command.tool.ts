@@ -7,8 +7,10 @@ import { outsideGrantedFolder, resolveCommandCwd } from './command-cwd.helper.js
 import { parseCommand } from './allow-list.utils.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
-import { formatResult, safeGitEnv, safeSteps } from './run-command.utils.js';
+import { safeGitEnv, safeSteps } from './run-command.utils.js';
 import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt.js';
+import { closeCapture, startCapture } from './capture.helper.js';
+import { runForeground, startedOutputLines } from './foreground.helper.js';
 
 export function createRunCommandTool({
   workspace,
@@ -17,9 +19,13 @@ export function createRunCommandTool({
   timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS,
   tasks,
   approvals,
+  outputs,
   processes,
 }: RunCommandOptions) {
-  const prompts = runCommandPrompts({ backgroundEnabled: Boolean(tasks) });
+  const prompts = runCommandPrompts({
+    backgroundEnabled: Boolean(tasks),
+    outputsEnabled: Boolean(outputs),
+  });
 
   return defineTool({
     name: 'run_command',
@@ -73,23 +79,45 @@ export function createRunCommandTool({
           });
         }
 
-        // Not tied to `signal`: the task outlives this call (and this turn) until it exits or is cancelled.
-        const task = tasks.start({
-          command,
-          description: context.description,
-          callId: context.callId,
-          sessionId: context.session?.id,
-          backgroundKind,
-          run: ({ signal: taskSignal, onOutput }) =>
-            processes.runScript({ ...script, signal: taskSignal, onOutput }),
-        });
+        const capture = await startCapture(outputs);
+        const writer = capture && 'writer' in capture ? capture.writer : undefined;
+        let task;
 
-        return backgroundStartedPrompt({ taskId: task.id, command, backgroundKind });
+        try {
+          // An abort during the capture start must not detach a task from an interrupted call.
+          signal.throwIfAborted();
+
+          // Not tied to `signal`: the task outlives this call (and this turn) until it exits or is cancelled.
+          task = tasks.start({
+            command,
+            description: context.description,
+            callId: context.callId,
+            sessionId: context.session?.id,
+            backgroundKind,
+            ...(writer && { capture: writer }),
+            run: ({ signal: taskSignal, onOutput }) =>
+              processes.runScript({ ...script, signal: taskSignal, onOutput }),
+          });
+        } catch (caughtError) {
+          // No task owns the writer, so nothing else would close its file.
+          if (writer) await closeCapture(writer);
+          throw caughtError;
+        }
+
+        return backgroundStartedPrompt({
+          taskId: task.id,
+          command,
+          backgroundKind,
+          outputLines: startedOutputLines({ capture, log: task.outputLog }),
+        });
       }
 
-      const result = await processes.runScript({ ...script, timeoutMs, signal });
-
-      return formatResult({ command, result });
+      return runForeground({
+        command,
+        script: { ...script, timeoutMs, signal },
+        processes,
+        outputs,
+      });
     },
   });
 }

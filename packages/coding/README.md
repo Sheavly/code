@@ -41,6 +41,17 @@ instead. The agent can finish independent work, then yield without polling task 
 The generic `await_tasks({ ids, reason })` tool can group results for delivery together; its reason
 preserves the dependent decision or next step for the agent after a summary.
 
+With `outputs` (the conversation's `OutputStore`), `run_command` keeps every command's complete
+captured stdout and stderr, foreground or background, independent of the bounded preview. Output
+printed before a failure, timeout or cancellation stays readable, and a running service's log can be
+read as it grows. The result carries `output_ref=<id>`, the bytes stored and whether the log is
+`complete`, `capturing` or `INCOMPLETE`. When the preview is shorter than the log, the result also
+tells the model to use `read_output` or `search_output` instead of rerunning the command. Pipeline
+stdin gets the original bytes; stdout routed into a pipe is not duplicated in the log, only what the
+last stage and every stderr print. If storage cannot start a capture the command still runs and the
+result says the full output is not being stored; a storage failure mid-capture marks the log
+incomplete, never complete. Without `outputs` only the preview exists, as before.
+
 The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
 this text by default; direct loop callers pass it explicitly. See
