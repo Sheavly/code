@@ -38,6 +38,8 @@ export function buildCheckpoint(params: {
     sections: body.sections,
     kept: history.length - cut,
     summarized: replacedMessages.length,
+    covered: cut,
+    ...previousCheckpoint(history),
     summarizer,
     at,
   });
@@ -62,6 +64,57 @@ export function buildCheckpoint(params: {
   return checkpoint;
 }
 
+/** The `incorporated` field for a checkpoint about to follow `history`: its newest checkpoint. */
+function previousCheckpoint(history: readonly HistoryMessage[]): { incorporated?: number } {
+  const previous = latestCheckpoint(history);
+
+  return previous ? { incorporated: previous.index } : {};
+}
+
+/**
+ * Throws an `InvalidHistoryError` when the coverage a checkpoint records contradicts the history:
+ * it must end where its own tail begins, fold in exactly the checkpoint before it, and never
+ * cover less than that one did, so nothing is skipped or taken twice. Legacy checkpoints that
+ * record none are not held to it.
+ */
+function assertCoverageConsistent(history: readonly HistoryMessage[]): void {
+  let previous: { index: number; covered: number | undefined } | undefined;
+
+  history.forEach((entry, index) => {
+    if (entry.role !== 'summary') return;
+
+    const problem = coverageProblem({ entry, index, previous });
+
+    if (problem) throw new InvalidHistoryError({ source: 'Stored history', problem });
+
+    previous = { index, covered: entry.covered };
+  });
+}
+
+function coverageProblem(params: {
+  entry: SummaryMessage;
+  index: number;
+  previous: { index: number; covered: number | undefined } | undefined;
+}): string | undefined {
+  const { entry, index, previous } = params;
+
+  if (entry.covered === undefined) return undefined;
+
+  if (entry.covered !== index - entry.kept) {
+    return `a checkpoint covers ${entry.covered} entries but its tail begins at ${index - entry.kept}`;
+  }
+
+  if (entry.incorporated !== previous?.index) {
+    return 'a checkpoint does not fold in the checkpoint before it, so a summary was skipped or taken twice';
+  }
+
+  if (previous?.covered !== undefined && entry.covered < previous.covered) {
+    return 'a checkpoint covers less than the one it folds in';
+  }
+
+  return undefined;
+}
+
 /**
  * Throws an `InvalidHistoryError` when a history that already holds a checkpoint would show a
  * model something invalid: a `kept` that makes the view start on a tool result (a hand-edited or
@@ -73,6 +126,8 @@ export function assertValidStoredHistory(history: readonly HistoryMessage[]): vo
   const latest = latestCheckpoint(history);
 
   if (!latest) return;
+
+  assertCoverageConsistent(history);
 
   // `viewOf` clamps a `kept` that reaches past the start of history, which would show again what
   // the checkpoint replaced, so a checkpoint that claims more than exists is refused outright.
