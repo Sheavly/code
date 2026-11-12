@@ -32,6 +32,7 @@ const tools = [
 | `tasks/`               | `task_status`, `await_tasks`, `cancel_task`: inspect, group and stop background tasks                                              |
 | `output/`              | `read_output`, `search_output`: read ranges of, and search, a command's stored complete output                                     |
 | `sub-agent/`           | `start_agent`, `report_status`, `message_agent`: sub-agents, and steering them                                                     |
+| `history/`             | `search_history`, `read_history_entry`: bounded, paginated search and exact reads of the original history, sub-agents included     |
 | `web-fetch/`           | `web_fetch`: bounded public HTTP(S) reading, HTML as Markdown, no credentials                                                      |
 | `web-search/`          | `web_search`, `SearchBackend`, `WebSearchArtifact`, `isWebSearchArtifact`: provider-neutral search with bounded structured results |
 | `web-search-backends/` | `createTavilySearchBackend`, `TavilySearchOptions`: app-selected concrete search transports                                        |
