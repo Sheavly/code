@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { fileKind } from './rules/file-kind.js';
 import { brandedIds } from './rules/branded-ids.js';
 import { guardEnvRead } from './rules/guard-env-read.js';
@@ -16,30 +18,47 @@ import { pureImports } from './rules/pure-imports.js';
 import { promptLocation } from './rules/prompt-location.js';
 import { singleDefinition } from './rules/single-definition.js';
 import { systemPromptReview } from './rules/system-prompt-review.js';
+import { pointRulesToSkills } from './skill-pointers.js';
+import { SkillMetadataError } from './skills.errors.js';
+import { SKILLS_DIR } from './skills.js';
 
-/** The `harness/*` rules. */
+// This repo's root, from where this file is, so the skills read are always this repo's. If the
+// package is ever used from elsewhere the skills are not there, and every pointer would silently
+// vanish, so it fails instead.
+const REPO_ROOT = path.resolve(import.meta.dirname, '../../..');
+
+if (!existsSync(path.join(REPO_ROOT, SKILLS_DIR))) {
+  throw new SkillMetadataError({
+    file: SKILLS_DIR,
+    problem: `not found from ${REPO_ROOT}; the lint plugin reads the skills of the repo it lives in`,
+  });
+}
+
+const RULES = {
+  'branded-ids': brandedIds,
+  'file-kind': fileKind,
+  'guard-env-read': guardEnvRead,
+  'guard-env-write': guardEnvWrite,
+  'guard-search-root': guardSearchRoot,
+  'guard-working-root': guardWorkingRoot,
+  imports: importsRule,
+  'kind-contents': kindContents,
+  layout: layoutRule,
+  'no-brand-cast': noBrandCast,
+  'no-raw-error': noRawError,
+  'no-silent-catch': noSilentCatch,
+  'permission-store-root': permissionStoreRoot,
+  'pure-imports': pureImports,
+  'prompt-location': promptLocation,
+  'single-definition': singleDefinition,
+  'system-prompt-review': systemPromptReview,
+  ...Object.fromEntries(
+    Object.entries(SYNTAX_RULES).map(([name, entries]) => [name, syntaxRule(entries)]),
+  ),
+};
+
+/** The `harness/*` rules, each with the guide of the skill that names it appended to its messages. */
 export const harnessPlugin = {
   meta: { name: 'harness' },
-  rules: {
-    'branded-ids': brandedIds,
-    'file-kind': fileKind,
-    'guard-env-read': guardEnvRead,
-    'guard-env-write': guardEnvWrite,
-    'guard-search-root': guardSearchRoot,
-    'guard-working-root': guardWorkingRoot,
-    imports: importsRule,
-    'kind-contents': kindContents,
-    layout: layoutRule,
-    'no-brand-cast': noBrandCast,
-    'no-raw-error': noRawError,
-    'no-silent-catch': noSilentCatch,
-    'permission-store-root': permissionStoreRoot,
-    'pure-imports': pureImports,
-    'prompt-location': promptLocation,
-    'single-definition': singleDefinition,
-    'system-prompt-review': systemPromptReview,
-    ...Object.fromEntries(
-      Object.entries(SYNTAX_RULES).map(([name, entries]) => [name, syntaxRule(entries)]),
-    ),
-  },
+  rules: pointRulesToSkills({ rules: RULES, root: REPO_ROOT }),
 };

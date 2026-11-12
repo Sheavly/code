@@ -3,7 +3,7 @@
 // up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
 // events, no UI unless the issue asks; the first edit also injects "Where code goes" (both from
-// the project skill, architecture.utils.mjs). The first edit of a file a skill governs names that
+// the `sheavly` skill's layers guide, architecture.utils.mjs). The first edit of a file a skill governs names that
 // skill (skills.utils.mjs), the first edit inside a workspace shows its README
 // (workspace-readme.utils.mjs), and source outside every workspace's src/ is reported
 // (layout.utils.mjs). Every edit or deletion of project source is recorded in the chat's state, so
@@ -12,6 +12,7 @@
 import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
 import { editToolFields } from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
+import { SkillMetadataError } from '../../packages/eslint-config/src/skills.errors.js';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
@@ -138,6 +139,7 @@ function advise(produce) {
   } catch (caughtError) {
     const expected =
       caughtError instanceof ProjectReadError ||
+      caughtError instanceof SkillMetadataError ||
       caughtError instanceof HookStateError ||
       Boolean(caughtError?.code);
 
