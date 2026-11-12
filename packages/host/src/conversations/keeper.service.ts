@@ -112,6 +112,8 @@ export class ConversationKeeper {
 
     const fresh = messages.slice(first);
 
+    if (fresh.length === 0) return;
+
     this.#queue(async () => {
       await this.#store
         .history({ id: this.#id, session })
