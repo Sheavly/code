@@ -199,6 +199,17 @@ the UI passes them.
   and `summary_failed` carries a `kind`: `generation` (the summarizer or a hook produced nothing
   usable), `preservation` (the result would break the request or tool pairing),
   `size` (not smaller than what it replaces) or `cancellation`.
+- **Coverage.** Each checkpoint records `covered` (where its coverage ends, which is where its
+  own tail begins) and `incorporated` (the position of the checkpoint it folded in), so
+  successive summaries advance from the beginning without skipping or repeating entries. Stored
+  history is held to it (`assertValidStoredHistory`): a checkpoint that does not end at its own
+  tail, does not fold in exactly the one before it, or covers less than it is refused. A
+  checkpoint stored before coverage was recorded carries neither field and is not held to it.
+- **No room.** When the context is past the threshold, no summary helped (one failed, was not
+  tried again, or there was nothing to summarize) and what a model would be sent is estimated to
+  fill the whole window, the run ends `context_window_exceeded` before calling the model, with
+  history untouched and valid. If the next request still fits, a failed summary leaves the run
+  going on the unchanged view.
 - **The request.** A request is a stored `user` entry, found with `latestRequest`
   (`@sheavly/core/history/history.utils`); a notice is its own role in history and only becomes a
   `user` message in what a model is sent, so a notice after the request never fails the check
