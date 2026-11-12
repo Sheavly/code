@@ -36,6 +36,15 @@ describe('parseSectionReply', () => {
     expect(() => parse(reply)).toThrow(SummaryReplyError);
   });
 
+  it.each([
+    ['prose', 'Here is the summary of the chat.', '32 characters, starting with prose'],
+    ['a code fence', '```\nnot json\n```', '16 characters, starting with a code fence'],
+    ['nothing', '', '0 characters, starting with nothing'],
+    ['a brace', '{"goal": ', '9 characters, starting with a brace'],
+  ])('says what shape an unusable reply had: %s', (_name, reply, shape) => {
+    expect(() => parse(reply)).toThrow(shape);
+  });
+
   it('never quotes the reply in the error, which is model-written text', () => {
     let failure: unknown;
 
