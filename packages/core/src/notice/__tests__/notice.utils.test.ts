@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { outputRefSchema } from '@sheavly/protocol/output/output.validator';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { formatHarnessNotice } from '../notice.utils.js';
 
 describe('formatHarnessNotice', () => {
@@ -13,6 +15,41 @@ describe('formatHarnessNotice', () => {
         '</harness-notice>',
       ].join('\n'),
     );
+  });
+
+  it('names where a finished task’s complete output is kept, and says a cut preview is not all of it', () => {
+    const ref = outputRefSchema.parse('55555555-5555-4555-8555-555555555555');
+    const task = {
+      id: taskIdSchema.parse('t1'),
+      command: 'npm test',
+      description: 'tests',
+      status: 'failed' as const,
+      startedAt: 1,
+      endedAt: 2,
+      exitCode: 1,
+      output: 'tail only',
+    };
+    const text = formatHarnessNotice({
+      kind: 'task-finished',
+      task: { ...task, outputLog: { ref, bytes: 90_000, status: 'complete' } },
+    });
+
+    expect(text).toContain(`Full output: output_ref=${ref} (90000 bytes stored, complete)`);
+    expect(text).toContain('shortened preview');
+    expect(text).toContain('read_output');
+    expect(
+      formatHarnessNotice({
+        kind: 'task-finished',
+        task: { ...task, outputLog: { ref, bytes: 9, status: 'complete' } },
+      }),
+    ).not.toContain('shortened preview');
+    expect(
+      formatHarnessNotice({
+        kind: 'task-finished',
+        task: { ...task, outputLog: { ref, bytes: 9, status: 'incomplete', reason: 'disk full' } },
+      }),
+    ).toContain('INCOMPLETE: disk full');
+    expect(formatHarnessNotice({ kind: 'task-finished', task })).not.toContain('output_ref');
   });
 
   it('labels context telemetry and tells the model when it may mention it', () => {

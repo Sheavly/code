@@ -4,6 +4,7 @@ import type {
   RunningTasksNotice,
   TaskCompletionContext,
 } from '@sheavly/protocol/notice/notice.types';
+import { outputReferenceLines } from '../output/output.utils.js';
 import { escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
 import {
   renderAgentReport,
@@ -105,6 +106,7 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
     command: line(task.command),
     body,
     fence: fenceDashes(body),
+    outputReference: outputReferenceLines({ log: task.outputLog, shown: task.output }),
     context: formatCompletionContext(notice.context),
   });
 }

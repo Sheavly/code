@@ -1,3 +1,4 @@
+import type { OutputStore } from '../output/output.types.js';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -63,6 +64,12 @@ export type ConversationStore = {
    * the conversation, so it survives a restart and goes when the conversation is deleted.
    */
   shell(id: ConversationId): DocumentStore;
+  /**
+   * Conversation `id`'s complete command output. Kept with the conversation, so it survives a
+   * reopen and goes when the conversation is deleted; another conversation's references are
+   * `not_found` in it.
+   */
+  outputs(id: ConversationId): OutputStore;
   /** Every stored conversation's index entry, oldest first. */
   list(): Promise<StoredConversation[]>;
   /** Writes `conversation`'s index entry, replacing the one stored for its `id`. */
