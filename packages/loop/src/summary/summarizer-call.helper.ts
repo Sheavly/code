@@ -16,7 +16,7 @@ export function assertNotAborted(params: {
 }): void {
   const { summarizer, signal, problem = 'the run was aborted before it finished' } = params;
 
-  if (signal.aborted) throw new SummaryRejectedError({ summarizer, problem });
+  if (signal.aborted) throw new SummaryRejectedError({ summarizer, problem, kind: 'cancellation' });
 }
 
 /**
@@ -44,6 +44,7 @@ export async function callSummarizer(params: {
     throw new SummaryRejectedError({
       summarizer: summarizer.name,
       problem: 'it returned no result',
+      kind: 'generation',
     });
   }
 

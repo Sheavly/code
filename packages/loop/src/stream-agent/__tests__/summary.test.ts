@@ -143,6 +143,83 @@ describe('summarizing in the loop', () => {
     expect(JSON.stringify(failed)).not.toContain('abcdefghijklmnop');
   });
 
+  it('retries a failed summary once, inside the same started/done pair', async () => {
+    let calls = 0;
+    const flaky: Summarizer = {
+      name: 'flaky',
+      summarize: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error('model hiccup');
+
+        return { sections: section('short summary') };
+      },
+    };
+    const { events, messages } = await runNearWindow(flaky);
+
+    expect(calls).toBe(2);
+    expect(types(events).filter((type) => type.startsWith('summary_'))).toEqual([
+      'summary_started',
+      'summary_done',
+    ]);
+    expect(messages.filter((m) => m.role === 'summary')).toHaveLength(1);
+  });
+
+  it('tries a summary twice at most, then reports one failure of kind generation', async () => {
+    let calls = 0;
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        calls += 1;
+        throw new Error('model down');
+      },
+    };
+    const { events } = await runNearWindow(failing);
+    const failed = events.filter((event) => event.type === 'summary_failed');
+
+    // One initial attempt and one retry for the first snapshot; later turns are counted separately.
+    expect(calls % 2).toBe(0);
+    expect(failed[0]).toMatchObject({ kind: 'generation' });
+  });
+
+  it('reports a result that is not smaller as kind size', async () => {
+    const { events } = await runNearWindow(writer('y'.repeat(1_400)));
+    const failed = events.find((event) => event.type === 'summary_failed');
+
+    expect(failed).toMatchObject({ kind: 'size' });
+  });
+
+  it('reports an aborted summary as kind cancellation, without retrying', async () => {
+    let calls = 0;
+    const controller = new AbortController();
+    const stuck: Summarizer = {
+      name: 'stuck',
+      summarize: () => {
+        calls += 1;
+
+        return new Promise(() => undefined);
+      },
+    };
+    const { provider } = recording([toolTurn(95_000), answer]);
+    const events: AgentEvent[] = [];
+
+    await runSession({
+      provider,
+      tools: [probe],
+      messages: history(),
+      summary: options(stuck),
+      signal: controller.signal,
+      onEvent: (event) => {
+        events.push(event);
+        if (event.type === 'summary_started') controller.abort();
+      },
+    });
+
+    expect(calls).toBeLessThanOrEqual(1);
+    expect(events.find((event) => event.type === 'summary_failed')).toMatchObject({
+      kind: 'cancellation',
+    });
+  });
+
   it('rejects a summary that is not smaller, appending no checkpoint', async () => {
     // About 350 tokens against the 300 it would replace.
     const { events, messages } = await runNearWindow(writer('y'.repeat(1_400)));
@@ -263,7 +340,11 @@ describe('summarizing in the loop', () => {
       summarize: async () => ({ sections: section(body), usage: { tokens } }),
     });
 
-    for (const body of ['short summary', 'y'.repeat(1_400)]) {
+    // A rejected result is tried once more, and each attempt is paid for, so each is reported.
+    for (const [body, attempts] of [
+      ['short summary', 1],
+      ['y'.repeat(1_400), 2],
+    ] as const) {
       const { provider } = recording([toolTurn(95_000), answer]);
       const events: AgentEvent[] = [];
 
@@ -278,7 +359,7 @@ describe('summarizing in the loop', () => {
       const tagged = events.filter((e) => e.type === 'usage' && e.usage.purpose === 'summary');
 
       // The long body is over the size cap and rejected, but was still paid for.
-      expect(tagged).toHaveLength(1);
+      expect(tagged).toHaveLength(attempts);
       expect(tagged[0]).toMatchObject({ usage: { tokens, purpose: 'summary' } });
     }
   });

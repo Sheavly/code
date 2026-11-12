@@ -6,6 +6,7 @@ import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { AgentEventBody } from '@sheavly/protocol/event/event.types';
 import type { SummaryMessage } from '@sheavly/protocol/message/message.types';
 import type { TurnContext } from '../stream-agent/stream-agent.types.js';
+import { SummaryRejectedError } from '../errors/loop.errors.js';
 import { buildCheckpoint } from './checkpoint.utils.js';
 import { DEFAULT_SUMMARY_POLICY } from './summary.constants.js';
 import { assertNotAborted, callSummarizer } from './summarizer-call.helper.js';
@@ -19,6 +20,8 @@ import {
   spanToSummarize,
   viewOf,
 } from './summary.utils.js';
+
+type SummaryFailureKind = NonNullable<Extract<AgentEventBody, { type: 'summary_failed' }>['kind']>;
 
 /** What a model would be sent, in estimated tokens: the number a summary is judged against. */
 function viewTokens(context: TurnContext): number {
@@ -105,7 +108,7 @@ export async function summarizeHistory(params: {
   let checkpoint: SummaryMessage;
 
   try {
-    checkpoint = await writeCheckpoint({ context, reason, config, cut });
+    checkpoint = await writeCheckpointWithRetry({ context, reason, config, cut });
   } catch (caughtError) {
     // A summary is an optimisation: whatever went wrong (a `beforeSummary` hook, the summarizer,
     // the checks, an abort) is reported on the stream and the run carries on with the unchanged
@@ -115,6 +118,7 @@ export async function summarizeHistory(params: {
     events.enqueue({
       type: 'summary_failed',
       reason,
+      kind: failureKindOf({ error: caughtError, aborted: signal.aborted }),
       error: redactDiagnosticText(errorMessage(caughtError)),
       retriesLeft: Math.max(0, policy.maxFailures - summaryFailures.count),
     });
@@ -140,6 +144,30 @@ export async function summarizeHistory(params: {
   });
 
   return true;
+}
+
+/** How a failed summary is classified on the stream: an abort wins, then the error's own kind. */
+function failureKindOf(params: { error: unknown; aborted: boolean }): SummaryFailureKind {
+  if (params.aborted) return 'cancellation';
+
+  return params.error instanceof SummaryRejectedError ? params.error.kind : 'generation';
+}
+
+/**
+ * One initial attempt plus one retry, never more: a second try often succeeds where a model
+ * wrote something unusable, but the same failed snapshot must not be retried turn after turn.
+ * A cancelled run is not retried. Throws the retry's error when both fail.
+ */
+async function writeCheckpointWithRetry(
+  params: Parameters<typeof writeCheckpoint>[0],
+): Promise<SummaryMessage> {
+  try {
+    return await writeCheckpoint(params);
+  } catch (caughtError) {
+    if (params.context.signal.aborted) throw caughtError;
+
+    return writeCheckpoint(params);
+  }
 }
 
 /**

@@ -1,5 +1,8 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
+import type { AgentEventBody } from '@sheavly/protocol/event/event.types';
+
+type SummaryFailureKind = NonNullable<Extract<AgentEventBody, { type: 'summary_failed' }>['kind']>;
 
 /** Which hook handler failed. */
 type HookHandler = Exclude<keyof Hook, 'name'>;
@@ -50,13 +53,21 @@ export class SummaryRejectedError extends Error {
   override name = 'SummaryRejectedError';
   readonly summarizer: string;
   readonly problem: string;
+  /** Which kind of failure it is, as `summary_failed` reports it. */
+  readonly kind: SummaryFailureKind;
 
-  constructor(params: { summarizer: string; problem: string; cause?: unknown }) {
-    const { summarizer, problem, cause } = params;
+  constructor(params: {
+    summarizer: string;
+    problem: string;
+    kind: SummaryFailureKind;
+    cause?: unknown;
+  }) {
+    const { summarizer, problem, kind, cause } = params;
 
     super(`Summarizer ${summarizer} produced a summary that was rejected: ${problem}`, { cause });
     this.summarizer = summarizer;
     this.problem = problem;
+    this.kind = kind;
   }
 }
 

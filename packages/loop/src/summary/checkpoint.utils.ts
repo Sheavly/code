@@ -46,6 +46,7 @@ export function buildCheckpoint(params: {
     throw new SummaryRejectedError({
       summarizer,
       problem: 'its result is not a valid checkpoint',
+      kind: 'generation',
       cause: parsed.error,
     });
   }
@@ -54,13 +55,9 @@ export function buildCheckpoint(params: {
   const replaced = replacedMessages.reduce((sum, message) => sum + estimateTokens(message), 0);
   const problem = findSizeProblem({ checkpoint, replaced });
 
-  if (problem) throw new SummaryRejectedError({ summarizer, problem });
+  if (problem) throw new SummaryRejectedError({ summarizer, ...problem });
 
-  assertValidHistory({
-    messages: viewOf([...history, checkpoint]),
-    latestRequest: latestRequest(history),
-    source: `Summarizer ${summarizer}`,
-  });
+  assertSummaryPreserves({ summarizer, history, checkpoint });
 
   return checkpoint;
 }
@@ -93,19 +90,54 @@ export function assertValidStoredHistory(history: readonly HistoryMessage[]): vo
   });
 }
 
+/**
+ * The history rules the new checkpoint's view must still meet. A violation is a failure to
+ * preserve (the request, tool pairing), reported as such rather than as a generic rejection.
+ */
+function assertSummaryPreserves(params: {
+  summarizer: string;
+  history: readonly HistoryMessage[];
+  checkpoint: SummaryMessage;
+}): void {
+  const { summarizer, history, checkpoint } = params;
+
+  try {
+    assertValidHistory({
+      messages: viewOf([...history, checkpoint]),
+      latestRequest: latestRequest(history),
+      source: `Summarizer ${summarizer}`,
+    });
+  } catch (caughtError) {
+    // Only the history rules are this function's to translate; anything else is not.
+    if (!(caughtError instanceof InvalidHistoryError)) throw caughtError;
+
+    throw new SummaryRejectedError({
+      summarizer,
+      problem: caughtError.problem,
+      kind: 'preservation',
+      cause: caughtError,
+    });
+  }
+}
+
 function findSizeProblem(params: {
   checkpoint: SummaryMessage;
   replaced: number;
-}): string | undefined {
+}): { problem: string; kind: 'generation' | 'size' } | undefined {
   const { checkpoint, replaced } = params;
 
-  if (checkpoint.sections.length === 0) return 'it has no sections';
+  if (checkpoint.sections.length === 0) {
+    return { problem: 'it has no sections', kind: 'generation' };
+  }
 
   // What a model is sent in place of the span, framing included, must still be smaller.
   const shown = estimateTokens(checkpoint);
 
   if (shown >= replaced) {
-    return `it is about ${shown} tokens, not smaller than the ${replaced} it replaces`;
+    return {
+      problem: `it is about ${shown} tokens, not smaller than the ${replaced} it replaces`,
+      kind: 'size',
+    };
   }
 
   return undefined;
