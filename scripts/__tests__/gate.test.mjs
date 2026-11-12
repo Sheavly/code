@@ -30,10 +30,9 @@ describe('the quality gate', () => {
   it('always runs prompt review outside affected-workspace filtering and caching', () => {
     const { scripts } = JSON.parse(read('package.json'));
     const turbo = JSON.parse(read('turbo.json').replace(/^\s*\/\/.*$/gm, ''));
-    const reviewStep = scripts['check:affected']
-      .split('&&')
-      .find((step) => step.includes('lint:prompt'));
+    const reviewStep = scripts['check:repo'];
 
+    expect(scripts['check:affected']).toMatch(/&& npm run check:repo$/);
     expect(scripts.check).toContain('lint:prompt');
     expect(reviewStep).toContain('turbo run lint:prompt');
     expect(reviewStep).not.toMatch(/--affected|--filter/);
@@ -42,6 +41,83 @@ describe('the quality gate', () => {
       'npm exec -w @sheavly/host -- eslint src/instructions/instructions.prompt.ts',
     );
     expect(scripts['lint:prompt']).not.toContain('--cache');
+  });
+
+  // The Check workflow runs these groups as parallel jobs; together they must be `npm run check`.
+  it('splits into CI groups that run every task of `npm run check`', () => {
+    const { scripts } = JSON.parse(read('package.json'));
+    const GROUPS = [
+      'check:typecheck',
+      'check:lint',
+      'check:test',
+      'check:eslint-config',
+      'check:root',
+      'check:repo',
+    ];
+    // The tasks a script runs, without the turbo filters that only choose which workspaces.
+    const tasksOf = (script) =>
+      script
+        .replace(/^turbo run /, '')
+        .replace(/ --(filter=\S+|affected)/g, '')
+        .split(/\s+/);
+    const grouped = new Set(GROUPS.flatMap((name) => tasksOf(scripts[name])));
+    const workflow = read('.github/workflows/check.yml');
+
+    expect([...grouped].sort()).toEqual([...new Set(tasksOf(scripts.check))].sort());
+    // The two test groups split the workspaces between them: one has eslint-config, one the rest.
+    expect(scripts['check:eslint-config']).toBe('turbo run test --filter=@sheavly/eslint-config');
+    expect(scripts['check:test']).toBe('turbo run test --filter=!@sheavly/eslint-config');
+
+    // A task in two groups would run twice; only `test` is, as the two filters split it.
+    const everyTask = GROUPS.flatMap((name) => tasksOf(scripts[name]));
+    const twice = everyTask.filter((task, i) => everyTask.indexOf(task) !== i);
+
+    expect(twice).toEqual(['test']);
+
+    // Any other group with a filter would silently skip workspaces.
+    for (const name of ['check:typecheck', 'check:lint', 'check:root', 'check:repo']) {
+      expect(scripts[name], `${name} must not filter workspaces`).not.toContain('--filter');
+    }
+
+    // The repo-wide checks are never filtered, by a script flag any more than by the matrix.
+    expect(scripts['check:repo']).not.toContain('--affected');
+
+    // `check:affected` is the local form of the same gate: the same tasks, filtered.
+    const [filtered] = scripts['check:affected'].split('&&');
+
+    expect(new Set(tasksOf(filtered.trim()))).toEqual(
+      new Set(GROUPS.filter((name) => name !== 'check:repo').flatMap((n) => tasksOf(scripts[n]))),
+    );
+
+    const live = workflow.replace(/^\s*#.*$/gm, '');
+
+    // Only the repo-wide group runs unfiltered; the others are filtered on a PR.
+    expect(live).toMatch(/script: check:repo\n\s+affected: false/);
+
+    for (const name of GROUPS.filter((group) => group !== 'check:repo')) {
+      expect(live).toMatch(new RegExp(`script: ${name}\n\\s+affected: true`));
+    }
+
+    // Full history on a PR for `--affected`; strings, as a number 0 is falsy and `&& 0 || 1` is 1.
+    expect(live).toContain("fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}");
+    // Without a base, turbo warns "unable to detect git range" and `--affected` runs everything.
+    // The base comes in through env, never through the script text.
+    expect(live).toContain(
+      "TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}",
+    );
+    // The turbo summary lives in the hidden `.turbo` folder, which upload-artifact v4 skips unless
+    // told otherwise; without this the diagnostic would silently upload nothing.
+    expect(live).toContain("TURBO_RUN_SUMMARY: 'true'");
+    expect(live).toContain('path: .turbo/runs');
+    expect(live).toContain('include-hidden-files: true');
+    // An artifact name may not contain a colon, which every `matrix.script` has.
+    expect(live).toContain('name: turbo-summary-${{ matrix.name }}');
+    // Exactly one entry per group, so a duplicate unfiltered or filtered one can't slip in.
+    expect(live.match(/^\s+script: /gm)).toHaveLength(GROUPS.length);
+    // The whole step line: filtered only on a PR, so a push to main runs (and caches) every task.
+    expect(live).toContain(
+      "run: npm run ${{ matrix.script }}${{ matrix.affected && github.event_name == 'pull_request' && ' -- --affected' || '' }}",
+    );
   });
 
   it('connects the independent prompt check to the stop gate without report scoping', () => {
