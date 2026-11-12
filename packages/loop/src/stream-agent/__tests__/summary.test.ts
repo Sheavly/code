@@ -225,6 +225,35 @@ describe('summarizing in the loop', () => {
     });
   });
 
+  it('ends interrupted, not context_window_exceeded, when aborted during a summary that fails on a full window', async () => {
+    const failing: Summarizer = {
+      name: 'broken',
+      summarize: async () => {
+        throw new Error('model down');
+      },
+    };
+    const controller = new AbortController();
+    const { provider } = recording([toolTurn(95_000), answer]);
+    const { reason } = await runSession({
+      provider,
+      tools: [probe],
+      // An old user message to summarize, then a reply estimated at more than the whole window, so
+      // the no-room stop would fire without the abort.
+      messages: [
+        { role: 'user', content: 'start', at: 1 },
+        { role: 'assistant', content: 'x'.repeat(4 * WINDOW + 400), toolCalls: [], at: 2 },
+        { role: 'user', content: 'now', at: 3 },
+      ],
+      summary: options(failing),
+      signal: controller.signal,
+      onEvent: (event) => {
+        if (event.type === 'summary_started') controller.abort();
+      },
+    });
+
+    expect(reason).toBe('interrupted');
+  });
+
   it('ends context_window_exceeded, history untouched, when no summary helps and the view fills the window', async () => {
     const failing: Summarizer = {
       name: 'broken',

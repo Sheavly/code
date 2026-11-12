@@ -27,9 +27,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   // No summary could make room and the view fills the window: stop here, recoverably (the history
   // is untouched and valid), rather than send a call the provider is sure to reject.
-  if ((await summarizeAtThreshold(context)) === 'full') return 'context_window_exceeded';
+  const room = await summarizeAtThreshold(context);
 
+  // An abort during the summary ends the run as interrupted, whatever the view's size.
   if (signal.aborted) return 'interrupted';
+
+  if (room === 'full') return 'context_window_exceeded';
 
   // Read once, so the hooks, the agent and the usage event all see the same numbers.
   const state = contextState({
