@@ -157,8 +157,8 @@ Methods follow what each request is. A read with no input is `GET`; a read with 
 point is a typed body (the stream's filter, the skills' search). Setting a value is `PUT` (the
 model: sending it twice is the same as once); anything else that changes state is `POST` or
 `DELETE`, so no client or proxy retries it on its own. Each route of `API_ROUTES` declares whether
-it reads or changes, and its type allows only the methods that fit; adding one is "A route" in the
-project skill.
+it reads or changes, and its type allows only the methods that fit; adding one is "A route" in
+`.agents/skills/sheavly/extending.md`.
 
 `GET /conversations/:id` is what the backend reports about the run it built (the host knows
 nothing of workspaces or models): a conversation that reports nothing answers `not_found`.

@@ -53,7 +53,7 @@ export const ENTRY_EVENT = 'entry';
  * the contract's schemas that validate its body and answer. The one definition of the API: the
  * server builds its routes from it, the OpenAPI document is written from it, and the client is
  * generated from that. Each route says whether it reads or changes, and `ApiRoute` holds its
- * method to that; a new one follows "A route" in the project skill.
+ * method to that; a new one follows "A route" in `.agents/skills/sheavly/extending.md`.
  */
 export const API_ROUTES = {
   listConversations: {

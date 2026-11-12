@@ -1,13 +1,13 @@
 // The architecture rules the postToolUse hook injects on a chat's first edit of harness source:
 // "Backend only" (the harness emits typed events; UI code only when an issue asks for one) and
 // "Where code goes" (which package or folder something new belongs in). Their text lives once, in
-// the project skill's sections; this reads them from there, so the two never drift.
+// the `sheavly` skill's layers guide; this reads them from there, so the two never drift.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
-const SKILL = '.agents/skills/working-in-sheavly-harness/SKILL.md';
+const SKILL = '.agents/skills/sheavly/layers.md';
 const BACKEND_ONLY = '## Backend only: typed events, no UI';
 
 export const WHERE_CODE_GOES = '## Where code goes';

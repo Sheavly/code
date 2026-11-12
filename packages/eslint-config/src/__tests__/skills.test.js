@@ -285,7 +285,7 @@ describe('findGoverningGuides', () => {
 describe("this repo's skills", () => {
   it('reads every one, and each governs a file or says why not', () => {
     expect(listSkills(ROOT).map(({ name }) => name)).toEqual(
-      expect.arrayContaining(['git']),
+      expect.arrayContaining(['git', 'sheavly']),
     );
   });
 
@@ -300,8 +300,8 @@ describe("this repo's skills", () => {
   });
 
   it.each([
-    ['packages/protocol/src/event/event.validator.ts', 'working-in-sheavly-harness'],
-    ['apps/terminal/src/workbook/run.helper.ts', 'working-in-sheavly-harness'],
+    ['packages/protocol/src/event/event.validator.ts', 'sheavly'],
+    ['apps/terminal/src/workbook/run.helper.ts', 'sheavly'],
     ['.github/pull_request_template.md', 'git'],
     ['docs/agent-prompts/research.md', 'adding-models'],
   ])('names the skill that governs %s', (relative, name) => {

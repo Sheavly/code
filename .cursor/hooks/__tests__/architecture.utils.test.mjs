@@ -12,7 +12,7 @@ import {
 import { runEditHook } from './run-hook.utils.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
-const SKILL = '.agents/skills/working-in-sheavly-harness/SKILL.md';
+const SKILL = '.agents/skills/sheavly/layers.md';
 let stateDir = '';
 let project = '';
 
@@ -49,7 +49,7 @@ describe('the architecture rule', () => {
     expect(rule).toContain('## Backend only: typed events, no UI');
     expect(rule).toContain('only when the chat');
     expect(rule).toContain('harness/no-terminal-io');
-    expect(rule).not.toContain('## Packages');
+    expect(rule).not.toContain('## The UI decides what a run includes');
   });
 
   it('cuts a section at the next heading, or the end', () => {

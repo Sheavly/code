@@ -9,5 +9,15 @@
   "reviewDecision": "A `gh --json` field (GitHub's API), not code in this repo.",
   "statusCheckRollup": "A `gh --json` field (GitHub's API), not code in this repo.",
   "closingIssuesReferences": "A `gh --json` field (GitHub's API), not code in this repo.",
-  "needsRebase": "A `gh stack view --json` field (the gh-stack extension), not code in this repo."
+  "needsRebase": "A `gh stack view --json` field (the gh-stack extension), not code in this repo.",
+  "index.json": "A stored conversation's file under ~/.sheavly, named in the debugging guide; data on the user's disk, not a file in this repo.",
+  "history.json": "The older stored-history file under ~/.sheavly, named in the debugging guide; data on the user's disk, not a file in this repo.",
+  "shell.json": "A stored conversation's working-root file under ~/.sheavly, named in the debugging guide; data on the user's disk, not a file in this repo.",
+  "queue.json": "A stored conversation's queued lines under ~/.sheavly, named in the debugging guide; data on the user's disk, not a file in this repo.",
+  "permissions/<key>.json": "A command-approval file under ~/.sheavly, named in the debugging guide; data on the user's disk, not a file in this repo.",
+  "credentials.json": "The secret store under ~/.sheavly, named in the debugging guide only to say never to read it; data on the user's disk, not a file in this repo.",
+  "workbook/runs/<id>/": "A workbook run folder, written when a run is made and kept out of git; named in the debugging guide.",
+  "transcript.txt": "A file in a workbook run folder, written when a run is made and kept out of git; named in the debugging guide.",
+  "result.json": "A file in a workbook run folder, written when a run finishes and kept out of git; named in the guides.",
+  ".git/cursor-docs-nudged.json": "The docs nudge's record inside a clone's .git folder, written by the stop hook; not a tracked file."
 }
