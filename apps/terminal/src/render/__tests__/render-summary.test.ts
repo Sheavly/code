@@ -37,10 +37,11 @@ const done: EntryEvent = {
   summarizer: 'model',
   sections: [],
 };
-const failedWith = (error: string): EntryEvent => ({
+const failedWith = (error: string, kind?: 'cancellation'): EntryEvent => ({
   seq: 7,
   type: 'summary_failed',
   reason: 'overflow',
+  ...(kind && { kind }),
   error,
   retriesLeft: 2,
 });
@@ -53,6 +54,10 @@ describe('Renderer: summaries', () => {
     expect(chatted([started, failedWith('provider down')])).toBe(
       '… Summarizing\n… Could not shorten the conversation this time, carrying on\n',
     );
+  });
+
+  it('shows nothing for a summary the person stopped: the stop says it', () => {
+    expect(chatted([started, failedWith('aborted', 'cancellation')])).toBe('… Summarizing\n');
   });
 
   it('never shows the failure text in the chat, however it is written', () => {

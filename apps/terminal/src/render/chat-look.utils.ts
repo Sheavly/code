@@ -47,8 +47,10 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
       paint.text.secondary(`✓ Summarized chat (${tokensBefore} → ${tokensAfter} tokens)\n`),
     // The cause is stored in the stream and shown in the plain log, not here: a person in the chat
     // needs to know the chat carries on, not a model's internal error.
-    summaryFailed: () =>
-      paint.text.secondary('… Could not shorten the conversation this time, carrying on\n'),
+    summaryFailed: ({ cancelled }) =>
+      cancelled
+        ? ''
+        : paint.text.secondary('… Could not shorten the conversation this time, carrying on\n'),
     runFailed: (error) => paint.status.error(`✗ Model run failed: ${error}\n`),
     hookFailed: ({ hook, handler, error }) =>
       paint.status.error(`✗ hook ${hook} failed in ${handler}: ${error}\n`),

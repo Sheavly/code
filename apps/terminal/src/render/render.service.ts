@@ -176,7 +176,12 @@ export class Renderer {
         );
         break;
       case 'summary_failed':
-        this.#activity(this.look.summaryFailed(firstLine(event.error)));
+        this.#activity(
+          this.look.summaryFailed({
+            error: firstLine(event.error),
+            cancelled: event.kind === 'cancellation',
+          }),
+        );
         break;
       case 'run_failed':
         this.clearRunning();
