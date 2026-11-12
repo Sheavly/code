@@ -22,6 +22,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 | `hook/`        | `Hook` and its handlers' contexts, `defineHook`                                                                 |
 | `provider/`    | `Provider`, `ProviderRequest`, `ToolDefinition`                                                                 |
 | `notice/`      | `formatHarnessNotice`: model-facing formatting of shared protocol notices, transient and persistent             |
+| `history/`     | `latestRequest`, `latestRequestIndex`, `latestPromptIndex`: what counts as a request in stored history          |
 | `summary/`     | `Summarizer`, `SummaryOptions` and `SummaryPolicy` (what writes a checkpoint, and when), and `formatCheckpoint` |
 | `text/`        | `neutralize`, `escapeTags`, `oneLine`: keep model-written text from opening or closing an envelope              |
 | `adapter/`     | `Adapter` types and `defineAdapter`, for model backends                                                         |
