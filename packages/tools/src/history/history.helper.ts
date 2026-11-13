@@ -2,7 +2,6 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { SessionInfo } from '@sheavly/protocol/session/session.types';
 import { MAX_SCAN_ENTRIES, MAX_SEARCH_LIMIT } from './history.constants.js';
 import type {
   HistoryCursor,
@@ -13,17 +12,34 @@ import type {
 } from './history.types.js';
 import { entryText, excerptAround, matchIndex, sameScope } from './history.utils.js';
 
+/** A session whose log can be read: live or released (only sub-agents are released). */
+type HistoryTarget = { id: SessionId; main: boolean; startedAt: number };
+
 /**
- * The sessions a search looks through, in order: `session` alone, or all of them, starting at the
- * cursor's session when resuming. A `session` or cursor that names none of them is refused.
+ * The sessions a search looks through, by start time (main first, then id, on a tie): `session` alone, or all of
+ * them, starting at the cursor's session when resuming. Released sessions are included, since
+ * their stored history stays readable. The order does not change when a session is released, so
+ * a cursor taken before a release still resumes in the right place. A `session` or cursor that
+ * names none of them is refused.
  */
 function sessionsToSearch(params: {
   options: HistoryToolOptions;
   session: SessionId | undefined;
   cursor: HistoryCursor | undefined;
-}): SessionInfo[] {
+}): HistoryTarget[] {
   const { options, session, cursor } = params;
-  const known = options.sessions.list();
+  const known: HistoryTarget[] = [
+    ...options.sessions.list().map((info) => ({
+      id: info.id,
+      main: !('parentId' in info),
+      startedAt: info.startedAt,
+    })),
+    ...options.sessions.releasedStarts().map((each) => ({ ...each, main: false })),
+  ].sort(
+    // Ties go main first, then by id: never by live or released, which changes on a release.
+    (a, b) =>
+      a.startedAt - b.startedAt || Number(b.main) - Number(a.main) || a.id.localeCompare(b.id),
+  );
   const wanted = session ? known.filter((each) => each.id === session) : known;
 
   if (session && wanted.length === 0) throw unknownSession(session);
@@ -45,7 +61,7 @@ function sessionsToSearch(params: {
  */
 async function searchSession(params: {
   options: HistoryToolOptions;
-  info: SessionInfo;
+  info: HistoryTarget;
   span: { from: number; to: number | undefined };
   query: string;
   room: number;
@@ -58,7 +74,7 @@ async function searchSession(params: {
   stopped: 'limit' | 'budget' | 'end';
 }> {
   const { options, info, span, query, room, budget, signal } = params;
-  const log = options.logOf({ session: info.id, main: !('parentId' in info) });
+  const log = options.logOf({ session: info.id, main: info.main });
   const hits: SearchHit[] = [];
   let scanned = 0;
   let last: number | undefined;
@@ -212,9 +228,9 @@ export async function readHistoryEntry(params: {
   const { options, session, seq, signal } = params;
   const info = options.sessions.get(session);
 
-  if (!info) throw unknownSession(session);
+  if (!info && !options.sessions.isReleased(session)) throw unknownSession(session);
 
-  const log = options.logOf({ session, main: !('parentId' in info) });
+  const log = options.logOf({ session, main: info !== undefined && !('parentId' in info) });
 
   for await (const record of log.read(seq)) {
     signal.throwIfAborted();
