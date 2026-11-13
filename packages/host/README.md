@@ -91,7 +91,10 @@ through the `storage` the host hands `create` (`entries` for `createHarness`, `k
 entry says its title, model and whether it is open or closed. `listStored()` lists past
 conversations (`listStored({ search })` those whose title has it, ignoring case), and `reopen(id)` brings one back under its own id, continuing from its history: its
 stream is numbered on from the last stored entry, a tool call that never returned gets a
-placeholder result, and a sub-agent that was running is `interrupted`. If storage fails, the
+placeholder result, and a sub-agent that was running is `interrupted`. A sub-agent whose report
+never reached the history gets an `agent-report` notice appended (its report read back from its
+stored history, empty for one that did not complete), which the model sees at the next prompt;
+reopening starts no run. If storage fails, the
 conversation takes no more prompts (`storage_failed`) instead of carrying on unrecorded. With no
 store, nothing is kept and everything behaves as before.
 
