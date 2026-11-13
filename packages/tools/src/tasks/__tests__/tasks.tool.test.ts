@@ -99,6 +99,29 @@ describe('cancel_task and task_status', () => {
 
     expect(result.role === 'tool' && result.content).toContain('already completed');
   });
+
+  it('says a released task was released, and an id that never existed was not found', async () => {
+    const { run } = setup();
+
+    await run('c1', 'start_task', { ms: 0 });
+    await until(() => tasks.runningCount === 0);
+    tasks.takeUnreported();
+    tasks.release(t1);
+
+    for (const [id, tool] of [
+      ['s', 'task_status'],
+      ['c', 'cancel_task'],
+    ] as const) {
+      const released = await run(id, tool, { id: 't1' });
+      const unknown = await run(`${id}9`, tool, { id: 't9' });
+
+      expect(released).toMatchObject({ isError: true });
+      expect(released.role === 'tool' && released.content).toContain(
+        'already reported and released',
+      );
+      expect(unknown.role === 'tool' && unknown.content).toContain('No task with id t9');
+    }
+  });
 });
 
 describe('TaskRegistry', () => {
