@@ -8,7 +8,8 @@ type TaskFailure =
   | 'task_grouped'
   | 'task_not_owned'
   | 'service_task'
-  | 'task_delivered';
+  | 'task_delivered'
+  | 'task_released';
 
 /** A group request was refused without changing any task or delivery. */
 export class TaskError extends Error {

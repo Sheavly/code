@@ -1,9 +1,43 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
 import type { Entry } from './tasks.types.js';
+
+/** Whether `id` is a canonical id (`t1`, `t42`, never `t0` or `t01`) below `nextId`. */
+export function isIssued(params: { id: TaskId; nextId: number }): boolean {
+  const digits = /^t([1-9]\d*)$/.exec(params.id)?.[1];
+
+  return digits !== undefined && Number(digits) < params.nextId;
+}
+
+/** What the model is told about an id the registry handed out and has since released. */
+export function releasedTaskMessage(id: TaskId): string {
+  return `Task ${id} was already reported and released`;
+}
+
+/** The snapshot of a task that has just started, before it has produced output. */
+export function runningInfo(params: {
+  id: TaskId;
+  callId: CallId | undefined;
+  command: string;
+  description: string;
+  startedAt: number;
+}): TaskInfo {
+  const { id, callId, command, description, startedAt } = params;
+
+  return {
+    id,
+    ...(callId ? { callId } : {}),
+    command,
+    description,
+    status: 'running',
+    startedAt,
+    output: '',
+  };
+}
 
 /** The registry's record of a task that has just started: running, not silenced, not notified. */
 export function newEntry(params: {
