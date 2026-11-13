@@ -4,7 +4,10 @@ The stateful services a run uses, with nothing about files or code: the session 
 inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) makes one of each per
 run; tools and the loop share them.
 
-Tasks default to `backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
+Background work starts through `startWork({ tasks, work })` with a `WorkDefinition` built by a
+kind's factory (`finiteWork`, `serviceWork`, or a tool's own such as `subAgentWork`), which fixes the
+policy so a caller names a kind and never passes it. `TaskRegistry.start` underneath still defaults
+to `backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
 awaited; its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
 includes non-service running tasks, their held grouped results, and ready, undelivered completion
 notices: what keeps a sub-agent's loop open. A main session holds only for
