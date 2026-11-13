@@ -4,12 +4,15 @@ The stateful services a run uses, with nothing about files or code: the session 
 inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) makes one of each per
 run; tools and the loop share them.
 
-Tasks default to `backgroundKind: 'task'`: finite work keeps its calling run alive until its
-completion is delivered. `backgroundKind: 'service'` exempts a running service from that rule;
-its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
+Tasks default to `backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
+awaited; its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
 includes non-service running tasks, their held grouped results, and ready, undelivered completion
-notices. A finished finite member keeps its run alive until its group is delivered, even if only
-service members remain; a group containing only running services does not.
+notices: what keeps a sub-agent's loop open. A main session holds only for
+`hasAwaitedTasks(sessionId?)`, running members of an `await_tasks` group. `hasWakingDeliveries`
+says a ready notice reports finite work, so an idle conversation starts a run for it; a
+service's notice does not. A finished finite member keeps a sub-agent's run alive until its group
+is delivered, even if only service members remain; a group containing only running services does
+not.
 
 `TaskRegistry.group({ ids, reason, sessionId? })` returns immediately and holds its members for
 one delivery when the last settles, including cancelled members. Unknown, duplicate, already
