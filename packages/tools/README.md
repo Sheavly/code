@@ -59,7 +59,8 @@ the agent to finish independent work and yield without tool calls rather than po
 results arrive automatically through the loop; services need not exit before a prompt finishes.
 `await_tasks({ ids, reason })` registers a group immediately and holds its completion notices until
 all members finish. Its required reason explains the dependent decision or next step to the agent's
-future self after a summary, rather than merely saying "waiting for results".
+future self after a summary, rather than merely saying "waiting for results". A task whose notice
+was already delivered is refused with an error result: finished work reaches the model once.
 
 `read_output` and `search_output` (`createOutputTools(store)`) read a command's complete stored
 output by `output_ref`, which `run_command`, `task_status` and the task-finished notice print next

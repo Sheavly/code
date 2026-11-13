@@ -16,7 +16,9 @@ not.
 
 `TaskRegistry.group({ ids, reason, sessionId? })` returns immediately and holds its members for
 one delivery when the last settles, including cancelled members. Unknown, duplicate, already
-grouped and unowned IDs throw `TaskError` without changing anything; empty groups are rejected.
+grouped, unowned, service and already delivered IDs (`task_delivered`) throw `TaskError` without
+changing anything; empty groups are rejected. A task cancelled on request was never notified, so
+it can still join a group.
 Already settled members join the group instead of producing separate undelivered notices.
 After validation succeeds, the explicit `reason` is stored on every member's `TaskInfo` as well as
 on the delivery. It remains available through `get`, `list`, `byCallId` and `takeDeliveries`, even
