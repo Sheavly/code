@@ -9,8 +9,11 @@ import type { ChatConversation, RunState } from '../chat.types.js';
 
 const MAIN = sessionIdSchema.parse('main');
 
+let nextSeq = 0;
+
+/** Entries are numbered upward, as the backend's stream is. */
 const entry = (event: EntryEvent, sessionId = MAIN): StreamEntry => ({
-  seq: 0,
+  seq: nextSeq++,
   at: 0,
   sessionId,
   kind: 'event',

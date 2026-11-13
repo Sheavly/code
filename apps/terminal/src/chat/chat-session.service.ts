@@ -9,10 +9,9 @@ import { failuresText } from '../failures/failures-text.utils.js';
 import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
 import type { ChatConversation, RunState, StopResult, TurnOutcome } from './chat.types.js';
-import { parseChatInput } from './chat.utils.js';
+import { endsRun, errorText, mainRunState, parseChatInput } from './chat.utils.js';
 import { runModelCommand, runModeCommand } from './chat-model.helper.js';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { plainTerminalText } from '../render/terminal-text.utils.js';
 
 /**
  * The chat's logic, apart from how a person types to it or sees it: lines go in (`submit`), the
@@ -49,7 +48,13 @@ export class ChatSession {
   #streamOpen = false;
   /** Settles when every yield request sent so far has been answered. */
   #yielding: Promise<void> = Promise.resolve();
+  /** The newest entry shown: a prompt's stream and the live feed overlap, so each shows an entry once. */
+  #shownSeq = -1;
+  /** A run the backend started itself is going, as the live feed tells: Ctrl+C then stops it. */
+  #wakeLive = false;
   #draining = false;
+  /** What the UI was last told, so `onBusy` fires on a change only. */
+  #reportedBusy = false;
   #ended = false;
   #idle: Promise<void> = Promise.resolve();
 
@@ -173,6 +178,12 @@ export class ChatSession {
    * waiting still run after it: stopping a prompt is not leaving.
    */
   stop(): StopResult {
+    if (!this.#current && this.#wakeLive) {
+      void this.#conversation.stop?.();
+
+      return 'stopped';
+    }
+
     if (!this.#current) return 'idle';
     if (this.#current.signal.aborted) return 'stopping';
     this.#current.abort();
@@ -195,7 +206,7 @@ export class ChatSession {
 
   async #drain(): Promise<void> {
     this.#draining = true;
-    this.#onBusy(true);
+    this.#reportBusy();
 
     try {
       while (true) {
@@ -206,8 +217,17 @@ export class ChatSession {
       }
     } finally {
       this.#draining = false;
-      this.#onBusy(false);
+      this.#reportBusy();
     }
+  }
+
+  /** Busy while lines run or a run the backend started itself goes; told once per change. */
+  #reportBusy(): void {
+    const busy = this.#draining || this.#wakeLive;
+
+    if (busy === this.#reportedBusy) return;
+    this.#reportedBusy = busy;
+    this.#onBusy(busy);
   }
 
   /** Handles one line; false once the user asked to leave. */
@@ -258,9 +278,7 @@ export class ChatSession {
     try {
       this.#print(await run());
     } catch (caughtError) {
-      this.#print(
-        `✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}`,
-      );
+      this.#print(`✗ ${errorText(caughtError)}`);
     }
   }
 
@@ -278,6 +296,8 @@ export class ChatSession {
     // Set first so Ctrl+C works while waiting: a yield still in flight for the previous prompt
     // must land before this one starts, or it would end this prompt early instead.
     this.#current = current;
+    // The user's prompt ends any wake (the backend settles it), so Ctrl+C is the prompt's now.
+    this.#wakeLive = false;
     await Promise.race([
       this.#yielding,
       new Promise((resolve) => current.signal.addEventListener('abort', resolve, { once: true })),
@@ -304,9 +324,7 @@ export class ChatSession {
       completed = await this.#showEntries({ text, signal: current.signal });
     } catch (caughtError) {
       outcome = 'failed';
-      this.#write(
-        `\n✗ ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
-      );
+      this.#write(`\n✗ ${errorText(caughtError)}\n`);
     } finally {
       this.#current = undefined;
       this.#streamOpen = false;
@@ -320,6 +338,49 @@ export class ChatSession {
     this.#onTurnEnd(outcome);
   }
 
+  /**
+   * Shows an entry the backend sent outside any prompt of this chat: the run it starts itself when
+   * background work finishes while the chat is idle. Entries a prompt's own stream already
+   * showed are skipped.
+   */
+  hear(entry: StreamEntry): void {
+    // An entry a prompt's own stream showed arrives here again from the live feed: it says nothing
+    // new about a run, so it must not start or end a wake.
+    const fresh = this.#show(entry);
+
+    if (!fresh || entry.sessionId !== this.#mainSession || this.#current) return;
+
+    const ended = endsRun(entry);
+
+    if (entry.kind === 'event' || ended) this.#wakeLive = !ended;
+
+    // No prompt of this chat carries a wake run, so its start and end are told here.
+    this.#reportBusy();
+
+    if (!ended) return;
+
+    // A stopped or failed run can end without the result of a call that was running.
+    this.#renderer.clearRunning();
+    this.#reportLiveState();
+  }
+
+  /** Shows an entry once by seq; false when it was shown already. */
+  #show(entry: StreamEntry): boolean {
+    if (entry.seq <= this.#shownSeq) return false;
+    this.#shownSeq = entry.seq;
+
+    if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
+
+    const run = mainRunState({ entry, mainSession: this.#mainSession });
+
+    if (run) this.#onRunState(run);
+
+    this.#renderer.entry(entry, this.#mainSession);
+    this.#reportLiveState();
+
+    return true;
+  }
+
   /** Prints a message's entries as they stream, telling the UI when the running tools or thinking change. */
   async #showEntries(params: { text: string; signal: AbortSignal }): Promise<boolean> {
     let completed = false;
@@ -330,18 +391,7 @@ export class ChatSession {
         if (this.#queue.queued.length > 0) this.#requestYield();
       }
 
-      if (entry.kind === 'event' && entry.event.type === 'usage') this.#onUsage(entry);
-
-      if (
-        entry.kind === 'event' &&
-        entry.sessionId === this.#mainSession &&
-        entry.event.type === 'run_state'
-      ) {
-        this.#onRunState({ state: entry.event.state, groupedTasks: entry.event.groupedTasks });
-      }
-
-      this.#renderer.entry(entry, this.#mainSession);
-      this.#reportLiveState();
+      this.#show(entry);
 
       if (
         entry.sessionId === this.#mainSession &&
@@ -367,9 +417,7 @@ export class ChatSession {
     const request = this.#conversation.yieldPrompt(AbortSignal.timeout(YIELD_REQUEST_MS)).then(
       () => undefined,
       (caughtError: unknown) => {
-        this.#write(
-          `\n✗ Could not ask the agent to yield: ${plainTerminalText(caughtError instanceof Error ? caughtError.message : String(caughtError))}\n`,
-        );
+        this.#write(`\n✗ Could not ask the agent to yield: ${errorText(caughtError)}\n`);
       },
     );
 

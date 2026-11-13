@@ -3,7 +3,7 @@ import { stripVTControlCharacters } from 'node:util';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from './chat-session.service.js';
-import { completeChatLine } from './chat.utils.js';
+import { completeChatLine, errorText } from './chat.utils.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
 import type { Renderer } from '../render/render.service.js';
@@ -91,7 +91,18 @@ export async function runLineChat(params: {
     input.close();
   });
 
+  const following = new AbortController();
+
   try {
+    const followed = await conversation.follow({
+      onEntry: (entry) => session.hear(entry),
+      signal: following.signal,
+    });
+
+    void followed.ended.catch((caughtError: unknown) => {
+      write(`✗ lost the live stream: ${errorText(caughtError)}\n`);
+    });
+
     if (firstPrompt) session.submit(firstPrompt);
 
     input.setPrompt('› ');
@@ -107,6 +118,7 @@ export async function runLineChat(params: {
     // EOF ends input, not the conversation work already submitted (including queued commands).
     await session.idle();
   } finally {
+    following.abort();
     input.close();
   }
 }
