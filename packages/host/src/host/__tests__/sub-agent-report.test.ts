@@ -123,12 +123,14 @@ describe('a sub-agent report reaches its parent whole', () => {
     expect(sentToParent).not.toContain('[status]');
   });
 
-  it('lets the parent read the complete report again through task_status, without rerunning it', async () => {
-    const { tasks } = await handoff([say(MULTILINE)]);
+  it('says a delivered report was released: the notice in history is where it stays readable', async () => {
+    const { tasks, notice } = await handoff([say(MULTILINE)]);
     const run = toolRunner(createTaskTools(tasks));
     const shown = await run('c1', 'task_status', { id: 't1' });
 
-    expect(shown.role === 'tool' && shown.content).toContain(MULTILINE);
+    expect(notice?.role === 'notice' && notice.notice).toMatchObject({ report: MULTILINE });
+    expect(shown).toMatchObject({ isError: true });
+    expect(shown.role === 'tool' && shown.content).toContain('already reported and released');
   });
 
   it('puts the card data in the typed notice, for a UI to render from', async () => {

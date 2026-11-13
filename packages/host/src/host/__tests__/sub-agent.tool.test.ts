@@ -19,6 +19,7 @@ import { startDeepestSession } from '@sheavly/runtime/testing/sessions.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const callId = callIdSchema.parse('c');
@@ -38,6 +39,13 @@ function setup(params: {
   const updates: SessionUpdate[] = [];
 
   sessions.subscribe((update) => updates.push(update));
+
+  // A delivered task is released, so what a test checks about its end is kept as it happens.
+  const ended: TaskInfo[] = [];
+
+  tasks.observe(({ update }) => {
+    if (update.type === 'task_ended') ended.push(update.task);
+  });
 
   const provider = routedProvider(params.scripts);
   const main = sessions.startMain({ title: 'Main' });
@@ -60,7 +68,7 @@ function setup(params: {
       session: { registry: sessions, ref: main },
     });
 
-  return { sessions, tasks, updates, provider, main, tool, run };
+  return { sessions, tasks, ended, updates, provider, main, tool, run };
 }
 
 describe('start_agent', () => {
@@ -178,7 +186,7 @@ describe('start_agent', () => {
   });
 
   it('streams status reports live, in order, from the sub-agent itself', async () => {
-    const { sessions, tasks, updates, main, run } = setup({
+    const { sessions, ended, updates, main, run } = setup({
       scripts: {
         Main: [calls(call('m', 'start_agent', { title: 'Worker', task: 'Work' })), say('ok')],
         Work: [
@@ -203,7 +211,7 @@ describe('start_agent', () => {
       'updating ESLint rules',
     ]);
     // The parent can see them too, in the task's output.
-    expect(tasks.list()[0]?.output).toContain('[status] editing core package');
+    expect(ended[0]?.output).toContain('[status] editing core package');
   });
 
   it('gives sub-agents only the hooks the parent chose, each with its own sessionStart', async () => {
@@ -425,7 +433,7 @@ describe('start_agent', () => {
   });
 
   it('fails the task with the reason when the sub-agent did not finish, with no report', async () => {
-    const { tasks, run } = setup({
+    const { tasks, ended, run } = setup({
       scripts: {
         'Do the thing': [
           calls(call('m1', 'start_agent', { title: 'Helper', task: 'Help out' })),
@@ -442,7 +450,7 @@ describe('start_agent', () => {
 
     await run('Do the thing');
 
-    const [task] = tasks.list();
+    const [task] = ended;
 
     if (!task) throw new Error('start_agent started no task');
 
