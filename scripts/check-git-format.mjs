@@ -67,7 +67,7 @@ function checkIssueLink(params) {
 const HARNESS_IMPACT = '## Harness impact';
 const NONE_LINE = /^none: \S/;
 const ENFORCEMENT_REFERENCE =
-  /`(?![^`]*\.test\.)(?:harness\/[\w-]+|(?:\.cursor\/hooks|scripts|packages\/eslint-config)\/[^`\s]+\.(?:[cm]?js|json))`/;
+  /`(?![^`]*\.test\.)(?:harness\/[\w-]+|(?:\.cursor\/hooks|\.sheavly\/hooks|scripts|packages\/eslint-config)\/[^`\s]+\.(?:[cm]?js|json))`/;
 const REGRESSION_REFERENCE = /`[^`\s]+\/[^`/\s]+\.test\.(?:[cm]?[jt]sx?)`/;
 
 function checkImpactEntry(entry) {
