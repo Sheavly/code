@@ -66,8 +66,9 @@ The terminal makes no choice about a run: which model, tools and hooks it gets i
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.
 
 Messages typed while the agent works wait in a FIFO queue, outside its history and summaries.
-Sending one asks the run to yield at its completion point without cancelling background work;
-queued lines then run in order as ordinary prompts. Plain input reads continuously too.
+Sending one asks the run to yield at its completion point without cancelling background work,
+except while the agent waits on `await_tasks`, which keeps the line queued until the model has
+finished; queued lines then run in order as ordinary prompts. Plain input reads continuously too.
 
 Interactive chat uses React and Ink. `SHEAVLY_TUI=classic` selects the previous renderer;
 `SHEAVLY_PLAIN=1` keeps linear input and output. Both interactive renderers share the editor,

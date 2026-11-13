@@ -55,8 +55,13 @@ tasks or releasing held groups. Normal completion rechecks the inbox after the f
 task check, so a message accepted at that boundary is handled instead of stranded in an idle
 session. Aborting `yieldSignal` ends the run as `completed` at its completion point instead of
 waiting for tasks: it wakes the wait and takes precedence over pending deliveries, which stay for
-the next run. It never interrupts a model call or tools. Cancelling a grouped task counts it as finished, but the combined notice waits for the
-remaining members and includes its cancelled status. Services that outlive a run are reported
+the next run. It never interrupts a model call or tools, and it never ends a hold on grouped work
+(`await_tasks`): while grouped tasks run, the yield stays raised and is ignored, so a queued line
+waits until the model has finished (`yieldEnds`). When the group settles, the model still
+receives its notice and answers it; the raised yield then ends the run at the next completion
+point, and the queued line starts as the next prompt. Cancelling a grouped task counts it as
+finished, but the combined notice waits for the remaining members and includes its cancelled
+status. Services that outlive a run are reported
 at the next prompt; grouping a service does not turn it into finite work.
 
 **A finished task is a persistent notice.** For each task that finished, the loop emits

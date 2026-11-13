@@ -25,9 +25,8 @@ The owner's model of how work flows. Tests state these as rules: every rule has 
 
 ### Where the code differs from these rules
 
-The tests run through the real loop and conversation and are parameterised by kind (foreground tool, background command as `task` and as `service`, sub-agent). A test that states a rule today's code breaks is marked `it.fails`, so it turns red when the code is fixed and the fixing change must update it. Where a test titled "pinned today" sits beside it (rules 3 and 7, a stop while a prompt is prepared, and a stale file read), it holds today's behaviour and proves the setup works; the other defects have the `it.fails` test only.
+The tests run through the real loop and conversation and are parameterised by kind (foreground tool, background command as `task` and as `service`, sub-agent). A test that states a rule today's code breaks is marked `it.fails`, so it turns red when the code is fixed and the fixing change must update it. Where a test titled "pinned today" sits beside it (rule 7, a stop while a prompt is prepared, and a stale file read), it holds today's behaviour and proves the setup works; the other defects have the `it.fails` test only.
 
-- **Rule 3:** a line queued while a prompt runs requests a yield, and the yield ends an `await_tasks` wait.
 - **Rule 5:** `group()` accepts a task whose notice was already delivered and notifies a second time.
 - **Rule 7:** a steering message from the inbox enters history without an `id`, and the user-messages summary section drops it.
 - **Cancel after finish:** a task aborted after it finished is recorded as `cancelled`, because the status is read from the abort signal when the task settles.
