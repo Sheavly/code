@@ -27,6 +27,20 @@ export function firstLine(text: string): string {
   return line.length > FIRST_LINE_MAX ? `${line.slice(0, FIRST_LINE_MAX)}…` : line;
 }
 
+/**
+ * A tool's own summary line, uncut (a path's length is its own, and the line count that follows it
+ * must stay), with a note of how many more lines the result holds: a hook can append a report for
+ * the model, and a person should see that there is more, not the whole of it.
+ */
+export function ownLine(text: string): string {
+  const lines = plainTerminalText(stripVTControlCharacters(text))
+    .split('\n')
+    .filter((line) => line.trim());
+  const [first = '', ...rest] = lines;
+
+  return rest.length > 0 ? `${first} · +${rest.length} lines for the model` : first;
+}
+
 export function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
