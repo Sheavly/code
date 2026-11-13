@@ -100,6 +100,20 @@ describe('await_tasks', () => {
     });
   });
 
+  it('returns an error result for a task whose notice was already delivered', async () => {
+    const run = setup();
+
+    await run('start', 'start_task', { ms: 0 });
+    await tasks.nextSettled();
+    expect(tasks.takeDeliveries()).toHaveLength(1);
+
+    const result = await run('late', 'await_tasks', { ids: ['t1'], reason: 'Too late.' });
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('Task t1 was already reported and cannot be grouped');
+    expect(tasks.hasDeliveries()).toBe(false);
+  });
+
   it.each([undefined, '', '   ', '\n\t', 42])('requires a nonempty reason: %s', async (reason) => {
     const run = setup();
     const group = vi.spyOn(tasks, 'group');

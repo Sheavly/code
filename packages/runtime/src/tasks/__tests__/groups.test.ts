@@ -37,7 +37,6 @@ describe('task group deliveries', () => {
     const completed = controlledTask(tasks);
 
     await completed.finish();
-    tasks.takeDeliveries();
     const wake = tasks.nextSettled();
 
     expect(tasks.settleWaiters).toBe(1);
@@ -293,7 +292,7 @@ describe('atomic task group validation', () => {
       expect(request).toThrow(expect.objectContaining({ reason }));
       expect(tasks.get(first.info.id)).not.toHaveProperty('reason');
       expect(tasks.get(second.info.id)).not.toHaveProperty('reason');
-      expect(tasks.takeDeliveries()).toEqual([{ tasks: [tasks.get(first.info.id)] }]);
+      expect(tasks.hasDeliveries()).toBe(true);
       tasks.group({ ids: [first.info.id, second.info.id], reason: 'Valid retry' });
 
       await second.finish();

@@ -42,6 +42,8 @@ export type Entry = {
   backgroundKind: 'task' | 'service';
   /** Membership survives delivery until this entry is released. */
   group?: Delivery;
+  /** The notice of an ungrouped task, set when it settles unsilenced and dropped when grouped. */
+  delivery?: Delivery;
   /** Whole result, outside the bounded preview and task events. */
   report?: string | undefined;
 };
