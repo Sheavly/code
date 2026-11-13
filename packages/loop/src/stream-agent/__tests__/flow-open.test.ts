@@ -1,0 +1,185 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { runSession } from '../stream-agent.helper.js';
+import { HELD_MS, SETTLES_MS } from '../../testing/flow.constants.js';
+import {
+  cancelOpenFlows,
+  recordingProvider,
+  settledWithin,
+  startFlow,
+  userPrompt,
+} from '../../testing/flow.fake.js';
+import { say, toolTurn, WORK_KINDS } from '../../testing/work-kinds.fake.js';
+import type { WorkKind } from '../../testing/work-kinds.types.js';
+
+// The rules are in `.agents/skills/sheavly/state-machines.md`, "The flow that must hold". A test
+// marked `it.fails` states a rule today's code breaks: it turns red when the code is fixed.
+
+afterEach(cancelOpenFlows);
+
+const t1 = taskIdSchema.parse('t1');
+const awaitFirst = toolTurn({
+  id: 'w1',
+  name: 'await_tasks',
+  input: { ids: ['t1'], reason: 'Need its result.' },
+});
+const background = WORK_KINDS.filter((kind) => kind.background);
+const awaitable = WORK_KINDS.filter((kind) => kind.background && kind.finite);
+/** Ungrouped finite work holds a finished turn open today. */
+const heldToday = (kind: WorkKind) => kind.background && kind.finite;
+
+function startRun(params: {
+  kind: WorkKind;
+  turns: ReturnType<typeof say>[];
+  signal?: AbortSignal;
+  yieldSignal?: AbortSignal;
+}) {
+  const { kind, turns, signal, yieldSignal } = params;
+  const flow = startFlow(kind);
+  const { provider } = recordingProvider(turns);
+  const run = runSession({
+    ...flow.options,
+    provider,
+    messages: userPrompt(),
+    ...(signal && { signal }),
+    ...(yieldSignal && { yieldSignal }),
+  });
+
+  return { ...flow, run };
+}
+
+describe.each(background)('flow rules 1 and 4 — $name', (kind) => {
+  const slowThenAnswer = () => [kind.start({ speed: 'slow', id: 'c1' }), say('Started.')];
+  // `it.fails` also passes when the run throws. The "pinned today" test below runs the same setup
+  // and fails on a throw, so a broken setup cannot hide behind the reproduction.
+  const itEnds = heldToday(kind) ? it.fails : it;
+
+  itEnds(
+    'rule 1: the main session ends its turn when the model finishes, even while the work runs',
+    async () => {
+      const { run } = startRun({ kind, turns: slowThenAnswer() });
+
+      expect(await settledWithin(run, SETTLES_MS)).toBe(true);
+    },
+  );
+
+  if (heldToday(kind)) {
+    it('pinned today: ungrouped finite work holds the finished turn open', async () => {
+      const { run } = startRun({ kind, turns: slowThenAnswer() });
+
+      expect(await settledWithin(run, HELD_MS)).toBe(false);
+    });
+  }
+
+  it('rule 4: a requested yield ends the turn at the model finishing, with the work still running', async () => {
+    const yielding = new AbortController();
+
+    yielding.abort();
+    const { run, tasks } = startRun({
+      kind,
+      turns: slowThenAnswer(),
+      yieldSignal: yielding.signal,
+    });
+    const result = await run;
+
+    expect(result.reason).toBe('completed');
+    expect(tasks.runningCount).toBe(1);
+  });
+});
+
+describe.each(awaitable)('flow rules 2 and 3 — $name', (kind) => {
+  const waiting = (speed: 'slow' | 'quick') => [
+    kind.start({ speed, id: 'c1' }),
+    awaitFirst,
+    say('Waiting.'),
+    say('Saw it.'),
+  ];
+
+  it('rule 2: await_tasks keeps the session open until the grouped work settles', async () => {
+    const { run, tasks } = startRun({ kind, turns: waiting('slow') });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    expect(tasks.groupedPendingCount()).toBe(1);
+
+    await tasks.cancel(t1);
+    const result = await run;
+
+    expect(result.reason).toBe('completed');
+    expect(result.messages.at(-1)).toMatchObject({ content: 'Saw it.' });
+  });
+
+  it('rule 2: await_tasks ends with the finished work delivered when it settles by itself', async () => {
+    const { run } = startRun({ kind, turns: waiting('quick') });
+    const result = await run;
+
+    // Work that finishes before the model's next call is delivered with that call, so the last
+    // reply is not fixed; that the run ended with the notice delivered is.
+    expect(result.reason).toBe('completed');
+    expect(result.messages.filter((m) => m.role === 'notice')).toHaveLength(1);
+  });
+
+  it('rule 2: the user stopping the run ends the wait', async () => {
+    const stopping = new AbortController();
+    const { run } = startRun({ kind, turns: waiting('slow'), signal: stopping.signal });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    stopping.abort();
+
+    expect((await run).reason).toBe('interrupted');
+  });
+
+  // Same setup as the "pinned today" test below, which fails if the run throws, so this
+  // `it.fails` cannot pass on a broken setup.
+  it.fails(
+    'rule 3: a line queued while the session waits on await_tasks does not end the wait',
+    async () => {
+      const yielding = new AbortController();
+      const { run } = startRun({
+        kind,
+        turns: waiting('slow'),
+        yieldSignal: yielding.signal,
+      });
+
+      expect(await settledWithin(run, HELD_MS)).toBe(false);
+      yielding.abort();
+
+      expect(await settledWithin(run, HELD_MS)).toBe(false);
+    },
+  );
+
+  it('pinned today: a requested yield ends the wait on grouped work', async () => {
+    const yielding = new AbortController();
+    const { run } = startRun({ kind, turns: waiting('slow'), yieldSignal: yielding.signal });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    yielding.abort();
+
+    expect(await settledWithin(run, SETTLES_MS)).toBe(true);
+  });
+});
+
+describe.each(WORK_KINDS.filter((kind) => kind.background && !kind.finite))(
+  'flow rule 6 — $name',
+  (kind) => {
+    it('rule 6: a service never holds the run open', async () => {
+      const { run } = startRun({
+        kind,
+        turns: [kind.start({ speed: 'slow', id: 'c1' }), say('Started.')],
+      });
+
+      expect(await settledWithin(run, SETTLES_MS)).toBe(true);
+    });
+
+    it('rule 6: only finite work can be awaited', async () => {
+      const { run } = startRun({
+        kind,
+        turns: [kind.start({ speed: 'slow', id: 'c1' }), awaitFirst, say('Done.')],
+      });
+      const result = await run;
+      const refusal = result.messages.find((m) => m.role === 'tool' && m.toolCallId === 'w1');
+
+      expect(refusal).toMatchObject({ isError: true });
+      expect(JSON.stringify(refusal)).toContain('service');
+    });
+  },
+);
