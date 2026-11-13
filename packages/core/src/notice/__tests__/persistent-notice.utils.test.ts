@@ -38,6 +38,20 @@ describe('formatHarnessNotice: a sub-agent report', () => {
     expect(text).toContain('Last status it reported: reading files.');
   });
 
+  it('names no task for a report written when a conversation was reopened', () => {
+    const text = formatHarnessNotice(
+      harnessNoticeSchema.parse({
+        kind: 'agent-report',
+        agent,
+        outcome: 'completed',
+        report: 'All good.',
+      }),
+    );
+
+    expect(text).toContain('Sub-agent "Research the cache" (session sub-1) ended: completed.');
+    expect(text).not.toContain('task ');
+  });
+
   it('delivers a report of any length whole, in order, with nothing cut', () => {
     const long =
       'REPORT-BEGIN\n' +

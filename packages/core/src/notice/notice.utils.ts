@@ -77,7 +77,7 @@ function formatAgentReport(notice: Extract<HarnessNotice, { kind: 'agent-report'
   return renderAgentReport({
     title: line(agent.title),
     id: line(agent.id),
-    taskId: line(taskId),
+    taskId: taskId === undefined ? undefined : line(taskId),
     outcome: line(outcome),
     status: agent.status ? line(agent.status) : undefined,
     body,
