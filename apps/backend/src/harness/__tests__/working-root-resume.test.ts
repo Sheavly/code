@@ -1,4 +1,4 @@
-import { rm } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
@@ -104,6 +104,27 @@ describe('the working root of a resumed conversation', () => {
       reportedWorkingRoot({ workingRoots: failing, onFailure: (caught) => heard.push(caught) }),
     ).resolves.toBeUndefined();
     expect(heard).toEqual([expect.objectContaining({ message: 'git timed out' })]);
+  });
+
+  // Reproduction: the backend builds the AGENTS.md hook with only the workspace `root`, so an
+  // agent that moves its working root to a worktree keeps getting the main checkout's AGENTS.md.
+  // The fixing change flips `it.fails` to `it`.
+  it.fails("tells the agent the worktree's own AGENTS.md", async () => {
+    await writeFile(path.join(repo.main, 'AGENTS.md'), 'MAIN RULES');
+    await writeFile(path.join(repo.worktree, 'AGENTS.md'), 'WORKTREE RULES');
+    const harness = await open(
+      new FileConversationStore({
+        folder: path.join(repo.base, 'store'),
+        onProblem: () => undefined,
+      }),
+    );
+
+    await harness.workingRoots.set(repo.worktree);
+    const { messages, context } = fakeBeforeTurn();
+
+    await harness.hooks.find((hook) => hook.name === 'agents-md')?.beforeTurn?.(context);
+
+    expect(messages.map((message) => message.content).join('\n')).toContain('WORKTREE RULES');
   });
 
   it('is not set in a conversation that never chose one', async () => {
