@@ -112,4 +112,10 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
     mode: modelModeSchema.exactOptional(),
   }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
+  /**
+   * A sub-agent's ended session was forgotten by the registry once its report was delivered, so a
+   * UI can drop its card. `session` is its last snapshot. Its entries stay in the stream and its
+   * history stays readable; it is only no longer a live session.
+   */
+  z.object({ type: z.literal('session_released'), session: sessionInfoSchema }),
 ]);
