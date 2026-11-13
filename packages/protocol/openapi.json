@@ -1154,7 +1154,7 @@
                   "report": { "type": "string" },
                   "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                 },
-                "required": ["kind", "agent", "taskId", "outcome", "report"]
+                "required": ["kind", "agent", "outcome", "report"]
               },
               {
                 "type": "object",
@@ -1187,7 +1187,7 @@
                         "report": { "type": "string" },
                         "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                       },
-                      "required": ["kind", "agent", "taskId", "outcome", "report"]
+                      "required": ["kind", "agent", "outcome", "report"]
                     },
                     {
                       "type": "object",

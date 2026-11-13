@@ -78,8 +78,11 @@ const individualPersistentNoticeSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('agent-report'),
     agent: agentInfoSchema,
-    /** The background task the parent started it as. */
-    taskId: taskIdSchema,
+    /**
+     * The background task the parent started it as. Absent for a report written when a
+     * conversation was reopened: task ids restart then, so none would name the original task.
+     */
+    taskId: taskIdSchema.exactOptional(),
     outcome: runOutcomeSchema,
     /** What the sub-agent reported, whole: its final answer and nothing else. */
     report: z.string(),
