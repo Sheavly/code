@@ -14,7 +14,7 @@ Most of the harness's lifecycles are state machines nobody wrote down: a boolean
 
 The owner's model of how work flows. Tests state these as rules: every rule has tests whose titles start with its number ("rule 3: …").
 
-1. The main session ends its turn when the model finishes, even while background commands or sub-agents run.
+1. The main session ends its turn when the model finishes, even while background commands or sub-agents run. When finite work finishes while the session is idle, the conversation starts a run on its own to deliver the notice (`wake` in `createConversation`); its events reach every UI through the combined stream. A sub-agent is the exception: its loop does not end while its own finite work runs (`holdOpenFor`).
 2. Only `await_tasks` keeps the main session open: it stays open until the grouped tasks settle or the user stops it.
 3. A line queued while the session is held on `await_tasks` stays queued until the model has finished.
 4. Otherwise a queued line starts as the next prompt once the model finishes its turn.
@@ -25,9 +25,8 @@ The owner's model of how work flows. Tests state these as rules: every rule has 
 
 ### Where the code differs from these rules
 
-The tests run through the real loop and conversation and are parameterised by kind (foreground tool, background command as `task` and as `service`, sub-agent). A test that states a rule today's code breaks is marked `it.fails`, so it turns red when the code is fixed and the fixing change must update it. Where a test titled "pinned today" sits beside it (rules 1, 3 and 7, a stop while a prompt is prepared, and a stale file read), it holds today's behaviour and proves the setup works; the other defects have the `it.fails` test only.
+The tests run through the real loop and conversation and are parameterised by kind (foreground tool, background command as `task` and as `service`, sub-agent). A test that states a rule today's code breaks is marked `it.fails`, so it turns red when the code is fixed and the fixing change must update it. Where a test titled "pinned today" sits beside it (rules 3 and 7, a stop while a prompt is prepared, and a stale file read), it holds today's behaviour and proves the setup works; the other defects have the `it.fails` test only.
 
-- **Rules 1 and 6:** the loop holds a finished turn open for any running finite background work, grouped or not (`hasPendingTasks` counts every `task`). The run status reports only grouped work, so an ungrouped wait looks idle.
 - **Rule 3:** a line queued while a prompt runs requests a yield, and the yield ends an `await_tasks` wait.
 - **Rule 5:** `group()` accepts a task whose notice was already delivered and notifies a second time.
 - **Rule 7:** a steering message from the inbox enters history without an `id`, and the user-messages summary section drops it.
