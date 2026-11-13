@@ -64,4 +64,8 @@ export function reportFinishedTasks(params: {
 
     messages.push({ role: 'notice', notice, at });
   }
+
+  // Every notice is built and in history, so nothing reads these tasks again. Silent settled
+  // tasks go too: this turn's `cancel_task` result has reached the model by now.
+  tasks.releaseFinished(session.ref.id);
 }

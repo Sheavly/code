@@ -102,21 +102,37 @@ export function noticeKinds(messages: readonly HistoryMessage[]): string[] {
  */
 export async function runUntilNotified(kind: WorkKind, speed: WorkSpeed = 'quick') {
   const flow = startFlow(kind);
-  const first = recordingProvider([
-    kind.start({ speed, id: 'c1' }),
-    say('Started.'),
-    say('Saw it.'),
-  ]);
+  const round = await runRound({ flow, kind, speed, id: 'c1', messages: userPrompt() });
+
+  return { ...flow, ...round };
+}
+
+/**
+ * One prompt on a running flow: starts work of `kind` and runs until its notice has reached the
+ * model, in this run or, when the work finishes after it, in a second one. `resumed` is for a
+ * flow that already ran a prompt.
+ */
+export async function runRound(params: {
+  flow: ReturnType<typeof startFlow>;
+  kind: WorkKind;
+  speed: WorkSpeed;
+  id: string;
+  messages: HistoryMessage[];
+  resumed?: boolean;
+}) {
+  const { flow, kind, speed, id, messages, resumed } = params;
+  const first = recordingProvider([kind.start({ speed, id }), say('Started.'), say('Saw it.')]);
   const firstRun = await runSession({
     ...flow.options,
     provider: first.provider,
-    messages: userPrompt(),
+    messages,
+    ...(resumed && { resumed }),
   });
 
   // Work that finished before the model's turn ended is delivered by this run (a ready notice
   // continues it once); otherwise its notice reaches the next run.
-  if (noticeKinds(firstRun.messages).length > 0) {
-    return { ...flow, ...firstRun, requests: first.requests };
+  if (noticeKinds(firstRun.messages).length > noticeKinds(messages).length) {
+    return { ...firstRun, requests: first.requests };
   }
 
   await until(() => flow.tasks.hasDeliveries(flow.ref.id));
@@ -129,5 +145,5 @@ export async function runUntilNotified(kind: WorkKind, speed: WorkSpeed = 'quick
     resumed: true,
   });
 
-  return { ...flow, ...nextRun, requests: next.requests };
+  return { ...nextRun, requests: next.requests };
 }
