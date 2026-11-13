@@ -15,10 +15,16 @@
       "path": "../core/tsconfig.build.json"
     },
     {
+      "path": "../loop/tsconfig.build.json"
+    },
+    {
       "path": "../protocol/tsconfig.build.json"
     },
     {
       "path": "../runtime/tsconfig.build.json"
+    },
+    {
+      "path": "../tools/tsconfig.build.json"
     }
   ],
   "exclude": ["src/**/__tests__", "src/testing"]
