@@ -35,7 +35,14 @@ export function startFlow(kind: WorkKind) {
     tasks,
     sessions,
     ref,
-    options: { tasks, tools, session: { registry: sessions, ref }, keepSession: true },
+    options: {
+      tasks,
+      tools,
+      session: { registry: sessions, ref },
+      keepSession: true,
+      // The main session: only `await_tasks` holds it open.
+      holdOpenFor: 'awaited' as const,
+    },
   };
 }
 
@@ -90,8 +97,8 @@ export function noticeKinds(messages: readonly HistoryMessage[]): string[] {
 
 /**
  * Starts one piece of background work of `kind` and runs until its finished notice has reached
- * the model. Finite work holds the run until then; a service never does, so its notice reaches
- * the next run, started here once the service has finished.
+ * the model. No work holds the main session open, so the notice reaches the next run, started
+ * here once the work has finished.
  */
 export async function runUntilNotified(kind: WorkKind, speed: WorkSpeed = 'quick') {
   const flow = startFlow(kind);
@@ -106,7 +113,11 @@ export async function runUntilNotified(kind: WorkKind, speed: WorkSpeed = 'quick
     messages: userPrompt(),
   });
 
-  if (kind.finite) return { ...flow, ...firstRun, requests: first.requests };
+  // Work that finished before the model's turn ended is delivered by this run (a ready notice
+  // continues it once); otherwise its notice reaches the next run.
+  if (noticeKinds(firstRun.messages).length > 0) {
+    return { ...flow, ...firstRun, requests: first.requests };
+  }
 
   await until(() => flow.tasks.hasDeliveries(flow.ref.id));
   flow.sessions.resume(flow.ref.id);

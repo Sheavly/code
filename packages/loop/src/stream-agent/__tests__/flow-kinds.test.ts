@@ -83,26 +83,16 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
     expect(cancelled?.status).toBe('completed');
   });
 
-  it('is aborted with its parent: stopping the run cancels it', async () => {
+  it('outlives the run that started it: the run ends when the model finishes (rule 1)', async () => {
     const flow = startStoppable(kind);
     const { stopping, run } = flow;
 
     await until(() => flow.tasks.runningCount === 1);
 
-    // A service never holds the run, so the run is over before the stop arrives and the service
-    // outlives it: that is the rule, not an exception to this one.
-    if (!kind.finite) {
-      expect((await run).reason).toBe('completed');
-      stopping.abort();
-      expect(flow.tasks.get(t1)?.status).toBe('running');
-
-      return;
-    }
-
+    // Nothing holds the main session open, so the run is over before the stop arrives.
+    expect((await run).reason).toBe('completed');
     stopping.abort();
-
-    expect((await run).reason).toBe('interrupted');
-    expect(flow.tasks.get(t1)?.status).toBe('cancelled');
+    expect(flow.tasks.get(t1)?.status).toBe('running');
   });
 
   it('notifies exactly once: the notice is in history once and nothing is left to deliver', async () => {

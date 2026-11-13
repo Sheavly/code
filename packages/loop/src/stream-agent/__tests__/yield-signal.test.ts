@@ -59,30 +59,6 @@ describe('yieldSignal', () => {
     expect(result.messages.at(-1)).toMatchObject({ content: 'Started.' });
   });
 
-  // Pinned today: the run waits on ungrouped finite work, and a yield ends that wait. The change
-  // that stops ungrouped work holding a run open deletes this test; flow-open.test.ts states the
-  // rule ("rule 1") and the grouped wait ("rule 3").
-  it('pinned today: a yield ends the wait on ungrouped finite work', async () => {
-    tasks = new TaskRegistry();
-    const yielding = new AbortController();
-    const finished = run({
-      turns: [[startBackground(60_000), { type: 'done', stopReason: 'tool_use' }], say('Started.')],
-      yieldSignal: yielding.signal,
-    });
-    let settled = false;
-
-    void finished.then(() => {
-      settled = true;
-    });
-    await until(() => tasks.settleWaiters > 0);
-    expect(settled).toBe(false);
-
-    yielding.abort();
-
-    expect((await finished).reason).toBe('completed');
-    expect(tasks.settleWaiters).toBe(0);
-  });
-
   it('leaves a finished task result for the next run instead of losing it', async () => {
     tasks = new TaskRegistry();
     const registry = new SessionRegistry();
@@ -129,7 +105,7 @@ describe('yieldSignal', () => {
     expect(tasks.hasDeliveries(ref.id)).toBe(false);
   });
 
-  it('keeps waiting for background work without a yield', async () => {
+  it('holds a run with the default `holdOpenFor` (a sub-agent) for its own work without a yield', async () => {
     tasks = new TaskRegistry();
     const result = await run({
       turns: [

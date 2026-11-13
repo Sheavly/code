@@ -25,8 +25,6 @@ const awaitFirst = toolTurn({
 });
 const background = WORK_KINDS.filter((kind) => kind.background);
 const awaitable = WORK_KINDS.filter((kind) => kind.background && kind.finite);
-/** Ungrouped finite work holds a finished turn open today. */
-const heldToday = (kind: WorkKind) => kind.background && kind.finite;
 
 function startRun(params: {
   kind: WorkKind;
@@ -50,26 +48,13 @@ function startRun(params: {
 
 describe.each(background)('flow rules 1 and 4 — $name', (kind) => {
   const slowThenAnswer = () => [kind.start({ speed: 'slow', id: 'c1' }), say('Started.')];
-  // `it.fails` also passes when the run throws. The "pinned today" test below runs the same setup
-  // and fails on a throw, so a broken setup cannot hide behind the reproduction.
-  const itEnds = heldToday(kind) ? it.fails : it;
 
-  itEnds(
-    'rule 1: the main session ends its turn when the model finishes, even while the work runs',
-    async () => {
-      const { run } = startRun({ kind, turns: slowThenAnswer() });
+  it('rule 1: the main session ends its turn when the model finishes, even while the work runs', async () => {
+    const { run, tasks } = startRun({ kind, turns: slowThenAnswer() });
 
-      expect(await settledWithin(run, SETTLES_MS)).toBe(true);
-    },
-  );
-
-  if (heldToday(kind)) {
-    it('pinned today: ungrouped finite work holds the finished turn open', async () => {
-      const { run } = startRun({ kind, turns: slowThenAnswer() });
-
-      expect(await settledWithin(run, HELD_MS)).toBe(false);
-    });
-  }
+    expect(await settledWithin(run, SETTLES_MS)).toBe(true);
+    expect(tasks.runningCount).toBe(1);
+  });
 
   it('rule 4: a requested yield ends the turn at the model finishing, with the work still running', async () => {
     const yielding = new AbortController();

@@ -265,7 +265,7 @@ async function awaitTask(params: {
   let reported: number | undefined;
 
   while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
-    if (!tasks.hasPendingTasks(ref.id)) return false;
+    if (!holdsRunOpen({ options, tasks, id: ref.id })) return false;
     reported = reportWaiting({ groupedTasks: tasks.groupedPendingCount(ref.id), reported, events });
     const woken = await waitForWake({ tasks, registry, id: ref.id, signal, yieldSignal });
 
@@ -283,6 +283,17 @@ async function awaitTask(params: {
   }
 
   return true;
+}
+
+/** Whether work still running keeps this run open, as `options.holdOpenFor` says. */
+function holdsRunOpen(params: {
+  options: AgentOptions;
+  tasks: TaskRegistry;
+  id: RunSession['ref']['id'];
+}): boolean {
+  const { options, tasks, id } = params;
+
+  return options.holdOpenFor === 'awaited' ? tasks.hasAwaitedTasks(id) : tasks.hasPendingTasks(id);
 }
 
 /** Tells a UI the run waits on this many grouped tasks, unless it was last told the same. */
