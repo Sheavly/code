@@ -116,16 +116,109 @@ describe('finished work reaches the model once', () => {
 });
 
 describe('a finished task keeps its outcome', () => {
-  it.fails('a task cancelled after it finished is recorded as completed', async () => {
+  // The work is done before the cancel arrives but settles a step later, so the abort signal is
+  // already set when the registry records the result. The run's own success decides.
+  it.each(['task', 'service'] as const)(
+    'a %s cancelled after it finished is recorded as completed, silently',
+    async (backgroundKind) => {
+      const tasks = new TaskRegistry();
+      const { id, finish } = finishedTask(tasks, backgroundKind);
+
+      finish.resolve({ exitCode: 0, report: 'Done' });
+      const cancelled = await tasks.cancel(id);
+
+      expect(cancelled).toMatchObject({ status: 'completed', exitCode: 0 });
+      expect(tasks.report(id)).toBe('Done');
+      expect(tasks.hasDeliveries()).toBe(false);
+    },
+  );
+
+  it('a run that ignores the abort and then exits 0 is recorded as completed', async () => {
+    const tasks = new TaskRegistry();
+    const { id, finish } = finishedTask(tasks);
+    const cancelling = tasks.cancel(id);
+
+    // The run does not stop on the abort: the cancel waits for it, and its own result decides.
+    finish.resolve({ exitCode: 0 });
+
+    expect((await cancelling)?.status).toBe('completed');
+  });
+
+  it.each([
+    ['task', 'stops with no exit code', () => ({ exitCode: null })],
+    ['task', 'stops with a failure code', () => ({ exitCode: 137 })],
+    [
+      'task',
+      'rejects',
+      () => {
+        throw new Error('stopped');
+      },
+    ],
+    ['service', 'stops with no exit code', () => ({ exitCode: null })],
+    [
+      'service',
+      'rejects',
+      () => {
+        throw new Error('stopped');
+      },
+    ],
+  ] as const)('a %s that %s when cancelled while running stays cancelled', async (kind, _, end) => {
+    const tasks = new TaskRegistry();
+    const { id } = tasks.start({
+      command: 'work',
+      description: 'Work',
+      backgroundKind: kind,
+      run: ({ signal }) =>
+        new Promise((resolve) =>
+          // Resolving with a promise adopts its rejection, so a throwing `end` rejects the run.
+          signal.addEventListener(
+            'abort',
+            () => resolve(Promise.resolve().then<{ exitCode: number | null }>(end)),
+            {
+              once: true,
+            },
+          ),
+        ),
+    });
+
+    expect((await tasks.cancel(id))?.status).toBe('cancelled');
+  });
+
+  it("reports a cancelled member and a finished one in the group's combined notice", async () => {
+    const tasks = new TaskRegistry();
+    const finished = finishedTask(tasks);
+    const stopped = tasks.start({
+      command: 'stop',
+      description: 'Stop',
+      run: ({ signal }) =>
+        new Promise((resolve) =>
+          signal.addEventListener('abort', () => resolve({ exitCode: null }), { once: true }),
+        ),
+    });
+
+    tasks.group({ ids: [finished.id, stopped.id], reason: 'Both' });
+    finished.finish.resolve({ exitCode: 0 });
+    await tasks.cancel(stopped.id);
+
+    expect(tasks.takeDeliveries()).toEqual([
+      {
+        reason: 'Both',
+        tasks: [
+          expect.objectContaining({ id: finished.id, status: 'completed' }),
+          expect.objectContaining({ id: stopped.id, status: 'cancelled' }),
+        ],
+      },
+    ]);
+  });
+
+  it('a grouped member cancelled after it finished is completed in the notice', async () => {
     const tasks = new TaskRegistry();
     const { id, finish } = finishedTask(tasks);
 
-    // The work is done before the cancel arrives but settles a step later, and the status is read
-    // from the abort signal at settle time. Once settled, a cancel changes nothing (the loop suite
-    // pins that).
+    tasks.group({ ids: [id], reason: 'One' });
     finish.resolve({ exitCode: 0 });
-    const cancelled = await tasks.cancel(id);
+    await tasks.cancel(id);
 
-    expect(cancelled?.status).toBe('completed');
+    expect(tasks.takeDeliveries()[0]?.tasks[0]?.status).toBe('completed');
   });
 });

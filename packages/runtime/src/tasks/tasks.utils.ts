@@ -2,7 +2,7 @@ import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskId, TaskInfo } from '@sheavly/protocol/task/task.types';
+import type { TaskId, TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
 import type { Entry } from './tasks.types.js';
 
 /** The registry's record of a task that has just started: running, not silenced, not notified. */
@@ -13,6 +13,20 @@ export function newEntry(params: {
   backgroundKind: 'task' | 'service';
 }): Entry {
   return { ...params, settled: Promise.resolve(), silent: false };
+}
+
+/**
+ * The status a task settles with. A run that reported success finished, even if a cancel aborted
+ * its signal before the settle ran: the registry cannot see whether the resolve or the abort came
+ * first, only the result. Any other end after an abort is a cancel. A run that ignores the abort
+ * and then succeeds is recorded as completed.
+ */
+export function settledStatus(params: { status: TaskStatus; aborted: boolean }): TaskStatus {
+  const { status, aborted } = params;
+
+  if (status === 'completed') return status;
+
+  return aborted ? 'cancelled' : status;
 }
 
 /**
