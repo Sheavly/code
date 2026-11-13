@@ -16,6 +16,7 @@ import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { SessionInfo } from '@sheavly/protocol/session/session.types';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
 const callId = callIdSchema.parse('c');
@@ -50,6 +51,19 @@ function gatedProvider(scripts: Record<string, { wait?: Promise<void>; reply: Sc
   return { provider, seen };
 }
 
+/** A registry with a main session and one running sub-agent under it. */
+function mainWithChild(title: string) {
+  const sessions = new SessionRegistry();
+  const main = sessions.startMain({ title: 'Main' });
+  const child = sessions.startChild({
+    parentId: main.id,
+    startedByCall: callIdSchema.parse('start'),
+    title,
+  });
+
+  return { sessions, main, child };
+}
+
 const userTexts = (request: ProviderRequest | undefined) =>
   (request?.messages ?? []).filter((m) => m.role === 'user').map((m) => m.content);
 
@@ -67,8 +81,11 @@ describe('message_agent: steering a running sub-agent', () => {
       if (update.type === 'task_ended') ended.push(update.task);
     });
 
+    let lastChild: SessionInfo | undefined;
+
     sessions.subscribe((u) => {
       if (u.type === 'session_started' && u.session.depth === 2) childId = u.session.id;
+      if (u.session.depth === 2 && u.type !== 'session_released') lastChild = u.session;
     });
 
     const { provider, seen } = gatedProvider({
@@ -138,7 +155,10 @@ describe('message_agent: steering a running sub-agent', () => {
 
     await run;
 
-    const child = sessions.get(sessionIdSchema.parse(childId));
+    // Delivered, so released: what it was is what its last update showed.
+    const child = lastChild;
+
+    expect(sessions.get(sessionIdSchema.parse(childId))).toBeUndefined();
     // The sub-agent's second model call had the parent's steer in its history.
     const childSecondCall = seen.get('Research dogs')?.[1];
 
@@ -159,13 +179,7 @@ describe('message_agent: steering a running sub-agent', () => {
   });
 
   it('wakes a sub-agent waiting idle on its own tasks, so it acts on the message', async () => {
-    const sessions = new SessionRegistry();
-    const main = sessions.startMain({ title: 'Main' });
-    const child = sessions.startChild({
-      parentId: main.id,
-      startedByCall: callIdSchema.parse('start'),
-      title: 'Idle',
-    });
+    const { sessions, main, child } = mainWithChild('Idle');
     const childTasks = new TaskRegistry();
     const taskDone = gate();
     const { provider, seen } = gatedProvider({
@@ -239,6 +253,22 @@ describe('message_agent: steering a running sub-agent', () => {
       'one more thing',
       'second',
     ]);
+  });
+
+  it('says a delivered sub-agent was released, not that it is unknown', async () => {
+    const { sessions, main, child } = mainWithChild('Done');
+    const tool = createMessageAgentTool({ sessions });
+
+    sessions.end({ id: child.id, state: 'completed' });
+    sessions.releaseAgent(child.id);
+
+    await expect(
+      tool.execute({
+        input: { session: child.id, message: 'more' },
+        signal: new AbortController().signal,
+        context: { callId, description: 'd', session: main },
+      }),
+    ).rejects.toThrow('was released');
   });
 
   it('refuses to message a session the caller did not start', async () => {
