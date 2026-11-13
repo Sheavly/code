@@ -102,11 +102,16 @@ carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in pla
 The loop releases finished tasks itself: before each model call (so once per model step, not once
 per prompt), after the notices are in history, it calls `releaseFinished(sessionId)`, so a long-lived conversation's `TaskRegistry` does not grow.
 A released id is unknown to `get`, `report` and `list`; `isReleased(id)` tells it from one that
-never existed, and `group()` refuses it with `task_released`. The `SessionRegistry` does not forget
-on its own yet: a UI frees memory on request. `SessionRegistry.release(id)`
-removes an ended session and the sub-agents under it (it throws `session_running` if any is still
-open), with their inboxes, last tokens and message ids; entries already in the combined stream
-stay. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
+never existed, and `group()` refuses it with `task_released`. The same step releases a delivered
+sub-agent's session: `SessionRegistry.releaseAgent(id)` removes the ended sub-agent and the
+sessions under it, and returns false rather than throwing when one is still open or the id is a
+main session or already gone. `release(id)` is the throwing form (`session_running` if any is
+still open). Both announce each session as `session_released` and drop its inbox, last tokens and
+message ids. Entries already in the combined stream stay, and a subtree filter still matches them
+(the registry keeps each released id and its parent). `isReleased(id)` tells a released id from an
+unknown one, a write to it throws `session_released`, and `releasedStarts()` lists them with their start times for readers of
+stored history. The main session is never released, and a reopened conversation restores all of
+its sessions. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
 request, with its output and report, and returns false for one still running or not yet reported;
 `releaseFinished(sessionId?)` does it for every such task the session owns. Held or ready-but-undelivered group members
 cannot be released, including cancelled members; after delivery, each member can be released.
