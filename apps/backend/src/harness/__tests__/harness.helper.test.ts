@@ -14,6 +14,7 @@ import type { Script } from '@sheavly/testing/provider/provider.types';
 import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 
 /** The project: AGENTS.md, a skill, and one `.sheavly/` hook that adds a note at session start. */
 const FILES = {
@@ -85,6 +86,7 @@ async function runPrompt(
   });
 
   for await (const _event of conversation.send('go'));
+  await untilSettled({ harness, conversation });
   await conversation.close();
 
   return requests;
@@ -228,6 +230,7 @@ describe('createBackendHarness: what a backend run includes', () => {
     });
 
     for await (const _event of conversation.send('go'));
+    await untilSettled({ harness, conversation });
     await conversation.close();
 
     const enabled = tool === 'web_search' ? 'web_fetch' : 'web_search';

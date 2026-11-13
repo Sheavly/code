@@ -6,6 +6,7 @@ import { fakeFetchSequence } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { setUpProfile } from '../../profiles/testing/profiles.fake.js';
 import { testBackend } from '../../testing/backend.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 
 const temp = useTempWorkspace({ prefix: 'served-tool-definitions-', perTest: true });
 const modelId = modelIdSchema.parse('00000000-0000-4000-8000-000000000237');
@@ -267,6 +268,9 @@ describe.each(protocols)('served $adapter tool definitions', ({ adapter, definit
         })) {
           entries.push(entry);
         }
+
+        // The prompt ends when the main model finishes; the sub-agents it started run on.
+        await untilSettled(backend.conversations.get(id));
 
         expect(JSON.stringify(entries)).not.toContain('run_failed');
 
