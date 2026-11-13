@@ -12,15 +12,30 @@ Most of the harness's lifecycles are state machines nobody wrote down: a boolean
 
 ## The flow that must hold
 
-The owner's model of how work flows. Tests state these as rules.
+The owner's model of how work flows. Tests state these as rules: every rule has tests whose titles start with its number ("rule 3: …").
 
-- The main session ends its turn when the model finishes, even while background commands or sub-agents run.
-- Only `await_tasks` keeps the main session open: it stays open until the grouped tasks settle or the user stops it.
-- A line queued while the session is held on `await_tasks` stays queued until the model has finished. Otherwise a queued line starts as the next prompt once the model finishes its turn.
-- Finished work reaches the model once, at its next model call, as a notice. Notices the model must remember are stored in history; transient ones (`context-usage`) ride one call and are never stored.
-- Services never hold a run open; only finite work can be awaited.
-- A sub-agent reports its own status and the parent can steer it; depth is bounded (`MAX_SESSION_DEPTH`).
-- A stopped run leaves history valid: every tool call has a result, even a placeholder.
+1. The main session ends its turn when the model finishes, even while background commands or sub-agents run.
+2. Only `await_tasks` keeps the main session open: it stays open until the grouped tasks settle or the user stops it.
+3. A line queued while the session is held on `await_tasks` stays queued until the model has finished.
+4. Otherwise a queued line starts as the next prompt once the model finishes its turn.
+5. Finished work reaches the model once, at its next model call, as a notice. Notices the model must remember are stored in history; transient ones (`context-usage`) ride one call and are never stored.
+6. Services never hold a run open; only finite work can be awaited.
+7. A sub-agent reports its own status and the parent can steer it; depth is bounded (`MAX_SESSION_DEPTH`).
+8. A stopped run leaves history valid: every tool call has a result, even a placeholder.
+
+### Where the code differs from these rules
+
+The tests run through the real loop and conversation and are parameterised by kind (foreground tool, background command as `task` and as `service`, sub-agent). A test that states a rule today's code breaks is marked `it.fails`, so it turns red when the code is fixed and the fixing change must update it. Where a test titled "pinned today" sits beside it (rules 1, 3 and 7, a stop while a prompt is prepared, and a stale file read), it holds today's behaviour and proves the setup works; the other defects have the `it.fails` test only.
+
+- **Rules 1 and 6:** the loop holds a finished turn open for any running finite background work, grouped or not (`hasPendingTasks` counts every `task`). The run status reports only grouped work, so an ungrouped wait looks idle.
+- **Rule 3:** a line queued while a prompt runs requests a yield, and the yield ends an `await_tasks` wait.
+- **Rule 5:** `group()` accepts a task whose notice was already delivered and notifies a second time.
+- **Rule 7:** a steering message from the inbox enters history without an `id`, and the user-messages summary section drops it.
+- **Cancel after finish:** a task aborted after it finished is recorded as `cancelled`, because the status is read from the abort signal when the task settles.
+- **Stop while a prompt is prepared:** `Conversations.stop` only reaches a prompt that is past `preparePrompt`, so an earlier stop is ignored and the prompt runs to its end.
+- **Outside the flow rules:** `FileReads` is not invalidated by `run_command`, so `edit_file` accepts a stale read; the backend gives the AGENTS.md hook only the workspace root, so a moved working root keeps the main checkout's file.
+
+A change to any of these is a behaviour change: it lands as its own change, flips the matching test, and updates this section.
 
 ## Catalogue
 
