@@ -29,7 +29,10 @@ sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
   registry holds grouped completion notices until all members settle, then the loop delivers
   the results together with the reason.
 - An unknown status or cancellation id is a `ToolCallError` (`reason: 'not_found'`). Cancelling an
-  already finished task returns its status without an error. Ungrouped cancellation suppresses
-  the completion notice because the caller already knows; cancellation of a grouped member is
-  handled by the registry so it does not bypass the group's delivery semantics.
+  already finished task returns its status without an error, and so does a task whose run
+  finished (exit code 0) just as the cancel arrived: it is `completed`, not `cancelled`. A command
+  stopped by the cancel has no exit code, even a pipeline whose last command had already exited 0.
+  Ungrouped cancellation suppresses the completion notice because the caller already knows, so a
+  task that finished first shows its report only in the cancel result; cancellation of a grouped
+  member is handled by the registry so it does not bypass the group's delivery semantics.
 - A UI that wants them includes them; a run without background work can leave them out.

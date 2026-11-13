@@ -25,7 +25,10 @@ on the delivery. It remains available through `get`, `list`, `byCallId` and `tak
 after delivery; these return independent snapshots. Rejected groups assign no reasons, and
 ungrouped tasks do not infer a reason from their command or description.
 Membership persists after delivery until each task is released. Ordinary requested cancellations
-remain silent. Task observers still receive every start/end immediately, even for held groups.
+remain silent. A task's status is what its run reported: a run that resolved with exit code 0 is
+`completed` even when a cancel aborted its signal before the registry recorded the result, and
+`cancel` returns that status. Any other end after an abort is `cancelled`, for every work kind.
+Task observers still receive every start/end immediately, even for held groups.
 Registering an already-settled group also wakes `nextSettled` waiters, so a parked run can consume
 its new delivery without waiting for an unrelated task to finish.
 
