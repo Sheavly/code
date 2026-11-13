@@ -3,6 +3,7 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 /** Why a session operation was refused. */
 type SessionFailure =
   | 'unknown_session'
+  | 'session_released'
   | 'parent_ended'
   | 'too_deep'
   | 'session_ended'
@@ -10,8 +11,8 @@ type SessionFailure =
   | 'not_an_ancestor';
 
 /**
- * A session operation was refused: an unknown session, a parent or target that has ended, a
- * sub-agent nested too deep, or a message from a session that didn't start its target.
+ * A session operation was refused: an unknown or released session, a parent or target that has
+ * ended, a sub-agent nested too deep, or a message from a session that didn't start its target.
  */
 export class SessionError extends Error {
   override name = 'SessionError';
