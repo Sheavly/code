@@ -183,7 +183,8 @@ async function finishTurn(params: {
   if (session.registry.hasMessages(session.ref.id)) return undefined;
 
   // A requested yield outranks task completions: their results stay delivered to the next run.
-  if (options.yieldSignal?.aborted) return 'completed';
+  // It does not outrank `await_tasks`: the queued line waits until the model has finished.
+  if (yieldEnds({ options, id: session.ref.id })) return 'completed';
 
   if (await awaitTask({ options, session, signal, events: context.events })) return undefined;
 
@@ -261,22 +262,29 @@ async function awaitTask(params: {
 
   if (!tasks) return false;
 
-  const { yieldSignal } = options;
   let reported: number | undefined;
+  let waitedOnGroup = false;
 
   while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
     if (!holdsRunOpen({ options, tasks, id: ref.id })) return false;
-    reported = reportWaiting({ groupedTasks: tasks.groupedPendingCount(ref.id), reported, events });
+    // An aborted yield resolves every further wait at once, so it must end the loop here.
+    if (yieldEnds({ options, id: ref.id })) return false;
+    const groupedTasks = tasks.groupedPendingCount(ref.id);
+
+    reported = reportWaiting({ groupedTasks, reported, events });
+    waitedOnGroup = groupedTasks > 0;
+    // Grouped work ignores the yield, so a wait on it must not resolve at once.
+    const yieldSignal = waitedOnGroup ? undefined : options.yieldSignal;
     const woken = await waitForWake({ tasks, registry, id: ref.id, signal, yieldSignal });
 
     if (!woken) return false;
-    // An aborted yield resolves every further wait at once, so it must end the loop here.
-    if (yieldSignal?.aborted) return false;
     // Loop again: a task cancelled on request settles silently, with nothing to report.
   }
 
-  // A yield that raced a delivery wins over continuing.
-  if (yieldSignal?.aborted) return false;
+  // A yield that raced an ungrouped delivery wins: the delivery stays for the next run. Not when
+  // the wait was on grouped work: the model must see what it waited for, and finish, before the
+  // queued line starts (`finishTurn` then ends the run on the yield).
+  if (!waitedOnGroup && yieldEnds({ options, id: ref.id })) return false;
 
   if (reported !== undefined) {
     events.enqueue({ type: 'run_state', state: 'working', groupedTasks: 0 });
@@ -294,6 +302,16 @@ function holdsRunOpen(params: {
   const { options, tasks, id } = params;
 
   return options.holdOpenFor === 'awaited' ? tasks.hasAwaitedTasks(id) : tasks.hasPendingTasks(id);
+}
+
+/**
+ * Whether a requested yield ends the run now. Grouped work (`await_tasks`) is the one thing a
+ * yield does not end: the queued line stays queued until the model has finished.
+ */
+function yieldEnds(params: { options: AgentOptions; id: RunSession['ref']['id'] }): boolean {
+  const { options, id } = params;
+
+  return options.yieldSignal?.aborted === true && !options.tasks?.hasAwaitedTasks(id);
 }
 
 /** Tells a UI the run waits on this many grouped tasks, unless it was last told the same. */
