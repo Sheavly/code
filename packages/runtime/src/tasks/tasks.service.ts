@@ -100,8 +100,16 @@ export class TaskRegistry {
     return this.#tasks.get(id)?.report;
   }
 
-  list(): TaskInfo[] {
-    return [...this.#tasks.values()].map((e) => ({ ...e.info }));
+  /** Every task, or with a session only the ones it owns and the ones with no owner. */
+  list(sessionId?: SessionId): TaskInfo[] {
+    return [...this.#tasks.values()]
+      .filter((entry) => this.#owns({ entry, sessionId }))
+      .map((e) => ({ ...e.info }));
+  }
+
+  /** `get` as a session: a task another session owns reads as unknown, as in `group`. */
+  getOwned(params: { id: TaskId; sessionId: SessionId | undefined }): TaskInfo | undefined {
+    return this.list(params.sessionId).find((task) => task.id === params.id);
   }
 
   /**
@@ -130,8 +138,9 @@ export class TaskRegistry {
       });
   }
 
-  byCallId(callId: CallId): TaskInfo | undefined {
-    return this.list().find((t) => t.callId === callId);
+  /** The task a tool call started; with a session, only among the ones it owns. */
+  byCallId(params: { callId: CallId; sessionId?: SessionId }): TaskInfo | undefined {
+    return this.list(params.sessionId).find((t) => t.callId === params.callId);
   }
 
   get runningCount(): number {
