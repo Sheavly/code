@@ -22,8 +22,9 @@ sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
   why the results belong together and what decision or next step depends on them, so the agent's
   future self can use them after a summary. Guidance rejects lazy reasons such as "waiting for
   results"; validation checks presence and nonempty text, not a brittle wording rule.
-- Group registration returns immediately. `TaskRegistry.group` validates unknown ids, duplicates
-  and existing group ownership atomically: an invalid call claims no members. The tool forwards
+- Group registration returns immediately. `TaskRegistry.group` validates unknown ids, duplicates,
+  existing group ownership and tasks whose notice was already delivered atomically: an invalid
+  call claims no members, and the model sees the refusal as an error result. The tool forwards
   the calling session id when available, and registry errors become tool error results. The
   registry holds grouped completion notices until all members settle, then the loop delivers
   the results together with the reason.

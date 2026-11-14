@@ -1,7 +1,19 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskId, TaskInfo } from '@sheavly/protocol/task/task.types';
+import type { Entry } from './tasks.types.js';
+
+/** The registry's record of a task that has just started: running, not silenced, not notified. */
+export function newEntry(params: {
+  info: TaskInfo;
+  controller: AbortController;
+  sessionId: SessionId | undefined;
+  backgroundKind: 'task' | 'service';
+}): Entry {
+  return { ...params, settled: Promise.resolve(), silent: false };
+}
 
 /**
  * A running task's metadata-only snapshot. `group` is the task's group's first requested ID, given

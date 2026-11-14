@@ -302,13 +302,13 @@ describe('grouped task delivery in the loop', () => {
     ]);
   });
 
-  it('wakes a parked loop when retained completed tasks are grouped without another settlement', async () => {
+  it('wakes a parked loop when a task cancelled on request is grouped without another settlement', async () => {
     const tasks = registry();
-    const completed = controlledTask(tasks, 'completed review');
+    const completed = controlledTask(tasks, 'cancelled review');
     const blocker = controlledTask(tasks, 'ongoing review');
 
-    await completed.finish();
-    tasks.takeDeliveries();
+    // A requested cancel is silent, so its notice was never delivered and the task can still join a group.
+    await tasks.cancel(completed.task.id);
     const { provider, requests } = recordingProvider([
       say('Independent work finished.'),
       say('Revisited the completed review.'),

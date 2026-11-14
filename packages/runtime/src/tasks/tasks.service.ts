@@ -19,7 +19,7 @@ import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
 import { groupMemberError } from './group-member.helper.js';
-import { runningTaskOf } from './tasks.utils.js';
+import { newEntry, runningTaskOf } from './tasks.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -49,14 +49,7 @@ export class TaskRegistry {
       startedAt: now(),
       output: '',
     };
-    const entry: Entry = {
-      info,
-      controller,
-      settled: Promise.resolve(),
-      silent: false,
-      sessionId,
-      backgroundKind,
-    };
+    const entry = newEntry({ info, controller, sessionId, backgroundKind });
     const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
     const onOutput = (chunk: string) => {
       output.push(chunk);
@@ -155,7 +148,8 @@ export class TaskRegistry {
 
   /**
    * Holds members for one notice when the last settles, in requested ID order. Returns immediately.
-   * Throws TaskError atomically for empty, duplicate, unknown, already grouped or unowned IDs.
+   * Throws TaskError atomically for empty, duplicate, unknown, already grouped, unowned, service or
+   * already delivered IDs.
    * A supplied session also accepts generic tasks without an owner.
    */
   group(params: { ids: TaskId[]; reason: string; sessionId?: SessionId }): void {
@@ -178,6 +172,7 @@ export class TaskRegistry {
       const entry = this.#entry(id);
 
       entry.group = group;
+      delete entry.delivery;
       entry.info.reason = reason;
     }
 
@@ -360,6 +355,7 @@ export class TaskRegistry {
       grouped: entry.group !== undefined,
       service: entry.backgroundKind === 'service',
       owned: this.#owns({ entry, sessionId }),
+      delivered: entry.delivery?.delivered === true,
     });
 
     if (error) throw error;
@@ -388,7 +384,12 @@ export class TaskRegistry {
     entry.report = result.report;
 
     if (entry.group) this.#enqueueSettledGroup(entry.group);
-    if (!entry.group && !entry.silent) this.#ready.push({ ids: [info.id], delivered: false });
+
+    if (!entry.group && !entry.silent) {
+      entry.delivery = { ids: [info.id], delivered: false };
+      this.#ready.push(entry.delivery);
+    }
+
     this.#notify({ entry, type: 'task_ended' });
     this.#wakeWaiters();
   }
