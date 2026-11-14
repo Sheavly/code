@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
+import { formatTask, missingTaskMessage } from '@sheavly/runtime/tasks/tasks.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
@@ -8,7 +8,7 @@ import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { createAwaitTasksTool } from './await-tasks.tool.js';
 import { cancelTaskPrompts, taskStatusPrompts, taskStatusResponse } from './tasks.prompt.js';
-import { missingTaskMessage, requireTaskSession } from './task-session.helper.js';
+import { requireTaskSession } from './task-session.helper.js';
 
 /** The same answer for an unknown, a foreign and a released id: see `missingTaskMessage`. */
 function missingTask(id: TaskId): ToolCallError {
