@@ -10,6 +10,7 @@ import { importsRule } from './rules/imports.js';
 import { kindContents } from './rules/kind-contents.js';
 import { layoutRule } from './rules/layout.js';
 import { noBrandCast } from './rules/no-brand-cast.js';
+import { noDirectTaskStart } from './rules/no-direct-task-start.js';
 import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
 import { permissionStoreRoot } from './rules/permission-store-root.js';
@@ -45,6 +46,7 @@ const RULES = {
   'kind-contents': kindContents,
   layout: layoutRule,
   'no-brand-cast': noBrandCast,
+  'no-direct-task-start': noDirectTaskStart,
   'no-raw-error': noRawError,
   'no-silent-catch': noSilentCatch,
   'permission-store-root': permissionStoreRoot,
