@@ -53,8 +53,7 @@ describe('Renderer: entries', () => {
       renderer.event({ seq: 0, type: 'text_delta', text: 'First ' });
       renderer.event({ seq: 1, type: 'turn_end', turn: 1, stopReason: 'max_tokens' });
       renderer.event({ seq: 2, type: 'harness_notice', notice });
-      renderer.event({ seq: 3, type: 'output_continuation', attempt: 1, maxAttempts: 2 });
-      renderer.event({ seq: 4, type: 'text_delta', text: 'part.' });
+      renderer.event({ seq: 3, type: 'text_delta', text: 'part.' });
 
       expect(calls).toEqual(['reply First ', 'reply part.']);
       expect(notice).toEqual({ kind: 'output-continuation', attempt: 3 });
