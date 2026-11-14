@@ -41,8 +41,11 @@ string }`) once, in readiness order, with group members in requested ID order.
 `hasDeliveries(sessionId?)` checks readiness without consuming. Supplying a session filters all
 these queries and group validation by ownership, while allowing generic tasks with no session ID;
 a child cannot consume its parent's results. `cancelSession(sessionId)` cancels exact ownership
-only (descendant signals cascade separately); `cancelAll()` remains registry-wide for main-run
-shutdown. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
+only (descendant signals cascade separately); `cancelAll()` remains registry-wide. The run has one
+registry for every session, so a session's reads are scoped: `list(sessionId?)`,
+and `getOwned({ id, sessionId })` show only what it owns (and tasks with no owner), and another
+session's id reads as unknown; a tool checks `getOwned` before it cancels. The loop's abort and a
+sub-agent's shutdown cancel their own session with `cancelSession`, never `cancelAll`. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
 
 `TaskRegistry.runningTasks(sessionId?)` returns fresh metadata-only `RunningTask[]` snapshots
 (from the protocol's notice types) in task start order: `{ id, title, reason, startedAt, group? }`.

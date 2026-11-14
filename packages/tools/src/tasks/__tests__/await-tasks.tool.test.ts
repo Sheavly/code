@@ -3,6 +3,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionRefSchema } from '@sheavly/protocol/session/session.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
@@ -10,10 +11,13 @@ import { createTaskTools } from '../tasks.tool.js';
 
 let tasks: TaskRegistry;
 
+/** The tools, called as one session: the task tools refuse a call that has none. */
 function setup() {
   tasks = new TaskRegistry();
 
-  return toolRunner([startTaskTool(tasks), ...createTaskTools(tasks)]);
+  const session = new SessionRegistry().startMain({ title: 'Main' });
+
+  return toolRunner([startTaskTool(tasks), ...createTaskTools(tasks)], session);
 }
 
 afterEach(async () => {
@@ -37,7 +41,8 @@ describe('await_tasks', () => {
 
     expect(performance.now() - started).toBeLessThan(500);
     expect(result).toMatchObject({ isError: false });
-    expect(group).toHaveBeenCalledExactlyOnceWith({
+    expect(group).toHaveBeenCalledOnce();
+    expect(group.mock.calls[0]?.[0]).toMatchObject({
       ids: [taskIdSchema.parse('t1'), taskIdSchema.parse('t2')],
       reason: 'Compare lint and tests before deciding whether the patch is ready.',
     });
@@ -51,11 +56,18 @@ describe('await_tasks', () => {
   });
 
   it('passes the calling session id to the registry', async () => {
-    const run = setup();
-
-    await run('start', 'start_task', { ms: 5_000 });
+    setup();
     const group = vi.spyOn(tasks, 'group');
     const session = sessionRefSchema.parse({ id: 'main', rootId: 'main', depth: 1 });
+
+    // Started by the session that then groups it: another session's task cannot be grouped.
+    tasks.start({
+      command: 'check',
+      description: 'Verify the patch',
+      sessionId: session.id,
+      run: async () => ({ exitCode: 0 }),
+    });
+
     const result = await runTool({
       tools: createTaskTools(tasks),
       call: {

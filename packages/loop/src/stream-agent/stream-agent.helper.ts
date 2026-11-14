@@ -165,8 +165,9 @@ async function drive(context: RunContext) {
     throw caughtError;
   } finally {
     // Task controllers are independent of tool calls. Abort must stop them before the session
-    // ends, including sub-agents whose own cleanup cancels their descendants.
-    if (signal.aborted) await options.tasks?.cancelAll();
+    // ends, including sub-agents whose own cleanup cancels their descendants. Only this session's:
+    // the registry is shared by the run's sessions, so a stopped child leaves its parent's alone.
+    if (signal.aborted) await options.tasks?.cancelSession(session.ref.id);
   }
 
   finishSession({ session, outcome: reason, keep: options.keepSession });

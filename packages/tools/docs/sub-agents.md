@@ -25,8 +25,10 @@ sub-agent on one task, `{ title, task }`.
   composition is passed to descendants. Neither option implicitly copies parent history or
   conversation overrides. The backend supplies its shared generic and coding text explicitly.
 - **Tools that start background tasks.** `options.tasksTools(tasks)` builds tools (for example
-  `run_command`) for each sub-agent on that sub-agent's own `TaskRegistry`, so it waits for and
-  can cancel what it starts, and its background commands stop when it ends. A sub-agent with
+  `run_command`) for each sub-agent on the run's one `TaskRegistry`, shared by every session, so
+  task ids are unique across them. What a sub-agent starts is owned by its session: `task_status`,
+  `await_tasks` and `cancel_task` see only that, a foreign id reads as unknown, and its background
+  commands stop when it ends (`cancelSession`), leaving its parent's and siblings' running. A sub-agent with
   `tasksTools` also gets `task_status`, `await_tasks` and `cancel_task` at the depth cap. Tools in
   `options.tools` are shared and must not start tasks of their own.
 - **Approvals.** A sub-agent's tools ask the user through the same approval registry as the main

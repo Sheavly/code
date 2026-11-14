@@ -29,7 +29,10 @@ export type RunNestedAgent = (options: {
 export type SubAgentOptions = {
   /** The registry the parent's session is in; sub-agents are added to it, linked to the parent. */
   sessions: SessionRegistry;
-  /** The parent's background tasks: each sub-agent runs as one, so the parent can wait or cancel. */
+  /**
+   * The run's background tasks, shared by every session: each sub-agent runs as one owned by its
+   * parent, so the parent can wait or cancel, and passes the same registry on to its own.
+   */
   tasks: TaskRegistry;
   provider: Provider;
   /** Captures the parent's model and effort when starting; descendants keep that snapshot. */
@@ -39,8 +42,9 @@ export type SubAgentOptions = {
   /** The tools sub-agents get. `report_status` (and `start_agent`, below the depth cap) are added. */
   tools: Tool[];
   /**
-   * Tools that start background tasks (e.g. `run_command`), built for each sub-agent on its own
-   * task registry so the sub-agent waits for and can cancel what it starts.
+   * Tools that start background tasks (e.g. `run_command`), built for each sub-agent on the run's
+   * shared task registry; what a sub-agent starts is owned by its session, so it waits for and
+   * cancels only that.
    */
   tasksTools?: (tasks: TaskRegistry) => Tool[];
   /** The hooks sub-agents get; the parent's own hooks are not inherited unless listed here. */

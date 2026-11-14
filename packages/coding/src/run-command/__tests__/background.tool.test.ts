@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
@@ -26,19 +27,25 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+/** Called as one session: the task tools refuse a call that has none. */
 function setup() {
   tasks = new TaskRegistry();
 
+  const session = new SessionRegistry().startMain({ title: 'Main' });
+
   return {
-    run: toolRunner([
-      createRunCommandTool({
-        processes: testProcesses(),
-        workspace: temp.workspace,
-        permissions: testPermissions({ mode: 'allow_all' }),
-        tasks,
-      }),
-      ...createTaskTools(tasks),
-    ]),
+    run: toolRunner(
+      [
+        createRunCommandTool({
+          processes: testProcesses(),
+          workspace: temp.workspace,
+          permissions: testPermissions({ mode: 'allow_all' }),
+          tasks,
+        }),
+        ...createTaskTools(tasks),
+      ],
+      session,
+    ),
   };
 }
 

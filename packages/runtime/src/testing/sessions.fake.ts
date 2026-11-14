@@ -5,6 +5,21 @@ import type { SessionRef } from '@sheavly/protocol/session/session.types';
 /** Test-only: the call a sub-agent started in these tests was started by (one is as good as another). */
 export const STARTED_BY = callIdSchema.parse('start-call');
 
+/** Starts a main session and one sub-agent under it; returns both. */
+export function startParentAndChild(sessions: SessionRegistry): {
+  parent: SessionRef;
+  child: SessionRef;
+} {
+  const parent = sessions.startMain({ title: 'Parent' });
+  const child = sessions.startChild({
+    parentId: parent.id,
+    startedByCall: STARTED_BY,
+    title: 'Child',
+  });
+
+  return { parent, child };
+}
+
 /** Starts Main → 2 → 3, so the deepest session sits at the nesting cap; returns it. */
 export function startDeepestSession(sessions: SessionRegistry): SessionRef {
   const main = sessions.startMain({ title: 'Main' });

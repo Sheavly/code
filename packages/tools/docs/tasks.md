@@ -28,10 +28,13 @@ sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
   the calling session id when available, and registry errors become tool error results. The
   registry holds grouped completion notices until all members settle, then the loop delivers
   the results together with the reason.
-- An unknown status or cancellation id is a `ToolCallError` (`reason: 'not_found'`). A task whose
-  notice was delivered is released before the next model call, so asking about it, or grouping it
-  (`task_released`), says it was already reported and released: its notice in history holds what
-  it reported. Cancelling an
+- The task tools need a session (`context.session`): the run's tasks share one registry and a
+  session sees only its own, so a call with none is refused (`reason: 'unavailable'`) rather than
+  shown every session's tasks. An unknown status or cancellation id is a `ToolCallError`
+  (`reason: 'not_found'`), and it reads the same for an id that never existed, one another session
+  owns and one already reported and released (its notice in history holds what it reported), so an
+  id reveals nothing about another session's tasks. Grouping a released id (`task_released`) says
+  it was already reported and released. Cancelling an
   already finished task returns its status without an error, and so does a task whose run
   finished (exit code 0) just as the cancel arrived: it is `completed`, not `cancelled`. A command
   stopped by the cancel has no exit code, even a pipeline whose last command had already exited 0.
