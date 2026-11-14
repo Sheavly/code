@@ -109,6 +109,55 @@ describe('every search backend failure', () => {
       }
     }
   });
+
+  it('attaches no cause when a well-formed reply holds invalid results', async () => {
+    const rpc = (text: string) =>
+      JSON.stringify({ jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text }] } });
+    const bad = 'javascript:secret';
+    // Wikipedia builds its URLs on a fixed host, so it has no invalid-URL reply to send.
+    const replies = [
+      [createTinyFishSearchBackend, rpc(JSON.stringify({ results: [{ title: 't', url: bad }] }))],
+      [createParallelSearchBackend, rpc(JSON.stringify({ results: [{ title: 't', url: bad }] }))],
+      [
+        createFirecrawlSearchBackend,
+        rpc(JSON.stringify({ data: { web: [{ title: 't', url: bad }] } })),
+      ],
+      [createExaSearchBackend, rpc(`Title: t\nURL: ${bad}\nHighlights:\ns`)],
+      [
+        createTavilySearchBackend,
+        JSON.stringify({ results: [{ title: 't', url: bad, content: 'c' }] }),
+      ],
+    ] as const;
+
+    for (const [create, body] of replies) {
+      const backend = create({
+        fetch: async () => new Response(body, { headers: { 'content-type': 'application/json' } }),
+      });
+      const failure = await search(backend).catch((caughtError: unknown) => caughtError);
+
+      expect(failure, backend.name).toBeInstanceOf(WebSearchError);
+      expect((failure as Error).message, backend.name).toContain('invalid results');
+      expect((failure as Error).message, backend.name).not.toContain('secret');
+      expect((failure as Error).cause, backend.name).toBeUndefined();
+    }
+  });
+
+  it('attaches no cause when the caller aborts', async () => {
+    for (const create of factories) {
+      const backend = create(fakeFetch([]));
+      const controller = new AbortController();
+
+      controller.abort(new Error('abort-secret'));
+
+      const failure = await backend
+        .search({ query: 'q', maxResults: 1, signal: controller.signal })
+        .catch((caughtError: unknown) => caughtError);
+
+      expect(failure, backend.name).toBeInstanceOf(WebSearchError);
+      expect((failure as Error).message, backend.name).not.toContain('abort-secret');
+      expect((failure as Error).cause, backend.name).toBeUndefined();
+    }
+  });
 });
 
 describe('parseRetryAfterMs', () => {
