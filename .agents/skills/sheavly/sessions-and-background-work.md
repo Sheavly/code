@@ -10,6 +10,7 @@ A run has one `TaskRegistry` (`packages/runtime/src/tasks/tasks.service.ts`), sh
 
 - Work is a `WorkDefinition` (`packages/runtime/src/tasks/work.types.ts`): a `WorkInput` plus a `backgroundKind`, `task` (finite: it can be grouped, awaited and held for) or `service` (never awaited, may outlive the run).
 - A kind is a factory that builds the definition and fixes the policy after spreading the input, so an input cannot override it: `finiteWork` and `serviceWork` (`packages/runtime/src/tasks/work.utils.ts`), `subAgentWork` (`packages/tools/src/sub-agent/sub-agent-work.utils.ts`), `commandTaskWork` and `commandServiceWork` (`packages/coding/src/run-command/command-work.utils.ts`).
+- The tool, not the model, picks the kind: `run_command` with `background: true` always starts `commandTaskWork`, and `start_service` always starts `commandServiceWork`. Neither has a `backgroundKind` input, and both share the steps before a command starts (`packages/coding/src/run-command/command-launch.helper.ts`). A new command kind is a new tool over the same helper. **Review-only:** that a tool names the right factory; `packages/coding/src/run-command/__tests__/start-service.tool.test.ts` and `packages/coding/src/run-command/__tests__/background.tool.test.ts` pin the two policies.
 - `startWork({ tasks, work })` is the only place that calls `TaskRegistry.start`. **Enforced** by `harness/no-direct-task-start` (type-aware: it keys on the receiver being a `TaskRegistry`, so an alias, destructuring, `.call`, a string key or a re-export still fails). Tests and fakes are exempt by file kind, since they drive the registry directly. A new kind never needs the exemption: it is a factory that builds a `WorkDefinition`, so an extension adds a kind without touching the registry.
 - What the rule cannot see: a registry typed `any` or cast to another shape, a registry assigned to a structural type that re-declares `start` (an interface or `{ start(...) }`), and `Reflect.get(tasks, 'start')`. Review carries those. `TaskRegistry.start` stays public, so the type system does not back the rule; making it non-public would, and is its own change.
 
@@ -29,7 +30,6 @@ A run has one `TaskRegistry` (`packages/runtime/src/tasks/tasks.service.ts`), sh
 
 Stated as they are, each its own change:
 
-- `backgroundKind` is still in `run_command`'s model-facing input, so the model picks the kind. Removing it is a model-visible behaviour change.
 - No contract suite runs every kind through the same assertions with only a table entry; the flow tests are parameterised by kind, but a new kind still adds its own tests.
 - Exactly one persistent notice and one event per completion is not decided or pinned for every kind.
 - `cancelSession` matches exact ownership, so a task started with no `sessionId` survives an abort and is stopped only by `cancelAll`. `run_command` and `start_agent` always set the owner, so no production path does this today. Requiring an owner in `startWork` would close it and the "scoping fails open without a session" gap, but breaks `run_command` without a session.

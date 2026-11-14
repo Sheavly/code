@@ -13,7 +13,7 @@ sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
 
 - The agent doesn't need `task_status` to wait: the loop reports finished tasks once at turn
   boundaries. Finite tasks, including sub-agents, keep the run alive automatically by default.
-  Persistent commands explicitly use `backgroundKind: 'service'` and need not exit before the
+  Persistent commands are started with `start_service` and need not exit before the
   agent finishes ([@sheavly/loop](../../loop/docs/run.md)).
 - Status calls are immediate snapshots for requested updates or diagnosis, not waits. The
   description and every running snapshot tell the agent not to poll: finish independent work,

@@ -79,7 +79,7 @@ folder's permissions from the user's folder (`workspacePermissions`), so a mode 
 command applies to every conversation in that folder from its next command.
 
 Finite background commands and sub-agent replies keep the prompt alive by default and resume
-the parent automatically when they finish. Persistent services (`backgroundKind: 'service'`)
+the parent automatically when they finish. Persistent services (started with `start_service`)
 are exempt: they may outlive a prompt without keeping it active. Interrupting a prompt cancels
 its background work, including sub-agent descendants, and does not restart it automatically.
 

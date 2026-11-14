@@ -34,7 +34,7 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model
    called tools, the next turn starts. Without either, the run ends (or waits for a background
    task). A session cannot end normally while its non-service tasks, including sub-agents, are
-   running or have results ready to deliver. Tasks with `backgroundKind: 'service'` may outlive it.
+   running or have results ready to deliver. Services (the `service` kind, started by `start_service`) may outlive it.
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
