@@ -4,6 +4,7 @@ import type { ConversationStore } from '@sheavly/core/store/store.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
+import { isMainSession } from '@sheavly/protocol/session/session.utils';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import {
   restoredReportNotices,
@@ -29,7 +30,7 @@ export async function owedAgentReports(params: {
   at: number;
 }): Promise<HistoryMessage[]> {
   const { store, id, resume, history, at } = params;
-  const main = resume.sessions.find((session) => session.depth === 1);
+  const main = resume.sessions.find(isMainSession);
 
   if (!main) return [];
 
