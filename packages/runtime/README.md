@@ -19,11 +19,12 @@ is delivered, even if only service members remain; a group containing only runni
 not.
 
 `TaskRegistry.group({ ids, reason, sessionId? })` returns immediately and holds its members for
-one delivery when the last settles, including cancelled members. Unknown, duplicate, already
-grouped, unowned, service and already delivered IDs (`task_delivered`) throw `TaskError` without
-changing anything; empty groups are rejected. A task cancelled on request was never notified, so
-it can still join a group until the next model step releases it (`task_released`); a cancel and a
-group in the same response both work.
+one delivery when the last settles, including cancelled members. Duplicate, already grouped,
+service and already delivered IDs (`task_delivered`) throw `TaskError` without changing anything;
+empty groups are rejected. An ID the session has no task for (never issued, released, or another
+session's) is refused as `unknown_task` with one message, so it reveals nothing about other
+sessions. A task cancelled on request was never notified, so it can still join a group until the
+next model step releases it; a cancel and a group in the same response both work.
 Already settled members join the group instead of producing separate undelivered notices.
 After validation succeeds, the explicit `reason` is stored on every member's `TaskInfo` as well as
 on the delivery. It remains available through `get`, `list`, `byCallId` and `takeDeliveries`, even
@@ -109,7 +110,7 @@ carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in pla
 The loop releases finished tasks itself: before each model call (so once per model step, not once
 per prompt), after the notices are in history, it calls `releaseFinished(sessionId)`, so a long-lived conversation's `TaskRegistry` does not grow.
 A released id is unknown to `get`, `report` and `list`; `isReleased(id)` tells it from one that
-never existed, and `group()` refuses it with `task_released`. The same step releases a delivered
+never existed, though `group()` refuses both alike (`unknown_task`). The same step releases a delivered
 sub-agent's session: `SessionRegistry.releaseAgent(id)` removes the ended sub-agent and the
 sessions under it, and returns false rather than throwing when one is still open or the id is a
 main session or already gone. `release(id)` is the throwing form (`session_running` if any is

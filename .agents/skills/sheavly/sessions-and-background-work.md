@@ -17,7 +17,8 @@ A run has one `TaskRegistry` (`packages/runtime/src/tasks/tasks.service.ts`), sh
 ## Ownership and reads
 
 - `list(sessionId?)`, `getOwned`, `byCallId({ callId, sessionId })`, `group` and `cancelSession` are scoped: a task another session owns reads as unknown.
-- `task_status`, `cancel_task` and `await_tasks` read as the calling session (`context.session?.id`) and refuse a call with no session. An unknown, foreign or released id gets the same answer from `task_status` and `cancel_task` (`missingTaskMessage`, `packages/tools/src/tasks/task-session.helper.ts`).
+- `task_status`, `cancel_task` and `await_tasks` read as the calling session (`context.session?.id`) and refuse a call with no session. An unknown, foreign or released id gets the same answer from all three: `task_status` and `cancel_task` throw `missingTaskMessage` as a tool error, and `group()` throws it as a `TaskError` with reason `unknown_task` (`packages/runtime/src/tasks/tasks.utils.ts`), so no tool tells another session's task from one that never existed.
+- Work started through a kind always has an owner: `sessionId` is required in `WorkInput`, and `run_command` with `background: true` and `start_service` refuse a call with no session before asking for approval (`requireBackground`, `packages/coding/src/run-command/command-launch.helper.ts`). **The type is the guard:** it cannot see a direct `TaskRegistry.start`, which still takes an optional owner (tests use it), so an ownerless task is still possible there and `harness/no-direct-task-start` is what keeps source off it.
 - **Review-only:** that a tool passes the caller's own session. The unscoped methods (`cancelAll`, `list()`, `runningCount`, `takeUnreported`, `hasUnreported`) are legitimate for the host's shutdown; a rule cannot tell that from a tool's unscoped call without keying on argument presence, which is brittle. Tests cover the behaviour (`packages/runtime/src/tasks/__tests__/scoped-reads.test.ts`, `packages/tools/src/tasks/__tests__/scoped-tools.test.ts`).
 
 ## Shutdown
@@ -32,6 +33,5 @@ Stated as they are, each its own change:
 
 - No contract suite runs every kind through the same assertions with only a table entry; the flow tests are parameterised by kind, but a new kind still adds its own tests.
 - Exactly one persistent notice and one event per completion is not decided or pinned for every kind.
-- `cancelSession` matches exact ownership, so a task started with no `sessionId` survives an abort and is stopped only by `cancelAll`. `run_command` and `start_agent` always set the owner, so no production path does this today. Requiring an owner in `startWork` would close it and the "scoping fails open without a session" gap, but breaks `run_command` without a session.
-- `await_tasks` still says "belongs to another session" for a foreign id (`packages/runtime/src/tasks/group-member.helper.ts`), a second existence oracle beside the uniform message.
+- `TaskRegistry.start` still accepts no owner, and `cancelSession` matches exact ownership, so a task started that way (only a test can, since `startWork` requires one) is stopped only by `cancelAll`.
 - `nextSettled` wakes on any session's settlement: a spurious wake only, since the loop re-checks `hasPendingTasks(id)`.
