@@ -7,6 +7,8 @@ import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/ap
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
+import { isMainSession } from '@sheavly/protocol/session/session.utils';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { Backend } from './client.types.js';
@@ -150,7 +152,7 @@ export class RemoteConversation {
         if (
           entry.kind === 'event' &&
           entry.event.type === 'run_failed' &&
-          entry.event.session.depth === 1
+          isMainSession(entry.event.session)
         ) {
           const error = entry.messageId
             ? `[message ${entry.messageId}] ${entry.event.error}`
@@ -162,12 +164,7 @@ export class RemoteConversation {
         this.#countTask(entry);
         yield entry;
 
-        if (
-          entry.kind === 'update' &&
-          entry.update.type === 'session_idle' &&
-          entry.update.session.depth === 1 &&
-          entry.update.session.lastOutcome === 'failed'
-        ) {
+        if (runEnd(entry) === 'failed') {
           throw new BackendError({
             message:
               'The model run failed before completing. The backend log contains the original error.',

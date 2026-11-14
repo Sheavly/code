@@ -118,9 +118,11 @@ you` keeps its own words.
   or host) shows it by its exact count as an extra first choice, and keeps it unless changed. It is what
   the agent is told it has, for cost, not a limit on the provider (see the backend's model API).
   At narrow widths the trailing statistics may be clipped; activity and the stop hint come first.
-- **A failed model run is not a completed reply.** A main-session `session_idle` update with
-  `lastOutcome: "failed"` reports an error even when no final `done` arrives. Partial text stays
-  visible and the chat remains available; the original exception is in the backend log.
+- **A failed model run is not a completed reply.** A failed run ends with the main session's
+  `done` carrying reason `failed`, after `run_failed`, and the chat reports the message as failed.
+  A stopped message is reported `interrupted`, and a stream that closes with no `done` is `failed`
+  (or `interrupted` when the user had stopped it). Partial text stays visible and the chat remains
+  available; the original exception is in the backend log.
 - **A complete approval preview must fit.** If the React footer cannot show the command,
   concerns and permission hints together, confirmation is disabled. Enlarge the terminal to
   review it or press `Esc` to skip; a clipped preview never grants permission.

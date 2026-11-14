@@ -127,7 +127,7 @@ describe('the API’s guards', () => {
     expect(empty.status).toBe(400);
   });
 
-  it('ends a prompt whose run fails with the session idle as failed, and keeps serving', async () => {
+  it('ends a prompt whose run fails with a done as failed, and keeps serving', async () => {
     const written = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     const { request, start, conversations } = testApi({
       boom: [
@@ -137,14 +137,16 @@ describe('the API’s guards', () => {
       ],
     });
     const id = await start();
-    // The response ends by itself: a run that fails emits no `done`, so the update ends it.
+    // The response ends by itself: a failed run ends with its own `done`, like every other run.
     const response = await request(`/conversations/${id}/prompts`, {
       method: 'POST',
       body: { text: 'boom' },
     });
     const frames = await response.text();
 
-    expect(frames).toContain('"type":"session_idle"');
+    expect(frames).toContain('"type":"run_failed"');
+    expect(frames).toContain('"type":"done"');
+    expect(frames).toContain('"reason":"failed"');
     expect(frames).toContain('"lastOutcome":"failed"');
     expect(written).toHaveBeenCalledWith('prompt failed: model down\n');
     expect((await request(`/conversations/${id}/messages`)).status).toBe(200);

@@ -15,7 +15,8 @@ const entry = (event: EntryEvent): StreamEntry => ({
   event,
 });
 const text = (value: string) => entry({ seq: 0, type: 'text_delta', text: value });
-const done = () => entry({ seq: 0, type: 'done', reason: 'completed', session: REF });
+const done = (reason: 'completed' | 'failed' = 'completed') =>
+  entry({ seq: 0, type: 'done', reason, session: REF });
 
 function idleChat() {
   const busy: boolean[] = [];
@@ -23,17 +24,6 @@ function idleChat() {
 
   return { session, busy };
 }
-
-const idleUpdate = (): StreamEntry => ({
-  seq: nextSeq++,
-  at: 0,
-  sessionId: MAIN,
-  kind: 'update',
-  update: {
-    type: 'session_idle',
-    session: { ...REF, title: 'Main', state: 'idle', lastOutcome: 'failed', startedAt: 0 },
-  },
-});
 
 // The backend starts a run itself when finite work finishes while the chat is idle, and no prompt
 // of this chat carries it, so the chat tells the UI when such a run starts and ends.
@@ -58,11 +48,11 @@ describe('ChatSession: a run the backend started itself', () => {
     expect(busy).toEqual([true]);
   });
 
-  it('tells the UI a failed run ended, which emits no done but the session going idle', () => {
+  it('tells the UI a failed run ended, which ends with a done like every other run', () => {
     const { session, busy } = idleChat();
 
     session.hear(text('Starting.'));
-    session.hear(idleUpdate());
+    session.hear(done('failed'));
 
     expect(busy).toEqual([true, false]);
   });
@@ -130,7 +120,16 @@ describe('ChatSession: a run the backend started itself', () => {
   it('tells the UI nothing for an idle update with no run going', () => {
     const { session, busy } = idleChat();
 
-    session.hear(idleUpdate());
+    session.hear({
+      seq: nextSeq++,
+      at: 0,
+      sessionId: MAIN,
+      kind: 'update',
+      update: {
+        type: 'session_idle',
+        session: { ...REF, title: 'Main', state: 'idle', lastOutcome: 'failed', startedAt: 0 },
+      },
+    });
 
     expect(busy).toEqual([]);
   });

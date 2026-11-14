@@ -5,8 +5,7 @@ import type { RouteBody } from '@sheavly/protocol/api/api.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
-import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { ApiHandlers, ConversationRouteName } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
@@ -127,7 +126,7 @@ async function sendPrompt(params: {
 }): Promise<Response> {
   const { c, id, body, conversations } = params;
   const live = conversations.get(id);
-  const { mainSession, sessions } = live.harness;
+  const { sessions } = live.harness;
 
   // A run the conversation started for finished work ends first, before recording starts: its
   // `done` must not be taken for the start of this prompt's stream.
@@ -151,28 +150,11 @@ async function sendPrompt(params: {
     live,
     filter: { replay: first !== undefined },
     lastEventId: first === undefined ? undefined : first - 1,
-    isLast: (entry) => endsMainRun({ entry, mainSessionId: mainSession.id }),
+    isLast: (entry) => runEnd(entry) !== undefined,
     // The run starts once the stream is listening, so none of its entries is missed; it is driven
     // here rather than by the response, so a client leaving doesn't stop it.
     onOpen: () => void drain(sent.events),
   });
-}
-
-/**
- * Whether `entry` ends the main session's run: its `done`, or, for a run that failed (which emits
- * no `done`), the update that leaves the session idle as `failed`.
- */
-function endsMainRun(params: { entry: StreamEntry; mainSessionId: SessionId }): boolean {
-  const { entry, mainSessionId } = params;
-
-  if (entry.sessionId !== mainSessionId) return false;
-  if (entry.kind === 'event') return entry.event.type === 'done';
-
-  return (
-    entry.kind === 'update' &&
-    entry.update.type === 'session_idle' &&
-    entry.update.session.lastOutcome === 'failed'
-  );
 }
 
 /**
