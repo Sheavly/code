@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
 import { OutputError } from '@sheavly/core/errors/output.errors';
@@ -34,11 +35,14 @@ function setup(outputs: MemoryOutputStore | undefined = new MemoryOutputStore())
 
   return {
     outputs,
-    run: toolRunner([
-      createRunCommandTool(options),
-      createStartServiceTool(options),
-      ...createOutputTools(outputs),
-    ]),
+    run: toolRunner(
+      [
+        createRunCommandTool(options),
+        createStartServiceTool(options),
+        ...createOutputTools(outputs),
+      ],
+      new SessionRegistry().startMain({ title: 'Main' }),
+    ),
   };
 }
 

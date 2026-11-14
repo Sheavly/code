@@ -7,6 +7,7 @@ import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
+import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 
@@ -68,6 +69,25 @@ describe('start_service', () => {
     });
 
     expect(result).toMatchObject({ isError: true });
+    expect(tasks.list()).toEqual([]);
+  });
+
+  it.each([
+    { name: 'start_service', input: { command: 'true' } },
+    { name: 'run_command', input: { command: 'true', background: true } },
+  ])('$name refuses a background start outside a session, before the approval', async (call) => {
+    tasks = new TaskRegistry();
+    const permissions = testPermissions({ mode: 'allow_all' });
+    const read = vi.spyOn(permissions, 'read');
+    const options = serviceOptions({ permissions, tasks });
+    const run = toolRunner([createStartServiceTool(options), createRunCommandTool(options)]);
+    const result = await run('s4', call.name, call.input);
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.role === 'tool' && result.content).toContain(
+      'only works inside an agent session',
+    );
+    expect(read).not.toHaveBeenCalled();
     expect(tasks.list()).toEqual([]);
   });
 

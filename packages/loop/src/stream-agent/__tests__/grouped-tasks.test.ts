@@ -332,7 +332,7 @@ describe('grouped task delivery in the loop', () => {
     await until(() => tasks.settleWaiters === 1);
 
     expect(() => tasks.group({ ids: [cancelled.task.id], reason })).toThrow(
-      expect.objectContaining({ reason: 'task_released' }),
+      expect.objectContaining({ reason: 'unknown_task' }),
     );
     expect(tasks.get(blocker.task.id)?.status).toBe('running');
     await blocker.finish();

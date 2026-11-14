@@ -134,6 +134,7 @@ describe('background run_command', () => {
           input: { description: 'Delayed command', command: 'echo never', background: true },
         },
         signal: controller.signal,
+        session: new SessionRegistry().startMain({ title: 'Main' }),
       });
 
       await until(() => read.mock.calls.length === 1);

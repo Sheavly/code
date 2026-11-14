@@ -1,14 +1,10 @@
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { TaskError } from '../errors/tasks.errors.js';
-import { releasedTaskMessage } from './tasks.utils.js';
+import { missingTaskMessage } from './tasks.utils.js';
 
-/** The refusal for an id this registry handed out and has since released. */
-export function releasedTaskError(id: TaskId): TaskError {
-  return new TaskError({
-    reason: 'task_released',
-    taskId: id,
-    message: releasedTaskMessage(id),
-  });
+/** The refusal for an id the caller has no task for: never issued, released or another session's. */
+export function unknownTaskError(id: TaskId): TaskError {
+  return new TaskError({ reason: 'unknown_task', taskId: id, message: missingTaskMessage(id) });
 }
 
 /** The error that keeps a task out of a new group, or undefined when it may join. */
@@ -26,15 +22,9 @@ export function groupMemberError(params: {
     return new TaskError({ reason: 'duplicate_task', taskId: id, message: `Duplicate task ${id}` });
   }
 
-  // Ownership before anything about the task itself, so a foreign task's group or kind is not
-  // revealed by the error.
-  if (!owned) {
-    return new TaskError({
-      reason: 'task_not_owned',
-      taskId: id,
-      message: `Task ${id} belongs to another session`,
-    });
-  }
+  // Ownership before anything about the task itself, and the same answer as an id that does not
+  // exist, so a foreign task's existence, group or kind is not revealed by the error.
+  if (!owned) return unknownTaskError(id);
 
   if (grouped) {
     return new TaskError({

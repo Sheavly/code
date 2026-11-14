@@ -18,7 +18,7 @@ import { TaskError } from '../errors/tasks.errors.js';
 import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
-import { groupMemberError, releasedTaskError } from './group-member.helper.js';
+import { groupMemberError, unknownTaskError } from './group-member.helper.js';
 import { isIssued, newEntry, runningInfo, runningTaskOf, settledStatus } from './tasks.utils.js';
 
 export class TaskRegistry {
@@ -336,9 +336,7 @@ export class TaskRegistry {
   #entry(id: TaskId): Entry {
     const entry = this.#tasks.get(id);
 
-    if (!entry) {
-      throw new TaskError({ reason: 'unknown_task', taskId: id, message: `Unknown task ${id}` });
-    }
+    if (!entry) throw unknownTaskError(id);
 
     return entry;
   }
@@ -364,8 +362,7 @@ export class TaskRegistry {
   }) {
     const { id, seen, sessionId } = params;
 
-    if (this.isReleased(id)) throw releasedTaskError(id);
-
+    // A released id has no entry, so `#entry` refuses it like one that never existed.
     const entry = this.#entry(id);
     const error = groupMemberError({
       id,
