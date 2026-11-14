@@ -124,8 +124,8 @@ describe('a sub-agent report reaches its parent whole', () => {
   });
 
   it('says a delivered report was released: the notice in history is where it stays readable', async () => {
-    const { tasks, notice } = await handoff([say(MULTILINE)]);
-    const run = toolRunner(createTaskTools(tasks));
+    const { tasks, notice, main } = await handoff([say(MULTILINE)]);
+    const run = toolRunner(createTaskTools(tasks), main);
     const shown = await run('c1', 'task_status', { id: 't1' });
 
     expect(notice?.role === 'notice' && notice.notice).toMatchObject({ report: MULTILINE });
@@ -172,7 +172,10 @@ describe('ordinary background tasks keep their bounded preview', () => {
     });
     await tasks.nextSettled();
 
-    const run = toolRunner(createTaskTools(tasks));
+    const run = toolRunner(
+      createTaskTools(tasks),
+      new SessionRegistry().startMain({ title: 'Main' }),
+    );
     const shown = await run('c1', 'task_status', { id: 't1' });
     const content = shown.role === 'tool' ? shown.content : '';
 

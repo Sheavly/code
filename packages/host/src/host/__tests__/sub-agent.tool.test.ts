@@ -320,7 +320,7 @@ describe('start_agent', () => {
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
   });
 
-  it('gives every sub-agent the tools built on its own task registry, even at the depth cap', async () => {
+  it('gives every sub-agent the tools built on the run task registry, even at the depth cap', async () => {
     const sessions = new SessionRegistry();
     const tasks = new TaskRegistry();
     const built: TaskRegistry[] = [];
@@ -362,7 +362,7 @@ describe('start_agent', () => {
     await tasks.nextSettled();
 
     expect(built).toHaveLength(1);
-    expect(built[0]).not.toBe(tasks);
+    expect(built[0]).toBe(tasks);
     expect(seenTools[0]).toEqual([
       'await_tasks',
       'cancel_task',
