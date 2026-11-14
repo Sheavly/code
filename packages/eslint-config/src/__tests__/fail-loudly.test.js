@@ -129,6 +129,24 @@ ruleTester.run('no-adhoc-latest-request', harnessPlugin.rules['no-adhoc-latest-r
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
 
+ruleTester.run('no-adhoc-main-session', harnessPlugin.rules['no-adhoc-main-session'], {
+  valid: [
+    "import { isMainSession } from '@sheavly/protocol/session/session.utils'; const main = sessions.find(isMainSession);",
+    'const nests = child.depth < MAX_SESSION_DEPTH;',
+    'const deeper = session.depth > 1;',
+    'const depth = parent.depth + 1;',
+    'const isChild = parent.depth + 1 === child.depth;',
+    'const one = count === 1;',
+  ],
+  invalid: [
+    'const main = sessions.find((session) => session.depth === 1);',
+    'if (entry.event.session.depth === 1) report();',
+    'const isChild = session.depth !== 1;',
+    'const main = sessions.filter((s) => s.depth == 1);',
+    'const main = 1 === session.depth;',
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
 ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
   valid: [
     "import { now } from '@sheavly/core/clock/clock.helper'; const startedAt = now();",
