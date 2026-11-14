@@ -22,6 +22,12 @@ export type CommandPermissions = {
 /** A capture that started, or the reason none did. The command runs either way. */
 export type Capture = { writer: OutputWriter } | { unavailable: string } | undefined;
 
+/** The options the steps before a command starts need: the same for every tool that runs one. */
+export type CommandLaunchOptions = Pick<
+  RunCommandOptions,
+  'workspace' | 'workingRoots' | 'permissions' | 'approvals'
+>;
+
 export type RunCommandOptions = {
   workspace: Workspace;
   /** Where a command starts when the agent chose a working root. Default: the workspace root. */
