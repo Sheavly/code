@@ -2263,6 +2263,14 @@
               "session": { "$ref": "#/components/schemas/SessionInfo" }
             },
             "required": ["type", "session"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "session_released" },
+              "session": { "$ref": "#/components/schemas/SessionInfo" }
+            },
+            "required": ["type", "session"]
           }
         ]
       },

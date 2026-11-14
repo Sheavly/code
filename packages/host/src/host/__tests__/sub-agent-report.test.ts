@@ -135,13 +135,19 @@ describe('a sub-agent report reaches its parent whole', () => {
 
   it('puts the card data in the typed notice, for a UI to render from', async () => {
     const { sessions, notice, main } = await handoff([say('Done.')]);
-    const [child] = sessions.children(main.id);
+    const agent =
+      notice?.role === 'notice' && notice.notice.kind === 'agent-report'
+        ? notice.notice.agent
+        : undefined;
 
+    // The session is released once the report is delivered: the notice is where its card stays.
+    expect(agent && sessions.isReleased(agent.id)).toBe(true);
+    expect(sessions.children(main.id)).toEqual([]);
     expect(notice?.role === 'notice' && notice.notice).toMatchObject({
       kind: 'agent-report',
       taskId: 't1',
       agent: {
-        id: child?.id,
+        id: agent?.id,
         title: 'Researcher',
         parentId: main.id,
         startedByCall: 'm1',

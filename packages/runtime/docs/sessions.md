@@ -46,14 +46,17 @@ While idle it accepts messages, kept for its next prompt, but no status reports 
   sub-agent, recording the tool call in the parent's history that started it. It
   throws if the parent is unknown, has ended, or is at the depth cap.
 - Every refusal is a `SessionError` (`@sheavly/runtime/errors/`) with a `reason` (`unknown_session`,
-  `parent_ended`, `too_deep`, `session_ended`, `session_running`, `not_an_ancestor`) and the `sessionId` it was
+  `session_released`, `parent_ended`, `too_deep`, `session_ended`, `session_running`, `not_an_ancestor`) and the `sessionId` it was
   about, so a caller tells the cases apart without reading the message.
 - `release(id)` forgets an ended session and every sub-agent under it, with their queued messages,
-  last tokens and message ids, and returns how many sessions went. The registry never does this on
-  its own, so a long-lived host calls it for conversations it is done with. It throws
-  `session_running` if the session or a sub-agent under it is still open, and releases nothing then.
-  Entries already in the combined stream stay; a later `publish` for a released session is refused
-  as for an unknown one.
+  last tokens and message ids, announces each as `session_released`, and returns how many sessions
+  went. It throws `session_running` if the session or a sub-agent under it is still open, and
+  releases nothing then. Entries already in the combined stream stay, and a filter on an ancestor's
+  subtree still matches them; a later `publish` for a released session is refused with
+  `session_released`. `isReleased(id)` tells it from an unknown id, and `releasedStarts()` lists them with when each started.
+- `releaseAgent(id)` is what the loop calls once a sub-agent's report is delivered: the same
+  release, but it returns false instead of throwing when a session under it is still open, and
+  leaves a main session alone. A reopened conversation restores every stored session.
 - `lineage(id)` walks a session up to the main session; `children(id)` lists the ones it started.
 - A run takes `session: { registry, ref }`. Without one it starts its own main session. Either
   way the loop ends the session with the run's outcome, and the `done` event carries its ref.
@@ -107,7 +110,7 @@ new Response(sessions.stream({ signal }), { headers: { 'content-type': 'text/eve
 
 It starts with every known session (a UI that connects late catches up), then sends updates
 until `signal` aborts. Each event is named `session_started`, `session_status`,
-`session_message`, `session_idle`, `session_resumed`, `session_model` or `session_ended`, and has the session id as its event id. Its JSON data is
+`session_message`, `session_idle`, `session_resumed`, `session_model`, `session_ended` or `session_released`, and has the session id as its event id. Its JSON data is
 `{ session }` (the `SessionInfo`), plus `message` for `session_message` and `modelId` for
 `session_model`. The demo prints the same
 updates, indented by depth.

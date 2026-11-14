@@ -247,6 +247,8 @@ export class Renderer {
     if (type === 'session_ended') {
       this.#activity(this.look.subAgentEnded({ ...agent, state: session.state }));
     }
+
+    // `session_released` draws nothing: the ended card is already in the scrollback.
   }
 
   /** The model's reply, as it streams: a section of its own, apart from what the run did. */

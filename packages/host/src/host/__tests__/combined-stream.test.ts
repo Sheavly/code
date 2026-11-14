@@ -60,6 +60,18 @@ async function runTree(): Promise<{ sessions: SessionRegistry; entries: StreamEn
   return { sessions, entries };
 }
 
+/**
+ * Every session the stream announced, in the order they started. A delivered sub-agent is released
+ * from the registry, so the stream is where the whole tree stays.
+ */
+function startedSessions(entries: StreamEntry[]) {
+  return entries.flatMap((entry) =>
+    entry.kind === 'update' && entry.update.type === 'session_started'
+      ? [entry.update.session]
+      : [],
+  );
+}
+
 /** Where in the combined stream the first entry matching `match` is. */
 const indexOf = (entries: StreamEntry[], match: (entry: StreamEntry) => boolean) =>
   entries.findIndex(match);
@@ -67,9 +79,16 @@ const indexOf = (entries: StreamEntry[], match: (entry: StreamEntry) => boolean)
 describe("the combined stream of a run's sessions", () => {
   it('has every session’s events and updates, valid entries, with one seq with no gaps', async () => {
     const { sessions, entries } = await runTree();
-    const ids = new Set(sessions.list().map((session) => session.id));
+    const ids = new Set(startedSessions(entries).map((session) => session.id));
 
-    expect(sessions.list().map((session) => session.title)).toEqual(['Main', 'A', 'B', 'A1']);
+    expect(startedSessions(entries).map((session) => session.title)).toEqual([
+      'Main',
+      'A',
+      'B',
+      'A1',
+    ]);
+    // Every delivered sub-agent was released; only the main session is still in the registry.
+    expect(sessions.list().map((session) => session.title)).toEqual(['Main']);
     expect(entries.map((entry) => entry.seq)).toEqual(entries.map((_, index) => index));
 
     for (const entry of entries) {
@@ -91,8 +110,8 @@ describe("the combined stream of a run's sessions", () => {
   });
 
   it('puts each sub-agent after the call that started it, and both siblings run at once', async () => {
-    const { sessions, entries } = await runTree();
-    const byTitle = Object.fromEntries(sessions.list().map((s) => [s.title, s.id]));
+    const { entries } = await runTree();
+    const byTitle = Object.fromEntries(startedSessions(entries).map((s) => [s.title, s.id]));
     const started = (title: string) =>
       indexOf(
         entries,
@@ -129,8 +148,8 @@ describe("the combined stream of a run's sessions", () => {
   });
 
   it('files each sub-agent’s task under the session that started it, started then ended', async () => {
-    const { sessions, entries } = await runTree();
-    const byTitle = Object.fromEntries(sessions.list().map((s) => [s.title, s.id]));
+    const { entries } = await runTree();
+    const byTitle = Object.fromEntries(startedSessions(entries).map((s) => [s.title, s.id]));
     const taskEntries = entries.flatMap((entry) =>
       entry.kind === 'task'
         ? [

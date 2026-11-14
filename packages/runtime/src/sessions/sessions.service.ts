@@ -5,7 +5,10 @@ import type { EntryStore } from '@sheavly/core/store/store.types';
 import { checkedParent } from './child-check.helper.js';
 import { EntryLog } from './entry-log.service.js';
 import { restoreSessions } from './restore.helper.js';
-import { releaseSubtree } from './release.helper.js';
+import { releaseSubtree, subtreeOf } from './release.helper.js';
+import { ReleasedSessions } from './released-sessions.service.js';
+import { lineageIds } from './lineage-ids.helper.js';
+import { missingSession } from './missing-session.helper.js';
 import { readStoredLog } from './stored-log.helper.js';
 import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
@@ -55,6 +58,8 @@ export class SessionRegistry {
   #inboxes = new Inboxes();
   #lastTokens: LastTokens;
   readonly #messageContexts: MessageContexts;
+  /** In-process only: a reopened conversation has its sessions back, released or not. */
+  readonly #released = new ReleasedSessions();
 
   /**
    * Only the newest entries of the combined stream stay in memory (`EntryLog`); with a `store`
@@ -69,7 +74,7 @@ export class SessionRegistry {
     this.#lastTokens = new LastTokens(resume?.lastTokens);
     this.#messageContexts = new MessageContexts(resume?.messageContexts);
     this.#entries = new EntryLog({
-      lineage: (id) => this.lineage(id),
+      lineage: (id) => lineageIds({ id, sessions: this.#sessions, released: this.#released }),
       ...(store && { store }),
       ...(resume && { resume }),
     });
@@ -236,17 +241,58 @@ export class SessionRegistry {
   /**
    * Forgets an ended session and every sub-agent under it, with their queued messages, last
    * tokens and message ids, and returns how many sessions went. Throws `session_running` if any
-   * of them is still open. Entries already in the combined stream stay; a later `publish` for a
-   * released session throws as for an unknown one.
+   * of them is still open. Entries already in the combined stream stay, and a filter on an
+   * ancestor's subtree still matches them. Each session that went is announced
+   * (`session_released`), and a later `publish` for it throws `session_released`.
    */
   release(id: SessionId): number {
     this.#require(id);
 
-    return releaseSubtree({
+    const released = releaseSubtree({
       id,
       sessions: this.#sessions,
       holders: [this.#inboxes, this.#lastTokens, this.#messageContexts],
     });
+
+    for (const session of released) {
+      this.#released.record(session);
+      this.#emit({ type: 'session_released', session });
+    }
+
+    return released.length;
+  }
+
+  /**
+   * For the loop, once a sub-agent's report is delivered: releases the ended sub-agent `id` and
+   * what it started, and returns whether it did. Refuses nothing by throwing: an open session
+   * under it (a grandchild still being cancelled), a main session and an id already released or
+   * unknown are left alone. The loop does not retry: it delivers a report once.
+   */
+  releaseAgent(id: SessionId): boolean {
+    const session = this.#sessions.get(id);
+
+    if (!session || !('parentId' in session)) return false;
+
+    if (subtreeOf({ id, sessions: this.#sessions }).some((each) => isOpen(each.state))) {
+      return false;
+    }
+
+    this.release(id);
+
+    return true;
+  }
+
+  /** Whether `id` was a session of this registry that has since been released. */
+  isReleased(id: SessionId): boolean {
+    return this.#released.has(id);
+  }
+
+  /**
+   * The sessions released so far with when each started. Their stored history stays readable, so
+   * what searches a conversation's history asks for them here, and only for these two facts.
+   */
+  releasedStarts(): { id: SessionId; startedAt: number }[] {
+    return this.#released.starts();
   }
 
   /** Removes and returns the session's queued messages, oldest first. */
@@ -435,13 +481,7 @@ export class SessionRegistry {
   #require(id: SessionId): SessionInfo {
     const session = this.#sessions.get(id);
 
-    if (!session) {
-      throw new SessionError({
-        reason: 'unknown_session',
-        sessionId: id,
-        message: `Unknown session ${id}`,
-      });
-    }
+    if (!session) throw missingSession({ id, released: this.#released });
 
     return session;
   }

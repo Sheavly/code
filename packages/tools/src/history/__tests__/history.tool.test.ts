@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -127,6 +127,115 @@ describe('search_history', () => {
 
     expect(result.content).toContain('entry 2');
     expect(result.content).not.toContain('<harness-notice');
+  });
+});
+
+describe('a released sub-agent', () => {
+  beforeEach(() => {
+    sessions.end({ id: child.id, state: 'completed' });
+    sessions.releaseAgent(child.id);
+  });
+
+  it('stays searchable and readable: its stored history is not the registry', async () => {
+    const searched = await call('search_history', { query: 'blue key' });
+    const only = await call('search_history', { query: 'vault', session: child.id });
+    const read = await call('read_history_entry', { session: child.id, seq: 0 });
+
+    expect(sessions.get(child.id)).toBeUndefined();
+    expect(searched.content).toContain(`session ${main.id}, entry 0 (user)`);
+    expect(searched.content).toContain(`session ${child.id}, entry 0 (user)`);
+    expect(only.content).toContain(`session ${child.id}, entry 0`);
+    expect(read.isError).toBe(false);
+    expect(read.content).toContain('vault A');
+  });
+});
+
+describe('a cursor taken before a sub-agent was released', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('resumes after it, without skipping the session that started later', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(10_000);
+    sessions = new SessionRegistry();
+    main = sessions.startMain({ title: 'Main' });
+    vi.setSystemTime(20_000);
+    child = sessions.startChild({
+      parentId: main.id,
+      startedByCall: callIdSchema.parse('a'),
+      title: 'First',
+    });
+    vi.setSystemTime(30_000);
+
+    const later = sessions.startChild({
+      parentId: main.id,
+      startedByCall: callIdSchema.parse('b'),
+      title: 'Later',
+    });
+
+    store = new MemoryConversationStore();
+    await keep({ session: main, entries: [user('blue key main')] });
+    await keep({ session: child, entries: [user('blue key first')] });
+    await keep({ session: later, entries: [user('blue key later')] });
+
+    const first = await call('search_history', { query: 'blue key', limit: 1 });
+    const atChild = await call('search_history', {
+      query: 'blue key',
+      limit: 1,
+      cursor: /cursor "([^"]+)"/.exec(first.content)?.[1],
+    });
+    const cursor = /cursor "([^"]+)"/.exec(atChild.content)?.[1];
+
+    expect(atChild.content).toContain(`session ${child.id}`);
+
+    sessions.end({ id: child.id, state: 'completed' });
+    sessions.releaseAgent(child.id);
+
+    const next = await call('search_history', { query: 'blue key', limit: 1, cursor });
+
+    expect(next.content).toContain(`session ${later.id}`);
+  });
+});
+
+describe('a cursor over sub-agents that started in the same millisecond', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('still resumes after the released one, so neither is skipped nor repeated', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(10_000);
+    sessions = new SessionRegistry();
+    main = sessions.startMain({ title: 'Main' });
+
+    const twins = ['a', 'b'].map((call) =>
+      sessions.startChild({
+        parentId: main.id,
+        startedByCall: callIdSchema.parse(call),
+        title: call,
+      }),
+    );
+    const [first, second] = twins.sort((x, y) => x.id.localeCompare(y.id));
+
+    if (!first || !second) throw new Error('two sub-agents were not started');
+
+    store = new MemoryConversationStore();
+    await keep({ session: first, entries: [user('blue key one')] });
+    await keep({ session: second, entries: [user('blue key two')] });
+
+    const page = await call('search_history', {
+      query: 'blue key',
+      limit: 1,
+      session: undefined,
+    });
+    const cursor = /cursor "([^"]+)"/.exec(page.content)?.[1];
+
+    expect(page.content).toContain(`session ${first.id}`);
+
+    sessions.end({ id: first.id, state: 'completed' });
+    sessions.releaseAgent(first.id);
+
+    const next = await call('search_history', { query: 'blue key', limit: 1, cursor });
+
+    expect(next.content).toContain(`session ${second.id}`);
+    expect(next.content).not.toContain(`session ${first.id}`);
   });
 });
 

@@ -163,6 +163,8 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
 
     expect(largest).toBeLessThanOrEqual(1);
     expect(flow.tasks.list()).toHaveLength(0);
+    // Only the main session is left: each delivered sub-agent's session was released.
+    expect(flow.sessions.list().map((session) => session.id)).toEqual([flow.ref.id]);
     expect(noticeKinds(messages)).toHaveLength(12);
   });
 });

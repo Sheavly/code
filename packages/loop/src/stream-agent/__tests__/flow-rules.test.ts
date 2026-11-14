@@ -3,6 +3,7 @@ import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants'
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import type { SessionInfo } from '@sheavly/protocol/session/session.types';
 import { runSession } from '../stream-agent.helper.js';
 import { assertValidHistory } from '../../history/history.utils.js';
 import { viewOf } from '../../summary/summary.utils.js';
@@ -54,6 +55,19 @@ describe('flow rule 5 — finished work reaches the model once', () => {
       expect(noticeKinds(messages)).toHaveLength(1);
     },
   );
+
+  it('rule 5: sub-agent — its session is released once its report is in history, the main one never', async () => {
+    const { messages, sessions, ref } = await runUntilNotified(subAgent, 'quick');
+    const notice = messages.find((message) => message.role === 'notice');
+    const agent =
+      notice?.role === 'notice' && notice.notice.kind === 'agent-report'
+        ? notice.notice.agent
+        : undefined;
+
+    expect(agent).toBeDefined();
+    expect(agent && sessions.isReleased(agent.id)).toBe(true);
+    expect(sessions.list().map((session) => session.id)).toEqual([ref.id]);
+  });
 });
 
 describe('flow rule 7 — a sub-agent reports its status and the parent steers it', () => {
@@ -98,12 +112,22 @@ describe('flow rule 7 — a sub-agent reports its status and the parent steers i
 
   it('rule 7: a sub-agent whose loop throws ends its session as failed and tells the parent', async () => {
     const { tasks, sessions, ref, messages } = await runUntilNotified(subAgent, 'failing');
-    const [child] = sessions.children(ref.id);
-
     const notices = messages.filter((m) => m.role === 'notice');
+    // Delivered, so released: the stream still holds the session as it last was.
+    const released: SessionInfo[] = [];
+
+    sessions.subscribeEntries(
+      (entry) => {
+        if (entry.kind === 'update' && entry.update.type === 'session_released') {
+          released.push(entry.update.session);
+        }
+      },
+      { replay: true },
+    );
 
     expect(tasks.isReleased(taskIdSchema.parse('t1'))).toBe(true);
-    expect(child).toMatchObject({ state: 'failed' });
+    expect(sessions.children(ref.id)).toEqual([]);
+    expect(released).toMatchObject([{ state: 'failed' }]);
     expect(notices).toHaveLength(1);
     // A failed run writes no report, so its notice is the task's, not an agent report.
     expect(notices[0]).toMatchObject({
