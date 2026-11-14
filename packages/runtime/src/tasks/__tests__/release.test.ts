@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskRegistry } from '../tasks.service.js';
+import { missingTaskMessage } from '../tasks.utils.js';
 
 function startTask(params: { tasks: TaskRegistry; run: () => Promise<{ exitCode: number }> }) {
   return params.tasks.start({ command: 'cmd', description: 'work', run: params.run });
@@ -154,14 +155,14 @@ describe('telling a released task from one that never existed', () => {
     },
   );
 
-  it('refuses to group a released task with its own reason', async () => {
+  it('refuses to group a released task as it does one that never existed', async () => {
     const tasks = new TaskRegistry();
     const id = await reportedTask(tasks);
 
     tasks.release(id);
 
     expect(() => tasks.group({ ids: [id], reason: 'again' })).toThrow(
-      expect.objectContaining({ reason: 'task_released' }),
+      expect.objectContaining({ reason: 'unknown_task', message: missingTaskMessage(id) }),
     );
   });
 });

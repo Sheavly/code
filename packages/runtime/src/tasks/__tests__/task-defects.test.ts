@@ -73,7 +73,7 @@ describe('finished work reaches the model once', () => {
     expect(tasks.groupedPendingCount()).toBe(1);
   });
 
-  it("reports a foreign session's grouped task as foreign, not by its group", () => {
+  it("reports a foreign session's grouped task as unknown, not by its group", () => {
     const tasks = new TaskRegistry();
     const owner = sessionIdSchema.parse('owner');
     const other = sessionIdSchema.parse('other');
@@ -87,7 +87,7 @@ describe('finished work reaches the model once', () => {
     tasks.group({ ids: [id], reason: 'Mine', sessionId: owner });
 
     expect(() => tasks.group({ ids: [id], reason: 'Probe', sessionId: other })).toThrow(
-      expect.objectContaining({ reason: 'task_not_owned', taskId: id }),
+      expect.objectContaining({ reason: 'unknown_task', taskId: id }),
     );
   });
 

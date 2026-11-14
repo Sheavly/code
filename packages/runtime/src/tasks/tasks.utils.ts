@@ -13,9 +13,13 @@ export function isIssued(params: { id: TaskId; nextId: number }): boolean {
   return digits !== undefined && Number(digits) < params.nextId;
 }
 
-/** What the model is told about an id the registry handed out and has since released. */
-export function releasedTaskMessage(id: TaskId): string {
-  return `Task ${id} was already reported and released`;
+/**
+ * What the model is told about an id the caller has no task for: one that never existed, one
+ * another session owns, or one already reported and released. The three read alike, so an id
+ * reveals nothing about another session's tasks.
+ */
+export function missingTaskMessage(id: TaskId): string {
+  return `No task with id ${id}: it does not exist, or it was already reported and released`;
 }
 
 /** The snapshot of a task that has just started, before it has produced output. */
