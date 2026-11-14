@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { runSession } from '../stream-agent.helper.js';
@@ -6,6 +7,7 @@ import {
   cancelOpenFlows,
   noticeKinds,
   recordingProvider,
+  runRound,
   runUntilNotified,
   startFlow,
   startStoppable,
@@ -46,6 +48,17 @@ async function startRunning(kind: WorkKind) {
   return { ...flow, result };
 }
 
+/** How the one notice in a history says the work ended, whichever kind of notice it is. */
+function noticeOutcome(messages: readonly HistoryMessage[]): string | undefined {
+  const entry = messages.find((message) => message.role === 'notice');
+
+  if (entry?.role !== 'notice') return undefined;
+
+  if (entry.notice.kind === 'agent-report') return entry.notice.outcome;
+
+  return entry.notice.kind === 'task-finished' ? entry.notice.task.status : undefined;
+}
+
 describe.each(kinds)('background work lifecycle — $name', (kind) => {
   it('is listed while it runs', async () => {
     const { tasks, ref } = await startRunning(kind);
@@ -55,16 +68,16 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
   });
 
   it('completes and its notice reaches the model', async () => {
-    const { tasks, messages } = await runUntilNotified(kind, 'quick');
+    const { messages } = await runUntilNotified(kind, 'quick');
 
-    expect(tasks.get(t1)?.status).toBe('completed');
+    expect(noticeOutcome(messages)).toBe('completed');
     expect(noticeKinds(messages)).toHaveLength(1);
   });
 
   it('fails and its notice says so', async () => {
-    const { tasks, messages } = await runUntilNotified(kind, 'failing');
+    const { messages } = await runUntilNotified(kind, 'failing');
 
-    expect(tasks.get(t1)?.status).toBe('failed');
+    expect(noticeOutcome(messages)).toBe('failed');
     expect(noticeKinds(messages)).toHaveLength(1);
   });
 
@@ -76,11 +89,10 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
     expect(tasks.hasDeliveries(ref.id)).toBe(false);
   });
 
-  it('stays completed when it is cancelled after it finished', async () => {
+  it('is gone once its notice is delivered, so a later cancel finds nothing', async () => {
     const { tasks } = await runUntilNotified(kind, 'quick');
-    const cancelled = await tasks.cancel(t1);
 
-    expect(cancelled?.status).toBe('completed');
+    expect(await tasks.cancel(t1)).toBeUndefined();
   });
 
   it('outlives the run that started it: the run ends when the model finishes (rule 1)', async () => {
@@ -121,11 +133,36 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
     expect(notice.notice).toHaveProperty('context');
   });
 
-  it('pinned today: finished work stays listed after delivery until something releases it', async () => {
+  it('is released once delivered: the registry keeps no finished work, and knows it was released', async () => {
     const { tasks } = await runUntilNotified(kind, 'quick');
 
-    expect(tasks.list()).toHaveLength(1);
-    expect(tasks.releaseFinished()).toBe(1);
     expect(tasks.list()).toHaveLength(0);
+    expect(tasks.get(t1)).toBeUndefined();
+    expect(tasks.isReleased(t1)).toBe(true);
+  });
+
+  it('does not grow over many runs: each delivered task is released', async () => {
+    const flow = startFlow(kind);
+    let messages = userPrompt();
+    let largest = 0;
+
+    for (let round = 1; round <= 12; round++) {
+      if (round > 1) flow.sessions.resume(flow.ref.id);
+      const result = await runRound({
+        flow,
+        kind,
+        speed: 'quick',
+        id: `c${String(round)}`,
+        messages,
+        resumed: round > 1,
+      });
+
+      messages = result.messages;
+      largest = Math.max(largest, flow.tasks.list().length);
+    }
+
+    expect(largest).toBeLessThanOrEqual(1);
+    expect(flow.tasks.list()).toHaveLength(0);
+    expect(noticeKinds(messages)).toHaveLength(12);
   });
 });

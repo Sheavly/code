@@ -18,8 +18,8 @@ import { TaskError } from '../errors/tasks.errors.js';
 import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
-import { groupMemberError } from './group-member.helper.js';
-import { newEntry, runningTaskOf, settledStatus } from './tasks.utils.js';
+import { groupMemberError, releasedTaskError } from './group-member.helper.js';
+import { isIssued, newEntry, runningInfo, runningTaskOf, settledStatus } from './tasks.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -40,15 +40,7 @@ export class TaskRegistry {
   }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
-    const info: TaskInfo = {
-      id,
-      ...(callId ? { callId } : {}),
-      command,
-      description,
-      status: 'running',
-      startedAt: now(),
-      output: '',
-    };
+    const info = runningInfo({ id, callId, command, description, startedAt: now() });
     const entry = newEntry({ info, controller, sessionId, backgroundKind });
     const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
     const onOutput = (chunk: string) => {
@@ -261,9 +253,24 @@ export class TaskRegistry {
     return this.#tasks.delete(id);
   }
 
-  /** Releases every task `release` would, and returns how many went. */
-  releaseFinished(): number {
-    return [...this.#tasks.keys()].filter((id) => this.release(id)).length;
+  /**
+   * Releases every task `release` would, and returns how many went. A supplied session releases
+   * only the tasks it owns or that have no owner, so one session's turn boundary never drops a
+   * task another session has yet to read.
+   */
+  releaseFinished(sessionId?: SessionId): number {
+    return [...this.#tasks.entries()]
+      .filter(([, entry]) => this.#owns({ entry, sessionId }))
+      .filter(([id]) => this.release(id)).length;
+  }
+
+  /**
+   * Whether `id` was handed out by this registry and has since been released. Ids are sequential
+   * and never reused, so this needs no record of released tasks; a string that is not a canonical
+   * id (`t0`, `t01`, `x1`) was never handed out.
+   */
+  isReleased(id: TaskId): boolean {
+    return isIssued({ id, nextId: this.#nextId }) && !this.#tasks.has(id);
   }
 
   /** Stops a task and waits for it to exit. Cancelled group members remain part of their notice. */
@@ -347,8 +354,10 @@ export class TaskRegistry {
     sessionId: SessionId | undefined;
   }) {
     const { id, seen, sessionId } = params;
-    const entry = this.#entry(id);
 
+    if (this.isReleased(id)) throw releasedTaskError(id);
+
+    const entry = this.#entry(id);
     const error = groupMemberError({
       id,
       duplicate: seen.has(id),

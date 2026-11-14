@@ -1,5 +1,15 @@
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { TaskError } from '../errors/tasks.errors.js';
+import { releasedTaskMessage } from './tasks.utils.js';
+
+/** The refusal for an id this registry handed out and has since released. */
+export function releasedTaskError(id: TaskId): TaskError {
+  return new TaskError({
+    reason: 'task_released',
+    taskId: id,
+    message: releasedTaskMessage(id),
+  });
+}
 
 /** The error that keeps a task out of a new group, or undefined when it may join. */
 export function groupMemberError(params: {

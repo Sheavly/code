@@ -18,7 +18,8 @@ not.
 one delivery when the last settles, including cancelled members. Unknown, duplicate, already
 grouped, unowned, service and already delivered IDs (`task_delivered`) throw `TaskError` without
 changing anything; empty groups are rejected. A task cancelled on request was never notified, so
-it can still join a group.
+it can still join a group until the next model step releases it (`task_released`); a cancel and a
+group in the same response both work.
 Already settled members join the group instead of producing separate undelivered notices.
 After validation succeeds, the explicit `reason` is stored on every member's `TaskInfo` as well as
 on the delivery. It remains available through `get`, `list`, `byCallId` and `takeDeliveries`, even
@@ -98,12 +99,16 @@ is a document, such as a sub-agent's report, returns it as `report` from `run`. 
 it whole, outside `OutputBuffer` and outside `TaskInfo`, so no limit applies and no task event
 carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in place of the output.
 
-Neither registry forgets on its own: a UI frees memory on request. `SessionRegistry.release(id)`
+The loop releases finished tasks itself: before each model call (so once per model step, not once
+per prompt), after the notices are in history, it calls `releaseFinished(sessionId)`, so a long-lived conversation's `TaskRegistry` does not grow.
+A released id is unknown to `get`, `report` and `list`; `isReleased(id)` tells it from one that
+never existed, and `group()` refuses it with `task_released`. The `SessionRegistry` does not forget
+on its own yet: a UI frees memory on request. `SessionRegistry.release(id)`
 removes an ended session and the sub-agents under it (it throws `session_running` if any is still
 open), with their inboxes, last tokens and message ids; entries already in the combined stream
 stay. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
 request, with its output and report, and returns false for one still running or not yet reported;
-`releaseFinished()` does it for every such task. Held or ready-but-undelivered group members
+`releaseFinished(sessionId?)` does it for every such task the session owns. Held or ready-but-undelivered group members
 cannot be released, including cancelled members; after delivery, each member can be released.
 
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.

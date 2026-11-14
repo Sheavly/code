@@ -16,6 +16,7 @@ import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
 const callId = callIdSchema.parse('c');
 
@@ -59,6 +60,12 @@ describe('message_agent: steering a running sub-agent', () => {
     const main = sessions.startMain({ title: 'Main' });
     const researching = gate();
     let childId = '';
+    // A delivered task is released, so its end is kept as it happens.
+    const ended: TaskInfo[] = [];
+
+    tasks.observe(({ update }) => {
+      if (update.type === 'task_ended') ended.push(update.task);
+    });
 
     sessions.subscribe((u) => {
       if (u.type === 'session_started' && u.session.depth === 2) childId = u.session.id;
@@ -146,8 +153,8 @@ describe('message_agent: steering a running sub-agent', () => {
       message: { from: 'user', content: 'I specifically care about puppies' },
     });
     // Nothing was cancelled: the task completed, and its reply reached the main session.
-    expect(tasks.list()[0]?.status).toBe('completed');
-    expect(tasks.list()[0]?.output).toContain('[message] Focus specifically on puppies.');
+    expect(ended[0]?.status).toBe('completed');
+    expect(ended[0]?.output).toContain('[message] Focus specifically on puppies.');
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });
 

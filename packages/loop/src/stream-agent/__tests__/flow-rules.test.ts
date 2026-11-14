@@ -100,9 +100,15 @@ describe('flow rule 7 — a sub-agent reports its status and the parent steers i
     const { tasks, sessions, ref, messages } = await runUntilNotified(subAgent, 'failing');
     const [child] = sessions.children(ref.id);
 
-    expect(tasks.get(taskIdSchema.parse('t1'))?.status).toBe('failed');
+    const notices = messages.filter((m) => m.role === 'notice');
+
+    expect(tasks.isReleased(taskIdSchema.parse('t1'))).toBe(true);
     expect(child).toMatchObject({ state: 'failed' });
-    expect(messages.filter((m) => m.role === 'notice')).toHaveLength(1);
+    expect(notices).toHaveLength(1);
+    // A failed run writes no report, so its notice is the task's, not an agent report.
+    expect(notices[0]).toMatchObject({
+      notice: { kind: 'task-finished', task: { status: 'failed' } },
+    });
   });
 
   it('rule 7: depth is bounded', async () => {

@@ -1,12 +1,23 @@
 import { z } from 'zod';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
+import { formatTask, releasedTaskMessage } from '@sheavly/runtime/tasks/tasks.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { createAwaitTasksTool } from './await-tasks.tool.js';
 import { cancelTaskPrompts, taskStatusPrompts, taskStatusResponse } from './tasks.prompt.js';
+
+/** A released task was reported and forgotten; any other missing id never existed. */
+function missingTask(params: { tasks: TaskRegistry; id: TaskId }): ToolCallError {
+  const { tasks, id } = params;
+
+  return new ToolCallError({
+    reason: 'not_found',
+    message: tasks.isReleased(id) ? releasedTaskMessage(id) : `No task with id ${id}`,
+  });
+}
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 function createTaskStatusTool(tasks: TaskRegistry) {
@@ -20,12 +31,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
       if (id) {
         const task = tasks.get(id);
 
-        if (!task) {
-          throw new ToolCallError({
-            reason: 'not_found',
-            message: `No task with id ${id}`,
-          });
-        }
+        if (!task) throw missingTask({ tasks, id });
 
         return taskStatusResponse({
           content: formatTask({ task, now: now(), report: tasks.report(id) }),
@@ -54,12 +60,7 @@ function createCancelTaskTool(tasks: TaskRegistry) {
     execute: async ({ input: { id } }) => {
       const before = tasks.get(id);
 
-      if (!before) {
-        throw new ToolCallError({
-          reason: 'not_found',
-          message: `No task with id ${id}`,
-        });
-      }
+      if (!before) throw missingTask({ tasks, id });
 
       if (before.status !== 'running') {
         return `Task ${id} already ${before.status}.\n${formatTask({ task: before, now: now() })}`;
