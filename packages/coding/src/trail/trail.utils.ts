@@ -23,7 +23,7 @@ function short(params: { text: string; max: number }): string {
 }
 
 /**
- * One short line for a call of the file tools or `run_command`, or nothing for any other call
+ * One short line for a call of the file tools, `run_command` or `start_service`, or nothing for any other call
  * (or one whose input does not fit its tool): the trail of what the work touched, for a summary
  * that must not depend on a model remembering it. A call's arguments are exact where a
  * paraphrase is not, so the line is built from them and never from the model's own words.
@@ -40,7 +40,9 @@ export function fileTrail(call: ToolCall): string | undefined {
     case 'read_file':
       return readLine(call.input);
     case 'run_command':
-      return commandLine(call.input);
+      return commandLine({ verb: 'ran', input: call.input });
+    case 'start_service':
+      return commandLine({ verb: 'started', input: call.input });
     default:
       return undefined;
   }
@@ -72,12 +74,12 @@ function readLine(rawInput: unknown): string | undefined {
 }
 
 /** "ran: npm test". No code span around it: a backtick in the command would close one early. */
-function commandLine(rawInput: unknown): string | undefined {
-  const input = commandInput.safeParse(rawInput);
+function commandLine(params: { verb: string; input: unknown }): string | undefined {
+  const input = commandInput.safeParse(params.input);
 
   if (!input.success) return undefined;
 
   const command = short({ text: input.data.command, max: MAX_COMMAND_CHARS });
 
-  return command ? `ran: ${command}` : undefined;
+  return command ? `${params.verb}: ${command}` : undefined;
 }

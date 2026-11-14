@@ -12,6 +12,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { runForeground } from '../foreground.helper.js';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { createStartServiceTool } from '../start-service.tool.js';
 
 const temp = useTempWorkspace({ prefix: 'run-command-capture-test-' });
 let tasks: TaskRegistry;
@@ -23,16 +24,19 @@ afterEach(async () => {
 function setup(outputs: MemoryOutputStore | undefined = new MemoryOutputStore()) {
   tasks = new TaskRegistry();
 
+  const options = {
+    processes: testProcesses(),
+    workspace: temp.workspace,
+    permissions: testPermissions({ mode: 'allow_all' }),
+    tasks,
+    outputs,
+  };
+
   return {
     outputs,
     run: toolRunner([
-      createRunCommandTool({
-        processes: testProcesses(),
-        workspace: temp.workspace,
-        permissions: testPermissions({ mode: 'allow_all' }),
-        tasks,
-        outputs,
-      }),
+      createRunCommandTool(options),
+      createStartServiceTool(options),
       ...createOutputTools(outputs),
     ]),
   };
@@ -101,10 +105,8 @@ describe('run_command output capture', () => {
   it('keeps what a cancelled task printed', async () => {
     const { run } = setup();
     const started = textOf(
-      await run('b1', 'run_command', {
+      await run('b1', 'start_service', {
         command: `node -e "console.log('before cancel');setTimeout(()=>{},9e4)"`,
-        background: true,
-        backgroundKind: 'service',
       }),
     );
     const [ref] = findOutputRefs(started);

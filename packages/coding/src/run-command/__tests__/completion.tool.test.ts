@@ -11,6 +11,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { createStartServiceTool } from '../start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 
 const temp = useTempWorkspace({ prefix: 'command-completion-' });
@@ -21,7 +22,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-function setup(backgroundKind?: 'task' | 'service') {
+function setup(toolName: 'run_command' | 'start_service' = 'run_command') {
   tasks = new TaskRegistry();
   const finish = Promise.withResolvers<ProcessResult>();
   const processes = testProcesses();
@@ -47,13 +48,8 @@ function setup(backgroundKind?: 'task' | 'service') {
           type: 'tool_call',
           call: {
             id: callIdSchema.parse('start'),
-            name: 'run_command',
-            input: {
-              description: 'Run CI',
-              command: 'echo result',
-              background: true,
-              ...(backgroundKind && { backgroundKind }),
-            },
+            name: toolName,
+            input: { description: 'Run CI', command: 'echo result', background: true },
           },
         };
         yield { type: 'done', stopReason: 'tool_use' };
@@ -65,18 +61,19 @@ function setup(backgroundKind?: 'task' | 'service') {
       yield { type: 'done', stopReason: 'end_turn' };
     },
   };
-  const tool = createRunCommandTool({
+  const options = {
     workspace: temp.workspace,
     permissions: testPermissions({ mode: 'allow_all' }),
     processes,
     tasks,
-  });
+  };
+  const tools = [createRunCommandTool(options), createStartServiceTool(options)];
   const events: AgentEvent[] = [];
   const controller = new AbortController();
   const running = (async () => {
     for await (const event of streamAgent({
       provider,
-      tools: [tool],
+      tools,
       tasks,
       messages: [{ role: 'user', content: 'Wait for CI.' }],
       signal: controller.signal,
@@ -89,30 +86,27 @@ function setup(backgroundKind?: 'task' | 'service') {
 }
 
 describe('command completion through the loop', () => {
-  it.each([undefined, 'task'] as const)(
-    'waits for finite work without global waiting: %s',
-    async (kind) => {
-      const { finish, requests, events, running } = setup(kind);
+  it('waits for finite work without global waiting', async () => {
+    const { finish, requests, events, running } = setup();
 
-      await until(() => events.some((event) => event.type === 'turn_end' && event.turn === 2));
-      expect(tasks.hasPendingTasks()).toBe(true);
-      expect(events.some((event) => event.type === 'done')).toBe(false);
-      expect(requests).toHaveLength(2);
-      finish.resolve({ exitCode: 0, output: 'CI passed', timedOut: false });
-      await running;
+    await until(() => events.some((event) => event.type === 'turn_end' && event.turn === 2));
+    expect(tasks.hasPendingTasks()).toBe(true);
+    expect(events.some((event) => event.type === 'done')).toBe(false);
+    expect(requests).toHaveLength(2);
+    finish.resolve({ exitCode: 0, output: 'CI passed', timedOut: false });
+    await running;
 
-      expect(requests).toHaveLength(3);
-      expect(requests[2]?.at(-1)?.content).toContain('<harness-notice kind="task-finished">');
-      expect(requests[2]?.at(-1)?.content).toContain('CI passed');
-      expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
-      expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
-      expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index));
-      expect(tasks.hasPendingTasks()).toBe(false);
-    },
-  );
+    expect(requests).toHaveLength(3);
+    expect(requests[2]?.at(-1)?.content).toContain('<harness-notice kind="task-finished">');
+    expect(requests[2]?.at(-1)?.content).toContain('CI passed');
+    expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+    expect(events.map((event) => event.seq)).toEqual(events.map((_, index) => index));
+    expect(tasks.hasPendingTasks()).toBe(false);
+  });
 
   it('leaves a persistent service running without holding the prompt open', async () => {
-    const { events, running } = setup('service');
+    const { events, running } = setup('start_service');
 
     await running;
     expect(tasks.hasPendingTasks()).toBe(false);

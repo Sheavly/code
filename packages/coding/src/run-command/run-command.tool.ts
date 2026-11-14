@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import { commandWork } from './command-work.utils.js';
-import { prepareCommand, startCommandWork } from './command-launch.helper.js';
+import { commandTaskWork } from './command-work.utils.js';
+import { prepareCommand, requireTasks, startCommandWork } from './command-launch.helper.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt.js';
@@ -29,10 +29,12 @@ export function createRunCommandTool({
       command: z.string().min(1).describe(prompts.command),
       cwd: z.string().min(1).optional().describe(prompts.cwd),
       background: z.boolean().optional().describe(prompts.background),
-      backgroundKind: z.enum(['task', 'service']).default('task').describe(prompts.backgroundKind),
     }),
-    execute: async ({ input: { command, cwd, background, backgroundKind }, signal, context }) => {
+    execute: async ({ input: { command, cwd, background }, signal, context }) => {
+      // Before the approval, so no one approves a command that could not start.
+      const registry = background ? requireTasks(tasks) : undefined;
       const script = await prepareCommand({
+        tool: 'run_command',
         command,
         cwd,
         options: { workspace, workingRoots, permissions, approvals },
@@ -40,10 +42,10 @@ export function createRunCommandTool({
         context,
       });
 
-      if (background) {
+      if (registry) {
         const { task, capture } = await startCommandWork({
-          tasks,
-          toWork: (workInput) => commandWork({ kind: backgroundKind, input: workInput }),
+          tasks: registry,
+          toWork: commandTaskWork,
           command,
           script,
           outputs,
@@ -55,7 +57,7 @@ export function createRunCommandTool({
         return backgroundStartedPrompt({
           taskId: task.id,
           command,
-          backgroundKind,
+          backgroundKind: 'task',
           outputLines: startedOutputLines({ capture, log: task.outputLog }),
         });
       }

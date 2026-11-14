@@ -11,7 +11,7 @@ import { parseCommand } from './allow-list.utils.js';
 import { confirmCommand } from './command-approval.helper.js';
 import { outsideGrantedFolder, resolveCommandCwd } from './command-cwd.helper.js';
 import { closeCapture, startCapture } from './capture.helper.js';
-import type { Capture, CommandLaunchOptions } from './run-command.types.js';
+import type { Capture, CommandLaunchOptions, CommandToolName } from './run-command.types.js';
 import { safeGitEnv, safeSteps } from './run-command.utils.js';
 
 /**
@@ -21,13 +21,14 @@ import { safeGitEnv, safeSteps } from './run-command.utils.js';
  * an interrupted call.
  */
 export async function prepareCommand(params: {
+  tool: CommandToolName;
   command: string;
   cwd: string | undefined;
   options: CommandLaunchOptions;
   signal: AbortSignal;
   context: ToolContext;
 }): Promise<Omit<ScriptParams, 'signal'>> {
-  const { command, cwd, options, signal, context } = params;
+  const { tool, command, cwd, options, signal, context } = params;
   const { workspace, workingRoots, permissions, approvals } = options;
   const parsed = parseCommand(command);
 
@@ -43,6 +44,7 @@ export async function prepareCommand(params: {
   const commandCwd = await resolveCommandCwd({ workspace, requested: cwd, root });
 
   await confirmCommand({
+    tool,
     command,
     steps: parsed.steps,
     permissions,
@@ -61,12 +63,27 @@ export async function prepareCommand(params: {
 }
 
 /**
+ * The registry background commands start in. Call it before `prepareCommand`, so a harness with
+ * no registry refuses before the user is asked to approve a command that could not start.
+ * Throws `ToolCallError` when there is none.
+ */
+export function requireTasks(tasks: TaskRegistry | undefined): TaskRegistry {
+  if (!tasks) {
+    throw new ToolCallError({
+      reason: 'unavailable',
+      message: 'Background commands are not enabled in this harness',
+    });
+  }
+
+  return tasks;
+}
+
+/**
  * Starts a prepared command as background work of the kind `toWork` builds, with its output
- * captured. Throws `ToolCallError` when there is no registry. Returns the started task and the
- * capture it runs with.
+ * captured. Returns the started task and the capture it runs with.
  */
 export async function startCommandWork(params: {
-  tasks: TaskRegistry | undefined;
+  tasks: TaskRegistry;
   toWork: (input: WorkInput) => WorkDefinition;
   command: string;
   script: Omit<ScriptParams, 'signal'>;
@@ -76,13 +93,6 @@ export async function startCommandWork(params: {
   context: ToolContext;
 }): Promise<{ task: ReturnType<typeof startWork>; capture: Capture }> {
   const { tasks, toWork, command, script, outputs, processes, signal, context } = params;
-
-  if (!tasks) {
-    throw new ToolCallError({
-      reason: 'unavailable',
-      message: 'Background commands are not enabled in this harness',
-    });
-  }
 
   const capture = await startCapture(outputs);
   const writer = capture && 'writer' in capture ? capture.writer : undefined;

@@ -12,7 +12,7 @@ const baseDescription =
   'There is no shell glob expansion. If the user skips a command, do not run it again; do what they say.';
 
 const backgroundDescription =
-  ' Set background: true for slow finite work; set backgroundKind: "service" for persistent servers or watchers. Do not poll background work.';
+  ' Set background: true for slow finite work, and use start_service for a persistent server or watcher. Do not poll background work.';
 
 const inputPrompts = {
   command: 'The command to run, e.g. `git status`',
@@ -22,9 +22,6 @@ const inputPrompts = {
   background:
     'Return a task id immediately. Finite work keeps this prompt alive until its result is delivered. ' +
     'Finish independent work, then end your turn without tool calls to wait. Do not poll task_status.',
-  backgroundKind:
-    'With background: true, task is finite work (builds, tests, CI waits) whose result is required. ' +
-    'Service is a persistent server or watcher that does not keep the prompt alive. Stop either with cancel_task.',
 };
 
 describe('run_command prompt output equivalence', () => {

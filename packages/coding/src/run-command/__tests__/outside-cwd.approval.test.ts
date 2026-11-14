@@ -11,6 +11,7 @@ const steps: [{ argv: [string, ...string[]] }] = [{ argv: ['echo', 'hi'] }];
 
 const confirm = (outsideCwd?: string) =>
   confirmCommand({
+    tool: 'run_command',
     command: 'echo hi',
     steps,
     permissions: testPermissions({ mode: 'ask', allow: ['echo *'] }),
@@ -22,6 +23,7 @@ const confirm = (outsideCwd?: string) =>
 
 const confirmGit = (argv: [string, ...string[]], mode: 'ask' | 'allow_all' = 'ask') =>
   confirmCommand({
+    tool: 'run_command',
     command: argv.join(' '),
     steps: [{ argv }],
     permissions: testPermissions({ mode, allow: ['git *'] }),
