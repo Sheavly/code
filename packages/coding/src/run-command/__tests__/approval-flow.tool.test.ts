@@ -7,6 +7,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { runAgent, streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';
@@ -117,6 +118,7 @@ describe('approval flow through the loop', () => {
         tools: [createRunCommandTool(options), createStartServiceTool(options)],
         call: { id: c1, name, input: { description: 'ask', command: 'ls ..' } },
         signal: new AbortController().signal,
+        session: new SessionRegistry().startMain({ title: 'Main' }),
       });
       const asked = updates.find((update) => update.type === 'approval_requested');
 

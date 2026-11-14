@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { commandServiceWork } from './command-work.utils.js';
-import { prepareCommand, requireTasks, startCommandWork } from './command-launch.helper.js';
+import { prepareCommand, requireBackground, startCommandWork } from './command-launch.helper.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt.js';
 import { startServicePrompts } from './start-service.prompt.js';
@@ -31,7 +31,7 @@ export function createStartServiceTool({
     }),
     execute: async ({ input: { command, cwd }, signal, context }) => {
       // Before the approval, so no one approves a command that could not start.
-      const registry = requireTasks(tasks);
+      const launch = requireBackground({ tasks, tool: 'start_service', context });
       const script = await prepareCommand({
         tool: 'start_service',
         command,
@@ -41,7 +41,7 @@ export function createStartServiceTool({
         context,
       });
       const { task, capture } = await startCommandWork({
-        tasks: registry,
+        ...launch,
         toWork: commandServiceWork,
         command,
         script,

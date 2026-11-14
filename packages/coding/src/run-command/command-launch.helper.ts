@@ -1,6 +1,8 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { WorkDefinition, WorkInput } from '@sheavly/runtime/tasks/work.types';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
@@ -63,11 +65,17 @@ export async function prepareCommand(params: {
 }
 
 /**
- * The registry background commands start in. Call it before `prepareCommand`, so a harness with
- * no registry refuses before the user is asked to approve a command that could not start.
- * Throws `ToolCallError` when there is none.
+ * The registry background commands start in and the session that owns them. Call it before
+ * `prepareCommand`, so a harness with no registry, or a call outside a session, refuses before the
+ * user is asked to approve a command that could not start. Throws `ToolCallError` for either.
  */
-export function requireTasks(tasks: TaskRegistry | undefined): TaskRegistry {
+export function requireBackground(params: {
+  tasks: TaskRegistry | undefined;
+  tool: CommandToolName;
+  context: ToolContext;
+}): { tasks: TaskRegistry; sessionId: SessionId } {
+  const { tasks, tool, context } = params;
+
   if (!tasks) {
     throw new ToolCallError({
       reason: 'unavailable',
@@ -75,15 +83,17 @@ export function requireTasks(tasks: TaskRegistry | undefined): TaskRegistry {
     });
   }
 
-  return tasks;
+  return { tasks, sessionId: requireTaskSession({ context, tool }) };
 }
 
 /**
- * Starts a prepared command as background work of the kind `toWork` builds, with its output
- * captured. Returns the started task and the capture it runs with.
+ * Starts a prepared command as background work of the kind `toWork` builds, owned by `sessionId`
+ * (the caller's: see `requireTaskSession`), with its output captured. Returns the started task and
+ * the capture it runs with.
  */
 export async function startCommandWork(params: {
   tasks: TaskRegistry;
+  sessionId: SessionId;
   toWork: (input: WorkInput) => WorkDefinition;
   command: string;
   script: Omit<ScriptParams, 'signal'>;
@@ -92,7 +102,7 @@ export async function startCommandWork(params: {
   signal: AbortSignal;
   context: ToolContext;
 }): Promise<{ task: ReturnType<typeof startWork>; capture: Capture }> {
-  const { tasks, toWork, command, script, outputs, processes, signal, context } = params;
+  const { tasks, sessionId, toWork, command, script, outputs, processes, signal, context } = params;
 
   const capture = await startCapture(outputs);
   const writer = capture && 'writer' in capture ? capture.writer : undefined;
@@ -108,7 +118,7 @@ export async function startCommandWork(params: {
         command,
         description: context.description,
         callId: context.callId,
-        sessionId: context.session?.id,
+        sessionId,
         ...(writer && { capture: writer }),
         run: ({ signal: taskSignal, onOutput }) =>
           processes.runScript({ ...script, signal: taskSignal, onOutput }),

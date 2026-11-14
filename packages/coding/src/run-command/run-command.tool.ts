@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { commandTaskWork } from './command-work.utils.js';
-import { prepareCommand, requireTasks, startCommandWork } from './command-launch.helper.js';
+import { prepareCommand, requireBackground, startCommandWork } from './command-launch.helper.js';
 import { DEFAULT_COMMAND_TIMEOUT_MS } from './run-command.constants.js';
 import type { RunCommandOptions } from './run-command.types.js';
 import { backgroundStartedPrompt, runCommandPrompts } from './run-command.prompt.js';
@@ -32,7 +32,9 @@ export function createRunCommandTool({
     }),
     execute: async ({ input: { command, cwd, background }, signal, context }) => {
       // Before the approval, so no one approves a command that could not start.
-      const registry = background ? requireTasks(tasks) : undefined;
+      const launch = background
+        ? requireBackground({ tasks, tool: 'run_command', context })
+        : undefined;
       const script = await prepareCommand({
         tool: 'run_command',
         command,
@@ -42,9 +44,9 @@ export function createRunCommandTool({
         context,
       });
 
-      if (registry) {
+      if (launch) {
         const { task, capture } = await startCommandWork({
-          tasks: registry,
+          ...launch,
           toWork: commandTaskWork,
           command,
           script,
