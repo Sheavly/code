@@ -1,4 +1,5 @@
 import type { FileRead } from '@sheavly/coding/read-file/read-file.types';
+import { COMMAND_TOOL_NAMES } from '@sheavly/coding/run-command/run-command.constants';
 import { stripVTControlCharacters } from 'node:util';
 import { z } from 'zod';
 import { FIRST_LINE_MAX } from './render.constants.js';
@@ -50,13 +51,12 @@ export function shortId(id: string | undefined): string {
   return id ? id.slice(0, 8) : '-';
 }
 
-/** The shell command of a `run_command` call, to show next to it. */
+/** The shell command of a `run_command` or `start_service` call, to show next to it. */
 export function commandOf(call: ToolCall): string | undefined {
   const input = z.object({ command: z.string() }).safeParse(call.input);
+  const runsCommand = COMMAND_TOOL_NAMES.some((tool) => tool === call.name);
 
-  return call.name === 'run_command' && input.success
-    ? plainTerminalText(input.data.command)
-    : undefined;
+  return runsCommand && input.success ? plainTerminalText(input.data.command) : undefined;
 }
 
 /** "read src/a.ts" for a whole file; "read src/a.ts lines 10–40 (of 900)" for part of one. */

@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { firstLine, ownLine, projectTrustNotice } from '../render.utils.js';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { commandOf, firstLine, ownLine, projectTrustNotice } from '../render.utils.js';
+
+describe('commandOf', () => {
+  const call = (name: string, input: unknown) => ({ id: callIdSchema.parse('c1'), name, input });
+
+  it.each(['run_command', 'start_service'])('shows the command of a %s call', (name) => {
+    expect(commandOf(call(name, { command: 'npm run dev' }))).toBe('npm run dev');
+  });
+
+  it.each(['run_command', 'start_service'])(
+    'neutralises control characters in a %s call',
+    (name) => {
+      const shown = commandOf(call(name, { command: 'echo hi\u001b]52;c;x\u0007' }));
+
+      expect(shown).not.toContain('\u001b');
+      expect(shown).not.toContain('\u0007');
+    },
+  );
+
+  it('shows nothing for another tool, or an input with no command', () => {
+    expect(commandOf(call('read_file', { command: 'x' }))).toBeUndefined();
+    expect(commandOf(call('start_service', {}))).toBeUndefined();
+  });
+});
 
 describe('firstLine', () => {
   it('drops escape codes, so a cut never leaves a style on for what follows', () => {
