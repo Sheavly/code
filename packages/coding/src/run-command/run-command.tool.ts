@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { startWork } from '@sheavly/runtime/tasks/work.utils';
 import { currentRoot } from '../files/working-root.helper.js';
+import { commandWork } from './command-work.utils.js';
 import { confirmCommand } from './command-approval.helper.js';
 import { outsideGrantedFolder, resolveCommandCwd } from './command-cwd.helper.js';
 import { parseCommand } from './allow-list.utils.js';
@@ -88,15 +90,20 @@ export function createRunCommandTool({
           signal.throwIfAborted();
 
           // Not tied to `signal`: the task outlives this call (and this turn) until it exits or is cancelled.
-          task = tasks.start({
-            command,
-            description: context.description,
-            callId: context.callId,
-            sessionId: context.session?.id,
-            backgroundKind,
-            ...(writer && { capture: writer }),
-            run: ({ signal: taskSignal, onOutput }) =>
-              processes.runScript({ ...script, signal: taskSignal, onOutput }),
+          task = startWork({
+            tasks,
+            work: commandWork({
+              kind: backgroundKind,
+              input: {
+                command,
+                description: context.description,
+                callId: context.callId,
+                sessionId: context.session?.id,
+                ...(writer && { capture: writer }),
+                run: ({ signal: taskSignal, onOutput }) =>
+                  processes.runScript({ ...script, signal: taskSignal, onOutput }),
+              },
+            }),
           });
         } catch (caughtError) {
           // No task owns the writer, so nothing else would close its file.

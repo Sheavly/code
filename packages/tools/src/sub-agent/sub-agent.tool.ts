@@ -5,6 +5,8 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { startWork } from '@sheavly/runtime/tasks/work.utils';
+import { subAgentWork } from './sub-agent-work.utils.js';
 import { SubAgentStoppedError } from '../errors/sub-agent.errors.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
@@ -61,13 +63,16 @@ export function createSubAgentTool(options: SubAgentOptions) {
         provider: selected.provider,
         selectProvider: () => selected,
       };
-      const started = tasks.start({
-        command: `sub-agent: ${title}`,
-        description: context.description,
-        callId: context.callId,
-        sessionId: context.session.id,
-        run: ({ signal, onOutput }) =>
-          runChild({ options: childOptions, child, task, signal, onOutput }),
+      const started = startWork({
+        tasks,
+        work: subAgentWork({
+          command: `sub-agent: ${title}`,
+          description: context.description,
+          callId: context.callId,
+          sessionId: context.session.id,
+          run: ({ signal, onOutput }) =>
+            runChild({ options: childOptions, child, task, signal, onOutput }),
+        }),
       });
 
       return startedSubAgentPrompt({
