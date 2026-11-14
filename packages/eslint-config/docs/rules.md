@@ -49,7 +49,9 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   schemas are fine.
 - `harness/pure-imports`: `*.utils.ts`, `*.validator.ts` and `*.prompt.ts` import no I/O modules and no services, helpers, tools or adapters. Prompt files additionally reject mechanically recognizable direct I/O, model calls and state/side effects; pure rendering, local helpers and pure dependencies are allowed.
 - `harness/layout` and `harness/imports`: every workspace holds together as the layout reads it
-  from the workspaces (a domain, named after its folder, no app or coding-from-generic edge, and
+  from the workspaces (a domain, one of `generic`, `coding` or `tooling`; `tooling` is a workspace
+  source never imports, such as this one, so a dependency on it must be a dev dependency; named
+  after its folder, no app or coding-from-generic edge, and
   a transport such as `@sheavly/client`, `sheavly.transport`, only from an app), and
   imports follow the graph: another workspace only if `package.json` depends on it (dev
   dependencies for tests), test-only workspaces only from tests and fakes, no relative import
@@ -68,8 +70,12 @@ is split by responsibility only when it does several jobs, not to fit a number. 
 - **Params object** (`harness/params-object`): module-level functions with more than one input take one destructured
   `params` object (`f(params: { a; b }) { const { a, b } = params; }`). Class methods and inline
   callbacks are exempt, since their caller fixes the signature; so are test files.
-- **`type`, not `interface`**; **named exports only** (`harness/no-default-export`); **no barrels** (`harness/no-barrel`,
-  import from the defining file); env only in apps, which pass `process.env` in (`harness/no-process-env`, checked on every package file); caught errors are named `caughtError`.
+- **Named exports only** (`harness/no-default-export`): no default exports, so imports and renames
+  stay greppable.
+- **No barrels** (`harness/no-barrel`): no re-exports; import from the defining file.
+- **Env only in apps** (`harness/no-process-env`, `src/` files of packages; tests and apps are
+  exempt): no `process.env` or `process.loadEnvFile`. An app reads env and passes `process.env` in.
+- **`type`, not `interface`**, and caught errors are named `caughtError`.
 - **Fail loudly** (`harness/no-silent-catch`, every workspace plus `.cursor/hooks/` and `scripts/`):
   a `catch` or `.catch()` must use what it caught: rethrow it, check its `code` or class and
   handle only what it expects, or pass it on as `cause`. Turning every error into a default
@@ -85,8 +91,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   named `id` or `<x>Id`, and an id schema `<x>IdSchema`, is a branded zod schema
   (`z.string().brand<'SessionId'>()`), never a bare `z.string()`, so a session's id can't go where a
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
-  `harness/no-brand-cast` (type-aware, tests included) fails `as` to a branded type: a value gets
-  its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
+- **Brand casts** (`harness/no-brand-cast`, type-aware, tests included): `as` to a branded type
+  fails; a value gets its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
 - **Background work starts through a kind factory** (`harness/no-direct-task-start`, type-aware,
   source files): any access to `TaskRegistry.start` (a call, an alias, destructuring, `.call`,
   `.apply`, a string key, `prototype.start`) fails, found by the receiver's type and not by the
@@ -149,6 +155,40 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `resolveDeletable` for a delete, since `resolveWritable` follows a symlink and would remove its
   target. The rule has accept and reject cases in
   `packages/eslint-config/src/__tests__/guard-env-write.test.js`.
+
+- **No terminal I/O** (`harness/no-terminal-io`, `src/` files of packages; tests and apps are
+  exempt, an app being read from where the workspace is): no `node:readline` or `node:tty` import
+  (static or dynamic) and no `process.stdin`, `stdout` or `stderr`, as a member
+  (`process.stdout`), a named import (`import { stdout } from 'node:process'`) or a destructuring
+  (`const { stdout } = process`). It cannot see `globalThis.process.stdout`, `process['stdout']` or
+  `const p = process; p.stdout`; review carries those. The harness emits typed events and a UI
+  renders them; a package that formats output takes a write function from its app. A child
+  process's own `stdout` is data and passes.
+- **One clock** (`harness/no-direct-clock`, every file, tests included): no `Date.now()`,
+  `new Date()`, `Date.UTC`/`Date.parse`, `toISOString`-style calls or `z.iso.*`. The current time is
+  `now()` (`@sheavly/core/clock/clock.helper`), dates are Luxon's, and a time is epoch
+  milliseconds (`timestampSchema`) everywhere it is stored or sent. To time a duration use
+  `performance.now()`.
+- **No handwritten notice** (`harness/no-handwritten-notice`, every file except tests, which
+  assert on the envelope text): a string or template
+  piece holding `harness-notice`, `<harness` or `</harness` fails, because the envelope is written
+  only by `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`), which frames the text as
+  harness data and escapes what is inserted. It cannot see a tag split inside a word or built from
+  a variable, so the formatter's escaping and its tests carry the rest.
+- **File-tool guards** (coding source; each is checked structurally, and what it cannot see is
+  left to review and the tests named in its file header):
+  - `harness/guard-env-read`: a `resolveRead(requested)` call has `assertNotEnvFile` on the
+    requested path before it and on the path it returns after it, as statements of their own in the
+    same function, since a symlink can point at a `.env` file.
+  - `harness/guard-search-root`: a `runRipgrep` call has `resolveSearchRoot` earlier in the same
+    function, as a statement of its own, because ripgrep applies its `.env` and `.git` excludes to
+    what it walks and never to a root path it is given.
+  - `harness/guard-working-root`: a `resolveRead`, `resolveWrite` or `resolveDelete` call takes a
+    path that went through `anchorToRoot`, so a relative path starts from the working root; it also
+    rejects `cwd: workspace.root` and a literal `root: undefined`. It cannot see
+    `this.workspace.root`, a `cwd` copied into a variable first, a spread or `root: void 0`; the
+    list of what review and tests carry is in the rule's file header, and the design is in
+    `packages/coding/docs/file-tools.md`.
 
 ## Prompt extraction
 

@@ -13,7 +13,7 @@ export const fileKind = {
     type: 'suggestion',
     schema: [],
     messages: {
-      badName: `Name files \`<name>.<kind>.ts\` in kebab-case (\`tasks.service.ts\`), with kind one of: ${FILE_KINDS.join(', ')}. A React view is \`<name>.component.tsx\`, and only a component (or a test of one) is \`.tsx\`. A genuinely new kind is added with its policy to FILE_KIND_POLICIES in eslint/file-kinds.js.`,
+      badName: `Name files \`<name>.<kind>.ts\` in kebab-case (\`tasks.service.ts\`), with kind one of: ${FILE_KINDS.join(', ')}. A React view is \`<name>.component.tsx\`, and only a component (or a test of one) is \`.tsx\`. A genuinely new kind is added with its policy to FILE_KIND_POLICIES in packages/eslint-config/src/file-kinds.js.`,
       testOutsideFolder: `Move this test into a \`${TEST_FOLDER}\` folder beside the module it tests (\`<module>/${TEST_FOLDER}/<name>.<kind>.test.ts\`); Vitest only runs tests there.`,
       nonTestInFolder: `Only \`*.test.ts\` (or \`*.test.tsx\`) files go in \`${TEST_FOLDER}\`; shared test helpers go in src/testing/ as \`*.fake.ts\`.`,
     },
