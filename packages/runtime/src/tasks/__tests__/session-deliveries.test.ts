@@ -185,14 +185,15 @@ describe('an id the caller has no task for', () => {
     const refusal = (id: TaskId) => {
       try {
         registry.group({ ids: [id], reason: 'x', sessionId: owner });
-      } catch (caught) {
-        return caught instanceof TaskError ? { reason: caught.reason, message: caught.message } : {};
+      } catch (caughtError) {
+        return caughtError instanceof TaskError
+          ? { reason: caughtError.reason, message: caughtError.message }
+          : {};
       }
 
       return undefined;
     };
-    const normalised = (id: TaskId) =>
-      JSON.stringify(refusal(id)).replaceAll(id, 'tN');
+    const normalised = (id: TaskId) => JSON.stringify(refusal(id)).replaceAll(id, 'tN');
 
     expect(refusal(foreign.task.id)).toEqual(expect.objectContaining({ reason: 'unknown_task' }));
     expect(normalised(foreign.task.id)).toBe(normalised(never));
