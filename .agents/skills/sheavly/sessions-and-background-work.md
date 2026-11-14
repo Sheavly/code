@@ -31,7 +31,6 @@ A run has one `TaskRegistry` (`packages/runtime/src/tasks/tasks.service.ts`), sh
 
 Stated as they are, each its own change:
 
-- No contract suite runs every kind through the same assertions with only a table entry; the flow tests are parameterised by kind, but a new kind still adds its own tests.
-- Exactly one persistent notice and one event per completion is not decided or pinned for every kind.
+- A finished task is announced twice on the wire: `task_completed` (a loop `AgentEvent`, at delivery) and `task_ended` (a runtime task update, when it settles). Only one notice is stored.
 - `TaskRegistry.start` still accepts no owner, and `cancelSession` matches exact ownership, so a task started that way (only a test can, since `startWork` requires one) is stopped only by `cancelAll`.
 - `nextSettled` wakes on any session's settlement: a spurious wake only, since the loop re-checks `hasPendingTasks(id)`.

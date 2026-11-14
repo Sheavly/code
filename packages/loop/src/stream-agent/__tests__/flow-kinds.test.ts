@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { until } from '@sheavly/testing/wait/until.fake';
@@ -120,6 +121,25 @@ describe.each(kinds)('background work lifecycle — $name', (kind) => {
     expect(sentTo(requests.length - 1)).toBe(1);
     expect(Math.max(...requests.map((_, index) => sentTo(index)))).toBe(1);
     expect(tasks.hasDeliveries(ref.id)).toBe(false);
+  });
+
+  it('streams exactly one task_completed event, matching the one stored notice', async () => {
+    const flow = startFlow(kind);
+    const events: AgentEvent[] = [];
+    const observed = {
+      ...flow,
+      options: { ...flow.options, onEvent: (event: AgentEvent) => events.push(event) },
+    };
+    const { messages } = await runRound({
+      flow: observed,
+      kind,
+      speed: 'quick',
+      id: 'c1',
+      messages: userPrompt(),
+    });
+
+    expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
+    expect(noticeKinds(messages)).toHaveLength(1);
   });
 
   it('stores its notice in history with the same shape as every other kind', async () => {
