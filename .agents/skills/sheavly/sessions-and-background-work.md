@@ -1,0 +1,37 @@
+# Sessions and background work
+
+How background work (a command, a service, a sub-agent) is started, owned, read and ended, and which parts are enforced. [state-machines.md](state-machines.md) holds the lifecycles and the flow rules; [extending.md](extending.md) holds the steps for a new kind. This guide states what is true today. Where the code falls short of the goal, it is listed under "Gaps", never described as done.
+
+## One system
+
+A run has one `TaskRegistry` (`packages/runtime/src/tasks/tasks.service.ts`), shared by the main session and every sub-agent. Task ids (`t1`, `t2`, …) are unique in the run. A session sees a task through ownership: the task records the `sessionId` of the tool call that started it.
+
+## Starting work: kinds
+
+- Work is a `WorkDefinition` (`packages/runtime/src/tasks/work.types.ts`): a `WorkInput` plus a `backgroundKind`, `task` (finite: it can be grouped, awaited and held for) or `service` (never awaited, may outlive the run).
+- A kind is a factory that builds the definition and fixes the policy after spreading the input, so an input cannot override it: `finiteWork` and `serviceWork` (`packages/runtime/src/tasks/work.utils.ts`), `subAgentWork` (`packages/tools/src/sub-agent/sub-agent-work.utils.ts`), `commandTaskWork` and `commandServiceWork` (`packages/coding/src/run-command/command-work.utils.ts`).
+- `startWork({ tasks, work })` is the only place that calls `TaskRegistry.start`. **Enforced** by `harness/no-direct-task-start` (type-aware: it keys on the receiver being a `TaskRegistry`, so an alias, destructuring, `.call`, a string key or a re-export still fails). Tests and fakes are exempt by file kind, since they drive the registry directly. A new kind never needs the exemption: it is a factory that builds a `WorkDefinition`, so an extension adds a kind without touching the registry.
+- What the rule cannot see: a registry typed `any` or cast to another shape, a registry assigned to a structural type that re-declares `start` (an interface or `{ start(...) }`), and `Reflect.get(tasks, 'start')`. Review carries those. `TaskRegistry.start` stays public, so the type system does not back the rule; making it non-public would, and is its own change.
+
+## Ownership and reads
+
+- `list(sessionId?)`, `getOwned`, `byCallId({ callId, sessionId })`, `group` and `cancelSession` are scoped: a task another session owns reads as unknown.
+- `task_status`, `cancel_task` and `await_tasks` read as the calling session (`context.session?.id`) and refuse a call with no session. An unknown, foreign or released id gets the same answer from `task_status` and `cancel_task` (`missingTaskMessage`, `packages/tools/src/tasks/task-session.helper.ts`).
+- **Review-only:** that a tool passes the caller's own session. The unscoped methods (`cancelAll`, `list()`, `runningCount`, `takeUnreported`, `hasUnreported`) are legitimate for the host's shutdown; a rule cannot tell that from a tool's unscoped call without keying on argument presence, which is brittle. Tests cover the behaviour (`packages/runtime/src/tasks/__tests__/scoped-reads.test.ts`, `packages/tools/src/tasks/__tests__/scoped-tools.test.ts`).
+
+## Shutdown
+
+- A sub-agent ends with `tasks.cancelSession(child.id)` (`packages/tools/src/sub-agent/sub-agent.tool.ts`); the loop's abort cancels its own session's tasks (`packages/loop/src/stream-agent/stream-agent.helper.ts`), never the registry's.
+- `cancelAll` is the main run's shutdown, called by the host.
+- Delivered tasks and their ended sub-agent sessions are released: see "Finished work is released" in [state-machines.md](state-machines.md).
+
+## Gaps
+
+Stated as they are, each its own change:
+
+- `backgroundKind` is still in `run_command`'s model-facing input, so the model picks the kind. Removing it is a model-visible behaviour change.
+- No contract suite runs every kind through the same assertions with only a table entry; the flow tests are parameterised by kind, but a new kind still adds its own tests.
+- Exactly one persistent notice and one event per completion is not decided or pinned for every kind.
+- `cancelSession` matches exact ownership, so a task started with no `sessionId` survives an abort and is stopped only by `cancelAll`. `run_command` and `start_agent` always set the owner, so no production path does this today. Requiring an owner in `startWork` would close it and the "scoping fails open without a session" gap, but breaks `run_command` without a session.
+- `await_tasks` still says "belongs to another session" for a foreign id (`packages/runtime/src/tasks/group-member.helper.ts`), a second existence oracle beside the uniform message.
+- `nextSettled` wakes on any session's settlement: a spurious wake only, since the loop re-checks `hasPendingTasks(id)`.

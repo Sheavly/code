@@ -29,17 +29,18 @@ among others. So:
 
 ## Which guide
 
-| You are…                                                                           | Read                                   |
-| ---------------------------------------------------------------------------------- | -------------------------------------- |
-| deciding where code goes, adding an import, or touching what a UI may do           | [layers.md](layers.md)                 |
-| creating or naming files, a prompt, a schema, a type or a constant                 | [file-kinds.md](file-kinds.md)         |
-| adding a tool, sub-agent, provider, loop event, route, hook or project hook        | [extending.md](extending.md)           |
-| writing style, errors, time, validation, naming, or deciding what a rule should do | [principles.md](principles.md)         |
-| adding a workspace, or changing a package's README, docs or `exports`              | [packages.md](packages.md)             |
-| writing or fixing tests and fakes                                                  | [tests.md](tests.md)                   |
-| a lint, hook, format, knip or jscpd failure; the stop gate; a hook or script       | [quality-gate.md](quality-gate.md)     |
-| a run, a stored conversation, a backend or a workbook run that misbehaves          | [debugging.md](debugging.md)           |
-| a lifecycle, a status, a queue, an approval, or anything that "ends"               | [state-machines.md](state-machines.md) |
+| You are…                                                                           | Read                                                               |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| deciding where code goes, adding an import, or touching what a UI may do           | [layers.md](layers.md)                                             |
+| creating or naming files, a prompt, a schema, a type or a constant                 | [file-kinds.md](file-kinds.md)                                     |
+| adding a tool, sub-agent, provider, loop event, route, hook or project hook        | [extending.md](extending.md)                                       |
+| writing style, errors, time, validation, naming, or deciding what a rule should do | [principles.md](principles.md)                                     |
+| adding a workspace, or changing a package's README, docs or `exports`              | [packages.md](packages.md)                                         |
+| writing or fixing tests and fakes                                                  | [tests.md](tests.md)                                               |
+| a lint, hook, format, knip or jscpd failure; the stop gate; a hook or script       | [quality-gate.md](quality-gate.md)                                 |
+| a run, a stored conversation, a backend or a workbook run that misbehaves          | [debugging.md](debugging.md)                                       |
+| a lifecycle, a status, a queue, an approval, or anything that "ends"               | [state-machines.md](state-machines.md)                             |
+| starting, owning, reading or ending background work (a command, a sub-agent)       | [sessions-and-background-work.md](sessions-and-background-work.md) |
 
 A lint message that names a guide is routed here by this skill's `harness.json`: `lintRules` lists
 the rules a skill explains, `ruleFiles` the guide for each, `guides` the files a guide covers. The
