@@ -13,6 +13,17 @@ import type { FallbackSearchOptions } from './fallback-search.types.js';
  * limited backend is skipped until its Retry-After (or the default cooldown) passes; cooldowns
  * live in this instance. A caller abort stops the whole chain instead of trying the next backend.
  * Throws when `backends` is empty.
+ *
+ * Each backend is in one of two states, kept in `coolingUntil` (an entry means cooling):
+ *
+ * | State       | Moves to    | When                                                  |
+ * | ----------- | ----------- | ----------------------------------------------------- |
+ * | `available` | `cooling`   | its search throws a `WebSearchRateLimitError`         |
+ * | `available` | `available` | it succeeds, times out or fails for another reason    |
+ * | `cooling`   | `available` | the clock passes its `until` (read on the next search) |
+ * | `cooling`   | `cooling`   | a search skips it; a new rate limit replaces `until`  |
+ *
+ * A caller abort changes no state.
  */
 export function createFallbackSearchBackend(options: FallbackSearchOptions): SearchBackend {
   const {
