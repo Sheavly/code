@@ -15,7 +15,7 @@ user must see or decide is a typed event or a registry request (`AgentEvent`, `S
 `ApprovalUpdate`) that a UI handles its own way. UI code is written only when an issue asks for a
 UI, and only in an app (`apps/*`); the shared `harness/no-terminal-io` rule fails terminal I/O in
 every package, and `baseConfig` reads which workspaces are apps from where they are. Cursor injects
-this rule from the project skill the first time a chat edits harness source.
+this rule from the `sheavly` skill's layers guide the first time a chat edits harness source.
 
 ## Layers
 
@@ -79,8 +79,8 @@ flowchart BT
 
 <!-- graph:end -->
 
-A new workspace comes from `npm run new` (README, "Workspace layout"); the project skill's
-"Where code goes" says which one something belongs in.
+A new workspace comes from `npm run new` (README, "Workspace layout"); the `sheavly` skill's
+"Where code goes" (`.agents/skills/sheavly/layers.md`) says which one something belongs in.
 
 | Where                     | What lives there                                                                                                                                                                                                                                                                       |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,8 +100,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the proje
 Every file is `<name>.<kind>.ts` (`types`, `constants`, `utils`, `validator`, `helper`, `service`,
 `tool`, ...): pure code is `utils`, zod schemas for external input and their `parse*` functions
 are `validator`, stateless code that does I/O is `helper`, and only code that owns state, a
-class, is `service`. See the project skill in `.agents/skills/working-in-sheavly-harness/` for
-the full conventions.
+class, is `service`. See `.agents/skills/sheavly/file-kinds.md` for the full conventions.
 
 ## The UI decides what a run includes
 

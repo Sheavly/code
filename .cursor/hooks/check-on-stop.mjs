@@ -2,7 +2,8 @@
 // Prettier + knip + the layout check + jscpd), held to what this chat edited. If any fails, send a
 // follow-up so the agent keeps fixing; Cursor caps the loop with `loop_limit` in hooks.json.
 // Once the gate passes, nudge (once per set of files) when a workspace's source changed but its
-// README and docs/ didn't (see docs.utils.mjs).
+// README and docs/ didn't, or when files a skill's guide covers changed but that guide didn't
+// (see docs.utils.mjs).
 // Only a chat that changed project source in this checkout (a Write or Delete, recorded by
 // lint-edited-file.mjs, or a shell command's changes, recorded by record-shell-writes.mjs) is
 // checked, so a chat that only answered questions or worked in another worktree never gets
@@ -15,7 +16,7 @@
 import { existsSync } from 'node:fs';
 import { filesOtherChatsEdited } from './chat-files.utils.mjs';
 import { familyWork } from './chat-links.utils.mjs';
-import { onlyNew, staleDocs, uncommittedFiles } from './docs.utils.mjs';
+import { onlyNew, staleDocs, staleGuides, uncommittedFiles } from './docs.utils.mjs';
 import {
   gateScope,
   scopedFiles,
@@ -226,6 +227,21 @@ function docsNudge(params) {
         'If what they say no longer matches (behavior, APIs, layout, how to add things), update ' +
         "them now. If nothing they describe changed, just finish: you won't be asked again for " +
         `these files.\n\n${list}`,
+    );
+  }
+
+  const guides = onlyNew(staleGuides(changed));
+
+  if (guides.length > 0) {
+    const list = guides.map(({ doc, files }) => `- ${doc}, for: ${files.join(', ')}`).join('\n');
+
+    messages.push(
+      'You changed files a skill guide covers, but not the guide. The guide holds the ownership, ' +
+        'invariants, extension steps and state machine of what you touched. If what it says no ' +
+        'longer matches (a new system, state, hook point, route or rule, a behaviour that moved), ' +
+        'update it now; if you added something it should name, add it. If nothing it describes ' +
+        `changed, just finish: you won't be asked again for exactly these files (a new file ` +
+        `in the set asks once more).\n\n${list}`,
     );
   }
 

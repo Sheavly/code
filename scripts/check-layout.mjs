@@ -9,7 +9,8 @@
 // graph in docs/overview.md is the one drawn from the workspaces (`graph.mjs`), and no other doc
 // draws its own; nothing names the root `src/` from before the split, and code names no issue
 // (`stale-references.mjs`); and every code reference in AGENTS.md and the skills names code that
-// exists (`rule-references.mjs`). Lint runs the same checks on each workspace's files; this one also covers a
+// exists (`rule-references.mjs`); and a router skill's guides are linked, mapped in its
+// harness.json and cover every workspace (`skill-guides.mjs`). Lint runs the same checks on each workspace's files; this one also covers a
 // workspace with no source.
 //
 //   node scripts/check-layout.mjs   prints each problem and exits 1, or exits 0
@@ -21,8 +22,10 @@ import ts from 'typescript';
 import { brokenLinkProblems } from './doc-links.mjs';
 import { copiedGraphProblems, generatedProblems } from './graph.mjs';
 import { ruleReferenceProblems } from './rule-references.mjs';
+import { skillGuideProblems } from './skill-guides.mjs';
 import { staleReferenceProblems } from './stale-references.mjs';
 import { NOT_SOURCE } from '../packages/eslint-config/src/layout.js';
+import { harnessPlugin } from '../packages/eslint-config/src/plugin.js';
 import {
   isStraySource,
   layoutProblems,
@@ -238,6 +241,7 @@ export function findGraphProblems(params) {
     ...brokenLinkProblems({ root, files }),
     ...staleReferenceProblems({ root, files }),
     ...ruleReferenceProblems({ root, files }),
+    ...skillGuideProblems({ root, files, ruleNames: Object.keys(harnessPlugin.rules) }),
   ].filter(Boolean);
 }
 
