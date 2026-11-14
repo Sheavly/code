@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
@@ -17,11 +18,16 @@ afterEach(async () => {
   await tasks.cancelAll();
 });
 
-/** The task tools next to `start_task`, which starts timed tasks (no workspace or process). */
+/**
+ * The task tools next to `start_task`, which starts timed tasks (no workspace or process), called
+ * as one session: the task tools refuse a call that has none.
+ */
 function setup() {
   tasks = new TaskRegistry();
 
-  return { run: toolRunner([startTaskTool(tasks), ...createTaskTools(tasks)]) };
+  const session = new SessionRegistry().startMain({ title: 'Main' });
+
+  return { run: toolRunner([startTaskTool(tasks), ...createTaskTools(tasks)], session) };
 }
 
 describe('cancel_task and task_status', () => {
@@ -100,7 +106,7 @@ describe('cancel_task and task_status', () => {
     expect(result.role === 'tool' && result.content).toContain('already completed');
   });
 
-  it('says a released task was released, and an id that never existed was not found', async () => {
+  it('answers a released id and one that never existed with the same words', async () => {
     const { run } = setup();
 
     await run('c1', 'start_task', { ms: 0 });
@@ -115,11 +121,13 @@ describe('cancel_task and task_status', () => {
       const released = await run(id, tool, { id: 't1' });
       const unknown = await run(`${id}9`, tool, { id: 't9' });
 
+      const words = (message: typeof released, taskId: string) =>
+        (message.role === 'tool' ? message.content : '').replaceAll(taskId, 'tN');
+
       expect(released).toMatchObject({ isError: true });
-      expect(released.role === 'tool' && released.content).toContain(
-        'already reported and released',
-      );
-      expect(unknown.role === 'tool' && unknown.content).toContain('No task with id t9');
+      expect(unknown).toMatchObject({ isError: true });
+      expect(words(released, 't1')).toContain('No task with id tN');
+      expect(words(released, 't1')).toBe(words(unknown, 't9'));
     }
   });
 });
