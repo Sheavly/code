@@ -1959,7 +1959,14 @@
       },
       "DoneReason": {
         "type": "string",
-        "enum": ["completed", "interrupted", "max_turns", "max_tokens", "context_window_exceeded"]
+        "enum": [
+          "completed",
+          "interrupted",
+          "max_turns",
+          "max_tokens",
+          "context_window_exceeded",
+          "failed"
+        ]
       },
       "ToolArtifact": {
         "type": "object",

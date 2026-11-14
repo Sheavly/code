@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TURN_STOP_REASONS } from '../status/status.constants.js';
 import { timestampSchema } from '../time/time.validator.js';
 import { skillNameSchema } from '../skill/skill.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
@@ -126,10 +127,4 @@ export const summaryMessageSchema = z.object({
 });
 
 /** Why a turn ended: the model's reason, or `interrupted` if the run's signal aborted. */
-export const turnStopReasonSchema = z.enum([
-  'end_turn',
-  'tool_use',
-  'max_tokens',
-  'context_window_exceeded',
-  'interrupted',
-]);
+export const turnStopReasonSchema = z.enum(TURN_STOP_REASONS);
