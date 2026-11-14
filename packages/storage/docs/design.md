@@ -73,9 +73,20 @@ replaced is decided once.
     models/<model-id>.json               # one file per model: { id, name, adapter, ...fields }
     credentials.json                     # { [model-id]: { apiKey } }, the only file with keys
     workspaces/<workspace-key>/
-      conversations/<conversation-id>.jsonl   # the stream, one entry per line
-      conversations/<conversation-id>.json    # the index entry and the history
+      conversations/<conversation-id>/        # one folder per conversation
+        index.json                            # the index entry
+        stream.jsonl                          # the stream, one entry per line
+        history.jsonl                         # the main session's history log
+        errors.jsonl                          # failure-only diagnostics
+        shell.json                            # working root shared by the agents
+        queue.json                            # lines queued behind a running prompt
+        outputs/                              # complete command output logs
+        agents/<session-id>.history.jsonl     # a sub-agent's history log
 ```
+
+A `history.json` and `agents/<session-id>.history.json` from before history logs are legacy: the
+log imports them once, and only the old whole-file `writeMessages`/`writeAgentMessages` methods
+still write them (see History logs).
 
 Everything on disk is named by an id, never by what a person typed (`<profile-id>` and
 `<model-id>` are lowercase UUIDs; `<workspace-key>` is a hash of the workspace's real path). A
