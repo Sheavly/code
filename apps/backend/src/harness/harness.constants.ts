@@ -15,6 +15,28 @@ export const REQUEST = { responseTimeoutMs: 60_000, retries: 2, retryDelayMs: 10
  */
 export const SERVER = { host: '127.0.0.1', port: 4310 } as const;
 
+/** The search backends `WEB_SEARCH_BACKENDS` can name, all usable without an API key. */
+export const WEB_SEARCH_BACKEND_NAMES = [
+  'tavily',
+  'tinyfish',
+  'exa',
+  'parallel',
+  'firecrawl',
+  'wikipedia',
+] as const;
+
+/**
+ * The order search backends are tried in unless `WEB_SEARCH_BACKENDS` says otherwise. Firecrawl is
+ * left out because its keyless replies are large; Wikipedia comes last as it only covers itself.
+ */
+export const DEFAULT_WEB_SEARCH_BACKENDS = [
+  'tavily',
+  'tinyfish',
+  'exa',
+  'parallel',
+  'wikipedia',
+] as const;
+
 /**
  * The most retries a policy allows (`requestPolicySchema`), so a bad `MODEL_RETRIES` is named
  * here rather than failing later as an invalid adapter config.

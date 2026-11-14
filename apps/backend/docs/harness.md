@@ -15,19 +15,19 @@ conversation it serves, for whichever UI, is built on it, by `servedConversation
 `createBackendHarness` opens the coding services (`createCodingHarness`: the workspace, file
 locks and process runner), then composes:
 
-| What                                                  | From                 | Why                                                                                                                                      |
-| ----------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding`    | A coding agent works on files; all four share the run's `FileLocks` and `FileReads` (an edit needs a read first)                         |
-| `glob`, `grep`                                        | `@sheavly/coding`    | Discover workspace files and search their contents with dedicated, confined tools rather than shell discovery                            |
-| `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                                                     |
-| `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`                         |
-| `web_search`                                          | `@sheavly/tools`     | Bounded titles, URLs and snippets, with UI artifacts; keyless Tavily unless another backend is injected, omitted with `WEB_SEARCH=false` |
-| `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                                          |
-| `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`     | Inspect or cancel background work, or group its completions with a reason                                                                |
-| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, the run's task registry (scoped to their session) and `run_command`, plus the shared hooks      |
-| The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                                                  |
-| The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                                                     |
-| The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                     |
+| What                                                  | From                 | Why                                                                                                                                                                   |
+| ----------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding`    | A coding agent works on files; all four share the run's `FileLocks` and `FileReads` (an edit needs a read first)                                                      |
+| `glob`, `grep`                                        | `@sheavly/coding`    | Discover workspace files and search their contents with dedicated, confined tools rather than shell discovery                                                         |
+| `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                                                                                  |
+| `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`                                                      |
+| `web_search`                                          | `@sheavly/tools`     | Bounded titles, URLs and snippets, with UI artifacts; a fallback chain of keyless backends (Tavily first) unless another is injected, omitted with `WEB_SEARCH=false` |
+| `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                                                                       |
+| `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`     | Inspect or cancel background work, or group its completions with a reason                                                                                             |
+| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, the run's task registry (scoped to their session) and `run_command`, plus the shared hooks                                   |
+| The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                                                                               |
+| The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                                                                                  |
+| The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                                                  |
 
 Sub-agents receive the same file tools, including `glob`, `grep` and `delete_file`, and enabled web
 tools as the main agent. Their `task_status`, `cancel_task` and `await_tasks` operate on their own
@@ -39,10 +39,14 @@ The backend explicitly passes `web_fetch` to sub-agents when enabled. The same t
 shares the host's limits and domain policy, but each call has its own request and cancellation.
 See [web fetch](../../../packages/tools/docs/web-fetch.md) for address rules and defaults.
 
-The backend also explicitly selects keyless Tavily for `web_search`, with no signup or credential
-setup. Search queries are sent to Tavily only when the tool is called; results are untrusted
-external data. Free access is rate-limited, and a failure reports the backend and reason without
-silently switching services. `WEB_SEARCH=false` omits search from both main and sub-agent runs.
+The backend also explicitly selects keyless search for `web_search`, with no signup or credential
+setup. A served conversation searches through a fallback chain (`SearchChains`, ordered by
+`WEB_SEARCH_BACKENDS`, default `tavily,tinyfish,exa,parallel,wikipedia`): keyless Tavily answers
+first, and the next backend is tried only when it is rate limited, slow (8 seconds) or failing.
+Queries go only to the backends the chain reaches, and only when the tool is called; results are
+untrusted external data. When every backend fails the error names them, not the reasons.
+`createBackendHarness` itself defaults to keyless Tavily alone. `WEB_SEARCH=false` omits search
+from both main and sub-agent runs.
 An embedding app can instead pass `webSearch: { backend }` to `createBackendHarness`, using its
 own search backend or a Tavily backend constructed with an injected API key. Credentials are
 not model input, and packages never discover them from the environment. See

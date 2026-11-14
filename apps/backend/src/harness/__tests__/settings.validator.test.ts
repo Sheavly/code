@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REQUEST, SERVER } from '../harness.constants.js';
+import { DEFAULT_WEB_SEARCH_BACKENDS, REQUEST, SERVER } from '../harness.constants.js';
 import { parseRequestEnv, parseRunEnv, parseServerEnv } from '../settings.validator.js';
 
 describe('parseServerEnv', () => {
@@ -55,6 +55,7 @@ describe('parseRunEnv', () => {
       exitWithParent: false,
       webFetch: true,
       webSearch: true,
+      webSearchBackends: DEFAULT_WEB_SEARCH_BACKENDS,
       summary: true,
       contextWindow: undefined,
     });
@@ -70,6 +71,7 @@ describe('parseRunEnv', () => {
       exitWithParent: false,
       webFetch: true,
       webSearch: true,
+      webSearchBackends: DEFAULT_WEB_SEARCH_BACKENDS,
       summary: true,
       contextWindow: undefined,
     });
@@ -85,6 +87,29 @@ describe('parseRunEnv', () => {
     for (const value of ['1', 'yes', 'FALSE']) {
       expect(() => parseRunEnv({ WEB_FETCH: value })).toThrow();
     }
+  });
+});
+
+describe('WEB_SEARCH_BACKENDS', () => {
+  it('defaults to the standard order and reads a comma-separated order', () => {
+    expect(parseRunEnv({}).webSearchBackends).toEqual(DEFAULT_WEB_SEARCH_BACKENDS);
+    expect(parseRunEnv({ WEB_SEARCH_BACKENDS: '' }).webSearchBackends).toEqual(
+      DEFAULT_WEB_SEARCH_BACKENDS,
+    );
+    expect(parseRunEnv({ WEB_SEARCH_BACKENDS: 'exa, tinyfish' }).webSearchBackends).toEqual([
+      'exa',
+      'tinyfish',
+    ]);
+  });
+
+  it('rejects unknown backend names', () => {
+    expect(() => parseRunEnv({ WEB_SEARCH_BACKENDS: 'exa,bing' })).toThrow();
+  });
+
+  it('rejects a backend named twice, which would be queried twice with separate cooldowns', () => {
+    expect(() => parseRunEnv({ WEB_SEARCH_BACKENDS: 'exa,tinyfish,exa' })).toThrow(
+      'Name each WEB_SEARCH_BACKENDS entry once',
+    );
   });
 });
 

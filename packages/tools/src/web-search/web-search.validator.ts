@@ -61,12 +61,14 @@ export const webSearchArtifactSchema = z.object({
   results: z.array(searchResultSchema).max(WEB_SEARCH_MAX_RESULTS),
 });
 
-/** Do not include validation details: invalid external values can contain credentials. */
+/**
+ * Do not include validation details, in the message or as a `cause` (the loop records every
+ * cause): invalid external values can contain credentials.
+ */
 export function parseSearchResults(params: { input: unknown; backendName: string }) {
   return parseOrThrow({
     schema: searchResultsSchema,
     input: params.input,
-    onInvalid: ({ error }) =>
-      new WebSearchError(`${params.backendName} search returned invalid results`, { cause: error }),
+    onInvalid: () => new WebSearchError(`${params.backendName} search returned invalid results`),
   });
 }

@@ -11,6 +11,7 @@ import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service
 import { findSkills } from '@sheavly/workspace/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
+import type { SearchChains } from './search-chains.service.js';
 import type { ServedSettings } from './harness.types.js';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import { startOnRequestedModel } from './starting-model.helper.js';
@@ -54,10 +55,22 @@ export async function servedConversation(params: {
   asked: Parameters<CreateConversation>[0];
   /** Shared with the backend's other conversations, so edits to one file take turns. */
   fileLocks: FileLocks;
+  /** Shared with the backend's other conversations, so a rate-limited backend is skipped by all. */
+  searchChains: SearchChains;
   log: (text: string) => void;
 }): Promise<LiveConversation> {
-  const { env, profiles, places, trustStore, permissionStore, settings, asked, fileLocks, log } =
-    params;
+  const {
+    env,
+    profiles,
+    places,
+    trustStore,
+    permissionStore,
+    settings,
+    asked,
+    fileLocks,
+    searchChains,
+    log,
+  } = params;
   const { id, messages, storage } = asked;
   const placement = await places.decide({ id, asked });
   const permissions = workspacePermissions({
@@ -104,7 +117,9 @@ export async function servedConversation(params: {
     env,
     trustWorkspace: settings.trustWorkspace,
     webFetch: settings.webFetch ? {} : false,
-    ...(!settings.webSearch && { webSearch: false }),
+    webSearch: settings.webSearch
+      ? { backend: searchChains.chainFor(settings.webSearchBackends) }
+      : false,
     home: homedir(),
     onModelCall,
     ...(storage && {

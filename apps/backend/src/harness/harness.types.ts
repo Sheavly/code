@@ -40,7 +40,10 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   /** Public web reading, default on; false omits it for the main run and every sub-agent. */
   webFetch?: false | Parameters<typeof createWebFetchTool>[0];
-  /** Search defaults to keyless Tavily here; inject another backend or false for all sessions. */
+  /**
+   * Search defaults to keyless Tavily here; inject another backend (a served conversation injects
+   * its fallback chain) or false for all sessions.
+   */
   webSearch?: false | Parameters<typeof createWebSearchTool>[0];
   /** Builds each sub-agent's summary from the provider it runs on; none means none summarize. */
   summarizeWith?: ((provider: Provider) => SummaryOptions) | undefined;
