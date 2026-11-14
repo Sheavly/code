@@ -1,7 +1,7 @@
 import { setTimeout } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
+import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
@@ -126,99 +126,226 @@ describe('background task lifecycle in a conversation', () => {
       await conversation.close();
     }
   });
-  it('keeps a prompt active for finite work by default and delivers its completion', async () => {
-    const { harness, conversation, finish, seen } = conversationWithTask();
-    const { events, running } = startBuild(conversation);
-
-    try {
-      await until(() => events.some((event) => event.type === 'turn_end'));
-      expect(conversation.running).toBe(true);
-      expect(events.some((event) => event.type === 'done')).toBe(false);
-      expect(() => conversation.send('next')).toThrow('A prompt is still running');
-      finish.resolve(undefined);
-      await running;
-      expect(seen).toHaveLength(1);
-      expect(seen[0]?.messages.map((message) => message.content).join('\n')).toContain(
-        'Build passed',
-      );
-      expect(events.filter((event) => event.type === 'task_completed')).toHaveLength(1);
-      expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
-      expect(harness.tasks.runningCount).toBe(0);
-    } finally {
-      finish.resolve(undefined);
-      await running;
-      await conversation.close();
-    }
-  });
-
-  it('ends a prompt that waits on a finite task when asked to yield, leaving the task running', async () => {
+  it('ends a prompt when the model finishes, leaving finite work running (rule 1)', async () => {
     const { harness, conversation, finish } = conversationWithTask();
     const { events, running } = startBuild(conversation);
 
     try {
-      await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
-      expect(conversation.yieldPrompt()).toBe(true);
       await running;
       expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
       expect(conversation.running).toBe(false);
       expect(harness.tasks.runningCount).toBe(1);
     } finally {
       finish.resolve(undefined);
-      await running;
       await conversation.close();
     }
   });
 
-  it.each(['after', 'at the same moment as'] as const)(
-    'delivers a task result once to the next prompt when it finishes %s the yield',
-    async (timing) => {
-      const { harness, conversation, finish, seen } = conversationWithTask();
-      const { events, running } = startBuild(conversation);
-
-      try {
-        await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
-
-        if (timing === 'at the same moment as') finish.resolve(undefined);
-        expect(conversation.yieldPrompt()).toBe(true);
-        await running;
-        expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
-
-        finish.resolve(undefined);
-        await until(() => harness.tasks.hasUnreported);
-        for await (const _event of conversation.send('what happened?'));
-
-        const lastRequest = JSON.stringify(seen.at(-1)?.messages);
-
-        expect(lastRequest).toContain('Build passed');
-        expect(JSON.stringify(conversation.messages).split('Build passed')).toHaveLength(2);
-        expect(harness.tasks.hasUnreported).toBe(false);
-      } finally {
-        finish.resolve(undefined);
-        await conversation.close();
-      }
-    },
-  );
-
-  it('runs the next prompt before any automatic continuation from a task that finished while yielding', async () => {
+  it('wakes the idle conversation when finite work finishes, delivering the notice once', async () => {
     const { harness, conversation, finish, seen } = conversationWithTask();
     const { running } = startBuild(conversation);
 
     try {
-      await until(() => harness.sessions.inboxWaiters(harness.mainSession.id) > 0);
-      conversation.yieldPrompt();
       await running;
-      finish.resolve(undefined);
-      await until(() => harness.tasks.hasUnreported);
-
-      // No model call happens on its own: the finished task waits for the next prompt.
-      expect(conversation.running).toBe(false);
       expect(seen).toHaveLength(0);
-      for await (const _event of conversation.send('what happened?'));
-      expect(seen).toHaveLength(1);
+      finish.resolve(undefined);
+      await until(() => seen.length === 1);
+      await until(() => !conversation.running);
+
+      expect(seen[0]?.messages.map((message) => message.content).join('\n')).toContain(
+        'Build passed',
+      );
+      expect(JSON.stringify(conversation.messages).split('Build passed')).toHaveLength(2);
+      expect(harness.tasks.hasUnreported).toBe(false);
+      expect(harness.sessions.get(harness.mainSession.id)?.state).toBe('idle');
     } finally {
       finish.resolve(undefined);
       await conversation.close();
     }
+  });
+
+  it('refuses a prompt while the wake runs, and settleWake lets the next one start', async () => {
+    const { conversation, finish, seen } = conversationWithTask();
+    const { running } = startBuild(conversation);
+
+    try {
+      await running;
+      finish.resolve(undefined);
+      await until(() => conversation.running || seen.length > 0);
+      await conversation.settleWake();
+      expect(conversation.running).toBe(false);
+      for await (const _event of conversation.send('what happened?'));
+      expect(JSON.stringify(conversation.messages).split('Build passed')).toHaveLength(2);
+    } finally {
+      finish.resolve(undefined);
+      await conversation.close();
+    }
+  });
+
+  it('wakes later when a yielded run is followed by no prompt', async () => {
+    const { conversation, finish, seen } = conversationWithTask();
+    const { running } = startBuild(conversation);
+
+    try {
+      expect(conversation.yieldPrompt()).toBe(true);
+      await running;
+      finish.resolve(undefined);
+      await until(() => seen.length === 1, 5_000);
+
+      expect(JSON.stringify(seen[0]?.messages)).toContain('Build passed');
+    } finally {
+      finish.resolve(undefined);
+      await conversation.close();
+    }
+  });
+
+  it('runs the main session with only await_tasks holding it open', async () => {
+    const held: unknown[] = [];
+    const harness = createHarness({
+      title: 'Build',
+      provider: routedProvider({ build: [say('ok')] }),
+    });
+    const conversation = createConversation({
+      harness,
+      tools: [],
+      run: (runOptions) => {
+        held.push(runOptions.holdOpenFor);
+
+        return streamAgent(runOptions);
+      },
+    });
+
+    try {
+      for await (const _event of conversation.send('build'));
+
+      expect(held).toEqual(['awaited']);
+    } finally {
+      await conversation.close();
+    }
+  });
+
+  it('stops waking at the cap until the next prompt, which then gets the notice', async () => {
+    const seen: ProviderRequest[] = [];
+    const answer = (request: ProviderRequest) => {
+      seen.push(request);
+
+      return say('ok')(request);
+    };
+    const harness = createHarness({
+      title: 'Build',
+      provider: routedProvider({ build: [say('first'), answer, answer, answer] }),
+    });
+    const conversation = createConversation({
+      harness,
+      run: streamAgent,
+      tools: [],
+      maxConsecutiveWakes: 1,
+    });
+    const finishTask = async (label: string) => {
+      harness.tasks.start({
+        command: label,
+        description: label,
+        sessionId: harness.mainSession.id,
+        run: async ({ onOutput }) => {
+          onOutput(`${label} done`);
+
+          return { exitCode: 0 };
+        },
+      });
+      await until(() => harness.tasks.runningCount === 0);
+    };
+
+    try {
+      for await (const _event of conversation.send('build'));
+
+      await finishTask('task one');
+      await until(() => seen.length === 1 && !conversation.running);
+
+      await finishTask('task two');
+      await setTimeout(100);
+      expect(seen).toHaveLength(1);
+      expect(harness.tasks.hasUnreported).toBe(true);
+
+      for await (const _event of conversation.send('next'));
+
+      expect(JSON.stringify(seen.at(-1)?.messages)).toContain('task two done');
+    } finally {
+      await conversation.close();
+    }
+  });
+
+  it('starts no wake after a stop even while idle, until the next prompt', async () => {
+    const { conversation, finish, seen } = conversationWithTask();
+    const { running } = startBuild(conversation);
+
+    try {
+      await running;
+      conversation.stop();
+      finish.resolve(undefined);
+      await setTimeout(100);
+      expect(seen).toHaveLength(0);
+
+      for await (const _event of conversation.send('what happened?'));
+
+      expect(JSON.stringify(seen.at(-1)?.messages)).toContain('Build passed');
+    } finally {
+      finish.resolve(undefined);
+      await conversation.close();
+    }
+  });
+
+  it('tells the app when the run it started itself fails, and goes idle', async () => {
+    const failures: unknown[] = [];
+    let calls = 0;
+    const provider: Provider = {
+      async *stream() {
+        calls++;
+
+        if (calls > 1) throw new Error('model down');
+
+        yield { type: 'text_delta', text: 'ok' };
+        yield { type: 'done', stopReason: 'end_turn' };
+      },
+    };
+    const harness = createHarness({ title: 'Build', provider });
+    const conversation = createConversation({
+      harness,
+      run: streamAgent,
+      tools: [],
+      onWakeFailure: (error) => failures.push(error),
+    });
+
+    try {
+      for await (const _event of conversation.send('build'));
+
+      harness.tasks.start({
+        command: 'build',
+        description: 'Build',
+        sessionId: harness.mainSession.id,
+        run: async () => ({ exitCode: 0 }),
+      });
+      await until(() => failures.length === 1);
+      await until(() => !conversation.running);
+
+      expect(failures[0]).toMatchObject({ message: 'model down' });
+    } finally {
+      await conversation.close();
+    }
+  });
+
+  it('does not wake after a close', async () => {
+    const { conversation, finish, seen } = conversationWithTask();
+    const { running } = startBuild(conversation);
+
+    await running;
+    // The build ignores cancellation, so it settles while the close is in flight.
+    const closing = conversation.close();
+
+    finish.resolve(undefined);
+    await closing;
+    await setTimeout(50);
+
+    expect(seen).toHaveLength(0);
   });
 
   it('lets a service outlive a prompt without keeping it active', async () => {

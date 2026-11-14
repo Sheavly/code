@@ -1,7 +1,14 @@
 /** Background work and completion notices shared by tools and session-scoped loops. */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { now } from '@sheavly/core/clock/clock.helper';
-import type { StartTask, TaskDelivery, TaskObserver, TaskResult } from './tasks.types.js';
+import type {
+  Delivery,
+  Entry,
+  StartTask,
+  TaskDelivery,
+  TaskObserver,
+  TaskResult,
+} from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -12,20 +19,7 @@ import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
 import { groupMemberError } from './group-member.helper.js';
-
-type Delivery = { ids: TaskId[]; reason?: string; delivered: boolean };
-type Entry = {
-  info: TaskInfo;
-  controller: AbortController;
-  settled: Promise<void>;
-  silent: boolean;
-  sessionId?: SessionId | undefined;
-  backgroundKind: 'task' | 'service';
-  /** Membership survives delivery until this entry is released. */
-  group?: Delivery;
-  /** Whole result, outside the bounded preview and task events. */
-  report?: string | undefined;
-};
+import { runningTaskOf } from './tasks.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -144,15 +138,10 @@ export class TaskRegistry {
           visibility.set(group, this.#ownsDelivery({ delivery: group, sessionId }));
         }
 
-        const visibleGroup = group && visibility.get(group);
-
-        return {
-          id: info.id,
-          title: info.description,
-          reason: visibleGroup ? (info.reason ?? info.description) : info.description,
-          startedAt: info.startedAt,
-          ...(visibleGroup && { group: group.ids[0] }),
-        };
+        return runningTaskOf({
+          info,
+          group: group && visibility.get(group) ? group.ids[0] : undefined,
+        });
       });
   }
 
@@ -245,6 +234,23 @@ export class TaskRegistry {
         !group.delivered &&
         this.#ownsDelivery({ delivery: group, sessionId }),
     ).length;
+  }
+
+  /** Whether grouped work is still running: what `await_tasks` holds a main session open for. */
+  hasAwaitedTasks(sessionId?: SessionId): boolean {
+    return this.groupedPendingCount(sessionId) > 0;
+  }
+
+  /**
+   * Whether a ready notice reports finite work, so an idle session should be woken for it. A
+   * service's own end is reported at the next model call and never starts one.
+   */
+  hasWakingDeliveries(sessionId?: SessionId): boolean {
+    return this.#ready.some(
+      (delivery) =>
+        this.#ownsDelivery({ delivery, sessionId }) &&
+        delivery.ids.some((id) => this.#entry(id).backgroundKind === 'task'),
+    );
   }
 
   /** Forgets settled, delivered tasks or silent singles. Held group members cannot be released. */

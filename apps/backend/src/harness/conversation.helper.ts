@@ -7,6 +7,8 @@ import type {
 } from '@sheavly/host/conversations/conversations.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
 import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
@@ -69,6 +71,11 @@ export function harnessConversation(params: {
       run: streamAgent,
       tools: harness.tools,
       hooks: harness.hooks,
+      // No caller iterates a run the conversation starts for finished work: the operator sees it.
+      onWakeFailure: (caughtError) =>
+        process.stderr.write(
+          `wake run failed: ${redactDiagnosticText(errorMessage(caughtError))}\n`,
+        ),
       ...(maxTurns !== undefined && { maxTurns }),
       ...(summary && { summary }),
       ...(messages && { messages }),

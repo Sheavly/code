@@ -7,9 +7,10 @@ import { until } from '@sheavly/testing/wait/until.fake';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { testBackend } from '../../testing/backend.fake.js';
 import { seedFakeModel } from '../../testing/seed-model.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 
 describe('sub-agent completion over the terminal prompt stream', () => {
-  it('delivers both reviews and resumes the parent by default without a status message', async () => {
+  it('ends the prompt, then wakes the parent with each review as it finishes', async () => {
     const base = await mkdtemp(path.join(tmpdir(), 'sub-agent-wake-'));
     const workspace = path.join(base, 'project');
     const first = Promise.withResolvers<undefined>();
@@ -81,17 +82,25 @@ describe('sub-agent completion over the terminal prompt stream', () => {
 
         ended = true;
       })();
-      await until(() => parentCalls === 2);
-      expect(ended).toBe(false);
+      // The prompt ends when the parent's model finishes, with both reviews still running.
+      await running;
+      expect(parentCalls).toBe(2);
+      expect(ended).toBe(true);
       expect(entries.some((entry) => entry.kind === 'event' && entry.event.type === 'done')).toBe(
-        false,
+        true,
       );
+
+      // Each finished review wakes the idle parent by itself; the stream every UI follows
+      // carries what that run does.
+      const live = backend.conversations.get(id);
+
+      live.harness.sessions.subscribeEntries((entry) => entries.push(entry));
       first.resolve(undefined);
       await until(() => parentCalls === 3);
       expect(requests[2]).toContain('First review findings');
-      expect(ended).toBe(false);
       second.resolve(undefined);
-      await running;
+      await until(() => parentCalls === 4);
+      await untilSettled(live);
       expect(requests[3]).toContain('Second review findings');
       expect(
         entries.filter((entry) => entry.kind === 'event' && entry.event.type === 'task_completed'),

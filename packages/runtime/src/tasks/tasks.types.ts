@@ -1,7 +1,7 @@
 import type { OutputWriter } from '@sheavly/core/output/output.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskInfo, TaskUpdate } from '@sheavly/protocol/task/task.types';
+import type { TaskId, TaskInfo, TaskUpdate } from '@sheavly/protocol/task/task.types';
 
 /** What to run in the background. */
 export type StartTask = {
@@ -27,6 +27,23 @@ export type StartTask = {
     signal: AbortSignal;
     onOutput: (chunk: string) => void;
   }) => Promise<{ exitCode: number | null; report?: string }>;
+};
+
+/** One notice the registry holds until it is delivered: a single task or a group's members. */
+export type Delivery = { ids: TaskId[]; reason?: string; delivered: boolean };
+
+/** What the registry keeps for one task. */
+export type Entry = {
+  info: TaskInfo;
+  controller: AbortController;
+  settled: Promise<void>;
+  silent: boolean;
+  sessionId?: SessionId | undefined;
+  backgroundKind: 'task' | 'service';
+  /** Membership survives delivery until this entry is released. */
+  group?: Delivery;
+  /** Whole result, outside the bounded preview and task events. */
+  report?: string | undefined;
 };
 
 /** One completion notice: a single task, or a whole group in requested ID order. */

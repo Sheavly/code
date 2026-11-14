@@ -68,6 +68,13 @@ export type AgentOptions = {
    */
   yieldSignal?: AbortSignal;
   /**
+   * What keeps the run open after the model finishes. `finite` (the default, a sub-agent's) holds
+   * it for any running finite task, so the agent cannot end while its own work runs. `awaited`
+   * (the main session's) holds it only for work grouped by `await_tasks`: other work finishes on
+   * its own and its notice reaches the model at its next call. Services never hold a run.
+   */
+  holdOpenFor?: 'finite' | 'awaited';
+  /**
    * This run continues a session an earlier run already started (a conversation's next prompt):
    * `sessionStart` hooks ran then and are not run again, so their context isn't added twice.
    */

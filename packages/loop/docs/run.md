@@ -38,7 +38,11 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
-The automatic wait begins only after a turn without tool calls. Repeated status-tool calls keep
+The automatic wait begins only after a turn without tool calls. What it waits for is
+`holdOpenFor`: `finite` (the default, a sub-agent's) waits for any running finite task, so a
+sub-agent never ends while its own work runs; `awaited` (a conversation's main session) waits
+only for `await_tasks` groups, and other finished work is delivered by the run the conversation
+starts when it finishes. A ready notice at the end of a turn continues either run once. Repeated status-tool calls keep
 starting model turns instead of waiting; the agent must finish independent work and yield.
 A task completion wakes that wait and reaches history before the next model call, without
 another user prompt. `await_tasks({ ids, reason })` returns immediately and holds those tasks'

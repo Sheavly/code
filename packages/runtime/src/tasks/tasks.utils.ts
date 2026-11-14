@@ -1,6 +1,23 @@
 import { DEFAULT_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
-import type { TaskInfo } from '@sheavly/protocol/task/task.types';
+import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
+import type { TaskId, TaskInfo } from '@sheavly/protocol/task/task.types';
+
+/**
+ * A running task's metadata-only snapshot. `group` is the task's group's first requested ID, given
+ * only when the caller may see the group; otherwise the reason falls back to the description.
+ */
+export function runningTaskOf(params: { info: TaskInfo; group: TaskId | undefined }): RunningTask {
+  const { info, group } = params;
+
+  return {
+    id: info.id,
+    title: info.description,
+    reason: group ? (info.reason ?? info.description) : info.description,
+    startedAt: info.startedAt,
+    ...(group && { group }),
+  };
+}
 
 /**
  * One readable block for the model: header line, command, then the task's result. A task that

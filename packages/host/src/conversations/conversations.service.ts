@@ -320,6 +320,10 @@ export class Conversations {
 
     this.#assertStorageHealthy(id);
 
+    // A run the conversation started for finished work ends at its completion point first, so the
+    // user's line is the next prompt rather than refused as `session_running`.
+    await conversation.settleWake();
+
     const stop = new AbortController();
     const events = conversation.send(prepared.text, {
       signal: signal ? AbortSignal.any([signal, stop.signal]) : stop.signal,
@@ -356,7 +360,8 @@ export class Conversations {
 
   /** Stops conversation `id`'s running prompt, if one runs; its history stays valid. */
   stop(id: ConversationId): void {
-    this.get(id);
+    // Also stops a run the conversation started itself, which no `send` owns.
+    this.get(id).conversation.stop();
     this.#running.get(id)?.abort();
   }
 

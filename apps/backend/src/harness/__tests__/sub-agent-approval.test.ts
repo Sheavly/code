@@ -11,6 +11,7 @@ import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { testBackend } from '../../testing/backend.fake.js';
 import { seedFakeModel } from '../../testing/seed-model.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 
 type ModelInput = {
   role?: string;
@@ -82,7 +83,18 @@ async function runPrompt(params: {
     entries.push(entry);
   }
 
-  return entries;
+  if (!backend) return entries;
+
+  // The prompt ends when the main model finishes; the sub-agent's command still runs, so what it
+  // did is read from the conversation's combined stream once everything has settled.
+  const live = backend.conversations.get(params.id);
+
+  await untilSettled(live);
+  const everything: StreamEntry[] = [];
+
+  live.harness.sessions.subscribeEntries((entry) => everything.push(entry), { replay: true })();
+
+  return everything;
 }
 
 afterEach(async () => {

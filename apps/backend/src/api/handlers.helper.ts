@@ -128,6 +128,11 @@ async function sendPrompt(params: {
   const { c, id, body, conversations } = params;
   const live = conversations.get(id);
   const { mainSession, sessions } = live.harness;
+
+  // A run the conversation started for finished work ends first, before recording starts: its
+  // `done` must not be taken for the start of this prompt's stream.
+  await live.conversation.settleWake();
+
   // Sending resumes the session at once (its `session_resumed`); the response opens later, so
   // the first entry the prompt makes is recorded here and the response replays from it.
   let first: number | undefined;

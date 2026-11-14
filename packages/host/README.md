@@ -23,9 +23,12 @@ const harness = createHarness({ provider, title: prompt });
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`. A failed prompt
 keeps the user's message and completed tool work, rather than rolling back history while leaving
-the tool effects on disk. Finite background tasks, including sub-agent replies, keep the prompt
-running and wake the model automatically with their completions. Persistent services may outlive
-the prompt without keeping it active. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
+the tool effects on disk. A prompt ends when the model finishes, even while background tasks or
+sub-agents run; only `await_tasks` keeps it open. When finite work finishes while the conversation
+is idle, it starts a run itself (no new user message) so the model sees the notice; that run's
+events reach every UI through the combined stream, and `conversation.stop()` stops it. `send`
+through `Conversations` first asks such a run to end (`settleWake`), so a user's line is the next
+prompt. Services never wake it: their notice reaches the next prompt. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
 every prompt's run, so the loop summarizes the history when the context nears the window; the
 host never picks a summarizer, the app does.
 
@@ -40,7 +43,7 @@ await conversation.close();
 
 A prompt cannot be given more text while it runs. A UI that queues what the user types calls
 `conversation.yieldPrompt()` so the running prompt ends as `completed` at its completion point
-instead of waiting for background tasks or sub-agents (their results reach the next prompt), then
+instead of waiting on `await_tasks` (finished results reach the next prompt), then
 sends the queued text with `send`. It returns `false` for an idle or stopping prompt, and
 closed conversations throw `session_ended`.
 

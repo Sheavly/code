@@ -15,6 +15,7 @@ import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { askingPermissions } from '../../testing/permissions.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 import { createBackendHarness } from '../harness.helper.js';
 
 // Protected paths contain only invented source data, never user credentials or repository files.
@@ -68,6 +69,7 @@ async function runPrompt(params: {
 
   try {
     for await (const _event of conversation.send('main'));
+    await untilSettled({ harness, conversation });
   } finally {
     await conversation.close();
   }

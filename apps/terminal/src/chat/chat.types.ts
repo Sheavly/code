@@ -22,7 +22,7 @@ export type ChatConversation = Pick<
   RemoteConversation,
   'send' | 'yieldPrompt' | 'skills' | 'details' | 'useModel' | 'runningTasks'
 > &
-  Partial<Pick<RemoteConversation, 'queue' | 'setQueue'>>;
+  Partial<Pick<RemoteConversation, 'queue' | 'setQueue' | 'stop'>>;
 
 /** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
 export type StopResult = 'stopped' | 'stopping' | 'idle';

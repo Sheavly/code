@@ -26,6 +26,8 @@ export type RunPrompt = (options: {
   keepHistory: (messages: readonly HistoryMessage[]) => void;
   /** Aborted by `Conversation.yieldPrompt`: end as completed at the next completion point. */
   yieldSignal: AbortSignal;
+  /** Only grouped (`await_tasks`) work holds the main session open; the rest wakes it later. */
+  holdOpenFor: 'awaited';
   /** Every prompt after the first: the session already ran its `sessionStart` hooks. */
   resumed: boolean;
   instructions?: string;
@@ -61,6 +63,16 @@ export type ConversationOptions = {
    * when it ends or fails (completed work included). It must not throw or wait: a caller queues writes and reports failures its own way.
    */
   keepHistory?: (messages: readonly HistoryMessage[]) => void;
+  /**
+   * Told when the run the conversation started itself for finished work fails: no caller iterates
+   * it, so this is where the app logs it. Must not throw.
+   */
+  onWakeFailure?: (error: unknown) => void;
+  /**
+   * How many runs in a row the conversation may start itself for finished work without a user
+   * prompt between them (default `MAX_CONSECUTIVE_WAKES`); past it, notices wait for the next prompt.
+   */
+  maxConsecutiveWakes?: number;
 };
 
 /**
@@ -85,6 +97,16 @@ export type Conversation = {
    * (`session_ended`) once closed.
    */
   yieldPrompt: () => boolean;
+  /**
+   * Stops the running prompt, or the run the conversation started itself for finished work; false
+   * when nothing runs. Its history stays valid.
+   */
+  stop: () => boolean;
+  /**
+   * When the conversation started a run itself for finished work, asks it to end at its completion
+   * point and resolves once it has, so the next prompt can be sent. Resolves at once otherwise.
+   */
+  settleWake: () => Promise<void>;
   /** The history so far: every finished prompt's, valid to continue from. */
   readonly messages: readonly HistoryMessage[];
   /** Whether a prompt is running now. */
