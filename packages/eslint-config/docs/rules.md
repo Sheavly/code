@@ -87,6 +87,14 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
   `harness/no-brand-cast` (type-aware, tests included) fails `as` to a branded type: a value gets
   its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
+- **Background work starts through a kind factory** (`harness/no-direct-task-start`, type-aware,
+  source files): any access to `TaskRegistry.start` (a call, an alias, destructuring, `.call`,
+  `.apply`, a string key, `prototype.start`) fails, found by the receiver's type and not by the
+  name `start`. Only the `work.utils.ts` that sits beside the `tasks.service.ts` holding
+  `TaskRegistry` (the runtime's `startWork`) may; tests and `src/testing` files are exempt through
+  the shared config's ignores. A registry typed `any`, cast to another shape, assigned to a
+  structural type that re-declares `start` or extended through a mixin is left to review, and so
+  is whether reads of the shared registry pass the caller's session.
 - **The latest request** (`harness/no-adhoc-latest-request`, source files): no
   `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
   history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`
