@@ -142,6 +142,62 @@ describe('runScript limits', () => {
     expect(runner.running).toBe(0);
   });
 
+  it('has no exit code when an abort stops a pipe whose last command had already exited 0', async () => {
+    const controller = new AbortController();
+    const started = Promise.withResolvers<undefined>();
+    // A real pipe kills an earlier stage once its reader exits, so the order is set by a fake: the
+    // last stage has exited 0 and the first one stops only because of the abort.
+    const run = ({ file, signal }: { file: string; signal: AbortSignal }) => {
+      if (file === 'last') return Promise.resolve({ exitCode: 0, output: '', timedOut: false });
+
+      started.resolve(undefined);
+
+      return new Promise<{ exitCode: number | null; output: string; timedOut: boolean }>(
+        (resolve) =>
+          signal.addEventListener(
+            'abort',
+            () => resolve({ exitCode: null, output: '', timedOut: false }),
+            { once: true },
+          ),
+      );
+    };
+    const running = runScript({
+      run,
+      script: {
+        steps: stepsOf([['first'], '|', ['last']]),
+        cwd: process.cwd(),
+        signal: controller.signal,
+      },
+    });
+
+    await started.promise;
+    controller.abort();
+
+    expect(await running).toMatchObject({ exitCode: null, timedOut: false });
+  });
+
+  it('has no exit code for a caller that was already aborted, even if a command exits 0', async () => {
+    const controller = new AbortController();
+
+    controller.abort();
+
+    const result = await runScript({
+      run: () => Promise.resolve({ exitCode: 0, output: '', timedOut: false }),
+      script: { steps: stepsOf([['true']]), cwd: process.cwd(), signal: controller.signal },
+    });
+
+    expect(result.exitCode).toBeNull();
+  });
+
+  it('keeps the last command’s exit code when the abort comes after the pipe finished', async () => {
+    const controller = new AbortController();
+    const result = await script([['false'], '|', ['true']], { signal: controller.signal });
+
+    controller.abort();
+
+    expect(result.exitCode).toBe(0);
+  });
+
   it('throws when it was already interrupted, running nothing', async () => {
     const controller = new AbortController();
 

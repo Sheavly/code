@@ -19,7 +19,7 @@ import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
 import { groupMemberError } from './group-member.helper.js';
-import { newEntry, runningTaskOf } from './tasks.utils.js';
+import { newEntry, runningTaskOf, settledStatus } from './tasks.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -377,7 +377,7 @@ export class TaskRegistry {
     const { entry, status, result } = params;
     const { info } = entry;
 
-    info.status = entry.controller.signal.aborted ? 'cancelled' : status;
+    info.status = settledStatus({ status, aborted: entry.controller.signal.aborted });
     info.endedAt = now();
     if ('exitCode' in result) info.exitCode = result.exitCode;
     if (result.error) info.error = result.error;

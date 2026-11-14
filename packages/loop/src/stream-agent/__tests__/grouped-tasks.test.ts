@@ -48,7 +48,8 @@ function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'ta
       await finish.promise;
       onOutput(`${label} findings`);
 
-      return { exitCode: 0 };
+      // A stopped command reports no exit code, as a killed process does.
+      return { exitCode: aborted ? null : 0 };
     },
   });
   const unobserve = tasks.observe(({ update }) => {
