@@ -103,7 +103,8 @@ export function renderRunningTask(params: {
 export function renderAgentReport(params: {
   title: string;
   id: string;
-  taskId: string;
+  /** Absent for a report written when a conversation was reopened. */
+  taskId: string | undefined;
   outcome: string;
   status: string | undefined;
   body: string;
@@ -112,10 +113,11 @@ export function renderAgentReport(params: {
 }): string {
   const { title, id, taskId, outcome, status, body, fence, context } = params;
   const lastStatus = status === undefined ? '' : ` Last status it reported: ${status}.`;
+  const task = taskId === undefined ? '' : `, task ${taskId}`;
 
   return [
     AGENT_REPORT_NOTICE_POLICY.origin,
-    `Sub-agent "${title}" (session ${id}, task ${taskId}) ended: ${outcome}.${lastStatus}`,
+    `Sub-agent "${title}" (session ${id}${task}) ended: ${outcome}.${lastStatus}`,
     ...context,
     AGENT_REPORT_NOTICE_POLICY.guidance,
     `${fence} ${AGENT_REPORT_NOTICE_TEXT.reportOpening} ${fence}`,

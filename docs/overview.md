@@ -55,16 +55,15 @@ flowchart BT
     terminal["@sheavly/terminal"]
   end
   backend --> coding
-  backend --> loop
   backend --> providers
   backend --> storage
   backend --> summary
-  backend --> tools
   client --> protocol
   coding --> host
   coding --> workspace
   core --> protocol
-  host --> runtime
+  host --> loop
+  host --> tools
   loop --> runtime
   providers --> core
   runtime --> core

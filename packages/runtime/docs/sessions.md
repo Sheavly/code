@@ -151,7 +151,9 @@ A stored conversation can be carried on: `SessionRegistry.readStoredLog(store)` 
 stored entry, the newest entries are the ones in memory, and every session is back as its last
 update left it. The main session is idle for its next prompt (`restoredMain()` is its ref). A
 sub-agent that was still open when the process ended is settled as `interrupted` and announced in
-the stream: it is not run again, since what it was doing is gone. Stored entries with a gap throw
+the stream: it is not run again, since what it was doing is gone. If its report never reached the
+parent's history, `Conversations.reopen` (host) appends an `agent-report` notice for it, read from
+the sub-agent's stored history and with no task id, so the next prompt tells the model once. Stored entries with a gap throw
 a `StoreError` instead of resuming a conversation with a hole in it.
 
 The registry also keeps each session's last reported tokens: `lastTokens(id)` is what the session's
