@@ -20,11 +20,11 @@ import { createOutputTools } from '@sheavly/tools/output/output.tool';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
+import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { createScratchHook } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
-import { createSearchChain } from './search-chain.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
@@ -45,7 +45,7 @@ export async function createBackendHarness(
     home,
     subAgentProvider,
     webFetch = {},
-    webSearch = { backend: createSearchChain() },
+    webSearch = { backend: createTavilySearchBackend() },
     summarizeWith,
     keepAgentHistory,
     logOf,

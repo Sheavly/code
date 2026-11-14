@@ -3,6 +3,7 @@ import { Conversations } from '@sheavly/host/conversations/conversations.service
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 import { servedConversation } from './harness/served.helper.js';
 import type { ServedSettings } from './harness/harness.types.js';
+import { SearchChains } from './harness/search-chains.service.js';
 import { parseRequestEnv } from './harness/settings.validator.js';
 import { permissionStoreFor, sheavlyHome, trustStoreFor } from './profiles/home.helper.js';
 import { PermissionSetup } from './profiles/permission-setup.service.js';
@@ -49,6 +50,8 @@ export function createBackend(params: {
   // One set for every conversation of this backend: they key by real path, so two conversations
   // editing one file take turns, whichever profile each runs on.
   const fileLocks = new FileLocks();
+  // Likewise for search: one chain per backend order, so a rate limit is remembered by all.
+  const searchChains = new SearchChains();
 
   return {
     setup: profiles.setup({ request: parseRequestEnv(env), remoteSetupAllowed }),
@@ -73,6 +76,7 @@ export function createBackend(params: {
           settings,
           asked,
           fileLocks,
+          searchChains,
           log,
         }),
     }),

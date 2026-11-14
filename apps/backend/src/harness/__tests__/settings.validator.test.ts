@@ -105,6 +105,12 @@ describe('WEB_SEARCH_BACKENDS', () => {
   it('rejects unknown backend names', () => {
     expect(() => parseRunEnv({ WEB_SEARCH_BACKENDS: 'exa,bing' })).toThrow();
   });
+
+  it('rejects a backend named twice, which would be queried twice with separate cooldowns', () => {
+    expect(() => parseRunEnv({ WEB_SEARCH_BACKENDS: 'exa,tinyfish,exa' })).toThrow(
+      'Name each WEB_SEARCH_BACKENDS entry once',
+    );
+  });
 });
 
 describe('WEB_SEARCH', () => {

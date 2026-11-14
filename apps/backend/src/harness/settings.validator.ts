@@ -114,6 +114,9 @@ const runEnvSchema = z.object({
       z
         .array(z.enum(WEB_SEARCH_BACKEND_NAMES))
         .min(1)
+        .refine((names) => new Set(names).size === names.length, {
+          error: 'Name each WEB_SEARCH_BACKENDS entry once',
+        })
         .default([...DEFAULT_WEB_SEARCH_BACKENDS]),
     ),
   SUMMARY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
