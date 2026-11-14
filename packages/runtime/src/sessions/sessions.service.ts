@@ -27,6 +27,7 @@ import type {
   SessionRef,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
+import { isMainSession } from '@sheavly/protocol/session/session.utils';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
@@ -441,7 +442,7 @@ export class SessionRegistry {
 
   /** The first main session started: where an approval asked outside the loop goes. */
   #mainId(): SessionId {
-    const main = [...this.#sessions.values()].find((session) => session.depth === 1);
+    const main = [...this.#sessions.values()].find(isMainSession);
 
     if (!main) {
       throw new SessionError({
@@ -473,7 +474,7 @@ export class SessionRegistry {
    * registry that was not restored.
    */
   restoredMain(): SessionRef | undefined {
-    const main = [...this.#sessions.values()].find((session) => session.depth === 1);
+    const main = [...this.#sessions.values()].find(isMainSession);
 
     return main && refOf(main);
   }

@@ -4,6 +4,7 @@ import type {
   SessionInfo,
   SessionUpdate,
 } from '@sheavly/protocol/session/session.types';
+import { isMainSession } from '@sheavly/protocol/session/session.utils';
 import { isOpen } from './sessions.utils.js';
 
 /**
@@ -22,7 +23,7 @@ export function restoreSessions(params: {
   for (const session of stored) sessions.set(session.id, { ...session });
 
   for (const session of sessions.values()) {
-    if (session.depth === 1) idleRestoredMain({ session, emit });
+    if (isMainSession(session)) idleRestoredMain({ session, emit });
     else if (isOpen(session.state)) interruptRestoredChild({ session, emit });
   }
 }

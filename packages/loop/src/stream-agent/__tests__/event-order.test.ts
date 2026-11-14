@@ -162,6 +162,6 @@ describe('streamAgent', () => {
         }
       })(),
     ).rejects.toThrow('provider exploded');
-    expect(seen).toEqual(['text_delta', 'usage', 'run_failed']);
+    expect(seen).toEqual(['text_delta', 'usage', 'run_failed', 'done']);
   });
 });
