@@ -111,6 +111,26 @@ describe('fallback search backend', () => {
     expect(only.calls).toHaveLength(1);
   });
 
+  it('says how many backends were skipped for cooling when the rest fail', async () => {
+    const chain = createFallbackSearchBackend({
+      backends: [stub('A', rateLimited(60_000)).backend, stub('B', broken).backend],
+    });
+
+    await expect(run(chain)).rejects.toThrow('All search backends failed: A, B');
+    await expect(run(chain)).rejects.toThrow('All search backends failed: B; 1 more rate limited');
+  });
+
+  it('makes a backend available again once its cooldown has passed, and cools it again', async () => {
+    const flaky = stub('A', rateLimited(1_000));
+    const chain = createFallbackSearchBackend({ backends: [flaky.backend, stub('B', ok).backend] });
+
+    await run(chain);
+    clock.advance(1_001);
+    await run(chain);
+    await run(chain);
+    expect(flaky.calls).toHaveLength(2);
+  });
+
   it('names failed backends without their error details', async () => {
     const chain = createFallbackSearchBackend({
       backends: [

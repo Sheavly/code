@@ -62,9 +62,18 @@ Keyless limits for Exa, Parallel and Firecrawl are undocumented and can change.
 timeout or rate limit (`WebSearchRateLimitError`). Each backend gets its own timeout
 (`backendTimeoutMs`, 8s) inside the call's overall timeout. A rate-limited backend is skipped for its
 `Retry-After` seconds, or `defaultCooldownMs` (60s); when all are cooling down the call fails at
-once. A caller abort stops the chain. The error names the failed backends, nothing else. The
-cooldowns live in the chain instance, so share one. The backend app orders it with
-`WEB_SEARCH_BACKENDS` (default `tavily,tinyfish,exa,parallel,wikipedia`).
+once. A caller abort stops the chain. The error names the failed backends and how many more were
+skipped while cooling, nothing else. The cooldowns live in the chain instance, so share one: the
+backend app owns them in `SearchChains` (one chain per backend order, per backend). It orders the
+chain with `WEB_SEARCH_BACKENDS` (default `tavily,tinyfish,exa,parallel,wikipedia`, no name twice),
+so Tavily answers first and the others only take over while it is rate limited or failing.
+
+Every concrete backend is a config on `createHttpSearchBackend` (`search-backend.helper`), the one
+place that talks to the network: it refuses redirects, honours the signal, reads a bounded body and
+fails with a constructed message and no `cause`. Statuses 429 and Tavily's 432 are rate limits
+(`WebSearchRateLimitError`, so the chain cools the backend); 402 and 433 are exhausted quota.
+`search-hardening.test.ts` runs every factory through these rules, so a new backend that is added
+to its list cannot forward credentials, skip the rate-limit mapping or attach a cause unnoticed.
 
 To check the real endpoints, run `LIVE_SEARCH=true npx vitest run live-search` in this package.
 It is off by default, so CI never uses the network; a rate-limited endpoint counts as reachable.
@@ -96,7 +105,8 @@ Errors identify the selected backend. Tavily distinguishes access denial, rate l
 exhaustion and other HTTP statuses. Non-JSON responses, malformed results, transport failures,
 timeouts and cancellation fail the tool without returning an artifact or partial response. HTTP
 bodies, response headers, exception messages, validation values and abort reasons are never put
-into model-facing failures; original exceptions are retained only as diagnostic error causes.
+into model-facing failures. Search backends attach no `cause` either, because the loop records
+every cause it finds on an error and a fetch or parser error can quote credentials or the body.
 
 The timeout covers fetching and reading the response. Caller aborts propagate to the backend;
 the tool also stops waiting when an injected dependency ignores cancellation. The underlying

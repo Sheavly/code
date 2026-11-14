@@ -1,5 +1,3 @@
-export const KEYLESS_SEARCH_DEFAULT_MAX_BYTES = 1_048_576;
-export const SEARCH_MAX_RETRY_AFTER_MS = 300_000;
 export const WIKIPEDIA_USER_AGENT = 'sheavly-harness (web_search fallback)';
 
 export const TINYFISH_SEARCH_URL = 'https://agent.tinyfish.ai/mcp';

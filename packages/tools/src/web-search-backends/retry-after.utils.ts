@@ -1,4 +1,4 @@
-import { SEARCH_MAX_RETRY_AFTER_MS } from './keyless-search.constants.js';
+import { SEARCH_MAX_RETRY_AFTER_MS } from './search-backend.constants.js';
 
 /**
  * Reads a Retry-After header in delta-seconds as milliseconds, capped so a provider cannot

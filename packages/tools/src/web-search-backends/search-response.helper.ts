@@ -39,16 +39,18 @@ export async function readSearchBody(params: {
   return text;
 }
 
+/** 429, and Tavily's 432 (plan limit), are rate limits; 402 and Tavily's 433 are exhausted quota. */
+const RATE_LIMITED = new Set([429, 432]);
+const QUOTA_EXHAUSTED = new Set([402, 433]);
+
 function searchHttpFailure(params: { name: string; response: Response }) {
   const { name, response } = params;
   const { status } = response;
 
-  if (status === 429) {
+  if (RATE_LIMITED.has(status)) {
     return new WebSearchRateLimitError(
-      `${name} search rate limit exceeded (HTTP 429); retry later`,
-      {
-        retryAfterMs: parseRetryAfterMs(response.headers.get('retry-after')),
-      },
+      `${name} search rate limit exceeded (HTTP ${status}); retry later`,
+      { retryAfterMs: parseRetryAfterMs(response.headers.get('retry-after')) },
     );
   }
 
@@ -58,9 +60,9 @@ function searchHttpFailure(params: { name: string; response: Response }) {
     );
   }
 
-  if (status === 402) {
+  if (QUOTA_EXHAUSTED.has(status)) {
     return new WebSearchError(
-      `${name} search quota exhausted (HTTP 402); check the supplied account`,
+      `${name} search quota exhausted (HTTP ${status}); check the supplied account`,
     );
   }
 

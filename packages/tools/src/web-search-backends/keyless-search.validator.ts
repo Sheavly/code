@@ -1,28 +1,9 @@
 import { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { WebSearchError } from '../errors/web-search.errors.js';
-import {
-  WEB_SEARCH_MAX_FIELD_CHARS,
-  WEB_SEARCH_MAX_RESULTS,
-} from '../web-search/web-search.constants.js';
-import { parseSearchResults, searchQuerySchema } from '../web-search/web-search.validator.js';
-import {
-  KEYLESS_SEARCH_DEFAULT_MAX_BYTES,
-  WIKIPEDIA_ARTICLE_URL,
-} from './keyless-search.constants.js';
+import { parseSearchResults } from '../web-search/web-search.validator.js';
+import { WIKIPEDIA_ARTICLE_URL } from './keyless-search.constants.js';
 import { cleanWikipediaSnippet } from './keyless-search.utils.js';
-
-const maxBytesSchema = z.int().min(1).max(WEB_SEARCH_MAX_FIELD_CHARS);
-
-export const keylessSearchOptionsSchema = z.object({
-  apiKey: z.string().trim().min(1, 'API key is empty').max(1_024).optional(),
-  maxBytes: maxBytesSchema.default(KEYLESS_SEARCH_DEFAULT_MAX_BYTES),
-});
-
-export const keylessSearchRequestSchema = z.object({
-  query: searchQuerySchema,
-  maxResults: z.number().int().positive().max(WEB_SEARCH_MAX_RESULTS),
-});
 
 const toolReplySchema = z.object({
   result: z.object({
@@ -123,8 +104,8 @@ function parseProviderJson<T extends z.ZodType>(params: {
   return parseOrThrow({
     schema,
     input,
-    onInvalid: ({ error }) =>
-      new WebSearchError(`${name} search returned invalid results`, { cause: error }),
+    // No `cause`: a provider's reply can echo what was sent, and the loop records every cause.
+    onInvalid: () => new WebSearchError(`${name} search returned invalid results`),
   });
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WebSearchError, WebSearchRateLimitError } from '../../errors/web-search.errors.js';
 import { fakeFetch } from '../../testing/web-search.fake.js';
 import {
   createExaSearchBackend,
@@ -49,6 +50,63 @@ describe('every search backend', () => {
 
       await expect(attempt).rejects.toThrow(`${backend.name} search request failed`);
       await expect(attempt).rejects.not.toThrow('test-key');
+    }
+  });
+});
+
+describe('every search backend failure', () => {
+  const search = (backend: { search: (p: never) => Promise<unknown> }) =>
+    backend.search({ query: 'q', maxResults: 1, signal: new AbortController().signal } as never);
+
+  it('maps a rate limit to WebSearchRateLimitError with the provider Retry-After', async () => {
+    for (const create of factories) {
+      const backend = create(
+        fakeFetch([new Response('x', { status: 429, headers: { 'retry-after': '7' } })]),
+      );
+      const failure = await search(backend).catch((caughtError: unknown) => caughtError);
+
+      expect(failure, backend.name).toBeInstanceOf(WebSearchRateLimitError);
+      expect((failure as WebSearchRateLimitError).retryAfterMs, backend.name).toBe(7_000);
+    }
+  });
+
+  it("maps Tavily's plan limit 432 to a rate limit and 433 to exhausted quota", async () => {
+    const limited = await search(
+      createTavilySearchBackend(fakeFetch([new Response('x', { status: 432 })])),
+    ).catch((caughtError: unknown) => caughtError);
+    const exhausted = await search(
+      createTavilySearchBackend(fakeFetch([new Response('x', { status: 433 })])),
+    ).catch((caughtError: unknown) => caughtError);
+
+    expect(limited).toBeInstanceOf(WebSearchRateLimitError);
+    expect(exhausted).not.toBeInstanceOf(WebSearchRateLimitError);
+    expect((exhausted as Error).message).toContain('quota exhausted');
+  });
+
+  it('never attaches a cause, whatever failed', async () => {
+    const replies = [
+      () => new Response('not json', { headers: { 'content-type': 'application/json' } }),
+      () => new Response('{"result":{}}', { headers: { 'content-type': 'application/json' } }),
+      () => new Response('x', { status: 500 }),
+    ];
+
+    for (const create of factories) {
+      const attempts = [
+        ...replies.map((reply) => create({ fetch: async () => reply(), apiKey: 'test-key' })),
+        create({
+          fetch: async () => {
+            throw new Error('boom test-key');
+          },
+          apiKey: 'test-key',
+        }),
+      ];
+
+      for (const backend of attempts) {
+        const failure = await search(backend).catch((caughtError: unknown) => caughtError);
+
+        expect(failure, backend.name).toBeInstanceOf(WebSearchError);
+        expect((failure as Error).cause, backend.name).toBeUndefined();
+      }
     }
   });
 });

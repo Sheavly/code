@@ -12,13 +12,13 @@ import {
   parseTinyFishResults,
 } from './keyless-search.validator.js';
 import { createJsonRpcSearchBackend } from './json-rpc-search.helper.js';
-import type { KeylessSearchOptions } from './keyless-search.types.js';
+import type { SearchBackendOptions } from './search-backend.types.js';
 
 const bearer = (apiKey: string | undefined): Record<string, string> =>
   apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
 
 /** Keyless unless the app injects an API key; an injected key replaces the keyless access header. */
-export function createTinyFishSearchBackend(options?: KeylessSearchOptions) {
+export function createTinyFishSearchBackend(options?: SearchBackendOptions) {
   return createJsonRpcSearchBackend({
     config: {
       name: 'TinyFish',
@@ -33,7 +33,7 @@ export function createTinyFishSearchBackend(options?: KeylessSearchOptions) {
 }
 
 /** Exa answers keyless with no access header; an injected key goes in `x-api-key`. */
-export function createExaSearchBackend(options?: KeylessSearchOptions) {
+export function createExaSearchBackend(options?: SearchBackendOptions) {
   return createJsonRpcSearchBackend({
     config: {
       name: 'Exa',
@@ -48,7 +48,7 @@ export function createExaSearchBackend(options?: KeylessSearchOptions) {
 }
 
 /** Parallel answers keyless with no access header; an injected key is sent as a Bearer token. */
-export function createParallelSearchBackend(options?: KeylessSearchOptions) {
+export function createParallelSearchBackend(options?: SearchBackendOptions) {
   return createJsonRpcSearchBackend({
     config: {
       name: 'Parallel',
@@ -63,7 +63,7 @@ export function createParallelSearchBackend(options?: KeylessSearchOptions) {
 }
 
 /** Firecrawl answers keyless with no access header; descriptions are large, so `maxBytes` matters. */
-export function createFirecrawlSearchBackend(options?: KeylessSearchOptions) {
+export function createFirecrawlSearchBackend(options?: SearchBackendOptions) {
   return createJsonRpcSearchBackend({
     config: {
       name: 'Firecrawl',

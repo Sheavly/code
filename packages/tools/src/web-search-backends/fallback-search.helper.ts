@@ -42,9 +42,13 @@ export function createFallbackSearchBackend(options: FallbackSearchOptions): Sea
     name: FALLBACK_BACKEND_NAME,
     async search({ query, maxResults, signal }) {
       const failed: string[] = [];
+      let skipped = 0;
 
       for (const backend of backends) {
-        if ((coolingUntil.get(backend) ?? 0) > now()) continue;
+        if ((coolingUntil.get(backend) ?? 0) > now()) {
+          skipped += 1;
+          continue;
+        }
 
         try {
           return await backend.search({
@@ -64,15 +68,17 @@ export function createFallbackSearchBackend(options: FallbackSearchOptions): Sea
         }
       }
 
-      throw new WebSearchError(searchChainFailure({ failed, total: backends.length }));
+      throw new WebSearchError(searchChainFailure({ failed, skipped }));
     },
   };
 }
 
-function searchChainFailure(params: { failed: string[]; total: number }) {
-  const { failed, total } = params;
+function searchChainFailure(params: { failed: string[]; skipped: number }) {
+  const { failed, skipped } = params;
 
-  if (failed.length === 0) return `All ${total} search backends are rate limited; retry later`;
+  if (failed.length === 0) return `All ${skipped} search backends are rate limited; retry later`;
 
-  return `All search backends failed: ${failed.join(', ')}`;
+  const cooling = skipped > 0 ? `; ${skipped} more rate limited and skipped` : '';
+
+  return `All search backends failed: ${failed.join(', ')}${cooling}`;
 }

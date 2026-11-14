@@ -1,11 +1,4 @@
-import type { z } from 'zod';
 import type { SearchResult } from '../web-search/web-search.types.js';
-import type { keylessSearchOptionsSchema } from './keyless-search.validator.js';
-
-/** Native fetch-compatible transport. Inject a fake in tests; an API key is supplied only by the app. */
-export type KeylessSearchOptions = z.input<typeof keylessSearchOptionsSchema> & {
-  fetch?: typeof globalThis.fetch;
-};
 
 /** How one provider's JSON-RPC `tools/call` search endpoint is called and read. */
 export type JsonRpcSearchConfig = {
