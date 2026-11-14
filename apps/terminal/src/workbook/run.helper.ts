@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import { connectBackend } from '../client/backend.helper.js';
 import { RemoteConversation } from '../client/conversation.service.js';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
@@ -194,7 +194,7 @@ async function recordConversation(
         sessions.add(entry.sessionId);
         if (entry.kind === 'event') recorder.event(entry.event);
         renderer.entry(entry, details.session);
-        outcome = mainOutcome({ entry, mainSession: details.session }) ?? outcome;
+        outcome = runEnd(entry) ?? outcome;
       }
     };
 
@@ -227,18 +227,6 @@ async function recordConversation(
   process.stdout.write(`\n→ saved to ${paths.dir}\n`);
 
   return { ...result, id: paths.id };
-}
-
-/** How the run ended, from the main session's `done`; undefined for every other entry. */
-function mainOutcome(params: {
-  entry: StreamEntry;
-  mainSession: string;
-}): RunResult['outcome'] | undefined {
-  const { entry, mainSession } = params;
-
-  if (entry.kind !== 'event' || entry.sessionId !== mainSession) return undefined;
-
-  return entry.event.type === 'done' ? entry.event.reason : undefined;
 }
 
 /** A follow-up starts from that run's conversation, in that run's workspace. */

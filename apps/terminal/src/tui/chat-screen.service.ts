@@ -159,7 +159,7 @@ export class ChatScreen {
 
   /** The message that was shown ended; the next row written closes it for the terminal. */
   endTurn(outcome: TurnOutcome): void {
-    this.#ended = outcome === 'failed' ? 'failed' : 'done';
+    this.#ended = outcome === 'completed' ? 'done' : 'failed';
   }
 
   /** Changes what the status line says. */

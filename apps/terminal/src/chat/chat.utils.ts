@@ -12,17 +12,6 @@ export function errorText(caught: unknown): string {
   return plainTerminalText(caught instanceof Error ? caught.message : String(caught));
 }
 
-/**
- * Whether an entry ends a run: its `done`, or the session going idle, which is all a failed run
- * emits.
- */
-export function endsRun(entry: StreamEntry): boolean {
-  return (
-    (entry.kind === 'event' && entry.event.type === 'done') ||
-    (entry.kind === 'update' && entry.update.type === 'session_idle')
-  );
-}
-
 /** The main session's `run_state` an entry carries, or undefined for any other entry. */
 export function mainRunState(params: {
   entry: StreamEntry;

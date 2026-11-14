@@ -9,8 +9,9 @@ import { failuresText } from '../failures/failures-text.utils.js';
 import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
 import type { ChatConversation, RunState, StopResult, TurnOutcome } from './chat.types.js';
-import { endsRun, errorText, mainRunState, parseChatInput } from './chat.utils.js';
+import { errorText, mainRunState, parseChatInput } from './chat.utils.js';
 import { runModelCommand, runModeCommand } from './chat-model.helper.js';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
 /**
@@ -291,7 +292,6 @@ export class ChatSession {
     const current = new AbortController();
 
     let outcome: TurnOutcome = 'completed';
-    let completed = false;
 
     // Set first so Ctrl+C works while waiting: a yield still in flight for the previous prompt
     // must land before this one starts, or it would end this prompt early instead.
@@ -307,7 +307,7 @@ export class ChatSession {
     try {
       // Stopped while waiting for a yield answer: the prompt never reaches the backend.
       if (current.signal.aborted) {
-        this.#onTurnEnd(outcome);
+        this.#onTurnEnd('interrupted');
 
         return;
       }
@@ -321,7 +321,7 @@ export class ChatSession {
         return;
       }
 
-      completed = await this.#showEntries({ text, signal: current.signal });
+      outcome = await this.#showEntries({ text, signal: current.signal });
     } catch (caughtError) {
       outcome = 'failed';
       this.#write(`\n✗ ${errorText(caughtError)}\n`);
@@ -334,7 +334,7 @@ export class ChatSession {
     }
 
     this.#write('\n');
-    if (completed && !current.signal.aborted) this.#onReplyComplete();
+    if (outcome === 'completed' && !current.signal.aborted) this.#onReplyComplete();
     this.#onTurnEnd(outcome);
   }
 
@@ -350,7 +350,7 @@ export class ChatSession {
 
     if (!fresh || entry.sessionId !== this.#mainSession || this.#current) return;
 
-    const ended = endsRun(entry);
+    const ended = runEnd(entry) !== undefined;
 
     if (entry.kind === 'event' || ended) this.#wakeLive = !ended;
 
@@ -382,8 +382,8 @@ export class ChatSession {
   }
 
   /** Prints a message's entries as they stream, telling the UI when the running tools or thinking change. */
-  async #showEntries(params: { text: string; signal: AbortSignal }): Promise<boolean> {
-    let completed = false;
+  async #showEntries(params: { text: string; signal: AbortSignal }): Promise<TurnOutcome> {
+    let outcome: TurnOutcome | undefined;
 
     for await (const entry of this.#conversation.send(params)) {
       if (!this.#streamOpen) {
@@ -393,16 +393,12 @@ export class ChatSession {
 
       this.#show(entry);
 
-      if (
-        entry.sessionId === this.#mainSession &&
-        entry.kind === 'event' &&
-        entry.event.type === 'done'
-      ) {
-        completed = entry.event.reason === 'completed';
-      }
+      outcome = runEnd(entry) ?? outcome;
     }
 
-    return completed;
+    // A stream that closes without the main run's `done` did not finish its run: the user's stop
+    // cut it short, or the connection went.
+    return outcome ?? (params.signal.aborted ? 'interrupted' : 'failed');
   }
 
   /**
