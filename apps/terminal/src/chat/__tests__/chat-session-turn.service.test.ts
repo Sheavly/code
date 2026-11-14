@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -16,7 +17,7 @@ const reply = (value: string): StreamEntry => ({
   event: { seq: 0, type: 'text_delta', text: value },
 });
 
-function done(reason: 'completed' | 'interrupted' | 'max_turns' = 'completed'): StreamEntry {
+function done(reason: RunOutcome = 'completed'): StreamEntry {
   return {
     seq: 1,
     at: 0,
@@ -136,6 +137,27 @@ describe('ChatSession: the end of a message', () => {
       expect(completedWrites).toEqual([]);
     },
   );
+
+  it.each(['interrupted', 'max_turns', 'max_tokens', 'failed'] as const)(
+    'tells the UI the message ended %s, never completed',
+    async (reason) => {
+      const { session, ends } = chat({ events: [reply('partial'), done(reason)] });
+
+      session.submit('hello');
+      await session.idle();
+
+      expect(ends.map(({ outcome }) => outcome)).toEqual([reason]);
+    },
+  );
+
+  it('tells the UI a stream that closed without the main run’s done failed', async () => {
+    const { session, ends } = chat({ events: [reply('partial')] });
+
+    session.submit('hello');
+    await session.idle();
+
+    expect(ends.map(({ outcome }) => outcome)).toEqual(['failed']);
+  });
 
   it('does not notify when a stream closes without the main session confirming completion', async () => {
     const { session, completedWrites } = chat({ events: [reply('partial')] });

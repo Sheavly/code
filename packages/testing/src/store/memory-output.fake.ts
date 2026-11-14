@@ -12,7 +12,7 @@ import type {
 import type { OutputLog, OutputRef } from '@sheavly/protocol/output/output.types';
 import { outputRefSchema } from '@sheavly/protocol/output/output.validator';
 
-type Entry = { chunks: Buffer[]; status: OutputLog['status']; reason?: string };
+type LogEntry = { chunks: Buffer[]; status: OutputLog['status']; reason?: string };
 
 /**
  * Test-only: an `OutputStore` in memory with the rules of the real one. `failWith` makes the
@@ -20,7 +20,7 @@ type Entry = { chunks: Buffer[]; status: OutputLog['status']; reason?: string };
  * can see what happens when storage fails.
  */
 export class MemoryOutputStore implements OutputStore {
-  readonly #logs = new Map<OutputRef, Entry>();
+  readonly #logs = new Map<OutputRef, LogEntry>();
   #createFailure: Error | undefined;
   #refusal: OutputError | undefined;
   #appendFailure: string | undefined;
@@ -52,7 +52,7 @@ export class MemoryOutputStore implements OutputStore {
     }
 
     const ref = outputRefSchema.parse(randomUUID());
-    const entry: Entry = { chunks: [], status: 'capturing' };
+    const entry: LogEntry = { chunks: [], status: 'capturing' };
 
     this.#logs.set(ref, entry);
 
@@ -104,7 +104,7 @@ export class MemoryOutputStore implements OutputStore {
     });
   }
 
-  #entry(ref: OutputRef): Entry {
+  #entry(ref: OutputRef): LogEntry {
     const entry = this.#logs.get(ref);
 
     if (!entry) {
@@ -118,7 +118,7 @@ export class MemoryOutputStore implements OutputStore {
   }
 }
 
-function sourceOf(entry: Entry): ByteSource {
+function sourceOf(entry: LogEntry): ByteSource {
   const all = () => Buffer.concat(entry.chunks);
 
   return {
@@ -127,7 +127,7 @@ function sourceOf(entry: Entry): ByteSource {
   };
 }
 
-function snapshot(params: { ref: OutputRef; entry: Entry }): OutputLog {
+function snapshot(params: { ref: OutputRef; entry: LogEntry }): OutputLog {
   const { ref, entry } = params;
   const bytes = entry.chunks.reduce((sum, chunk) => sum + chunk.length, 0);
 

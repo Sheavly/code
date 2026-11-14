@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
@@ -8,6 +9,7 @@ import { until } from '@sheavly/testing/wait/until.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { createStartServiceTool } from '../start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -26,19 +28,25 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
+/** Called as one session: the task tools refuse a call that has none. */
 function setup() {
   tasks = new TaskRegistry();
 
+  const session = new SessionRegistry().startMain({ title: 'Main' });
+
   return {
-    run: toolRunner([
-      createRunCommandTool({
-        processes: testProcesses(),
-        workspace: temp.workspace,
-        permissions: testPermissions({ mode: 'allow_all' }),
-        tasks,
-      }),
-      ...createTaskTools(tasks),
-    ]),
+    run: toolRunner(
+      [
+        createRunCommandTool({
+          processes: testProcesses(),
+          workspace: temp.workspace,
+          permissions: testPermissions({ mode: 'allow_all' }),
+          tasks,
+        }),
+        ...createTaskTools(tasks),
+      ],
+      session,
+    ),
   };
 }
 
@@ -66,37 +74,44 @@ describe('background run_command', () => {
     expect(result.role === 'tool' && result.content).toContain('Do not poll');
   });
 
-  it.each([undefined, 'task', 'service'] as const)(
-    'forwards the background kind to the registry without legacy lifecycle flags: %s',
-    async (backgroundKind) => {
-      const { run } = setup();
-      const start = vi.spyOn(tasks, 'start');
-      const result = await run('kind', 'run_command', {
-        command: 'sleep 5',
-        background: true,
-        ...(backgroundKind && { backgroundKind }),
-      });
+  it('starts finite work without legacy lifecycle flags', async () => {
+    const { run } = setup();
+    const start = vi.spyOn(tasks, 'start');
+    const result = await run('kind', 'run_command', { command: 'sleep 5', background: true });
 
-      expect(result.isError).toBe(false);
-      expect(start).toHaveBeenCalledOnce();
-      expect(start.mock.calls[0]?.[0]).toMatchObject({
-        backgroundKind: backgroundKind ?? 'task',
-      });
-      expect(Object.keys(start.mock.calls[0]![0]).sort()).toEqual([
-        'backgroundKind',
-        'callId',
-        'command',
-        'description',
-        'run',
-        'sessionId',
-      ]);
-      expect(tasks.hasPendingTasks()).toBe(backgroundKind !== 'service');
-    },
-  );
+    expect(result.isError).toBe(false);
+    expect(start).toHaveBeenCalledOnce();
+    expect(start.mock.calls[0]?.[0]).toMatchObject({ backgroundKind: 'task' });
+    expect(Object.keys(start.mock.calls[0]![0]).sort()).toEqual([
+      'backgroundKind',
+      'callId',
+      'command',
+      'description',
+      'run',
+      'sessionId',
+    ]);
+    expect(tasks.hasPendingTasks()).toBe(true);
+  });
 
-  it.each(['task', 'service'] as const)(
-    'does not launch a %s after an aborted permission lookup resolves past shutdown',
-    async (backgroundKind) => {
+  it('keeps the run open for finite work even when the model asks for a service', async () => {
+    const { run } = setup();
+    const start = vi.spyOn(tasks, 'start');
+
+    // The schema has no backgroundKind, so a stale one is dropped and the policy stays with the kind.
+    const result = await run('stale', 'run_command', {
+      command: 'sleep 5',
+      background: true,
+      backgroundKind: 'service',
+    });
+
+    expect(result.isError).toBe(false);
+    expect(start.mock.calls[0]?.[0]).toMatchObject({ backgroundKind: 'task' });
+    expect(tasks.hasPendingTasks()).toBe(true);
+  });
+
+  it.each(['run_command', 'start_service'] as const)(
+    'does not launch with %s after an aborted permission lookup resolves past shutdown',
+    async (toolName) => {
       tasks = new TaskRegistry();
       const permissions = testPermissions({ mode: 'allow_all' });
       const permissionResult =
@@ -109,18 +124,17 @@ describe('background run_command', () => {
       const start = vi.spyOn(tasks, 'start');
       const controller = new AbortController();
       const running = runTool({
-        tools: [createRunCommandTool({ workspace: temp.workspace, permissions, processes, tasks })],
+        tools: [
+          createRunCommandTool({ workspace: temp.workspace, permissions, processes, tasks }),
+          createStartServiceTool({ workspace: temp.workspace, permissions, processes, tasks }),
+        ],
         call: {
           id: callId,
-          name: 'run_command',
-          input: {
-            description: 'Delayed command',
-            command: 'echo never',
-            background: true,
-            backgroundKind,
-          },
+          name: toolName,
+          input: { description: 'Delayed command', command: 'echo never', background: true },
         },
         signal: controller.signal,
+        session: new SessionRegistry().startMain({ title: 'Main' }),
       });
 
       await until(() => read.mock.calls.length === 1);
@@ -136,24 +150,9 @@ describe('background run_command', () => {
     },
   );
 
-  it('rejects an unknown background kind before starting a process', async () => {
-    const { run } = setup();
-    const result = await run('invalid', 'run_command', {
-      command: 'echo never',
-      background: true,
-      backgroundKind: 'unknown',
-    });
-
-    expect(result).toMatchObject({ isError: true });
-    expect(tasks.list()).toEqual([]);
-  });
-
   it('does not create a background task for a foreground command', async () => {
     const { run } = setup();
-    const result = await run('foreground', 'run_command', {
-      command: 'echo foreground',
-      backgroundKind: 'service',
-    });
+    const result = await run('foreground', 'run_command', { command: 'echo foreground' });
 
     expect(result.role === 'tool' && result.content).toContain('foreground');
     expect(tasks.list()).toEqual([]);
@@ -195,11 +194,13 @@ describe('background run_command', () => {
     expect(tasks.list().map((t) => t.status)).toEqual(['completed', 'completed', 'completed']);
   });
 
-  it('is refused when the harness has no task registry', async () => {
+  it('is refused before the approval step when the harness has no task registry', async () => {
+    const permissions = testPermissions({ mode: 'allow_all' });
+    const read = vi.spyOn(permissions, 'read');
     const tool = createRunCommandTool({
       processes: testProcesses(),
       workspace: temp.workspace,
-      permissions: testPermissions({ mode: 'allow_all' }),
+      permissions,
     });
 
     tasks = new TaskRegistry();
@@ -215,6 +216,25 @@ describe('background run_command', () => {
 
     expect(result).toMatchObject({ isError: true });
     expect(result.role === 'tool' && result.content).toContain('not enabled');
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('still runs a foreground command when the harness has no task registry', async () => {
+    const tool = createRunCommandTool({
+      processes: testProcesses(),
+      workspace: temp.workspace,
+      permissions: testPermissions({ mode: 'allow_all' }),
+    });
+
+    tasks = new TaskRegistry();
+    const result = await runTool({
+      tools: [tool],
+      call: { id: callId, name: 'run_command', input: { description: 'fg', command: 'echo ok' } },
+      signal,
+    });
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.role === 'tool' && result.content).toContain('ok');
   });
 
   it('still asks before running a command the user has not allowed', async () => {

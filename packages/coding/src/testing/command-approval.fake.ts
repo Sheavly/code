@@ -16,6 +16,7 @@ export function commandConfirmer() {
     if (!parsed.ok) throw new Error(parsed.reason);
 
     await confirmCommand({
+      tool: 'run_command',
       command,
       steps: parsed.steps,
       permissions,

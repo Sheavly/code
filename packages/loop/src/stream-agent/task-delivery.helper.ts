@@ -1,6 +1,7 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { AgentEvents } from './stream-agent.types.js';
@@ -64,4 +65,28 @@ export function reportFinishedTasks(params: {
 
     messages.push({ role: 'notice', notice, at });
   }
+
+  // Every notice is built and in history, so nothing reads these tasks again. Silent settled
+  // tasks go too: this turn's `cancel_task` result has reached the model by now.
+  tasks.releaseFinished(session.ref.id);
+
+  // `finishedTaskNotice` found each sub-agent by its session, so the session can go only now. A
+  // failed or stopped sub-agent has no report, hence a `task-finished` notice, and goes too. One
+  // with a session still open under it stays and is not retried.
+  for (const delivery of deliveries) {
+    for (const task of delivery.tasks) releaseAgentOf({ task, session });
+  }
+}
+
+/** Releases the sub-agent session the task's `start_agent` call started, if it started one. */
+function releaseAgentOf(params: { task: TaskInfo; session: RunSession }): void {
+  const { task, session } = params;
+
+  if (task.callId === undefined) return;
+
+  const agent = session.registry
+    .children(session.ref.id)
+    .find((child) => 'startedByCall' in child && child.startedByCall === task.callId);
+
+  if (agent) session.registry.releaseAgent(agent.id);
 }

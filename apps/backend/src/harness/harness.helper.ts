@@ -6,6 +6,7 @@ import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
 import { createReadSkillTool } from '@sheavly/coding/read-skill/read-skill.tool';
 import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
+import { createStartServiceTool } from '@sheavly/coding/run-command/start-service.tool';
 import { createSetWorkingRootTool } from '@sheavly/coding/working-root/set-working-root.tool';
 import { createWorkingRootHook } from '@sheavly/coding/working-root/working-root-hook.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
@@ -94,6 +95,20 @@ export async function createBackendHarness(
   ];
 
   const outputTools = outputs ? createOutputTools(outputs) : [];
+  // The tools that start commands, for the registry of the session that owns them.
+  const commandTools = (commandTasks: typeof tasks) => {
+    const options = {
+      workspace,
+      workingRoots,
+      permissions,
+      tasks: commandTasks,
+      approvals,
+      processes,
+      outputs,
+    };
+
+    return [createRunCommandTool(options), createStartServiceTool(options)];
+  };
 
   return {
     ...harness,
@@ -101,15 +116,7 @@ export async function createBackendHarness(
     tools: [
       ...fileTools,
       ...webTools,
-      createRunCommandTool({
-        workspace,
-        workingRoots,
-        permissions,
-        tasks,
-        approvals,
-        processes,
-        outputs,
-      }),
+      ...commandTools(tasks),
       ...outputTools,
       ...createTaskTools(tasks),
       createSubAgentTool({
@@ -122,17 +129,7 @@ export async function createBackendHarness(
         ...(keepAgentHistory && { keepHistory: keepAgentHistory }),
         runAgent: runSession,
         tools: [...fileTools, ...webTools, ...outputTools],
-        tasksTools: (childTasks) => [
-          createRunCommandTool({
-            workspace,
-            workingRoots,
-            permissions,
-            tasks: childTasks,
-            approvals,
-            processes,
-            outputs,
-          }),
-        ],
+        tasksTools: commandTools,
         // The same hook objects as the main run, each sub-agent running its own `sessionStart`:
         // a hook must keep no state of its own across sessions.
         hooks,

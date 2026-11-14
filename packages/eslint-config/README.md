@@ -12,14 +12,16 @@ import { baseConfig } from '@sheavly/eslint-config';
 export default baseConfig({ tsconfigRootDir: import.meta.dirname });
 ```
 
-| File              | What it holds                                                                |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `base.js`         | `baseConfig`: every rule, with an app's front-end rules read from its folder |
-| `rules/`          | The `harness/*` rules, registered in `plugin.js`                             |
-| `file-kinds.js`   | Each `<name>.<kind>.ts` kind and its policy (exports, constants, max lines)  |
-| `layout.js`       | `NOT_SOURCE`, the one hand-written part of the layout                        |
-| `layout.utils.js` | `readLayout`: the workspaces, their graph and domains, read from disk        |
-| `rule-hints.js`   | `RULE_HINTS`: what to do, added to lint messages that only say what's wrong  |
+| File                | What it holds                                                                |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `base.js`           | `baseConfig`: every rule, with an app's front-end rules read from its folder |
+| `rules/`            | The `harness/*` rules, registered in `plugin.js`                             |
+| `file-kinds.js`     | Each `<name>.<kind>.ts` kind and its policy (exports, constants, max lines)  |
+| `layout.js`         | `NOT_SOURCE`, the one hand-written part of the layout                        |
+| `layout.utils.js`   | `readLayout`: the workspaces, their graph and domains, read from disk        |
+| `rule-hints.js`     | `RULE_HINTS`: what to do, added to lint messages that only say what's wrong  |
+| `skills.js`         | The one reader of `.agents/skills/*/harness.json`, shared by the hooks       |
+| `skill-pointers.js` | `pointRulesToSkills`: appends a skill's guide to the messages of its rules   |
 
 `harness/imports` also keeps modules marked by `sheavly.appOnlyModules` app-selected, while
 allowing packages to depend on the workspace's generic API. `harness/layout` validates those

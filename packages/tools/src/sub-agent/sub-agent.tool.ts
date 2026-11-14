@@ -4,7 +4,8 @@ import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
-import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import { startWork } from '@sheavly/runtime/tasks/work.utils';
+import { subAgentWork } from './sub-agent-work.utils.js';
 import { SubAgentStoppedError } from '../errors/sub-agent.errors.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
@@ -61,13 +62,16 @@ export function createSubAgentTool(options: SubAgentOptions) {
         provider: selected.provider,
         selectProvider: () => selected,
       };
-      const started = tasks.start({
-        command: `sub-agent: ${title}`,
-        description: context.description,
-        callId: context.callId,
-        sessionId: context.session.id,
-        run: ({ signal, onOutput }) =>
-          runChild({ options: childOptions, child, task, signal, onOutput }),
+      const started = startWork({
+        tasks,
+        work: subAgentWork({
+          command: `sub-agent: ${title}`,
+          description: context.description,
+          callId: context.callId,
+          sessionId: context.session.id,
+          run: ({ signal, onOutput }) =>
+            runChild({ options: childOptions, child, task, signal, onOutput }),
+        }),
       });
 
       return startedSubAgentPrompt({
@@ -92,11 +96,10 @@ async function runChild(params: {
   onOutput: (chunk: string) => void;
 }): Promise<{ exitCode: number; report: string }> {
   const { options, child, task, signal, onOutput } = params;
-  const { sessions, provider, runAgent, tools, hooks = [], instructions } = options;
-  // The sub-agent's own background tasks (its sub-agents); stopped when it ends. They join the
-  // combined stream like the main run's, so a UI sees a nested task start and end too.
-  const childTasks = new TaskRegistry();
-  const stopPublishing = childTasks.observe((update) => sessions.publishTask(update));
+  const { sessions, tasks, provider, runAgent, tools, hooks = [], instructions } = options;
+  // The run's one registry, shared with every session: ids are unique across them, and the host's
+  // single observer already publishes each task to the combined stream. The tasks this session
+  // owns (its sub-agents) are stopped when it ends.
   const canNest = child.depth < MAX_SESSION_DEPTH;
   const summary = options.summarizeWith?.(provider);
   const stopListening = sessions.subscribe((update) => {
@@ -121,16 +124,11 @@ async function runChild(params: {
       provider,
       tools: [
         ...tools,
-        ...(options.tasksTools?.(childTasks) ?? []),
+        ...(options.tasksTools?.(tasks) ?? []),
         createReportStatusTool({ sessions }),
         // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
-        ...(canNest || options.tasksTools ? createTaskTools(childTasks) : []),
-        ...(canNest
-          ? [
-              createSubAgentTool({ ...options, tasks: childTasks }),
-              createMessageAgentTool({ sessions }),
-            ]
-          : []),
+        ...(canNest || options.tasksTools ? createTaskTools(tasks) : []),
+        ...(canNest ? [createSubAgentTool(options), createMessageAgentTool({ sessions })] : []),
       ],
       hooks,
       instructions: subAgentInstructions({
@@ -144,7 +142,7 @@ async function runChild(params: {
           options.keepHistory?.({ session: child.id, messages: kept }),
       }),
       signal,
-      tasks: childTasks,
+      tasks,
       session: { registry: sessions, ref: child },
       ...(summary && { summary }),
     });
@@ -166,8 +164,8 @@ async function runChild(params: {
     return { exitCode: 0, report };
   } finally {
     stopListening();
-    // Cancelled first, then unobserved: the stream still sees each cancelled task end.
-    await childTasks.cancelAll();
-    stopPublishing();
+    // Only this session's tasks: its parent's and siblings' share the registry. The host's
+    // observer outlives the child, so the stream still sees each cancelled task end.
+    await tasks.cancelSession(child.id);
   }
 }

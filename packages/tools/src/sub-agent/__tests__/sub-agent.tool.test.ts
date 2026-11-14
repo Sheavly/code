@@ -121,7 +121,13 @@ describe('start_agent task lifecycle', () => {
         'Use message_agent with its session id to steer it, cancel_task to stop it.',
     );
     expect(tasks.hasPendingTasks(parent.id)).toBe(true);
-    expect(start.mock.calls[0]?.[0]).toMatchObject({ sessionId: parent.id });
+    expect(start.mock.calls[0]?.[0]).toMatchObject({
+      command: 'sub-agent: Review',
+      description: 'Review the patch',
+      callId: 'child',
+      sessionId: parent.id,
+      backgroundKind: 'task',
+    });
     const childOptions = runAgent.mock.calls[0]![0];
 
     expect(childOptions.tools.map((tool) => tool.name)).toEqual([

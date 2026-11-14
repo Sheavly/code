@@ -18,7 +18,8 @@ import {
 import { startDeepestSession } from '@sheavly/runtime/testing/sessions.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
-import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
+import type { SessionInfo, SessionUpdate } from '@sheavly/protocol/session/session.types';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const callId = callIdSchema.parse('c');
@@ -26,6 +27,18 @@ const callId = callIdSchema.parse('c');
 const call = (id: string, name: string, input: Record<string, unknown>) =>
   toolCall({ id, name, input });
 const toolUse: StreamEvent = { type: 'done', stopReason: 'tool_use' };
+
+/**
+ * Every session as its last update showed it, in the order they started. A delivered sub-agent is
+ * released from the registry, so what a test checks about one is read from what was announced.
+ */
+function lastSeen(updates: SessionUpdate[]): SessionInfo[] {
+  const seen = new Map<string, SessionInfo>();
+
+  for (const { session } of updates) seen.set(session.id, session);
+
+  return [...seen.values()];
+}
 
 /** A main session with `start_agent`, like a host would wire it. */
 function setup(params: {
@@ -38,6 +51,13 @@ function setup(params: {
   const updates: SessionUpdate[] = [];
 
   sessions.subscribe((update) => updates.push(update));
+
+  // A delivered task is released, so what a test checks about its end is kept as it happens.
+  const ended: TaskInfo[] = [];
+
+  tasks.observe(({ update }) => {
+    if (update.type === 'task_ended') ended.push(update.task);
+  });
 
   const provider = routedProvider(params.scripts);
   const main = sessions.startMain({ title: 'Main' });
@@ -60,12 +80,12 @@ function setup(params: {
       session: { registry: sessions, ref: main },
     });
 
-  return { sessions, tasks, updates, provider, main, tool, run };
+  return { sessions, tasks, ended, updates, provider, main, tool, run };
 }
 
 describe('start_agent', () => {
   it('runs a sub-agent in its own session linked to the parent, and returns its reply', async () => {
-    const { sessions, main, run } = setup({
+    const { sessions, updates, main, run } = setup({
       scripts: {
         'Do the thing': [
           calls(call('m1', 'start_agent', { title: 'Helper', task: 'Help out' })),
@@ -80,9 +100,12 @@ describe('start_agent', () => {
 
     const { reason, messages } = await run('Do the thing');
 
-    const [helper] = sessions.children(main.id);
+    const [helper] = lastSeen(updates).filter(
+      (session) => 'parentId' in session && session.parentId === main.id,
+    );
 
     expect(reason).toBe('completed');
+    expect(helper && sessions.isReleased(helper.id)).toBe(true);
     expect(helper).toMatchObject({
       title: 'Helper',
       parentId: main.id,
@@ -116,7 +139,7 @@ describe('start_agent', () => {
 
         return [];
       };
-    const { sessions, run } = setup({
+    const { sessions, updates, run } = setup({
       scripts: {
         Main: [calls(call('a', 'start_agent', { title: 'Level 2', task: 'L2' })), say('main done')],
         L2: [
@@ -139,7 +162,7 @@ describe('start_agent', () => {
 
     await run('Main');
 
-    const levels = sessions.list().map((s) => [s.title, s.depth, s.state]);
+    const levels = lastSeen(updates).map((s) => [s.title, s.depth, s.state]);
 
     expect(levels).toEqual([
       ['Main', 1, 'completed'],
@@ -148,10 +171,12 @@ describe('start_agent', () => {
     ]);
     expect(seenTools.L2).toContain('start_agent');
     expect(seenTools.L3).toEqual(['report_status']); // depth 3: cannot start sub-agents
-    const [level3] = sessions.list().filter((s) => s.depth === 3);
+    const [level3] = lastSeen(updates).filter((s) => s.depth === 3);
 
     if (!level3) throw new Error('No session reached depth 3');
-    expect(sessions.lineage(level3.id).map((s) => s.title)).toEqual(['Level 3', 'Level 2', 'Main']);
+    // Each delivered sub-agent was released by the session that started it; only Main is left.
+    expect(sessions.list().map((s) => s.title)).toEqual(['Main']);
+    expect(sessions.isReleased(level3.id)).toBe(true);
   });
 
   it('refuses start_agent called by a session at the depth cap', async () => {
@@ -178,7 +203,7 @@ describe('start_agent', () => {
   });
 
   it('streams status reports live, in order, from the sub-agent itself', async () => {
-    const { sessions, tasks, updates, main, run } = setup({
+    const { ended, updates, main, run } = setup({
       scripts: {
         Main: [calls(call('m', 'start_agent', { title: 'Worker', task: 'Work' })), say('ok')],
         Work: [
@@ -192,7 +217,9 @@ describe('start_agent', () => {
 
     await run('Main');
 
-    const worker = sessions.children(main.id)[0];
+    const worker = lastSeen(updates).find(
+      (session) => 'parentId' in session && session.parentId === main.id,
+    );
     const statuses = updates
       .filter((u) => u.type === 'session_status' && u.session.id === worker?.id)
       .map((u) => u.session.status);
@@ -203,7 +230,7 @@ describe('start_agent', () => {
       'updating ESLint rules',
     ]);
     // The parent can see them too, in the task's output.
-    expect(tasks.list()[0]?.output).toContain('[status] editing core package');
+    expect(ended[0]?.output).toContain('[status] editing core package');
   });
 
   it('gives sub-agents only the hooks the parent chose, each with its own sessionStart', async () => {
@@ -293,7 +320,7 @@ describe('start_agent', () => {
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
   });
 
-  it('gives every sub-agent the tools built on its own task registry, even at the depth cap', async () => {
+  it('gives every sub-agent the tools built on the run task registry, even at the depth cap', async () => {
     const sessions = new SessionRegistry();
     const tasks = new TaskRegistry();
     const built: TaskRegistry[] = [];
@@ -335,7 +362,7 @@ describe('start_agent', () => {
     await tasks.nextSettled();
 
     expect(built).toHaveLength(1);
-    expect(built[0]).not.toBe(tasks);
+    expect(built[0]).toBe(tasks);
     expect(seenTools[0]).toEqual([
       'await_tasks',
       'cancel_task',
@@ -425,7 +452,7 @@ describe('start_agent', () => {
   });
 
   it('fails the task with the reason when the sub-agent did not finish, with no report', async () => {
-    const { tasks, run } = setup({
+    const { tasks, ended, run } = setup({
       scripts: {
         'Do the thing': [
           calls(call('m1', 'start_agent', { title: 'Helper', task: 'Help out' })),
@@ -442,7 +469,7 @@ describe('start_agent', () => {
 
     await run('Do the thing');
 
-    const [task] = tasks.list();
+    const [task] = ended;
 
     if (!task) throw new Error('start_agent started no task');
 

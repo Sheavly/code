@@ -316,7 +316,8 @@ describe('background tasks in the loop', () => {
     const events = await collect(streamAgent(options(provider)));
 
     expect(performance.now() - started).toBeLessThan(2_000);
-    expect(tasks.get(t1)?.status).toBe('cancelled');
+    // The cancelled task is silent, and released at the turn boundary after its cancel_task result.
+    expect(tasks.isReleased(t1)).toBe(true);
     expect(types(events)).not.toContain('task_completed');
     expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
   });

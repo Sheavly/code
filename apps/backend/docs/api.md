@@ -157,8 +157,8 @@ Methods follow what each request is. A read with no input is `GET`; a read with 
 point is a typed body (the stream's filter, the skills' search). Setting a value is `PUT` (the
 model: sending it twice is the same as once); anything else that changes state is `POST` or
 `DELETE`, so no client or proxy retries it on its own. Each route of `API_ROUTES` declares whether
-it reads or changes, and its type allows only the methods that fit; adding one is "A route" in the
-project skill.
+it reads or changes, and its type allows only the methods that fit; adding one is "A route" in
+`.agents/skills/sheavly/extending.md`.
 
 `GET /conversations/:id` is what the backend reports about the run it built (the host knows
 nothing of workspaces or models): a conversation that reports nothing answers `not_found`.
@@ -222,7 +222,8 @@ first answer counts, and a later one gets `unknown_approval`.
 There is no way to send text to a running prompt: a client keeps its own queue and sends the next
 prompt after the run ends. To not wait for background tasks or sub-agents, it first calls
 `POST /conversations/:id/yield` (no body). The running prompt then ends as `completed` at its
-completion point, background work keeps running and its results reach the next prompt. It returns
+completion point, background work keeps running and its results reach the next prompt. A run held
+on `await_tasks` ignores the yield while its grouped tasks run, and is still accepted; once they settle the run ends at its next completion point. It returns
 JSON `{ accepted: true }`, or `{ accepted: false }` when the conversation is idle or its run is
 stopping. Unknown ids return `404 not_found`.
 

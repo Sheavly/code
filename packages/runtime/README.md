@@ -4,23 +4,37 @@ The stateful services a run uses, with nothing about files or code: the session 
 inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) makes one of each per
 run; tools and the loop share them.
 
-Tasks default to `backgroundKind: 'task'`: finite work keeps its calling run alive until its
-completion is delivered. `backgroundKind: 'service'` exempts a running service from that rule;
-its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
+Background work starts through `startWork({ tasks, work })` with a `WorkDefinition` built by a
+kind's factory (`finiteWork`, `serviceWork`, or a tool's own such as `subAgentWork`), which fixes the
+policy so a caller names a kind and never passes it. `startWork` is the only source file that may
+call `TaskRegistry.start` (`harness/no-direct-task-start`); `start` itself still defaults to
+`backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
+awaited; its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
 includes non-service running tasks, their held grouped results, and ready, undelivered completion
-notices. A finished finite member keeps its run alive until its group is delivered, even if only
-service members remain; a group containing only running services does not.
+notices: what keeps a sub-agent's loop open. A main session holds only for
+`hasAwaitedTasks(sessionId?)`, running members of an `await_tasks` group. `hasWakingDeliveries`
+says a ready notice reports finite work, so an idle conversation starts a run for it; a
+service's notice does not. A finished finite member keeps a sub-agent's run alive until its group
+is delivered, even if only service members remain; a group containing only running services does
+not.
 
 `TaskRegistry.group({ ids, reason, sessionId? })` returns immediately and holds its members for
-one delivery when the last settles, including cancelled members. Unknown, duplicate, already
-grouped and unowned IDs throw `TaskError` without changing anything; empty groups are rejected.
+one delivery when the last settles, including cancelled members. Duplicate, already grouped,
+service and already delivered IDs (`task_delivered`) throw `TaskError` without changing anything;
+empty groups are rejected. An ID the session has no task for (never issued, released, or another
+session's) is refused as `unknown_task` with one message, so it reveals nothing about other
+sessions. A task cancelled on request was never notified, so it can still join a group until the
+next model step releases it; a cancel and a group in the same response both work.
 Already settled members join the group instead of producing separate undelivered notices.
 After validation succeeds, the explicit `reason` is stored on every member's `TaskInfo` as well as
 on the delivery. It remains available through `get`, `list`, `byCallId` and `takeDeliveries`, even
 after delivery; these return independent snapshots. Rejected groups assign no reasons, and
 ungrouped tasks do not infer a reason from their command or description.
 Membership persists after delivery until each task is released. Ordinary requested cancellations
-remain silent. Task observers still receive every start/end immediately, even for held groups.
+remain silent. A task's status is what its run reported: a run that resolved with exit code 0 is
+`completed` even when a cancel aborted its signal before the registry recorded the result, and
+`cancel` returns that status. Any other end after an abort is `cancelled`, for every work kind.
+Task observers still receive every start/end immediately, even for held groups.
 Registering an already-settled group also wakes `nextSettled` waiters, so a parked run can consume
 its new delivery without waiting for an unrelated task to finish.
 
@@ -29,8 +43,11 @@ string }`) once, in readiness order, with group members in requested ID order.
 `hasDeliveries(sessionId?)` checks readiness without consuming. Supplying a session filters all
 these queries and group validation by ownership, while allowing generic tasks with no session ID;
 a child cannot consume its parent's results. `cancelSession(sessionId)` cancels exact ownership
-only (descendant signals cascade separately); `cancelAll()` remains registry-wide for main-run
-shutdown. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
+only (descendant signals cascade separately); `cancelAll()` remains registry-wide. The run has one
+registry for every session, so a session's reads are scoped: `list(sessionId?)`,
+and `getOwned({ id, sessionId })` show only what it owns (and tasks with no owner), and another
+session's id reads as unknown; a tool checks `getOwned` before it cancels. The loop's abort and a
+sub-agent's shutdown cancel their own session with `cancelSession`, never `cancelAll`. `takeUnreported()` and `hasUnreported` are compatibility views over ready deliveries.
 
 `TaskRegistry.runningTasks(sessionId?)` returns fresh metadata-only `RunningTask[]` snapshots
 (from the protocol's notice types) in task start order: `{ id, title, reason, startedAt, group? }`.
@@ -90,12 +107,21 @@ is a document, such as a sub-agent's report, returns it as `report` from `run`. 
 it whole, outside `OutputBuffer` and outside `TaskInfo`, so no limit applies and no task event
 carries it; `TaskRegistry.report(id)` reads it, and `formatTask` shows it in place of the output.
 
-Neither registry forgets on its own: a UI frees memory on request. `SessionRegistry.release(id)`
-removes an ended session and the sub-agents under it (it throws `session_running` if any is still
-open), with their inboxes, last tokens and message ids; entries already in the combined stream
-stay. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
+The loop releases finished tasks itself: before each model call (so once per model step, not once
+per prompt), after the notices are in history, it calls `releaseFinished(sessionId)`, so a long-lived conversation's `TaskRegistry` does not grow.
+A released id is unknown to `get`, `report` and `list`; `isReleased(id)` tells it from one that
+never existed, though `group()` refuses both alike (`unknown_task`). The same step releases a delivered
+sub-agent's session: `SessionRegistry.releaseAgent(id)` removes the ended sub-agent and the
+sessions under it, and returns false rather than throwing when one is still open or the id is a
+main session or already gone. `release(id)` is the throwing form (`session_running` if any is
+still open). Both announce each session as `session_released` and drop its inbox, last tokens and
+message ids. Entries already in the combined stream stay, and a subtree filter still matches them
+(the registry keeps each released id and its parent). `isReleased(id)` tells a released id from an
+unknown one, a write to it throws `session_released`, and `releasedStarts()` lists them with their start times for readers of
+stored history. The main session is never released, and a reopened conversation restores all of
+its sessions. `TaskRegistry.release(id)` removes a task that finished and was reported, or was cancelled on
 request, with its output and report, and returns false for one still running or not yet reported;
-`releaseFinished()` does it for every such task. Held or ready-but-undelivered group members
+`releaseFinished(sessionId?)` does it for every such task the session owns. Held or ready-but-undelivered group members
 cannot be released, including cancelled members; after delivery, each member can be released.
 
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.

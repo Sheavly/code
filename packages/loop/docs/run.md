@@ -34,11 +34,15 @@ update; the original exception still ends iteration. Diagnostics never enter mod
 4. `afterTurn` hooks run. Output truncation gets a bounded continuation; otherwise, if the model
    called tools, the next turn starts. Without either, the run ends (or waits for a background
    task). A session cannot end normally while its non-service tasks, including sub-agents, are
-   running or have results ready to deliver. Tasks with `backgroundKind: 'service'` may outlive it.
+   running or have results ready to deliver. Services (the `service` kind, started by `start_service`) may outlive it.
 5. `done` is always last and carries the full history, valid to continue from, and the run's
    session (every run is a session with an id; see [sessions](../../runtime/docs/sessions.md)).
 
-The automatic wait begins only after a turn without tool calls. Repeated status-tool calls keep
+The automatic wait begins only after a turn without tool calls. What it waits for is
+`holdOpenFor`: `finite` (the default, a sub-agent's) waits for any running finite task, so a
+sub-agent never ends while its own work runs; `awaited` (a conversation's main session) waits
+only for `await_tasks` groups, and other finished work is delivered by the run the conversation
+starts when it finishes. A ready notice at the end of a turn continues either run once. Repeated status-tool calls keep
 starting model turns instead of waiting; the agent must finish independent work and yield.
 A task completion wakes that wait and reaches history before the next model call, without
 another user prompt. `await_tasks({ ids, reason })` returns immediately and holds those tasks'
@@ -51,8 +55,13 @@ tasks or releasing held groups. Normal completion rechecks the inbox after the f
 task check, so a message accepted at that boundary is handled instead of stranded in an idle
 session. Aborting `yieldSignal` ends the run as `completed` at its completion point instead of
 waiting for tasks: it wakes the wait and takes precedence over pending deliveries, which stay for
-the next run. It never interrupts a model call or tools. Cancelling a grouped task counts it as finished, but the combined notice waits for the
-remaining members and includes its cancelled status. Services that outlive a run are reported
+the next run. It never interrupts a model call or tools, and it never ends a hold on grouped work
+(`await_tasks`): while grouped tasks run, the yield stays raised and is ignored, so a queued line
+waits until the model has finished (`yieldEnds`). When the group settles, the model still
+receives its notice and answers it; the raised yield then ends the run at the next completion
+point, and the queued line starts as the next prompt. Cancelling a grouped task counts it as
+finished, but the combined notice waits for the remaining members and includes its cancelled
+status. Services that outlive a run are reported
 at the next prompt; grouping a service does not turn it into finite work.
 
 **A finished task is a persistent notice.** For each task that finished, the loop emits

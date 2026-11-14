@@ -67,10 +67,16 @@ export async function runAgent(options: RunAgentOptions): Promise<HistoryMessage
 export async function runSession(
   options: RunAgentOptions,
 ): Promise<{ reason: DoneReason; messages: HistoryMessage[] }> {
+  let ended: { reason: DoneReason; messages: HistoryMessage[] } | undefined;
+
+  // Reads on past `done`, which is always the last event: a failed run's `done` comes before its
+  // error, and returning there would swallow the error the caller must see.
   for await (const event of streamAgent(options)) {
     options.onEvent?.(event);
-    if (event.type === 'done') return { reason: event.reason, messages: event.messages };
+    if (event.type === 'done') ended = { reason: event.reason, messages: event.messages };
   }
+
+  if (ended) return ended;
 
   throw new StreamEndedError();
 }
@@ -93,8 +99,8 @@ async function drive(context: RunContext) {
     pending: undefined,
   };
   const summaryFailures = { count: 0, overflowTried: false };
-  // Only reached when a cap was asked for: without one the loop ends by `break` or by throwing.
-  let reason: DoneReason = 'max_turns';
+  // Set when a turn ends the run; still unset only if the turn cap ran out first.
+  let reason: DoneReason | undefined;
 
   // Every event is published to the session's registry as it is released, mid-turn: a session
   // that registry doesn't know fails the run here, before anything ran, not halfway through.
@@ -159,18 +165,31 @@ async function drive(context: RunContext) {
       details: errorDetails(caughtError),
       session: session.ref,
     });
-    // The API closes on the failed session update, so release the diagnostic first even when
-    // earlier tool results or error hooks were queued. The original exception still reaches callers.
+    // Release the diagnostic first, even when earlier tool results or error hooks were queued.
     await events.consumed();
+    // The run still ends with its one `done`, so a stream is self-describing: tasks are stopped and
+    // the session leaves `running` before it, as on every other path. The registry may no longer
+    // know the session, which must not cost the `done`. The original exception still reaches
+    // callers, after the stream has yielded `done`.
+    if (signal.aborted) await options.tasks?.cancelSession(session.ref.id);
+
+    if (session.registry.get(session.ref.id)) {
+      finishSession({ session, outcome: 'failed', keep: options.keepSession });
+    }
+
+    events.enqueue({ type: 'done', reason: 'failed', messages, session: session.ref });
     throw caughtError;
   } finally {
     // Task controllers are independent of tool calls. Abort must stop them before the session
-    // ends, including sub-agents whose own cleanup cancels their descendants.
-    if (signal.aborted) await options.tasks?.cancelAll();
+    // ends, including sub-agents whose own cleanup cancels their descendants. Only this session's:
+    // the registry is shared by the run's sessions, so a stopped child leaves its parent's alone.
+    if (signal.aborted) await options.tasks?.cancelSession(session.ref.id);
   }
 
-  finishSession({ session, outcome: reason, keep: options.keepSession });
-  events.enqueue({ type: 'done', reason, messages, session: session.ref });
+  const outcome = reason ?? 'max_turns';
+
+  finishSession({ session, outcome, keep: options.keepSession });
+  events.enqueue({ type: 'done', reason: outcome, messages, session: session.ref });
 }
 
 /** The run is over: its session ends, or, kept for a conversation's next prompt, goes idle. */

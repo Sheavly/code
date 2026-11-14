@@ -7,8 +7,9 @@ tools, loop, host), coding as a preset on top (workspace, coding), and every fro
 
 ## Where to look
 
-- Conventions, layers, file kinds and the quality gate: the `working-in-sheavly-harness` skill
-  (`.agents/skills/working-in-sheavly-harness/SKILL.md`).
+- Conventions, layers, file kinds, extending the harness, tests, the quality gate, debugging and
+  the state machines of each system: the `sheavly` skill (`.agents/skills/sheavly/SKILL.md`), a
+  router to one guide per topic. Keep issue #102 in mind: extend the harness, never modify its core.
 - Which workspace code belongs in: the `sheavly-packages` skill; then that workspace's README.
 - Branches, commits, PRs and issues: the `git` skill.
 

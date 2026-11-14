@@ -35,8 +35,8 @@ describe('task group reasons', () => {
     expect(tasks.get(running.info.id)).toMatchObject({ status: 'running', reason });
     expect(tasks.get(settled.info.id)).toMatchObject({ status: 'completed', reason });
     expect(tasks.list().map((task) => task.reason)).toEqual([reason, reason]);
-    expect(tasks.byCallId(callIdSchema.parse('running-call'))?.reason).toBe(reason);
-    expect(tasks.byCallId(callIdSchema.parse('settled-call'))?.reason).toBe(reason);
+    expect(tasks.byCallId({ callId: callIdSchema.parse('running-call') })?.reason).toBe(reason);
+    expect(tasks.byCallId({ callId: callIdSchema.parse('settled-call') })?.reason).toBe(reason);
     expect(tasks.takeDeliveries()).toEqual([]);
 
     await running.finish();
@@ -70,7 +70,7 @@ describe('task group reasons', () => {
     const snapshots = [
       tasks.get(member.info.id),
       ...tasks.list(),
-      tasks.byCallId(callIdSchema.parse('snapshot-call')),
+      tasks.byCallId({ callId: callIdSchema.parse('snapshot-call') }),
     ];
 
     for (const snapshot of snapshots) {
@@ -93,7 +93,7 @@ describe('task group reasons', () => {
     }
 
     expect(tasks.get(member.info.id)?.reason).toBe(reason);
-    expect(tasks.byCallId(callIdSchema.parse('snapshot-call'))?.reason).toBe(reason);
+    expect(tasks.byCallId({ callId: callIdSchema.parse('snapshot-call') })?.reason).toBe(reason);
     expect(tasks.list()[0]?.reason).toBe(reason);
   });
 

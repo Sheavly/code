@@ -29,6 +29,13 @@ describe('fileTrail', () => {
     );
   });
 
+  it('says a service was started, so a summary does not lose it', () => {
+    expect(fileTrail(call('start_service', { command: 'npm run dev' }))).toBe(
+      'started: npm run dev',
+    );
+    expect(fileTrail(call('start_service', { cwd: 'x' }))).toBeUndefined();
+  });
+
   it('says what command ran, on one line and cut when long', () => {
     expect(fileTrail(call('run_command', { command: 'npm test' }))).toBe('ran: npm test');
 

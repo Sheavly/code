@@ -137,6 +137,22 @@ describe('harness impact section', () => {
     expect(pr({ body: body(section).replaceAll('\n', '\r\n') })).toEqual([]);
   });
 
+  it('accepts a project hook in .sheavly/hooks as the guard, with its regression test', () => {
+    const entry =
+      '- Shell commands: `.sheavly/hooks/shell-guard.mjs` blocks anything but an allow; tests in `scripts/__tests__/sheavly-hooks.test.mjs`.';
+
+    expect(pr({ body: body(`## Harness impact\n\n${entry}`) })).toEqual([]);
+  });
+
+  it('does not accept a .sheavly path that is not a hook file, or a hook without a test', () => {
+    const notAHook =
+      '- `.sheavly/notes.md` documents it; tests in `scripts/__tests__/sheavly-hooks.test.mjs`.';
+    const untested = '- `.sheavly/hooks/shell-guard.mjs` blocks it.';
+
+    expect(pr({ body: body(`## Harness impact\n\n${notAHook}`) })[0]).toContain('coverage needs');
+    expect(pr({ body: body(`## Harness impact\n\n${untested}`) })[0]).toContain('coverage needs');
+  });
+
   it.each([
     '- Existing checks cover it.',
     '- New rule `harness/x` (commit 3).',

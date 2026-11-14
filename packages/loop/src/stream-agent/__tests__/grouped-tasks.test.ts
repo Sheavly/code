@@ -4,6 +4,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
@@ -28,7 +29,18 @@ function registry() {
   return tasks;
 }
 
-function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'task' | 'service') {
+function controlledTask(
+  tasks: TaskRegistry,
+  label: string,
+  {
+    backgroundKind,
+    sessionId,
+  }: {
+    backgroundKind?: 'task' | 'service';
+    /** The session that owns it, as a tool call's session does; a shutdown cancels only these. */
+    sessionId?: SessionId;
+  } = {},
+) {
   const finish = Promise.withResolvers<undefined>();
   const ended = Promise.withResolvers<undefined>();
   let aborted = false;
@@ -36,6 +48,7 @@ function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'ta
     command: label,
     description: label,
     ...(backgroundKind && { backgroundKind }),
+    ...(sessionId && { sessionId }),
     run: async ({ signal, onOutput }) => {
       signal.addEventListener(
         'abort',
@@ -48,7 +61,8 @@ function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'ta
       await finish.promise;
       onOutput(`${label} findings`);
 
-      return { exitCode: 0 };
+      // A stopped command reports no exit code, as a killed process does.
+      return { exitCode: aborted ? null : 0 };
     },
   });
   const unobserve = tasks.observe(({ update }) => {
@@ -302,37 +316,64 @@ describe('grouped task delivery in the loop', () => {
     ]);
   });
 
-  it('wakes a parked loop when retained completed tasks are grouped without another settlement', async () => {
+  it('refuses to group a task cancelled on request once a turn boundary has released it', async () => {
     const tasks = registry();
-    const completed = controlledTask(tasks, 'completed review');
+    const cancelled = controlledTask(tasks, 'cancelled review');
     const blocker = controlledTask(tasks, 'ongoing review');
 
-    await completed.finish();
-    tasks.takeDeliveries();
-    const { provider, requests } = recordingProvider([
+    // A requested cancel is silent: it can be grouped until the next turn boundary releases it.
+    await tasks.cancel(cancelled.task.id);
+    const { provider } = recordingProvider([
       say('Independent work finished.'),
-      say('Revisited the completed review.'),
       say('All work finished.'),
     ]);
     const running = collect(streamAgent(options(tasks, provider)));
 
     await until(() => tasks.settleWaiters === 1);
-    tasks.group({ ids: [completed.task.id], reason });
-    await until(() => requests.length === 2 && tasks.settleWaiters === 1);
-    expect(requests[1]?.at(-1)?.content).toContain(reason);
+
+    expect(() => tasks.group({ ids: [cancelled.task.id], reason })).toThrow(
+      expect.objectContaining({ reason: 'unknown_task' }),
+    );
     expect(tasks.get(blocker.task.id)?.status).toBe('running');
     await blocker.finish();
-    const events = await running;
+    await running;
 
-    expect(groupedNotices(events)).toHaveLength(1);
     expect(tasks.settleWaiters).toBe(0);
     expect(tasks.hasPendingTasks()).toBe(false);
+  });
+
+  it('groups a task cancelled in the same model step: the release waits for the next one', async () => {
+    const tasks = registry();
+    const target = controlledTask(tasks, 'cancelled review');
+    const id = target.task.id;
+    const call = (name: string, input: Record<string, unknown>): StreamEvent => ({
+      type: 'tool_call',
+      call: { id: callIdSchema.parse(name), name, input: { description: name, ...input } },
+    });
+    const { provider } = recordingProvider([
+      // One response with both calls: no turn boundary falls between the cancel and the group.
+      [
+        call('cancel_task', { id }),
+        call('await_tasks', { ids: [id], reason }),
+        { type: 'done', stopReason: 'tool_use' },
+      ],
+      say('Cancelled and grouped.'),
+      say('Saw the group.'),
+    ]);
+    const events = await collect(streamAgent(options(tasks, provider)));
+    const results = events.filter((event) => event.type === 'tool_result');
+
+    expect(results).toHaveLength(2);
+    expect(results.every((event) => !event.message.content.includes('released'))).toBe(true);
+    expect(groupedNotices(events)).toHaveLength(1);
+    expect(tasks.isReleased(id)).toBe(true);
+    expectValidDoneHistory(events);
   });
 
   it('services are exempt from automatic finite waiting', async () => {
     const tasks = registry();
     const finite = controlledTask(tasks, 'finite');
-    const service = controlledTask(tasks, 'server', 'service');
+    const service = controlledTask(tasks, 'server', { backgroundKind: 'service' });
     const { provider } = recordingProvider([
       say('Waiting for finite work.'),
       say('Finite work received.'),
@@ -351,15 +392,22 @@ describe('grouped task delivery in the loop', () => {
 
   it('abort cancels every grouped member and unrelated services before done', async () => {
     const tasks = registry();
-    const first = controlledTask(tasks, 'first');
-    const last = controlledTask(tasks, 'last');
-    const service = controlledTask(tasks, 'server', 'service');
+    const sessions = new SessionRegistry();
+    const ref = sessions.startMain({ title: 'Parent' });
+    const sessionId = ref.id;
+    const first = controlledTask(tasks, 'first', { sessionId });
+    const last = controlledTask(tasks, 'last', { sessionId });
+    const service = controlledTask(tasks, 'server', { backgroundKind: 'service', sessionId });
     const controller = new AbortController();
 
     tasks.group({ ids: [first.task.id, last.task.id], reason });
     const { provider } = recordingProvider([say('Waiting.')]);
     const running = collect(
-      streamAgent({ ...options(tasks, provider), signal: controller.signal }),
+      streamAgent({
+        ...options(tasks, provider),
+        signal: controller.signal,
+        session: { registry: sessions, ref },
+      }),
     );
 
     await until(() => tasks.settleWaiters === 1);
@@ -407,7 +455,7 @@ describe('grouped task delivery in the loop', () => {
         yield { type: 'done', stopReason: 'end_turn' };
       },
     };
-    const sibling = controlledTask(tasks, 'sibling');
+    const sibling = controlledTask(tasks, 'sibling', { sessionId: ref.id });
     const { provider } = recordingProvider([
       toolTurn('start_agent', { title: 'Review', task: 'Review with a descendant' }),
       toolTurn('await_tasks', { ids: [sibling.task.id, 't2'], reason }),
@@ -432,12 +480,18 @@ describe('grouped task delivery in the loop', () => {
     );
 
     await descendantStarted.promise;
-    await until(() => tasks.settleWaiters === 1);
+    // The parent and the sub-agent holding on its descendant wait on the one shared registry.
+    await until(() => tasks.settleWaiters === 2);
     controller.abort();
     const events = await running;
 
     await descendantStopped.promise;
-    expect(tasks.list().map((task) => task.status)).toEqual(['cancelled', 'cancelled']);
+    // The sibling, the review, and the review's descendant: all on the one registry.
+    expect(tasks.list().map((task) => task.status)).toEqual([
+      'cancelled',
+      'cancelled',
+      'cancelled',
+    ]);
     expect(
       sessions
         .list()

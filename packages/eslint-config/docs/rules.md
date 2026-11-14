@@ -87,6 +87,14 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
   `harness/no-brand-cast` (type-aware, tests included) fails `as` to a branded type: a value gets
   its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
+- **Background work starts through a kind factory** (`harness/no-direct-task-start`, type-aware,
+  source files): any access to `TaskRegistry.start` (a call, an alias, destructuring, `.call`,
+  `.apply`, a string key, `prototype.start`) fails, found by the receiver's type and not by the
+  name `start`. Only the `work.utils.ts` that sits beside the `tasks.service.ts` holding
+  `TaskRegistry` (the runtime's `startWork`) may; tests and `src/testing` files are exempt through
+  the shared config's ignores. A registry typed `any`, cast to another shape, assigned to a
+  structural type that re-declares `start` or extended through a mixin is left to review, and so
+  is whether reads of the shared registry pass the caller's session.
 - **The latest request** (`harness/no-adhoc-latest-request`, source files): no
   `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
   history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`
@@ -94,6 +102,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   a `user`-role message in what a model is sent. Code that works on a model's input says so with a
   `files:` override and its reason. It sees only this call shape, so a lookup written another way
   (a loop, a reversed copy) is left to review.
+- **The main session** (`harness/no-adhoc-main-session`, source files): no `session.depth === 1`
+  (or `!==`, `==`, either side). The main session is the one without a parent, defined once by
+  `isMainSession` (`@sheavly/protocol/session/session.utils`); how the main run ended is asked of
+  `runEnd` (`@sheavly/protocol/status/run-end.utils`). It sees only a comparison of a `.depth`
+  member with the literal 1, so a depth copied into a variable first is left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

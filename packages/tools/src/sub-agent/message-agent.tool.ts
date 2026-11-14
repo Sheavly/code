@@ -26,6 +26,13 @@ export function createMessageAgentTool({ sessions }: { sessions: SessionRegistry
         });
       }
 
+      if (sessions.isReleased(id)) {
+        throw new ToolCallError({
+          reason: 'not_found',
+          message: `Sub-agent session ${id} already finished and its report was delivered, so it was released and cannot be messaged. Start a new sub-agent for more work`,
+        });
+      }
+
       sessions.send({ id, content: message, from: context.session.id });
       const target = sessions.get(id);
 

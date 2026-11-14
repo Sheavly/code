@@ -112,6 +112,7 @@ describe('a model call that fails after starting tools', () => {
       'tool_result',
       'tool_result',
       'run_failed',
+      'done',
     ]);
     expect(events).toContainEqual(expect.objectContaining({ stopReason: 'interrupted' }));
     // On the stream a result comes when its tool is done: c2 finished, c1 was stopped after it.
@@ -145,10 +146,16 @@ describe('a model call that fails after starting tools', () => {
     const { events, error: thrown, history } = await runToFailure({ provider, log: [] });
 
     expect(thrown).toBe(error);
-    expect(events.map((event) => event.type)).toEqual(['text_delta', 'usage', 'run_failed']);
+    expect(events.map((event) => event.type)).toEqual([
+      'text_delta',
+      'usage',
+      'run_failed',
+      'done',
+    ]);
     expect(events.find((event) => event.type === 'usage')).toMatchObject({
       usage: { tokens: null },
     });
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'failed' });
     expect(history).toEqual([]);
   });
 });

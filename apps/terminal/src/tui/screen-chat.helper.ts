@@ -3,6 +3,7 @@ import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
+import { errorText } from '../chat/chat.utils.js';
 import { TerminalBell } from '../bell/bell.service.js';
 import { UsageLedger } from '@sheavly/runtime/usage/usage.service';
 import { ContextUsageTracker } from '../usage/context-usage.service.js';
@@ -168,6 +169,16 @@ export async function startScreenChat(params: {
 
   void ended.catch((caughtError: unknown) => {
     screen.notice(`✗ lost the approval stream: ${String(caughtError)}`);
+  });
+
+  // Runs the backend starts itself (a finished background task wakes the idle conversation).
+  const followed = await conversation.follow({
+    onEntry: (entry) => session.hear(entry),
+    signal: watching.signal,
+  });
+
+  void followed.ended.catch((caughtError: unknown) => {
+    screen.notice(`✗ lost the live stream: ${errorText(caughtError)}`);
   });
 
   screen.start();

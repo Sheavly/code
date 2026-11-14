@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { TaskId } from '@sheavly/protocol/task/task.types';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskError } from '../../errors/tasks.errors.js';
 import { TaskRegistry } from '../tasks.service.js';
+import { missingTaskMessage } from '../tasks.utils.js';
 import type { StartTask } from '../tasks.types.js';
 
 const owner = sessionIdSchema.parse('parent');
@@ -147,10 +150,14 @@ describe('session-filtered task deliveries', () => {
 
     expect(request).toThrow(TaskError);
     expect(request).toThrow(
-      expect.objectContaining({ reason: 'task_not_owned', taskId: foreign.task.id }),
+      expect.objectContaining({
+        reason: 'unknown_task',
+        taskId: foreign.task.id,
+        message: missingTaskMessage(foreign.task.id),
+      }),
     );
     expect(registry.list().every((task) => task.reason === undefined)).toBe(true);
-    expect(registry.takeDeliveries(owner)).toEqual([{ tasks: [registry.get(generic.task.id)] }]);
+    expect(registry.hasDeliveries(owner)).toBe(true);
 
     registry.group({
       ids: [generic.task.id, owned.task.id],
@@ -170,8 +177,31 @@ describe('session-filtered task deliveries', () => {
   });
 });
 
+describe('an id the caller has no task for', () => {
+  it('is refused the same way whether foreign, never issued or released', () => {
+    const registry = new TaskRegistry();
+    const foreign = sessionTask({ registry, sessionId: other });
+    const never = taskIdSchema.parse('t999');
+    const refusal = (id: TaskId) => {
+      try {
+        registry.group({ ids: [id], reason: 'x', sessionId: owner });
+      } catch (caughtError) {
+        return caughtError instanceof TaskError
+          ? { reason: caughtError.reason, message: caughtError.message }
+          : {};
+      }
+
+      return undefined;
+    };
+    const normalised = (id: TaskId) => JSON.stringify(refusal(id)).replaceAll(id, 'tN');
+
+    expect(refusal(foreign.task.id)).toEqual(expect.objectContaining({ reason: 'unknown_task' }));
+    expect(normalised(foreign.task.id)).toBe(normalised(never));
+  });
+});
+
 describe('session-scoped services and grouped counts', () => {
-  it('rejects an owned service, and reports a foreign one as foreign, not as a service', () => {
+  it('rejects an owned service, and reports a foreign one as unknown, not as a service', () => {
     const registry = new TaskRegistry();
     const finite = sessionTask({ registry, sessionId: owner });
     const service = sessionTask({ registry, sessionId: owner, backgroundKind: 'service' });
@@ -181,7 +211,7 @@ describe('session-scoped services and grouped counts', () => {
       registry.group({ ids: [finite.task.id, service.task.id], reason: 'x', sessionId: owner }),
     ).toThrow(expect.objectContaining({ reason: 'service_task' }));
     expect(() => registry.group({ ids: [foreign.task.id], reason: 'x', sessionId: owner })).toThrow(
-      expect.objectContaining({ reason: 'task_not_owned' }),
+      expect.objectContaining({ reason: 'unknown_task' }),
     );
     expect(registry.groupedPendingCount(owner)).toBe(0);
   });

@@ -7,6 +7,7 @@ import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import { ConversationsError } from '../errors/conversations.errors.js';
 import type { StoredConversationState } from './conversations.types.js';
 import { repairHistory } from './conversations.utils.js';
+import { owedAgentReports } from './restored-reports.helper.js';
 
 /**
  * Reads everything reopening conversation `id` needs from `store`. Throws `not_found` when the
@@ -27,16 +28,16 @@ export async function readStoredConversation(params: {
   }
 
   const logged = await readHistoryEntries(store.history({ id }));
-  const messages = repairHistory({ messages: logged, at: now() });
+  const at = now();
+  const repaired = repairHistory({ messages: logged, at });
 
-  assertRepairOnlyAppended({ id, logged, messages });
+  assertRepairOnlyAppended({ id, logged, messages: repaired });
 
-  return {
-    stored,
-    logged: logged.length,
-    messages,
-    resume: await SessionRegistry.readStoredLog(store.entries(id)),
-  };
+  const resume = await SessionRegistry.readStoredLog(store.entries(id));
+  // After the repair placeholders, so the log stays append-only and the model gets them once.
+  const owed = await owedAgentReports({ store, id, resume, history: repaired, at });
+
+  return { stored, logged: logged.length, messages: [...repaired, ...owed], resume };
 }
 
 /**

@@ -107,7 +107,7 @@
                 "report": { "type": "string" },
                 "context": { "$ref": "#/$defs/TaskCompletionContext" }
               },
-              "required": ["kind", "agent", "taskId", "outcome", "report"]
+              "required": ["kind", "agent", "outcome", "report"]
             },
             {
               "type": "object",
@@ -140,7 +140,7 @@
                       "report": { "type": "string" },
                       "context": { "$ref": "#/$defs/TaskCompletionContext" }
                     },
-                    "required": ["kind", "agent", "taskId", "outcome", "report"]
+                    "required": ["kind", "agent", "outcome", "report"]
                   },
                   {
                     "type": "object",
@@ -878,7 +878,14 @@
     },
     "DoneReason": {
       "type": "string",
-      "enum": ["completed", "interrupted", "max_turns", "max_tokens", "context_window_exceeded"]
+      "enum": [
+        "completed",
+        "interrupted",
+        "max_turns",
+        "max_tokens",
+        "context_window_exceeded",
+        "failed"
+      ]
     },
     "ToolArtifact": {
       "type": "object",
@@ -1164,6 +1171,14 @@
           "type": "object",
           "properties": {
             "type": { "type": "string", "const": "session_ended" },
+            "session": { "$ref": "#/$defs/SessionInfo" }
+          },
+          "required": ["type", "session"]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "const": "session_released" },
             "session": { "$ref": "#/$defs/SessionInfo" }
           },
           "required": ["type", "session"]

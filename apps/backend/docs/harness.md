@@ -24,7 +24,7 @@ locks and process runner), then composes:
 | `web_search`                                          | `@sheavly/tools`     | Bounded titles, URLs and snippets, with UI artifacts; a fallback chain of keyless backends (Tavily first) unless another is injected, omitted with `WEB_SEARCH=false` |
 | `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                                                                       |
 | `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`     | Inspect or cancel background work, or group its completions with a reason                                                                                             |
-| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, their own task registry and `run_command`, plus the shared hooks                                                             |
+| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, the run's task registry (scoped to their session) and `run_command`, plus the shared hooks                                   |
 | The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                                                                               |
 | The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                                                                                  |
 | The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                                                  |
@@ -79,7 +79,7 @@ folder's permissions from the user's folder (`workspacePermissions`), so a mode 
 command applies to every conversation in that folder from its next command.
 
 Finite background commands and sub-agent replies keep the prompt alive by default and resume
-the parent automatically when they finish. Persistent services (`backgroundKind: 'service'`)
+the parent automatically when they finish. Persistent services (started with `start_service`)
 are exempt: they may outlive a prompt without keeping it active. Interrupting a prompt cancels
 its background work, including sub-agent descendants, and does not restart it automatically.
 

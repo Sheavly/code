@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
 import { modelIdSchema, modelModeSchema } from '../model/model.validator.js';
+import {
+  INCONSISTENT_SESSION_MESSAGE,
+  RUN_OUTCOMES,
+  SESSION_STATES,
+} from '../status/status.constants.js';
+import { isConsistentSession } from '../status/status.utils.js';
 import { timestampSchema } from '../time/time.validator.js';
 
 /**
@@ -39,19 +45,10 @@ export const sessionRefSchema = z.union([mainRefSchema, agentRefSchema]);
  * Where a session is: running a prompt, `idle` between prompts of a conversation (open, waiting
  * for the next), or ended, with how its last run ended.
  */
-export const sessionStateSchema = z.enum([
-  'running',
-  'idle',
-  'completed',
-  'interrupted',
-  'max_turns',
-  'max_tokens',
-  'context_window_exceeded',
-  'failed',
-]);
+export const sessionStateSchema = z.enum(SESSION_STATES);
 
-/** How one run of a session ended: the states it can leave behind. */
-export const runOutcomeSchema = sessionStateSchema.exclude(['running', 'idle']);
+/** How one run of a session ended: the states it can leave behind. A run's `done` carries it too. */
+export const runOutcomeSchema = z.enum(RUN_OUTCOMES);
 
 /** What a session is as a UI sees it, beyond who it is: its name, state and times. */
 const sessionDetails = {
@@ -73,10 +70,21 @@ const sessionDetails = {
 };
 
 /** A snapshot of a sub-agent: who it is, who started it, and where it is. */
-export const agentInfoSchema = agentRefSchema.extend(sessionDetails);
+export const agentInfoSchema = agentRefSchema
+  .extend(sessionDetails)
+  .refine(isConsistentSession, { error: INCONSISTENT_SESSION_MESSAGE, path: ['state'] });
 
-/** A snapshot of a session, for a UI (e.g. a sub-agent card). */
-export const sessionInfoSchema = z.union([mainRefSchema.extend(sessionDetails), agentInfoSchema]);
+/**
+ * A snapshot of a session, for a UI (e.g. a sub-agent card). `state`, `lastOutcome` and `endedAt`
+ * do not contradict each other (`isConsistentSession`); JSON Schema cannot say so, so only
+ * parsing enforces it.
+ */
+export const sessionInfoSchema = z.union([
+  mainRefSchema
+    .extend(sessionDetails)
+    .refine(isConsistentSession, { error: INCONSISTENT_SESSION_MESSAGE, path: ['state'] }),
+  agentInfoSchema,
+]);
 
 /** A message waiting in a session's inbox, delivered at its next model call. */
 export const inboxMessageSchema = z.object({
@@ -112,4 +120,10 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
     mode: modelModeSchema.exactOptional(),
   }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
+  /**
+   * A sub-agent's ended session was forgotten by the registry once its report was delivered, so a
+   * UI can drop its card. `session` is its last snapshot. Its entries stay in the stream and its
+   * history stays readable; it is only no longer a live session.
+   */
+  z.object({ type: z.literal('session_released'), session: sessionInfoSchema }),
 ]);

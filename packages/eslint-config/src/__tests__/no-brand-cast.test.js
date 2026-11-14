@@ -1,14 +1,13 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { ESLint } from 'eslint';
-import tseslint from 'typescript-eslint';
 import { afterAll, describe, expect, it } from 'vitest';
-import { harnessPlugin } from '../plugin.js';
+import { typedProject } from '../testing/typed-project.fake.js';
 
 // `no-brand-cast` is type-aware, so it lints real files of a temp project with a tsconfig. The
 // brand is declared the way zod declares it: a `unique symbol` property on an intersection.
-const dir = mkdtempSync(path.join(tmpdir(), 'no-brand-cast-'));
+const project = typedProject({
+  name: 'no-brand-cast',
+  rule: 'harness/no-brand-cast',
+  include: ['*.ts'],
+});
 const BRAND = [
   'declare const $brand: unique symbol;',
   'type SessionId = string & { [$brand]: { SessionId: true } };',
@@ -16,37 +15,9 @@ const BRAND = [
   'declare function parse(value: unknown): SessionId;',
 ].join('\n');
 
-writeFileSync(
-  path.join(dir, 'tsconfig.json'),
-  JSON.stringify({ compilerOptions: { strict: true, noEmit: true }, include: ['*.ts'] }),
-);
+const castsIn = (name, code) => project.lint({ file: `${name}.ts`, code: `${BRAND}\n${code}\n` });
 
-const eslint = new ESLint({
-  cwd: dir,
-  overrideConfigFile: true,
-  overrideConfig: {
-    files: ['**/*.ts'],
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: { projectService: true, tsconfigRootDir: dir },
-    },
-    plugins: { harness: harnessPlugin },
-    rules: { 'harness/no-brand-cast': 'error' },
-  },
-});
-
-async function castsIn(name, code) {
-  const file = path.join(dir, `${name}.ts`);
-
-  writeFileSync(file, `${BRAND}\n${code}\n`);
-  const [result] = await eslint.lintFiles([file]);
-
-  return result.messages.map((message) => message.ruleId);
-}
-
-afterAll(() => {
-  rmSync(dir, { recursive: true, force: true });
-});
+afterAll(project.remove);
 
 describe('no-brand-cast', () => {
   it('lets a branded value be parsed, and other types be asserted', async () => {

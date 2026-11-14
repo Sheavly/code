@@ -133,11 +133,8 @@ describe('RemoteConversation', () => {
       seq: 1,
       at: 0,
       sessionId: MAIN,
-      kind: 'update',
-      update: {
-        type: 'session_idle',
-        session: { ...SESSION, title: 'Main', state: 'idle', startedAt: 0, lastOutcome: 'failed' },
-      },
+      kind: 'event',
+      event: { seq: 1, type: 'done', reason: 'failed', session: SESSION },
     };
     const { conversation } = await open({
       sendPrompt: () => entries(text(0, 'Now the design doc.'), failed),

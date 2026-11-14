@@ -49,14 +49,16 @@ type PipelineOptions = Omit<ProcessParams, 'file' | 'args' | 'shell' | 'input' |
  * Starts every stage at once, each reading the one before it. If any stage fails to run, the rest
  * are stopped and waited for, so nothing of the pipeline is still running when this returns or
  * throws; the first failure is thrown. The exit code is the last stage's, as in a shell without
- * `pipefail`.
+ * `pipefail`, except that a pipeline whose `caller` signal aborted while it ran has none (`null`).
  */
 async function runPipeline(params: {
   stages: ScriptStep[];
   run: RunProcess;
   options: PipelineOptions;
+  /** The caller's own signal, without the script's timeout: only its abort is a cancel. */
+  caller: AbortSignal;
 }): Promise<number | null> {
-  const { stages, run, options } = params;
+  const { stages, run, options, caller } = params;
   const failure = new AbortController();
   const signal = AbortSignal.any([options.signal, failure.signal]);
   const running: Promise<ProcessResult>[] = [];
@@ -92,14 +94,18 @@ async function runPipeline(params: {
     results.push(outcome.value);
   }
 
+  // The last stage can exit 0 before the abort kills an earlier one: that is not a finished run.
+  // Read once every stage has stopped, so a pipeline that finished before the abort keeps its code.
+  if (caller.aborted) return null;
+
   return results.at(-1)?.exitCode ?? null;
 }
 
 /**
  * Runs `steps` the way a shell runs a line of commands, without a shell: `a | b` feeds a's
  * output to b while both run, `a && b` runs b if a succeeded, `a || b` if it failed, `a ; b`
- * either way. The result is the last pipeline's exit code and the output of every command in the
- * order it arrived. The result keeps bounded first/last lines, while every original chunk still
+ * either way. The result is the last pipeline's exit code (`null` for a pipeline that aborting
+ * `signal` stopped) and the output of every command in the order it arrived. The result keeps bounded first/last lines, while every original chunk still
  * streams to `onOutput` and pipes. `timeoutMs` covers the whole script:
  * past it the running commands are killed, nothing more starts, and the result says it timed out.
  * A command that cannot start, or aborting `signal`, throws what `run` throws, after every
@@ -129,7 +135,10 @@ export async function runScript(params: {
   for (const { stages, next } of splitPipelines(steps)) {
     if (deadline?.aborted) break;
 
-    if (shouldRun({ connector, exitCode })) exitCode = await runPipeline({ stages, run, options });
+    if (shouldRun({ connector, exitCode })) {
+      exitCode = await runPipeline({ stages, run, options, caller: rest.signal });
+    }
+
     connector = next;
   }
 

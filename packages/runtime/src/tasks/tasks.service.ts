@@ -1,7 +1,14 @@
 /** Background work and completion notices shared by tools and session-scoped loops. */
 import { MAX_TASK_OUTPUT_CHARS } from './tasks.constants.js';
 import { now } from '@sheavly/core/clock/clock.helper';
-import type { StartTask, TaskDelivery, TaskObserver, TaskResult } from './tasks.types.js';
+import type {
+  Delivery,
+  Entry,
+  StartTask,
+  TaskDelivery,
+  TaskObserver,
+  TaskResult,
+} from './tasks.types.js';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -11,21 +18,8 @@ import { TaskError } from '../errors/tasks.errors.js';
 import { OutputBuffer } from '../output/output.service.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
-import { groupMemberError } from './group-member.helper.js';
-
-type Delivery = { ids: TaskId[]; reason?: string; delivered: boolean };
-type Entry = {
-  info: TaskInfo;
-  controller: AbortController;
-  settled: Promise<void>;
-  silent: boolean;
-  sessionId?: SessionId | undefined;
-  backgroundKind: 'task' | 'service';
-  /** Membership survives delivery until this entry is released. */
-  group?: Delivery;
-  /** Whole result, outside the bounded preview and task events. */
-  report?: string | undefined;
-};
+import { groupMemberError, unknownTaskError } from './group-member.helper.js';
+import { isIssued, newEntry, runningInfo, runningTaskOf, settledStatus } from './tasks.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -46,23 +40,8 @@ export class TaskRegistry {
   }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
-    const info: TaskInfo = {
-      id,
-      ...(callId ? { callId } : {}),
-      command,
-      description,
-      status: 'running',
-      startedAt: now(),
-      output: '',
-    };
-    const entry: Entry = {
-      info,
-      controller,
-      settled: Promise.resolve(),
-      silent: false,
-      sessionId,
-      backgroundKind,
-    };
+    const info = runningInfo({ id, callId, command, description, startedAt: now() });
+    const entry = newEntry({ info, controller, sessionId, backgroundKind });
     const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
     const onOutput = (chunk: string) => {
       output.push(chunk);
@@ -121,8 +100,16 @@ export class TaskRegistry {
     return this.#tasks.get(id)?.report;
   }
 
-  list(): TaskInfo[] {
-    return [...this.#tasks.values()].map((e) => ({ ...e.info }));
+  /** Every task, or with a session only the ones it owns and the ones with no owner. */
+  list(sessionId?: SessionId): TaskInfo[] {
+    return [...this.#tasks.values()]
+      .filter((entry) => this.#owns({ entry, sessionId }))
+      .map((e) => ({ ...e.info }));
+  }
+
+  /** `get` as a session: a task another session owns reads as unknown, as in `group`. */
+  getOwned(params: { id: TaskId; sessionId: SessionId | undefined }): TaskInfo | undefined {
+    return this.list(params.sessionId).find((task) => task.id === params.id);
   }
 
   /**
@@ -144,20 +131,16 @@ export class TaskRegistry {
           visibility.set(group, this.#ownsDelivery({ delivery: group, sessionId }));
         }
 
-        const visibleGroup = group && visibility.get(group);
-
-        return {
-          id: info.id,
-          title: info.description,
-          reason: visibleGroup ? (info.reason ?? info.description) : info.description,
-          startedAt: info.startedAt,
-          ...(visibleGroup && { group: group.ids[0] }),
-        };
+        return runningTaskOf({
+          info,
+          group: group && visibility.get(group) ? group.ids[0] : undefined,
+        });
       });
   }
 
-  byCallId(callId: CallId): TaskInfo | undefined {
-    return this.list().find((t) => t.callId === callId);
+  /** The task a tool call started; with a session, only among the ones it owns. */
+  byCallId(params: { callId: CallId; sessionId?: SessionId }): TaskInfo | undefined {
+    return this.list(params.sessionId).find((t) => t.callId === params.callId);
   }
 
   get runningCount(): number {
@@ -166,7 +149,8 @@ export class TaskRegistry {
 
   /**
    * Holds members for one notice when the last settles, in requested ID order. Returns immediately.
-   * Throws TaskError atomically for empty, duplicate, unknown, already grouped or unowned IDs.
+   * Throws TaskError atomically for empty, duplicate, unknown, already grouped, unowned, service or
+   * already delivered IDs.
    * A supplied session also accepts generic tasks without an owner.
    */
   group(params: { ids: TaskId[]; reason: string; sessionId?: SessionId }): void {
@@ -189,6 +173,7 @@ export class TaskRegistry {
       const entry = this.#entry(id);
 
       entry.group = group;
+      delete entry.delivery;
       entry.info.reason = reason;
     }
 
@@ -247,6 +232,23 @@ export class TaskRegistry {
     ).length;
   }
 
+  /** Whether grouped work is still running: what `await_tasks` holds a main session open for. */
+  hasAwaitedTasks(sessionId?: SessionId): boolean {
+    return this.groupedPendingCount(sessionId) > 0;
+  }
+
+  /**
+   * Whether a ready notice reports finite work, so an idle session should be woken for it. A
+   * service's own end is reported at the next model call and never starts one.
+   */
+  hasWakingDeliveries(sessionId?: SessionId): boolean {
+    return this.#ready.some(
+      (delivery) =>
+        this.#ownsDelivery({ delivery, sessionId }) &&
+        delivery.ids.some((id) => this.#entry(id).backgroundKind === 'task'),
+    );
+  }
+
   /** Forgets settled, delivered tasks or silent singles. Held group members cannot be released. */
   release(id: TaskId): boolean {
     const entry = this.#tasks.get(id);
@@ -260,9 +262,24 @@ export class TaskRegistry {
     return this.#tasks.delete(id);
   }
 
-  /** Releases every task `release` would, and returns how many went. */
-  releaseFinished(): number {
-    return [...this.#tasks.keys()].filter((id) => this.release(id)).length;
+  /**
+   * Releases every task `release` would, and returns how many went. A supplied session releases
+   * only the tasks it owns or that have no owner, so one session's turn boundary never drops a
+   * task another session has yet to read.
+   */
+  releaseFinished(sessionId?: SessionId): number {
+    return [...this.#tasks.entries()]
+      .filter(([, entry]) => this.#owns({ entry, sessionId }))
+      .filter(([id]) => this.release(id)).length;
+  }
+
+  /**
+   * Whether `id` was handed out by this registry and has since been released. Ids are sequential
+   * and never reused, so this needs no record of released tasks; a string that is not a canonical
+   * id (`t0`, `t01`, `x1`) was never handed out.
+   */
+  isReleased(id: TaskId): boolean {
+    return isIssued({ id, nextId: this.#nextId }) && !this.#tasks.has(id);
   }
 
   /** Stops a task and waits for it to exit. Cancelled group members remain part of their notice. */
@@ -319,9 +336,7 @@ export class TaskRegistry {
   #entry(id: TaskId): Entry {
     const entry = this.#tasks.get(id);
 
-    if (!entry) {
-      throw new TaskError({ reason: 'unknown_task', taskId: id, message: `Unknown task ${id}` });
-    }
+    if (!entry) throw unknownTaskError(id);
 
     return entry;
   }
@@ -346,14 +361,16 @@ export class TaskRegistry {
     sessionId: SessionId | undefined;
   }) {
     const { id, seen, sessionId } = params;
-    const entry = this.#entry(id);
 
+    // A released id has no entry, so `#entry` refuses it like one that never existed.
+    const entry = this.#entry(id);
     const error = groupMemberError({
       id,
       duplicate: seen.has(id),
       grouped: entry.group !== undefined,
       service: entry.backgroundKind === 'service',
       owned: this.#owns({ entry, sessionId }),
+      delivered: entry.delivery?.delivered === true,
     });
 
     if (error) throw error;
@@ -375,14 +392,19 @@ export class TaskRegistry {
     const { entry, status, result } = params;
     const { info } = entry;
 
-    info.status = entry.controller.signal.aborted ? 'cancelled' : status;
+    info.status = settledStatus({ status, aborted: entry.controller.signal.aborted });
     info.endedAt = now();
     if ('exitCode' in result) info.exitCode = result.exitCode;
     if (result.error) info.error = result.error;
     entry.report = result.report;
 
     if (entry.group) this.#enqueueSettledGroup(entry.group);
-    if (!entry.group && !entry.silent) this.#ready.push({ ids: [info.id], delivered: false });
+
+    if (!entry.group && !entry.silent) {
+      entry.delivery = { ids: [info.id], delivered: false };
+      this.#ready.push(entry.delivery);
+    }
+
     this.#notify({ entry, type: 'task_ended' });
     this.#wakeWaiters();
   }

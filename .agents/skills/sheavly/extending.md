@@ -1,0 +1,52 @@
+# Extending the harness
+
+Each section is the canonical path for one kind of addition. If your change does not fit one, you are probably modifying a core module: stop and find the system that owns the concept ([principles.md](principles.md)).
+
+## A tool
+
+Create `packages/tools/src/<name>/` (generic) or `packages/coding/src/<name>/` (files or commands), copying the shape of `@sheavly/coding`'s `read-file/`. `defineTool` and the `Tool` types come from `@sheavly/core/tool/tool.utils` / `tool/tool.types` (`runTool` from `tool/tool.helper`).
+
+- `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
+- `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
+- `execute({ input, signal, context })` returns a string, or `{ content, artifacts }` to give a UI data the model never sees (tagged with a `kind` the tool owns, e.g. the file tools' `FileChange`: emitted on `tool_result`, never put in history; see `docs/tools.md`, "Artifacts"). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
+- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `@sheavly/coding/files/files.helper`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`@sheavly/workspace/process/process.service`) and the allow list.
+- Include it from the backend that wants it (`createBackendHarness`), with `*.tool` exported by its package (`npm run export -- packages/<pkg> tool`). No package adds a tool to a run.
+
+## A sub-agent
+
+`createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools, hooks? })` (`@sheavly/tools/sub-agent/`). Every run is a session in a `SessionRegistry` (`@sheavly/runtime/sessions/`): pass `session: { registry, ref }` to the loop, or it starts its own main session. Sub-agents nest at most `MAX_SESSION_DEPTH` (3), always under a running parent, and report their own status with `report_status`; a parent steers one with `message_agent` (the session inbox: `sessions.send`, delivered at the next model call). `sessions.stream()` is the SSE feed. See `docs/sessions.md`. Every session of a run shares its one `TaskRegistry` (`tasksTools` receives it): a tool that reads or cancels tasks passes the caller's `context.session?.id` (`list`, `getOwned`), and a session's shutdown is `cancelSession`, never `cancelAll`. A sub-agent is background work: see [state-machines.md](state-machines.md) for how it and a background command must agree.
+
+## A kind of background work
+
+A tool that runs work in the background does not call `tasks.start`. It builds a `WorkDefinition` with its kind's factory (`finiteWork` / `serviceWork` from `@sheavly/runtime/tasks/work.utils`, or a kind of its own that wraps one, like `subAgentWork` and `commandTaskWork` / `commandServiceWork`) and starts it with `startWork({ tasks, work })`. The factory fixes the completion policy (finite and awaitable, or a service); the caller passes the kind and its inputs, never the policy. A new kind is one factory next to its tool, with a test that pins its policy, and, by review (nothing checks it: the entries are fakes, not the factories), one entry in `WORK_KINDS` (`packages/loop/src/testing/work-kinds.fake.ts`): `flow-kinds.test.ts` then runs it through the shared lifecycle (one notice, one `task_completed` event, release, no growth). `harness/no-direct-task-start` enforces it: it is type-aware and fails any access to `TaskRegistry.start` (a call, an alias, destructuring, `.call`, a string key) in source outside `packages/runtime/src/tasks/work.utils.ts`; tests and fakes are exempt by file kind. It cannot see a registry typed `any`, cast to another shape or assigned to a structural type that re-declares `start`; review carries that.
+
+## A provider
+
+See `packages/providers/docs/backends.md`. A Responses API backend is one folder, `packages/providers/src/<name>/<name>.adapter.ts`, using `defineResponsesAdapter({ kind, description, configSchema, toEndpoint })` (from `responses/responses.helper.ts`): a pure map from config to endpoint. Another protocol (Anthropic, Gemini, Chat Completions) gets its own protocol folder next to `responses/` and backends on it; it never reuses `responses/`. Anything else uses `defineAdapter` (from `@sheavly/core/adapter/adapter.utils`). Register built-ins in `registry/default-registry.helper.ts`. Adapters have no default model; the app that builds the provider picks it. Core code doesn't change.
+
+## A loop event
+
+Add its schema to `agentEventBodySchema` in `packages/protocol/src/event/event.validator.ts` (then `npm run schema -w @sheavly/protocol`) and emit it through the `OrderedQueue`, never directly, so `seq` stays contiguous and in causal order. Handle it in the terminal app's `Renderer` (`apps/terminal/src/render/`), whose switch over event types must make an explicit choice to render or ignore each one; presentation belongs to each UI.
+
+## A route (the HTTP API)
+
+One entry in `API_ROUTES` (`packages/protocol/src/api/api.constants.ts`), named after what it does (`get…`/`list…`/`query…`/`stream…` for a read, a verb for a change), with its body and answer as schemas in `server/server.validator.ts`. Declare its `effect`: `ApiRoute` then allows only the methods that fit, so the typecheck fails a read on `post` or a `get` with a body. A read without input is `get`; a read with input (a filter, a search, a resume point) is `query`, its input a typed body, never a query string; a change is `post`, `put` (setting a value) or `delete`. Then run `npm run schema -w @sheavly/protocol` (a test fails while `openapi.json` is stale, and another holds each route's name and path to these rules), add its handler to the backend's `apiHandlers` (`apps/backend/src/api/handlers.helper.ts`: `ApiHandlers` makes a missing one a type error, and `api.helper.test.ts` fails for a route the app doesn't serve), and call it from a UI with `createClient`, which takes it by name with nothing to add.
+
+## A hook
+
+`defineHook({ name, sessionStart?, beforeTurn?, beforeModelCall?, beforeSummary?, afterSummary?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters).
+
+- `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history). Changing the system prompt invalidates Claude's signed thinking prefix: the built-in AGENTS.md and skills hooks append changed instructions with `appendInstructionContext` (`@sheavly/workspace/instruction-context/instruction-context.helper`), deduplicated from history, rather than replacing system instructions.
+- `beforeModelCall` returns the messages to send for that one call (it gets a deep copy and its result is parsed and checked by `assertValidHistory`: tool calls stay paired and the latest user message unchanged, a violation is an `InvalidHistoryError`; stored history never changes, and edits should be deterministic so the prompt prefix stays cacheable).
+- `beforeSummary` (only with the loop's `summary` option) may return `{ keepTokens?, sections? }`, parsed by the loop, to move the cut or add sections, and a bad result fails that summary (`summary_failed`), never the run; `afterSummary` gets copies of the new checkpoint and of the view, and adds context back with `addContext` (never copy the checkpoint's text into it: it comes from tool output).
+- `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event).
+- A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.constants.ts` and run from `@sheavly/loop/hooks/hooks.helper`. Today it is four edits: `Hook`, `HANDLERS`, the project-hook schema (`hookExportSchema`) and the loop's runners; a `satisfies` check fails the typecheck if the schema misses one. Add all four in one change.
+- Two hooks, or two tools, with the same name are a collision: never rely on one shadowing the other.
+
+## A project hook (`.sheavly/`)
+
+Listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.validator.ts`. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).
+
+## A notice
+
+A model-facing or UI-facing fact is a `HarnessNotice` kind (`@sheavly/protocol`), written only by `formatHarnessNotice`. Decide its lifetime when you add it: transient (rides one model call, never stored) or persistent (stored in history as a `notice` entry). Add tests for the shared payload, the ordered stream and history isolation.

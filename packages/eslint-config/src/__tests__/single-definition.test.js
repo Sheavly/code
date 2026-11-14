@@ -111,7 +111,7 @@ describe('single-definition', () => {
     expect(message).toContain(
       '`src/message/message.validator.ts`, then `npm run schema -w @x/proto`',
     );
-    expect(message).toContain('working-in-sheavly-harness/SKILL.md');
+    expect(message).toContain('sheavly/principles.md');
   });
 
   it('imports by relative path inside the same workspace, and names the types file without a schema', () => {

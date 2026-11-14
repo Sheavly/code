@@ -6,7 +6,6 @@ export function runCommandPrompts(params: {
   command: string;
   cwd: string;
   background: string;
-  backgroundKind: string;
 } {
   const { backgroundEnabled, outputsEnabled = false } = params;
 
@@ -24,7 +23,7 @@ export function runCommandPrompts(params: {
         ? ' Output shown is a bounded preview: long output is cut in the middle. The complete output is stored and the result gives its output_ref; use read_output or search_output on it instead of rerunning the command.'
         : '') +
       (backgroundEnabled
-        ? ' Set background: true for slow finite work; set backgroundKind: "service" for persistent servers or watchers. Do not poll background work.'
+        ? ' Set background: true for slow finite work, and use start_service for a persistent server or watcher. Do not poll background work.'
         : ''),
     command: 'The command to run, e.g. `git status`',
     cwd:
@@ -33,9 +32,6 @@ export function runCommandPrompts(params: {
     background:
       'Return a task id immediately. Finite work keeps this prompt alive until its result is delivered. ' +
       'Finish independent work, then end your turn without tool calls to wait. Do not poll task_status.',
-    backgroundKind:
-      'With background: true, task is finite work (builds, tests, CI waits) whose result is required. ' +
-      'Service is a persistent server or watcher that does not keep the prompt alive. Stop either with cancel_task.',
   };
 }
 

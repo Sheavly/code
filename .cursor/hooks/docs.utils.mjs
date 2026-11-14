@@ -6,10 +6,21 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { listWorkspaces } from '../../packages/eslint-config/src/layout.utils.js';
+import { listSkills } from '../../packages/eslint-config/src/skills.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
 const IS_TEST = /(^|\/)(__tests__|testing)\/|\.test\.[cm]?[jt]s$/;
+
+/**
+ * Whether `file` is a test or fake: judged below its `src/`, so a workspace whose folder is
+ * called `testing` (`packages/testing/src/…`) is not mistaken for tests.
+ */
+function isTestSource(file) {
+  const below = file.includes('/src/') ? file.slice(file.indexOf('/src/') + '/src/'.length) : file;
+
+  return IS_TEST.test(below);
+}
 
 /** The workspace folders (`packages/core`), relative and `/`-separated, deepest first. */
 function workspaceDirs(root) {
@@ -49,6 +60,33 @@ export function staleDocs(changed, root = PROJECT_ROOT) {
   }
 
   return [...byDoc].map(([doc, files]) => ({ doc, files: files.sort() }));
+}
+
+/**
+ * Guides a skill marks in `nudge` whose covered files changed while the guide did not:
+ * `[{ doc, files }]` with `doc` the guide's path, shaped like `staleDocs` so both share
+ * `onlyNew`. Tests never count. Which guides and which files is the skill's own `harness.json`
+ * (`guides` globs, `nudge`), so a new guide is nudged by being listed there.
+ */
+export function staleGuides(changed, root = PROJECT_ROOT) {
+  const stale = [];
+
+  for (const skill of listSkills(root)) {
+    for (const guide of skill.nudge) {
+      const doc = `${skill.dir}/${guide}`;
+      const globs = skill.guides[guide];
+      const files = changed.filter(
+        (file) =>
+          !isTestSource(file) &&
+          file !== doc &&
+          globs.some((glob) => path.posix.matchesGlob(file, glob)),
+      );
+
+      if (files.length > 0 && !changed.includes(doc)) stale.push({ doc, files: files.sort() });
+    }
+  }
+
+  return stale;
 }
 
 function git(args) {

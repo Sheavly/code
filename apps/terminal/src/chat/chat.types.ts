@@ -1,3 +1,4 @@
+import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 import type { RemoteConversation } from '../client/conversation.service.js';
 
 /**
@@ -22,13 +23,17 @@ export type ChatConversation = Pick<
   RemoteConversation,
   'send' | 'yieldPrompt' | 'skills' | 'details' | 'useModel' | 'runningTasks'
 > &
-  Partial<Pick<RemoteConversation, 'queue' | 'setQueue'>>;
+  Partial<Pick<RemoteConversation, 'queue' | 'setQueue' | 'stop'>>;
 
 /** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
 export type StopResult = 'stopped' | 'stopping' | 'idle';
 
-/** How a message ended: its prompt ran (even if stopped), or failed with an error that was shown. */
-export type TurnOutcome = 'completed' | 'failed';
+/**
+ * How a message ended: the main run's outcome from its `done`, or `failed` when the prompt threw
+ * before one arrived (the backend went away, a request was refused). A stopped prompt is
+ * `interrupted`, never `completed`. The same vocabulary as a run's, so a UI maps it once.
+ */
+export type TurnOutcome = RunOutcome;
 
 /** The main run's `run_state` event, as the chat tells a UI. */
 export type RunState = { state: 'working' | 'waiting'; groupedTasks: number };

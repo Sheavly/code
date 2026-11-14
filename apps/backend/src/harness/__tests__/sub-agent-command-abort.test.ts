@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
+import { createStartServiceTool } from '@sheavly/coding/run-command/start-service.tool';
 import type { RunCommandOptions } from '@sheavly/coding/run-command/run-command.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -21,13 +22,17 @@ const temp = useTempWorkspace({ prefix: 'sub-agent-command-abort-' });
 
 afterEach(() => vi.restoreAllMocks());
 
-function instrumentChild(options: RunCommandOptions & { tasks: TaskRegistry }) {
-  const tool = createRunCommandTool(options);
+function instrumentChild(params: {
+  options: RunCommandOptions & { tasks: TaskRegistry };
+  create: typeof createRunCommandTool | typeof createStartServiceTool;
+}) {
+  const { options, create } = params;
+  const tool = create(options);
 
   return {
     tasks: options.tasks,
     start: vi.spyOn(options.tasks, 'start'),
-    cleanup: vi.spyOn(options.tasks, 'cancelAll'),
+    cleanup: vi.spyOn(options.tasks, 'cancelSession'),
     execute: vi.spyOn(tool, 'execute'),
     tool,
   };
@@ -50,9 +55,12 @@ function expectPairedHistory(messages: HistoryMessage[], callId: string, isError
 }
 
 describe('sub-agent command permissions resolving after parent interruption', () => {
-  it.each(['task', 'service'] as const)(
-    'does not register or launch a late %s after the child registry is cleaned up',
-    async (backgroundKind) => {
+  it.each([
+    { name: 'run_command', create: createRunCommandTool },
+    { name: 'start_service', create: createStartServiceTool },
+  ])(
+    'does not register or launch a late $name after the child session is cleaned up',
+    async ({ name, create }) => {
       const permissionResult =
         Promise.withResolvers<Awaited<ReturnType<RunCommandOptions['permissions']['read']>>>();
       const permissions = {
@@ -84,8 +92,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
           calls(
             toolCall({
               id: 'delayed-command',
-              name: 'run_command',
-              input: { command: 'echo never', background: true, backgroundKind },
+              name,
+              input: { command: 'echo never', background: true },
             }),
           ),
           say('Command finished'),
@@ -99,10 +107,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         tools: [],
         tasksTools: (childTasks) => {
           const child = instrumentChild({
-            workspace: temp.workspace,
-            permissions,
-            processes,
-            tasks: childTasks,
+            create,
+            options: { workspace: temp.workspace, permissions, processes, tasks: childTasks },
           });
 
           childBuilt.resolve(child);
@@ -122,10 +128,11 @@ describe('sub-agent command permissions resolving after parent interruption', ()
 
       try {
         await until(() => permissions.read.mock.calls.length === 1);
-        expect(child.tasks).not.toBe(tasks);
+        expect(child.tasks).toBe(tasks);
         expect(child.execute).toHaveBeenCalledOnce();
         expect(child.execute.mock.calls[0]?.[0].signal.aborted).toBe(false);
-        expect(child.tasks.list()).toEqual([]);
+        // Only the sub-agent's own task: the command has not been registered.
+        expect(tasks.list()).toMatchObject([{ callId: 'start-child' }]);
         controller.abort();
 
         // Permission storage deliberately ignores abort. Both loops and the factory's final
@@ -151,8 +158,7 @@ describe('sub-agent command permissions resolving after parent interruption', ()
           startedByCall: 'start-child',
         });
         expect(tasks.list()).toMatchObject([{ status: 'cancelled', callId: 'start-child' }]);
-        expect(child.cleanup).toHaveBeenCalled();
-        expect(child.tasks.list()).toEqual([]);
+        expect(child.cleanup).toHaveBeenCalledWith(sessions.children(main.id)[0]?.id);
         expect(child.execute.mock.calls[0]?.[0].signal.aborted).toBe(true);
         expectPairedHistory(parentResult.messages, 'start-child', false);
         expectPairedHistory(childResult.messages, 'delayed-command', true);
@@ -165,8 +171,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         });
         expect(child.start).not.toHaveBeenCalled();
         expect(launch).not.toHaveBeenCalled();
-        expect(child.tasks.list()).toEqual([]);
-        expect(child.tasks.runningCount).toBe(0);
+        expect(tasks.list()).toMatchObject([{ status: 'cancelled', callId: 'start-child' }]);
+        expect(tasks.runningCount).toBe(0);
         expect(processes.running).toBe(0);
         // The late completion cannot replace the interrupted placeholder or mutate history.
         expect(parentResult.messages).toEqual(parentHistory);
@@ -176,7 +182,6 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         permissionResult.resolve({ mode: 'allow_all', allow: [] });
         await running;
         await tasks.cancelAll();
-        await child.tasks.cancelAll();
       }
     },
   );

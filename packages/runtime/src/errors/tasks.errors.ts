@@ -6,8 +6,8 @@ type TaskFailure =
   | 'unknown_task'
   | 'duplicate_task'
   | 'task_grouped'
-  | 'task_not_owned'
-  | 'service_task';
+  | 'service_task'
+  | 'task_delivered';
 
 /** A group request was refused without changing any task or delivery. */
 export class TaskError extends Error {

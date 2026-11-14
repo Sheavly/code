@@ -7,6 +7,8 @@
 // Exempt, by path: tests and fakes (`__tests__/`, `testing/`, `*.fake.ts`), whose errors are
 // test values, and root `scripts/`, one-off tooling whose errors only ever reach a terminal.
 
+import { relativePath } from './relative-path.utils.js';
+
 const EXEMPT = /(^|\/)(__tests__|testing|scripts)\/|\.fake\.ts$/;
 
 const MESSAGE =
@@ -23,17 +25,6 @@ function isGlobalError(params) {
   }
 
   return true;
-}
-
-/**
- * The file's path from the workspace root (ESLint's `cwd`), `/`-separated, so `EXEMPT` never
- * matches a folder above the project (a checkout inside `~/scripts/`).
- */
-function relativePath(context) {
-  const { filename, cwd } = context;
-  const relative = filename.startsWith(`${cwd}/`) ? filename.slice(cwd.length + 1) : filename;
-
-  return relative.split('\\').join('/');
 }
 
 export const noRawError = {

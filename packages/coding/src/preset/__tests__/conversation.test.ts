@@ -11,6 +11,7 @@ import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../../run-command/run-command.tool.js';
+import { createStartServiceTool } from '../../run-command/start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { createCodingHarness } from '../coding.helper.js';
 
@@ -20,6 +21,11 @@ const say = (text: string): StreamEvent[] => [
 ];
 const runCommand = (id: string, input: Record<string, unknown>): StreamEvent[] => [
   toolCall({ id, name: 'run_command', input }),
+  { type: 'done', stopReason: 'tool_use' },
+];
+
+const startService = (id: string, input: Record<string, unknown>): StreamEvent[] => [
+  toolCall({ id, name: 'start_service', input }),
   { type: 'done', stopReason: 'tool_use' },
 ];
 
@@ -42,16 +48,18 @@ async function setup(responses: StreamEvent[][]) {
     env: { PATH: process.env.PATH },
   });
   const { workspace, tasks, processes } = harness;
+  const commandOptions = {
+    workspace,
+    permissions: testPermissions({ mode: 'allow_all' }),
+    tasks,
+    processes,
+  };
   const conversation = createConversation({
     harness,
     run: streamAgent,
     tools: [
-      createRunCommandTool({
-        workspace,
-        permissions: testPermissions({ mode: 'allow_all' }),
-        tasks,
-        processes,
-      }),
+      createRunCommandTool(commandOptions),
+      createStartServiceTool(commandOptions),
       ...createTaskTools(tasks),
     ],
   });
@@ -62,7 +70,7 @@ async function setup(responses: StreamEvent[][]) {
 describe('a coding conversation', () => {
   it('keeps a background service running between prompts, and close() kills it', async () => {
     const { harness, conversation } = await setup([
-      runCommand('c1', { command: 'sleep 30', background: true, backgroundKind: 'service' }),
+      startService('c1', { command: 'sleep 30' }),
       say('started'),
       say('still there'),
     ]);

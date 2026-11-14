@@ -44,6 +44,13 @@ describe('persistent notices', () => {
     expect(persistentNoticeSchema.parse(report)).toEqual(report);
   });
 
+  it('carry a report with no task id, as one written when a conversation was reopened', () => {
+    const { taskId: _removed, ...restored } = report;
+
+    expect(persistentNoticeSchema.parse(restored)).toEqual(restored);
+    expect(persistentNoticeSchema.safeParse({ ...restored, taskId: 1 }).success).toBe(false);
+  });
+
   it('keep the report unbounded, so a long one is not shortened on the wire', () => {
     const parsed = persistentNoticeSchema.parse(report);
 

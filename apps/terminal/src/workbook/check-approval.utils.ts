@@ -1,7 +1,7 @@
 import { allowEntryBase, commandBase } from '@sheavly/coding/run-command/command-base.utils';
 import { parseCommand } from '@sheavly/coding/run-command/allow-list.utils';
 import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
-import { NOT_ALLOWED } from '@sheavly/coding/run-command/run-command.constants';
+import { COMMAND_TOOL_NAMES, NOT_ALLOWED } from '@sheavly/coding/run-command/run-command.constants';
 import type { RunExpectation } from './check.types.js';
 
 /** Batch command authorization never overrides a step that explicitly forbids command requests. */
@@ -9,7 +9,9 @@ export function stepApprovedCommands(params: {
   step: RunExpectation;
   approvedCommands: readonly string[];
 }): readonly string[] {
-  return params.step.forbid?.tools?.includes('run_command') ? [] : params.approvedCommands;
+  const forbidden = params.step.forbid?.tools ?? [];
+
+  return COMMAND_TOOL_NAMES.some((tool) => forbidden.includes(tool)) ? [] : params.approvedCommands;
 }
 
 function authorizedArguments(params: {
@@ -40,7 +42,9 @@ export function checkApprovalResponse(params: {
 
   const argumentsAsked = authorizedArguments({ line: request.command, approvedCommands });
 
-  if (request.tool !== 'run_command' || !argumentsAsked) return { decision: 'skip' };
+  const isCommandTool = COMMAND_TOOL_NAMES.some((tool) => tool === request.tool);
+
+  if (!isCommandTool || !argumentsAsked) return { decision: 'skip' };
 
   const ordinary =
     request.concerns.length > 0 &&

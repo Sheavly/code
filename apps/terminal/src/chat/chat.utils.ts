@@ -1,9 +1,29 @@
 import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
+import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
-import type { ChatInput } from './chat.types.js';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
+import type { ChatInput, RunState } from './chat.types.js';
+
+/** What a caught error says, as plain terminal text. */
+export function errorText(caught: unknown): string {
+  return plainTerminalText(caught instanceof Error ? caught.message : String(caught));
+}
+
+/** The main session's `run_state` an entry carries, or undefined for any other entry. */
+export function mainRunState(params: {
+  entry: StreamEntry;
+  mainSession: string;
+}): RunState | undefined {
+  const { entry, mainSession } = params;
+
+  if (entry.kind !== 'event' || entry.sessionId !== mainSession) return undefined;
+  if (entry.event.type !== 'run_state') return undefined;
+
+  return { state: entry.event.state, groupedTasks: entry.event.groupedTasks };
+}
 
 /**
  * Reads one line of chat input: the chat's own commands, or a message to send. A message can

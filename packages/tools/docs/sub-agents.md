@@ -12,7 +12,7 @@ sub-agent on one task, `{ title, task }`.
   `interrupted`), and is told its report when it finishes. Its task requires completion:
   the parent prompt stays alive and resumes automatically with the report. No user message or
   status polling is needed. The child's run also waits for its finite tasks by default; persistent
-  commands explicitly use `backgroundKind: 'service'` and can outlive a prompt. Interrupting the
+  commands are started with `start_service` and can outlive a prompt. Interrupting the
   parent's run cancels its background work, including unfinished sub-agents.
 - **Three levels, hard cap.** Main session → sub-agent → sub-agent (`MAX_SESSION_DEPTH = 3`).
   Below the cap a sub-agent gets `start_agent` too; at depth 3 it doesn't, and the registry
@@ -25,8 +25,10 @@ sub-agent on one task, `{ title, task }`.
   composition is passed to descendants. Neither option implicitly copies parent history or
   conversation overrides. The backend supplies its shared generic and coding text explicitly.
 - **Tools that start background tasks.** `options.tasksTools(tasks)` builds tools (for example
-  `run_command`) for each sub-agent on that sub-agent's own `TaskRegistry`, so it waits for and
-  can cancel what it starts, and its background commands stop when it ends. A sub-agent with
+  `run_command`) for each sub-agent on the run's one `TaskRegistry`, shared by every session, so
+  task ids are unique across them. What a sub-agent starts is owned by its session: `task_status`,
+  `await_tasks` and `cancel_task` see only that, a foreign id reads as unknown, and its background
+  commands stop when it ends (`cancelSession`), leaving its parent's and siblings' running. A sub-agent with
   `tasksTools` also gets `task_status`, `await_tasks` and `cancel_task` at the depth cap. Tools in
   `options.tools` are shared and must not start tasks of their own.
 - **Approvals.** A sub-agent's tools ask the user through the same approval registry as the main

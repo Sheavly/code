@@ -1,11 +1,14 @@
 import { watchApprovals } from '@sheavly/client/approvals/approvals.helper';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import { createClient } from '@sheavly/client/client/client.helper';
+import { readEntries } from '@sheavly/client/client/entries.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
+import { isMainSession } from '@sheavly/protocol/session/session.utils';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { Backend } from './client.types.js';
@@ -149,7 +152,7 @@ export class RemoteConversation {
         if (
           entry.kind === 'event' &&
           entry.event.type === 'run_failed' &&
-          entry.event.session.depth === 1
+          isMainSession(entry.event.session)
         ) {
           const error = entry.messageId
             ? `[message ${entry.messageId}] ${entry.event.error}`
@@ -161,12 +164,7 @@ export class RemoteConversation {
         this.#countTask(entry);
         yield entry;
 
-        if (
-          entry.kind === 'update' &&
-          entry.update.type === 'session_idle' &&
-          entry.update.session.depth === 1 &&
-          entry.update.session.lastOutcome === 'failed'
-        ) {
+        if (runEnd(entry) === 'failed') {
           throw new BackendError({
             message:
               'The model run failed before completing. The backend log contains the original error.',
@@ -184,6 +182,40 @@ export class RemoteConversation {
    */
   rawStream(signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
     return this.#client.open('streamConversation', { id: this.id, body: { replay: true }, signal });
+  }
+
+  /** Stops whatever the conversation runs now, a prompt or a run it started itself. */
+  stop(): Promise<void> {
+    return this.#client.send('stopPrompt', { id: this.id });
+  }
+
+  /**
+   * Follows the conversation's live stream, every session's entries from now on, so a UI shows
+   * what a run the backend starts itself does (it wakes the idle conversation when background work
+   * finishes). Entries a prompt's own stream carries arrive here too: the caller shows each once.
+   * Resolves once the backend accepted the stream; `ended` resolves when `signal` aborts and
+   * rejects on any other end, including the backend closing the stream.
+   */
+  async follow(params: {
+    onEntry: (entry: StreamEntry) => void;
+    signal: AbortSignal;
+  }): Promise<{ ended: Promise<void> }> {
+    const { onEntry, signal } = params;
+    const body = await this.#client.open('streamConversation', { id: this.id, body: {}, signal });
+    const ended = (async () => {
+      try {
+        for await (const { entry } of readEntries(body)) {
+          this.#countTask(entry);
+          onEntry(entry);
+        }
+
+        if (!signal.aborted) throw new BackendError({ message: 'The live stream was closed' });
+      } catch (caughtError) {
+        if (!signal.aborted) throw caughtError;
+      }
+    })();
+
+    return { ended };
   }
 
   /**

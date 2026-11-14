@@ -123,23 +123,31 @@ describe('a sub-agent report reaches its parent whole', () => {
     expect(sentToParent).not.toContain('[status]');
   });
 
-  it('lets the parent read the complete report again through task_status, without rerunning it', async () => {
-    const { tasks } = await handoff([say(MULTILINE)]);
-    const run = toolRunner(createTaskTools(tasks));
+  it('says a delivered report was released: the notice in history is where it stays readable', async () => {
+    const { tasks, notice, main } = await handoff([say(MULTILINE)]);
+    const run = toolRunner(createTaskTools(tasks), main);
     const shown = await run('c1', 'task_status', { id: 't1' });
 
-    expect(shown.role === 'tool' && shown.content).toContain(MULTILINE);
+    expect(notice?.role === 'notice' && notice.notice).toMatchObject({ report: MULTILINE });
+    expect(shown).toMatchObject({ isError: true });
+    expect(shown.role === 'tool' && shown.content).toContain('already reported and released');
   });
 
   it('puts the card data in the typed notice, for a UI to render from', async () => {
     const { sessions, notice, main } = await handoff([say('Done.')]);
-    const [child] = sessions.children(main.id);
+    const agent =
+      notice?.role === 'notice' && notice.notice.kind === 'agent-report'
+        ? notice.notice.agent
+        : undefined;
 
+    // The session is released once the report is delivered: the notice is where its card stays.
+    expect(agent && sessions.isReleased(agent.id)).toBe(true);
+    expect(sessions.children(main.id)).toEqual([]);
     expect(notice?.role === 'notice' && notice.notice).toMatchObject({
       kind: 'agent-report',
       taskId: 't1',
       agent: {
-        id: child?.id,
+        id: agent?.id,
         title: 'Researcher',
         parentId: main.id,
         startedByCall: 'm1',
@@ -164,7 +172,10 @@ describe('ordinary background tasks keep their bounded preview', () => {
     });
     await tasks.nextSettled();
 
-    const run = toolRunner(createTaskTools(tasks));
+    const run = toolRunner(
+      createTaskTools(tasks),
+      new SessionRegistry().startMain({ title: 'Main' }),
+    );
     const shown = await run('c1', 'task_status', { id: 't1' });
     const content = shown.role === 'tool' ? shown.content : '';
 

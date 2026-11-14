@@ -171,7 +171,7 @@ describe('findSkills', () => {
 
     expect(problems).toEqual([]);
     expect(skills.map((skill) => skill.name)).toEqual(
-      expect.arrayContaining(['git', 'sheavly-packages', 'working-in-sheavly-harness']),
+      expect.arrayContaining(['git', 'sheavly-packages', 'sheavly']),
     );
   });
 });

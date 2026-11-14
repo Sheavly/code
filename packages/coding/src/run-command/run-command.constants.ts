@@ -1,3 +1,8 @@
+import type { CommandToolName } from './run-command.types.js';
+
+/** Every tool whose approval request carries a command line, for a UI that answers or shows one. */
+export const COMMAND_TOOL_NAMES: readonly CommandToolName[] = ['run_command', 'start_service'];
+
 /** Foreground commands are killed after this long unless the harness sets its own timeout. */
 export const DEFAULT_COMMAND_TIMEOUT_MS = 60_000;
 

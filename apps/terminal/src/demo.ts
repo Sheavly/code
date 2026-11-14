@@ -21,6 +21,8 @@
 import { createWriteStream } from 'node:fs';
 import { Writable } from 'node:stream';
 import { now } from '@sheavly/core/clock/clock.helper';
+import type { RunOutcome } from '@sheavly/protocol/session/session.types';
+import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import { openSession } from './client/session.helper.js';
 import { DEFAULT_PROMPT } from './demo/demo.prompt.js';
 import { SAME_KEYPRESS_MS } from './render/render.constants.js';
@@ -71,10 +73,13 @@ process.on('SIGINT', () => {
 
 /** Set when the run fails (a provider error, a hook throwing): shown once, then exit code 1. */
 let failure: string | undefined;
+/** How the main run ended, from its `done`. A run that hit a limit did not finish: exit code 1. */
+let outcome: RunOutcome | undefined;
 
 try {
   for await (const entry of conversation.send({ text: prompt, signal: interrupt.signal })) {
     renderer.entry(entry, details.session);
+    outcome = runEnd(entry) ?? outcome;
   }
 } catch (caughtError) {
   // The message can be text a backend sent, so control characters are shown, not obeyed.
@@ -96,5 +101,6 @@ await backend.stop();
 
 // Nothing else should be keeping the process alive; exit with the conventional code for Ctrl+C.
 const interrupted = interrupt.signal.aborted ? 130 : 0;
+const unfinished = outcome !== undefined && outcome !== 'completed' && outcome !== 'interrupted';
 
-process.exitCode = failure ? 1 : interrupted;
+process.exitCode = failure || unfinished ? 1 : interrupted;

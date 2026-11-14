@@ -10,6 +10,7 @@ import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
+import { untilSettled } from '../../testing/settled.fake.js';
 
 let base: string;
 
@@ -70,6 +71,7 @@ describe('the scratch folder in a backend run', () => {
     const events = conversation.send('go');
 
     for await (const _event of events);
+    await untilSettled({ harness, conversation });
     await conversation.close();
 
     const sub = requests.find((request) => request.messages[0]?.content === 'help');

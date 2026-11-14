@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { formatTask } from '@sheavly/runtime/tasks/tasks.utils';
+import { formatTask, missingTaskMessage } from '@sheavly/runtime/tasks/tasks.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
+import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { createAwaitTasksTool } from './await-tasks.tool.js';
 import { cancelTaskPrompts, taskStatusPrompts, taskStatusResponse } from './tasks.prompt.js';
+
+/** The same answer for an unknown, a foreign and a released id: see `missingTaskMessage`. */
+function missingTask(id: TaskId): ToolCallError {
+  return new ToolCallError({ reason: 'not_found', message: missingTaskMessage(id) });
+}
 
 /** Lets the agent check on background tasks: one task (with output) or a list of all. */
 function createTaskStatusTool(tasks: TaskRegistry) {
@@ -16,16 +23,14 @@ function createTaskStatusTool(tasks: TaskRegistry) {
     inputSchema: z.object({
       id: taskIdSchema.optional().describe(taskStatusPrompts.id),
     }),
-    execute: async ({ input: { id } }) => {
-      if (id) {
-        const task = tasks.get(id);
+    execute: async ({ input: { id }, context }) => {
+      // The registry is shared by the run's sessions: a session sees only its own tasks.
+      const sessionId = requireTaskSession({ context, tool: 'task_status' });
 
-        if (!task) {
-          throw new ToolCallError({
-            reason: 'not_found',
-            message: `No task with id ${id}`,
-          });
-        }
+      if (id) {
+        const task = tasks.getOwned({ id, sessionId });
+
+        if (!task) throw missingTask(id);
 
         return taskStatusResponse({
           content: formatTask({ task, now: now(), report: tasks.report(id) }),
@@ -33,7 +38,7 @@ function createTaskStatusTool(tasks: TaskRegistry) {
         });
       }
 
-      const all = tasks.list();
+      const all = tasks.list(sessionId);
 
       if (all.length === 0) return 'No background tasks.';
 
@@ -51,20 +56,17 @@ function createCancelTaskTool(tasks: TaskRegistry) {
     name: 'cancel_task',
     description: cancelTaskPrompts.description,
     inputSchema: z.object({ id: taskIdSchema.describe(cancelTaskPrompts.id) }),
-    execute: async ({ input: { id } }) => {
-      const before = tasks.get(id);
+    execute: async ({ input: { id }, context }) => {
+      const sessionId = requireTaskSession({ context, tool: 'cancel_task' });
+      const before = tasks.getOwned({ id, sessionId });
 
-      if (!before) {
-        throw new ToolCallError({
-          reason: 'not_found',
-          message: `No task with id ${id}`,
-        });
-      }
+      if (!before) throw missingTask(id);
 
       if (before.status !== 'running') {
         return `Task ${id} already ${before.status}.\n${formatTask({ task: before, now: now() })}`;
       }
 
+      // Owned was checked just above, with no await between, so a plain cancel is scoped too.
       const after = await tasks.cancel(id);
 
       return `Cancelled task ${id}.\n${formatTask({ task: after ?? before, now: now() })}`;

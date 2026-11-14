@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
 import { outputLogSchema } from '../output/output.validator.js';
+import { TASK_STATUSES } from '../status/status.constants.js';
 import { timestampSchema } from '../time/time.validator.js';
 
-export const taskStatusSchema = z.enum(['running', 'completed', 'failed', 'cancelled']);
+export const taskStatusSchema = z.enum(TASK_STATUSES);
 
 /**
  * A background task's id, unique within its registry. Branded, so it can't be passed where a

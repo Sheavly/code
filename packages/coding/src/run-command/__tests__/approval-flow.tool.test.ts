@@ -7,7 +7,10 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { runAgent, streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
+import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createRunCommandTool } from '../run-command.tool.js';
+import { createStartServiceTool } from '../start-service.tool.js';
 import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
@@ -99,6 +102,31 @@ async function runWithAnswer(params: { command: string; response: ApprovalRespon
 }
 
 describe('approval flow through the loop', () => {
+  it.each(['run_command', 'start_service'] as const)(
+    'the request names %s, the tool that asks',
+    async (name) => {
+      const approvals = new ApprovalRegistry();
+      const updates = laterUi({ approvals, response: { decision: 'skip' }, delayMs: 0 });
+      const options = {
+        processes: testProcesses(),
+        workspace: temp.workspace,
+        permissions: testPermissions({ mode: 'always_ask' }),
+        approvals,
+        tasks: new TaskRegistry(),
+      };
+      const result = await runTool({
+        tools: [createRunCommandTool(options), createStartServiceTool(options)],
+        call: { id: c1, name, input: { description: 'ask', command: 'ls ..' } },
+        signal: new AbortController().signal,
+        session: new SessionRegistry().startMain({ title: 'Main' }),
+      });
+      const asked = updates.find((update) => update.type === 'approval_requested');
+
+      expect(result).toMatchObject({ isError: true });
+      expect(asked?.type === 'approval_requested' && asked.request.tool).toBe(name);
+    },
+  );
+
   it('approve: the command runs, and the model sees its output', async () => {
     const { updates, result } = await runWithAnswer({
       command: 'ls ..',

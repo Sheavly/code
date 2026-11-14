@@ -1,5 +1,11 @@
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { TaskError } from '../errors/tasks.errors.js';
+import { missingTaskMessage } from './tasks.utils.js';
+
+/** The refusal for an id the caller has no task for: never issued, released or another session's. */
+export function unknownTaskError(id: TaskId): TaskError {
+  return new TaskError({ reason: 'unknown_task', taskId: id, message: missingTaskMessage(id) });
+}
 
 /** The error that keeps a task out of a new group, or undefined when it may join. */
 export function groupMemberError(params: {
@@ -8,12 +14,17 @@ export function groupMemberError(params: {
   grouped: boolean;
   service: boolean;
   owned: boolean;
+  delivered: boolean;
 }): TaskError | undefined {
-  const { id, duplicate, grouped, service, owned } = params;
+  const { id, duplicate, grouped, service, owned, delivered } = params;
 
   if (duplicate) {
     return new TaskError({ reason: 'duplicate_task', taskId: id, message: `Duplicate task ${id}` });
   }
+
+  // Ownership before anything about the task itself, and the same answer as an id that does not
+  // exist, so a foreign task's existence, group or kind is not revealed by the error.
+  if (!owned) return unknownTaskError(id);
 
   if (grouped) {
     return new TaskError({
@@ -23,21 +34,21 @@ export function groupMemberError(params: {
     });
   }
 
-  // Ownership first, so a foreign task's kind is not revealed by the error.
-  if (!owned) {
-    return new TaskError({
-      reason: 'task_not_owned',
-      taskId: id,
-      message: `Task ${id} belongs to another session`,
-    });
-  }
-
   // A service may outlive the run, so a group waiting on it might never be delivered.
   if (service) {
     return new TaskError({
       reason: 'service_task',
       taskId: id,
       message: `Task ${id} is a service and cannot be awaited in a group`,
+    });
+  }
+
+  // Finished work reaches the model once, so a delivered notice cannot be asked for again.
+  if (delivered) {
+    return new TaskError({
+      reason: 'task_delivered',
+      taskId: id,
+      message: `Task ${id} was already reported and cannot be grouped`,
     });
   }
 

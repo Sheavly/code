@@ -6,7 +6,7 @@ import { ChangeLog } from '../changes/change-log.service.js';
 import { FailureLog } from '../failures/failure-log.service.js';
 import { logLook } from './log-look.utils.js';
 import type { Expandable, Look, ReplySink, RunningTool, Section, Write } from './render.types.js';
-import { commandOf, describeRead, firstLine, seconds, shortId } from './render.utils.js';
+import { commandOf, describeRead, firstLine, ownLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -247,6 +247,8 @@ export class Renderer {
     if (type === 'session_ended') {
       this.#activity(this.look.subAgentEnded({ ...agent, state: session.state }));
     }
+
+    // `session_released` draws nothing: the ended card is already in the scrollback.
   }
 
   /** The model's reply, as it streams: a section of its own, apart from what the run did. */
@@ -321,7 +323,10 @@ export class Renderer {
 
     const change = artifacts.find(isFileChange);
     const read = artifacts.find(isFileRead);
-    const summary = change ? message.content : `${message.content.length} chars`;
+    // A file tool's own line ("Edited a.ts (1 → 2 lines)"). A hook can append a long report to the
+    // result for the model; the terminal shows the tool's line and how much more there is, and the
+    // diff follows below.
+    const summary = change ? ownLine(message.content) : `${message.content.length} chars`;
     const detail = message.isError
       ? firstLine(message.content)
       : ((read && describeRead(read)) ?? summary);

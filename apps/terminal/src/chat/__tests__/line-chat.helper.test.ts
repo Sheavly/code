@@ -27,7 +27,9 @@ function lineChat(firstPrompt?: string) {
   const output = new PassThrough();
   const input = createInterface({ input: source, output });
   const pending = Promise.withResolvers<undefined>();
-  const conversation = {};
+  const conversation = {
+    follow: vi.fn(async () => ({ ended: new Promise<void>(() => undefined) })),
+  };
   const session = {
     submit: vi.fn<(line: string) => void>(),
     idle: vi.fn(() => pending.promise),
@@ -52,7 +54,7 @@ function lineChat(firstPrompt?: string) {
   });
 
   const running = runLineChat({
-    conversation: conversation as RemoteConversation,
+    conversation: conversation as unknown as RemoteConversation,
     details: lineChatDetails,
     renderer: new Renderer(
       () => undefined,

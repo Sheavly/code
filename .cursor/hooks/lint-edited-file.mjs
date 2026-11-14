@@ -3,7 +3,7 @@
 // up until the stop check. The first edit of harness source in a chat (and any edit that breaks
 // `harness/no-terminal-io`) also injects the project's architecture rule: backend only, typed
 // events, no UI unless the issue asks; the first edit also injects "Where code goes" (both from
-// the project skill, architecture.utils.mjs). The first edit of a file a skill governs names that
+// the `sheavly` skill's layers guide, architecture.utils.mjs). The first edit of a file a skill governs names that
 // skill (skills.utils.mjs), the first edit inside a workspace shows its README
 // (workspace-readme.utils.mjs), and source outside every workspace's src/ is reported
 // (layout.utils.mjs). Every edit or deletion of project source is recorded in the chat's state, so
@@ -12,6 +12,7 @@
 import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
 import { editToolFields } from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
+import { SkillMetadataError } from '../../packages/eslint-config/src/skills.errors.js';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
@@ -64,10 +65,20 @@ let ruleBroken = false;
 
 // Formatting is applied, not reported: there's nothing for the agent to decide. It's told, so
 // it re-reads the file before editing it again (its copy no longer matches).
+// With SHEAVLY_FORMAT_CHECK_ONLY set (the Sheavly project hook sets it) it only reports: a rewrite
+// after the tool returned would leave the harness's read-before-edit tracking stale.
 if (FORMATTABLE.test(filePath)) {
   const before = runBin('prettier', ['--check', filePath]);
 
-  if (!before.ok && runBin('prettier', ['--write', filePath]).ok) {
+  if (!before.ok && process.env.SHEAVLY_FORMAT_CHECK_ONLY) {
+    // `runBin` says "Could not run" when Prettier did not start: that is not a formatting problem.
+    if (!before.output.startsWith('Could not run')) {
+      notes.push(
+        'Prettier would reformat the file you just edited. Run `npx prettier --write <file>`, then ' +
+          're-read it before editing it again.',
+      );
+    }
+  } else if (!before.ok && runBin('prettier', ['--write', filePath]).ok) {
     notes.push(
       'Prettier reformatted the file you just edited; re-read it before editing it again.',
     );
@@ -138,6 +149,7 @@ function advise(produce) {
   } catch (caughtError) {
     const expected =
       caughtError instanceof ProjectReadError ||
+      caughtError instanceof SkillMetadataError ||
       caughtError instanceof HookStateError ||
       Boolean(caughtError?.code);
 

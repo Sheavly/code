@@ -11,6 +11,7 @@ import {
   turnStopReasonSchema,
 } from '../message/message.validator.js';
 import { historyMessageSchema } from '../history/history.validator.js';
+import { RUN_OUTCOMES } from '../status/status.constants.js';
 
 /**
  * Data a tool returns for a UI, never for history (so it costs no tokens). `kind` names it
@@ -49,13 +50,8 @@ const summaryReasonSchema = z.enum(['threshold', 'manual', 'overflow']);
  */
 const summaryFailureKindSchema = z.enum(['generation', 'preservation', 'size', 'cancellation']);
 
-export const doneReasonSchema = z.enum([
-  'completed',
-  'interrupted',
-  'max_turns',
-  'max_tokens',
-  'context_window_exceeded',
-]);
+/** How the run ended: the same outcomes a session ends with, `failed` included. */
+export const doneReasonSchema = z.enum(RUN_OUTCOMES);
 
 /**
  * One step the loop took. Per turn, in causal order:

@@ -69,7 +69,7 @@ describe('sub-agent completion in a conversation', () => {
 
       for await (const event of conversation.send('review', { signal: stop.signal })) {
         started.push(event);
-        if (event.type === 'turn_end' && event.turn === 2) stop.abort();
+        if (event.type === 'turn_end' && event.turn === 1) stop.abort();
       }
 
       expect(started.at(-1)).toMatchObject({ type: 'done', reason: 'interrupted' });
@@ -90,8 +90,7 @@ describe('sub-agent completion in a conversation', () => {
 
       const next = await prompt('what did it find?');
 
-      expect(seen).toHaveLength(1);
-      expect(seen[0]).not.toContain('Findings: a bug in parse()');
+      expect(seen.join('\n')).not.toContain('Findings: a bug in parse()');
       expect(next.filter((event) => event.type === 'task_completed')).toHaveLength(0);
       expect(next.filter((event) => event.type === 'harness_notice')).toHaveLength(0);
       expect(harness.tasks.hasUnreported).toBe(false);
@@ -101,27 +100,27 @@ describe('sub-agent completion in a conversation', () => {
     }
   });
 
-  it('keeps a prompt alive for sub-agents by default', async () => {
-    const { harness, conversation, finish, seen } = conversationWithSlowSubAgent();
-    const events: AgentEvent[] = [];
-    const running = (async () => {
-      for await (const event of conversation.send('review')) events.push(event);
-    })();
+  it('ends the prompt while a sub-agent works, then wakes the parent with its report', async () => {
+    const { harness, conversation, prompt, finish, seen } = conversationWithSlowSubAgent();
 
     try {
-      await until(() => events.filter((event) => event.type === 'turn_end').length === 2);
-      expect(() => conversation.send('anything else?')).toThrow('A prompt is still running');
-      expect(events.some((event) => event.type === 'done')).toBe(false);
+      const events = await prompt('review');
+
       expect(harness.tasks.runningCount).toBe(1);
+      expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'completed' });
+      expect(conversation.running).toBe(false);
       expect(harness.sessions.children(harness.mainSession.id)[0]?.state).toBe('running');
+
       finish.resolve(undefined);
-      await running;
-      expect(seen.at(-1)).toContain('Findings: a bug in parse()');
+      await until(() => seen.length === 1);
+      await until(() => !conversation.running);
+
+      expect(seen[0]).toContain('Findings: a bug in parse()');
+      expect(harness.tasks.hasUnreported).toBe(false);
       expect(harness.tasks.runningCount).toBe(0);
     } finally {
-      finish.resolve(undefined);
-      await running;
       await conversation.close();
+      finish.resolve(undefined);
     }
   });
 });

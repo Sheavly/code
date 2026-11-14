@@ -1,7 +1,7 @@
 import type { StoreError } from '@sheavly/core/errors/store.errors';
 import { now } from '@sheavly/core/clock/clock.helper';
 import type { EntryStore } from '@sheavly/core/store/store.types';
-import type { SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { toStoreError } from '@sheavly/core/store/store.utils';
 import { replayStored } from './entry-replay.helper.js';
@@ -29,19 +29,20 @@ export class EntryLog {
   /** The `seq` of the first entry in `#tail`; the ones before it are only in the store. */
   #tailStart = 0;
   #listeners = new Map<EntryListener, Matcher>();
-  readonly #lineage: (id: SessionId) => SessionInfo[];
+  readonly #lineage: (id: SessionId) => SessionId[];
   readonly #store: EntryStore | undefined;
   /** The writes queued so far, one after another. Never rejects: a failure goes to `#failure`. */
   #written: Promise<void> = Promise.resolve();
   #failure: StoreError | undefined;
 
   /**
-   * `lineage` walks a session up to the main session, for a filter on a whole subtree. `resume`
+   * `lineage` lists a session and its ancestors' ids, released ones too, for a filter on a whole
+   * subtree. `resume`
    * carries on a stored conversation: numbering continues from it and its newest entries are the
    * ones in memory, the rest being in the store (so `resume` needs the store it was read from).
    */
   constructor(params: {
-    lineage: (id: SessionId) => SessionInfo[];
+    lineage: (id: SessionId) => SessionId[];
     store?: EntryStore;
     resume?: Pick<StoredLog, 'next' | 'tail'>;
   }) {
@@ -213,7 +214,7 @@ export class EntryLog {
     if (sessionId === undefined) return () => true;
     if (!subtree) return (entry) => entry.sessionId === sessionId;
 
-    return (entry) => this.#lineage(entry.sessionId).some((session) => session.id === sessionId);
+    return (entry) => this.#lineage(entry.sessionId).includes(sessionId);
   }
 }
 

@@ -116,6 +116,20 @@ describe('structured check approvals', () => {
     ).toEqual(['run_command in tools']);
   });
 
+  it.each(['run_command', 'start_service'])(
+    'treats %s as a command request, for approval and for a forbid',
+    (tool) => {
+      expect(response({ tool })).toEqual({ decision: 'allow_session' });
+      expect(
+        stepApprovedCommands({ step: { forbid: { tools: [tool] } }, approvedCommands: ['node'] }),
+      ).toEqual([]);
+    },
+  );
+
+  it('skips a request from a tool that is not a command tool', () => {
+    expect(response({ tool: 'write_file' })).toEqual({ decision: 'skip' });
+  });
+
   it('prefers an offered temporary session grant and covers all node arguments', () => {
     expect(response()).toEqual({ decision: 'allow_session' });
     expect(response({ command: "node -e \"require('child_process').spawnSync('curl')\"" })).toEqual(

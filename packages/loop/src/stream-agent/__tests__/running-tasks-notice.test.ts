@@ -320,29 +320,31 @@ it('rebuilds running tasks for a retry after an overflow summary', async () => {
   const tasks = new TaskRegistry();
   const service = activeTask({ tasks, title: 'Watch release logs' });
   const { provider, requests } = recording([overflow, answer]);
-  // A grouped finite task holds the run open, so the run is asked to yield once it is grouped.
-  const yielding = new AbortController();
 
   try {
-    await runSession({
+    const run = runSession({
       provider,
       tasks,
       tools: [],
       messages: history(),
       summary,
-      yieldSignal: yielding.signal,
       hooks: [
         defineHook({
           name: 'group-during-summary',
           afterSummary: async () => {
             tasks.group({ ids: [service.task.id], reason: 'Watch for rollback errors.' });
-            yielding.abort();
           },
         }),
       ],
     });
 
-    expect(requests).toHaveLength(2);
+    // A grouped finite task holds the run open; a yield would not end it, so cancel the task.
+    await until(() => requests.length === 2);
+    await tasks.cancel(service.task.id);
+    await run;
+
+    // The cancelled task's delivery may add a later call; the first two are the retry.
+    expect(requests.length).toBeGreaterThanOrEqual(2);
     expect(runningNotice(requests[0])?.tasks[0]?.reason).toBe('Watch release logs');
     expect(runningNotice(requests[1])?.tasks[0]).toMatchObject({
       reason: 'Watch for rollback errors.',

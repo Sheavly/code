@@ -30,9 +30,12 @@ The ordinary SSE stream also carries structured `harness_notice` events before m
 Every UI receives the shared protocol payload without a special endpoint or provider imports
 and chooses its own presentation. Notices are not assistant messages or model-facing prose.
 
-Finite background commands and sub-agents keep a prompt active until their completions arrive,
-without an opt-in setting. Persistent services (`backgroundKind: 'service'`) are exempt and may
-outlive a prompt; closing the conversation stops its remaining background work.
+A prompt ends when the model finishes, even while background commands or sub-agents run; only
+`await_tasks` keeps it open. When finite work finishes while the conversation is idle, the
+conversation starts a run itself to deliver the notice, and its entries arrive on the
+conversation's stream (`QUERY /conversations/{id}/stream`), which a UI follows while idle.
+Persistent services (started with `start_service`) never wake it; their notice reaches the next
+prompt. Closing the conversation stops its remaining background work.
 
 A finished task or sub-agent is a persistent notice: the same typed payload (the sub-agent's card
 data and whole report, or the task's snapshot) is sent as a `harness_notice` event and stored in
