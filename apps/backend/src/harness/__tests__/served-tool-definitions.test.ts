@@ -22,6 +22,7 @@ const sharedNames = [
   'web_fetch',
   'web_search',
   'run_command',
+  'start_service',
   'read_output',
   'search_output',
   'task_status',
