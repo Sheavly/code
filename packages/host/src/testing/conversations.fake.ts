@@ -6,7 +6,10 @@ import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fa
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { createConversation } from '../conversation/conversation.helper.js';
 import { Conversations } from '../conversations/conversations.service.js';
-import type { CreateConversation } from '../conversations/conversations.types.js';
+import type {
+  ConversationSkills,
+  CreateConversation,
+} from '../conversations/conversations.types.js';
 import { createHarness } from '../host/host.helper.js';
 import { twoModelRun } from './run.fake.js';
 import { reviewSkill } from './skills.fake.js';
@@ -26,6 +29,8 @@ export const say = (text: string): StreamEvent[] => [
 export function scriptedConversations(params: {
   replies: StreamEvent[][];
   withSkills?: boolean;
+  /** Skills of its own, for a test that controls when a prompt is prepared. */
+  skills?: ConversationSkills;
   store?: ConversationStore;
 }) {
   const sent: Message[][] = [];
@@ -62,7 +67,9 @@ export function scriptedConversations(params: {
             resumed: storage.resume !== undefined,
           }),
         }),
-        ...(params.withSkills && { skills: reviewSkill }),
+        ...((params.skills ?? params.withSkills) && {
+          skills: params.skills ?? reviewSkill,
+        }),
         run: twoModelRun(),
         dispose: async () => {
           disposed.push('disposed');

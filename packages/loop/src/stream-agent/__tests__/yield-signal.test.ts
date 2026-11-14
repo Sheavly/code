@@ -59,7 +59,10 @@ describe('yieldSignal', () => {
     expect(result.messages.at(-1)).toMatchObject({ content: 'Started.' });
   });
 
-  it('stops waiting for background work when the yield arrives mid-wait', async () => {
+  // Pinned today: the run waits on ungrouped finite work, and a yield ends that wait. The change
+  // that stops ungrouped work holding a run open deletes this test; flow-open.test.ts states the
+  // rule ("rule 1") and the grouped wait ("rule 3").
+  it('pinned today: a yield ends the wait on ungrouped finite work', async () => {
     tasks = new TaskRegistry();
     const yielding = new AbortController();
     const finished = run({
