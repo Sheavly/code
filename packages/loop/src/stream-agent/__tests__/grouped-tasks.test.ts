@@ -4,6 +4,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
@@ -28,7 +29,18 @@ function registry() {
   return tasks;
 }
 
-function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'task' | 'service') {
+function controlledTask(
+  tasks: TaskRegistry,
+  label: string,
+  {
+    backgroundKind,
+    sessionId,
+  }: {
+    backgroundKind?: 'task' | 'service';
+    /** The session that owns it, as a tool call's session does; a shutdown cancels only these. */
+    sessionId?: SessionId;
+  } = {},
+) {
   const finish = Promise.withResolvers<undefined>();
   const ended = Promise.withResolvers<undefined>();
   let aborted = false;
@@ -36,6 +48,7 @@ function controlledTask(tasks: TaskRegistry, label: string, backgroundKind?: 'ta
     command: label,
     description: label,
     ...(backgroundKind && { backgroundKind }),
+    ...(sessionId && { sessionId }),
     run: async ({ signal, onOutput }) => {
       signal.addEventListener(
         'abort',
@@ -360,7 +373,7 @@ describe('grouped task delivery in the loop', () => {
   it('services are exempt from automatic finite waiting', async () => {
     const tasks = registry();
     const finite = controlledTask(tasks, 'finite');
-    const service = controlledTask(tasks, 'server', 'service');
+    const service = controlledTask(tasks, 'server', { backgroundKind: 'service' });
     const { provider } = recordingProvider([
       say('Waiting for finite work.'),
       say('Finite work received.'),
@@ -379,15 +392,22 @@ describe('grouped task delivery in the loop', () => {
 
   it('abort cancels every grouped member and unrelated services before done', async () => {
     const tasks = registry();
-    const first = controlledTask(tasks, 'first');
-    const last = controlledTask(tasks, 'last');
-    const service = controlledTask(tasks, 'server', 'service');
+    const sessions = new SessionRegistry();
+    const ref = sessions.startMain({ title: 'Parent' });
+    const sessionId = ref.id;
+    const first = controlledTask(tasks, 'first', { sessionId });
+    const last = controlledTask(tasks, 'last', { sessionId });
+    const service = controlledTask(tasks, 'server', { backgroundKind: 'service', sessionId });
     const controller = new AbortController();
 
     tasks.group({ ids: [first.task.id, last.task.id], reason });
     const { provider } = recordingProvider([say('Waiting.')]);
     const running = collect(
-      streamAgent({ ...options(tasks, provider), signal: controller.signal }),
+      streamAgent({
+        ...options(tasks, provider),
+        signal: controller.signal,
+        session: { registry: sessions, ref },
+      }),
     );
 
     await until(() => tasks.settleWaiters === 1);
@@ -435,7 +455,7 @@ describe('grouped task delivery in the loop', () => {
         yield { type: 'done', stopReason: 'end_turn' };
       },
     };
-    const sibling = controlledTask(tasks, 'sibling');
+    const sibling = controlledTask(tasks, 'sibling', { sessionId: ref.id });
     const { provider } = recordingProvider([
       toolTurn('start_agent', { title: 'Review', task: 'Review with a descendant' }),
       toolTurn('await_tasks', { ids: [sibling.task.id, 't2'], reason }),
@@ -460,12 +480,18 @@ describe('grouped task delivery in the loop', () => {
     );
 
     await descendantStarted.promise;
-    await until(() => tasks.settleWaiters === 1);
+    // The parent and the sub-agent holding on its descendant wait on the one shared registry.
+    await until(() => tasks.settleWaiters === 2);
     controller.abort();
     const events = await running;
 
     await descendantStopped.promise;
-    expect(tasks.list().map((task) => task.status)).toEqual(['cancelled', 'cancelled']);
+    // The sibling, the review, and the review's descendant: all on the one registry.
+    expect(tasks.list().map((task) => task.status)).toEqual([
+      'cancelled',
+      'cancelled',
+      'cancelled',
+    ]);
     expect(
       sessions
         .list()

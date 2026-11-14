@@ -185,7 +185,9 @@ async function startTool(params: {
   ]);
   const durationMs = performance.now() - started;
 
-  const task = tasks?.byCallId(call.id);
+  // The registry is shared by the run's sessions, and a provider's call ids are only unique within
+  // one: look among this session's tasks, never another's.
+  const task = tasks?.byCallId({ callId: call.id, sessionId: session?.id });
 
   if (task && !message.isError) {
     return { type: 'task_running', task, call, description, message, durationMs };

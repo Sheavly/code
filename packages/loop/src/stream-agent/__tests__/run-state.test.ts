@@ -61,7 +61,7 @@ function start(turns: StreamEvent[][]) {
 
 function groupTasks(callIds: string[]) {
   const ids = callIds.flatMap((callId) => {
-    const task = tasks.byCallId(callIdSchema.parse(callId));
+    const task = tasks.byCallId({ callId: callIdSchema.parse(callId) });
 
     return task ? [task.id] : [];
   });
@@ -91,9 +91,9 @@ describe('run_state while the run is held for tasks', () => {
 
     await until(() => run.states.length > 0);
     run.group('a', 'b');
-    await tasks.cancel(tasks.byCallId(callIdSchema.parse('a'))!.id);
+    await tasks.cancel(tasks.byCallId({ callId: callIdSchema.parse('a') })!.id);
     await until(() => run.states.some((s) => s.groupedTasks === 1));
-    await tasks.cancel(tasks.byCallId(callIdSchema.parse('b'))!.id);
+    await tasks.cancel(tasks.byCallId({ callId: callIdSchema.parse('b') })!.id);
     await run.finished;
 
     expect(run.states.map((s) => `${s.state}:${s.groupedTasks}`)).toEqual([
