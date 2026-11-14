@@ -6,8 +6,9 @@ run; tools and the loop share them.
 
 Background work starts through `startWork({ tasks, work })` with a `WorkDefinition` built by a
 kind's factory (`finiteWork`, `serviceWork`, or a tool's own such as `subAgentWork`), which fixes the
-policy so a caller names a kind and never passes it. `TaskRegistry.start` underneath still defaults
-to `backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
+policy so a caller names a kind and never passes it. `startWork` is the only source file that may
+call `TaskRegistry.start` (`harness/no-direct-task-start`); `start` itself still defaults to
+`backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
 awaited; its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`
 includes non-service running tasks, their held grouped results, and ready, undelivered completion
 notices: what keeps a sub-agent's loop open. A main session holds only for

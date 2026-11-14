@@ -73,6 +73,12 @@
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",
       "packages/coding/src/run-command/**"
+    ],
+    "sessions-and-background-work.md": [
+      "packages/runtime/src/tasks/**",
+      "packages/tools/src/sub-agent/**",
+      "packages/tools/src/tasks/**",
+      "packages/coding/src/run-command/**"
     ]
   },
   "nudge": ["extending.md", "state-machines.md"],
@@ -99,6 +105,7 @@
     "harness/no-credentials-file",
     "harness/no-default-export",
     "harness/no-direct-file-writes",
+    "harness/no-direct-task-start",
     "harness/no-dotdot-prefix",
     "harness/no-key-holder-import",
     "harness/no-process-env",
@@ -130,6 +137,7 @@
     "harness/no-credentials-file": "principles.md",
     "harness/no-default-export": "file-kinds.md",
     "harness/no-direct-file-writes": "principles.md",
+    "harness/no-direct-task-start": "sessions-and-background-work.md",
     "harness/no-dotdot-prefix": "principles.md",
     "harness/no-key-holder-import": "principles.md",
     "harness/no-process-env": "principles.md",

@@ -64,6 +64,7 @@ When you introduce a package, a convention or a pattern the harness doesn't chec
 | Notice envelope written only by the formatter            | `harness/no-handwritten-notice`                                                                                                  | a tag built from a variable                |
 | Prompts live in `*.prompt.ts`                            | `harness/prompt-location`                                                                                                        | dynamic paths static analysis can't follow |
 | Readability limits (depth, complexity, nesting)          | the readability rules in `base.js`                                                                                               | whether the code reads well                |
-| Two mechanisms for one concept, behaviour of a lifecycle | nothing yet (contract tests where they exist)                                                                                    | all of it: use the owning system           |
+| Background work enters the registry through a factory    | `harness/no-direct-task-start`                                                                                                   | `any`, a structural type; session scoping  |
+| Two mechanisms for one concept, behaviour of a lifecycle | nothing else yet (contract tests where they exist)                                                                               | all of it: use the owning system           |
 
 The last row is the gap this skill exists to close: a lifecycle or a policy is held by tests that run every kind through the same assertions, and by reading the owning guide before adding a path.
