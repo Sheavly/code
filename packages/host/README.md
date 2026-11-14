@@ -43,9 +43,10 @@ await conversation.close();
 
 A prompt cannot be given more text while it runs. A UI that queues what the user types calls
 `conversation.yieldPrompt()` so the running prompt ends as `completed` at its completion point
-instead of waiting on `await_tasks` (finished results reach the next prompt), then
-sends the queued text with `send`. It returns `false` for an idle or stopping prompt, and
-closed conversations throw `session_ended`.
+instead of waiting on ungrouped work (finished results reach the next prompt), then
+sends the queued text with `send`. A prompt held on `await_tasks` ignores the yield: the queued
+text stays queued while its grouped tasks run, and the prompt then ends at its next completion point. It returns `false` for an idle or stopping prompt
+(`true` even when a hold ignores it), and closed conversations throw `session_ended`.
 
 A host serving several conversations (the HTTP server, or a UI in-process) keeps them in a
 `Conversations`, built on a function the app gives that composes each one (provider, tools,

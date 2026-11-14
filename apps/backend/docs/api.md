@@ -222,7 +222,8 @@ first answer counts, and a later one gets `unknown_approval`.
 There is no way to send text to a running prompt: a client keeps its own queue and sends the next
 prompt after the run ends. To not wait for background tasks or sub-agents, it first calls
 `POST /conversations/:id/yield` (no body). The running prompt then ends as `completed` at its
-completion point, background work keeps running and its results reach the next prompt. It returns
+completion point, background work keeps running and its results reach the next prompt. A run held
+on `await_tasks` ignores the yield while its grouped tasks run, and is still accepted; once they settle the run ends at its next completion point. It returns
 JSON `{ accepted: true }`, or `{ accepted: false }` when the conversation is idle or its run is
 stopping. Unknown ids return `404 not_found`.
 

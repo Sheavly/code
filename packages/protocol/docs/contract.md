@@ -52,8 +52,9 @@ generic busy state rather than claiming the model thinks.
 `run_state` (`{ state: 'working' | 'waiting', groupedTasks: number }`) says live whether the run
 is working (the model generates or a tool runs) or held open after its turn for tasks. `waiting`
 carries how many running tasks grouped with `await_tasks` it still waits on; with 0, only
-ungrouped tasks or services remain and the run is ready for a follow-up, which is queued and asks
-the held run to yield. It is sent on every change and never stored in history, so the newest one
+ungrouped tasks or services remain and the run is ready for a follow-up, which is queued. A
+follow-up queued while `waiting` has grouped tasks stays queued while they run, and starts as the next prompt once the model has finished.
+It is sent on every change and never stored in history, so the newest one
 is the current state, and a UI of a sub-agent's session reads that session's own. A hold can end
 with no closing `working` (the run was aborted or yielded, or only services remain), so `done`
 ends the state: a UI treats the run as over when it arrives.

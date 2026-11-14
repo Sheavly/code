@@ -257,7 +257,8 @@ you` keeps its own words.
   agent: it stays in a first-in, first-out queue shown as `⏳ N queued`, outside the history and
   summaries. Sending one asks the running prompt to yield at its completion point, so it does not
   wait for background tasks or sub-agents (those keep running and their results are kept for the
-  next prompt). Queued lines then run in order as ordinary prompts, ahead of automatic
+  next prompt). While the agent waits on `await_tasks`, the line stays queued ("follow-ups are
+  queued") while the grouped tasks run, then runs once the model has finished. Queued lines then run in order as ordinary prompts, ahead of automatic
   continuation from background completions. Chat commands (`/model`, `/changes`, `/exit`, etc.)
   keep their place in the queue. The editor takes several lines (`Shift+Enter`), keeps your
   history (`↑` at the top), completes `/` commands and skills with `Tab`, and folds a large paste

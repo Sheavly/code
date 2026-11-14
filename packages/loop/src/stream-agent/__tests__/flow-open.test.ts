@@ -14,6 +14,7 @@ import type { WorkKind } from '../../testing/work-kinds.types.js';
 
 // The rules are in `.agents/skills/sheavly/state-machines.md`, "The flow that must hold". A test
 // marked `it.fails` states a rule today's code breaks: it turns red when the code is fixed.
+// Rule 3 is fixed, so its tests are plain `it`.
 
 afterEach(cancelOpenFlows);
 
@@ -113,33 +114,75 @@ describe.each(awaitable)('flow rules 2 and 3 — $name', (kind) => {
     expect((await run).reason).toBe('interrupted');
   });
 
-  // Same setup as the "pinned today" test below, which fails if the run throws, so this
-  // `it.fails` cannot pass on a broken setup.
-  it.fails(
-    'rule 3: a line queued while the session waits on await_tasks does not end the wait',
-    async () => {
-      const yielding = new AbortController();
-      const { run } = startRun({
-        kind,
-        turns: waiting('slow'),
-        yieldSignal: yielding.signal,
-      });
-
-      expect(await settledWithin(run, HELD_MS)).toBe(false);
-      yielding.abort();
-
-      expect(await settledWithin(run, HELD_MS)).toBe(false);
-    },
-  );
-
-  it('pinned today: a requested yield ends the wait on grouped work', async () => {
+  it('rule 3: a line queued while the session waits on await_tasks does not end the wait', async () => {
     const yielding = new AbortController();
     const { run } = startRun({ kind, turns: waiting('slow'), yieldSignal: yielding.signal });
 
     expect(await settledWithin(run, HELD_MS)).toBe(false);
     yielding.abort();
 
-    expect(await settledWithin(run, SETTLES_MS)).toBe(true);
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+  });
+
+  it('rule 3: a line queued before the model reaches await_tasks does not end the wait', async () => {
+    const yielding = new AbortController();
+
+    yielding.abort();
+    const { run, tasks } = startRun({
+      kind,
+      turns: waiting('slow'),
+      yieldSignal: yielding.signal,
+    });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    expect(tasks.groupedPendingCount()).toBe(1);
+  });
+
+  it('rule 2: the user stopping the run still ends a wait that has a line queued', async () => {
+    const stopping = new AbortController();
+    const yielding = new AbortController();
+    const { run } = startRun({
+      kind,
+      turns: waiting('slow'),
+      signal: stopping.signal,
+      yieldSignal: yielding.signal,
+    });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    yielding.abort();
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    stopping.abort();
+
+    expect((await run).reason).toBe('interrupted');
+  });
+
+  it('rule 3: a line queued during the wait starts only after the model has seen the awaited result', async () => {
+    const yielding = new AbortController();
+    const { run, tasks } = startRun({
+      kind,
+      turns: waiting('slow'),
+      yieldSignal: yielding.signal,
+    });
+
+    expect(await settledWithin(run, HELD_MS)).toBe(false);
+    yielding.abort();
+    await tasks.cancel(t1);
+    const result = await run;
+
+    expect(result.reason).toBe('completed');
+    expect(result.messages.filter((m) => m.role === 'notice')).toHaveLength(1);
+    expect(result.messages.at(-1)).toMatchObject({ content: 'Saw it.' });
+    expect(tasks.hasDeliveries()).toBe(false);
+  });
+
+  it('rule 4: once the awaited work settles, a requested yield ends the run when the model finishes', async () => {
+    const yielding = new AbortController();
+
+    yielding.abort();
+    const { run } = startRun({ kind, turns: waiting('quick'), yieldSignal: yielding.signal });
+    const result = await run;
+
+    expect(result.reason).toBe('completed');
   });
 });
 
