@@ -36,9 +36,9 @@ describe('every search backend', () => {
       expect(fake.requests[0]?.init.redirect, backend.name).toBe('error');
 
       const failing = create({
-        fetch: (async () => {
+        fetch: async () => {
           throw new Error('boom test-key');
-        }),
+        },
         apiKey: 'test-key',
       });
       const attempt = failing.search({
