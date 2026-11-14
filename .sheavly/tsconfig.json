@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // The project hooks: plain Node scripts the harness loads with `import()`, with no build and
+    // no type errors to check (`checkJs` stays off). The project exists so ESLint has type info
+    // for them, which `no-deprecated` needs. The harness never reads this file.
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": ["hooks/*.mjs"]
+}

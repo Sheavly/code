@@ -4,9 +4,16 @@
   // A type used in its own file's exported signatures (`Hook`'s `ToolCallContext`) is part of
   // that API: a hook or tool author names it, even if nothing in the repo does.
   "ignoreExportsUsedInFile": { "type": true },
+  // A project hook's default export is what `loadProjectHooks` imports; nothing in the repo does.
+  "ignoreIssues": { ".sheavly/hooks/*.mjs": ["exports"] },
   "workspaces": {
     ".": {
-      "entry": [".cursor/hooks/*.mjs", "!.cursor/hooks/*.utils.mjs"],
+      "entry": [
+        ".cursor/hooks/*.mjs",
+        "!.cursor/hooks/*.utils.mjs",
+        ".sheavly/hooks/*.mjs",
+        "!.sheavly/hooks/cursor-bridge.mjs"
+      ],
       "ignore": ["workbook/workspaces/**"]
     }
   }

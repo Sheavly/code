@@ -65,10 +65,20 @@ let ruleBroken = false;
 
 // Formatting is applied, not reported: there's nothing for the agent to decide. It's told, so
 // it re-reads the file before editing it again (its copy no longer matches).
+// With SHEAVLY_FORMAT_CHECK_ONLY set (the Sheavly project hook sets it) it only reports: a rewrite
+// after the tool returned would leave the harness's read-before-edit tracking stale.
 if (FORMATTABLE.test(filePath)) {
   const before = runBin('prettier', ['--check', filePath]);
 
-  if (!before.ok && runBin('prettier', ['--write', filePath]).ok) {
+  if (!before.ok && process.env.SHEAVLY_FORMAT_CHECK_ONLY) {
+    // `runBin` says "Could not run" when Prettier did not start: that is not a formatting problem.
+    if (!before.output.startsWith('Could not run')) {
+      notes.push(
+        'Prettier would reformat the file you just edited. Run `npx prettier --write <file>`, then ' +
+          're-read it before editing it again.',
+      );
+    }
+  } else if (!before.ok && runBin('prettier', ['--write', filePath]).ok) {
     notes.push(
       'Prettier reformatted the file you just edited; re-read it before editing it again.',
     );
