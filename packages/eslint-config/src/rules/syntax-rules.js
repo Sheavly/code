@@ -180,6 +180,16 @@ export const SYNTAX_RULES = {
         "Do not look up the latest user message by hand with `findLast`/`findLastIndex`. For stored history use `latestRequest`, `latestRequestIndex` or `latestPromptIndex` (`@sheavly/core/history/history.utils`): a request is a stored `user` entry and a notice never is one. This rule recognises only that call shape; the same lookup written another way (a loop, `filter(...).at(-1)`) is not caught, so use the helpers anyway. Code that works on the messages a model is sent (a `beforeModelCall` hook's input, a request log) is a model view, where notices are `user` messages too: say so with a `files:` override and its reason in this workspace's eslint.config.js.",
     },
   ],
+  // The main session is the one without a parent, defined once in `isMainSession`. A depth
+  // comparison written by hand is a second definition that drifts when depth changes meaning.
+  'no-adhoc-main-session': [
+    {
+      selector:
+        "BinaryExpression[operator=/^[!=]==?$/]:matches([left.type='MemberExpression'][left.property.name='depth'][right.value=1], [right.type='MemberExpression'][right.property.name='depth'][left.value=1])",
+      message:
+        "Do not tell the main session by `depth === 1`. Use `isMainSession(session)` (`@sheavly/protocol/session/session.utils`): only a sub-agent has a parent. To know how the main run ended, use `runEnd(entry)` (`@sheavly/protocol/status/run-end.utils`) instead of matching `done` or `session_idle` entries yourself. Code that truly reads depth (a sub-agent's nesting cap) compares it with `MAX_SESSION_DEPTH`, not 1.",
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

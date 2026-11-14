@@ -102,6 +102,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   a `user`-role message in what a model is sent. Code that works on a model's input says so with a
   `files:` override and its reason. It sees only this call shape, so a lookup written another way
   (a loop, a reversed copy) is left to review.
+- **The main session** (`harness/no-adhoc-main-session`, source files): no `session.depth === 1`
+  (or `!==`, `==`, either side). The main session is the one without a parent, defined once by
+  `isMainSession` (`@sheavly/protocol/session/session.utils`); how the main run ended is asked of
+  `runEnd` (`@sheavly/protocol/status/run-end.utils`). It sees only a comparison of a `.depth`
+  member with the literal 1, so a depth copied into a variable first is left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

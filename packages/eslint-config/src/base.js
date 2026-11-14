@@ -116,6 +116,12 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-adhoc-latest-request': 'error' },
     },
+    // --- The main session is told by `isMainSession`, not by comparing its depth ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-adhoc-main-session': 'error' },
+    },
     // --- Background work starts through `startWork` and a kind's factory, not `TaskRegistry.start` ---
     {
       files: SOURCE_FILES,
