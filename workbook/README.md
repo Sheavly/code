@@ -57,6 +57,11 @@ without any status polling. It complements `background-tasks`, which explicitly 
 It requires approval for `node` in its generated workspace; a refusal is a blocked check, not
 evidence that completion delivery works. The check does not grant command permissions itself.
 
+`start-service` checks that a long-running process is started with `start_service`, not as a
+finite background command, and stopped with `cancel_task` without status polling. It needs approval
+for `node` like `background-completion`. It shows the model chose the right tool, not that a service
+outlives a prompt; the loop and tool tests cover the policy.
+
 `grouped-tasks` additionally requires a successful `await_tasks` call with future-self context,
 independent work, and both delayed outputs without polling. It needs the same command approval.
 It also asks the model to report the delivered completion reason, start, duration and user-message

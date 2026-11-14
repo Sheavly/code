@@ -12,7 +12,7 @@ sub-agent on one task, `{ title, task }`.
   `interrupted`), and is told its report when it finishes. Its task requires completion:
   the parent prompt stays alive and resumes automatically with the report. No user message or
   status polling is needed. The child's run also waits for its finite tasks by default; persistent
-  commands explicitly use `backgroundKind: 'service'` and can outlive a prompt. Interrupting the
+  commands are started with `start_service` and can outlive a prompt. Interrupting the
   parent's run cancels its background work, including unfinished sub-agents.
 - **Three levels, hard cap.** Main session → sub-agent → sub-agent (`MAX_SESSION_DEPTH = 3`).
   Below the cap a sub-agent gets `start_agent` too; at depth 3 it doesn't, and the registry

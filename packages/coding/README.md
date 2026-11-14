@@ -36,8 +36,8 @@ tools also use a shared scratch folder outside the repo; see
 ## Docs
 
 `run_command` starts required finite work with `background: true`: the loop keeps the prompt alive
-until its result is delivered. Persistent servers and watchers use `backgroundKind: 'service'`
-instead. The agent can finish independent work, then yield without polling task status.
+until its result is delivered. Persistent servers and watchers use the `start_service` tool
+instead, which has the same checks and approval. The agent can finish independent work, then yield without polling task status.
 The generic `await_tasks({ ids, reason })` tool can group results for delivery together; its reason
 preserves the dependent decision or next step for the agent after a summary.
 

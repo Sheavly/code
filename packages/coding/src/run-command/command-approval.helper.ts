@@ -10,7 +10,7 @@ import { isAllowed } from './allow-list.utils.js';
 import { suggestEntry } from './allow-entry.utils.js';
 import { gitWorktreeSubcommand } from './command-base.utils.js';
 import { NOT_ALLOWED, WORKTREE_CHANGING_SUBCOMMANDS } from './run-command.constants.js';
-import type { CommandPermissions } from './run-command.types.js';
+import type { CommandPermissions, CommandToolName } from './run-command.types.js';
 
 type AskingMode = Exclude<PermissionMode, 'allow_all'>;
 
@@ -122,6 +122,8 @@ function ungrantableConcerns(params: {
  * thrown and the line does not run.
  */
 export async function confirmCommand(params: {
+  /** The tool asking, so the user and a UI see which one wants to run the line. */
+  tool: CommandToolName;
   command: string;
   steps: readonly ScriptStep[];
   permissions: CommandPermissions;
@@ -136,7 +138,7 @@ export async function confirmCommand(params: {
    */
   outsideCwd?: string | undefined;
 }): Promise<void> {
-  const { command, steps, permissions, approvals, call, signal, outsideCwd } = params;
+  const { tool, command, steps, permissions, approvals, call, signal, outsideCwd } = params;
   const { mode, allow } = await permissions.read();
 
   if (mode === 'allow_all') return;
@@ -165,7 +167,7 @@ export async function confirmCommand(params: {
   const entries = mode === 'ask' && alwaysAsked.length === 0 ? proposed : undefined;
   const response = await approvals.request({
     ...call,
-    tool: 'run_command',
+    tool,
     command,
     concerns,
     options: offeredOptions({ entries, session: permissions.allowSession !== undefined }),

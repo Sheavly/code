@@ -33,7 +33,7 @@ A prompt ends when the model finishes, even while background commands or sub-age
 `await_tasks` keeps it open. When finite work finishes while the conversation is idle, the
 conversation starts a run itself to deliver the notice, and its entries arrive on the
 conversation's stream (`QUERY /conversations/{id}/stream`), which a UI follows while idle.
-Persistent services (`backgroundKind: 'service'`) never wake it; their notice reaches the next
+Persistent services (started with `start_service`) never wake it; their notice reaches the next
 prompt. Closing the conversation stops its remaining background work.
 
 A finished task or sub-agent is a persistent notice: the same typed payload (the sub-agent's card

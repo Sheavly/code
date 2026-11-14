@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
+import { createStartServiceTool } from '@sheavly/coding/run-command/start-service.tool';
 import type { RunCommandOptions } from '@sheavly/coding/run-command/run-command.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -21,8 +22,12 @@ const temp = useTempWorkspace({ prefix: 'sub-agent-command-abort-' });
 
 afterEach(() => vi.restoreAllMocks());
 
-function instrumentChild(options: RunCommandOptions & { tasks: TaskRegistry }) {
-  const tool = createRunCommandTool(options);
+function instrumentChild(params: {
+  options: RunCommandOptions & { tasks: TaskRegistry };
+  create: typeof createRunCommandTool | typeof createStartServiceTool;
+}) {
+  const { options, create } = params;
+  const tool = create(options);
 
   return {
     tasks: options.tasks,
@@ -50,9 +55,12 @@ function expectPairedHistory(messages: HistoryMessage[], callId: string, isError
 }
 
 describe('sub-agent command permissions resolving after parent interruption', () => {
-  it.each(['task', 'service'] as const)(
-    'does not register or launch a late %s after the child session is cleaned up',
-    async (backgroundKind) => {
+  it.each([
+    { name: 'run_command', create: createRunCommandTool },
+    { name: 'start_service', create: createStartServiceTool },
+  ])(
+    'does not register or launch a late $name after the child session is cleaned up',
+    async ({ name, create }) => {
       const permissionResult =
         Promise.withResolvers<Awaited<ReturnType<RunCommandOptions['permissions']['read']>>>();
       const permissions = {
@@ -84,8 +92,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
           calls(
             toolCall({
               id: 'delayed-command',
-              name: 'run_command',
-              input: { command: 'echo never', background: true, backgroundKind },
+              name,
+              input: { command: 'echo never', background: true },
             }),
           ),
           say('Command finished'),
@@ -99,10 +107,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         tools: [],
         tasksTools: (childTasks) => {
           const child = instrumentChild({
-            workspace: temp.workspace,
-            permissions,
-            processes,
-            tasks: childTasks,
+            create,
+            options: { workspace: temp.workspace, permissions, processes, tasks: childTasks },
           });
 
           childBuilt.resolve(child);

@@ -88,14 +88,16 @@ describes the effective command scope rather than claiming old restrictions rema
 
 ### Background lifecycle
 
-`background: true` returns a task id immediately. Its default `backgroundKind: 'task'` means finite
-work, such as a build, test run or CI wait. The tool forwards `backgroundKind` to the task registry,
-so the loop keeps the calling prompt alive until it delivers the result.
+`background: true` returns a task id immediately. It is always finite work, such as a build, test
+run or CI wait: the tool starts it with `commandTaskWork`, so the loop keeps the calling prompt
+alive until it delivers the result. The model does not choose the kind.
 The agent finishes independent work and ends its turn without tool calls to wait. Completion is
 delivered automatically; `task_status` is for requested inspection or diagnosis, not polling.
 
-Use `backgroundKind: 'service'` for a persistent server or watcher. It remains non-blocking by
-default and can outlive the prompt. Use `cancel_task` to stop a service when finished.
+Use `start_service({ command, cwd? })` for a persistent server or watcher. It parses, approves and
+captures output exactly like `run_command` (both share `command-launch.helper.ts`), but starts
+`commandServiceWork`, so it never keeps the prompt alive and can outlive it. Use `cancel_task` to
+stop a service when finished. A `backgroundKind` sent to `run_command` is dropped by its schema.
 
 When several results inform one decision, `await_tasks({ ids, reason })` registers a completion
 group immediately: the registry holds their notices until all members finish, then delivers them
@@ -103,9 +105,8 @@ together with the reason. Explain the dependent decision or next step for your f
 a summary, not just "waiting for results". Grouping does not block the tool call or make
 `task_status` a wait tool.
 
-Existing `background: true` calls now start required finite work. Callers launching persistent
-processes must explicitly select `backgroundKind: 'service'`. The kind has no effect on foreground
-commands. Interrupting a run stops its wait and cancels its background work; closing a conversation
+`background: true` calls start required finite work; persistent processes use `start_service`.
+Interrupting a run stops its wait and cancels its background work; closing a conversation
 also shuts its tasks down. The call's abort signal is checked after asynchronous permission and
 approval work, before launch, so a delayed permission read cannot start a fresh task or service
 after interruption cleanup.
