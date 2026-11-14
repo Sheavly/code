@@ -61,6 +61,57 @@ describe('a kept session', () => {
     expect(registry.get(ref.id)).toMatchObject({ state: 'idle', lastOutcome: 'failed' });
   });
 
+  it.each([true, false])(
+    'ends a failed run with exactly one done, after run_failed (keepSession %s)',
+    async (keepSession) => {
+      const registry = new SessionRegistry();
+      const ref = registry.startMain({ title: 'Chat' });
+      const events: string[] = [];
+      let stateAtDone: string | undefined;
+
+      await expect(
+        runSession({
+          provider: failing,
+          tools: [],
+          messages: [{ role: 'user', content: 'hi' }],
+          session: { registry, ref },
+          keepSession,
+          onEvent: (event) => {
+            events.push(event.type);
+            if (event.type === 'done') stateAtDone = registry.get(ref.id)?.state;
+          },
+        }),
+      ).rejects.toThrow('model down');
+
+      expect(events.filter((type) => type === 'done')).toHaveLength(1);
+      expect(events.at(-1)).toBe('done');
+      expect(events.indexOf('run_failed')).toBeLessThan(events.indexOf('done'));
+      // The session has left `running` by the time `done` is seen.
+      expect(stateAtDone).toBe(keepSession ? 'idle' : 'failed');
+    },
+  );
+
+  it('ends a stopped run with exactly one done, interrupted', async () => {
+    const registry = new SessionRegistry();
+    const ref = registry.startMain({ title: 'Chat' });
+    const stop = new AbortController();
+    const reasons: string[] = [];
+
+    stop.abort();
+    await runSession({
+      provider: scriptedProvider([say('never')]),
+      tools: [],
+      messages: [{ role: 'user', content: 'hi' }],
+      session: { registry, ref },
+      signal: stop.signal,
+      onEvent: (event) => {
+        if (event.type === 'done') reasons.push(event.reason);
+      },
+    });
+
+    expect(reasons).toEqual(['interrupted']);
+  });
+
   it('runs sessionStart once per session: a resumed run skips it', async () => {
     const started: string[] = [];
     const rules = defineHook({
