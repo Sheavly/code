@@ -4,6 +4,7 @@ import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { PromptPart } from '@sheavly/protocol/message/message.types';
@@ -17,6 +18,8 @@ export type RunPrompt = (options: {
   provider: Provider;
   tools: Tool[];
   hooks: Hook[];
+  /** Lets the hooks' `approval` handlers see this session's requests before a UI does. */
+  approvals: ApprovalRegistry;
   messages: HistoryMessage[];
   signal: AbortSignal;
   tasks: TaskRegistry;
