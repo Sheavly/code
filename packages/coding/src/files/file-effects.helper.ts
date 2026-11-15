@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { MAX_FILE_BYTES } from './files.constants.js';
 
 /** The file's current content, or `null` if it doesn't exist yet. */
 export async function readIfExists(params: {
@@ -39,6 +40,46 @@ export async function readForChange(params: {
   }
 
   return before;
+}
+
+/**
+ * Refuses a file bigger than `MAX_FILE_BYTES`, judged from its size on disk before any content is
+ * read. A file that is not there is left for the read that follows to report as `not_found`.
+ */
+export async function assertFitsInMemory(params: {
+  file: string;
+  requested: string;
+  hint: string;
+}): Promise<void> {
+  const { file, requested, hint } = params;
+  let size: number;
+
+  try {
+    size = await fileSize({ file });
+  } catch (caughtError) {
+    if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw caughtError;
+  }
+
+  if (size > MAX_FILE_BYTES) {
+    throw new ToolCallError({
+      reason: 'invalid_input',
+      message: `${requested} is ${size} bytes, more than the ${MAX_FILE_BYTES} bytes a file tool handles. ${hint}`,
+    });
+  }
+}
+
+/** Refuses text that would make a file bigger than `MAX_FILE_BYTES`. */
+export function assertContentFits(params: { content: string; requested: string }): void {
+  const { content, requested } = params;
+  const size = Buffer.byteLength(content, 'utf8');
+
+  if (size > MAX_FILE_BYTES) {
+    throw new ToolCallError({
+      reason: 'invalid_input',
+      message: `The content for ${requested} is ${size} bytes, more than the ${MAX_FILE_BYTES} bytes a file tool handles. Split it across files.`,
+    });
+  }
 }
 
 /** The file's size in bytes. */

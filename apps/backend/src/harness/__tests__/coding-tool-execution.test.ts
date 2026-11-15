@@ -107,11 +107,13 @@ function taskFrom(request: ProviderRequest, callId: string): string {
 }
 
 describe.each(['main', 'child'])('backend coding tools in the %s session', (actor) => {
-  it('runs glob and grep and deletes an unread fixture with the composed tools', async () => {
+  it('runs glob and grep, refuses an unread delete and deletes a read fixture with the composed tools', async () => {
     const scripts = [
       step('find-files', 'glob', { pattern: '*.ts', path: 'src' }),
       step('find-content', 'grep', { pattern: 'fixtureNeedle', path: 'src' }),
       step('delete-unread', 'delete_file', { path: `${actor}-delete.txt` }),
+      step('read-target', 'read_file', { path: `${actor}-delete.txt` }),
+      step('delete-read', 'delete_file', { path: `${actor}-delete.txt` }),
     ];
     const results = resultsSeen(await runPrompt({ scripts: scriptFor(actor, scripts) }));
 
@@ -121,8 +123,12 @@ describe.each(['main', 'child'])('backend coding tools in the %s session', (acto
     expect(results.get('find-content')?.content).toBe(
       'src/example.ts:1:export const fixtureNeedle = 1;',
     );
-    expect(results.get('delete-unread')).toMatchObject({ isError: false });
-    expect(results.get('delete-unread')?.content).toContain(`Deleted ${actor}-delete.txt`);
+    expect(results.get('delete-unread')).toMatchObject({ isError: true });
+    expect(results.get('delete-unread')?.content).toContain(
+      `You have not read ${actor}-delete.txt`,
+    );
+    expect(results.get('delete-read')).toMatchObject({ isError: false });
+    expect(results.get('delete-read')?.content).toContain(`Deleted ${actor}-delete.txt`);
     await expect(stat(path.join(temp.root, `${actor}-delete.txt`))).rejects.toMatchObject({
       code: 'ENOENT',
     });
@@ -213,6 +219,7 @@ describe('backend child state isolation', () => {
             oldText: 'one',
             newText: 'wrong',
           }),
+          step('child-read', 'read_file', { path: 'ledger.ts' }),
           step('child-delete', 'delete_file', { path: 'ledger.ts' }),
           step('child-recreate', 'write_file', { path: 'ledger.ts', content: 'one\n' }),
           say('recreated'),

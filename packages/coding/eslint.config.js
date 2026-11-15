@@ -25,10 +25,11 @@ export default defineConfig([
     files: ['src/files/file-effects.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
-  // The guarded resolvers are the one place `Workspace.resolveWrite` / `resolveDelete` are called,
-  // with the `.env` and `.git` guards on both sides (`harness/guard-env-write`).
+  // The guarded resolvers are the one place `Workspace.resolveRead` / `resolveWrite` /
+  // `resolveDelete` are called for a tool's own path, with the `.env` and `.git` guards on both
+  // sides, in `resolveGuarded` rather than in each resolver (so the per-function env rules are off).
   {
     files: ['src/files/files.helper.ts'],
-    rules: { 'harness/guard-env-write': 'off' },
+    rules: { 'harness/guard-env-write': 'off', 'harness/guard-env-read': 'off' },
   },
 ]);

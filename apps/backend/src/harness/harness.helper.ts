@@ -80,7 +80,7 @@ export async function createBackendHarness(
     ...projectHooks.hooks,
   ];
   const fileTools = [
-    createReadFileTool({ workspace, workingRoots, fileReads }),
+    createReadFileTool({ workspace, workingRoots, fileLocks, fileReads }),
     createGlobTool({ workspace, workingRoots, processes }),
     createGrepTool({ workspace, workingRoots, processes }),
     createWriteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
@@ -105,6 +105,7 @@ export async function createBackendHarness(
       approvals,
       processes,
       outputs,
+      fileReads,
     };
 
     return [createRunCommandTool(options), createStartServiceTool(options)];

@@ -5,6 +5,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
@@ -13,6 +14,7 @@ const signal = new AbortController().signal;
 const callId = callIdSchema.parse('1');
 
 const repo = useTempRepo({ prefix: 'run-command-cwd-' });
+const fileReads = useFileReads();
 let workspace: Workspace;
 let scratchWorkspace: Workspace;
 
@@ -30,6 +32,7 @@ const runIn = (input: { workspace: Workspace; command: string; cwd?: string; mod
   runTool({
     tools: [
       createRunCommandTool({
+        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: input.workspace,
         // `pwd` is built in; `ask` mode makes the rest need a grant.

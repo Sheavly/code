@@ -6,6 +6,7 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { WorkDefinition, WorkInput } from '@sheavly/runtime/tasks/work.types';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
+import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { ScriptParams } from '@sheavly/workspace/process/process.types';
 import { currentRoot } from '../files/working-root.helper.js';
@@ -99,10 +100,22 @@ export async function startCommandWork(params: {
   script: Omit<ScriptParams, 'signal'>;
   outputs: OutputStore | undefined;
   processes: ProcessRunner;
+  fileReads: FileReads;
   signal: AbortSignal;
   context: ToolContext;
 }): Promise<{ task: ReturnType<typeof startWork>; capture: Capture }> {
-  const { tasks, sessionId, toWork, command, script, outputs, processes, signal, context } = params;
+  const {
+    tasks,
+    sessionId,
+    toWork,
+    command,
+    script,
+    outputs,
+    processes,
+    fileReads,
+    signal,
+    context,
+  } = params;
 
   const capture = await startCapture(outputs);
   const writer = capture && 'writer' in capture ? capture.writer : undefined;
@@ -121,7 +134,9 @@ export async function startCommandWork(params: {
         sessionId,
         ...(writer && { capture: writer }),
         run: ({ signal: taskSignal, onOutput }) =>
-          processes.runScript({ ...script, signal: taskSignal, onOutput }),
+          processes
+            .runScript({ ...script, signal: taskSignal, onOutput })
+            .finally(() => fileReads.markAllUnknown()),
       }),
     });
 

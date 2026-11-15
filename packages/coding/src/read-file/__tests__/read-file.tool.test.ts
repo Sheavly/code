@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createReadFileTool } from '../read-file.tool.js';
@@ -34,6 +35,7 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+const fileLocks = useFileLocks();
 const fileReads = useFileReads();
 
 const read = (
@@ -42,7 +44,13 @@ const read = (
   session?: SessionRef,
 ) =>
   runTool({
-    tools: [createReadFileTool({ workspace, fileReads: fileReads.current })],
+    tools: [
+      createReadFileTool({
+        workspace,
+        fileLocks: fileLocks.current,
+        fileReads: fileReads.current,
+      }),
+    ],
     call: {
       id: callIdSchema.parse('1'),
       name: 'read_file',

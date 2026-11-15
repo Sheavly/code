@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileToolServices } from '../files/files.types.js';
-import { createParentFolder, readIfExists, writeText } from '../files/file-effects.helper.js';
+import {
+  assertContentFits,
+  createParentFolder,
+  readIfExists,
+  writeText,
+} from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
@@ -33,6 +38,7 @@ export function createWriteFileTool({
       content: z.string().describe(WRITE_FILE_PROMPTS.content),
     }),
     execute: async ({ input: { path: requested, content }, signal, context }) => {
+      assertContentFits({ content, requested });
       const root = await currentRoot(workingRoots);
       const real = await resolveWritable({ workspace, requested, root });
 

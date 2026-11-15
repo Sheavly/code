@@ -9,6 +9,7 @@ import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createOutputTools } from '@sheavly/tools/output/output.tool';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { runForeground } from '../foreground.helper.js';
@@ -16,6 +17,7 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 
 const temp = useTempWorkspace({ prefix: 'run-command-capture-test-' });
+const fileReads = useFileReads();
 let tasks: TaskRegistry;
 
 afterEach(async () => {
@@ -26,6 +28,7 @@ function setup(outputs: MemoryOutputStore | undefined = new MemoryOutputStore())
   tasks = new TaskRegistry();
 
   const options = {
+    fileReads: fileReads.current,
     processes: testProcesses(),
     workspace: temp.workspace,
     permissions: testPermissions({ mode: 'allow_all' }),
@@ -170,6 +173,7 @@ describe('run_command output capture', () => {
 
     const run = toolRunner([
       createRunCommandTool({
+        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions({ mode: 'allow_all' }),
@@ -195,6 +199,7 @@ describe('run_command output capture', () => {
       },
       processes: testProcesses(),
       outputs,
+      fileReads: fileReads.current,
     }).catch((caughtError: unknown) => caughtError);
     const error = await failure;
 
@@ -209,6 +214,7 @@ describe('run_command output capture', () => {
     const outputs = new MemoryOutputStore();
     const run = toolRunner([
       createRunCommandTool({
+        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions({ mode: 'allow_all' }),

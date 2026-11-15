@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileToolServices } from '../files/files.types.js';
-import { readForChange, writeText } from '../files/file-effects.helper.js';
+import {
+  assertContentFits,
+  assertFitsInMemory,
+  readForChange,
+  writeText,
+} from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
 import { resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
@@ -45,6 +50,12 @@ export function createEditFileTool({
         file: real,
         signal,
         change: async () => {
+          await assertFitsInMemory({
+            file: real,
+            requested,
+            hint: 'Change it with run_command (sed) instead.',
+          });
+
           const before = await readForChange({
             file: real,
             requested,
@@ -68,6 +79,8 @@ export function createEditFileTool({
           }
 
           const { after, count } = applyEdit({ before, oldText, newText, replaceAll, requested });
+
+          assertContentFits({ content: after, requested });
 
           // A file read in part is edited in the parts that were read. The text exists once in the
           // file (or replaceAll was checked above), so if it is in what was shown, that is the place.

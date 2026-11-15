@@ -15,6 +15,7 @@ import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approva
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testPermissions } from '../../testing/permissions.fake.js';
 
@@ -30,8 +31,11 @@ const temp = useTempWorkspace({
   outside: { 'secret.txt': 'outside' },
 });
 
+const fileReads = useFileReads();
+
 const tool = (approvals: ApprovalRegistry, permissions = testPermissions({ mode: 'always_ask' })) =>
   createRunCommandTool({
+    fileReads: fileReads.current,
     processes: testProcesses(),
     workspace: temp.workspace,
     permissions,
@@ -108,6 +112,7 @@ describe('approval flow through the loop', () => {
       const approvals = new ApprovalRegistry();
       const updates = laterUi({ approvals, response: { decision: 'skip' }, delayMs: 0 });
       const options = {
+        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions({ mode: 'always_ask' }),

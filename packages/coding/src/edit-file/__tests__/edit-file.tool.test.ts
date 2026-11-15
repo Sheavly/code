@@ -32,7 +32,11 @@ const run = (params: {
 }) =>
   runTool({
     tools: [
-      createReadFileTool({ workspace: temp.workspace, fileReads: fileReads.current }),
+      createReadFileTool({
+        workspace: temp.workspace,
+        fileLocks: fileLocks.current,
+        fileReads: fileReads.current,
+      }),
       createEditFileTool({
         workspace: temp.workspace,
         fileLocks: fileLocks.current,

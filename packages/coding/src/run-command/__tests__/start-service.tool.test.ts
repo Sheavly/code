@@ -5,6 +5,7 @@ import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';
@@ -12,6 +13,7 @@ import type { RunCommandOptions } from '../run-command.types.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 
 const temp = useTempWorkspace({ prefix: 'start-service-test-' });
+const fileReads = useFileReads();
 let tasks: TaskRegistry;
 
 afterEach(async () => {
@@ -22,6 +24,7 @@ afterEach(async () => {
 /** The tool's options; each test overrides only what it is about. */
 function serviceOptions(overrides: Partial<RunCommandOptions> = {}): RunCommandOptions {
   return {
+    fileReads: fileReads.current,
     processes: testProcesses(),
     workspace: temp.workspace,
     permissions: testPermissions({ mode: 'allow_all' }),

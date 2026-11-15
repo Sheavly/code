@@ -1,17 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
-import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
-import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';
 import { currentRoot, displayPath } from '../files/working-root.helper.js';
-import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
+import { assertFitsInMemory } from '../files/file-effects.helper.js';
+import { resolveReadable } from '../files/files.helper.js';
+import type { FileToolServices } from '../files/files.types.js';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
 import { selectLines } from './read-file.utils.js';
 import { READ_FILE_PROMPTS } from './read-file.prompt.js';
 import type { FileRead } from './read-file.types.js';
-import { agentOf, assertNotEnvFile, assertNotGitDir } from '../files/files.utils.js';
-import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
+import { agentOf } from '../files/files.utils.js';
 
 /**
  * Reads a UTF-8 text file inside the workspace: the whole file, or lines `startLine`–`endLine`,
@@ -21,12 +19,9 @@ import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 export function createReadFileTool({
   workspace,
   workingRoots,
+  fileLocks,
   fileReads,
-}: {
-  workspace: Workspace;
-  workingRoots?: WorkingRoots | undefined;
-  fileReads: FileReads;
-}) {
+}: FileToolServices) {
   return defineTool({
     name: 'read_file',
     description: READ_FILE_PROMPTS.description,
@@ -36,21 +31,23 @@ export function createReadFileTool({
       endLine: z.number().optional().describe(READ_FILE_PROMPTS.endLine),
     }),
     execute: async ({ input: { path: requested, startLine, endLine }, signal, context }) => {
-      assertNotEnvFile({ filePath: requested, requested, action: 'Reading' }); // checked before touching the disk
       const root = await currentRoot(workingRoots);
-      const anchored = anchorToRoot({ requested, root });
+      const real = await resolveReadable({ workspace, requested, root });
 
-      assertNotEnvFile({ filePath: anchored, requested, action: 'Reading' }); // the path as it will be opened
-      const real = await workspace.resolveRead(anchored); // rejects escapes, follows symlinks
+      // Under the file's lock, so a read never sees a half-written file.
+      const text = await fileLocks.run({
+        file: real,
+        signal,
+        change: async () => {
+          await assertFitsInMemory({
+            file: real,
+            requested,
+            hint: 'Search it with grep, or read it with run_command (head, sed -n).',
+          });
 
-      assertNotEnvFile({ filePath: real, requested, action: 'Reading' }); // a symlink pointing at a .env file
-
-      // A sibling worktree's .git (remote URLs, sometimes tokens) is as closed to reads as to writes.
-      if (!isInside({ folder: workspace.root, target: real })) {
-        assertNotGitDir({ relativePath: workspace.relative(real), requested, action: 'Reading' });
-      }
-
-      const text = await readFile(real, { encoding: 'utf8', signal });
+          return readFile(real, { encoding: 'utf8', signal });
+        },
+      });
       const { content, note, lines } = selectLines({
         text,
         startLine,

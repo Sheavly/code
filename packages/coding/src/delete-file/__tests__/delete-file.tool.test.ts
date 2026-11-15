@@ -62,8 +62,28 @@ const call = (
   });
 const remove = (filePath: string) => call('delete_file', { path: filePath });
 
+/** Records that the agent has read the whole file, as `read_file` does. */
+const markRead = async (file: string, text: string) =>
+  fileReads.current.markRead({
+    agent: 'no-session',
+    file: await realpath(path.join(temp.root, file)),
+    text,
+    whole: true,
+  });
+
 describe('delete_file', () => {
-  it('deletes a file with no prior read, and reports the content it held with after: null', async () => {
+  it('refuses a file the agent has not read, and leaves it in place', async () => {
+    const result = await remove('existing.ts');
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('You have not read existing.ts');
+    expect(result.artifacts).toBeUndefined();
+    expect(existsSync(path.join(temp.root, 'existing.ts'))).toBe(true);
+  });
+
+  it('deletes a file the agent has read, and reports the content it held with after: null', async () => {
+    await markRead('existing.ts', 'old\ntext\n');
+
     const result = await remove('existing.ts');
 
     expect(result).toMatchObject({ isError: false, content: 'Deleted existing.ts (3 → 0 lines)' });
@@ -155,6 +175,7 @@ describe('delete_file', () => {
 
   it('refuses a file larger than a deletion reports, and points to run_command', async () => {
     await writeFile(path.join(temp.root, 'big.txt'), 'x'.repeat(MAX_DELETE_BYTES + 1));
+    await markRead('big.txt', 'x');
 
     const result = await remove('big.txt');
 

@@ -9,11 +9,13 @@ import {
   useTempRepo,
 } from '@sheavly/workspace/testing/git-repo.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 
 /** A forged worktree link must never earn a folder the root's grants; the repo is changed per test. */
 const repo = useTempRepo({ prefix: 'run-command-sibling-', perTest: true });
+const fileReads = useFileReads();
 
 const run = async (input: {
   command: string;
@@ -24,6 +26,7 @@ const run = async (input: {
   runTool({
     tools: [
       createRunCommandTool({
+        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: input.env
           ? await Workspace.open(repo.main, { env: input.env })
