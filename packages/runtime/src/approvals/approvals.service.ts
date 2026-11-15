@@ -5,7 +5,10 @@
  * and the waiting tool carries on. The harness renders nothing.
  */
 import { ApprovalListenerError, ApprovalRequestError } from '../errors/approvals.errors.js';
-import { DEFAULT_OPTIONS } from './approvals.constants.js';
+import { redactDiagnosticText } from '../errors/diagnostic-text.utils.js';
+import { errorMessage } from '../errors/errors.utils.js';
+import { DEFAULT_OPTIONS, HOOK_DECISIONS } from './approvals.constants.js';
+import type { Screener } from './approvals.types.js';
 import type {
   ApprovalConcern,
   ApprovalId,
@@ -22,11 +25,37 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { AllowEntry } from '@sheavly/protocol/permission/permission.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 
+/** The answer that stops a command and tells the model why. */
+function skippedBy(message: string): ApprovalResponse {
+  return { decision: 'skip_with_message', message, source: 'hook' };
+}
+
+/** An answer without its `source`: what a UI's answer is, whatever it sent. */
+function withoutSource(answer: ApprovalResponse): ApprovalResponse {
+  if (answer.decision === 'skip') return { decision: 'skip' };
+
+  if (answer.decision === 'skip_with_message') {
+    return { decision: 'skip_with_message', message: answer.message };
+  }
+
+  return answer;
+}
+
+/** A hook's answer, with a skip marked as the hook's so the model is not told the user said it. */
+function fromHook(answer: ApprovalResponse): ApprovalResponse {
+  if (answer.decision === 'skip' || answer.decision === 'skip_with_message') {
+    return { ...answer, source: 'hook' };
+  }
+
+  return answer;
+}
+
 type Listener = (update: ApprovalUpdate) => void;
 type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };
 
 export class ApprovalRegistry {
   #pending = new Map<ApprovalId, Pending>();
+  #screeners = new Set<Screener>();
   #listeners = new Set<Listener>();
   /** Record updates (the combined stream) but can't answer, so they never make `listening` true. */
   #observers = new Set<Listener>();
@@ -59,15 +88,6 @@ export class ApprovalRegistry {
   }): Promise<ApprovalResponse> {
     const { signal, sessionId, options = DEFAULT_OPTIONS, ...rest } = params;
 
-    if (!this.listening) {
-      return Promise.reject(
-        new ApprovalRequestError({
-          reason: 'no_listener',
-          message: 'No one is listening for approvals',
-        }),
-      );
-    }
-
     if (signal.aborted) return Promise.reject(signal.reason as Error);
 
     const request: ApprovalRequest = {
@@ -76,6 +96,85 @@ export class ApprovalRegistry {
       ...(sessionId !== undefined && { sessionId }),
       options,
     };
+
+    // Without screeners the request is announced in this call, as before: waiting a microtask
+    // would change when a UI hears of it.
+    if (this.#screeners.size === 0) return this.#ask(request, signal);
+
+    return this.#screen({ request, signal }).then((answer) => answer ?? this.#ask(request, signal));
+  }
+
+  /**
+   * Registers a screener for every request from now on, ahead of any UI: a hook that settles or
+   * stops a command before the user is asked. Returns a function that removes it.
+   */
+  screen(screener: Screener): () => void {
+    this.#screeners.add(screener);
+
+    return () => {
+      this.#screeners.delete(screener);
+    };
+  }
+
+  /**
+   * Asks the screeners in registration order; the first to answer settles the request, and a UI
+   * never hears of it. Fails closed: a screener that throws, or answers with something the
+   * request did not offer, skips the command with the reason, so a broken guard never lets one
+   * through. An abort rejects like any other wait.
+   */
+  async #screen(params: {
+    request: ApprovalRequest;
+    signal: AbortSignal;
+  }): Promise<ApprovalResponse | undefined> {
+    const { request, signal } = params;
+
+    for (const screener of this.#screeners) {
+      let answer: unknown;
+
+      try {
+        answer = await screener({ request, signal });
+      } catch (caughtError) {
+        if (signal.aborted) throw signal.reason as Error;
+
+        return skippedBy(
+          `An approval hook failed: ${redactDiagnosticText(errorMessage(caughtError))}`,
+        );
+      }
+
+      if (answer === undefined) continue;
+
+      const parsed = approvalResponseSchema.safeParse(answer);
+
+      // A hook may only stop the command: approving, once or for good, is the user's to give, so a
+      // repo's hook can neither run something the user was asking about nor persist a grant.
+      if (
+        parsed.success &&
+        HOOK_DECISIONS.includes(parsed.data.decision) &&
+        request.options.includes(parsed.data.decision)
+      ) {
+        return fromHook(parsed.data);
+      }
+
+      return skippedBy('An approval hook gave an answer it may not give here');
+    }
+
+    return undefined;
+  }
+
+  /** Announces a request to the UIs and waits for the answer. */
+  #ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalResponse> {
+    // A screener can take time, and an abort during it fires no event later: an already-aborted
+    // signal would never reject the wait below, so the request would sit in the UI forever.
+    if (signal.aborted) return Promise.reject(signal.reason as Error);
+
+    if (!this.listening) {
+      return Promise.reject(
+        new ApprovalRequestError({
+          reason: 'no_listener',
+          message: 'No one is listening for approvals',
+        }),
+      );
+    }
 
     return new Promise<ApprovalResponse>((resolve, reject) => {
       // Called from the abort event, so a listener failure can't be thrown: the call fails
@@ -126,7 +225,9 @@ export class ApprovalRegistry {
       });
     }
 
-    const response = approvalResponseSchema.parse(params.response);
+    // Only the registry marks an answer as a hook's: a client's `source` is dropped, so a UI
+    // cannot make the model read the user's words as a hook's.
+    const response = withoutSource(approvalResponseSchema.parse(params.response));
 
     if (!pending.request.options.includes(response.decision)) {
       throw new ApprovalRequestError({

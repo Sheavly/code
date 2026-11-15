@@ -61,6 +61,20 @@ describe('ApprovalRegistry', () => {
     expect(approvals.pending()).toEqual([]);
   });
 
+  it('drops a source a client sends, so only the registry can mark a hook’s answer', async () => {
+    const approvals = new ApprovalRegistry();
+
+    listen(approvals);
+    const answer = ask(approvals);
+
+    approvals.respond({
+      id: a1,
+      response: { decision: 'skip_with_message', message: 'use ls', source: 'hook' },
+    });
+
+    await expect(answer).resolves.toEqual({ decision: 'skip_with_message', message: 'use ls' });
+  });
+
   it('rejects at once when no one is listening', async () => {
     await expect(ask(new ApprovalRegistry())).rejects.toThrow('No one is listening');
   });
