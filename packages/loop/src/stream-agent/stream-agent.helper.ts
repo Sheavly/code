@@ -19,6 +19,7 @@ import type {
 import { assertValidStoredHistory } from '../summary/checkpoint.utils.js';
 import { runTurn } from './turn.helper.js';
 import { buildContributions } from './turn-contributions.helper.js';
+import { orderContributions } from './contributions.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
@@ -92,9 +93,14 @@ function mainSession(): RunSession {
 }
 
 /** The loop itself: call the model, run requested tools, feed results back, repeat. */
-async function drive(context: RunContext) {
-  const { options, session, events, signal } = context;
-  const { maxTurns = Infinity, hooks = [] } = options;
+async function drive(given: RunContext) {
+  const { session, events, signal } = given;
+  const { maxTurns = Infinity } = given.options;
+  // Hooks are ordered once, inside the `try` below, by their `after`: every runner reads that
+  // list. Until then (and if ordering fails) `onError` hooks get the list as given, so a bad
+  // `after` fails the run the way any other failure does, with `run_failed` and its one `done`.
+  let hooks = given.options.hooks ?? [];
+  const options = given.options;
   const messages = [...options.messages];
   const outputRecovery: TurnContext['outputRecovery'] = {
     attempts: 0,
@@ -103,8 +109,6 @@ async function drive(context: RunContext) {
   };
   const summaryFailures = { count: 0, overflowTried: false };
   const hookFailures = createHookFailures(events);
-  // Ordered and checked here, so a miswired phase fails before the first model call.
-  const contributions = buildContributions(options);
   // Set when a turn ends the run; still unset only if the turn cap ran out first.
   let reason: DoneReason | undefined;
 
@@ -118,12 +122,21 @@ async function drive(context: RunContext) {
     });
   }
 
-  // Hooks screen this session's approvals for the life of the run, and only its own.
-  const stopScreening = options.approvals?.screen(
-    approvalScreener({ hooks, sessionId: session.ref.id, onHookError: hookFailures.report }),
-  );
+  let stopScreening: (() => void) | undefined;
 
   try {
+    // Ordered and checked before anything runs, so a miswired hook or phase fails before the
+    // first model call, through the failure path below.
+    hooks = orderContributions(given.options.hooks ?? []);
+
+    const context: RunContext = { ...given, options: { ...given.options, hooks } };
+    const contributions = buildContributions(context.options);
+
+    // Hooks screen this session's approvals for the life of the run, and only its own.
+    stopScreening = options.approvals?.screen(
+      approvalScreener({ hooks, sessionId: session.ref.id, onHookError: hookFailures.report }),
+    );
+
     // A history read from disk may hold a damaged checkpoint: fail before the first model call
     // (only `onError` hooks run, with the history as it is).
     assertValidStoredHistory(messages);

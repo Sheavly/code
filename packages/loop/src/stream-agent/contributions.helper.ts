@@ -7,9 +7,9 @@ import type { Contribution, Ran } from './contributions.types.js';
  * given. Throws for a name used twice, a name `after` that is not in the phase, or a cycle, so a
  * miswired phase fails when the run starts, never halfway through a turn.
  */
-export function orderContributions<T extends { name: string; after?: readonly string[] }>(
-  list: readonly T[],
-): T[] {
+export function orderContributions<
+  T extends { name: string; after?: readonly string[] | undefined },
+>(list: readonly T[]): T[] {
   const names = new Set<string>();
 
   for (const { name } of list) {
