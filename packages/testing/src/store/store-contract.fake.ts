@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { ConversationStore } from '@sheavly/core/store/store.types';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
-import type { Message } from '@sheavly/protocol/message/message.types';
-import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
@@ -13,29 +9,6 @@ import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const other = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002');
 const reader = sessionIdSchema.parse('7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20');
-const writer = sessionIdSchema.parse('c3b81f6e-92a4-4d07-b5e9-18a7d0c64e35');
-const SECTION = summarySectionIdSchema.parse('goal');
-/** A sub-agent's report as a history entry: parsed, since its ids are branded. */
-const NOTICE = historyMessageSchema.parse({
-  role: 'notice',
-  at: 4,
-  notice: {
-    kind: 'agent-report',
-    agent: {
-      id: 'sub-1',
-      parentId: 'main',
-      startedByCall: 'call-1',
-      rootId: 'main',
-      depth: 2,
-      title: 'Research',
-      state: 'completed',
-      startedAt: 1,
-    },
-    taskId: 't1',
-    outcome: 'completed',
-    report: 'REPORT-BEGIN\n'.concat('Finding: e\n'.repeat(900), 'REPORT-END'),
-  },
-});
 
 /** Test-only: the first conversation id the store tests use. */
 export const CONVERSATION = id;
@@ -136,81 +109,6 @@ export function describeConversationStore(params: { name: string; make: () => Co
       ]);
     });
 
-    it('keeps the history it was given whole, as a copy, and none for a conversation it has not', async () => {
-      const store = make();
-      const first: Message = { role: 'user', content: 'hi', at: 1 };
-      const messages: HistoryMessage[] = [
-        first,
-        { role: 'assistant', content: 'hello', toolCalls: [], at: 2 },
-        {
-          role: 'summary',
-          sections: [{ id: SECTION, title: 'Goal', body: 'Say hello.' }],
-          kept: 1,
-          summarized: 1,
-          summarizer: 'test',
-          at: 3,
-        },
-        NOTICE,
-      ];
-
-      expect(await store.readMessages(id)).toEqual([]);
-      await store.writeMessages({ id, messages });
-
-      const read = await store.readMessages(id);
-
-      expect(read).toEqual(messages);
-      read.pop();
-      expect(await store.readMessages(id)).toHaveLength(4);
-
-      await store.writeMessages({ id, messages: [first] });
-      expect(await store.readMessages(id)).toEqual([first]);
-      expect(await store.readMessages(other)).toEqual([]);
-    });
-
-    it('keeps each sub-agent’s history apart: from the conversation’s, other agents’, and other conversations’', async () => {
-      const store = make();
-      const read: Message[] = [{ role: 'user', content: 'read it', at: 1 }];
-      const wrote: Message[] = [{ role: 'user', content: 'write it', at: 2 }];
-
-      expect(await store.readAgentMessages({ id, session: reader })).toEqual([]);
-
-      await store.writeMessages({ id, messages: [{ role: 'user', content: 'main' }] });
-      await store.writeAgentMessages({ id, session: reader, messages: read });
-      await store.writeAgentMessages({ id, session: writer, messages: wrote });
-      await store.writeAgentMessages({ id: other, session: reader, messages: wrote });
-
-      expect(await store.readAgentMessages({ id, session: reader })).toEqual(read);
-      expect(await store.readAgentMessages({ id, session: writer })).toEqual(wrote);
-      expect(await store.readAgentMessages({ id: other, session: reader })).toEqual(wrote);
-      expect(await store.readMessages(id)).toEqual([{ role: 'user', content: 'main' }]);
-      expect(await store.readMessages(other)).toEqual([]);
-    });
-
-    it('replaces a sub-agent’s history whole, as a copy', async () => {
-      const store = make();
-      const messages: Message[] = [
-        { role: 'user', content: 'one', at: 1 },
-        { role: 'assistant', content: 'two', toolCalls: [], at: 2 },
-      ];
-
-      await store.writeAgentMessages({ id, session: reader, messages });
-
-      const copy = await store.readAgentMessages({ id, session: reader });
-
-      copy.pop();
-      messages.pop();
-      expect(await store.readAgentMessages({ id, session: reader })).toHaveLength(2);
-
-      await store.writeAgentMessages({
-        id,
-        session: reader,
-        messages: [{ role: 'user', content: 'again' }],
-      });
-      expect(await store.readAgentMessages({ id, session: reader })).toEqual([
-        { role: 'user', content: 'again' },
-      ]);
-    });
-
     it('appends history records in seq order, reads from any seq, and keeps sessions apart', async () => {
       const store = make();
       const record = (seq: number) => ({
@@ -277,21 +175,24 @@ export function describeConversationStore(params: { name: string; make: () => Co
       await store.history({ id }).append([first]);
     });
 
-    it('deletes a conversation with its entries, history, sub-agents’ histories and index, and no other', async () => {
+    it('deletes a conversation with its entries, history logs and index, and no other', async () => {
       const store = make();
+      const first = { seq: 0, entry: { role: 'user' as const, content: 'hi' } };
+      const seqsOfLog = async (conversation: typeof id, session?: typeof reader) => {
+        const seqs: number[] = [];
+
+        for await (const each of store.history({ id: conversation, session }).read()) {
+          seqs.push(each.seq);
+        }
+
+        return seqs;
+      };
 
       for (const conversation of [id, other]) {
         await store.writeIndex(indexOf(conversation, 10));
         await store.entries(conversation).append(entry(0));
-        await store.writeMessages({
-          id: conversation,
-          messages: [{ role: 'user', content: 'hi' }],
-        });
-        await store.writeAgentMessages({
-          id: conversation,
-          session: reader,
-          messages: [{ role: 'user', content: 'read it' }],
-        });
+        await store.history({ id: conversation }).append([first]);
+        await store.history({ id: conversation, session: reader }).append([first]);
       }
 
       await store.delete(id);
@@ -299,10 +200,10 @@ export function describeConversationStore(params: { name: string; make: () => Co
 
       expect((await store.list()).map((c) => c.id)).toEqual([other]);
       expect(await seqsOf({ store })).toEqual([]);
-      expect(await store.readMessages(id)).toEqual([]);
-      expect(await store.readAgentMessages({ id, session: reader })).toEqual([]);
-      expect(await store.readMessages(other)).toHaveLength(1);
-      expect(await store.readAgentMessages({ id: other, session: reader })).toHaveLength(1);
+      expect(await seqsOfLog(id)).toEqual([]);
+      expect(await seqsOfLog(id, reader)).toEqual([]);
+      expect(await seqsOfLog(other)).toEqual([0]);
+      expect(await seqsOfLog(other, reader)).toEqual([0]);
     });
 
     it('starts a deleted conversation again from its first entry', async () => {

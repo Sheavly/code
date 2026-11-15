@@ -6,7 +6,6 @@ import type {
   EntryStore,
   HistoryLog,
 } from '@sheavly/core/store/store.types';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
@@ -33,7 +32,6 @@ import {
   conversationFolder,
   historyLogFile,
 } from './conversation-store.utils.js';
-import { historySchema } from './conversation-store.validator.js';
 import { documentStoreOf } from './document-store.helper.js';
 import { EntryFile } from './entry-file.service.js';
 import { HistoryFile } from './history-file.service.js';
@@ -41,7 +39,7 @@ import { HistoryFile } from './history-file.service.js';
 /**
  * A workspace's conversations on disk: `<workspace folder>/conversations/<conversation-id>/`, one
  * folder each, holding `index.json`, `stream.jsonl`, `history.jsonl` and `agents/<session-id>.history.jsonl`
- * (a legacy `history.json`, still written by `writeMessages`, is imported into the log once).
+ * (a legacy `history.json` from before logs is imported into the log once, never written).
  * Everything is named by an id, so no title or path from a person reaches a file name, and
  * deleting a conversation deletes its folder and nothing else.
  *
@@ -145,42 +143,6 @@ export class FileConversationStore implements ConversationStore {
     return queue;
   }
 
-  async readMessages(id: ConversationId): Promise<HistoryMessage[]> {
-    return this.#readHistory(path.join(this.#folderOf(id), HISTORY_FILE));
-  }
-
-  async writeMessages(params: {
-    id: ConversationId;
-    messages: readonly HistoryMessage[];
-  }): Promise<void> {
-    await this.#writeHistory({
-      file: path.join(this.#folderOf(params.id), HISTORY_FILE),
-      messages: params.messages,
-    });
-  }
-
-  async readAgentMessages(params: {
-    id: ConversationId;
-    session: SessionId;
-  }): Promise<HistoryMessage[]> {
-    const folder = this.#folderOf(params.id);
-
-    return this.#readHistory(agentHistoryFile({ folder, session: params.session }));
-  }
-
-  async writeAgentMessages(params: {
-    id: ConversationId;
-    session: SessionId;
-    messages: readonly HistoryMessage[];
-  }): Promise<void> {
-    const { id, session, messages } = params;
-
-    await this.#writeHistory({
-      file: agentHistoryFile({ folder: this.#folderOf(id), session }),
-      messages,
-    });
-  }
-
   /**
    * The conversations that have an index, oldest first (then by id, so the order is the same on
    * every system). A folder without an `index.json` is a conversation whose stream has started and
@@ -247,26 +209,6 @@ export class FileConversationStore implements ConversationStore {
 
   #folderOf(id: ConversationId): string {
     return conversationFolder({ conversations: this.#folder, id });
-  }
-
-  async #readHistory(file: string): Promise<HistoryMessage[]> {
-    try {
-      // A conversation is private text, so a file that is not JSON is reported without quoting it.
-      return (await readJsonFile({ file, schema: historySchema, holdsSecrets: true })) ?? [];
-    } catch (caughtError) {
-      throw asStoreError(caughtError);
-    }
-  }
-
-  async #writeHistory(params: {
-    file: string;
-    messages: readonly HistoryMessage[];
-  }): Promise<void> {
-    try {
-      await writeJsonFile({ file: params.file, value: params.messages });
-    } catch (caughtError) {
-      throw asStoreError(caughtError);
-    }
   }
 
   /** The folders that could be conversations: folders only, not hidden, in a fixed order. */

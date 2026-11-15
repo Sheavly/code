@@ -20,6 +20,7 @@ import { FileConversationStore } from '../conversation-store.service.js';
 const temp = useTempFolder('file-conversations-');
 const OTHER = conversationIdSchema.parse('00000000-0000-4000-8000-000000000002');
 const canChmod = process.platform !== 'win32' && process.getuid?.() !== 0;
+const RECORD = { seq: 0, entry: { role: 'user' as const, content: 'hi' } };
 
 /** A store on the temp folder, and the problems its listing reported. */
 function open() {
@@ -47,20 +48,16 @@ describe('FileConversationStore on disk', () => {
 
     await store.writeIndex(indexOf(CONVERSATION, 1));
     await store.entries(CONVERSATION).append(entry(0));
-    await store.writeMessages({ id: CONVERSATION, messages: [{ role: 'user', content: 'hi' }] });
-    await store.writeAgentMessages({
-      id: CONVERSATION,
-      session: READER,
-      messages: [{ role: 'user', content: 'read it' }],
-    });
+    await store.history({ id: CONVERSATION }).append([RECORD]);
+    await store.history({ id: CONVERSATION, session: READER }).append([RECORD]);
 
     expect((await readdir(folder)).sort()).toEqual([
       'agents',
-      'history.json',
+      'history.jsonl',
       'index.json',
       'stream.jsonl',
     ]);
-    expect(await readdir(path.join(folder, 'agents'))).toEqual([`${READER}.history.json`]);
+    expect(await readdir(path.join(folder, 'agents'))).toEqual([`${READER}.history.jsonl`]);
   });
 
   it.skipIf(!canChmod)('keeps what it writes private to the user', async () => {
@@ -68,9 +65,9 @@ describe('FileConversationStore on disk', () => {
 
     await store.writeIndex(indexOf(CONVERSATION, 1));
     await store.entries(CONVERSATION).append(entry(0));
-    await store.writeMessages({ id: CONVERSATION, messages: [] });
+    await store.history({ id: CONVERSATION }).append([RECORD]);
 
-    for (const name of ['index.json', 'stream.jsonl', 'history.json']) {
+    for (const name of ['index.json', 'stream.jsonl', 'history.jsonl']) {
       await expectPrivate(path.join(conversations, CONVERSATION, name));
     }
   });
@@ -176,16 +173,10 @@ describe('FileConversationStore on disk', () => {
     const unsafe = ['main', '../../x', '', 'a/b', READER.toUpperCase()];
 
     for (const session of unsafe) {
-      await expect(
-        store.writeAgentMessages({
-          id: CONVERSATION,
-          session: sessionIdSchema.parse(session),
-          messages: [],
-        }),
-      ).rejects.toMatchObject({ name: 'StoreError' });
-      await expect(
-        store.readAgentMessages({ id: CONVERSATION, session: sessionIdSchema.parse(session) }),
-      ).rejects.toMatchObject({ name: 'StoreError' });
+      const log = () =>
+        store.history({ id: CONVERSATION, session: sessionIdSchema.parse(session) });
+
+      expect(log).toThrow(expect.objectContaining({ name: 'StoreError' }));
     }
 
     await expect(readdir(conversations)).rejects.toMatchObject({ code: 'ENOENT' });
