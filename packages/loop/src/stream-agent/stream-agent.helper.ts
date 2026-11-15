@@ -18,6 +18,7 @@ import type {
 } from './stream-agent.types.js';
 import { assertValidStoredHistory } from '../summary/checkpoint.utils.js';
 import { runTurn } from './turn.helper.js';
+import { buildContributions } from './turn-contributions.helper.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
@@ -102,6 +103,8 @@ async function drive(context: RunContext) {
   };
   const summaryFailures = { count: 0, overflowTried: false };
   const hookFailures = createHookFailures(events);
+  // Ordered and checked here, so a miswired phase fails before the first model call.
+  const contributions = buildContributions(options);
   // Set when a turn ends the run; still unset only if the turn cap ran out first.
   let reason: DoneReason | undefined;
 
@@ -144,6 +147,7 @@ async function drive(context: RunContext) {
         outputRecovery,
         summaryFailures,
         hookFailures,
+        contributions,
       });
 
       // Each turn's work is recorded as it happens, not only when the run ends.

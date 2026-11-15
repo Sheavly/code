@@ -5,6 +5,7 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { ContextState, Hook } from '@sheavly/core/hook/hook.types';
 import type { ToolOutcome } from '../events/events.types.js';
 import type { HookFailures, OnHookError } from '../hooks/hooks.types.js';
+import type { TurnContributions } from './contributions.types.js';
 import type { OrderedQueue } from '../queue/queue.service.js';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type {
@@ -122,6 +123,8 @@ export type TurnContext = RunContext & {
   summaryFailures: { count: number; overflowTried: boolean };
   /** The run's failed hook handlers: reported as they fail, told to the model at its next call. */
   hookFailures: HookFailures;
+  /** The run's turn features, ordered once at its start (`buildContributions`). */
+  contributions: TurnContributions;
 };
 
 /** A tool call that started while the model streamed, with its eventual outcome. */

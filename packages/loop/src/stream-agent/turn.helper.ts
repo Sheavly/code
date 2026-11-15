@@ -7,16 +7,16 @@ import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.
 import { joinInstructions } from '../hooks/hooks.utils.js';
 import { runNotice, runTaskCompleted } from '../hooks/new-points.helper.js';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
-import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
-import { maskOldToolOutput } from '../summary/mask.utils.js';
+import { summarizeAtThreshold } from '../summary/summarize.helper.js';
 import { viewWithoutCallReferences } from '../summary/summary.utils.js';
 import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
+import { HookError } from '../errors/loop.errors.js';
 import { sample } from './sample.helper.js';
-import { continueAfterOutputLimit } from './output-recovery.helper.js';
+import { runContribution } from './contributions.helper.js';
 import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {
@@ -61,10 +61,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // model is sent the view (the newest checkpoint as text, then the messages it kept).
   // Old large tool results are hidden here too when a summary is configured: it is the cheaper
   // first step, and it delays the summary instead of replacing it.
-  const full = viewWithoutCallReferences(messages);
-  const source = options.summary
-    ? maskOldToolOutput({ view: full, window: options.provider.contextWindow })
-    : full;
+  const source = await shapeView({ context, view: viewWithoutCallReferences(messages) });
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,
@@ -163,12 +160,40 @@ async function runDeliveryHooks(params: {
   for (const notice of notices) await runNotice({ ...base, notice });
 }
 
+/** Passes the view through each `view` contribution in order; the result is what the model sees. */
+async function shapeView(params: {
+  context: TurnContext;
+  view: readonly Message[];
+}): Promise<readonly Message[]> {
+  const { context, view } = params;
+  let current = view;
+
+  for (const contribution of context.contributions.view) {
+    const { value } = await runContribution({
+      contribution,
+      input: { view: current, window: context.options.provider.contextWindow },
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    current = value ?? current;
+  }
+
+  return current;
+}
+
+/** A skipped contribution is reported like a failed hook: `hook_failed`, and a model notice. */
+function reportContribution(context: TurnContext) {
+  return ({ name, error }: { name: string; error: unknown }) =>
+    context.hookFailures.report(
+      new HookError({ hook: name, handler: 'contribution', cause: error }),
+    );
+}
+
 /**
- * A call the provider rejected as too long gets one summary and a retry, once per model call (a
- * call that ends any other way re-arms it), so it cannot loop. True when a checkpoint was
- * appended: the caller drops the rejected reply and the next turn calls the model again. If the
- * summary fails, or none is configured, the run ends `context_window_exceeded` as before. The
- * retry uses a turn, so `maxTurns` still bounds the run.
+ * A call the provider rejected as too long: the `overflow` contributions may recover and ask for
+ * a retry. True when one did; the caller drops the rejected reply and the next turn calls the
+ * model again. With none registered the run ends `context_window_exceeded`.
  */
 async function retryAfterOverflow(params: {
   context: TurnContext;
@@ -176,20 +201,43 @@ async function retryAfterOverflow(params: {
   /** The rejected call had already started tools: its history is not ours to rewind. */
   started: boolean;
 }): Promise<boolean> {
-  const { context, stopReason, started } = params;
-  const { summaryFailures } = context;
+  const { context } = params;
 
-  if (stopReason !== 'context_window_exceeded') {
-    summaryFailures.overflowTried = false;
+  for (const contribution of context.contributions.overflow) {
+    const { value } = await runContribution({
+      contribution,
+      input: params,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
 
-    return false;
+    if (value) return true;
   }
 
-  if (started || summaryFailures.overflowTried || !context.options.summary) return false;
+  return false;
+}
 
-  summaryFailures.overflowTried = true;
+/** The first `limit` contribution that takes the turn decides how it ends; none: carry on. */
+async function limitOutcome(params: {
+  context: TurnContext;
+  stopReason: TurnStopReason;
+  running: readonly RunningCall[];
+  reply: HistoryMessage;
+}): Promise<{ ended: DoneReason | undefined } | undefined> {
+  const { context } = params;
 
-  return summarizeHistory({ context, reason: 'overflow' });
+  for (const contribution of context.contributions.limit) {
+    const { value } = await runContribution({
+      contribution,
+      input: params,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    if (value) return value;
+  }
+
+  return undefined;
 }
 
 /** Resolves recovery, pending work and completion only after results and afterTurn hooks. */
@@ -204,17 +252,9 @@ async function finishTurn(params: {
 
   if (signal.aborted) return 'interrupted';
 
-  if (stopReason === 'context_window_exceeded') return 'context_window_exceeded';
+  const limited = await limitOutcome({ context, stopReason, running, reply });
 
-  if (stopReason === 'max_tokens') {
-    // Reasoning alone is not progress: a provider drops unfinished thinking, so only text or a
-    // tool call proves the next attempt can get further than this one.
-    const progressed = reply.role === 'assistant' && (reply.content !== '' || running.length > 0);
-
-    return continueAfterOutputLimit({ context, progressed });
-  }
-
-  context.outputRecovery.fruitless = 0;
+  if (limited) return limited.ended;
 
   if (running.length > 0) return undefined;
 

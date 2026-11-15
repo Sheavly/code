@@ -1,0 +1,55 @@
+import type { DoneReason } from '@sheavly/protocol/event/event.types';
+import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
+import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { RunningCall, TurnContext } from './stream-agent.types.js';
+
+/**
+ * One named piece of a turn phase. `after` orders it among the phase's other contributions;
+ * `onFailure` says whether a throw fails the run or is reported (`hook_failed`) and skipped;
+ * `abort` says whether the run's abort stops waiting for it (`race`) or it must finish (`wait`).
+ */
+export type Contribution<Input, Output> = {
+  name: string;
+  after?: readonly string[];
+  onFailure: 'fail-run' | 'report';
+  abort: 'race' | 'wait';
+  run: (input: Input) => Output | Promise<Output>;
+};
+
+/** What one contribution gave back: a value, or nothing (aborted, or it failed and was reported). */
+export type Ran<T> = { value: T | undefined };
+
+/** What a model-view contribution gets and returns: the messages the model is about to see. */
+export type ViewInput = { view: readonly Message[]; window: number | undefined };
+
+/** A rejected call's context: a contribution returns true when it recovered and the turn retries. */
+export type OverflowInput = {
+  context: TurnContext;
+  stopReason: TurnStopReason;
+  /** The rejected call had already started tools: its history is not ours to rewind. */
+  started: boolean;
+};
+
+/** What a finished turn knows: a contribution returns why the run ends, or undefined to go on. */
+export type LimitInput = {
+  context: TurnContext;
+  stopReason: TurnStopReason;
+  running: readonly RunningCall[];
+  reply: HistoryMessage;
+};
+
+/** A limit contribution that took the turn: why the run ends, or undefined to go on. */
+export type LimitOutcome = { ended: DoneReason | undefined };
+
+/**
+ * The turn's features, by phase and in order. A feature absent from a list is absent from the
+ * turn: nothing in `runTurn` tests an option to decide.
+ */
+export type TurnContributions = {
+  /** Reshape the view the model is sent for one call (never stored history). */
+  view: readonly Contribution<ViewInput, readonly Message[]>[];
+  /** After a rejected (too long) call: recover and retry. The first to return true wins. */
+  overflow: readonly Contribution<OverflowInput, boolean>[];
+  /** After a turn's results: recover from the stop reason, or end the run. First answer wins. */
+  limit: readonly Contribution<LimitInput, LimitOutcome | undefined>[];
+};
