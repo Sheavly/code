@@ -3,12 +3,17 @@ import type { RunningTool, Write } from '../render/render.types.js';
 import { defaultPalette } from '../theme/palette.utils.js';
 import type { Palette } from '../theme/theme.types.js';
 import { unknownPromptCommand } from './chat-prompt.helper.js';
-import { changesText } from '../changes/changes-text.utils.js';
 import type { LinkFile } from '../changes/changes.types.js';
-import { failuresText } from '../failures/failures-text.utils.js';
+import { describeChanges, describeFailures, describeLatest } from './chat-describe.helper.js';
 import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
-import type { ChatConversation, RunState, StopResult, TurnOutcome } from './chat.types.js';
+import type {
+  ChatConversation,
+  Describer,
+  RunState,
+  StopResult,
+  TurnOutcome,
+} from './chat.types.js';
 import { errorText, mainRunState, parseChatInput } from './chat.utils.js';
 import { runModelCommand, runModeCommand } from './chat-model.helper.js';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
@@ -34,12 +39,10 @@ export class ChatSession {
   readonly #onSend: (text: string) => void;
   readonly #onTurnEnd: (outcome: TurnOutcome) => void;
   readonly #onReplyComplete: () => void;
-  readonly #linkFile: LinkFile;
   readonly #onTools: (tools: readonly RunningTool[]) => void;
   readonly #onUsage: (entry: StreamEntry) => void;
   readonly #onExit: () => void;
-  readonly #columns: () => number;
-  readonly #palette: Palette;
+  readonly #describer: Describer;
   readonly #onThinking: (thinking: boolean) => void;
   readonly #onRunState: (state: RunState) => void;
   #reportedTools: readonly RunningTool[];
@@ -54,6 +57,8 @@ export class ChatSession {
   /** A run the backend started itself is going, as the live feed tells: Ctrl+C then stops it. */
   #wakeLive = false;
   #draining = false;
+  /** The run is held open on grouped tasks (`await_tasks`): a yield would end the wait. */
+  #heldOnTasks = false;
   /** What the UI was last told, so `onBusy` fires on a change only. */
   #reportedBusy = false;
   #ended = false;
@@ -105,14 +110,17 @@ export class ChatSession {
     this.#onSend = params.onSend ?? (() => undefined);
     this.#onTurnEnd = params.onTurnEnd ?? (() => undefined);
     this.#onReplyComplete = params.onReplyComplete ?? (() => undefined);
-    this.#linkFile = params.linkFile ?? ((path) => path);
     this.#onTools = params.onTools ?? (() => undefined);
     this.#onThinking = params.onThinking ?? (() => undefined);
     this.#onRunState = params.onRunState ?? (() => undefined);
     this.#onUsage = params.onUsage ?? (() => undefined);
     this.#onExit = params.onExit;
-    this.#columns = params.columns ?? (() => LINE_COLUMNS);
-    this.#palette = params.palette ?? defaultPalette;
+    this.#describer = {
+      renderer: params.renderer,
+      palette: params.palette ?? defaultPalette,
+      columns: params.columns ?? (() => LINE_COLUMNS),
+      linkFile: params.linkFile ?? ((path) => path),
+    };
   }
 
   /** Whether a line is being run now. */
@@ -135,38 +143,17 @@ export class ChatSession {
 
   /** What `/changes <target>` says: the files changed in this chat, or the diffs `target` names. */
   describeChanges(target?: string): string {
-    return changesText({
-      edits: this.#renderer.changes.edits,
-      target,
-      columns: this.#columns(),
-      palette: this.#palette,
-      linkFile: this.#linkFile,
-    });
+    return describeChanges({ from: this.#describer, target });
   }
 
   /** What `/errors <target>` says: the failed steps with more to say, or the one `target` names. */
   describeFailures(target?: string): string {
-    return failuresText({
-      failures: this.#renderer.failures.failures,
-      target,
-      palette: this.#palette,
-    });
+    return describeFailures({ from: this.#describer, target });
   }
 
-  /**
-   * The newest collapsed line's whole text, for a key that expands it: a failure's message or a
-   * file change's diff, whichever was printed last; says so when there is neither.
-   */
+  /** The newest collapsed line's whole text, for a key that expands it. */
   describeLatest(): string {
-    const failure = this.#renderer.failures.failures.at(-1);
-
-    if (failure && this.#renderer.latestExpandable === 'failure') {
-      return this.describeFailures(String(failure.number));
-    }
-
-    const change = this.#renderer.changes.edits.at(-1);
-
-    return this.describeChanges(change && String(change.number));
+    return describeLatest(this.#describer);
   }
 
   /** Resolves when nothing runs and nothing waits. */
@@ -333,6 +320,7 @@ export class ChatSession {
     } finally {
       this.#current = undefined;
       this.#streamOpen = false;
+      this.#heldOnTasks = false;
       // A failure or a stop can end the stream without the result of a call that was running.
       this.#renderer.clearRunning();
       this.#reportLiveState();
@@ -378,7 +366,7 @@ export class ChatSession {
 
     const run = mainRunState({ entry, mainSession: this.#mainSession });
 
-    if (run) this.#onRunState(run);
+    if (run) this.#followRunState(run);
 
     this.#renderer.entry(entry, this.#mainSession);
     this.#reportLiveState();
@@ -413,7 +401,8 @@ export class ChatSession {
    * request is shown, not retried: the line still runs when the prompt ends.
    */
   #requestYield(): void {
-    if (!this.#streamOpen) return;
+    // A yield ends the `await_tasks` wait, so a line queued during it waits for the model instead.
+    if (!this.#streamOpen || this.#heldOnTasks) return;
 
     const request = this.#conversation.yieldPrompt(AbortSignal.timeout(YIELD_REQUEST_MS)).then(
       () => undefined,
@@ -423,6 +412,15 @@ export class ChatSession {
     );
 
     this.#yielding = Promise.all([this.#yielding, request]).then(() => undefined);
+  }
+
+  /** Passes the run state on, and asks for the yield a held run skipped once it works again. */
+  #followRunState(run: RunState): void {
+    const wasHeld = this.#heldOnTasks;
+
+    this.#heldOnTasks = run.state === 'waiting' && run.groupedTasks > 0;
+    this.#onRunState(run);
+    if (wasHeld && !this.#heldOnTasks && this.#queue.queued.length > 0) this.#requestYield();
   }
 
   /** Tells the UI the running tools and whether the model thinks, for what changed since. */

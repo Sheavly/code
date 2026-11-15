@@ -1,5 +1,16 @@
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
 import type { RemoteConversation } from '../client/conversation.service.js';
+import type { LinkFile } from '../changes/changes.types.js';
+import type { Renderer } from '../render/render.service.js';
+import type { Palette } from '../theme/theme.types.js';
+
+/** What a chat needs to print about the file changes and failures its renderer has seen. */
+export type Describer = {
+  renderer: Renderer;
+  palette: Palette;
+  columns: () => number;
+  linkFile: LinkFile;
+};
 
 /**
  * What the user typed at the chat prompt: one of the chat's commands (`/exit`, `/help`,
