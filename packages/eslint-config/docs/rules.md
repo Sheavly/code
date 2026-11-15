@@ -91,6 +91,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   named `id` or `<x>Id`, and an id schema `<x>IdSchema`, is a branded zod schema
   (`z.string().brand<'SessionId'>()`), never a bare `z.string()`, so a session's id can't go where a
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
+  The same names typed `string` in a type literal, interface or inline parameter type
+  (`agentId: string`) fail too, in all source except tests, fakes and `*.prompt.ts`: type them with
+  the branded type (`SessionId`) made by parsing with the schema (`sessionIdSchema`, `callIdSchema`,
+  `taskIdSchema`, …). Every workspace is checked. It cannot tell which kind of id a name holds:
+  that is review.
 - **Brand casts** (`harness/no-brand-cast`, type-aware, tests included): `as` to a branded type
   fails; a value gets its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
 - **Background work starts through a kind factory** (`harness/no-direct-task-start`, type-aware,
