@@ -106,6 +106,19 @@ describe('what every file tool refuses, whatever it is asked to do', () => {
   );
 });
 
+describe('a path with nothing at it', () => {
+  it.each(['read_file', 'edit_file', 'delete_file'])(
+    '%s says the file was not found, never a raw ENOENT',
+    async (tool) => {
+      const result = await ask(tool, 'missing/none.ts');
+
+      expect(result, tool).toMatchObject({ isError: true });
+      expect(result.content, tool).toContain('File not found: missing/none.ts');
+      expect(result.content, tool).not.toContain('ENOENT');
+    },
+  );
+});
+
 describe('a symlink inside the root', () => {
   const link = () => path.join(temp.root, 'link-in.ts');
 

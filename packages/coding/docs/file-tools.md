@@ -109,6 +109,11 @@ fails it. `file-tool-policy.test.ts` asserts every cell below for every tool.
 | size over `MAX_FILE_BYTES` | read_file: refused first | content refused  | file or result refused | over `MAX_DELETE_BYTES` refused |
 | aborted call               | fails, nothing changes   | same             | same                   | same                            |
 
+Every file tool runs its body through `runFileTool` (`files/file-tool.helper.ts`): an already
+aborted call fails before it touches the disk, a path with nothing at it is a `not_found` error
+naming the path the model gave, a path the workspace refused or could not check is `forbidden`,
+and anything else (including an abort mid-call) passes through. No raw `ENOENT` reaches the model.
+
 Decisions: reads are locked (a read never sees a half-written file); a delete needs a read, like an
 edit; a write or edit follows a symlink inside the root to its target (outside the root it is
 refused), while a delete never follows or removes a link. `grep` and `glob` take no lock and need no
