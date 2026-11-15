@@ -46,6 +46,14 @@ One entry in `API_ROUTES` (`packages/protocol/src/api/api.constants.ts`), named 
 - A feature of the turn (masking, overflow recovery, output limits) is a contribution in `turn-contributions.helper.ts`, with a name, an `after`, an `onFailure` and an `abort` policy; never an `if (options.x)` in `runTurn`.
 - Two hooks, or two tools, with the same name are a collision: never rely on one shadowing the other.
 
+## An instruction source
+
+AGENTS.md, skills, scratch and the working root are instances of one factory, `createInstructionHook` (`@sheavly/workspace/instruction-context/instruction-source.helper`). A new source is one instance:
+
+1. Write `<name>Source(options): InstructionSource` with a unique `name`, an `order` (add it to `INSTRUCTION_ORDER` in `instruction-source.constants.ts`) and `resolve({ signal, workingRoot })`, which returns the text that applies now or `undefined`. Pass `workingRoots` when it depends on the working root: the factory reads it every turn (a root gone bad is `undefined`), so a worktree chosen mid-run applies on the next model call.
+2. Register `createInstructionHook(source)` with `registerInstructionHooks([...])` in the app (`createBackendHarness`). Hook order comes from each `order`, never from array position; a repeated name throws `InstructionSourceError`.
+3. Dedup is the factory's, so a source keeps no state: the last `<instruction-context name="…">` user message in the history the hook is given is compared with the new text, and only a change (or withdrawal) is appended. A summary or masking that drops the entry makes the next turn announce it again; sub-agents announce on their own history. Never replace system instructions: it invalidates Claude's signed thinking prefix.
+
 ## A project hook (`.sheavly/`)
 
 Listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler is accepted here with no edit: `hookExportSchema` reads its keys from the handler list. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).

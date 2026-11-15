@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { createSkillsHook, findSkills } from '../skills.helper.js';
+import { findSkills, skillsSource } from '../skills.helper.js';
+import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
 import { skillFile, useSkillFolders } from '../../testing/skills.fake.js';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -176,7 +177,7 @@ describe('findSkills', () => {
   });
 });
 
-describe('createSkillsHook in the loop', () => {
+describe('skillsSource in the loop', () => {
   it('appends the full catalog when descriptions total more than 8,000 characters', async () => {
     const project = path.join(base, 'large-catalog');
     const names = Array.from(
@@ -201,7 +202,7 @@ describe('createSkillsHook in the loop', () => {
       provider: scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]),
       tools: [],
       messages: [{ role: 'user', content: 'Which skills are available?' }],
-      hooks: [createSkillsHook({ root: project })],
+      hooks: [createInstructionHook(skillsSource({ root: project })).hook],
     });
     const added = messages[1];
     const instructions = added?.role === 'user' ? added.content : '';
@@ -226,7 +227,7 @@ describe('createSkillsHook in the loop', () => {
       },
       tools: [],
       messages: [{ role: 'user', content: 'hi' }],
-      hooks: [createSkillsHook({ root, home })],
+      hooks: [createInstructionHook(skillsSource({ root, home })).hook],
     });
 
     const instructions = requests[0]?.messages[1]?.content ?? '';

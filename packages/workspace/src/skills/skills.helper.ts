@@ -2,15 +2,14 @@ import type { Dirent } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { Hook } from '@sheavly/core/hook/hook.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
 import type { FoundSkills, HiddenSkill, Skill, SkillProblem, SkillRoots } from './skills.types.js';
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
 import { Workspace } from '../workspace/workspace.service.js';
-import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';
+import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';
+import type { InstructionSource } from '../instruction-context/instruction-source.types.js';
 
 /**
  * A skill file or folder that couldn't be read (no permission, a SKILL.md that is a folder or
@@ -175,20 +174,19 @@ export async function findSkills(
 }
 
 /**
- * The built-in skills hook: before every turn, lists the skills the model may use (name and
- * description), appending changes to history without rewriting the signed conversation prefix.
+ * The skills instruction source: the skills the model may use, listed by name and description.
  * Bodies are never sent: the model reads one when it fits (`read_skill`).
  */
-export function createSkillsHook(options: SkillRoots): Hook {
+export function skillsSource(options: SkillRoots): InstructionSource {
   const { root, home } = options;
 
-  return defineHook({
+  return {
     name: 'skills',
-    beforeTurn: async (context) => {
-      const { skills } = await findSkills({ root, home, signal: context.signal });
-      const instructions = formatSkillsInstructions({ skills });
+    order: INSTRUCTION_ORDER.skills,
+    resolve: async ({ signal }) => {
+      const { skills } = await findSkills({ root, home, signal });
 
-      appendInstructionContext({ context, name: 'skills', instructions });
+      return formatSkillsInstructions({ skills });
     },
-  });
+  };
 }

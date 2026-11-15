@@ -147,6 +147,48 @@ ruleTester.run('no-adhoc-main-session', harnessPlugin.rules['no-adhoc-main-sessi
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
 
+ruleTester.run(
+  'no-direct-instruction-context',
+  harnessPlugin.rules['no-direct-instruction-context'],
+  {
+    valid: [
+      "import { createInstructionHook } from '@sheavly/workspace/instruction-context/instruction-source.helper';",
+      "import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';",
+      "import { renderInstructionContext } from './instruction-context.prompt.js';",
+      "import { other } from './other-instruction-context.helper.js';",
+    ],
+    invalid: [
+      "import { appendInstructionContext } from '@sheavly/workspace/instruction-context/instruction-context.helper';",
+      "import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';",
+      "import { appendInstructionContext } from './instruction-context.helper';",
+      "const { appendInstructionContext } = await import('./instruction-context.helper.js');",
+      "export { appendInstructionContext } from './instruction-context.helper.js';",
+      "export * from '../instruction-context/instruction-context.helper.js';",
+    ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+  },
+);
+
+ruleTester.run(
+  'no-raw-fs-in-instruction-source',
+  harnessPlugin.rules['no-raw-fs-in-instruction-source'],
+  {
+    valid: [
+      // An instruction source reads through the confined reader.
+      "import { createInstructionHook } from './instruction-source.helper.js'; import { readConfinedFile } from './confined-read.helper.js';",
+      // A file that is not an instruction source may use node:fs.
+      "import { readFile } from 'node:fs/promises';",
+      "import type { InstructionSource } from './other.types.js'; import { readFile } from 'node:fs/promises';",
+    ],
+    invalid: [
+      "import type { InstructionSource } from '../instruction-context/instruction-source.types.js'; import { readFile } from 'node:fs/promises';",
+      "import { createInstructionHook } from '@sheavly/workspace/instruction-context/instruction-source.helper'; import { realpath } from 'node:fs/promises';",
+      "import { createInstructionHook } from './instruction-source.helper.js'; import fs from 'node:fs';",
+      "import { createInstructionHook } from './instruction-source.helper.js'; export { readFile } from 'node:fs/promises';",
+      "import { createInstructionHook } from './instruction-source.helper.js'; const fs = await import('node:fs/promises');",
+    ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+  },
+);
+
 ruleTester.run('no-direct-clock', harnessPlugin.rules['no-direct-clock'], {
   valid: [
     "import { now } from '@sheavly/core/clock/clock.helper'; const startedAt = now();",

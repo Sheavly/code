@@ -71,9 +71,9 @@ folder.
 | `file-reads/`          | `FileReads`: which files each agent has seen, by hash; kept in `shell.json` and restored on reopen                 |
 | `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                 |
 | `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                             |
-| `agents-md/`           | `createAgentsMdHook`: AGENTS.md files as append-only instruction context                                           |
-| `instruction-context/` | `appendInstructionContext`: append changed instructions, deduplicated from history                                 |
-| `skills/`              | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs                                  |
+| `agents-md/`           | `agentsMdSource`: AGENTS.md files as append-only instruction context                                               |
+| `instruction-context/` | `createInstructionHook`: the one factory for instruction sources; `appendInstructionContext` dedups from history   |
+| `skills/`              | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                                      |
 | `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                             |
 | `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                               |
 

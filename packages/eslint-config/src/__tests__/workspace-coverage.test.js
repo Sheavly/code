@@ -103,7 +103,9 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
  * agent's file-tool helper, the backend's model-call debug log, and the terminal's
  * developer tooling (its workbook and demo), and the workspace's two scratch helpers, which create
  * the shared scratch folder and remove its stale entries (no user data; the same folder is exempt
- * in `packages/workspace/eslint.config.js`). Anything else goes through `@sheavly/storage`.
+ * in `packages/workspace/eslint.config.js`), and the confined reader, which calls `fs.open` with
+ * `O_RDONLY` only to read through the open handle (`open` is on the rule's list because it can
+ * write; this one never does). Anything else goes through `@sheavly/storage`.
  */
 const FILE_WRITERS = new RegExp(
   [
@@ -111,6 +113,7 @@ const FILE_WRITERS = new RegExp(
     '^packages[/\\\\]storage[/\\\\]src[/\\\\]output-store[/\\\\]output-(store|writer)\\.service\\.ts$',
     '^packages[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]file-effects\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',
+    '^packages[/\\\\]workspace[/\\\\]src[/\\\\]instruction-context[/\\\\]confined-read\\.helper\\.ts$',
     '^apps[/\\\\]backend[/\\\\]src[/\\\\]harness[/\\\\]model-calls\\.helper\\.ts$',
     '^apps[/\\\\]terminal[/\\\\]src[/\\\\](demo\\.ts$|workbook[/\\\\](recorder\\.service|store\\.service|check\\.helper)\\.ts$)',
   ].join('|'),

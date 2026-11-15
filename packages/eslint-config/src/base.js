@@ -128,6 +128,15 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-direct-task-start': 'error' },
     },
+    // --- Instruction context is appended by the instruction-hook factory only ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: {
+        'harness/no-direct-instruction-context': 'error',
+        'harness/no-raw-fs-in-instruction-source': 'error',
+      },
+    },
     // --- Files are written through storage (or a tool, on the agent's project): not in tests ---
     {
       files: SOURCE_FILES,

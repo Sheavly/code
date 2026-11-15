@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -6,8 +6,12 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { createAgentsMdHook, findAgentsFiles } from '../agents-md.helper.js';
+import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
+import { agentsMdSource, findAgentsFiles } from '../agents-md.helper.js';
 import { agentsDirs, formatAgentsInstructions } from '../agents-md.utils.js';
+
+const agentsMdHook = (options: Parameters<typeof agentsMdSource>[0]) =>
+  createInstructionHook(agentsMdSource(options)).hook;
 
 /**
  * base/
@@ -40,6 +44,17 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+/** Each folder of `project` holds a refused AGENTS.md, so only the root file is found from it. */
+async function expectOnlyRootRules(params: { project: string; dirs: string[] }) {
+  const { project, dirs } = params;
+
+  for (const dir of dirs) {
+    const files = await findAgentsFiles({ root: project, cwd: path.join(project, dir) });
+
+    expect(files).toEqual([{ path: 'AGENTS.md', content: 'Real rules' }]);
+  }
+}
+
 describe('agentsDirs', () => {
   it('lists folders from the root down to cwd, root first', () => {
     expect(agentsDirs({ root: '/p', cwd: '/p/a/b' })).toEqual(['/p', '/p/a', '/p/a/b']);
@@ -68,6 +83,68 @@ describe('findAgentsFiles', () => {
   it('only reads the root file when cwd is the root', async () => {
     expect((await findAgentsFiles({ root, cwd: root })).map((file) => file.path)).toEqual([
       'AGENTS.md',
+    ]);
+  });
+
+  it('skips an AGENTS.md that is a symlink out of the root, or to a .env file', async () => {
+    const project = path.join(base, 'linked');
+
+    await mkdir(path.join(project, 'leaks'), { recursive: true });
+    await writeFile(path.join(project, '.env'), 'SECRET=1');
+    await writeFile(path.join(project, 'AGENTS.md'), 'Real rules');
+    await symlink(path.join(base, 'AGENTS.md'), path.join(project, 'leaks', 'AGENTS.md'));
+    await mkdir(path.join(project, 'env'));
+    await symlink(path.join(project, '.env'), path.join(project, 'env', 'AGENTS.md'));
+
+    await expectOnlyRootRules({ project, dirs: ['leaks', 'env'] });
+  });
+
+  it('refuses a symlinked folder out of the root, a .env.local chain and a loop', async () => {
+    const project = path.join(base, 'chained');
+    const outside = path.join(base, 'chained-outside');
+
+    await mkdir(path.join(project, 'via'), { recursive: true });
+    await mkdir(path.join(project, 'chain'), { recursive: true });
+    await mkdir(path.join(project, 'loop'), { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await writeFile(path.join(project, 'AGENTS.md'), 'Real rules');
+    await writeFile(path.join(outside, 'AGENTS.md'), 'Foreign rules');
+    await writeFile(path.join(project, '.env.local'), 'SECRET=1');
+    await rm(path.join(project, 'via'), { recursive: true });
+    await symlink(outside, path.join(project, 'via'));
+    await symlink(path.join(project, '.env.local'), path.join(project, 'chain', 'hop'));
+    await symlink(path.join(project, 'chain', 'hop'), path.join(project, 'chain', 'AGENTS.md'));
+    await symlink(path.join(project, 'loop', 'AGENTS.md'), path.join(project, 'loop', 'AGENTS.md'));
+
+    await expectOnlyRootRules({ project, dirs: ['via', 'chain', 'loop'] });
+  });
+
+  it('takes the sibling worktree as the boundary, so a link into the main checkout is refused', async () => {
+    const main = path.join(base, 'sibling-main');
+    const worktree = path.join(base, 'sibling-wt');
+
+    await mkdir(main, { recursive: true });
+    await mkdir(worktree, { recursive: true });
+    await writeFile(path.join(main, 'AGENTS.md'), 'Main rules');
+    await symlink(path.join(main, 'AGENTS.md'), path.join(worktree, 'AGENTS.md'));
+
+    const text = await agentsMdSource({ root: main }).resolve({
+      signal: new AbortController().signal,
+      workingRoot: worktree,
+    });
+
+    expect(text).toBeUndefined();
+  });
+
+  it('follows a symlink that stays inside the root', async () => {
+    const project = path.join(base, 'inner-link');
+
+    await mkdir(path.join(project, 'docs'), { recursive: true });
+    await writeFile(path.join(project, 'docs', 'rules.md'), 'Inner rules');
+    await symlink(path.join(project, 'docs', 'rules.md'), path.join(project, 'AGENTS.md'));
+
+    expect(await findAgentsFiles({ root: project, cwd: project })).toEqual([
+      { path: 'AGENTS.md', content: 'Inner rules' },
     ]);
   });
 
@@ -116,7 +193,27 @@ describe('formatAgentsInstructions', () => {
   });
 });
 
-describe('createAgentsMdHook in the loop', () => {
+describe('agentsMdSource with a project root reached through a symlink', () => {
+  it('reads the root and its cwd without a working root', async () => {
+    const real = path.join(base, 'real-project');
+    const link = path.join(base, 'linked-project');
+
+    await mkdir(path.join(real, 'nested'), { recursive: true });
+    await writeFile(path.join(real, 'AGENTS.md'), 'Root rules');
+    await writeFile(path.join(real, 'nested', 'AGENTS.md'), 'Nested rules');
+    await symlink(real, link);
+
+    const text = await agentsMdSource({ root: link, cwd: path.join(link, 'nested') }).resolve({
+      signal: new AbortController().signal,
+      workingRoot: undefined,
+    });
+
+    expect(text).toContain('Root rules');
+    expect(text).toContain('Nested rules');
+  });
+});
+
+describe('the AGENTS.md hook in the loop', () => {
   it.each([20_000, 40_000])(
     'loads root and nested instructions with a %i-character root file',
     async (length) => {
@@ -133,7 +230,7 @@ describe('createAgentsMdHook in the loop', () => {
         provider: scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]),
         tools: [],
         messages: [{ role: 'user', content: 'hi' }],
-        hooks: [createAgentsMdHook({ root: project, cwd })],
+        hooks: [agentsMdHook({ root: project, cwd })],
       });
       const added = messages[1];
       const instructions = added?.role === 'user' ? added.content : '';
@@ -159,7 +256,7 @@ describe('createAgentsMdHook in the loop', () => {
       tools: [],
       instructions: 'You are a careful coding agent.',
       messages: [{ role: 'user', content: 'hi' }],
-      hooks: [createAgentsMdHook({ root, cwd: path.join(root, 'packages', 'core', 'src') })],
+      hooks: [agentsMdHook({ root, cwd: path.join(root, 'packages', 'core', 'src') })],
     });
 
     const instructions = requests[0]?.messages[1]?.content ?? '';
@@ -210,7 +307,7 @@ describe('createAgentsMdHook in the loop', () => {
         },
       ],
       messages: [{ role: 'user', content: 'go' }],
-      hooks: [createAgentsMdHook({ root: project })],
+      hooks: [agentsMdHook({ root: project })],
     });
 
     expect(requests[0]?.messages[1]?.content).toContain('Rule v1');

@@ -106,10 +106,8 @@ describe('the working root of a resumed conversation', () => {
     expect(heard).toEqual([expect.objectContaining({ message: 'git timed out' })]);
   });
 
-  // Reproduction: the backend builds the AGENTS.md hook with only the workspace `root`, so an
-  // agent that moves its working root to a worktree keeps getting the main checkout's AGENTS.md.
-  // The fixing change flips `it.fails` to `it`.
-  it.fails("tells the agent the worktree's own AGENTS.md", async () => {
+  // The AGENTS.md hook reads the working root each turn, so a worktree's own file is found.
+  it("tells the agent the worktree's own AGENTS.md", async () => {
     await writeFile(path.join(repo.main, 'AGENTS.md'), 'MAIN RULES');
     await writeFile(path.join(repo.worktree, 'AGENTS.md'), 'WORKTREE RULES');
     const harness = await open(

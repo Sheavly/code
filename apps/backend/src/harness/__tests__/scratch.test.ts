@@ -9,6 +9,7 @@ import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createBackendHarness } from '../harness.helper.js';
+import type { BackendHarnessOptions } from '../harness.types.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 import { untilSettled } from '../../testing/settled.fake.js';
 
@@ -23,12 +24,38 @@ afterEach(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+/** A backend harness over the test project, with a scratch root, for `provider` to run. */
+function openWithScratch(options: Pick<BackendHarnessOptions, 'provider' | 'onModelCall'>) {
+  return createBackendHarness({
+    ...options,
+    title: 'go',
+    workspaceRoot: path.join(base, 'project'),
+    scratchRoot: path.join(base, 'scratch'),
+    trustStore: new TrustStore({
+      persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
+    }),
+    env: {},
+    permissions: askingPermissions(),
+  });
+}
+
 describe('the scratch folder in a backend run', () => {
+  it('registers its hook by declared order, between skills and the working root', async () => {
+    const harness = await openWithScratch({ provider: routedProvider({ go: [say('done')] }) });
+
+    expect(harness.hooks.map((hook) => hook.name)).toEqual([
+      'agents-md',
+      'skills',
+      'scratch',
+      'working-root',
+    ]);
+  });
+
   it('is the parent’s folder for a sub-agent, which can write into it', async () => {
     const requests: ProviderRequest[] = [];
     // Known only once the harness exists (the main session's id), read when the helper runs.
     let folder = '';
-    const harness = await createBackendHarness({
+    const harness = await openWithScratch({
       provider: routedProvider({
         go: [
           () => [
@@ -49,14 +76,6 @@ describe('the scratch folder in a backend run', () => {
           say('helped'),
         ],
       }),
-      title: 'go',
-      workspaceRoot: path.join(base, 'project'),
-      scratchRoot: path.join(base, 'scratch'),
-      trustStore: new TrustStore({
-        persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
-      }),
-      env: {},
-      permissions: askingPermissions(),
       onModelCall: (request) => requests.push(request),
     });
 

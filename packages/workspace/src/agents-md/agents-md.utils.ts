@@ -27,6 +27,27 @@ export function agentsDirs(params: { root: string; cwd: string }): string[] {
 }
 
 /**
+ * Where AGENTS.md discovery starts and ends this turn. A working root inside the project root
+ * narrows `cwd`; one outside it (a sibling worktree) is its own project root, since
+ * `agentsDirs` refuses a folder outside `root`. No working root keeps the configured scope.
+ */
+export function agentsScope(params: {
+  root: string;
+  cwd: string;
+  workingRoot: string | undefined;
+}): { root: string; cwd: string } {
+  const { root, cwd, workingRoot } = params;
+
+  if (workingRoot === undefined) return { root, cwd };
+
+  if (isInside({ folder: path.resolve(root), target: path.resolve(workingRoot) })) {
+    return { root, cwd: workingRoot };
+  }
+
+  return { root: workingRoot, cwd: workingRoot };
+}
+
+/**
  * The system instructions for the found files, root first, each under its path so the model
  * knows which part of the tree it governs. Non-empty content is included in full, trimmed.
  */

@@ -114,8 +114,8 @@ a tool or a hook for it.
 
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
-`createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `createAgentsMdHook`
-and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
+`createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `agentsMdSource` (built with
+`createInstructionHook`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
 it in one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from
 env; the terminal and every other UI reach its conversations over HTTP.
 
