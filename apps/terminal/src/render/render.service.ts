@@ -187,6 +187,9 @@ export class Renderer {
       case 'run_failed':
         this.clearRunning();
         this.#activity(this.look.runFailed(plainTerminalText(event.error)));
+        // A failed run has no `done`, so this is where its prompt ends.
+        this.reply.end();
+        this.#endPrompt();
         break;
       case 'hook_failed':
         this.#activity(
@@ -210,7 +213,7 @@ export class Renderer {
 
   /** One session update: sub-agents starting, reporting status, getting messages, ending. */
   session(update: SessionUpdate): void {
-    const { type, session } = update;
+    const { session } = update;
 
     // The main session is not a card: only a sub-agent, which has a parent, is drawn.
     if (!('parentId' in session)) return;
@@ -220,35 +223,43 @@ export class Renderer {
       id: session.id,
     };
 
-    if (type === 'session_started') {
-      this.#activity(
-        this.look.subAgentStarted({
-          ...agent,
-          depth: session.depth,
-          parent: session.parentId,
-          root: session.rootId,
-        }),
-      );
+    // Every update kind is chosen here, so a new one fails lint until it is drawn or ignored.
+    switch (update.type) {
+      case 'session_started':
+        this.#activity(
+          this.look.subAgentStarted({
+            ...agent,
+            depth: session.depth,
+            parent: session.parentId,
+            root: session.rootId,
+          }),
+        );
+        break;
+      case 'session_status':
+        this.#activity(
+          this.look.subAgentStatus({ ...agent, status: plainTerminalText(session.status ?? '') }),
+        );
+        break;
+
+      case 'session_message': {
+        const from = update.message.from === 'user' ? 'the user' : shortId(update.message.from);
+        const content = firstLine(update.message.content);
+
+        this.#activity(this.look.subAgentMessage({ ...agent, from, content }));
+        break;
+      }
+
+      case 'session_ended':
+        this.#activity(this.look.subAgentEnded({ ...agent, state: session.state }));
+        break;
+      case 'session_idle':
+      case 'session_resumed':
+      case 'session_model':
+      case 'session_released':
+        // Drawn by nothing: idle, resume and model changes are not transcript output, and the
+        // ended card is already in the scrollback when a session is released.
+        break;
     }
-
-    if (type === 'session_status') {
-      this.#activity(
-        this.look.subAgentStatus({ ...agent, status: plainTerminalText(session.status ?? '') }),
-      );
-    }
-
-    if (type === 'session_message') {
-      const from = update.message.from === 'user' ? 'the user' : shortId(update.message.from);
-      const content = firstLine(update.message.content);
-
-      this.#activity(this.look.subAgentMessage({ ...agent, from, content }));
-    }
-
-    if (type === 'session_ended') {
-      this.#activity(this.look.subAgentEnded({ ...agent, state: session.state }));
-    }
-
-    // `session_released` draws nothing: the ended card is already in the scrollback.
   }
 
   /** The model's reply, as it streams: a section of its own, apart from what the run did. */
@@ -286,8 +297,14 @@ export class Renderer {
         reasoning: this.#reasoningItems,
       }),
     );
+    this.#endPrompt();
+  }
+
+  /** Forgets what only mattered within this prompt. */
+  #endPrompt(): void {
     this.#last = undefined;
     this.#lineOpen = false;
+    this.#reasoningItems = 0;
   }
 
   /** A paired title already sits above its result, so only an unpaired batch repeats it. */

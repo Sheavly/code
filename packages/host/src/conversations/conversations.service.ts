@@ -12,13 +12,13 @@ import type {
   LiveConversation,
   SentPrompt,
   StartConversationParams,
-  StorageOf,
 } from './conversations.types.js';
+import { storageOf } from './storage.helper.js';
 import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import { preparePrompt } from './prompt.helper.js';
+import { prepareForSend, refuseOverlappingSend } from './prompt.helper.js';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
@@ -70,7 +70,7 @@ export class Conversations {
       workspace: params.workspace,
       profile: params.profile,
       model: params.model,
-      ...(keeper && this.#storageOf({ keeper, id })),
+      ...(keeper && storageOf({ store: this.#store, keeper, id })),
     });
 
     this.#live.set(id, live);
@@ -106,7 +106,7 @@ export class Conversations {
       id,
     });
     const keeper = this.#keeperFor(id);
-    const storage = this.#storageOf({ keeper, id }).storage;
+    const storage = storageOf({ store: this.#store, keeper, id }).storage;
     const live = await this.#create({
       id,
       messages,
@@ -247,26 +247,6 @@ export class Conversations {
     return keeper;
   }
 
-  /** What the app builds conversation `id` on so it is kept: its stream's store and its history. */
-  #storageOf(params: { keeper: ConversationKeeper | undefined; id: ConversationId }): StorageOf {
-    const { keeper, id } = params;
-
-    const store = this.#store;
-
-    if (!keeper || !store) return {};
-
-    return {
-      storage: {
-        entries: store.entries(id),
-        shell: store.shell(id),
-        outputs: store.outputs(id),
-        keepHistory: (messages) => keeper.keepHistory(messages),
-        keepAgentHistory: (params) => keeper.keepAgentHistory(params),
-        logOf: ({ session, main }) => store.history({ id, session: main ? undefined : session }),
-      },
-    };
-  }
-
   /**
    * Writes the index entry a new conversation starts with, now that its title and model exist, and
    * records the model on the main session: the first `session_model` of its stream.
@@ -316,21 +296,28 @@ export class Conversations {
     const { conversation, skills } = this.get(id);
 
     this.#assertStorageHealthy(id);
-    const prepared = await preparePrompt({ prompt, skills, signal });
 
-    this.#assertStorageHealthy(id);
+    // A prompt still preparing is in flight too: a second send must not take over its stop switch.
+    if (this.#running.has(id)) refuseOverlappingSend(this.get(id).harness.mainSession.id);
 
-    // A run the conversation started for finished work ends at its completion point first, so the
-    // user's line is the next prompt rather than refused as `session_running`.
-    await conversation.settleWake();
-
+    // Registered before preparing so a stop that arrives meanwhile reaches this prompt; it then
+    // starts already aborted and ends as interrupted.
     const stop = new AbortController();
-    const events = conversation.send(prepared.text, {
-      signal: signal ? AbortSignal.any([signal, stop.signal]) : stop.signal,
-      parts: prepared.parts,
-    });
+    const stopSignal = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
 
     this.#running.set(id, stop);
+
+    // Nothing iterates `events` when a step throws, so the switch is released here.
+    const { prepared, events } = await prepareForSend({
+      prompt,
+      skills,
+      signal: stopSignal,
+      assertHealthy: () => this.#assertStorageHealthy(id),
+      settleWake: () => conversation.settleWake(),
+      start: (prepared) =>
+        conversation.send(prepared.text, { signal: stopSignal, parts: prepared.parts }),
+      onFailure: () => this.#forgetStop({ id, stop }),
+    });
 
     return {
       events: this.#untilDone({ id, stop, events }),
@@ -447,7 +434,11 @@ export class Conversations {
     try {
       yield* events;
     } finally {
-      if (this.#running.get(id) === stop) this.#running.delete(id);
+      this.#forgetStop({ id, stop });
     }
+  }
+
+  #forgetStop(params: { id: ConversationId; stop: AbortController }): void {
+    if (this.#running.get(params.id) === params.stop) this.#running.delete(params.id);
   }
 }

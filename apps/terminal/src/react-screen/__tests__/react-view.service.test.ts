@@ -8,6 +8,9 @@ import { THEMES } from '../../theme/theme.constants.js';
 import { ChatScreen } from '../../tui/chat-screen.service.js';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { createElement } from 'react';
+import { renderToString } from 'ink';
+import { ReactScreen } from '../react-screen.component.js';
 import { ReactView } from '../react-view.service.js';
 import { UsageLedger } from '@sheavly/runtime/usage/usage.service';
 
@@ -42,6 +45,34 @@ function screenOver(params: { view: ReactView; onAnswer?: () => void }): ChatScr
 }
 
 describe('ReactView', () => {
+  it('draws the unfinished reply above the status line, never under it', () => {
+    const { view } = open();
+
+    view.setLive('streaming words');
+
+    const drawn = stripVTControlCharacters(
+      renderToString(createElement(ReactScreen, view.snapshot)),
+    );
+    const rows = drawn.split('\n');
+    const reply = rows.findIndex((row) => row.includes('streaming words'));
+    const status = rows.findIndex((row) => row.includes('ready'));
+
+    expect(reply).toBeGreaterThanOrEqual(0);
+    expect(reply).toBeLessThan(status);
+  });
+
+  it('starts once: a second start leaves the running instance, not a leaked one', () => {
+    const { view, terminal } = open();
+    const started = vi.spyOn(terminal, 'start');
+
+    view.start();
+    view.start();
+    view.stop();
+
+    expect(started).toHaveBeenCalledTimes(1);
+    expect(terminal.stopped).toBe(true);
+  });
+
   it.each([false, true])('uses output TTY status in CI: %s', async (interactive) => {
     vi.stubEnv('CI', 'true');
 

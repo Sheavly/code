@@ -5,7 +5,7 @@ import type { ReactScreenProps } from './react-screen.types.js';
 
 /** Native scrollback is append-only. Only the bounded footer participates in redraws. */
 export function ReactScreen(props: ReactScreenProps) {
-  const { lines, cursor } = liveLayout(props);
+  const { tail, lines, cursor } = liveLayout(props);
   const { setCursorPosition } = useCursor();
 
   // Ink reads this during its insertion effect; setting it later lags one frame behind typing.
@@ -21,6 +21,11 @@ export function ReactScreen(props: ReactScreenProps) {
         )}
       </Static>
       <Box flexDirection="column" width={props.columns}>
+        {tail.map((line, index) => (
+          <Text key={`tail-${String(index)}`} wrap="truncate-end">
+            {line || ' '}
+          </Text>
+        ))}
         <Activity
           {...props.status}
           colors={props.colors}

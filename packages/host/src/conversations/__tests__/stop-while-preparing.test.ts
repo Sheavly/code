@@ -3,12 +3,11 @@ import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { say, scriptedConversations } from '../../testing/conversations.fake.js';
 import type { ConversationSkills } from '../conversations.types.js';
 
-// Reproduction, flow rule 8 and the stop path: `stop` only reaches a prompt that is past
-// `preparePrompt`, so a stop while a skill is still being prepared is ignored and the prompt runs
-// to its end. The fixing change flips `it.fails` to `it`.
+// Flow rule 8 and the stop path: a stop while a skill is still being prepared must reach the
+// prompt, which then ends as interrupted instead of running.
 
-/** Sends a prompt, stops it while its skills are still being prepared, and returns how it ended. */
-async function stopWhilePreparing() {
+/** A conversation whose skills hold every prompt in preparation until `release` is called. */
+async function conversationPreparing() {
   const prepared = Promise.withResolvers<undefined>();
   const skills: ConversationSkills = {
     list: async () => [],
@@ -20,22 +19,57 @@ async function stopWhilePreparing() {
   };
   const { conversations } = scriptedConversations({ replies: [say('ran to the end')], skills });
   const id = await conversations.start();
-  const sending = conversations.send({ id, prompt: { text: 'go' } });
 
-  conversations.stop(id);
-  prepared.resolve(undefined);
-  const { events } = await sending;
-  const emitted = await collect(events);
+  return { conversations, id, release: () => prepared.resolve(undefined) };
+}
+
+/** How the prompt that was sent first ended, once preparing was released. */
+async function endOf(first: ReturnType<typeof sendOne>) {
+  const emitted = await collect((await first).events);
 
   return emitted.find((event) => event.type === 'done');
 }
 
+function sendOne(params: Awaited<ReturnType<typeof conversationPreparing>>, text: string) {
+  return params.conversations.send({ id: params.id, prompt: { text } });
+}
+
 describe('stopping a prompt that is still being prepared', () => {
-  it('pinned today: the stop is ignored and the prompt runs to completed', async () => {
-    expect(await stopWhilePreparing()).toMatchObject({ reason: 'completed' });
+  it('ends the prompt as interrupted instead of letting it run', async () => {
+    const preparing = await conversationPreparing();
+    const sending = sendOne(preparing, 'go');
+
+    preparing.conversations.stop(preparing.id);
+    preparing.release();
+
+    expect(await endOf(sending)).toMatchObject({ reason: 'interrupted' });
   });
 
-  it.fails('ends the prompt as interrupted instead of letting it run', async () => {
-    expect(await stopWhilePreparing()).toMatchObject({ reason: 'interrupted' });
+  it('refuses a second send meanwhile, and a stop still reaches the first', async () => {
+    const preparing = await conversationPreparing();
+    const first = sendOne(preparing, 'one');
+
+    await expect(sendOne(preparing, 'two')).rejects.toMatchObject({ reason: 'session_running' });
+    preparing.conversations.stop(preparing.id);
+    preparing.release();
+
+    expect(await endOf(first)).toMatchObject({ reason: 'interrupted' });
+  });
+
+  it('lets the next prompt run once a refused send was cleaned up', async () => {
+    const { conversations } = scriptedConversations({ replies: [say('one'), say('two')] });
+    const id = await conversations.start();
+    const { events } = await conversations.send({ id, prompt: { text: 'one' } });
+
+    await expect(conversations.send({ id, prompt: { text: 'again' } })).rejects.toMatchObject({
+      reason: 'session_running',
+    });
+    await collect(events);
+
+    const next = await conversations.send({ id, prompt: { text: 'two' } });
+
+    expect((await collect(next.events)).find((event) => event.type === 'done')).toMatchObject({
+      reason: 'completed',
+    });
   });
 });

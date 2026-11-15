@@ -114,6 +114,32 @@ describe('MarkdownStream', () => {
     expect(markdown.push('after\n\n')).toBe('«after»\n\n');
   });
 
+  it('continues a fence after a pause, so code is not drawn as a paragraph', () => {
+    const markdown = stream();
+
+    markdown.push('```ts\nconst a = 1;\n');
+    expect(markdown.pause()).toBe('⌋\n');
+    expect(markdown.push('const b = 2;\n```\n')).toBe('⌈ts\n│const b = 2;\n⌋\n');
+  });
+
+  it('keeps the fence across several pauses before the reply goes on', () => {
+    const markdown = stream();
+
+    markdown.push('```ts\nconst a = 1;\n');
+    markdown.pause();
+    expect(markdown.pause()).toBe('');
+    expect(markdown.push('const b = 2;\n')).toBe('⌈ts\n│const b = 2;\n');
+  });
+
+  it('does not continue a fence once it was flushed', () => {
+    const markdown = stream();
+
+    markdown.push('```ts\ncode\n');
+    markdown.flush();
+
+    expect(markdown.push('plain\n\n')).toBe('«plain»\n\n');
+  });
+
   it('draws the code line that was being written before closing a fence', () => {
     const markdown = stream();
 

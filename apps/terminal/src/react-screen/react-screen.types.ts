@@ -26,6 +26,9 @@ export type ReactScreenProps = {
 };
 
 export type LiveLayout = {
+  /** The unfinished reply, drawn above the status line so a committed block prints where it was. */
+  tail: string[];
+  /** The rows under the status line: queue, approval and editor. */
   lines: string[];
   cursor: { x: number; y: number } | undefined;
   approvalFits: boolean;

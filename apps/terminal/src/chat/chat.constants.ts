@@ -1,7 +1,7 @@
 /** What `/help` prints. */
 export const CHAT_HELP = `Type a message and press Enter to send it. The conversation keeps its history.
 Keep typing while it works: what you send waits its turn.
-When it asks to run a command, choose with the arrows or 1-4 and press Enter; Esc skips it.
+When it asks to run a command, choose with the arrows or a number and press Enter; Esc skips it.
 Ctrl+C stops the running prompt; pressed again with nothing running, it quits.
 /model lists the models of your profile; /model <name> switches to one from the next prompt on.
 /mode shows reasoning effort; /mode low|medium|high|extreme sets it and remembers it for this model.

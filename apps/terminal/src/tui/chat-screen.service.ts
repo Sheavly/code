@@ -115,10 +115,12 @@ export class ChatScreen {
 
   /**
    * Where text for the conversation goes: the `Renderer`'s and the session's `write`. A reply in
-   * progress ends first, so what is written here comes after all of it.
+   * progress is paused first, so what is written here comes after all of it; a code block it
+   * interrupts is reopened by the reply's next text.
    */
   readonly write = (text: string): void => {
-    this.#endReply();
+    // Paused, not ended: a code block this interrupts carries on after it.
+    this.#show(this.#markdown.pause());
     this.#show(text);
   };
 
@@ -318,14 +320,24 @@ export class ChatScreen {
   }
 
   /**
-   * Ctrl+C: stops a running prompt (and skips what it waits on); with nothing running, a second
-   * press within a moment quits, so one stray press never ends the conversation.
+   * Ctrl+C: stops a running prompt (and skips what it waits on); with nothing running, the first
+   * press only arms quit and a second within a moment quits, so one stray press never ends the
+   * conversation or answers an approval.
    */
   #interrupt(): KeyResult {
-    this.#skipWaiting();
+    // Only a press that stops something skips approvals: the idle press that arms quit leaves
+    // them waiting.
+    if (this.#callbacks.onStop() !== 'idle') {
+      this.#skipWaiting();
 
-    if (this.#callbacks.onStop() !== 'idle') return { consume: true };
-    if (now() - this.#quitArmedAt < QUIT_WINDOW_MS) this.#callbacks.onQuit();
+      return { consume: true };
+    }
+
+    if (now() - this.#quitArmedAt < QUIT_WINDOW_MS) {
+      this.#callbacks.onQuit();
+
+      return { consume: true };
+    }
 
     this.#quitArmedAt = now();
     this.notice('Press Ctrl+C again to quit');

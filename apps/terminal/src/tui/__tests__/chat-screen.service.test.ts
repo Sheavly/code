@@ -407,6 +407,35 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
       await type(CTRL_C);
       expect(quits()).toBe(1);
     });
+
+    it('is the only key that stops a prompt: Esc does not', async () => {
+      const { type, stops, running } = open();
+
+      running('stopped');
+      await type('\u001b');
+
+      expect(stops()).toBe(0);
+    });
+
+    it('leaves waiting approvals alone when nothing runs', async () => {
+      const { screen, type, answers } = open();
+
+      screen.ask(request('a1'));
+      await type(CTRL_C);
+
+      expect(answers).toEqual([]);
+      expect(screen.asking).toBe(true);
+    });
+
+    it('does not ask to press again once the second press has quit', async () => {
+      const { type, quits, text } = open();
+
+      await type(CTRL_C);
+      await type(CTRL_C);
+
+      expect(quits()).toBe(1);
+      expect(text().match(/Press Ctrl\+C again to quit/g)).toHaveLength(1);
+    });
   });
 
   describe('Ctrl+D', () => {

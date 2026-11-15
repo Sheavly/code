@@ -239,7 +239,9 @@ export function createConversation(options: ConversationOptions): Conversation {
       wakesInRow = 0;
       wakesSuppressed = false;
       cancelYieldWake();
-      // A caller aborting its own prompt is a stop too, whoever calls it.
+      // A caller aborting its own prompt is a stop too, whoever calls it. A signal already
+      // aborted (a stop during preparation) never fires its listener, so it is checked here.
+      if (sendOptions.signal?.aborted) wakesSuppressed = true;
       sendOptions.signal?.addEventListener('abort', () => (wakesSuppressed = true), { once: true });
       const resumed = started;
 
