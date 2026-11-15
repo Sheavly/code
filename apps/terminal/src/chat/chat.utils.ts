@@ -38,8 +38,14 @@ export function parseChatInput(line: string): ChatInput {
 
   const [command, ...rest] = text.split(/\s+/);
 
-  if (command === '/model' && rest.length <= 1) return { kind: 'model', name: rest[0] };
-  if (command === '/mode' && rest.length <= 1) return { kind: 'mode', name: rest[0] };
+  if (command === '/help') return { kind: 'usage', message: '/help takes no arguments.' };
+
+  if ((command === '/model' || command === '/mode') && rest.length > 1) {
+    return { kind: 'usage', message: `${command} takes at most one name.` };
+  }
+
+  if (command === '/model') return { kind: 'model', name: rest[0] };
+  if (command === '/mode') return { kind: 'mode', name: rest[0] };
   if (command === '/changes') return { kind: 'changes', target: rest.join(' ') || undefined };
   if (command === '/errors') return { kind: 'errors', target: rest.join(' ') || undefined };
 

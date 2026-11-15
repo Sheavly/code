@@ -318,14 +318,24 @@ export class ChatScreen {
   }
 
   /**
-   * Ctrl+C: stops a running prompt (and skips what it waits on); with nothing running, a second
-   * press within a moment quits, so one stray press never ends the conversation.
+   * Ctrl+C: stops a running prompt (and skips what it waits on); with nothing running, the first
+   * press only arms quit and a second within a moment quits, so one stray press never ends the
+   * conversation or answers an approval.
    */
   #interrupt(): KeyResult {
-    this.#skipWaiting();
+    // Only a press that stops something skips approvals: the idle press that arms quit leaves
+    // them waiting.
+    if (this.#callbacks.onStop() !== 'idle') {
+      this.#skipWaiting();
 
-    if (this.#callbacks.onStop() !== 'idle') return { consume: true };
-    if (now() - this.#quitArmedAt < QUIT_WINDOW_MS) this.#callbacks.onQuit();
+      return { consume: true };
+    }
+
+    if (now() - this.#quitArmedAt < QUIT_WINDOW_MS) {
+      this.#callbacks.onQuit();
+
+      return { consume: true };
+    }
 
     this.#quitArmedAt = now();
     this.notice('Press Ctrl+C again to quit');

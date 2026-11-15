@@ -43,8 +43,14 @@ describe('parseChatInput', () => {
   it('reads /model with or without a name, and not with more than one', () => {
     expect(parseChatInput('/model')).toEqual({ kind: 'model', name: undefined });
     expect(parseChatInput('/model  claude ')).toEqual({ kind: 'model', name: 'claude' });
-    expect(parseChatInput('/model a b')).toEqual({ kind: 'prompt', text: '/model a b' });
   });
+
+  it.each(['/model a b', '/mode a b', '/help x'])(
+    'rejects %s instead of sending it to the model',
+    (line) => {
+      expect(parseChatInput(line)).toMatchObject({ kind: 'usage' });
+    },
+  );
 });
 
 describe('unknownCommand', () => {

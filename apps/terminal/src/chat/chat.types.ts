@@ -16,6 +16,8 @@ export type ChatInput =
   | { kind: 'changes'; target: string | undefined }
   /** `/errors` lists the failed steps with more to say; `/errors #<n>` shows one in full. */
   | { kind: 'errors'; target: string | undefined }
+  /** A chat command typed with arguments it does not take: reported, never sent to the model. */
+  | { kind: 'usage'; message: string }
   | { kind: 'empty' };
 
 /** What the chat needs of a conversation: a `RemoteConversation`, or a stand-in for a test. */

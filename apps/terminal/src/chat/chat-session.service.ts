@@ -245,6 +245,9 @@ export class ChatSession {
       case 'help':
         this.#print(CHAT_HELP);
         break;
+      case 'usage':
+        this.#print(`${parsed.message} /help lists the commands.`);
+        break;
       case 'changes':
         this.#print(this.describeChanges(parsed.target));
         break;
