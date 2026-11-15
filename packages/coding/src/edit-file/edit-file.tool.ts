@@ -12,7 +12,7 @@ import {
   writeText,
 } from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
-import { resolveWritable } from '../files/files.helper.js';
+import { assertSameWritable, resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
 import { currentRoot } from '../files/working-root.helper.js';
 import { applyEdit } from './edit-file.utils.js';
@@ -64,6 +64,9 @@ async function editFile(params: {
     file: real,
     signal,
     change: async () => {
+      // Resolved before the lock to queue on the file, then again under it: a path swapped while
+      // the edit waited would otherwise be changed without the guards.
+      await assertSameWritable({ workspace, requested, expected: real, root });
       await assertFitsInMemory({
         file: real,
         requested,
@@ -76,6 +79,9 @@ async function editFile(params: {
         signal,
         hint: 'Use write_file to create it.',
       });
+
+      // The size was checked before the read; a file another process grew in between is caught here.
+      assertContentFits({ content: before, requested });
 
       // A file that changed since the agent read it (a command, the user, another agent) is no
       // longer what it saw; one that did not change keeps its read, so nothing is read twice.

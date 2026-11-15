@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -27,7 +27,14 @@ async function stream(text: string, startLine?: number) {
 
   await writeFile(file, text);
 
-  return streamLines({ file, startLine, maxLines: MAX_LINES, maxChars: MAX_CHARS, signal });
+  return streamLines({
+    file,
+    requested: 'f.txt',
+    startLine,
+    maxLines: MAX_LINES,
+    maxChars: MAX_CHARS,
+    signal,
+  });
 }
 
 const manyLines = (n: number) => Array.from({ length: n }, (_, i) => `line ${i + 1}\n`).join('');
@@ -104,6 +111,7 @@ describe('streamLines', () => {
 
     const streamed = await streamLines({
       file,
+      requested: 'huge.txt',
       startLine: undefined,
       maxLines: 10,
       maxChars: 100,
@@ -122,10 +130,43 @@ describe('streamLines', () => {
     await expect(
       streamLines({
         file,
+        requested: 'aborted.txt',
         startLine: undefined,
         maxLines: MAX_LINES,
         maxChars: MAX_CHARS,
         signal: AbortSignal.abort(new Error('stopped')),
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('refuses anything but a regular file, so a folder or device never holds the lock', async () => {
+    await expect(
+      streamLines({
+        file: base,
+        requested: 'a-folder',
+        startLine: undefined,
+        maxLines: MAX_LINES,
+        maxChars: MAX_CHARS,
+        signal,
+      }),
+    ).rejects.toMatchObject({ reason: 'invalid_input' });
+  });
+
+  it('does not follow a symlink at the path, which the guard resolved to a real file', async () => {
+    const target = path.join(base, 'target.txt');
+    const link = path.join(base, 'link.txt');
+
+    await writeFile(target, 'secret\n');
+    await symlink(target, link);
+
+    await expect(
+      streamLines({
+        file: link,
+        requested: 'link.txt',
+        startLine: undefined,
+        maxLines: MAX_LINES,
+        maxChars: MAX_CHARS,
+        signal,
       }),
     ).rejects.toThrow();
   });

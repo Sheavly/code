@@ -1,6 +1,7 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
+import { errorCode, isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { PathCheckError, WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
+import { FS_REFUSALS } from './files.constants.js';
 
 /**
  * Runs the body of a file tool with the one abort rule and the one error mapping they share. An
@@ -38,6 +39,16 @@ function toToolError(params: { error: unknown; requested: string; signal: AbortS
 
   if (error instanceof WorkspaceError || error instanceof PathCheckError) {
     return new ToolCallError({ reason: 'forbidden', message: error.message });
+  }
+
+  // The system's own text carries absolute host paths, so the model gets a fixed sentence.
+  const code = errorCode(error);
+
+  if (code !== undefined && FS_REFUSALS[code] !== undefined) {
+    return new ToolCallError({
+      reason: 'forbidden',
+      message: `${FS_REFUSALS[code]}: ${requested}.`,
+    });
   }
 
   return error;

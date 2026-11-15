@@ -8,11 +8,11 @@ import type { FileToolServices } from '../files/files.types.js';
 import {
   assertContentFits,
   createParentFolder,
-  readIfExists,
+  pathExists,
   writeText,
 } from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
-import { resolveWritable } from '../files/files.helper.js';
+import { assertSameWritable, resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
 import { currentRoot } from '../files/working-root.helper.js';
 import { WRITE_FILE_PROMPTS } from './write-file.prompt.js';
@@ -62,7 +62,9 @@ async function writeFile(params: {
     file: real,
     signal,
     change: async () => {
-      if ((await readIfExists({ file: real, signal })) !== null) {
+      await assertSameWritable({ workspace, requested, expected: real, root });
+
+      if (await pathExists({ file: real })) {
         throw new ToolCallError({
           reason: 'invalid_input',
           message: `${requested} already exists. Read it with read_file and change it with edit_file; write_file only creates new files.`,

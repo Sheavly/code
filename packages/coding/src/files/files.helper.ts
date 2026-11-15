@@ -88,6 +88,53 @@ export async function assertSameDeletable(params: {
   }
 }
 
+/**
+ * Re-runs the read resolution under the file's lock and fails if the path no longer resolves to
+ * `expected`: a path swapped for a symlink while the read waited for its turn would otherwise be
+ * opened without the guards that picked `expected`.
+ */
+export async function assertSameReadable(params: {
+  workspace: Workspace;
+  requested: string;
+  expected: string;
+  root: string | undefined;
+}): Promise<void> {
+  const { workspace, requested, expected, root } = params;
+
+  assertSamePath({
+    current: await resolveReadable({ workspace, requested, root }),
+    expected,
+    requested,
+  });
+}
+
+/** `assertSameReadable` for the write resolution, as `edit_file` and `write_file` need it. */
+export async function assertSameWritable(params: {
+  workspace: Workspace;
+  requested: string;
+  expected: string;
+  root: string | undefined;
+}): Promise<void> {
+  const { workspace, requested, expected, root } = params;
+
+  assertSamePath({
+    current: await resolveWritable({ workspace, requested, root }),
+    expected,
+    requested,
+  });
+}
+
+function assertSamePath(params: { current: string; expected: string; requested: string }): void {
+  const { current, expected, requested } = params;
+
+  if (current !== expected) {
+    throw new ToolCallError({
+      reason: 'forbidden',
+      message: `${requested} changed while the call waited for its turn. Try again.`,
+    });
+  }
+}
+
 /** `resolveDelete`, with a missing path turned into the tool error a caller expects. */
 async function resolveExisting(params: {
   workspace: Workspace;

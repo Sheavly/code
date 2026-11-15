@@ -1,19 +1,38 @@
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import {
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+  type FileHandle,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { MAX_FILE_BYTES } from './files.constants.js';
 
 /** The file's current content, or `null` if it doesn't exist yet. */
-export async function readIfExists(params: {
-  file: string;
-  signal: AbortSignal;
-}): Promise<string | null> {
+async function readIfExists(params: { file: string; signal: AbortSignal }): Promise<string | null> {
   const { file, signal } = params;
 
   try {
     return await readFile(file, { encoding: 'utf8', signal });
   } catch (caughtError) {
     if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw caughtError;
+  }
+}
+
+/** Whether anything is at `file`, found without reading it, so a huge file is not loaded to ask. */
+export async function pathExists(params: { file: string }): Promise<boolean> {
+  try {
+    await lstat(params.file);
+
+    return true;
+  } catch (caughtError) {
+    if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw caughtError;
   }
 }
@@ -80,6 +99,44 @@ export function assertContentFits(params: { content: string; requested: string }
       message: `The content for ${requested} is ${size} bytes, more than the ${MAX_FILE_BYTES} bytes a file tool handles. Split it across files.`,
     });
   }
+}
+
+/**
+ * Opens `file` for reading without following a symlink at its last component, and refuses anything
+ * but a regular file (a FIFO or device would hold the file's lock until the call is aborted) or a
+ * file that is not the one `file` named when the guard resolved it (swapped between the guard and
+ * the open). A folder on the way to the file swapped in that last moment is the one case Node can't
+ * close without `openat`. The caller closes the handle.
+ */
+export async function openRegularFile(params: {
+  file: string;
+  requested: string;
+}): Promise<FileHandle> {
+  const { file, requested } = params;
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+
+  try {
+    const [opened, named] = await Promise.all([handle.stat(), lstat(file)]);
+
+    if (!opened.isFile()) {
+      throw new ToolCallError({
+        reason: 'invalid_input',
+        message: `${requested} is not a regular file, so read_file can't read it.`,
+      });
+    }
+
+    if (opened.dev !== named.dev || opened.ino !== named.ino) {
+      throw new ToolCallError({
+        reason: 'forbidden',
+        message: `${requested} changed while it was being opened. Try again.`,
+      });
+    }
+  } catch (caughtError) {
+    await handle.close();
+    throw caughtError;
+  }
+
+  return handle;
 }
 
 /** The file's size in bytes. */

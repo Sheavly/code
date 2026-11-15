@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { currentRoot, displayPath } from '../files/working-root.helper.js';
-import { resolveReadable } from '../files/files.helper.js';
+import { assertSameReadable, resolveReadable } from '../files/files.helper.js';
 import type { FileToolServices } from '../files/files.types.js';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
@@ -47,35 +47,42 @@ async function readFileTool(params: {
   const root = await currentRoot(workingRoots);
   const real = await resolveReadable({ workspace, requested, root });
 
-  // Under the file's lock, so a read never sees a half-written file. One pass: only the lines to
-  // show are kept, however big the file is.
-  const streamed = await fileLocks.run({
+  // Under the file's lock, so a read never sees a half-written file, and so the read is recorded
+  // before any edit queued behind it can run: a later record of an older hash would undo it. One
+  // pass: only the lines to show are kept, however big the file is.
+  const { content, note, lines } = await fileLocks.run({
     file: real,
     signal,
-    change: () =>
-      streamLines({
+    change: async () => {
+      await assertSameReadable({ workspace, requested, expected: real, root });
+
+      const streamed = await streamLines({
         file: real,
+        requested,
         startLine,
         maxLines: MAX_READ_LINES,
         maxChars: MAX_READ_CHARS,
         signal,
-      }),
-  });
-  const { content, note, lines } = selectLinesFrom({
-    ...streamed,
-    startLine,
-    endLine,
-    maxLines: MAX_READ_LINES,
-    maxChars: MAX_READ_CHARS,
-  });
+      });
+      const selected = selectLinesFrom({
+        ...streamed,
+        startLine,
+        endLine,
+        maxLines: MAX_READ_LINES,
+        maxChars: MAX_READ_CHARS,
+      });
 
-  // What the agent was shown, no more: `edit_file` takes the agent's word for those lines only.
-  fileReads.markRead({
-    agent: agentOf(context),
-    file: real,
-    text: content,
-    whole: lines.whole,
-    hash: streamed.hash,
+      // What the agent was shown, no more: `edit_file` takes the agent's word for those lines only.
+      fileReads.markRead({
+        agent: agentOf(context),
+        file: real,
+        text: selected.content,
+        whole: selected.lines.whole,
+        hash: streamed.hash,
+      });
+
+      return selected;
+    },
   });
 
   const read: FileRead = {

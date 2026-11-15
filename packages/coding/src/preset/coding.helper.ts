@@ -22,18 +22,26 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
     ...harnessOptions
   } = options;
   const workspace = await Workspace.open(workspaceRoot, { scratchRoot, env });
+  const harness = createHarness({
+    ...harnessOptions,
+    instructions: composeInstructions({
+      baseInstructions: CODING_INSTRUCTIONS,
+      instructions: harnessOptions.instructions,
+    }),
+  });
+  const fileReads = new FileReads();
+
+  // A released session is forgotten for good, so what it was shown of the files goes with it, for
+  // every front end that builds its run on this harness.
+  harness.sessions.subscribe((update) => {
+    if (update.type === 'session_released') fileReads.forgetAgent({ agent: update.session.id });
+  });
 
   return {
-    ...createHarness({
-      ...harnessOptions,
-      instructions: composeInstructions({
-        baseInstructions: CODING_INSTRUCTIONS,
-        instructions: harnessOptions.instructions,
-      }),
-    }),
+    ...harness,
     workspace,
     fileLocks,
-    fileReads: new FileReads(),
+    fileReads,
     processes: new ProcessRunner({ env }),
   };
 }

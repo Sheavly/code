@@ -80,10 +80,6 @@ export async function createBackendHarness(
     ...projectHooks.hooks,
   ];
 
-  // A released session is forgotten for good, so what it was shown of the files goes with it.
-  sessions.subscribe((update) => {
-    if (update.type === 'session_released') fileReads.forgetAgent({ agent: update.session.id });
-  });
   const fileTools = [
     createReadFileTool({ workspace, workingRoots, fileLocks, fileReads }),
     createGlobTool({ workspace, workingRoots, processes }),

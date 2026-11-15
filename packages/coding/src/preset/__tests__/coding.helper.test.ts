@@ -2,6 +2,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { createCodingHarness } from '../coding.helper.js';
 import { CODING_INSTRUCTIONS } from '../../instructions/coding-instructions.prompt.js';
@@ -41,6 +42,35 @@ describe('createCodingHarness', () => {
       }
     },
   );
+
+  it('forgets what a session was shown of the files once it is released', async () => {
+    const harness = await createCodingHarness({
+      provider: routedProvider({ hi: [say('hello')] }),
+      title: 'hi',
+      workspaceRoot: root,
+      env: {},
+    });
+    const child = harness.sessions.startChild({
+      parentId: harness.mainSession.id,
+      startedByCall: callIdSchema.parse('c1'),
+      title: 'child',
+    });
+    const file = path.join(harness.workspace.root, 'a.ts');
+
+    harness.fileReads.markRead({ agent: child.id, file, text: 'x', whole: true, hash: 'h' });
+    harness.fileReads.markRead({
+      agent: harness.mainSession.id,
+      file,
+      text: 'x',
+      whole: true,
+      hash: 'h',
+    });
+    harness.sessions.end({ id: child.id, state: 'completed' });
+    harness.sessions.release(child.id);
+
+    expect(harness.fileReads.hasRead({ agent: child.id, file })).toBe(false);
+    expect(harness.fileReads.hasRead({ agent: harness.mainSession.id, file })).toBe(true);
+  });
 
   it('opens the workspace and makes the shared services, and includes no tools or hooks', async () => {
     const harness = await createCodingHarness({

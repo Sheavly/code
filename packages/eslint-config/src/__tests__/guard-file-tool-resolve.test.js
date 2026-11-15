@@ -42,6 +42,36 @@ ruleTester.run('guard-file-tool-resolve', harnessPlugin.rules['guard-file-tool-r
 });
 
 ruleTester.run(
+  'guard-file-tool-resolve (bypasses)',
+  harnessPlugin.rules['guard-file-tool-resolve'],
+  {
+    valid: [
+      "import { resolveReadable, runFileTool } from '../files/files.helper.js';",
+      "import path from 'node:path';",
+      "import { z } from 'zod';",
+    ],
+    invalid: [
+      {
+        code: 'const run = () => workspace[`resolveRead`](anchored);',
+        errors: [{ messageId: 'raw' }],
+      },
+      {
+        code: "import { resolveReadable as read } from '../files/files.helper.js';",
+        errors: [{ messageId: 'alias' }],
+      },
+      {
+        code: "import { runFileTool as wrap } from '../files/file-tool.helper.js';",
+        errors: [{ messageId: 'alias' }],
+      },
+      ...['fs', 'node:fs', 'fs/promises', 'node:fs/promises'].map((source) => ({
+        code: `import { readFile } from '${source}';`,
+        errors: [{ messageId: 'fs' }],
+      })),
+    ],
+  },
+);
+
+ruleTester.run(
   'guard-file-tool-resolve (runFileTool)',
   harnessPlugin.rules['guard-file-tool-resolve'],
   {

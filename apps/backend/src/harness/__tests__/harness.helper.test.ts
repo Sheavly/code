@@ -4,11 +4,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
-import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
-import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -118,38 +116,6 @@ describe('createBackendHarness: what a backend run includes', () => {
       'start_agent',
       'message_agent',
     ]);
-  });
-
-  it('forgets what a session was shown of the files once it is released', async () => {
-    const harness = await open(false);
-    const child = harness.sessions.startChild({
-      parentId: harness.mainSession.id,
-      startedByCall: callIdSchema.parse('c1'),
-      title: 'child',
-    });
-    const file = path.join(harness.workspace.root, 'AGENTS.md');
-
-    const note = 'AGENTS NOTE\n';
-
-    harness.fileReads.markRead({
-      agent: child.id,
-      file,
-      text: note,
-      whole: true,
-      hash: hashText(note),
-    });
-    harness.fileReads.markRead({
-      agent: harness.mainSession.id,
-      file,
-      text: 'x',
-      whole: true,
-      hash: hashText('x'),
-    });
-    harness.sessions.end({ id: child.id, state: 'completed' });
-    harness.sessions.release(child.id);
-
-    expect(harness.fileReads.hasRead({ agent: child.id, file })).toBe(false);
-    expect(harness.fileReads.hasRead({ agent: harness.mainSession.id, file })).toBe(true);
   });
 
   it('loads no .sheavly/ hooks in an untrusted workspace, and says why', async () => {

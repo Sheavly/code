@@ -45,6 +45,20 @@ describe('runFileTool', () => {
     expect(failure).toMatchObject({ reason: 'forbidden', message: error.message });
   });
 
+  it.each([
+    ['EACCES', 'Permission denied: a.ts.'],
+    ['EISDIR', 'Not a file: a.ts.'],
+    ['ELOOP', 'Too many symbolic links: a.ts.'],
+  ])(
+    'tells the model %s in a fixed phrase, never the system text with its host path',
+    async (code, said) => {
+      const raw = Object.assign(new Error(`${code}: /home/user/secret/a.ts`), { code });
+      const failure = await run(failWith(raw)).catch((caughtError: unknown) => caughtError);
+
+      expect(failure).toMatchObject({ reason: 'forbidden', message: said });
+    },
+  );
+
   it('leaves a tool error, an abort and any other failure as they were', async () => {
     const own = new ToolCallError({ reason: 'invalid_input', message: 'mine' });
     const other = Object.assign(new Error('disk on fire'), { code: 'EIO' });

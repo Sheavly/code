@@ -1,5 +1,5 @@
-import { createReadStream } from 'node:fs';
 import { newTextHash } from '@sheavly/workspace/file-reads/file-reads.utils';
+import { openRegularFile } from '../files/file-effects.helper.js';
 import type { StreamedLines } from './read-file.types.js';
 import { firstLine } from './read-file.utils.js';
 
@@ -7,17 +7,20 @@ import { firstLine } from './read-file.utils.js';
  * Reads `file` once, as a stream, so a large file never sits in memory: it hashes all of the text,
  * counts every line and keeps only the window a read can show. A line is kept up to `maxChars + 1`
  * characters, enough for the character cap to decide where to cut, however long the line is. The
- * stream decodes UTF-8 itself, so a character split across two chunks is not broken. Rejects with
- * the abort reason when `signal` aborts, and with the file system's error otherwise.
+ * stream decodes UTF-8 itself, so a character split across two chunks is not broken. Throws a
+ * `ToolCallError` for anything but a regular file, rejects with the abort reason when `signal`
+ * aborts, and with the file system's error otherwise. `requested` is the path the model gave, for
+ * the messages.
  */
 export async function streamLines(params: {
   file: string;
+  requested: string;
   startLine: number | undefined;
   maxLines: number;
   maxChars: number;
   signal: AbortSignal;
 }): Promise<StreamedLines> {
-  const { file, startLine, maxLines, maxChars, signal } = params;
+  const { file, requested, startLine, maxLines, maxChars, signal } = params;
   const first = firstLine(startLine);
   const hash = newTextHash();
   const window: string[] = [];
@@ -32,21 +35,27 @@ export async function streamLines(params: {
     current = '';
   };
 
-  for await (const chunk of createReadStream(file, { encoding: 'utf8', signal })) {
-    const text = chunk as string;
+  const handle = await openRegularFile({ file, requested });
 
-    hash.update(text);
-    endsWithNewline = text.endsWith('\n');
+  try {
+    for await (const chunk of handle.createReadStream({ encoding: 'utf8', signal })) {
+      const text = chunk as string;
 
-    const pieces = text.split('\n');
-    const last = pieces.pop() ?? '';
+      hash.update(text);
+      endsWithNewline = text.endsWith('\n');
 
-    for (const [index, piece] of pieces.entries()) {
-      current = keepStart({ line: index === 0 ? current + piece : piece, maxChars });
-      finishLine();
+      const pieces = text.split('\n');
+      const last = pieces.pop() ?? '';
+
+      for (const [index, piece] of pieces.entries()) {
+        current = keepStart({ line: index === 0 ? current + piece : piece, maxChars });
+        finishLine();
+      }
+
+      current = keepStart({ line: current + last, maxChars });
     }
-
-    current = keepStart({ line: current + last, maxChars });
+  } finally {
+    await handle.close();
   }
 
   // A last line with no break after it still counts as a line.
