@@ -137,6 +137,22 @@ describe('ProfileRegistry.delete', () => {
     expect((await registry.list()).profiles).toEqual([home]);
   });
 
+  it('never leaves the config naming a profile that a racing delete removed', async () => {
+    const registry = temp.registry();
+
+    await registry.put(work);
+    await registry.put(home);
+
+    const settled = await Promise.allSettled([
+      registry.setDefaultProfile(WORK),
+      registry.bindWorkspace({ key: app, profile: WORK }),
+      registry.delete(WORK),
+    ]);
+
+    expect(settled[2]?.status).toBe('fulfilled');
+    expect(await registry.config()).toEqual({ workspaces: {} });
+  });
+
   it('forgets the profile it opened: opening it again says it is gone', async () => {
     const registry = temp.registry();
 

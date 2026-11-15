@@ -17,6 +17,8 @@ export default defineConfig([
       'src/json-file/**',
       'src/jsonl-file/**',
       'src/safe-path/**',
+      // The cross-process lock is a file made and removed on purpose, holding only a process id.
+      'src/file-lock/**',
       'src/output-store/output-store.service.ts',
       'src/output-store/output-writer.service.ts',
       'src/output-store/__tests__/**',

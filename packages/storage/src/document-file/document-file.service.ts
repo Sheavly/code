@@ -1,6 +1,6 @@
 import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
-import { SerialQueue } from '../serial-queue/serial-queue.service.js';
+import { LockedChange } from '../serial-queue/locked-change.service.js';
 import { documentSchema } from './document-file.validator.js';
 
 /**
@@ -10,16 +10,17 @@ import { documentSchema } from './document-file.validator.js';
  * to the user, and changes go one at a time.
  *
  * A change reads the document and writes it back whole, so two at once would both start from the
- * same contents and the second would erase the first's. `update` queues them. One process owns the
- * file; the queue is in memory, so a second process writing it is not covered.
+ * same contents and the second would erase the first's. `update` queues them, in this process and
+ * (through a lock file beside the document) across processes.
  */
 export class DocumentFile {
   /** Where the document is kept, absolute, for an owner that must know (and for its errors). */
   readonly file: string;
-  readonly #changes = new SerialQueue();
+  readonly #changes: LockedChange;
 
   constructor(params: { file: string }) {
     this.file = assertSafeRoot(params.file);
+    this.#changes = new LockedChange({ name: this.file });
   }
 
   /**

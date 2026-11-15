@@ -1,6 +1,7 @@
 import { mkdir, readdir, stat, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError, UnsafePathError } from '../../errors/storage.errors.js';
 import { useTempFolder } from '../../testing/temp-folder.fake.js';
@@ -236,6 +237,39 @@ describe('removeFile', () => {
       UnsafePathError,
     );
 
+    expect(await exists(path.join(profile, 'neighbour.json'))).toBe(true);
+    expect(await readdir(folder)).toHaveLength(3);
+  });
+
+  it('takes a precise shape for a name that is not an id, and refuses every other name', async () => {
+    const { profile, folder } = await models();
+    const shape = z.string().regex(/^(history|[0-9a-f-]{36}\.history)$/);
+
+    await writeFile(path.join(folder, 'history.json'), 'x');
+    await removeFile({ folder, name: 'history', extension: '.json', shape });
+    expect(await exists(path.join(folder, 'history.json'))).toBe(false);
+
+    const refused = [
+      '../neighbour',
+      'history/../neighbour',
+      'history.json',
+      'HISTORY',
+      'history\n',
+      'credentials',
+      '..',
+      '',
+    ];
+
+    for (const name of refused) {
+      await expect(removeFile({ folder, name, extension: '.json', shape })).rejects.toBeInstanceOf(
+        UnsafePathError,
+      );
+    }
+
+    // The shape widens the name, never the rest: a bad extension or folder is still refused.
+    await expect(
+      removeFile({ folder, name: 'history', extension: '/../neighbour.json', shape }),
+    ).rejects.toThrow(UnsafePathError);
     expect(await exists(path.join(profile, 'neighbour.json'))).toBe(true);
     expect(await readdir(folder)).toHaveLength(3);
   });

@@ -2,7 +2,7 @@ import path from 'node:path';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { assertPrivateFile, readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
-import { SerialQueue } from '../serial-queue/serial-queue.service.js';
+import { LockedChange } from '../serial-queue/locked-change.service.js';
 import { CREDENTIALS_FILE } from './credential-store.constants.js';
 import type { Secrets } from './credential-store.types.js';
 import { credentialsFileSchema } from './credential-store.validator.js';
@@ -20,11 +20,12 @@ import { credentialsFileSchema } from './credential-store.validator.js';
  */
 export class CredentialStore {
   readonly #file: string;
-  readonly #writes = new SerialQueue();
+  readonly #writes: LockedChange;
 
   /** `folder` is the profile's folder (`<root>/profiles/<profile-id>`), which an app passes in. */
   constructor(params: { folder: string }) {
     this.#file = path.join(assertSafeRoot(params.folder), CREDENTIALS_FILE);
+    this.#writes = new LockedChange({ name: this.#file });
   }
 
   /** The secrets of model `id`, or `undefined` when it has none. */

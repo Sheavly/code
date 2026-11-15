@@ -9,7 +9,7 @@ import { workspaceKeySchema } from '../config-store/config-store.validator.js';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { assertSafeRoot, namedPath } from '../safe-path/safe-path.helper.js';
-import { SerialQueue } from '../serial-queue/serial-queue.service.js';
+import { LockedChange } from '../serial-queue/locked-change.service.js';
 import { DEFAULT_PERMISSIONS, PERMISSIONS_FOLDER } from './permission-store.constants.js';
 import { permissionFileSchema } from './permission-store.validator.js';
 
@@ -26,11 +26,13 @@ import { permissionFileSchema } from './permission-store.validator.js';
  */
 export class PermissionStore {
   readonly #folder: string;
-  readonly #writes = new SerialQueue();
+  readonly #writes: LockedChange;
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
   constructor(params: { root: string }) {
     this.#folder = path.join(assertSafeRoot(params.root), PERMISSIONS_FOLDER);
+    // One lock for the folder: a change is rare, and it keeps the lock out of the listing.
+    this.#writes = new LockedChange({ name: this.#folder });
   }
 
   /** The workspace's mode and allowed commands; the default when none is stored. */

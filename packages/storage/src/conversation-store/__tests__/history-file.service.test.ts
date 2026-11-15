@@ -40,8 +40,27 @@ describe('HistoryFile migration', () => {
     expect(await seqsOf(log)).toEqual([0, 1]);
     await log.append([{ seq: 2, entry: user('c') }]);
     expect(await seqsOf(new HistoryFile({ file, legacyFile }))).toEqual([0, 1, 2]);
-    // The legacy file stays as the record of what was imported.
-    expect(JSON.parse(await readFile(legacyFile, 'utf8'))).toHaveLength(2);
+    // Imported once, so no second copy is left behind to drift.
+    await expect(readFile(legacyFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('removes a sub-agent’s legacy file too, after its log is written', async () => {
+    const agent = '7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20';
+    const file = path.join(folder, `${agent}.history.jsonl`);
+    const legacyFile = path.join(folder, `${agent}.history.json`);
+
+    await writeFile(legacyFile, JSON.stringify([user('a')]));
+
+    expect(await seqsOf(new HistoryFile({ file, legacyFile }))).toEqual([0]);
+    await expect(readFile(legacyFile, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('keeps the legacy file when the import wrote nothing, so no history is lost', async () => {
+    const { file, legacyFile } = files();
+
+    await writeFile(legacyFile, '{"not":"a history"}');
+    await expect(seqsOf(new HistoryFile({ file, legacyFile }))).rejects.toBeDefined();
+    expect(await readFile(legacyFile, 'utf8')).toContain('not');
   });
 
   it('does not import again once the log exists, even if the legacy file changed', async () => {

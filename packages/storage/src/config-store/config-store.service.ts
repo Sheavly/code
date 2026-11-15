@@ -3,7 +3,7 @@ import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { TerminalSettings } from '@sheavly/protocol/terminal-settings/terminal-settings.types';
 import { assertSafeRoot } from '../safe-path/safe-path.helper.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
-import { SerialQueue } from '../serial-queue/serial-queue.service.js';
+import { LockedChange } from '../serial-queue/locked-change.service.js';
 import { CONFIG_FILE } from './config-store.constants.js';
 import type { Config } from './config-store.types.js';
 import { configFileSchema } from './config-store.validator.js';
@@ -18,11 +18,12 @@ import { configFileSchema } from './config-store.validator.js';
  */
 export class ConfigStore {
   readonly #file: string;
-  readonly #writes = new SerialQueue();
+  readonly #writes: LockedChange;
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
   constructor(params: { root: string }) {
     this.#file = path.join(assertSafeRoot(params.root), CONFIG_FILE);
+    this.#writes = new LockedChange({ name: this.#file });
   }
 
   /** The config; none stored yet is an empty one: no default profile, no bindings. */
