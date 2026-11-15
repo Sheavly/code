@@ -27,22 +27,20 @@ const fileLocks = useFileLocks();
 const fileReads = useFileReads();
 const signal = new AbortController().signal;
 
-const call = (name: string, input: Record<string, unknown>) =>
-  runTool({
+const call = (name: string, input: Record<string, unknown>) => {
+  const services = {
+    workspace: temp.workspace,
+    fileLocks: fileLocks.current,
+    fileReads: fileReads.current,
+  };
+
+  return runTool({
     tools: [
-      createReadFileTool({
-        workspace: temp.workspace,
-        fileLocks: fileLocks.current,
-        fileReads: fileReads.current,
-      }),
-      createEditFileTool({
-        workspace: temp.workspace,
-        fileLocks: fileLocks.current,
-        fileReads: fileReads.current,
-      }),
+      createReadFileTool(services),
+      createEditFileTool(services),
       createRunCommandTool({
-        fileReads: fileReads.current,
         workspace: temp.workspace,
+        fileReads: fileReads.current,
         processes: testProcesses(),
         permissions: testPermissions({ mode: 'allow_all' }),
       }),
@@ -50,6 +48,7 @@ const call = (name: string, input: Record<string, unknown>) =>
     call: { id: callIdSchema.parse('1'), name, input: { description: name, ...input } },
     signal,
   });
+};
 
 /** Reads the file, has a command rewrite it, then edits it from that read. */
 async function editAfterCommandRewrote() {
