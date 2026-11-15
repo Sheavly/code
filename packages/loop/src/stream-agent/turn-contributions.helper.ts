@@ -2,8 +2,120 @@ import { summarizeHistory } from '../summary/summarize.helper.js';
 import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import { orderContributions } from './contributions.helper.js';
-import type { TurnContributions } from './contributions.types.js';
+import { awaitTask, yieldEnds } from './completion.helper.js';
+import { deliverMessages, runDeliveryHooks } from './delivery.helper.js';
+import { reportFinishedTasks } from './task-delivery.helper.js';
+import type {
+  Contribution,
+  DeliveryInput,
+  LimitInput,
+  LimitOutcome,
+  TurnContributions,
+} from './contributions.types.js';
 import type { AgentOptions } from './stream-agent.types.js';
+
+/**
+ * Start of a turn, in order: steering messages, finished work, failed hooks, then the hooks that
+ * watch deliveries. Finished work and failures are in history before any hook sees it.
+ */
+const DELIVERY: Contribution<DeliveryInput, void>[] = [
+  {
+    name: 'steering-messages',
+    onFailure: 'fail-run',
+    abort: 'wait',
+    run: ({ context, state }) => {
+      deliverMessages(context);
+      // A follow-up already in the inbox belongs in the completion's messages-since snapshot, so
+      // the notices of this turn start after it.
+      state.noticesFrom = context.messages.length;
+    },
+  },
+  {
+    name: 'finished-tasks',
+    after: ['steering-messages'],
+    onFailure: 'fail-run',
+    abort: 'wait',
+    run: ({ context, state }) => {
+      const { options, session, messages, events } = context;
+
+      state.tasks = reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+    },
+  },
+  {
+    name: 'hook-failures',
+    after: ['finished-tasks'],
+    onFailure: 'fail-run',
+    abort: 'wait',
+    // The model hears of handlers that failed since the last call, once.
+    run: ({ context }) => context.hookFailures.deliver(context.messages),
+  },
+  {
+    name: 'delivery-hooks',
+    after: ['hook-failures'],
+    onFailure: 'fail-run',
+    abort: 'race',
+    run: ({ context, state }) =>
+      runDeliveryHooks({ context, delivered: state.tasks, noticesFrom: state.noticesFrom }),
+  },
+];
+
+/**
+ * How a finished turn decides whether the run ends, first answer wins: tools still running, the
+ * inbox, a requested yield, waiting on awaited work, and last the answer that always takes the
+ * turn. The order is the flow rules: a yield outranks task completions but not `await_tasks`.
+ */
+const COMPLETION: Contribution<LimitInput, LimitOutcome | undefined>[] = [
+  {
+    name: 'running-tools',
+    onFailure: 'fail-run',
+    abort: 'wait',
+    run: ({ running }) => (running.length > 0 ? { ended: undefined } : undefined),
+  },
+  {
+    name: 'inbox',
+    after: ['running-tools'],
+    onFailure: 'fail-run',
+    abort: 'wait',
+    // Messages from a parent agent wake the model without touching tasks or groups.
+    run: ({ context }) =>
+      context.session.registry.hasMessages(context.session.ref.id)
+        ? { ended: undefined }
+        : undefined,
+  },
+  {
+    name: 'yield',
+    after: ['inbox'],
+    onFailure: 'fail-run',
+    abort: 'wait',
+    run: ({ context }) =>
+      yieldEnds({ options: context.options, id: context.session.ref.id })
+        ? { ended: 'completed' }
+        : undefined,
+  },
+  {
+    name: 'await-tasks',
+    after: ['yield'],
+    onFailure: 'fail-run',
+    // `awaitTask` watches the abort itself and must clean up its waiters before returning.
+    abort: 'wait',
+    run: async ({ context }) =>
+      (await awaitTask({
+        options: context.options,
+        session: context.session,
+        signal: context.signal,
+        events: context.events,
+      }))
+        ? { ended: undefined }
+        : undefined,
+  },
+  {
+    name: 'settled',
+    after: ['await-tasks'],
+    onFailure: 'fail-run',
+    abort: 'wait',
+    run: ({ context }) => ({ ended: context.signal.aborted ? 'interrupted' : 'completed' }),
+  },
+];
 
 /**
  * The turn's features for one run, ordered and checked once at its start. Which features exist is
@@ -13,6 +125,8 @@ import type { AgentOptions } from './stream-agent.types.js';
  */
 export function buildContributions(options: AgentOptions): TurnContributions {
   return {
+    delivery: orderContributions(DELIVERY),
+    completion: orderContributions(COMPLETION),
     view: orderContributions(
       options.summary
         ? [

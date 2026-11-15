@@ -158,10 +158,44 @@ describe('buildContributions', () => {
     ]);
   });
 
+  it('registers delivery in order: steering, finished work, failed hooks, then the hooks', () => {
+    expect(buildContributions(options(false)).delivery.map((item) => item.name)).toEqual([
+      'steering-messages',
+      'finished-tasks',
+      'hook-failures',
+      'delivery-hooks',
+    ]);
+  });
+
+  it('registers completion in the flow-rule order: tools, inbox, yield, await, settled', () => {
+    expect(buildContributions(options(false)).completion.map((item) => item.name)).toEqual([
+      'running-tools',
+      'inbox',
+      'yield',
+      'await-tasks',
+      'settled',
+    ]);
+  });
+
+  it('only the delivery hooks race the abort; everything else in delivery and completion waits', () => {
+    const built = buildContributions(options(false));
+    const races = [...built.delivery, ...built.completion]
+      .filter((item) => item.abort === 'race')
+      .map((item) => item.name);
+
+    expect(races).toEqual(['delivery-hooks']);
+  });
+
   it('gives every contribution a failure and an abort policy', () => {
     const built = buildContributions(options(true));
 
-    for (const item of [...built.view, ...built.overflow, ...built.limit]) {
+    for (const item of [
+      ...built.delivery,
+      ...built.view,
+      ...built.overflow,
+      ...built.limit,
+      ...built.completion,
+    ]) {
       expect(['fail-run', 'report']).toContain(item.onFailure);
       expect(['race', 'wait']).toContain(item.abort);
     }

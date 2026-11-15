@@ -1,6 +1,7 @@
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import type { RunningCall, TurnContext } from './stream-agent.types.js';
 
 /**
@@ -42,14 +43,30 @@ export type LimitInput = {
 export type LimitOutcome = { ended: DoneReason | undefined };
 
 /**
+ * What a turn's delivery steps share: where the notices of this turn start in history, and the
+ * tasks each delivery of finished work carried. Set by the step that knows it, read by later ones.
+ */
+export type DeliveryState = { noticesFrom: number; tasks: TaskInfo[][] };
+
+/** What a delivery step gets: the turn, and what earlier steps of this turn recorded. */
+export type DeliveryInput = { context: TurnContext; state: DeliveryState };
+
+/**
  * The turn's features, by phase and in order. A feature absent from a list is absent from the
  * turn: nothing in `runTurn` tests an option to decide.
  */
 export type TurnContributions = {
+  /** Start of a turn: what reaches history before any hook runs (steering, finished work, failures). */
+  delivery: readonly Contribution<DeliveryInput, void>[];
   /** Reshape the view the model is sent for one call (never stored history). */
   view: readonly Contribution<ViewInput, readonly Message[]>[];
   /** After a rejected (too long) call: recover and retry. The first to return true wins. */
   overflow: readonly Contribution<OverflowInput, boolean>[];
   /** After a turn's results: recover from the stop reason, or end the run. First answer wins. */
   limit: readonly Contribution<LimitInput, LimitOutcome | undefined>[];
+  /**
+   * After the limits: does the run end now? In order: running tools, the inbox, a yield, waiting
+   * on awaited work, and last the answer that always takes the turn. First answer wins.
+   */
+  completion: readonly Contribution<LimitInput, LimitOutcome | undefined>[];
 };
