@@ -1,9 +1,10 @@
-import { z } from 'zod';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { FileToolServices } from '../files/files.types.js';
+import { z } from 'zod';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { runFileTool } from '../files/file-tool.helper.js';
+import type { FileToolServices } from '../files/files.types.js';
 import {
   assertContentFits,
   createParentFolder,
@@ -75,6 +76,7 @@ async function writeFile(params: {
         file: real,
         text: content,
         whole: true,
+        hash: hashText(content),
       });
 
       return changeResult({

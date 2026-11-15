@@ -110,7 +110,6 @@ export async function createBackendHarness(
       approvals,
       processes,
       outputs,
-      fileReads,
     };
 
     return [createRunCommandTool(options), createStartServiceTool(options)];

@@ -1,10 +1,11 @@
-import { z } from 'zod';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { FileToolServices } from '../files/files.types.js';
-import { runFileTool } from '../files/file-tool.helper.js';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { fileSize, readForChange, removeFile } from '../files/file-effects.helper.js';
+import { runFileTool } from '../files/file-tool.helper.js';
+import type { FileToolServices } from '../files/files.types.js';
+import { z } from 'zod';
 import { changeResult } from '../files/file-change.helper.js';
 import { assertSameDeletable, resolveDeletable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
@@ -80,6 +81,14 @@ async function deleteFile(params: {
       });
 
       assertReportedSize({ requested, content: before });
+
+      // What the agent read is not what is there now, so the delete is not of what it saw.
+      if (fileReads.forgetIfChanged({ agent, file: real, hash: hashText(before) })) {
+        throw new ToolCallError({
+          reason: 'forbidden',
+          message: `${requested} changed since you read it. Read it again with read_file, so the delete is of what the file holds now.`,
+        });
+      }
 
       // Node has no unlink-by-handle, so the unlink is a fresh path lookup after this check: a
       // parent swapped in that last moment is the one case neither check can close.

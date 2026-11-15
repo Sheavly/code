@@ -3,8 +3,12 @@ import { MAX_CHUNKS_PER_FILE } from '../file-reads.constants.js';
 import { FileReads } from '../file-reads.service.js';
 
 const MAIN = { agent: 'main', file: '/w/a.ts' };
-const read = (reads: FileReads, text: string, whole = false, who = MAIN) =>
-  reads.markRead({ ...who, text, whole });
+const read = (
+  reads: FileReads,
+  text: string,
+  whole = false,
+  who: { agent: string; file: string; hash?: string } = MAIN,
+) => reads.markRead({ hash: 'v1', ...who, text, whole });
 
 describe('FileReads', () => {
   it('has seen nothing at first, and what an agent was shown', () => {
@@ -81,6 +85,7 @@ describe('FileReads', () => {
       oldText: 'const b = 2;',
       newText: 'const b = 3;',
       replaceAll: false,
+      hash: 'v2',
     });
 
     expect(reads.hasSeen({ ...MAIN, text: 'const b = 3;' })).toBe(true);
@@ -93,7 +98,13 @@ describe('FileReads', () => {
 
     read(reads, 'x = 1;\n');
     read(reads, 'x = 1;\nx = 1;\n');
-    reads.markEdited({ ...MAIN, oldText: 'x = 1;', newText: 'x = 2;', replaceAll: true });
+    reads.markEdited({
+      ...MAIN,
+      oldText: 'x = 1;',
+      newText: 'x = 2;',
+      replaceAll: true,
+      hash: 'v2',
+    });
 
     expect(reads.hasSeen({ ...MAIN, text: 'x = 2;\nx = 2;' })).toBe(true);
     expect(reads.hasSeen({ ...MAIN, text: 'x = 1;' })).toBe(false);
@@ -104,6 +115,7 @@ describe('FileReads', () => {
       oldText: 'a',
       newText: 'b',
       replaceAll: false,
+      hash: 'v2',
     });
     expect(reads.hasRead({ agent: 'main', file: '/w/never.ts' })).toBe(false);
   });
@@ -140,17 +152,53 @@ describe('FileReads', () => {
     expect(reads.hasSeen({ ...MAIN, text: `piece ${String(MAX_CHUNKS_PER_FILE + 4)}` })).toBe(true);
   });
 
-  it('forgets every read of every agent once a change it cannot see may have happened', () => {
+  it('keeps a read while the file still has the hash it was read with', () => {
     const reads = new FileReads();
-    const other = { agent: 'other', file: '/w/b.ts' };
 
     read(reads, 'one\n', true);
-    read(reads, 'two\n', true, other);
 
-    reads.markAllUnknown();
+    expect(reads.forgetIfChanged({ ...MAIN, hash: 'v1' })).toBe(false);
+    expect(reads.hasReadWhole(MAIN)).toBe(true);
+  });
 
+  it('forgets a read once the file has another hash, for that agent only', () => {
+    const reads = new FileReads();
+    const other = { agent: 'other', file: '/w/a.ts' };
+
+    read(reads, 'one\n', true);
+    read(reads, 'one\n', true, other);
+
+    expect(reads.forgetIfChanged({ ...MAIN, hash: 'v9' })).toBe(true);
     expect(reads.hasRead(MAIN)).toBe(false);
-    expect(reads.hasRead(other)).toBe(false);
+    expect(reads.hasRead(other)).toBe(true);
+  });
+
+  it('has nothing to forget for an agent that never read the file', () => {
+    const reads = new FileReads();
+
+    expect(reads.forgetIfChanged({ ...MAIN, hash: 'v1' })).toBe(false);
+  });
+
+  it('lets another agent’s edit stale this agent’s view, but not the editor’s own', () => {
+    const reads = new FileReads();
+    const child = { agent: 'child', file: '/w/a.ts' };
+
+    read(reads, 'a\nb\n', true);
+    read(reads, 'a\nb\n', true, child);
+    reads.markEdited({ ...MAIN, oldText: 'b', newText: 'c', replaceAll: false, hash: 'v2' });
+
+    expect(reads.forgetIfChanged({ ...MAIN, hash: 'v2' })).toBe(false);
+    expect(reads.forgetIfChanged({ ...child, hash: 'v2' })).toBe(true);
+  });
+
+  it('starts a new view when a piece is read from a changed file, never mixing versions', () => {
+    const reads = new FileReads();
+
+    read(reads, 'old top\n');
+    read(reads, 'new bottom\n', false, { ...MAIN, hash: 'v2' });
+
+    expect(reads.hasSeen({ ...MAIN, text: 'old top' })).toBe(false);
+    expect(reads.hasSeen({ ...MAIN, text: 'new bottom' })).toBe(true);
   });
 
   it('forgets one agent when its session ends, and keeps the others', () => {

@@ -8,6 +8,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -128,8 +129,22 @@ describe('createBackendHarness: what a backend run includes', () => {
     });
     const file = path.join(harness.workspace.root, 'AGENTS.md');
 
-    harness.fileReads.markRead({ agent: child.id, file, text: 'AGENTS NOTE\n', whole: true });
-    harness.fileReads.markRead({ agent: harness.mainSession.id, file, text: 'x', whole: true });
+    const note = 'AGENTS NOTE\n';
+
+    harness.fileReads.markRead({
+      agent: child.id,
+      file,
+      text: note,
+      whole: true,
+      hash: hashText(note),
+    });
+    harness.fileReads.markRead({
+      agent: harness.mainSession.id,
+      file,
+      text: 'x',
+      whole: true,
+      hash: hashText('x'),
+    });
     harness.sessions.end({ id: child.id, state: 'completed' });
     harness.sessions.release(child.id);
 

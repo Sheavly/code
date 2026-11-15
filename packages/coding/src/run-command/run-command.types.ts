@@ -1,7 +1,6 @@
 import type { OutputStore, OutputWriter } from '@sheavly/core/output/output.types';
 import type { AllowEntry, Permissions } from '@sheavly/protocol/permission/permission.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
-import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
@@ -58,10 +57,4 @@ export type RunCommandOptions = {
    * one runner, built from the environment the app passed in.
    */
   processes: ProcessRunner;
-  /**
-   * The harness's reads. A command can change or delete any file, so every read is forgotten when
-   * a command ends and the next edit or delete needs a new `read_file`. A background task or
-   * service forgets them when it exits, not while it runs.
-   */
-  fileReads: FileReads;
 };

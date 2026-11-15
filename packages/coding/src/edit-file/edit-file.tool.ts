@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { z } from 'zod';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { FileToolServices } from '../files/files.types.js';
 import { runFileTool } from '../files/file-tool.helper.js';
@@ -76,6 +77,15 @@ async function editFile(params: {
         hint: 'Use write_file to create it.',
       });
 
+      // A file that changed since the agent read it (a command, the user, another agent) is no
+      // longer what it saw; one that did not change keeps its read, so nothing is read twice.
+      if (fileReads.forgetIfChanged({ agent, file: real, hash: hashText(before) })) {
+        throw new ToolCallError({
+          reason: 'forbidden',
+          message: `${requested} changed since you read it. Read it again with read_file, so the edit is made from what the file holds now.`,
+        });
+      }
+
       if (!fileReads.hasRead({ agent, file: real })) {
         throw new ToolCallError({
           reason: 'forbidden',
@@ -106,7 +116,14 @@ async function editFile(params: {
 
       await writeText({ file: real, content: after, signal });
       // What the agent saw now holds the new text, so it can edit that place again unread.
-      fileReads.markEdited({ agent, file: real, oldText, newText, replaceAll });
+      fileReads.markEdited({
+        agent,
+        file: real,
+        oldText,
+        newText,
+        replaceAll,
+        hash: hashText(after),
+      });
 
       const replaced = count > 1 ? `, ${count} replacements` : '';
 

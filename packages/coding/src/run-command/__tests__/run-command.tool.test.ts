@@ -11,11 +11,9 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import type { RunCommandOptions } from '../run-command.types.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testPermissions } from '../../testing/permissions.fake.js';
 
-const fileReads = useFileReads();
 let root: string;
 let workspace: Workspace;
 const signal = new AbortController().signal;
@@ -30,11 +28,10 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-type RunOptions = Partial<Omit<RunCommandOptions, 'workspace' | 'processes' | 'fileReads'>>;
+type RunOptions = Partial<Omit<RunCommandOptions, 'workspace' | 'processes'>>;
 
 const toolWith = (options: RunOptions = {}) =>
   createRunCommandTool({
-    fileReads: fileReads.current,
     processes: testProcesses(),
     workspace,
     permissions: testPermissions(),

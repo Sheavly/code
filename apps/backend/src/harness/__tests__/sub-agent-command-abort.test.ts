@@ -15,7 +15,6 @@ import {
 } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
-import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 
@@ -114,7 +113,6 @@ describe('sub-agent command permissions resolving after parent interruption', ()
               permissions,
               processes,
               tasks: childTasks,
-              fileReads: new FileReads(),
             },
           });
 

@@ -12,7 +12,6 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 
@@ -22,7 +21,6 @@ const t1 = taskIdSchema.parse('t1');
 const callId = callIdSchema.parse('x');
 
 const temp = useTempWorkspace({ prefix: 'run-command-background-test-' });
-const fileReads = useFileReads();
 let tasks: TaskRegistry;
 
 afterEach(async () => {
@@ -40,7 +38,6 @@ function setup() {
     run: toolRunner(
       [
         createRunCommandTool({
-          fileReads: fileReads.current,
           processes: testProcesses(),
           workspace: temp.workspace,
           permissions: testPermissions({ mode: 'allow_all' }),
@@ -131,7 +128,6 @@ describe('background run_command', () => {
         permissions,
         processes,
         tasks,
-        fileReads: fileReads.current,
       };
       const running = runTool({
         tools: [createRunCommandTool({ ...options }), createStartServiceTool({ ...options })],
@@ -205,7 +201,6 @@ describe('background run_command', () => {
     const permissions = testPermissions({ mode: 'allow_all' });
     const read = vi.spyOn(permissions, 'read');
     const tool = createRunCommandTool({
-      fileReads: fileReads.current,
       processes: testProcesses(),
       workspace: temp.workspace,
       permissions,
@@ -229,7 +224,6 @@ describe('background run_command', () => {
 
   it('still runs a foreground command when the harness has no task registry', async () => {
     const tool = createRunCommandTool({
-      fileReads: fileReads.current,
       processes: testProcesses(),
       workspace: temp.workspace,
       permissions: testPermissions({ mode: 'allow_all' }),
@@ -249,7 +243,6 @@ describe('background run_command', () => {
   it('still asks before running a command the user has not allowed', async () => {
     tasks = new TaskRegistry();
     const tool = createRunCommandTool({
-      fileReads: fileReads.current,
       processes: testProcesses(),
       workspace: temp.workspace,
       permissions: testPermissions(),

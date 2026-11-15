@@ -94,12 +94,47 @@ export function selectLines(params: {
   maxChars: number;
   tool?: string;
 }): { content: string; note?: string; lines: ShownLines } {
-  const { text, maxLines, maxChars, tool = 'read_file' } = params;
-
-  if (text === '') return { content: '', lines: { start: 0, end: 0, total: 0, whole: true } };
-
+  const { text, startLine, endLine, maxLines, maxChars, tool } = params;
   const { lines, endsWithNewline } = toLines(text);
-  const total = lines.length;
+
+  return selectLinesFrom({
+    // The same lines a stream collects: from the first one asked for, no more than can be shown.
+    window: lines.slice(firstLine(startLine) - 1),
+    total: lines.length,
+    endsWithNewline,
+    startLine,
+    endLine,
+    maxLines,
+    maxChars,
+    ...(tool !== undefined && { tool }),
+  });
+}
+
+/** The 1-based line a read starts at: `startLine` rounded into range, 1 when it names none. */
+export function firstLine(startLine: number | undefined): number {
+  return Math.max(1, Math.floor(startLine ?? 1));
+}
+
+/**
+ * `selectLines` for a file read as a stream: `window` holds the lines from `firstLine(startLine)`
+ * on (at least as many as `maxLines` and `maxChars` can show, never fewer than the file has),
+ * `total` is the file's line count and `endsWithNewline` says whether its last line ended in a
+ * break. The result is the same as `selectLines` gives for the whole text.
+ */
+export function selectLinesFrom(params: {
+  window: string[];
+  total: number;
+  endsWithNewline: boolean;
+  startLine?: number | undefined;
+  endLine?: number | undefined;
+  maxLines: number;
+  maxChars: number;
+  tool?: string;
+}): { content: string; note?: string; lines: ShownLines } {
+  const { window, total, endsWithNewline, maxLines, maxChars, tool = 'read_file' } = params;
+
+  if (total === 0) return { content: '', lines: { start: 0, end: 0, total: 0, whole: true } };
+
   const range = resolveRange({ ...params, total, maxLines, tool });
   const { start, notes } = range;
 
@@ -116,7 +151,7 @@ export function selectLines(params: {
     cut = false,
     note,
   } = capChars({
-    selected: lines.slice(start - 1, range.end),
+    selected: window.slice(0, range.end - start + 1),
     start,
     maxChars,
     tool,

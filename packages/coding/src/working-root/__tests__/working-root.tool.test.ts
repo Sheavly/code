@@ -128,7 +128,6 @@ describe('a working root whose folder is gone', () => {
   it('fails run_command, with no command run in the main checkout', async () => {
     const { workspace, workingRoots } = await withGoneRoot();
     const tool = createRunCommandTool({
-      fileReads: new FileReads(),
       workspace,
       workingRoots,
       processes: testProcesses(),
@@ -266,9 +265,8 @@ describe('file tools with a working root', () => {
 
 describe('run_command with a working root', () => {
   async function pwdTool() {
-    const { workspace, workingRoots, fileReads } = await setup();
+    const { workspace, workingRoots } = await setup();
     const tool = createRunCommandTool({
-      fileReads,
       workspace,
       workingRoots,
       processes: testProcesses(),

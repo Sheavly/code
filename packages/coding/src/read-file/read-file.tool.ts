@@ -1,14 +1,13 @@
-import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 import { currentRoot, displayPath } from '../files/working-root.helper.js';
-import { assertFitsInMemory } from '../files/file-effects.helper.js';
 import { resolveReadable } from '../files/files.helper.js';
 import type { FileToolServices } from '../files/files.types.js';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { runFileTool } from '../files/file-tool.helper.js';
 import { MAX_READ_CHARS, MAX_READ_LINES } from './read-file.constants.js';
-import { selectLines } from './read-file.utils.js';
+import { streamLines } from './read-file.helper.js';
+import { selectLinesFrom } from './read-file.utils.js';
 import { READ_FILE_PROMPTS } from './read-file.prompt.js';
 import type { FileRead } from './read-file.types.js';
 import { agentOf } from '../files/files.utils.js';
@@ -48,22 +47,22 @@ async function readFileTool(params: {
   const root = await currentRoot(workingRoots);
   const real = await resolveReadable({ workspace, requested, root });
 
-  // Under the file's lock, so a read never sees a half-written file.
-  const text = await fileLocks.run({
+  // Under the file's lock, so a read never sees a half-written file. One pass: only the lines to
+  // show are kept, however big the file is.
+  const streamed = await fileLocks.run({
     file: real,
     signal,
-    change: async () => {
-      await assertFitsInMemory({
+    change: () =>
+      streamLines({
         file: real,
-        requested,
-        hint: 'Search it with grep, or read it with run_command (head, sed -n).',
-      });
-
-      return readFile(real, { encoding: 'utf8', signal });
-    },
+        startLine,
+        maxLines: MAX_READ_LINES,
+        maxChars: MAX_READ_CHARS,
+        signal,
+      }),
   });
-  const { content, note, lines } = selectLines({
-    text,
+  const { content, note, lines } = selectLinesFrom({
+    ...streamed,
     startLine,
     endLine,
     maxLines: MAX_READ_LINES,
@@ -76,6 +75,7 @@ async function readFileTool(params: {
     file: real,
     text: content,
     whole: lines.whole,
+    hash: streamed.hash,
   });
 
   const read: FileRead = {

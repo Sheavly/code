@@ -9,14 +9,12 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 
 const temp = useTempWorkspace({ prefix: 'command-completion-' });
-const fileReads = useFileReads();
 let tasks: TaskRegistry;
 
 afterEach(async () => {
@@ -64,7 +62,6 @@ function setup(toolName: 'run_command' | 'start_service' = 'run_command') {
     },
   };
   const options = {
-    fileReads: fileReads.current,
     workspace: temp.workspace,
     permissions: testPermissions({ mode: 'allow_all' }),
     processes,

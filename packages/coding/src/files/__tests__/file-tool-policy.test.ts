@@ -13,6 +13,7 @@ import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createGlobTool } from '../../glob/glob.tool.js';
 import { createGrepTool } from '../../grep/grep.tool.js';
 import { createReadFileTool } from '../../read-file/read-file.tool.js';
+import { MAX_READ_CHARS } from '../../read-file/read-file.constants.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
 import { MAX_FILE_BYTES } from '../files.constants.js';
 
@@ -172,13 +173,37 @@ describe('reads decide what a change may touch', () => {
 describe('a file too big to handle', () => {
   const big = () => path.join(temp.root, 'big.txt');
 
-  it.each(['read_file', 'edit_file'])('is refused by %s before it is loaded', async (tool) => {
+  it('is refused by edit_file before it is loaded', async () => {
     await writeFile(big(), 'x'.repeat(MAX_FILE_BYTES + 1));
 
-    const result = await ask(tool, 'big.txt');
+    const result = await ask('edit_file', 'big.txt');
 
     expect(result).toMatchObject({ isError: true });
     expect(result.content).toContain(`${MAX_FILE_BYTES + 1} bytes`);
+  });
+
+  it('is still read by read_file, streamed: at most 1000 lines come back, with a note', async () => {
+    const text = Array.from({ length: 800_000 }, (_, index) => `line ${index + 1}\n`).join('');
+
+    expect(text.length).toBeGreaterThan(6_000_000);
+    await writeFile(big(), text);
+
+    const result = await ask('read_file', 'big.txt');
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.content).toContain('line 1000\n');
+    expect(result.content).not.toContain('line 1001\n');
+    expect(result.content).toContain('at most 1000 lines');
+  });
+
+  it('is read by read_file even as one 8,000,000-character line, capped at the character limit', async () => {
+    await writeFile(big(), 'x'.repeat(8_000_000));
+
+    const result = await ask('read_file', 'big.txt');
+
+    expect(result).toMatchObject({ isError: false });
+    expect(result.content.length).toBeLessThan(MAX_READ_CHARS + 1_000);
+    expect(result.content).toContain('only its start is shown');
   });
 
   it('is not written by write_file', async () => {

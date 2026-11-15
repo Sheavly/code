@@ -6,6 +6,8 @@ type Seen = {
   chunks: string[];
   /** Some read showed the whole file. */
   whole: boolean;
+  /** `hashText` of the whole file as the agent last saw it or left it by its own edit. */
+  hash: string;
 };
 
 /**
@@ -18,8 +20,10 @@ type Seen = {
  * by the file tools of a harness (`createCodingHarness` makes it); a test makes its own. Files are
  * named by their real path, as `FileLocks` does.
  *
- * Nothing here stops a file changing after it was read: an edit still has to match the text that
- * is there now.
+ * Each view carries a hash of the whole file as it was then. A tool that has the file's current
+ * text under its lock asks `forgetIfChanged` with that text's hash: a file that changed since
+ * (by a command, the user or another agent) is forgotten, so the next edit needs a new read, and
+ * a file that did not change keeps its reads, so nothing is read twice for nothing.
  */
 export class FileReads {
   /** What each agent was shown, by the file's real path, then by agent. */
@@ -27,24 +31,50 @@ export class FileReads {
 
   /**
    * Remembers that `agent` was shown `text` of `file`: what a read returned, or all of a file the
-   * agent made. `whole` when that is the entire file, which replaces anything seen before it.
+   * agent made. `hash` is `hashText` of the whole file at that moment. `whole` when `text` is the
+   * entire file, which replaces anything seen before it; a piece of a file that has changed since
+   * the pieces already kept replaces them, since they describe another version.
    */
-  markRead(params: { agent: string; file: string; text: string; whole: boolean }): void {
-    const { agent, file, text, whole } = params;
+  markRead(params: {
+    agent: string;
+    file: string;
+    text: string;
+    whole: boolean;
+    hash: string;
+  }): void {
+    const { agent, file, text, whole, hash } = params;
     const byAgent = this.agentsFor(file);
 
     if (whole) {
-      byAgent.set(agent, { chunks: [text], whole: true });
+      byAgent.set(agent, { chunks: [text], whole: true, hash });
 
       return;
     }
 
-    const seen = byAgent.get(agent) ?? { chunks: [], whole: false };
+    const earlier = byAgent.get(agent);
+    const seen = earlier?.hash === hash ? earlier : { chunks: [], whole: false, hash };
 
     seen.chunks.push(text);
     // Dropping the oldest never drops a whole-file read: that one is `chunks[0]` and stays.
     if (seen.chunks.length > MAX_CHUNKS_PER_FILE) seen.chunks.splice(seen.whole ? 1 : 0, 1);
     byAgent.set(agent, seen);
+  }
+
+  /**
+   * Forgets what `agent` was shown of `file` when the file is no longer what it saw: `hash` is
+   * `hashText` of the file's current text, read under its lock. Returns whether something was
+   * forgotten, so a tool can say the file changed instead of saying it was never read.
+   */
+  forgetIfChanged(params: { agent: string; file: string; hash: string }): boolean {
+    const { agent, file, hash } = params;
+    const byAgent = this.#seen.get(file);
+
+    if (!byAgent || byAgent.get(agent)?.hash === hash || !byAgent.has(agent)) return false;
+
+    byAgent.delete(agent);
+    if (byAgent.size === 0) this.#seen.delete(file);
+
+    return true;
   }
 
   /** Whether `agent` was shown anything of `file`. */
@@ -68,6 +98,8 @@ export class FileReads {
   /**
    * Keeps what `agent` saw in step with an edit it made: the replaced text is now `newText` in
    * every piece that held it, so the agent can edit that place again without reading it back.
+   * `hash` is `hashText` of the file as the edit left it. Other agents' views of the file are
+   * left as they were: their hash no longer matches, so their next edit asks for a new read.
    */
   markEdited(params: {
     agent: string;
@@ -75,12 +107,14 @@ export class FileReads {
     oldText: string;
     newText: string;
     replaceAll: boolean;
+    hash: string;
   }): void {
-    const { oldText, newText, replaceAll } = params;
+    const { oldText, newText, replaceAll, hash } = params;
     const seen = this.#seen.get(params.file)?.get(params.agent);
 
     if (!seen) return;
 
+    seen.hash = hash;
     seen.chunks = seen.chunks.map((chunk) =>
       replaceAll ? chunk.replaceAll(oldText, () => newText) : chunk.replace(oldText, () => newText),
     );
@@ -93,14 +127,6 @@ export class FileReads {
    */
   markDeleted(params: { file: string }): void {
     this.#seen.delete(params.file);
-  }
-
-  /**
-   * Forgets everything every agent was shown, for a change this service cannot see: a command may
-   * have rewritten or removed any file, so each edit must be preceded by a new read.
-   */
-  markAllUnknown(): void {
-    this.#seen.clear();
   }
 
   /** Forgets what one agent was shown, when its session ends. */

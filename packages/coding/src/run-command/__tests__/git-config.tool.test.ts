@@ -11,7 +11,6 @@ import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 /**
@@ -19,7 +18,6 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
  * commands run_command allows must not run any of them.
  */
 const temp = useTempWorkspace({ prefix: 'run-command-git-', files: { 'a.txt': 'a\n' } });
-const fileReads = useFileReads();
 const signal = new AbortController().signal;
 const callId = callIdSchema.parse('1');
 const PROGRAMS = ['fsmonitor', 'external', 'textconv', 'filter'];
@@ -67,7 +65,6 @@ const run = (command: string) =>
   runTool({
     tools: [
       createRunCommandTool({
-        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions(),
@@ -115,7 +112,6 @@ describe('run_command in a repo without commits', () => {
     execFileSync('git', ['add', 'b.txt'], { cwd: fresh.root });
 
     const tool = createRunCommandTool({
-      fileReads: fileReads.current,
       processes: testProcesses(),
       workspace: fresh.workspace,
       permissions: testPermissions({ allow: ['git status *', 'git diff *'] }),

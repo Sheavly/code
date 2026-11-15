@@ -6,14 +6,11 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { answeringUi } from '@sheavly/runtime/testing/approvals.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 
 const temp = useTempWorkspace({ prefix: 'run-command-permissions-', files: { 'src/a.ts': 'a' } });
-
-const fileReads = useFileReads();
 
 const run = (params: {
   command: string;
@@ -23,7 +20,6 @@ const run = (params: {
   runTool({
     tools: [
       createRunCommandTool({
-        fileReads: fileReads.current,
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: params.permissions,

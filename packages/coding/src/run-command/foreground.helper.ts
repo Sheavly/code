@@ -1,7 +1,6 @@
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
-import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
 import type { ScriptParams } from '@sheavly/workspace/process/process.types';
 import { closeCapture, startCapture } from './capture.helper.js';
@@ -18,9 +17,8 @@ export async function runForeground(params: {
   script: ScriptParams;
   processes: ProcessRunner;
   outputs: OutputStore | undefined;
-  fileReads: FileReads;
 }): Promise<string> {
-  const { command, script, processes, outputs, fileReads } = params;
+  const { command, script, processes, outputs } = params;
   const capture = await startCapture(outputs);
   const writer = capture && 'writer' in capture ? capture.writer : undefined;
 
@@ -45,9 +43,6 @@ export async function runForeground(params: {
     }
 
     throw caughtError;
-  } finally {
-    // Whatever the command did to the files, even a failed or aborted one may have done part of it.
-    fileReads.markAllUnknown();
   }
 }
 

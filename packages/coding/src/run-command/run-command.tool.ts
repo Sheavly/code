@@ -16,7 +16,6 @@ export function createRunCommandTool({
   approvals,
   outputs,
   processes,
-  fileReads,
 }: RunCommandOptions) {
   const prompts = runCommandPrompts({
     backgroundEnabled: Boolean(tasks),
@@ -53,7 +52,6 @@ export function createRunCommandTool({
           script,
           outputs,
           processes,
-          fileReads,
           signal,
           context,
         });
@@ -71,7 +69,6 @@ export function createRunCommandTool({
         script: { ...script, timeoutMs, signal },
         processes,
         outputs,
-        fileReads,
       });
     },
   });

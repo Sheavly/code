@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
@@ -69,6 +70,7 @@ const markRead = async (file: string, text: string) =>
     file: await realpath(path.join(temp.root, file)),
     text,
     whole: true,
+    hash: hashText(text),
   });
 
 describe('delete_file', () => {
@@ -174,8 +176,10 @@ describe('delete_file', () => {
   });
 
   it('refuses a file larger than a deletion reports, and points to run_command', async () => {
-    await writeFile(path.join(temp.root, 'big.txt'), 'x'.repeat(MAX_DELETE_BYTES + 1));
-    await markRead('big.txt', 'x');
+    const big = 'x'.repeat(MAX_DELETE_BYTES + 1);
+
+    await writeFile(path.join(temp.root, 'big.txt'), big);
+    await markRead('big.txt', big);
 
     const result = await remove('big.txt');
 
@@ -207,7 +211,7 @@ describe('delete_file', () => {
   it('forgets the deleted file, so an edit after a new file takes its place is not from memory', async () => {
     const file = await realpath(path.join(temp.root, 'existing.ts'));
 
-    fileReads.current.markRead({ agent: 'no-session', file, text: 'old\ntext\n', whole: true });
+    await markRead('existing.ts', 'old\ntext\n');
     expect(fileReads.current.hasRead({ agent: 'no-session', file })).toBe(true);
 
     await remove('existing.ts');
@@ -218,9 +222,8 @@ describe('delete_file', () => {
 
   it('takes turns with an edit of the same file, so neither starts from stale content', async () => {
     const tools = [createDeleteFileTool(shared()), createEditFileTool(shared())];
-    const file = await realpath(path.join(temp.root, 'existing.ts'));
 
-    fileReads.current.markRead({ agent: 'no-session', file, text: 'old\ntext\n', whole: true });
+    await markRead('existing.ts', 'old\ntext\n');
 
     const [deleted, edited] = await Promise.all([
       call('delete_file', { path: 'existing.ts' }, tools),

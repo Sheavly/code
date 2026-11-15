@@ -19,7 +19,6 @@ export function createStartServiceTool({
   approvals,
   outputs,
   processes,
-  fileReads,
 }: RunCommandOptions) {
   const shared = runCommandPrompts({ backgroundEnabled: true });
 
@@ -48,7 +47,6 @@ export function createStartServiceTool({
         script,
         outputs,
         processes,
-        fileReads,
         signal,
         context,
       });
