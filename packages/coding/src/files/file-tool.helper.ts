@@ -1,7 +1,7 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { errorCode, isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { PathCheckError, WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
-import { FS_REFUSALS } from './files.constants.js';
+import { FS_FAILURE, FS_REFUSALS } from './files.constants.js';
 
 /**
  * Runs the body of a file tool with the one abort rule and the one error mapping they share. An
@@ -52,10 +52,11 @@ function toToolError(params: { error: unknown; requested: string; signal: AbortS
   // The system's own text carries absolute host paths, so the model gets a fixed sentence.
   const code = errorCode(error);
 
-  if (code !== undefined && FS_REFUSALS[code] !== undefined) {
+  // Only a system error (its code is `E` and capitals): anything else is not ours to rename.
+  if (code !== undefined && /^E[A-Z0-9]+$/.test(code)) {
     return new ToolCallError({
       reason: 'forbidden',
-      message: `${FS_REFUSALS[code]}: ${requested}.`,
+      message: `${FS_REFUSALS[code] ?? `${FS_FAILURE} (${code})`}: ${requested}.`,
     });
   }
 

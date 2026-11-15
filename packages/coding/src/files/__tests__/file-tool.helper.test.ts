@@ -57,6 +57,11 @@ describe('runFileTool', () => {
     ['EACCES', 'Permission denied: a.ts.'],
     ['EISDIR', 'Not a file: a.ts.'],
     ['ELOOP', 'Too many symbolic links: a.ts.'],
+    ['ENAMETOOLONG', 'Path too long: a.ts.'],
+    ['EMFILE', 'Too many open files: a.ts.'],
+    ['EBUSY', 'File is busy: a.ts.'],
+    // Any other system code still gets a fixed phrase, with the code and the path the model gave.
+    ['EXDEV', 'The file system refused the operation (EXDEV): a.ts.'],
   ])(
     'tells the model %s in a fixed phrase, never the system text with its host path',
     async (code, said) => {
@@ -69,7 +74,8 @@ describe('runFileTool', () => {
 
   it('leaves a tool error, an abort and any other failure as they were', async () => {
     const own = new ToolCallError({ reason: 'invalid_input', message: 'mine' });
-    const other = Object.assign(new Error('disk on fire'), { code: 'EIO' });
+    // Not a system error (no `E` code), so it is not ours to rename.
+    const other = Object.assign(new Error('disk on fire'), { code: 'custom' });
     const reason = new Error('stopped');
     const controller = new AbortController();
 

@@ -26,6 +26,12 @@ export class FileReads {
   readonly #seen = new Map<string, Map<string, FileView>>();
   /** When each view was last read, written or edited, so what is kept is what was touched last. */
   readonly #touched = new WeakMap<FileView, number>();
+  /**
+   * Agents whose session was released. A tool still running when that happened can finish and
+   * record a read afterwards; ignoring it keeps a released agent's text from coming back. A
+   * session id is never reused, so the set is only ever added to.
+   */
+  readonly #released = new Set<string>();
   #clock = 0;
 
   /**
@@ -42,6 +48,9 @@ export class FileReads {
     hash: string;
   }): void {
     const { agent, file, text, whole, hash } = params;
+
+    if (this.#released.has(agent)) return;
+
     const byAgent = this.agentsFor(file);
 
     if (whole) {
@@ -190,8 +199,13 @@ export class FileReads {
     this.#touched.set(view, (this.#clock += 1));
   }
 
-  /** Forgets what one agent was shown, when its session ends. */
+  /**
+   * Forgets what one agent was shown, when its session is released, and ignores any read it
+   * records afterwards (a tool call still running at that moment).
+   */
   forgetAgent(params: { agent: string }): void {
+    this.#released.add(params.agent);
+
     for (const [file, byAgent] of this.#seen) {
       byAgent.delete(params.agent);
       if (byAgent.size === 0) this.#seen.delete(file);

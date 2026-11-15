@@ -285,6 +285,20 @@ describe('FileReads', () => {
     expect(kept).toContain(`/w/f${String(MAX_PERSISTED_FILES + 4)}.ts`);
   });
 
+  it('ignores a read a released agent records after its release, and keeps the others', () => {
+    const reads = new FileReads();
+    const other = { agent: 'other', file: '/w/a.ts' };
+
+    read(reads, 'one\n', true);
+    reads.forgetAgent({ agent: 'main' });
+    // A tool call that was still running when the session was released finishes now.
+    read(reads, 'late\n', true);
+    read(reads, 'kept\n', true, other);
+
+    expect(reads.hasRead(MAIN)).toBe(false);
+    expect(reads.hasRead(other)).toBe(true);
+  });
+
   it('forgets one agent when its session ends, and keeps the others', () => {
     const reads = new FileReads();
     const other = { agent: 'other', file: '/w/a.ts' };

@@ -13,4 +13,13 @@ export const FS_REFUSALS: Record<string, string | undefined> = {
   EPERM: 'Permission denied',
   EISDIR: 'Not a file',
   ELOOP: 'Too many symbolic links',
+  ENAMETOOLONG: 'Path too long',
+  EMFILE: 'Too many open files',
+  ENFILE: 'Too many open files',
+  EBUSY: 'File is busy',
+  EROFS: 'Read-only file system',
+  ENOSPC: 'No space left on the device',
 };
+
+/** What the model is told for any other file system error code a file tool meets. */
+export const FS_FAILURE = 'The file system refused the operation';
