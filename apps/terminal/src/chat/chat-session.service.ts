@@ -302,15 +302,17 @@ export class ChatSession {
       this.#yielding,
       new Promise((resolve) => current.signal.addEventListener('abort', resolve, { once: true })),
     ]);
-    this.#onSend(text);
 
     try {
-      // Stopped while waiting for a yield answer: the prompt never reaches the backend.
+      // Stopped while waiting for a yield answer: the prompt never reaches the backend, so it is
+      // not shown as sent either.
       if (current.signal.aborted) {
         this.#onTurnEnd('interrupted');
 
         return;
       }
+
+      this.#onSend(text);
 
       const unknown = await unknownPromptCommand({ text, conversation: this.#conversation });
 
