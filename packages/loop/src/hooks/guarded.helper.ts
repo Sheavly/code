@@ -1,6 +1,6 @@
 import type { Hook, HookHandlerName } from '@sheavly/core/hook/hook.types';
 import { raceAbort } from '../abort/abort.utils.js';
-import { HookError } from '../errors/loop.errors.js';
+import { HookError, HookTimeoutError } from '../errors/loop.errors.js';
 import type { Guarded, OnHookError } from './hooks.types.js';
 
 /**
@@ -18,6 +18,9 @@ export async function guarded<T>(params: {
 }): Promise<Guarded<T>> {
   const { hook, handler, signal, onHookError, work } = params;
 
+  // An already-aborted run starts no handler: `raceAbort` would call `work()` first.
+  if (signal.aborted) return { ok: true, value: undefined };
+
   try {
     return { ok: true, value: await raceAbort({ work: work(), signal }) };
   } catch (caughtError) {
@@ -26,5 +29,20 @@ export async function guarded<T>(params: {
     }
 
     return { ok: false, error: caughtError };
+  }
+}
+
+/** `work`, or a rejection once `timeoutMs` passes; the timer never outlives either. */
+export async function withTimeout<T>(params: { work: Promise<T>; timeoutMs: number }): Promise<T> {
+  const { work, timeoutMs } = params;
+  let timer: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new HookTimeoutError({ timeoutMs })), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([work, timedOut]);
+  } finally {
+    clearTimeout(timer);
   }
 }

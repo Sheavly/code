@@ -2,6 +2,7 @@ import { whenAborted } from '../abort/abort.utils.js';
 import { OrderedQueue } from '../queue/queue.service.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
 import { createHookFailures } from '../hooks/hook-failures.helper.js';
+import { approvalScreener, runSessionEnd } from '../hooks/new-points.helper.js';
 import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
@@ -114,6 +115,11 @@ async function drive(context: RunContext) {
     });
   }
 
+  // Hooks screen this session's approvals for the life of the run, and only its own.
+  const stopScreening = options.approvals?.screen(
+    approvalScreener({ hooks, sessionId: session.ref.id, onHookError: hookFailures.report }),
+  );
+
   try {
     // A history read from disk may hold a damaged checkpoint: fail before the first model call
     // (only `onError` hooks run, with the history as it is).
@@ -171,6 +177,13 @@ async function drive(context: RunContext) {
     });
     // Release the diagnostic first, even when earlier tool results or error hooks were queued.
     await events.consumed();
+    await runSessionEnd({
+      hooks,
+      outcome: 'failed',
+      messages,
+      signal,
+      onHookError: hookFailures.report,
+    });
     // The run still ends with its one `done`, so a stream is self-describing: tasks are stopped and
     // the session leaves `running` before it, as on every other path. The registry may no longer
     // know the session, which must not cost the `done`. The original exception still reaches
@@ -188,10 +201,13 @@ async function drive(context: RunContext) {
     // ends, including sub-agents whose own cleanup cancels their descendants. Only this session's:
     // the registry is shared by the run's sessions, so a stopped child leaves its parent's alone.
     if (signal.aborted) await options.tasks?.cancelSession(session.ref.id);
+    stopScreening?.();
   }
 
   const outcome = reason ?? 'max_turns';
 
+  // Before `done`, which must stay the last event: a failing sessionEnd hook is reported ahead of it.
+  await runSessionEnd({ hooks, outcome, messages, signal, onHookError: hookFailures.report });
   finishSession({ session, outcome, keep: options.keepSession });
   events.enqueue({ type: 'done', reason: outcome, messages, session: session.ref });
 }

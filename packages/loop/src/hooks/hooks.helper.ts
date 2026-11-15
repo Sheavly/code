@@ -15,7 +15,9 @@ import { assertValidHistory, countChanges } from '../history/history.utils.js';
 import { parseSentMessages } from '../history/history.validator.js';
 import { mergeSections, viewOf } from '../summary/summary.utils.js';
 import { parseSummaryChange } from './summary-change.validator.js';
-import { guarded } from './guarded.helper.js';
+import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { guarded, withTimeout } from './guarded.helper.js';
+import { SESSION_END_TIMEOUT_MS } from './hooks.constants.js';
 import type { OnHookError } from './hooks.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -354,7 +356,12 @@ export async function runOnError(params: {
       handler: 'onError',
       signal: never,
       onHookError,
-      work: () => onError({ error, messages: viewOf(messages) }),
+      // Bounded: a hanging error hook must not keep the original error from reaching the caller.
+      work: () =>
+        withTimeout({
+          work: onError({ error, messages: viewOf(messages) }),
+          timeoutMs: SESSION_END_TIMEOUT_MS,
+        }),
     });
   }
 }
@@ -407,7 +414,7 @@ export async function runToolCall(params: {
       const { error } = result;
 
       return {
-        content: `Hook ${hook.name} failed: ${error instanceof Error ? error.message : String(error)}`,
+        content: `Hook ${hook.name} failed: ${redactDiagnosticText(error instanceof Error ? error.message : String(error))}`,
         isError: true,
       };
     }

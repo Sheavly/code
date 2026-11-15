@@ -25,6 +25,17 @@ export class HookError extends Error {
   }
 }
 
+/** A hook handler that must not hold the run took longer than it was given. */
+export class HookTimeoutError extends Error {
+  override name = 'HookTimeoutError';
+  readonly timeoutMs: number;
+
+  constructor(params: { timeoutMs: number }) {
+    super(`did not finish within ${params.timeoutMs}ms`);
+    this.timeoutMs = params.timeoutMs;
+  }
+}
+
 /**
  * The messages a model call was about to send break the history rules (a tool call without its
  * result or the reverse, or the latest user message changed). `source` names what produced them,

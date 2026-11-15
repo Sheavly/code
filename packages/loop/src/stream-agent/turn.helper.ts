@@ -5,6 +5,8 @@ import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
+import { runNotice, runTaskCompleted } from '../hooks/new-points.helper.js';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
 import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { viewWithoutCallReferences } from '../summary/summary.utils.js';
@@ -24,9 +26,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   // A follow-up already in the inbox belongs in the completion's messages-since snapshot.
   deliverMessages({ session, messages, events });
-  reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+  const noticesFrom = messages.length;
+  const delivered = reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+
   // Handlers that failed since the last call: the model hears of them at this call, once.
   context.hookFailures.deliver(messages);
+  await runDeliveryHooks({ context, delivered, noticesFrom });
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   // No summary could make room and the view fills the window: stop here, recoverably (the history
   // is untouched and valid), rather than send a call the provider is sure to reject.
@@ -123,6 +128,39 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   });
 
   return finishTurn({ context, stopReason, running, reply: message });
+}
+
+/**
+ * Runs the `taskCompleted` hooks once per delivery of finished work, then the `notice` hooks for
+ * each persistent notice the harness wrote into history since `noticesFrom` (finished work and
+ * failed hooks). Transient notices ride one call and are not offered. A `hook-failed` notice is
+ * not offered to `notice` hooks: a hook failing on its own failure would repeat forever.
+ */
+async function runDeliveryHooks(params: {
+  context: TurnContext;
+  delivered: readonly TaskInfo[][];
+  noticesFrom: number;
+}): Promise<void> {
+  const { context, delivered, noticesFrom } = params;
+  const { options, messages, signal, events, hookFailures } = context;
+  const base = {
+    hooks: options.hooks ?? [],
+    messages,
+    signal,
+    onContext: (added: { hook: string; content: string }) =>
+      events.enqueue({ type: 'context_added', ...added }),
+    onHookError: hookFailures.report,
+  };
+
+  for (const tasks of delivered) await runTaskCompleted({ ...base, tasks });
+
+  const notices = messages
+    .slice(noticesFrom)
+    .flatMap((message) =>
+      message.role === 'notice' && message.notice.kind !== 'hook-failed' ? [message.notice] : [],
+    );
+
+  for (const notice of notices) await runNotice({ ...base, notice });
 }
 
 /**

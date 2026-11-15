@@ -21,7 +21,8 @@ export function createHookFailures(events: AgentEvents): HookFailures {
 
   return {
     report(failure: HookError): void {
-      const error = redactDiagnosticText(failure.message);
+      // Capped like the notice, so no hook can make an event or history entry unbounded.
+      const error = redactDiagnosticText(failure.message).slice(0, MAX_HOOK_FAILED_ERROR_CHARS);
       const key = `${failure.hook}\u0000${failure.handler}`;
       const waiting = pending.get(key);
 

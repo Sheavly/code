@@ -293,7 +293,7 @@ describe('beforeModelCall in the loop', () => {
 
     expect(failures[0]?.error).toContain('Hook sneaky produced invalid history');
     expect(prompt.content).toBe('ping');
-    expect(history[0]?.content).toBe('ping');
+    expect(history[0]).toMatchObject({ role: 'user', content: 'ping' });
   });
 
   it('gives the hook a copy, so changing it in place changes nothing stored', async () => {
