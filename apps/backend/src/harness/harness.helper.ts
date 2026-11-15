@@ -8,7 +8,7 @@ import { createReadSkillTool } from '@sheavly/coding/read-skill/read-skill.tool'
 import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
 import { createStartServiceTool } from '@sheavly/coding/run-command/start-service.tool';
 import { createSetWorkingRootTool } from '@sheavly/coding/working-root/set-working-root.tool';
-import { createWorkingRootHook } from '@sheavly/coding/working-root/working-root-hook.helper';
+import { workingRootSource } from '@sheavly/coding/working-root/working-root-hook.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool';
@@ -21,10 +21,14 @@ import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
-import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helper';
-import { createScratchHook } from '@sheavly/workspace/scratch/scratch-hook.helper';
+import { agentsMdSource } from '@sheavly/workspace/agents-md/agents-md.helper';
+import {
+  createInstructionHook,
+  registerInstructionHooks,
+} from '@sheavly/workspace/instruction-context/instruction-source.helper';
+import { scratchSource } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
-import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
+import { skillsSource } from '@sheavly/workspace/skills/skills.helper';
 import { keepReadsWithConversation } from './file-reads.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
@@ -75,20 +79,19 @@ export async function createBackendHarness(
     trust: trustStore,
     grant: trustWorkspace,
   });
-  const agentsMd = createAgentsMdHook({ root: workspace.root });
   const skillRoots = { root: workspace.root, home };
-  const skills = createSkillsHook(skillRoots);
-  // The main session's id, so sub-agents running this same hook share their root agent's folder.
-  const scratch = workspace.scratchRoot
-    ? [createScratchHook({ workspace, agentId: harness.mainSession.id })]
-    : [];
-  const hooks = [
-    agentsMd,
-    skills,
-    ...scratch,
-    createWorkingRootHook({ workingRoots }),
-    ...projectHooks.hooks,
-  ];
+  // Their order is each source's declared `order`, not their place here. The working root is read
+  // per turn, so AGENTS.md follows a worktree chosen mid-run. The scratch source is given the
+  // main session's id, so sub-agents running this same hook share their root agent's folder.
+  const instructionHooks = registerInstructionHooks([
+    createInstructionHook(agentsMdSource({ root: workspace.root, workingRoots })),
+    createInstructionHook(skillsSource(skillRoots)),
+    ...(workspace.scratchRoot
+      ? [createInstructionHook(scratchSource({ workspace, agentId: harness.mainSession.id }))]
+      : []),
+    createInstructionHook(workingRootSource({ workingRoots })),
+  ]);
+  const hooks = [...instructionHooks, ...projectHooks.hooks];
 
   const fileTools = [
     createReadFileTool({ workspace, workingRoots, fileLocks, fileReads }),
