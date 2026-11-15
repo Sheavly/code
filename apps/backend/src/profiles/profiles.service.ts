@@ -5,6 +5,7 @@ import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 import { workspaceKey } from '@sheavly/storage/config-store/config-store.utils';
+import { StorageFileError } from '@sheavly/storage/errors/storage.errors';
 import type { FileConversationStore } from '@sheavly/storage/conversation-store/conversation-store.service';
 import type { FileProblem } from '@sheavly/storage/listing/listing.types';
 import { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';
@@ -194,7 +195,17 @@ export class Profiles {
   /** The profile the workspace runs on (bound, else the default), or `not_set_up`. */
   async #profileOf(workspaceRoot: string) {
     const key = workspaceKey({ realPath: workspaceRoot });
-    const found = await this.#registry.profileFor(key);
+    const found = await this.#registry.profileFor(key).catch((caughtError: unknown) => {
+      // A damaged config.json only stops a start that has to read it; naming the file lets the
+      // user fix it, or start on an explicit profile, which never reads it.
+      if (!(caughtError instanceof StorageFileError)) throw caughtError;
+
+      throw new ConversationsError({
+        reason: 'not_set_up',
+        message: `The config ${caughtError.file} cannot be used (${caughtError.message}). Repair or delete it, or start the conversation on a named profile.`,
+        cause: caughtError,
+      });
+    });
 
     if (!found) {
       throw new ConversationsError({

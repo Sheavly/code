@@ -1,3 +1,4 @@
+import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { fakeFetch } from '@sheavly/testing/fetch/fake-fetch.fake';
@@ -100,6 +101,23 @@ describe('POST /conversations with a workspace and a profile', () => {
     }
 
     expect(conversations.list()).toEqual([]);
+  });
+
+  it('names a damaged config.json, and still starts on a named profile', async () => {
+    const { call, conversations } = api();
+
+    await setUp(call);
+    await writeFile(path.join(folders.base, 'sheavly', 'config.json'), '{ not json');
+
+    const unnamed = await call('/conversations', { method: 'POST', body: {} });
+
+    expect(unnamed.status).toBeLessThan(500);
+    expect(JSON.stringify(await json(unnamed))).toContain('config.json');
+
+    const named = await call('/conversations', { method: 'POST', body: { profile: HOME } });
+
+    expect(named.status).toBe(201);
+    await conversations.closeAll();
   });
 
   it('refuses a profile that is not an id, and an empty folder, as a bad request', async () => {
