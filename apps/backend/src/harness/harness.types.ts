@@ -71,6 +71,11 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
    */
   shell?: DocumentStore | undefined;
   /**
+   * Hears of a failure to restore or keep the conversation's file reads. The run goes on without
+   * them: a read only ever saves a read, so losing it costs a `read_file`, never correctness.
+   */
+  onFileReadsProblem?: ((caughtError: unknown) => void) | undefined;
+  /**
    * The conversation's complete command output store. With it `run_command` keeps every command's
    * whole output and the run gets `read_output` and `search_output`. None keeps previews only.
    */
