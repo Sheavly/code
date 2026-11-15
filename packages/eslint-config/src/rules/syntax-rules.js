@@ -219,6 +219,17 @@ export const SYNTAX_RULES = {
         "An instruction source does not read files with `node:fs`: its folder can be chosen by the agent, and a symlink there could lead a foreign file or a `.env*` secret into the model's context. Read through `readConfinedFile` (`@sheavly/workspace/instruction-context/confined-read.helper`), which checks the real path against the source's boundary and verifies the open file (a regular file, one name, under a size cap, the file the path names). The rule looks only at the source file's own imports: a source that reads through a sibling helper that uses `node:fs` is left to review. A source that reads only its own trusted folders says why in a `files:` override in the workspace's eslint.config.js.",
     },
   ],
+  // A store that reads a file and writes it back whole changes it through `LockedChange`, which
+  // adds the cross-process lock to the in-process queue. A bare `SerialQueue` orders only this
+  // process, so a second process on the same folder would lose updates again.
+  'no-raw-serial-queue': [
+    {
+      selector:
+        "NewExpression[callee.name='SerialQueue'], NewExpression[callee.property.name='SerialQueue'], ImportSpecifier[imported.name='SerialQueue'][local.name!='SerialQueue']",
+      message:
+        'Do not queue a read-modify-write with a bare `SerialQueue`: it orders only this process, so two processes on one `~/.sheavly` lose updates. Change a file through `LockedChange` (`packages/storage/src/serial-queue/locked-change.service.ts`): a queue in the process and a lock file across processes. A queue that guards no file (the append-only logs, the profile queue that orders a check with a delete) is a `files:` override with its reason in packages/storage/eslint.config.js.',
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

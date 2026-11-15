@@ -6,6 +6,17 @@ export default defineConfig([
   // The credential store is the one module that names the credentials file: it is where the file
   // is read, checked to be private and written. Nothing else in the repo may (`harness/no-credentials-file`).
   { files: ['src/credential-store/**'], rules: { 'harness/no-credentials-file': 'off' } },
+  // A bare `SerialQueue` orders one process only. These three own a queue on purpose: the
+  // primitive itself, the append-only logs (one writer per conversation, so no lock), and the
+  // profile queue that orders a check with a delete, whose config writes lock through the store.
+  {
+    files: [
+      'src/serial-queue/locked-change.service.ts',
+      'src/conversation-store/append-log.service.ts',
+      'src/profile-registry/profile-registry.service.ts',
+    ],
+    rules: { 'harness/no-raw-serial-queue': 'off' },
+  },
   // These three modules are where files are written, so every store writes through them: an atomic
   // replace that is private and retried on Windows, an append for a stream, and the path checks.
   // Nothing else here (or anywhere) calls the file system's write functions
