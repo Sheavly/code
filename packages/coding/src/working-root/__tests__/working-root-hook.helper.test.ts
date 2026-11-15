@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { fakeBeforeTurn } from '@sheavly/workspace/testing/before-turn.fake';
 import { git, openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { testWorkingRoots } from '@sheavly/workspace/testing/working-root-store.fake';
-import { createWorkingRootHook } from '../working-root-hook.helper.js';
+import { createInstructionHook } from '@sheavly/workspace/instruction-context/instruction-source.helper';
+import { workingRootSource } from '../working-root-hook.helper.js';
 
 const repo = useTempRepo({ prefix: 'working-root-hook-', perTest: true });
 
@@ -11,7 +12,8 @@ const repo = useTempRepo({ prefix: 'working-root-hook-', perTest: true });
 async function setup() {
   const workingRoots = testWorkingRoots({ workspace: await openWithWorktrees(repo.main) });
   const { messages, context } = fakeBeforeTurn();
-  const turn = () => createWorkingRootHook({ workingRoots }).beforeTurn?.(context);
+  const { hook } = createInstructionHook(workingRootSource({ workingRoots }));
+  const turn = () => hook.beforeTurn?.(context);
 
   return { workingRoots, messages, turn };
 }

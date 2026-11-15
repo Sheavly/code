@@ -11,7 +11,7 @@ import type { CodingHarness, CodingHarnessOptions } from './coding.types.js';
  * The coding services on `createHarness`: opens the workspace and makes the one set of file locks
  * and the one process runner a run shares. It adds no tools and no hooks; the UI composes them on
  * these (`createReadFileTool({ workspace })`, `createRunCommandTool({ processes, … })`,
- * `createAgentsMdHook`, `loadProjectHooks`), so what a run includes is the UI's choice.
+ * `agentsMdSource`, `loadProjectHooks`), so what a run includes is the UI's choice.
  */
 export async function createCodingHarness(options: CodingHarnessOptions): Promise<CodingHarness> {
   const {
