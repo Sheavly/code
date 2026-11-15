@@ -289,13 +289,14 @@ the next call reports its own.
 ## The turn as a state machine
 
 A turn is a fixed sequence of phases; each phase that holds features is a list of contributions.
-The phases in bold are lists; the others are one step each.
+The phases in bold are lists; the others are one step each (the hooks and the model call, which
+have their own failure path).
 
 | Phase | What happens                                                                             | Failure / abort                                |
 | ----- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | 1     | abort check                                                                              | `interrupted`                                  |
 | 2     | **`delivery` contributions**: steering, finished work, `hook-failed` notices, then hooks | contribution policy; delivery hooks raced      |
-| 3     | summary at the threshold (`full` ends `context_window_exceeded`)                         | summary failures reported as `summary_failed`  |
+| 3     | **`room` contributions**: the threshold summary (`full` ends `context_window_exceeded`)  | contribution policy; `summary_failed` events   |
 | 4     | `beforeTurn` hooks                                                                       | reported, skipped; raced                       |
 | 5     | **`view` contributions** (masking), then `beforeModelCall` hooks                         | contribution policy; hooks reported, skipped   |
 | 6     | model call, tools start as they stream                                                   | provider failure fails the run                 |
@@ -323,7 +324,11 @@ tests an option. To add a feature to a phase, add one entry to that phase's list
 
 ## Hook order
 
-- Hooks run in the order given. Every handler runs one after another, except `aroundToolCall`,
+- Hooks run in the order given, unless one names hooks it must come `after`: the loop orders the
+  list once when the run starts (the same ordering the turn contributions use) and every runner
+  reads that list. A duplicate hook name, an `after` naming a hook the run does not have, or a
+  cycle throws a `ContributionError` before the first model call.
+- Every handler runs one after another, except `aroundToolCall`,
   which nests: the first hook is outermost. It calls `next()` to continue, `next(input)` to
   change the input (validated as usual), or returns a result without calling it to block.
   The result is `{ content, isError, artifacts? }`: `content` goes into history, `artifacts`

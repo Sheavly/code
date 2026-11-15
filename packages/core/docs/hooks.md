@@ -19,6 +19,11 @@ The `Hook` contract (`@sheavly/core/hook/`): what a hook can do and when. How th
 | `sessionEnd`      | Once, when the run's outcome is known, before `done`    | Clean up, record                                                        |
 | `onError`         | When the run fails, before the error reaches the caller | Log, report                                                             |
 
+Order: hooks run in the order given. A hook can also say `after: ['other']` to run after the hooks
+it names, whatever order they were given in; project hooks may export `after` too. The loop checks
+it when the run starts: a duplicate name, an unknown name or a cycle fails the run before its first
+model call.
+
 A handler that throws never fails the run: it is reported as a `hook_failed` event and a
 `hook-failed` notice the model sees, and the run goes on without that contribution. The exceptions
 fail closed: `aroundToolCall` and `approval` block the call.
