@@ -30,6 +30,9 @@ export const NOT_ALLOWED = {
   always_ask: 'is asked about every time in this folder',
 };
 
+/** The longest reason from an approval hook the model is shown when the hook skipped a command. */
+export const HOOK_REASON_MAX_CHARS = 500;
+
 /** `git worktree` subcommands that put a folder on the repo's worktree list (and so in reach). */
 export const WORKTREE_CHANGING_SUBCOMMANDS = ['add', 'move', 'repair'];
 
