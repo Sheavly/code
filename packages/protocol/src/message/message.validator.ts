@@ -68,6 +68,12 @@ export const messageSchema = z.discriminatedUnion('role', [
   z.object({
     role: z.literal('user'),
     id: messageIdSchema.exactOptional(),
+    /**
+     * Set to `user` only by the host, on a prompt a person typed. Text a hook added, a sub-agent's
+     * task or a message from another agent never has it, so a guard can tell what the user said
+     * from what an agent wrote. An `id` does not say this: a sub-agent's task has one.
+     */
+    origin: z.literal('user').exactOptional(),
     /** What the model saw: the text, with the instructions of any skills it ran. */
     content: z.string(),
     /** What the user typed, when it ran skills: for a UI to show, never sent to the model. */

@@ -1965,6 +1965,7 @@
             "properties": {
               "role": { "type": "string", "const": "user" },
               "id": { "$ref": "#/components/schemas/ModelId" },
+              "origin": { "type": "string", "const": "user" },
               "content": { "type": "string" },
               "parts": { "type": "array", "items": { "$ref": "#/components/schemas/PromptPart" } },
               "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
@@ -2008,6 +2009,7 @@
             "properties": {
               "role": { "type": "string", "const": "user" },
               "id": { "$ref": "#/components/schemas/ModelId" },
+              "origin": { "type": "string", "const": "user" },
               "content": { "type": "string" },
               "parts": { "type": "array", "items": { "$ref": "#/components/schemas/PromptPart" } },
               "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
@@ -2493,6 +2495,7 @@
                   "properties": {
                     "role": { "type": "string", "const": "user" },
                     "id": { "$ref": "#/components/schemas/ModelId" },
+                    "origin": { "type": "string", "const": "user" },
                     "content": { "type": "string" },
                     "parts": {
                       "type": "array",
