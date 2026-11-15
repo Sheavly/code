@@ -2,7 +2,10 @@ import { CLOSING_FENCE, OPENING_FENCE } from './markdown.constants.js';
 import type { CodeFenceDrawing } from './markdown.types.js';
 
 /** A code fence being read: what closes it, how far its lines were indented, how it is drawn. */
-type OpenFence = { marker: string; indent: number; drawing: CodeFenceDrawing };
+type OpenFence = { marker: string; indent: number; info: string; drawing: CodeFenceDrawing };
+
+/** A fence interrupted by other output, which the next text of the reply continues. */
+type PausedFence = Omit<OpenFence, 'drawing'>;
 
 /**
  * Turns a reply written in pieces into rendered Markdown, one block at a time. A block (a
@@ -22,6 +25,7 @@ export class MarkdownStream {
   readonly #drawFence: (info: string) => CodeFenceDrawing;
   #block: string[] = [];
   #fence: OpenFence | undefined;
+  #paused: PausedFence | undefined;
   #partial = '';
 
   /**
@@ -47,11 +51,43 @@ export class MarkdownStream {
 
   /** Adds `text`; returns the lines of the blocks it completed, ready to print. */
   push(text: string): string {
+    const resumed = text === '' ? '' : this.#resumeFence();
     const pieces = (this.#partial + text).replaceAll('\r\n', '\n').split('\n');
 
     this.#partial = pieces.pop() ?? '';
 
-    return pieces.map((line) => this.#accept(line)).join('');
+    return resumed + pieces.map((line) => this.#accept(line)).join('');
+  }
+
+  /**
+   * Like `flush`, for output that interrupts the reply (a tool call): a code block open now is
+   * drawn closed, but the reply's next text continues it as code instead of as a paragraph.
+   */
+  pause(): string {
+    const fence = this.#fence;
+    // Another pause before the reply goes on must not forget the fence the first one saved.
+    const alreadyPaused = this.#paused;
+    const rendered = this.flush();
+
+    this.#paused = fence
+      ? { marker: fence.marker, indent: fence.indent, info: fence.info }
+      : alreadyPaused;
+
+    return rendered;
+  }
+
+  /** Reopens the fence a pause closed, so text after it is drawn as the code it is. */
+  #resumeFence(): string {
+    const paused = this.#paused;
+
+    if (paused === undefined) return '';
+    this.#paused = undefined;
+
+    const drawing = this.#drawFence(paused.info);
+
+    this.#fence = { ...paused, drawing };
+
+    return asText(drawing.open());
   }
 
   /**
@@ -64,6 +100,7 @@ export class MarkdownStream {
 
     this.#block = [];
     this.#fence = undefined;
+    this.#paused = undefined;
     this.#partial = '';
 
     if (rendered.length === 0) return '';
@@ -100,7 +137,7 @@ export class MarkdownStream {
     const interrupted = this.#endBlock();
     const drawing = this.#drawFence(opening.info);
 
-    this.#fence = { marker: opening.marker, indent: opening.indent, drawing };
+    this.#fence = { marker: opening.marker, indent: opening.indent, info: opening.info, drawing };
 
     return interrupted + asText(drawing.open());
   }

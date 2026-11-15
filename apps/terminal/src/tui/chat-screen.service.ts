@@ -115,10 +115,12 @@ export class ChatScreen {
 
   /**
    * Where text for the conversation goes: the `Renderer`'s and the session's `write`. A reply in
-   * progress ends first, so what is written here comes after all of it.
+   * progress is paused first, so what is written here comes after all of it; a code block it
+   * interrupts is reopened by the reply's next text.
    */
   readonly write = (text: string): void => {
-    this.#endReply();
+    // Paused, not ended: a code block this interrupts carries on after it.
+    this.#show(this.#markdown.pause());
     this.#show(text);
   };
 
