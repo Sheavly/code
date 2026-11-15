@@ -28,15 +28,44 @@ record a line, `{ seq, entry }`. `seq` starts at 0, has no gaps and names an ent
 checkpoint can say what it covers and a lost write shows as a gap. Entries are never rewritten or
 removed, so original messages stay retrievable after a summary.
 
-`HistoryFile` follows `EntryFile`: the next `seq` is counted from the file once, after a line cut
-off by a crash is trimmed, and appends go one at a time through a queue. An append at any other
-`seq` is refused (`out_of_order`) and a file with a gap is refused when read, rather than hidden.
+`HistoryFile` and `EntryFile` are both an `AppendLog` (`conversation-store/append-log.service.ts`):
+the next `seq` is counted from the file once, after a line cut off by a crash is trimmed, and
+appends go one at a time through a queue. An append at any other `seq` is refused
+(`out_of_order`) and a file with a gap is refused when read, rather than hidden. A new
+append-only file is an `AppendLog` with its schema, not a copy of this logic.
 
 A history stored whole before logs existed (`history.json`, `agents/<session-id>.history.json`) is
 imported the first time its log is used and the log has no file yet. The log is written in one
 atomic step, so a crash leaves either no log (imported again next time) or the complete one. The
-old file stays as the record of what was imported and is never read again once the log exists.
-The old whole-file `readMessages`/`writeMessages` methods remain only for that legacy shape.
+old file is removed once the log is written (a crash between the two leaves both, and the log
+wins next time), so no second copy is left to drift. The old whole-file `readMessages`/`writeMessages` methods are gone from the contract; only the
+import reads the legacy shape, and nothing writes it.
+
+## Concurrency and crashes
+
+- **One change at a time, in and across processes.** Every read-modify-write of a file (config,
+  credentials, permissions, `DocumentFile`) goes through `LockedChange`: a `SerialQueue` for the
+  callers in this process and a lock file (`<file>.lock`, `file-lock/`) for other processes on the
+  same `~/.sheavly`. The lock is taken over when its process is gone or it is older than
+  `LOCK_STALE_MS`, and a wait longer than `LOCK_WAIT_MS` fails naming the lock file. Permissions
+  share one lock for their folder.
+- **Append-only logs have one writer.** `stream.jsonl` and the history logs are not locked: a
+  conversation belongs to the one process serving it, and a second writer would count its own
+  `seq`. A refused or out-of-order append is how that would show.
+- **Crash consistency is a write order, not a journal.** Decided for #272: no journal. Per
+  conversation the stream is written first and is the source of truth; history, `errors.jsonl`
+  and the index follow, and each can be rebuilt or repaired from what precedes it on reopening
+  (`interrupted` is computed on read, `errors.jsonl` is replayed from the stream, a cut-off last
+  line is trimmed). A crash can lose the newest derived write, never leave the files disagreeing
+  in a way a reopen cannot repair.
+- **A failed write is retried, never silently sticky.** `EntryLog` (runtime) and
+  `ConversationKeeper` (host) keep what could not be stored at the front of their queue and write
+  it first, in order, on `recover`. `Conversations.send` recovers before it refuses a prompt with
+  `storage_failed`, so a disk that has mended is not held against the conversation. The first
+  failed write also puts a `storage_failed` event on the stream (once per failure, never ending
+  the run), so a UI can say the chat is not being saved before the next prompt is refused.
+- **A damaged `config.json` names its path.** A start that must read it fails as `not_set_up`
+  with the file in the message; a start on a named profile never reads it.
 
 ## The queue
 
@@ -85,8 +114,7 @@ replaced is decided once.
 ```
 
 A `history.json` and `agents/<session-id>.history.json` from before history logs are legacy: the
-log imports them once, and only the old whole-file `writeMessages`/`writeAgentMessages` methods
-still write them (see History logs).
+log imports them once, removes them, and nothing writes them any more (see History logs).
 
 Everything on disk is named by an id, never by what a person typed (`<profile-id>` and
 `<model-id>` are lowercase UUIDs; `<workspace-key>` is a hash of the workspace's real path). A
@@ -196,9 +224,9 @@ here cannot become a leak:
   user's profile folder.
 - **Our own writes are always private.** The file is made `0600` in a `0700` folder, and a
   replace keeps it so.
-- **Writes are queued.** Setting a key reads the file and writes it back whole, so two at once
-  would start from the same file and the second would erase the first's key. A write that fails
-  does not hold up the ones after it.
+- **Writes are queued and locked** (`LockedChange`). Setting a key reads the file and writes it
+  back whole, so two at once, here or in another process, would start from the same file and the
+  second would erase the first's key. A write that fails does not hold up the ones after it.
 - **Nothing can overwrite a file that can't be read.** A write reads first, so a damaged or open
   file stops it instead of being replaced by one holding a single key.
 - **`fieldsSet()` says which fields are set, not their values**: all a UI needs to show "a key is
@@ -217,8 +245,13 @@ says `undefined`, which is what onboarding is for.
 - **Config never points at a profile that is gone.** `forgetProfile` takes a deleted profile out
   of the default and every binding. It touches config only: a profile's keys, models and
   conversations are inside its own folder, so deleting the folder deletes them.
-- **Changes are queued** (`SerialQueue`), as for credentials, and a file that can't be read stops a
-  change instead of being replaced.
+- **Changes are queued and locked** (`LockedChange`), as for credentials, and a file that can't be
+  read stops a change instead of being replaced.
+- **`workspaceKey` is the one key function.** Profile bindings key a workspace's real path with
+  it, and permissions key the real path of the repo's main worktree with it (the backend's
+  `permissionRoot`, so every worktree shares one mode). Trust (`@sheavly/workspace`) is keyed by
+  the real path per worktree, since a worktree's `.sheavly/` can differ. These scopes differ on
+  purpose; what must not differ is how a path becomes a key, which is here.
 
 ## The permission store
 
@@ -233,8 +266,8 @@ Nothing stored is `ask` with nothing allowed, and reading writes nothing.
 - **A write can't make a file the next read refuses.** The result is checked against the schema
   first (no empty entry, no entry starting with `*`), and a file that can't be read stops every
   change instead of being replaced.
-- **Changes are queued** (`SerialQueue`) and read the file fresh, so a mode set while
-  conversations run applies to their next command.
+- **Changes are queued and locked** (`LockedChange`, one lock for the folder) and read the file
+  fresh, so a mode set while conversations run applies to their next command.
 
 ## The profile store
 
@@ -264,6 +297,8 @@ behind, and deleting a profile folder leaves the config naming it.
   the profile is still there, unbound, and deleting it again finishes the job. The other order
   could leave the config naming a profile that is gone. `profileFor` also falls back from a
   profile whose folder was deleted by hand, so a workspace is never left with nothing to use.
+- **`setDefaultProfile` and `bindWorkspace` check the profile inside the same queue as `delete`**,
+  so a delete cannot land between the check and the config write and leave config naming it.
 - **`open(id)` returns one `OpenProfile` per profile.** Its credential store queues writes in memory,
   so two on one file would erase each other's keys; the registry is what guarantees one, even for
   two opens at the same moment.

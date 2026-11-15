@@ -29,7 +29,9 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 
 Internal (closed in `exports`): `safe-path/` (`namedPath`, `assertSafeRoot`, `removeFile` and
 `removeFolder`: every path a store makes, reads, writes or deletes is checked there), `serial-queue/`
-(one change at a time) and `jsonl-file/` (append and read a stream's lines).
+(`SerialQueue`, one change at a time, and `LockedChange`, the one read-modify-write primitive every
+store uses: a queue in the process plus a lock file across processes), `file-lock/` (the lock
+file behind it) and `jsonl-file/` (append and read a stream's lines).
 
 Runs on Linux, macOS and Windows; see [Design](docs/design.md#every-operating-system) for what that
 asks of every module here.
