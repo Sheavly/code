@@ -288,25 +288,29 @@ the next call reports its own.
 
 ## The turn as a state machine
 
-A turn is a fixed sequence of phases; features join it as contributions rather than branches.
+A turn is a fixed sequence of phases; each phase that holds features is a list of contributions.
+The phases in bold are lists; the others are one step each.
 
-| Phase | What happens                                                                      | Failure / abort                               |
-| ----- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| 1     | abort check, steering messages, finished tasks delivered                          | none                                          |
-| 2     | `hook-failed` notices from earlier failures reach history                         | none                                          |
-| 3     | `taskCompleted` and `notice` hooks                                                | reported, skipped; raced                      |
-| 4     | summary at the threshold (`full` ends `context_window_exceeded`)                  | summary failures reported as `summary_failed` |
-| 5     | `beforeTurn` hooks                                                                | reported, skipped; raced                      |
-| 6     | **`view` contributions** (masking), then `beforeModelCall` hooks                  | contribution policy; hooks reported, skipped  |
-| 7     | model call, tools start as they stream                                            | provider failure fails the run                |
-| 8     | **`overflow` contributions** (summarize and retry)                                | contribution policy                           |
-| 9     | reply and tool results into history                                               | none                                          |
-| 10    | `afterTurn` hooks                                                                 | reported, skipped; raced                      |
-| 11    | **`limit` contributions**: window exceeded, then output-limit recovery            | contribution policy                           |
-| 12    | completion decision: running tools, inbox, yield, `await_tasks`, else `completed` | abort gives `interrupted`                     |
+| Phase | What happens                                                                             | Failure / abort                                |
+| ----- | ---------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 1     | abort check                                                                              | `interrupted`                                  |
+| 2     | **`delivery` contributions**: steering, finished work, `hook-failed` notices, then hooks | contribution policy; delivery hooks raced      |
+| 3     | summary at the threshold (`full` ends `context_window_exceeded`)                         | summary failures reported as `summary_failed`  |
+| 4     | `beforeTurn` hooks                                                                       | reported, skipped; raced                       |
+| 5     | **`view` contributions** (masking), then `beforeModelCall` hooks                         | contribution policy; hooks reported, skipped   |
+| 6     | model call, tools start as they stream                                                   | provider failure fails the run                 |
+| 7     | **`overflow` contributions** (summarize and retry)                                       | contribution policy                            |
+| 8     | reply and tool results into history                                                      | none                                           |
+| 9     | `afterTurn` hooks                                                                        | reported, skipped; raced                       |
+| 10    | **`limit` contributions**: window exceeded, then output-limit recovery                   | contribution policy                            |
+| 11    | **`completion` contributions**: running tools, inbox, yield, `await_tasks`, settled      | contribution policy; abort gives `interrupted` |
 
-`finishTurn` decides in the order of phases 11 then 12. The run around the turns: `sessionStart`,
-the turns, `sessionEnd`, then `done` (always last).
+`delivery` is in this order because finished work and failures must be in history before any hook
+sees them: `steering-messages`, `finished-tasks`, `hook-failures`, `delivery-hooks`. `completion`
+is in the flow rules' order (the guide's rules 1 to 5): a yield outranks task completions but not
+`await_tasks`, and the last contribution, `settled`, always answers. The existing flow-rule tests
+pin that order. The run around the turns: `sessionStart`, the turns, `sessionEnd`, then `done`
+(always last).
 
 A **contribution** (`contributions.types.ts`) has a `name`, an optional `after` (ordering), an
 `onFailure` (`fail-run`, or `report`: skip it and report like a failed hook) and an `abort`
