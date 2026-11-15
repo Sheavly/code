@@ -1,4 +1,8 @@
-import type { AgentEventBody, ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { HANDLER_NAMES } from './hook.constants.js';
+import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
+import type { AgentEventBody, DoneReason, ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import type {
   Message,
   SummaryMessage,
@@ -120,6 +124,31 @@ export type AfterTurnContext = {
   signal: AbortSignal;
 };
 
+/** What `taskCompleted` receives when finished background work is delivered to the model. */
+export type TaskCompletedContext = ContextAccess & {
+  /** The tasks delivered together (a group, or one), as the model's notice reports them. */
+  tasks: readonly TaskInfo[];
+};
+
+/** What `notice` receives for every harness notice the run emits, transient or persistent. */
+export type NoticeContext = ContextAccess & {
+  notice: HarnessNotice;
+};
+
+/** What `approval` receives when a tool waits for the user's say, before any UI hears of it. */
+export type ApprovalContext = {
+  request: ApprovalRequest;
+  signal: AbortSignal;
+};
+
+/** What `sessionEnd` receives once, when the run's outcome is known. History is final. */
+export type SessionEndContext = {
+  outcome: DoneReason;
+  /** The history at the end (a snapshot). */
+  messages: readonly Message[];
+  signal: AbortSignal;
+};
+
 /** What `onError` receives when the run fails; the error still ends the run. */
 export type ErrorContext = {
   error: unknown;
@@ -140,14 +169,8 @@ export type ToolCallContext = {
   next: (input?: unknown) => Promise<ToolResult>;
 };
 
-/**
- * A named set of handlers, one per point in the loop; each is optional. Hooks run in the order
- * they are given: one after another, except `aroundToolCall`, which nests (the first is
- * outermost). A run's hooks are an option of the loop, so a parent picks which hooks its
- * sub-agents get; each sub-agent run has its own `sessionStart`.
- */
-export type Hook = {
-  name: string;
+/** Every handler's signature and when it runs; the names are listed once, in `HANDLER_NAMES`. */
+type HookHandlers = {
   /** Once per run, before the first turn: set up, add opening context. Throwing fails the run. */
   sessionStart?: ((context: SessionStartContext) => Promise<void>) | undefined;
   /** Before each model call: look at the history, add context. Throwing fails the run. */
@@ -176,9 +199,39 @@ export type Hook = {
   aroundToolCall?: ((context: ToolCallContext) => Promise<ToolResult>) | undefined;
   /** After each turn (reply and tool results in history): observe, record. Throwing fails the run. */
   afterTurn?: ((context: AfterTurnContext) => Promise<void>) | undefined;
+  /**
+   * When finished work is delivered, before the model's next call: add context. A failure is
+   * reported (`hook_failed`, and a `hook-failed` notice to the model); the run goes on.
+   */
+  taskCompleted?: ((context: TaskCompletedContext) => Promise<void>) | undefined;
+  /** For every harness notice: add context. A failure is reported; the run goes on. */
+  notice?: ((context: NoticeContext) => Promise<void>) | undefined;
+  /**
+   * When a tool waits for approval, before a UI hears of it: return `skip` or `skip_with_message`
+   * to stop the command, or nothing to leave it to the user. A hook can never approve: any other
+   * answer skips the command too, since approving (once or for good) is the user's. The first
+   * hook to answer wins. Fails closed: a throw skips the command and tells the model why.
+   */
+  approval?: ((context: ApprovalContext) => Promise<ApprovalResponse | undefined>) | undefined;
+  /** Once, when the run ends, whatever the outcome. A failure is reported; the run's outcome stands. */
+  sessionEnd?: ((context: SessionEndContext) => Promise<void>) | undefined;
   /** When the run fails, before the error reaches the caller: log, report. Its own errors are ignored. */
   onError?: ((context: ErrorContext) => Promise<void>) | undefined;
 };
 
-/** The handler names: everything on `Hook` except `name`. */
-export type HookHandlerName = Exclude<keyof Hook, 'name'>;
+/** The handler names, from the one list (`HANDLER_NAMES`). */
+export type HookHandlerName = (typeof HANDLER_NAMES)[number];
+
+/**
+ * A named set of handlers, one per point in the loop; each is optional. Hooks run in the order
+ * they are given: one after another, except `aroundToolCall`, which nests (the first is
+ * outermost). `after` names hooks this one must come after, whatever order they were given in; the
+ * loop orders them once when the run starts, and a duplicate name, an `after` naming a hook the
+ * run does not have, or a cycle fails the run before its first model call. A run's hooks are an
+ * option of the loop, so a parent picks which hooks its sub-agents get; each sub-agent run has
+ * its own `sessionStart`. Its handlers are the names in `HANDLER_NAMES`: a name without a
+ * signature above fails the typecheck here.
+ */
+export type Hook = { name: string; after?: readonly string[] | undefined } & {
+  [Name in HookHandlerName]?: HookHandlers[Name];
+};
