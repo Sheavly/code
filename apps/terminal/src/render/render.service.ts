@@ -187,6 +187,9 @@ export class Renderer {
       case 'run_failed':
         this.clearRunning();
         this.#activity(this.look.runFailed(plainTerminalText(event.error)));
+        // A failed run has no `done`, so this is where its prompt ends.
+        this.reply.end();
+        this.#endPrompt();
         break;
       case 'hook_failed':
         this.#activity(
@@ -286,8 +289,14 @@ export class Renderer {
         reasoning: this.#reasoningItems,
       }),
     );
+    this.#endPrompt();
+  }
+
+  /** Forgets what only mattered within this prompt. */
+  #endPrompt(): void {
     this.#last = undefined;
     this.#lineOpen = false;
+    this.#reasoningItems = 0;
   }
 
   /** A paired title already sits above its result, so only an unpaired batch repeats it. */
