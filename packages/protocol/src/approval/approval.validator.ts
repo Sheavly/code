@@ -13,6 +13,12 @@ export const approvalIdSchema = z.string().brand<'ApprovalId'>();
 export const approvalConcernSchema = z.object({ argument: z.string(), reason: z.string() });
 
 /**
+ * Who settled a skip when it was not the user: `hook`, an approval hook (so the model is not told
+ * the user said it). Absent means the user, which is what every UI's answer is.
+ */
+const approvalSourceSchema = z.literal('hook');
+
+/**
  * A UI's answer to an approval request, validated before it reaches the waiting tool: run it as
  * asked, skip it, skip it and steer the agent with a message (passed to the model in the tool
  * result), or grant its proposed prefixes for this session or permanently for the workspace.
@@ -21,8 +27,12 @@ export const approvalResponseSchema = z.discriminatedUnion('decision', [
   z.object({ decision: z.literal('approve') }),
   z.object({ decision: z.literal('allow_session') }),
   z.object({ decision: z.literal('always_allow') }),
-  z.object({ decision: z.literal('skip') }),
-  z.object({ decision: z.literal('skip_with_message'), message: z.string().trim().min(1) }),
+  z.object({ decision: z.literal('skip'), source: approvalSourceSchema.exactOptional() }),
+  z.object({
+    decision: z.literal('skip_with_message'),
+    message: z.string().trim().min(1),
+    source: approvalSourceSchema.exactOptional(),
+  }),
 ]);
 
 /** What the user can answer. */

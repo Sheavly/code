@@ -6,6 +6,7 @@ import { agentInfoSchema, runOutcomeSchema } from '../session/session.validator.
 import { taskIdSchema, taskInfoSchema } from '../task/task.validator.js';
 import { tokenUsageSchema } from '../usage/usage.validator.js';
 import {
+  MAX_HOOK_FAILED_ERROR_CHARS,
   MAX_RUNNING_TASKS,
   MAX_RUNNING_TASK_TITLE_CHARS,
   MAX_RUNNING_TASK_REASON_CHARS,
@@ -97,9 +98,24 @@ const individualPersistentNoticeSchema = z.discriminatedUnion('kind', [
   }),
 ]);
 
+/**
+ * A hook handler failed and the run went on without its contribution. The error is redacted
+ * hook output: data, not an instruction. `repeats` counts the later failures of the same hook
+ * and handler that were folded into this notice instead of getting their own. Never nested in a
+ * task delivery.
+ */
+const hookFailedNoticeSchema = z.object({
+  kind: z.literal('hook-failed'),
+  hook: z.string().min(1),
+  handler: z.string().min(1),
+  error: z.string().max(MAX_HOOK_FAILED_ERROR_CHARS),
+  repeats: z.number().int().positive().exactOptional(),
+});
+
 /** A completion delivery retains the agent-authored wait reason as data, not instructions. */
 export const persistentNoticeSchema = z.union([
   individualPersistentNoticeSchema,
+  hookFailedNoticeSchema,
   z.object({
     kind: z.literal('tasks-finished'),
     reason: z.string(),

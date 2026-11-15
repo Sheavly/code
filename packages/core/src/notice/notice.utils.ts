@@ -11,6 +11,7 @@ import {
   renderCompletionContext,
   renderCompletionMetrics,
   renderContextUsage,
+  renderHookFailed,
   renderNoticeEnvelope,
   renderOutputContinuation,
   renderRunningTask,
@@ -38,6 +39,8 @@ function prepareNoticeBody(notice: HarnessNotice): string {
       return formatAgentReport(notice);
     case 'task-finished':
       return formatTaskFinished(notice);
+    case 'hook-failed':
+      return formatHookFailed(notice);
     case 'tasks-finished':
       return formatTasksFinished(notice);
   }
@@ -108,6 +111,19 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
     fence: fenceDashes(body),
     outputReference: outputReferenceLines({ log: task.outputLog, shown: task.output }),
     context: formatCompletionContext(notice.context),
+  });
+}
+
+/** The hook's error is code-written text: angle brackets swapped and fenced as data. */
+function formatHookFailed(notice: Extract<HarnessNotice, { kind: 'hook-failed' }>): string {
+  const error = escapeTags(notice.error);
+
+  return renderHookFailed({
+    hook: line(notice.hook),
+    handler: line(notice.handler),
+    repeats: notice.repeats === undefined ? undefined : String(notice.repeats),
+    error,
+    fence: fenceDashes(error),
   });
 }
 
