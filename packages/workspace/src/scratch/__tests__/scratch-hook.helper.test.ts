@@ -5,7 +5,8 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { Workspace } from '../../workspace/workspace.service.js';
-import { createScratchHook } from '../scratch-hook.helper.js';
+import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
+import { scratchSource } from '../scratch-hook.helper.js';
 
 const temp = useTempWorkspace({ prefix: 'scratch-hook-test-', perTest: true });
 
@@ -22,11 +23,13 @@ function historyContext(messages: Message[]): BeforeTurnContext {
   };
 }
 
-describe('createScratchHook', () => {
+describe('scratchSource', () => {
   it('renders the exact trust guidance and deduplicates it from history', async () => {
     const root = path.join(temp.base, 'scratch');
     const workspace = await Workspace.open(temp.root, { scratchRoot: root });
-    const hook = createScratchHook({ workspace, agentId: agentIdFor('agent-a') });
+    const { hook } = createInstructionHook(
+      scratchSource({ workspace, agentId: agentIdFor('agent-a') }),
+    );
     const messages: Message[] = [];
     const folder = path.join(root, 'agent-a');
 
@@ -50,7 +53,9 @@ describe('createScratchHook', () => {
   });
 
   it('adds nothing without a scratch root', async () => {
-    const hook = createScratchHook({ workspace: temp.workspace, agentId: agentIdFor('agent-a') });
+    const { hook } = createInstructionHook(
+      scratchSource({ workspace: temp.workspace, agentId: agentIdFor('agent-a') }),
+    );
     const messages: Message[] = [];
 
     await hook.beforeTurn?.(historyContext(messages));
