@@ -36,13 +36,21 @@ describe('runFileTool', () => {
     expect(failure).toMatchObject({ reason: 'not_found', message: 'File not found: a.ts.' });
   });
 
-  it.each([
-    new WorkspaceError('Path is outside the workspace'),
-    new PathCheckError({ path: 'a.ts', cause: { code: 'EACCES' } }),
-  ])('turns a refused or unchecked path into forbidden: %s', async (error) => {
+  it('turns a path the workspace refused into forbidden, with its own message', async () => {
+    const error = new WorkspaceError('Path is outside the workspace: a.ts');
     const failure = await run(failWith(error)).catch((caughtError: unknown) => caughtError);
 
     expect(failure).toMatchObject({ reason: 'forbidden', message: error.message });
+  });
+
+  it('turns a path it could not check into forbidden, never with the system text or a host path', async () => {
+    const error = new PathCheckError({
+      path: '/home/user/secret/a.ts',
+      cause: Object.assign(new Error('EIO: /home/user/secret/a.ts'), { code: 'EIO' }),
+    });
+    const failure = await run(failWith(error)).catch((caughtError: unknown) => caughtError);
+
+    expect(failure).toMatchObject({ reason: 'forbidden', message: 'Could not check a.ts (EIO).' });
   });
 
   it.each([

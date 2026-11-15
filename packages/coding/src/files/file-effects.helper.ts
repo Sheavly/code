@@ -1,39 +1,32 @@
 import { constants } from 'node:fs';
-import {
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  rm,
-  stat,
-  writeFile,
-  type FileHandle,
-} from 'node:fs/promises';
+import { lstat, mkdir, open, rm, stat, writeFile, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { MAX_FILE_BYTES } from './files.constants.js';
 
-/** The file's current content, or `null` if it doesn't exist yet. */
-async function readIfExists(params: { file: string; signal: AbortSignal }): Promise<string | null> {
-  const { file, signal } = params;
+/**
+ * The file's current content, or `null` if it doesn't exist. It is read through `openRegularFile`,
+ * so a FIFO, a device or a path swapped for a symlink is refused instead of read.
+ */
+async function readIfExists(params: {
+  file: string;
+  requested: string;
+  signal: AbortSignal;
+}): Promise<string | null> {
+  const { file, requested, signal } = params;
+  let handle: FileHandle;
 
   try {
-    return await readFile(file, { encoding: 'utf8', signal });
+    handle = await openRegularFile({ file, requested });
   } catch (caughtError) {
     if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw caughtError;
   }
-}
 
-/** Whether anything is at `file`, found without reading it, so a huge file is not loaded to ask. */
-export async function pathExists(params: { file: string }): Promise<boolean> {
   try {
-    await lstat(params.file);
-
-    return true;
-  } catch (caughtError) {
-    if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return false;
-    throw caughtError;
+    return await handle.readFile({ encoding: 'utf8', signal });
+  } finally {
+    await handle.close();
   }
 }
 
@@ -49,7 +42,7 @@ export async function readForChange(params: {
   hint: string;
 }): Promise<string> {
   const { file, requested, signal, hint } = params;
-  const before = await readIfExists({ file, signal });
+  const before = await readIfExists({ file, requested, signal });
 
   if (before === null) {
     throw new ToolCallError({
@@ -103,17 +96,20 @@ export function assertContentFits(params: { content: string; requested: string }
 
 /**
  * Opens `file` for reading without following a symlink at its last component, and refuses anything
- * but a regular file (a FIFO or device would hold the file's lock until the call is aborted) or a
- * file that is not the one `file` named when the guard resolved it (swapped between the guard and
- * the open). A folder on the way to the file swapped in that last moment is the one case Node can't
- * close without `openat`. The caller closes the handle.
+ * but a regular file or a file that is not the one `file` named when the guard resolved it
+ * (swapped between the guard and the open). `O_NONBLOCK` makes opening a FIFO return at once, so
+ * the regular-file check can refuse it: without it the open waits for a writer in the thread pool,
+ * holds the file's lock and cannot be aborted. It has no effect on a regular file. A folder on the
+ * way to the file swapped in that last moment is the one case Node can't close without `openat`
+ * (on Windows `O_NOFOLLOW` does not exist and the `dev`/`ino` comparison is the only guard). The
+ * caller closes the handle.
  */
 export async function openRegularFile(params: {
   file: string;
   requested: string;
 }): Promise<FileHandle> {
   const { file, requested } = params;
-  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
 
   try {
     const [opened, named] = await Promise.all([handle.stat(), lstat(file)]);
@@ -121,7 +117,7 @@ export async function openRegularFile(params: {
     if (!opened.isFile()) {
       throw new ToolCallError({
         reason: 'invalid_input',
-        message: `${requested} is not a regular file, so read_file can't read it.`,
+        message: `${requested} is not a regular file, so a file tool can't use it.`,
       });
     }
 
@@ -146,15 +142,20 @@ export async function fileSize(params: { file: string }): Promise<number> {
   return stats.size;
 }
 
-/** Writes UTF-8 text. */
+/**
+ * Writes UTF-8 text. With `create` the file must not exist: it is opened exclusively (`wx`), which
+ * refuses an existing path and a symlink put there since the check, so a create never writes
+ * through a link. Without it the existing file is replaced.
+ */
 export async function writeText(params: {
   file: string;
   content: string;
   signal: AbortSignal;
+  create?: boolean;
 }): Promise<void> {
-  const { file, content, signal } = params;
+  const { file, content, signal, create = false } = params;
 
-  await writeFile(file, content, { encoding: 'utf8', signal });
+  await writeFile(file, content, { encoding: 'utf8', signal, ...(create && { flag: 'wx' }) });
 }
 
 /** Creates the folders a file's path needs, so a file can be written into them. */

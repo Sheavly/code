@@ -173,9 +173,7 @@ export class Workspace {
         return absolute;
       }
 
-      throw new WorkspaceError(
-        `Path is outside the workspace: ${requested} (workspace: ${this.root})`,
-      );
+      throw new WorkspaceError(`Path is outside the workspace: ${requested}`);
     };
   }
 }

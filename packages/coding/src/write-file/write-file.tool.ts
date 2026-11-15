@@ -5,12 +5,7 @@ import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { runFileTool } from '../files/file-tool.helper.js';
 import type { FileToolServices } from '../files/files.types.js';
-import {
-  assertContentFits,
-  createParentFolder,
-  pathExists,
-  writeText,
-} from '../files/file-effects.helper.js';
+import { assertContentFits, createParentFolder, writeText } from '../files/file-effects.helper.js';
 import { changeResult } from '../files/file-change.helper.js';
 import { assertSameWritable, resolveWritable } from '../files/files.helper.js';
 import { agentOf } from '../files/files.utils.js';
@@ -64,15 +59,22 @@ async function writeFile(params: {
     change: async () => {
       await assertSameWritable({ workspace, requested, expected: real, root });
 
-      if (await pathExists({ file: real })) {
+      await createParentFolder({ file: real });
+
+      // Exclusive: an existing path, or a symlink put there since the guard, is refused, never
+      // written through.
+      try {
+        await writeText({ file: real, content, signal, create: true });
+      } catch (caughtError) {
+        // EEXIST is the one failure expected here: something is already at the path.
+        if ((caughtError as NodeJS.ErrnoException).code !== 'EEXIST') throw caughtError;
+
         throw new ToolCallError({
           reason: 'invalid_input',
           message: `${requested} already exists. Read it with read_file and change it with edit_file; write_file only creates new files.`,
         });
       }
 
-      await createParentFolder({ file: real });
-      await writeText({ file: real, content, signal });
       fileReads.markRead({
         agent: agentOf(context),
         file: real,

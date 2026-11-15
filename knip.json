@@ -6,6 +6,9 @@
   "ignoreExportsUsedInFile": { "type": true },
   // A project hook's default export is what `loadProjectHooks` imports; nothing in the repo does.
   "ignoreIssues": { ".sheavly/hooks/*.mjs": ["exports"] },
+  // `mkfifo` is a POSIX system tool, not a dependency: Node has no API to make a FIFO, and the
+  // file-tool policy test needs one to prove a read refuses it instead of waiting for a writer.
+  "ignoreBinaries": ["mkfifo"],
   "workspaces": {
     ".": {
       "entry": [

@@ -37,7 +37,15 @@ function toToolError(params: { error: unknown; requested: string; signal: AbortS
     return new ToolCallError({ reason: 'not_found', message: `File not found: ${requested}.` });
   }
 
-  if (error instanceof WorkspaceError || error instanceof PathCheckError) {
+  // Its text can carry the system's message and an absolute path, so the model gets a fixed one.
+  if (error instanceof PathCheckError) {
+    return new ToolCallError({
+      reason: 'forbidden',
+      message: `Could not check ${requested}${error.code ? ` (${error.code})` : ''}.`,
+    });
+  }
+
+  if (error instanceof WorkspaceError) {
     return new ToolCallError({ reason: 'forbidden', message: error.message });
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -105,6 +106,33 @@ describe('what every file tool refuses, whatever it is asked to do', () => {
       expect(existsSync(path.join(temp.root, '.git/config'))).toBe(true);
     },
   );
+});
+
+// A FIFO has no writer here, so opening it by name would wait for one for ever, holding the file's
+// lock and a thread, and no abort could end it. Every tool that opens the file refuses it at once.
+describe.skipIf(process.platform === 'win32')('a FIFO', () => {
+  it.each(['read_file', 'edit_file'])('is refused at once by %s, not waited on', async (tool) => {
+    const fifo = path.join(temp.root, 'pipe');
+
+    execFileSync('mkfifo', [fifo]);
+    // edit_file needs a read to get as far as opening; the open is what is under test.
+    fileReads.current.markRead({
+      agent: 'no-session',
+      file: fifo,
+      text: 'a',
+      whole: true,
+      hash: 'h',
+    });
+
+    const result = await Promise.race([
+      ask(tool, 'pipe'),
+      new Promise<'hung'>((resolve) => setTimeout(() => resolve('hung'), 3000)),
+    ]);
+
+    expect(result).not.toBe('hung');
+    expect(result).toMatchObject({ isError: true });
+    expect((result as { content: string }).content).toContain('not a regular file');
+  });
 });
 
 describe('a path with nothing at it', () => {
