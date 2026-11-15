@@ -1,10 +1,13 @@
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import type { TaskId } from '@sheavly/protocol/task/task.types';
 import type { FileEdit } from '../changes/changes.types.js';
 import type { Failure } from '../failures/failures.types.js';
 
 /** A tool call that has started and not yet returned: what the working indicator shows live. */
 export type RunningTool = {
-  id: string;
+  id: CallId;
   /** The model's description of the call. */
   description: string;
   /** When its start was seen, in epoch milliseconds. */
@@ -28,7 +31,7 @@ export type ReplySink = { write: Write; end: () => void };
 export type Section = 'reply' | 'activity';
 
 /** The sub-agent a line is about: its title and id, and the indent for how deep it is. */
-type SubAgent = { indent: string; title: string; id: string };
+type SubAgent = { indent: string; title: string; id: SessionId };
 
 /**
  * How a conversation's events read on screen. The `Renderer` decides what to show and in what
@@ -51,10 +54,10 @@ export type Look = {
   fileChange: (edit: FileEdit) => string;
   /** A failed step's message that says more than its line, under its result, as `fileChange`. */
   failure: (failure: Failure) => string;
-  taskRunning: (params: { label: string; id: string }) => string;
+  taskRunning: (params: { label: string; id: TaskId }) => string;
   taskCompleted: (params: {
     ok: boolean;
-    id: string;
+    id: TaskId;
     status: string;
     exit: string;
     elapsed: string;

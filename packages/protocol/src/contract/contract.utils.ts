@@ -237,7 +237,8 @@ function contractSchemas(): Record<string, z.ZodType> {
  * `allOf`) is only satisfiable when neither side forbids the other's fields.
  */
 export function contractDefinitions(prefix: string): ContractJsonSchema['$defs'] {
-  const registry = z.registry<{ id: string }>();
+  // zod names a definition by the `id` of its metadata, so the registry takes zod's own meta type.
+  const registry = z.registry<z.GlobalMeta>();
 
   for (const [id, schema] of Object.entries(contractSchemas())) registry.add(schema, { id });
 

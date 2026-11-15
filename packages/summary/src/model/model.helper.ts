@@ -8,8 +8,8 @@ import type { ModelSection, RuleSection } from '../sections/sections.types.js';
 import { oneLine } from '@sheavly/core/text/text.utils';
 import { MAX_REPLY_CHARS } from './model.constants.js';
 import { parseSectionReply } from './model.validator.js';
-import { renderPreviousSummary, renderSpan } from './prompt.utils.js';
-import { defaultModelSections, summaryInstructions, summaryRequest } from './summary.prompt.js';
+import { defaultModelSections, renderPreviousSummary, renderSpan } from './prompt.utils.js';
+import { summaryInstructions, summaryRequest } from './summary.prompt.js';
 
 /**
  * A summarizer that has a model write the sections it is asked for, and rules write the rest

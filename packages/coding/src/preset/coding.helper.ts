@@ -34,7 +34,7 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
   // A released session is forgotten for good, so what it was shown of the files goes with it, for
   // every front end that builds its run on this harness.
   harness.sessions.subscribe((update) => {
-    if (update.type === 'session_released') fileReads.forgetAgent({ agent: update.session.id });
+    if (update.type === 'session_released') fileReads.forgetAgent({ agentId: update.session.id });
   });
 
   return {

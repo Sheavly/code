@@ -64,7 +64,7 @@ export class PermissionStore {
     const key = workspaceKey({ realPath });
     const file = namedPath({
       folder: this.#folder,
-      id: key,
+      name: key,
       extension: '.json',
       shape: workspaceKeySchema,
     });

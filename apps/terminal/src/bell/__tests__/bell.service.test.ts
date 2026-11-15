@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { now } from '@sheavly/core/clock/clock.helper';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { APPROVAL_SETTLE_MS } from '../bell.constants.js';
 import { TerminalBell } from '../bell.service.js';
@@ -18,7 +19,11 @@ function open(enabled = true) {
   return { bell, write };
 }
 
-const tool = (id = 'call-1', age = 0) => ({ id, description: 'Run tests', startedAt: now() - age });
+const tool = (id = 'call-1', age = 0) => ({
+  id: callIdSchema.parse(id),
+  description: 'Run tests',
+  startedAt: now() - age,
+});
 const advance = (ms: number) => {
   clock.advance(ms);
   vi.advanceTimersByTime(ms);

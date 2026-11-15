@@ -7,7 +7,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createDeleteFileTool } from '../../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
@@ -117,7 +117,7 @@ describe.skipIf(process.platform === 'win32')('a FIFO', () => {
     execFileSync('mkfifo', [fifo]);
     // edit_file needs a read to get as far as opening; the open is what is under test.
     fileReads.current.markRead({
-      agent: 'no-session',
+      agentId: agentIdFor('no-session'),
       file: fifo,
       text: 'a',
       whole: true,

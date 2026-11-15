@@ -57,9 +57,9 @@ describe('createCodingHarness', () => {
     });
     const file = path.join(harness.workspace.root, 'a.ts');
 
-    harness.fileReads.markRead({ agent: child.id, file, text: 'x', whole: true, hash: 'h' });
+    harness.fileReads.markRead({ agentId: child.id, file, text: 'x', whole: true, hash: 'h' });
     harness.fileReads.markRead({
-      agent: harness.mainSession.id,
+      agentId: harness.mainSession.id,
       file,
       text: 'x',
       whole: true,
@@ -68,8 +68,8 @@ describe('createCodingHarness', () => {
     harness.sessions.end({ id: child.id, state: 'completed' });
     harness.sessions.release(child.id);
 
-    expect(harness.fileReads.hasRead({ agent: child.id, file })).toBe(false);
-    expect(harness.fileReads.hasRead({ agent: harness.mainSession.id, file })).toBe(true);
+    expect(harness.fileReads.hasRead({ agentId: child.id, file })).toBe(false);
+    expect(harness.fileReads.hasRead({ agentId: harness.mainSession.id, file })).toBe(true);
   });
 
   it('opens the workspace and makes the shared services, and includes no tools or hooks', async () => {

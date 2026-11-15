@@ -48,22 +48,24 @@ describe('namedPath', () => {
   it('is the id and its extension inside the folder', () => {
     const folder = temp.path();
 
-    expect(namedPath({ folder, id: ID, extension: '.json' })).toBe(path.join(folder, `${ID}.json`));
-    expect(namedPath({ folder, id: ID })).toBe(path.join(folder, ID));
+    expect(namedPath({ folder, name: ID, extension: '.json' })).toBe(
+      path.join(folder, `${ID}.json`),
+    );
+    expect(namedPath({ folder, name: ID })).toBe(path.join(folder, ID));
   });
 
   it('refuses a name that could reach another file, naming the path it was asked for', () => {
     const folder = temp.path();
 
-    expect(() => namedPath({ folder, id: '../neighbour', extension: '.json' })).toThrow(
+    expect(() => namedPath({ folder, name: '../neighbour', extension: '.json' })).toThrow(
       `Refusing to use ${path.join(folder, '../neighbour.json')}: its name is not an id`,
     );
-    expect(() => namedPath({ folder, id: ID, extension: '/../x' })).toThrow(UnsafePathError);
+    expect(() => namedPath({ folder, name: ID, extension: '/../x' })).toThrow(UnsafePathError);
   });
 
   it('refuses a folder that is relative or the top of a file system', () => {
-    expect(() => namedPath({ folder: 'models', id: ID })).toThrow(UnsafePathError);
-    expect(() => namedPath({ folder: path.parse(temp.path()).root, id: ID })).toThrow(
+    expect(() => namedPath({ folder: 'models', name: ID })).toThrow(UnsafePathError);
+    expect(() => namedPath({ folder: path.parse(temp.path()).root, name: ID })).toThrow(
       UnsafePathError,
     );
   });
@@ -204,7 +206,7 @@ describe('removeFile', () => {
   it('deletes the one file it names, and nothing beside it', async () => {
     const { folder } = await models();
 
-    await removeFile({ folder, id: ID, extension: '.json' });
+    await removeFile({ folder, name: ID, extension: '.json' });
 
     expect((await readdir(folder)).sort()).toEqual([`${ID}.txt`, `${OTHER}.json`]);
   });
@@ -212,8 +214,8 @@ describe('removeFile', () => {
   it('is fine with a file that is not there, and with a folder that is not there', async () => {
     const { folder } = await models();
 
-    await removeFile({ folder, id: '00000000-0000-4000-8000-000000000000', extension: '.json' });
-    await removeFile({ folder: path.join(folder, 'nope'), id: ID, extension: '.json' });
+    await removeFile({ folder, name: '00000000-0000-4000-8000-000000000000', extension: '.json' });
+    await removeFile({ folder: path.join(folder, 'nope'), name: ID, extension: '.json' });
     expect(await readdir(folder)).toHaveLength(3);
   });
 
@@ -222,15 +224,15 @@ describe('removeFile', () => {
     const names = ['../neighbour', `../${ID}`, '..', '.', '', '*', 'work', ID.toUpperCase()];
 
     for (const id of names) {
-      await expect(removeFile({ folder, id, extension: '.json' })).rejects.toBeInstanceOf(
+      await expect(removeFile({ folder, name: id, extension: '.json' })).rejects.toBeInstanceOf(
         UnsafePathError,
       );
     }
 
-    await expect(removeFile({ folder, id: ID, extension: '/../neighbour.json' })).rejects.toThrow(
+    await expect(removeFile({ folder, name: ID, extension: '/../neighbour.json' })).rejects.toThrow(
       UnsafePathError,
     );
-    await expect(removeFile({ folder: 'models', id: ID, extension: '.json' })).rejects.toThrow(
+    await expect(removeFile({ folder: 'models', name: ID, extension: '.json' })).rejects.toThrow(
       UnsafePathError,
     );
 
@@ -245,7 +247,7 @@ describe('removeFile', () => {
     await mkdir(lookalike);
     await writeFile(path.join(lookalike, 'inside.txt'), 'x');
 
-    await expect(removeFile({ folder, id: LINKED, extension: '.json' })).rejects.toBeInstanceOf(
+    await expect(removeFile({ folder, name: LINKED, extension: '.json' })).rejects.toBeInstanceOf(
       StorageFileError,
     );
     expect(await exists(path.join(lookalike, 'inside.txt'))).toBe(true);
@@ -256,7 +258,7 @@ describe('removeFile', () => {
 
     await symlink(path.parse(temp.path()).root, link, 'dir');
 
-    await expect(removeFile({ folder: link, id: ID, extension: '.json' })).rejects.toThrow(
+    await expect(removeFile({ folder: link, name: ID, extension: '.json' })).rejects.toThrow(
       /really is/,
     );
   });

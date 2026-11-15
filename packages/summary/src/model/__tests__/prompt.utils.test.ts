@@ -7,15 +7,13 @@ import {
   MAX_TOOL_RESULT_CHARS,
 } from '../model.constants.js';
 import {
+  defaultModelSections,
   renderPreviousSummary,
   renderSpan,
   summaryInstructions,
   summaryRequest,
 } from '../prompt.utils.js';
-import {
-  defaultModelSections,
-  summaryInstructions as buildSummaryInstructions,
-} from '../summary.prompt.js';
+import { summaryInstructions as buildSummaryInstructions } from '../summary.prompt.js';
 
 const call = callIdSchema.parse('c1');
 const redact = (text: string) => text.replaceAll('hunter2', '[REDACTED]');

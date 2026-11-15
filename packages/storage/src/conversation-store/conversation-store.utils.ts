@@ -2,6 +2,7 @@ import path from 'node:path';
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import { toStoreError } from '@sheavly/core/store/store.utils';
 import { lowercaseUuidSchema } from '@sheavly/protocol/id/id.validator';
+import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import {
@@ -16,7 +17,7 @@ import {
  * about a value that came from outside, so only a lowercase UUID becomes a path: anything else
  * (a separator, `..`) throws a `StoreError` before it can name another folder.
  */
-export function conversationFolder(params: { conversations: string; id: string }): string {
+export function conversationFolder(params: { conversations: string; id: ConversationId }): string {
   const { conversations, id } = params;
 
   if (!lowercaseUuidSchema.safeParse(id).success) {

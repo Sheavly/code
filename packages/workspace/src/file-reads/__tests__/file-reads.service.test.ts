@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import { agentIdFor } from '../../testing/file-reads.fake.js';
 import {
   MAX_CHUNKS_PER_FILE,
   MAX_PERSISTED_CHARS,
@@ -7,12 +9,12 @@ import {
 import { hashText } from '../file-reads.utils.js';
 import { FileReads } from '../file-reads.service.js';
 
-const MAIN = { agent: 'main', file: '/w/a.ts' };
+const MAIN = { agentId: agentIdFor('main'), file: '/w/a.ts' };
 const read = (
   reads: FileReads,
   text: string,
   whole = false,
-  who: { agent: string; file: string; hash?: string } = MAIN,
+  who: { agentId: SessionId; file: string; hash?: string } = MAIN,
 ) => reads.markRead({ hash: 'v1', ...who, text, whole });
 
 describe('FileReads', () => {
@@ -63,7 +65,7 @@ describe('FileReads', () => {
 
   it('keeps each agent’s reads to itself: a child must read what its parent read', () => {
     const reads = new FileReads();
-    const child = { agent: 'child', file: '/w/a.ts' };
+    const child = { agentId: agentIdFor('child'), file: '/w/a.ts' };
 
     read(reads, 'secret line\n', true);
 
@@ -77,7 +79,9 @@ describe('FileReads', () => {
 
     read(reads, 'in a\n');
 
-    expect(reads.hasSeen({ agent: 'main', file: '/w/b.ts', text: 'in a' })).toBe(false);
+    expect(reads.hasSeen({ agentId: agentIdFor('main'), file: '/w/b.ts', text: 'in a' })).toBe(
+      false,
+    );
     expect(new FileReads().hasRead(MAIN)).toBe(false);
   });
 
@@ -115,20 +119,20 @@ describe('FileReads', () => {
     expect(reads.hasSeen({ ...MAIN, text: 'x = 1;' })).toBe(false);
 
     reads.markEdited({
-      agent: 'main',
+      agentId: agentIdFor('main'),
       file: '/w/never.ts',
       oldText: 'a',
       newText: 'b',
       replaceAll: false,
       hash: 'v2',
     });
-    expect(reads.hasRead({ agent: 'main', file: '/w/never.ts' })).toBe(false);
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: '/w/never.ts' })).toBe(false);
   });
 
   it('forgets a file it was told was deleted, for every agent, and keeps the others', () => {
     const reads = new FileReads();
-    const child = { agent: 'child', file: '/w/a.ts' };
-    const other = { agent: 'main', file: '/w/b.ts' };
+    const child = { agentId: agentIdFor('child'), file: '/w/a.ts' };
+    const other = { agentId: agentIdFor('main'), file: '/w/b.ts' };
 
     read(reads, 'gone\n', true);
     read(reads, 'gone\n', true, child);
@@ -168,7 +172,7 @@ describe('FileReads', () => {
 
   it('forgets a read once the file has another hash, for that agent only', () => {
     const reads = new FileReads();
-    const other = { agent: 'other', file: '/w/a.ts' };
+    const other = { agentId: agentIdFor('other'), file: '/w/a.ts' };
 
     read(reads, 'one\n', true);
     read(reads, 'one\n', true, other);
@@ -186,7 +190,7 @@ describe('FileReads', () => {
 
   it('lets another agent’s edit stale this agent’s view, but not the editor’s own', () => {
     const reads = new FileReads();
-    const child = { agent: 'child', file: '/w/a.ts' };
+    const child = { agentId: agentIdFor('child'), file: '/w/a.ts' };
 
     read(reads, 'a\nb\n', true);
     read(reads, 'a\nb\n', true, child);
@@ -210,7 +214,7 @@ describe('FileReads', () => {
     const reads = new FileReads();
 
     reads.importAgent({
-      agent: 'main',
+      agentId: agentIdFor('main'),
       views: {
         '/w/forged.ts': { chunks: ['text the file never had'], whole: true, hash: hashText('x') },
         '/w/honest.ts': { chunks: ['real\n'], whole: true, hash: hashText('real\n') },
@@ -219,21 +223,21 @@ describe('FileReads', () => {
       },
     });
 
-    expect(reads.hasRead({ agent: 'main', file: '/w/forged.ts' })).toBe(false);
-    expect(reads.hasRead({ agent: 'main', file: '/w/honest.ts' })).toBe(true);
-    expect(reads.hasRead({ agent: 'main', file: '/w/part.ts' })).toBe(true);
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: '/w/forged.ts' })).toBe(false);
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: '/w/honest.ts' })).toBe(true);
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: '/w/part.ts' })).toBe(true);
   });
 
   it('skips a view too big for the characters left, and still keeps smaller older ones', () => {
     const reads = new FileReads();
     const big = 'x'.repeat(MAX_PERSISTED_CHARS - 10);
 
-    read(reads, 'small\n', true, { agent: 'main', file: '/w/old-small.ts' });
-    read(reads, big, true, { agent: 'main', file: '/w/big.ts' });
-    read(reads, 'tiny\n', true, { agent: 'main', file: '/w/newest.ts' });
-    read(reads, big, true, { agent: 'main', file: '/w/huge-newest.ts' });
+    read(reads, 'small\n', true, { agentId: agentIdFor('main'), file: '/w/old-small.ts' });
+    read(reads, big, true, { agentId: agentIdFor('main'), file: '/w/big.ts' });
+    read(reads, 'tiny\n', true, { agentId: agentIdFor('main'), file: '/w/newest.ts' });
+    read(reads, big, true, { agentId: agentIdFor('main'), file: '/w/huge-newest.ts' });
 
-    const kept = Object.keys(reads.exportAgent({ agent: 'main' }));
+    const kept = Object.keys(reads.exportAgent({ agentId: agentIdFor('main') }));
 
     // The newest view fits alone; what is skipped is whole, never cut.
     expect(kept).toContain('/w/huge-newest.ts');
@@ -243,14 +247,17 @@ describe('FileReads', () => {
 
   it('exports one agent’s views and gives them to another instance, hash and pieces intact', () => {
     const reads = new FileReads();
-    const other = { agent: 'other', file: '/w/b.ts' };
+    const other = { agentId: agentIdFor('other'), file: '/w/b.ts' };
 
     read(reads, 'part one\n');
     read(reads, 'only other\n', true, other);
 
     const restored = new FileReads();
 
-    restored.importAgent({ agent: 'main', views: reads.exportAgent({ agent: 'main' }) });
+    restored.importAgent({
+      agentId: agentIdFor('main'),
+      views: reads.exportAgent({ agentId: agentIdFor('main') }),
+    });
 
     expect(restored.hasSeen({ ...MAIN, text: 'part one' })).toBe(true);
     expect(restored.hasRead(other)).toBe(false);
@@ -264,7 +271,7 @@ describe('FileReads', () => {
 
     read(reads, 'one\n');
 
-    const kept = reads.exportAgent({ agent: 'main' });
+    const kept = reads.exportAgent({ agentId: agentIdFor('main') });
 
     read(reads, 'two\n');
 
@@ -275,10 +282,10 @@ describe('FileReads', () => {
     const reads = new FileReads();
 
     for (let index = 0; index < MAX_PERSISTED_FILES + 5; index += 1) {
-      read(reads, 'x\n', true, { agent: 'main', file: `/w/f${String(index)}.ts` });
+      read(reads, 'x\n', true, { agentId: agentIdFor('main'), file: `/w/f${String(index)}.ts` });
     }
 
-    const kept = Object.keys(reads.exportAgent({ agent: 'main' }));
+    const kept = Object.keys(reads.exportAgent({ agentId: agentIdFor('main') }));
 
     expect(kept).toHaveLength(MAX_PERSISTED_FILES);
     expect(kept).not.toContain('/w/f0.ts');
@@ -287,10 +294,10 @@ describe('FileReads', () => {
 
   it('ignores a read a released agent records after its release, and keeps the others', () => {
     const reads = new FileReads();
-    const other = { agent: 'other', file: '/w/a.ts' };
+    const other = { agentId: agentIdFor('other'), file: '/w/a.ts' };
 
     read(reads, 'one\n', true);
-    reads.forgetAgent({ agent: 'main' });
+    reads.forgetAgent({ agentId: agentIdFor('main') });
     // A tool call that was still running when the session was released finishes now.
     read(reads, 'late\n', true);
     read(reads, 'kept\n', true, other);
@@ -301,12 +308,12 @@ describe('FileReads', () => {
 
   it('forgets one agent when its session ends, and keeps the others', () => {
     const reads = new FileReads();
-    const other = { agent: 'other', file: '/w/a.ts' };
+    const other = { agentId: agentIdFor('other'), file: '/w/a.ts' };
 
     read(reads, 'one\n', true);
     read(reads, 'one\n', true, other);
 
-    reads.forgetAgent({ agent: 'main' });
+    reads.forgetAgent({ agentId: agentIdFor('main') });
 
     expect(reads.hasRead(MAIN)).toBe(false);
     expect(reads.hasRead(other)).toBe(true);

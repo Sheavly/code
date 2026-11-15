@@ -2,6 +2,7 @@ import { createInterface } from 'node:readline/promises';
 import path from 'node:path';
 import { DateTime } from 'luxon';
 import type { WorkbookStore } from './store.service.js';
+import type { RunId } from './workbook.types.js';
 import { describeEvent, diffResults, mergeTextDeltas, toolsUsed } from './workbook.utils.js';
 import { WorkbookNotFoundError } from '../errors/workbook.errors.js';
 import type { Write } from '../render/render.types.js';
@@ -40,7 +41,7 @@ export async function listWorkbook(params: { store: WorkbookStore; write: Write 
 /** `show`: one run's summary: what it was, how it ended, and where its files are. */
 export async function showRun(params: {
   store: WorkbookStore;
-  id: string;
+  id: RunId;
   write: Write;
 }): Promise<void> {
   const { store, id, write } = params;
@@ -94,7 +95,7 @@ export async function showRun(params: {
  */
 export async function stepRun(params: {
   store: WorkbookStore;
-  id: string;
+  id: RunId;
   from?: number | undefined;
   write: Write;
 }): Promise<void> {
@@ -141,12 +142,12 @@ export async function stepRun(params: {
 /** `diff`: how two runs differ: outcome, counts, tools used, and the final answer. */
 export async function diffRuns(params: {
   store: WorkbookStore;
-  a: string;
-  b: string;
+  a: RunId;
+  b: RunId;
   write: Write;
 }): Promise<void> {
   const { store, write } = params;
-  const load = async (id: string) => {
+  const load = async (id: RunId) => {
     const [result, events, answer] = await Promise.all([
       store.result(id),
       store.events(id),

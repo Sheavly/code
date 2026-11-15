@@ -74,7 +74,7 @@ async function readFileTool(params: {
 
       // What the agent was shown, no more: `edit_file` takes the agent's word for those lines only.
       fileReads.markRead({
-        agent: agentOf(context),
+        agentId: agentOf(context),
         file: real,
         text: selected.content,
         whole: selected.lines.whole,

@@ -8,6 +8,7 @@ import { logLook } from './log-look.utils.js';
 import type { Expandable, Look, ReplySink, RunningTool, Section, Write } from './render.types.js';
 import { commandOf, describeRead, firstLine, ownLine, seconds, shortId } from './render.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
@@ -31,7 +32,7 @@ export class Renderer {
   #running: readonly RunningTool[] = [];
   #batchSize = 0;
   /** Titles not written yet, in call order: a look that pairs steps writes each with its result. */
-  #held: { id: string; text: string }[] = [];
+  #held: { id: CallId; text: string }[] = [];
   #reasoningItems = 0;
   #thinking = false;
   #last: Section | undefined;
@@ -300,7 +301,7 @@ export class Renderer {
    * Writes a step's title now, or holds it when the look pairs steps: a batch's results all come
    * after its starts, so a title written at its start would sit above another step's result.
    */
-  #startStep(step: { id: string; description: string; command: string | undefined }): void {
+  #startStep(step: { id: CallId; description: string; command: string | undefined }): void {
     const text = this.look.toolStarted(step);
 
     if (this.look.pairSteps) this.#held.push({ id: step.id, text });
@@ -308,7 +309,7 @@ export class Renderer {
   }
 
   /** Writes the held title of step `id`, or every held title when none is named. */
-  #showHeldSteps(id?: string): void {
+  #showHeldSteps(id?: CallId): void {
     const shown = this.#held.filter((step) => id === undefined || step.id === id);
 
     this.#held = this.#held.filter((step) => !shown.includes(step));

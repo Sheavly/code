@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
+import { agentIdFor } from '@sheavly/workspace/testing/file-reads.fake';
 import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createRunCommandTool } from '../run-command.tool.js';
@@ -88,7 +89,7 @@ describe('run_command with a cwd', () => {
   });
 
   it('still asks about every command in the scratch folder, naming it', async () => {
-    const scratch = await scratchWorkspace.scratchDir('agent-1');
+    const scratch = await scratchWorkspace.scratchDir(agentIdFor('agent-1'));
     const result = await runIn({ workspace: scratchWorkspace, command: 'pwd', cwd: scratch });
 
     expect(result).toMatchObject({ isError: true });

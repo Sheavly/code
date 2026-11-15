@@ -52,7 +52,7 @@ async function deleteFile(params: {
 }) {
   const { services, requested, signal, context } = params;
   const { workspace, workingRoots, fileLocks, fileReads } = services;
-  const agent = agentOf(context);
+  const agentId = agentOf(context);
   const root = await currentRoot(workingRoots);
   const real = await resolveDeletable({ workspace, requested, root });
 
@@ -64,7 +64,7 @@ async function deleteFile(params: {
       // while the delete waited would otherwise be read or removed without the guards.
       await assertSameDeletable({ workspace, requested, expected: real, root });
 
-      if (!fileReads.hasRead({ agent, file: real })) {
+      if (!fileReads.hasRead({ agentId, file: real })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `You have not read ${requested}. Read it with read_file first, so the delete is of what the file holds now.`,
@@ -83,7 +83,7 @@ async function deleteFile(params: {
       assertReportedSize({ requested, content: before });
 
       // What the agent read is not what is there now, so the delete is not of what it saw.
-      if (fileReads.forgetIfChanged({ agent, file: real, hash: hashText(before) })) {
+      if (fileReads.forgetIfChanged({ agentId, file: real, hash: hashText(before) })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `${requested} changed since you read it. Read it again with read_file, so the delete is of what the file holds now.`,

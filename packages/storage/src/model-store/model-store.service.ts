@@ -63,11 +63,11 @@ export class ModelStore {
 
   /** Removes the model with this id; none is fine. Its credential is the credentials store's. */
   async remove(id: ModelId): Promise<void> {
-    await removeFile({ folder: this.#folder, id, extension: MODEL_FILE_EXTENSION });
+    await removeFile({ folder: this.#folder, name: id, extension: MODEL_FILE_EXTENSION });
   }
 
   #fileOf(id: ModelId): string {
-    return namedPath({ folder: this.#folder, id, extension: MODEL_FILE_EXTENSION });
+    return namedPath({ folder: this.#folder, name: id, extension: MODEL_FILE_EXTENSION });
   }
 
   /** The names in the folder that could be models, in a fixed order: `readdir`'s is the system's. */

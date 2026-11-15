@@ -44,7 +44,7 @@ describe('a conversation over HTTP', () => {
     for (const frames of [first, second]) {
       const seqs = frames.map(({ entry }) => entry.seq);
 
-      expect(frames.map(({ id: frameId }) => frameId)).toEqual(seqs.map(String));
+      expect(frames.map(({ cursor }) => cursor)).toEqual(seqs.map(String));
       expect(seqs).toEqual(seqs.map((_, index) => (seqs[0] ?? 0) + index));
       expect(frames.at(-1)?.entry).toMatchObject({ kind: 'event', event: { type: 'done' } });
     }

@@ -31,7 +31,7 @@ export class ProfileStore {
 
   /** The folder of profile `id`: where its models, keys and conversations are kept. */
   folderOf(id: ProfileId): string {
-    return namedPath({ folder: this.#folder, id });
+    return namedPath({ folder: this.#folder, name: id });
   }
 
   /**

@@ -58,7 +58,7 @@ async function editFile(params: {
   const { path: requested, oldText, newText, replaceAll = false } = input;
   const root = await currentRoot(workingRoots);
   const real = await resolveWritable({ workspace, requested, root });
-  const agent = agentOf(context);
+  const agentId = agentOf(context);
 
   return fileLocks.run({
     file: real,
@@ -85,14 +85,14 @@ async function editFile(params: {
 
       // A file that changed since the agent read it (a command, the user, another agent) is no
       // longer what it saw; one that did not change keeps its read, so nothing is read twice.
-      if (fileReads.forgetIfChanged({ agent, file: real, hash: hashText(before) })) {
+      if (fileReads.forgetIfChanged({ agentId, file: real, hash: hashText(before) })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `${requested} changed since you read it. Read it again with read_file, so the edit is made from what the file holds now.`,
         });
       }
 
-      if (!fileReads.hasRead({ agent, file: real })) {
+      if (!fileReads.hasRead({ agentId, file: real })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `You have not read ${requested}. Read it with read_file first, so the edit is made from what the file holds now.`,
@@ -100,7 +100,7 @@ async function editFile(params: {
       }
 
       // Every occurrence changes, including ones in lines the agent was never shown.
-      if (replaceAll && !fileReads.hasReadWhole({ agent, file: real })) {
+      if (replaceAll && !fileReads.hasReadWhole({ agentId, file: real })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `replaceAll changes every occurrence in ${requested}, so read all of it first: call read_file without startLine and endLine.`,
@@ -113,7 +113,7 @@ async function editFile(params: {
 
       // A file read in part is edited in the parts that were read. The text exists once in the
       // file (or replaceAll was checked above), so if it is in what was shown, that is the place.
-      if (!fileReads.hasSeen({ agent, file: real, text: oldText })) {
+      if (!fileReads.hasSeen({ agentId, file: real, text: oldText })) {
         throw new ToolCallError({
           reason: 'forbidden',
           message: `The text you are replacing is not in what you have read of ${requested}. Read the lines you are changing with read_file (startLine and endLine; in one call if the text spans several lines), then edit.`,
@@ -123,7 +123,7 @@ async function editFile(params: {
       await writeText({ file: real, content: after, signal });
       // What the agent saw now holds the new text, so it can edit that place again unread.
       fileReads.markEdited({
-        agent,
+        agentId,
         file: real,
         oldText,
         newText,

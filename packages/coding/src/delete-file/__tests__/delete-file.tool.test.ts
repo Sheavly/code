@@ -8,7 +8,7 @@ import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
 import { isFileChange } from '../../files/files.utils.js';
@@ -66,7 +66,7 @@ const remove = (filePath: string) => call('delete_file', { path: filePath });
 /** Records that the agent has read the whole file, as `read_file` does. */
 const markRead = async (file: string, text: string) =>
   fileReads.current.markRead({
-    agent: 'no-session',
+    agentId: agentIdFor('no-session'),
     file: await realpath(path.join(temp.root, file)),
     text,
     whole: true,
@@ -212,12 +212,14 @@ describe('delete_file', () => {
     const file = await realpath(path.join(temp.root, 'existing.ts'));
 
     await markRead('existing.ts', 'old\ntext\n');
-    expect(fileReads.current.hasRead({ agent: 'no-session', file })).toBe(true);
+    const agentId = agentIdFor('no-session');
+
+    expect(fileReads.current.hasRead({ agentId, file })).toBe(true);
 
     await remove('existing.ts');
 
-    expect(fileReads.current.hasRead({ agent: 'no-session', file })).toBe(false);
-    expect(fileReads.current.hasSeen({ agent: 'no-session', file, text: 'old' })).toBe(false);
+    expect(fileReads.current.hasRead({ agentId, file })).toBe(false);
+    expect(fileReads.current.hasSeen({ agentId, file, text: 'old' })).toBe(false);
   });
 
   it('takes turns with an edit of the same file, so neither starts from stale content', async () => {

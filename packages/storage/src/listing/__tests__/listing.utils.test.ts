@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import type { ListedFile } from '../listing.types.js';
 import { sortByName, splitListed } from '../listing.utils.js';
 
-const item = (id: string, name: string) => ({ id, name });
+const uuid = (digit: string) => `${digit.repeat(8)}-0000-4000-8000-000000000000`;
+const item = (digit: string, name: string) => ({ id: modelIdSchema.parse(uuid(digit)), name });
 
 describe('sortByName', () => {
   it('orders by name, then id, and returns a new array', () => {
-    const items = [item('c', 'Bora'), item('b', 'Astra'), item('a', 'Astra')];
+    const items = [item('3', 'Bora'), item('2', 'Astra'), item('1', 'Astra')];
     const sorted = sortByName(items);
 
-    expect(sorted.map(({ id }) => id)).toEqual(['a', 'b', 'c']);
-    expect(items.map(({ id }) => id)).toEqual(['c', 'b', 'a']);
+    expect(sorted.map(({ id }) => id)).toEqual([uuid('1'), uuid('2'), uuid('3')]);
+    expect(items.map(({ id }) => id)).toEqual([uuid('3'), uuid('2'), uuid('1')]);
   });
 
   it('sorts by a fixed locale, whatever the system’s: Ä is after Z in Swedish, not in English', () => {

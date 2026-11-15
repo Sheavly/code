@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { memoryShellStore } from '../../working-root/memory-shell.helper.js';
 import { MAX_PERSISTED_FILES } from '../file-reads.constants.js';
 import { FileReads } from '../file-reads.service.js';
@@ -8,11 +9,17 @@ import { createFileReadsKeeper, restoreFileReads } from '../file-reads-store.hel
 const FILE = '/w/a.ts';
 const TEXT = 'const a = 1;\n';
 // A whole-file view restores only when its text hashes to its hash, so the fixture is honest.
-const view = { agent: 'main', file: FILE, text: TEXT, whole: true, hash: hashText(TEXT) };
+const view = {
+  agentId: agentIdFor('main'),
+  file: FILE,
+  text: TEXT,
+  whole: true,
+  hash: hashText(TEXT),
+};
 
 /** Keeps `fileReads`' main agent in `store`, as a prompt ending does. */
 const keepOnce = (fileReads: FileReads, store: ReturnType<typeof memoryShellStore>) =>
-  createFileReadsKeeper({ fileReads, agent: 'main', store }).keep();
+  createFileReadsKeeper({ fileReads, agentId: agentIdFor('main'), store }).keep();
 
 describe('keeping and restoring an agent’s reads in shell.json', () => {
   it('gives a reopened conversation what the agent had read', async () => {
@@ -24,14 +31,20 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
 
     const after = new FileReads();
 
-    await restoreFileReads({ fileReads: after, agent: 'main-again', store });
+    await restoreFileReads({ fileReads: after, agentId: agentIdFor('main-again'), store });
 
     // A reopened session may have another id: what is kept is the agent's views, not its id.
-    expect(after.hasReadWhole({ agent: 'main-again', file: FILE })).toBe(true);
-    expect(after.forgetIfChanged({ agent: 'main-again', file: FILE, hash: hashText(TEXT) })).toBe(
-      false,
-    );
-    expect(after.forgetIfChanged({ agent: 'main-again', file: FILE, hash: 'h2' })).toBe(true);
+    expect(after.hasReadWhole({ agentId: agentIdFor('main-again'), file: FILE })).toBe(true);
+    expect(
+      after.forgetIfChanged({
+        agentId: agentIdFor('main-again'),
+        file: FILE,
+        hash: hashText(TEXT),
+      }),
+    ).toBe(false);
+    expect(
+      after.forgetIfChanged({ agentId: agentIdFor('main-again'), file: FILE, hash: 'h2' }),
+    ).toBe(true);
   });
 
   it('keeps the working root and anything else already in the document', async () => {
@@ -56,7 +69,7 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
       },
     };
     const reads = new FileReads();
-    const keeper = createFileReadsKeeper({ fileReads: reads, agent: 'main', store });
+    const keeper = createFileReadsKeeper({ fileReads: reads, agentId: agentIdFor('main'), store });
 
     await keeper.keep();
     expect(writes).toBe(0);
@@ -71,9 +84,13 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
     expect(writes).toBe(2);
 
     const restored = new FileReads();
-    const again = createFileReadsKeeper({ fileReads: restored, agent: 'main', store });
+    const again = createFileReadsKeeper({
+      fileReads: restored,
+      agentId: agentIdFor('main'),
+      store,
+    });
 
-    await restoreFileReads({ fileReads: restored, agent: 'main', store });
+    await restoreFileReads({ fileReads: restored, agentId: agentIdFor('main'), store });
     again.remember();
     await again.keep();
     expect(writes).toBe(2);
@@ -95,7 +112,7 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
       },
     };
     const reads = new FileReads();
-    const keeper = createFileReadsKeeper({ fileReads: reads, agent: 'main', store });
+    const keeper = createFileReadsKeeper({ fileReads: reads, agentId: agentIdFor('main'), store });
 
     reads.markRead(view);
 
@@ -135,14 +152,18 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
   it('restores nothing from a document with no reads', async () => {
     const reads = new FileReads();
 
-    await restoreFileReads({ fileReads: reads, agent: 'main', store: memoryShellStore() });
     await restoreFileReads({
       fileReads: reads,
-      agent: 'main',
+      agentId: agentIdFor('main'),
+      store: memoryShellStore(),
+    });
+    await restoreFileReads({
+      fileReads: reads,
+      agentId: agentIdFor('main'),
       store: memoryShellStore({ workingRoot: '/w/tree' }),
     });
 
-    expect(reads.hasRead({ agent: 'main', file: FILE })).toBe(false);
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: FILE })).toBe(false);
   });
 
   it.each([
@@ -165,9 +186,9 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
     const reads = new FileReads();
     const store = memoryShellStore({ fileReads: stored });
 
-    await expect(restoreFileReads({ fileReads: reads, agent: 'main', store })).rejects.toThrow(
-      'stored file reads are not valid',
-    );
-    expect(reads.hasRead({ agent: 'main', file: FILE })).toBe(false);
+    await expect(
+      restoreFileReads({ fileReads: reads, agentId: agentIdFor('main'), store }),
+    ).rejects.toThrow('stored file reads are not valid');
+    expect(reads.hasRead({ agentId: agentIdFor('main'), file: FILE })).toBe(false);
   });
 });

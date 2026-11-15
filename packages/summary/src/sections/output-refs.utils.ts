@@ -1,3 +1,4 @@
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { findOutputRefs } from '@sheavly/protocol/output/output.utils';
 import { mergeEntries } from './entries.utils.js';
 import { OUTPUT_REFS_MAX_CHARS, OUTPUT_REF_LABEL_CHARS } from './sections.constants.js';
@@ -14,7 +15,7 @@ export function outputRefsSection(options: { maxChars?: number } = {}): RuleSect
   const { maxChars = OUTPUT_REFS_MAX_CHARS } = options;
 
   return {
-    id: 'output-refs',
+    id: summarySectionIdSchema.parse('output-refs'),
     title: 'Stored command output (read with read_output, search with search_output)',
     write: ({ messages, previous }) => {
       const added = messages.flatMap((message) => {

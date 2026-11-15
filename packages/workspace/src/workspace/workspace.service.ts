@@ -6,6 +6,7 @@ import { openScratchDir, openScratchRoot } from '../scratch/scratch-root.helper.
 import { isInside } from './workspace.utils.js';
 import { findSiblingRoots } from './worktrees.helper.js';
 import type { Environment } from '@sheavly/core/environment/environment.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 
 /**
@@ -53,7 +54,7 @@ export class Workspace {
    * The scratch folder of one top-level agent, created on demand. `agentId` must be a single
    * path segment. Throws if the workspace has no scratch root.
    */
-  async scratchDir(agentId: string): Promise<string> {
+  async scratchDir(agentId: SessionId): Promise<string> {
     if (this.scratchRoot === undefined) {
       throw new WorkspaceError('This workspace has no scratch root');
     }

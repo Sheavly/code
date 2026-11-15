@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import {
   agentHistoryFile,
@@ -12,7 +13,9 @@ const ID = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
 
 describe('conversationFolder', () => {
   it('is the id inside the conversations folder', () => {
-    expect(conversationFolder({ conversations: ROOT, id: ID })).toBe(path.join(ROOT, ID));
+    expect(conversationFolder({ conversations: ROOT, id: conversationIdSchema.parse(ID) })).toBe(
+      path.join(ROOT, ID),
+    );
   });
 
   it.each([
@@ -25,7 +28,12 @@ describe('conversationFolder', () => {
     ['a name', 'work'],
     ['a glob', '*'],
   ])('refuses %s, before it is a path', (_label, id) => {
-    expect(() => conversationFolder({ conversations: ROOT, id })).toThrow(
+    // A brand can only be parsed, so a caller that skipped parsing is faked by calling untyped.
+    const folderOf = () => {
+      Reflect.apply(conversationFolder, undefined, [{ conversations: ROOT, id }]);
+    };
+
+    expect(folderOf).toThrow(
       expect.objectContaining({ name: 'StoreError', reason: 'failed' }) as Error,
     );
   });

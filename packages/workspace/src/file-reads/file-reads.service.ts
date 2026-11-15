@@ -1,3 +1,4 @@
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import {
   MAX_CHUNKS_PER_FILE,
   MAX_PERSISTED_CHARS,
@@ -23,7 +24,7 @@ import { hashText } from './file-reads.utils.js';
  */
 export class FileReads {
   /** What each agent was shown, by the file's real path, then by agent. */
-  readonly #seen = new Map<string, Map<string, FileView>>();
+  readonly #seen = new Map<string, Map<SessionId, FileView>>();
   /** When each view was last read, written or edited, so what is kept is what was touched last. */
   readonly #touched = new WeakMap<FileView, number>();
   /**
@@ -33,7 +34,7 @@ export class FileReads {
    * the same id (a reopen builds a new one), so the set is only ever added to and one id costs one
    * short string. `importAgent` runs once, on a new instance, and does not consult it.
    */
-  readonly #released = new Set<string>();
+  readonly #released = new Set<SessionId>();
   #clock = 0;
 
   /**
@@ -43,31 +44,31 @@ export class FileReads {
    * the pieces already kept replaces them, since they describe another version.
    */
   markRead(params: {
-    agent: string;
+    agentId: SessionId;
     file: string;
     text: string;
     whole: boolean;
     hash: string;
   }): void {
-    const { agent, file, text, whole, hash } = params;
+    const { agentId, file, text, whole, hash } = params;
 
-    if (this.#released.has(agent)) return;
+    if (this.#released.has(agentId)) return;
 
     const byAgent = this.agentsFor(file);
 
     if (whole) {
-      this.#keep({ byAgent, agent, view: { chunks: [text], whole: true, hash } });
+      this.#keep({ byAgent, agentId, view: { chunks: [text], whole: true, hash } });
 
       return;
     }
 
-    const earlier = byAgent.get(agent);
+    const earlier = byAgent.get(agentId);
     const seen = earlier?.hash === hash ? earlier : { chunks: [], whole: false, hash };
 
     seen.chunks.push(text);
     // Dropping the oldest never drops a whole-file read: that one is `chunks[0]` and stays.
     if (seen.chunks.length > MAX_CHUNKS_PER_FILE) seen.chunks.splice(seen.whole ? 1 : 0, 1);
-    this.#keep({ byAgent, agent, view: seen });
+    this.#keep({ byAgent, agentId, view: seen });
   }
 
   /**
@@ -75,32 +76,32 @@ export class FileReads {
    * `hashText` of the file's current text, read under its lock. Returns whether something was
    * forgotten, so a tool can say the file changed instead of saying it was never read.
    */
-  forgetIfChanged(params: { agent: string; file: string; hash: string }): boolean {
-    const { agent, file, hash } = params;
+  forgetIfChanged(params: { agentId: SessionId; file: string; hash: string }): boolean {
+    const { agentId, file, hash } = params;
     const byAgent = this.#seen.get(file);
 
-    if (!byAgent || byAgent.get(agent)?.hash === hash || !byAgent.has(agent)) return false;
+    if (!byAgent || byAgent.get(agentId)?.hash === hash || !byAgent.has(agentId)) return false;
 
-    byAgent.delete(agent);
+    byAgent.delete(agentId);
     if (byAgent.size === 0) this.#seen.delete(file);
 
     return true;
   }
 
   /** Whether `agent` was shown anything of `file`. */
-  hasRead(params: { agent: string; file: string }): boolean {
-    return this.#seen.get(params.file)?.has(params.agent) ?? false;
+  hasRead(params: { agentId: SessionId; file: string }): boolean {
+    return this.#seen.get(params.file)?.has(params.agentId) ?? false;
   }
 
-  /** Whether some read showed `agent` the whole of `file`. */
-  hasReadWhole(params: { agent: string; file: string }): boolean {
-    return this.#seen.get(params.file)?.get(params.agent)?.whole ?? false;
+  /** Whether some read showed `agentId` the whole of `file`. */
+  hasReadWhole(params: { agentId: SessionId; file: string }): boolean {
+    return this.#seen.get(params.file)?.get(params.agentId)?.whole ?? false;
   }
 
-  /** Whether `text` is inside one piece of `file` that `agent` was shown. */
-  hasSeen(params: { agent: string; file: string; text: string }): boolean {
+  /** Whether `text` is inside one piece of `file` that `agentId` was shown. */
+  hasSeen(params: { agentId: SessionId; file: string; text: string }): boolean {
     const { text } = params;
-    const seen = this.#seen.get(params.file)?.get(params.agent);
+    const seen = this.#seen.get(params.file)?.get(params.agentId);
 
     return seen?.chunks.some((chunk) => chunk.includes(text)) ?? false;
   }
@@ -112,7 +113,7 @@ export class FileReads {
    * left as they were: their hash no longer matches, so their next edit asks for a new read.
    */
   markEdited(params: {
-    agent: string;
+    agentId: SessionId;
     file: string;
     oldText: string;
     newText: string;
@@ -120,7 +121,7 @@ export class FileReads {
     hash: string;
   }): void {
     const { oldText, newText, replaceAll, hash } = params;
-    const seen = this.#seen.get(params.file)?.get(params.agent);
+    const seen = this.#seen.get(params.file)?.get(params.agentId);
 
     if (!seen) return;
 
@@ -144,10 +145,10 @@ export class FileReads {
    * What `agent` was shown, to keep with its conversation: the last `MAX_PERSISTED_FILES` files it
    * read, copied so later reads do not change it. `importAgent` is its counterpart.
    */
-  exportAgent(params: { agent: string }): FileViews {
+  exportAgent(params: { agentId: SessionId }): FileViews {
     const own = [...this.#seen]
       .flatMap(([file, byAgent]) => {
-        const seen = byAgent.get(params.agent);
+        const seen = byAgent.get(params.agentId);
 
         return seen ? [{ file, seen, at: this.#touched.get(seen) ?? 0 }] : [];
       })
@@ -181,23 +182,23 @@ export class FileReads {
    * text does not hash to its own hash is damaged or forged and is left out; a partial view cannot
    * be checked this way, since it holds only pieces of the file.
    */
-  importAgent(params: { agent: string; views: FileViews }): void {
+  importAgent(params: { agentId: SessionId; views: FileViews }): void {
     for (const [file, view] of Object.entries(params.views)) {
       if (view.whole && hashText(view.chunks[0] ?? '') !== view.hash) continue;
 
       this.#keep({
         byAgent: this.agentsFor(file),
-        agent: params.agent,
+        agentId: params.agentId,
         view: { chunks: [...view.chunks], whole: view.whole, hash: view.hash },
       });
     }
   }
 
   /** Stores `view` for `agent` and notes it was just touched. */
-  #keep(params: { byAgent: Map<string, FileView>; agent: string; view: FileView }): void {
-    const { byAgent, agent, view } = params;
+  #keep(params: { byAgent: Map<SessionId, FileView>; agentId: SessionId; view: FileView }): void {
+    const { byAgent, agentId, view } = params;
 
-    byAgent.set(agent, view);
+    byAgent.set(agentId, view);
     this.#touched.set(view, (this.#clock += 1));
   }
 
@@ -205,17 +206,17 @@ export class FileReads {
    * Forgets what one agent was shown, when its session is released, and ignores any read it
    * records afterwards (a tool call still running at that moment).
    */
-  forgetAgent(params: { agent: string }): void {
-    this.#released.add(params.agent);
+  forgetAgent(params: { agentId: SessionId }): void {
+    this.#released.add(params.agentId);
 
     for (const [file, byAgent] of this.#seen) {
-      byAgent.delete(params.agent);
+      byAgent.delete(params.agentId);
       if (byAgent.size === 0) this.#seen.delete(file);
     }
   }
 
-  private agentsFor(file: string): Map<string, FileView> {
-    const byAgent = this.#seen.get(file) ?? new Map<string, FileView>();
+  private agentsFor(file: string): Map<SessionId, FileView> {
+    const byAgent = this.#seen.get(file) ?? new Map<SessionId, FileView>();
 
     this.#seen.set(file, byAgent);
 

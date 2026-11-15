@@ -93,23 +93,23 @@ describe('unsafeNameReason: what a store may call a file or folder', () => {
     ['an id with .json', { extension: '.json' }],
     ['an id with .jsonl', { extension: '.jsonl' }],
   ])('allows %s', (_label, overrides) => {
-    expect(unsafeNameReason({ id: ID, ...overrides })).toBeUndefined();
+    expect(unsafeNameReason({ name: ID, ...overrides })).toBeUndefined();
   });
 
   it.each([
-    ['an empty id', { id: '' }],
-    ['a name that is not an id', { id: 'work' }],
-    ['an id in capitals', { id: ID.toUpperCase() }],
-    ['an id with a path in front', { id: `../${ID}` }],
-    ['an id with a path behind', { id: `${ID}/../..` }],
-    ['an id with a separator in it', { id: `${ID}${path.sep}x` }],
-    ['a parent folder as the id', { id: '..' }],
-    ['a glob', { id: '*' }],
-    ['an extension that is a path', { id: ID, extension: '/../x' }],
-    ['an extension with no dot', { id: ID, extension: 'json' }],
-    ['an extension with two dots', { id: ID, extension: '..json' }],
-    ['an extension that is long', { id: ID, extension: '.abcdefghijk' }],
-    ['an extension in capitals', { id: ID, extension: '.JSON' }],
+    ['an empty id', { name: '' }],
+    ['a name that is not an id', { name: 'work' }],
+    ['an id in capitals', { name: ID.toUpperCase() }],
+    ['an id with a path in front', { name: `../${ID}` }],
+    ['an id with a path behind', { name: `${ID}/../..` }],
+    ['an id with a separator in it', { name: `${ID}${path.sep}x` }],
+    ['a parent folder as the id', { name: '..' }],
+    ['a glob', { name: '*' }],
+    ['an extension that is a path', { name: ID, extension: '/../x' }],
+    ['an extension with no dot', { name: ID, extension: 'json' }],
+    ['an extension with two dots', { name: ID, extension: '..json' }],
+    ['an extension that is long', { name: ID, extension: '.abcdefghijk' }],
+    ['an extension in capitals', { name: ID, extension: '.JSON' }],
   ])('refuses %s', (_label, params) => {
     expect(unsafeNameReason(params)).toEqual(expect.any(String));
   });

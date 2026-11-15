@@ -77,7 +77,7 @@ async function writeFile(params: {
       }
 
       fileReads.markRead({
-        agent: agentOf(context),
+        agentId: agentOf(context),
         file: real,
         text: content,
         whole: true,

@@ -1,5 +1,6 @@
 import { lstat, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { WorkspaceError } from '../errors/workspace.errors.js';
 import { GROUP_OR_WORLD_WRITE, SCRATCH_MODE } from './scratch.constants.js';
 
@@ -57,7 +58,10 @@ export async function openScratchRoot(scratchRoot: string): Promise<string> {
 }
 
 /** Creates one agent's folder in the scratch `root` if needed; it must pass the same check. */
-export async function openScratchDir(params: { root: string; agentId: string }): Promise<string> {
+export async function openScratchDir(params: {
+  root: string;
+  agentId: SessionId;
+}): Promise<string> {
   const { root, agentId } = params;
   const dir = path.join(root, agentId);
 

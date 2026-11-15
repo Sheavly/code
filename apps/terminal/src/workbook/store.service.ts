@@ -191,21 +191,21 @@ export class WorkbookStore {
     return (await listIfThere(this.runsDir)).sort().map((id) => runIdSchema.parse(id));
   }
 
-  async meta(id: string): Promise<RunMeta> {
+  async meta(id: RunId): Promise<RunMeta> {
     const file = this.#paths(id).meta;
 
     return parseStored({ file, raw: await readStored(file), schema: runMetaSchema });
   }
 
   /** The run's result, or undefined if it never finished (crashed or still running). */
-  async result(id: string): Promise<RunResult | undefined> {
+  async result(id: RunId): Promise<RunResult | undefined> {
     const file = this.#paths(id).result;
     const raw = await readIfThere(file);
 
     return raw === undefined ? undefined : parseStored({ file, raw, schema: runResultSchema });
   }
 
-  async events(id: string): Promise<EntryEvent[]> {
+  async events(id: RunId): Promise<EntryEvent[]> {
     const file = this.#paths(id).events;
     const raw = (await readIfThere(file)) ?? ''; // none recorded yet
 
@@ -218,7 +218,7 @@ export class WorkbookStore {
   }
 
   /** The main session's last reply, from the saved conversation; empty for an unfinished run. */
-  async answer(id: string): Promise<string> {
+  async answer(id: RunId): Promise<string> {
     const file = this.#paths(id).messages;
     const raw = await readIfThere(file);
 
@@ -228,7 +228,7 @@ export class WorkbookStore {
   }
 
   /** The run's final conversation, to continue from. */
-  async messages(id: string): Promise<HistoryMessage[]> {
+  async messages(id: RunId): Promise<HistoryMessage[]> {
     const file = this.#paths(id).messages;
     const raw = await readIfThere(file);
 
@@ -242,11 +242,11 @@ export class WorkbookStore {
     return parseStored({ file, raw, schema: savedMessagesSchema });
   }
 
-  paths(id: string): RunPaths {
+  paths(id: RunId): RunPaths {
     return this.#paths(id);
   }
 
-  #paths(id: string): RunPaths {
+  #paths(id: RunId): RunPaths {
     return runPaths({ runsDir: this.runsDir, id });
   }
 

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { WorkspaceError } from '../../errors/workspace.errors.js';
+import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { Workspace } from '../workspace.service.js';
 import {
   expectReachable,
@@ -60,7 +61,7 @@ describe('Workspace.inScratch', () => {
   it('is true only inside the scratch root, never in a worktree', async () => {
     const scratchRoot = path.join(repo.base, 'scratch');
     const workspace = await Workspace.open(repo.main, { env: process.env, scratchRoot });
-    const dir = await workspace.scratchDir('agent-1');
+    const dir = await workspace.scratchDir(agentIdFor('agent-1'));
 
     expect(workspace.inScratch(dir)).toBe(true);
     expect(workspace.inScratch(repo.worktree)).toBe(false);

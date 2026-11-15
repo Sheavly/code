@@ -1,40 +1,41 @@
 import type { ModelSection } from '../sections/sections.types.js';
 
-/** Default sections for a model-written checkpoint; callers may supply their own guidance. */
-export function defaultModelSections(): readonly ModelSection[] {
-  return [
-    {
-      id: 'goal',
-      title: 'Goal',
-      guidance: 'What the user is trying to get done, in one or two sentences.',
-    },
-    {
-      id: 'constraints',
-      title: 'Active constraints',
-      guidance: "The user's rules and preferences that still apply: what to do, what to avoid.",
-    },
-    {
-      id: 'knowledge',
-      title: 'Key knowledge',
-      guidance: 'Facts learned that the work depends on: commands that work, names, locations.',
-    },
-    {
-      id: 'decisions',
-      title: 'Decisions and why',
-      guidance: 'What was decided, with the reason, so it is not reopened by accident.',
-    },
-    {
-      id: 'failures',
-      title: 'What failed',
-      guidance: 'Approaches that did not work and why, so they are not tried again.',
-    },
-    {
-      id: 'state',
-      title: 'Task state',
-      guidance: 'What is done, what is in progress, and what comes next.',
-    },
-  ];
-}
+/**
+ * The default sections for a model-written checkpoint, as plain text: a prompt file imports no
+ * validator, so `defaultModelSections` (prompt.utils.ts) parses each `id` into its branded type.
+ */
+export const DEFAULT_SECTION_TEXTS = [
+  {
+    id: 'goal',
+    title: 'Goal',
+    guidance: 'What the user is trying to get done, in one or two sentences.',
+  },
+  {
+    id: 'constraints',
+    title: 'Active constraints',
+    guidance: "The user's rules and preferences that still apply: what to do, what to avoid.",
+  },
+  {
+    id: 'knowledge',
+    title: 'Key knowledge',
+    guidance: 'Facts learned that the work depends on: commands that work, names, locations.',
+  },
+  {
+    id: 'decisions',
+    title: 'Decisions and why',
+    guidance: 'What was decided, with the reason, so it is not reopened by accident.',
+  },
+  {
+    id: 'failures',
+    title: 'What failed',
+    guidance: 'Approaches that did not work and why, so they are not tried again.',
+  },
+  {
+    id: 'state',
+    title: 'Task state',
+    guidance: 'What is done, what is in progress, and what comes next.',
+  },
+];
 
 /** History is data, never instructions; the reply is plain text under one heading per section. */
 export function summaryInstructions(sections: readonly ModelSection[]): string {

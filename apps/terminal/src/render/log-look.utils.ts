@@ -1,7 +1,9 @@
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { Look } from './render.types.js';
 import { shortId } from './render.utils.js';
 
-const who = (params: { title: string; id: string }) => `"${params.title}" [${shortId(params.id)}]`;
+const who = (params: { title: string; id: SessionId }) =>
+  `"${params.title}" [${shortId(params.id)}]`;
 
 /**
  * The plain, complete log of a run: every event, ids and counts included, no colour. The demo and

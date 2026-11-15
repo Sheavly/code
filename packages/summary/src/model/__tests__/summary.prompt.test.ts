@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
-import { renderPreviousSummary, renderSpan } from '../prompt.utils.js';
-import { defaultModelSections, summaryInstructions, summaryRequest } from '../summary.prompt.js';
+import { defaultModelSections, renderPreviousSummary, renderSpan } from '../prompt.utils.js';
+import { summaryInstructions, summaryRequest } from '../summary.prompt.js';
 
 const redact = (text: string) => text.replaceAll('hunter2', '[REDACTED]');
 

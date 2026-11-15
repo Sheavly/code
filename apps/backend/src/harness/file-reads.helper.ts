@@ -1,3 +1,4 @@
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import {
@@ -16,12 +17,12 @@ import type { WorkingRootStore } from '@sheavly/workspace/working-root/working-r
 export async function keepReadsWithConversation(params: {
   fileReads: FileReads;
   sessions: SessionRegistry;
-  agent: string;
+  agentId: SessionId;
   store: WorkingRootStore;
   onProblem?: (caughtError: unknown) => void;
 }): Promise<void> {
-  const { fileReads, sessions, agent, store, onProblem = () => undefined } = params;
-  const keeper = createFileReadsKeeper({ fileReads, agent, store });
+  const { fileReads, sessions, agentId, store, onProblem = () => undefined } = params;
+  const keeper = createFileReadsKeeper({ fileReads, agentId, store });
   // A callback that throws must not become an unhandled rejection of its own.
   const report = (caughtError: unknown) => {
     try {
@@ -35,7 +36,7 @@ export async function keepReadsWithConversation(params: {
   };
 
   try {
-    await restoreFileReads({ fileReads, agent, store });
+    await restoreFileReads({ fileReads, agentId, store });
   } catch (caughtError) {
     report(caughtError);
   }
@@ -44,7 +45,7 @@ export async function keepReadsWithConversation(params: {
   keeper.remember();
 
   sessions.subscribe((update) => {
-    if (update.type !== 'session_idle' || update.session.id !== agent) return;
+    if (update.type !== 'session_idle' || update.session.id !== agentId) return;
 
     keeper.keep().catch(report);
   });

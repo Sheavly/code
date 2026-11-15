@@ -220,7 +220,13 @@ describe('ReactView', () => {
       model: 'Fast',
       mode: 'ask',
       tasks: 0,
-      tools: [{ id: '1', description: 'Run the tests', startedAt: now() - params.ago }],
+      tools: [
+        {
+          id: callIdSchema.parse('1'),
+          description: 'Run the tests',
+          startedAt: now() - params.ago,
+        },
+      ],
     });
     view.start();
 
@@ -276,7 +282,7 @@ describe('ReactView', () => {
     try {
       screen.setStatus({
         state: 'working',
-        tools: [{ id: '1', description: 'Run the tests', startedAt: now() }],
+        tools: [{ id: callIdSchema.parse('1'), description: 'Run the tests', startedAt: now() }],
       });
       await pause(150);
       expect(stripVTControlCharacters(output)).toContain('⏺ Run the tests 0s');

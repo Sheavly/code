@@ -64,7 +64,7 @@ export async function createBackendHarness(
   await keepReadsWithConversation({
     fileReads,
     sessions,
-    agent: harness.mainSession.id,
+    agentId: harness.mainSession.id,
     store: shell,
     ...(onFileReadsProblem && { onProblem: onFileReadsProblem }),
   });

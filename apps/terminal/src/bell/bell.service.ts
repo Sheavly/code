@@ -1,4 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
+import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RunningTool, Write } from '../render/render.types.js';
 import { APPROVAL_SETTLE_MS, LONG_TOOL_MS } from './bell.constants.js';
 
@@ -7,7 +8,7 @@ export class TerminalBell {
   readonly #enabled: boolean;
   readonly #write: Write;
   readonly #approvals = new Map<string, ReturnType<typeof setTimeout> | undefined>();
-  readonly #tools = new Map<string, ReturnType<typeof setTimeout> | undefined>();
+  readonly #tools = new Map<CallId, ReturnType<typeof setTimeout> | undefined>();
   #active = false;
   #stopped = false;
 

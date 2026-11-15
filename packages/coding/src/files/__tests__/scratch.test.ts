@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createReadFileTool } from '../../read-file/read-file.tool.js';
@@ -51,7 +51,7 @@ const call = (name: 'read_file' | 'write_file' | 'edit_file', input: Record<stri
 
 describe('file tools and the scratch folder', () => {
   it('writes, reads and edits a file in scratch', async () => {
-    const file = path.join(await workspace.scratchDir('agent-a'), 'note.md');
+    const file = path.join(await workspace.scratchDir(agentIdFor('agent-a')), 'note.md');
 
     expect((await call('write_file', { path: file, content: 'one\n' })).isError).toBeFalsy();
     expect((await call('read_file', { path: file })).isError).toBeFalsy();
@@ -62,7 +62,7 @@ describe('file tools and the scratch folder', () => {
   });
 
   it('reads a file another agent folder holds', async () => {
-    const file = path.join(await workspace.scratchDir('agent-b'), 'handoff.md');
+    const file = path.join(await workspace.scratchDir(agentIdFor('agent-b')), 'handoff.md');
 
     await writeFile(file, 'for you\n');
     expect((await call('read_file', { path: file })).isError).toBeFalsy();
@@ -82,7 +82,7 @@ describe('file tools and the scratch folder', () => {
     const inGit = await Workspace.open(path.join(base, 'workspace'), {
       scratchRoot: path.join(gitParent, 'scratch'),
     });
-    const file = path.join(await inGit.scratchDir('agent-g'), 'note.md');
+    const file = path.join(await inGit.scratchDir(agentIdFor('agent-g')), 'note.md');
     const tool = createWriteFileTool({
       workspace: inGit,
       fileLocks: fileLocks.current,
@@ -120,7 +120,7 @@ describe('file tools and the scratch folder', () => {
   });
 
   it('still refuses .env files in scratch', async () => {
-    const file = path.join(await workspace.scratchDir('agent-a'), '.env');
+    const file = path.join(await workspace.scratchDir(agentIdFor('agent-a')), '.env');
 
     await writeFile(file, 'SECRET=1\n');
     expect((await call('read_file', { path: file })).isError).toBe(true);
