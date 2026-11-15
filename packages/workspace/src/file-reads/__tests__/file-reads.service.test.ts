@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_CHUNKS_PER_FILE, MAX_PERSISTED_FILES } from '../file-reads.constants.js';
+import {
+  MAX_CHUNKS_PER_FILE,
+  MAX_PERSISTED_CHARS,
+  MAX_PERSISTED_FILES,
+} from '../file-reads.constants.js';
+import { hashText } from '../file-reads.utils.js';
 import { FileReads } from '../file-reads.service.js';
 
 const MAIN = { agent: 'main', file: '/w/a.ts' };
@@ -199,6 +204,41 @@ describe('FileReads', () => {
 
     expect(reads.hasSeen({ ...MAIN, text: 'old top' })).toBe(false);
     expect(reads.hasSeen({ ...MAIN, text: 'new bottom' })).toBe(true);
+  });
+
+  it('leaves out a restored whole-file view whose text does not hash to its hash', () => {
+    const reads = new FileReads();
+
+    reads.importAgent({
+      agent: 'main',
+      views: {
+        '/w/forged.ts': { chunks: ['text the file never had'], whole: true, hash: hashText('x') },
+        '/w/honest.ts': { chunks: ['real\n'], whole: true, hash: hashText('real\n') },
+        // A partial view holds only pieces, so its hash cannot be checked against them.
+        '/w/part.ts': { chunks: ['one piece'], whole: false, hash: 'whole-file-hash' },
+      },
+    });
+
+    expect(reads.hasRead({ agent: 'main', file: '/w/forged.ts' })).toBe(false);
+    expect(reads.hasRead({ agent: 'main', file: '/w/honest.ts' })).toBe(true);
+    expect(reads.hasRead({ agent: 'main', file: '/w/part.ts' })).toBe(true);
+  });
+
+  it('skips a view too big for the characters left, and still keeps smaller older ones', () => {
+    const reads = new FileReads();
+    const big = 'x'.repeat(MAX_PERSISTED_CHARS - 10);
+
+    read(reads, 'small\n', true, { agent: 'main', file: '/w/old-small.ts' });
+    read(reads, big, true, { agent: 'main', file: '/w/big.ts' });
+    read(reads, 'tiny\n', true, { agent: 'main', file: '/w/newest.ts' });
+    read(reads, big, true, { agent: 'main', file: '/w/huge-newest.ts' });
+
+    const kept = Object.keys(reads.exportAgent({ agent: 'main' }));
+
+    // The newest view fits alone; what is skipped is whole, never cut.
+    expect(kept).toContain('/w/huge-newest.ts');
+    expect(kept).not.toContain('/w/big.ts');
+    expect(kept).not.toContain('/w/old-small.ts');
   });
 
   it('exports one agent’s views and gives them to another instance, hash and pieces intact', () => {

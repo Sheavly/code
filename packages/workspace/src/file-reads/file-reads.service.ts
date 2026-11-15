@@ -4,6 +4,7 @@ import {
   MAX_PERSISTED_FILES,
 } from './file-reads.constants.js';
 import type { FileView, FileViews } from './file-reads.types.js';
+import { hashText } from './file-reads.utils.js';
 
 /**
  * What each agent has been shown of each file, so a tool that changes a file can refuse text the
@@ -165,10 +166,14 @@ export class FileReads {
   /**
    * Gives `agent` the views a reopened conversation kept. They are not trusted to still hold: each
    * carries the hash of the file when it was read, so the next edit or delete compares it with the
-   * file now and asks for a new read if the file changed in the meantime.
+   * file now and asks for a new read if the file changed in the meantime. A whole-file view whose
+   * text does not hash to its own hash is damaged or forged and is left out; a partial view cannot
+   * be checked this way, since it holds only pieces of the file.
    */
   importAgent(params: { agent: string; views: FileViews }): void {
     for (const [file, view] of Object.entries(params.views)) {
+      if (view.whole && hashText(view.chunks[0] ?? '') !== view.hash) continue;
+
       this.#keep({
         byAgent: this.agentsFor(file),
         agent: params.agent,

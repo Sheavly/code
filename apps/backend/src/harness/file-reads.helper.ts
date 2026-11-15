@@ -27,7 +27,10 @@ export async function keepReadsWithConversation(params: {
     try {
       onProblem(caughtError);
     } catch (caughtError_) {
-      process.emitWarning(`Reporting a file reads problem failed: ${String(caughtError_)}`);
+      // Only the kind of failure: its message could quote a stored document, which holds file text.
+      const kind = caughtError_ instanceof Error ? caughtError_.name : 'unknown';
+
+      process.emitWarning(`Reporting a file reads problem failed (${kind}).`);
     }
   };
 

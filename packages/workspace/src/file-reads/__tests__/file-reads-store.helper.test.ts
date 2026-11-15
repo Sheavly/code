@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { memoryShellStore } from '../../working-root/memory-shell.helper.js';
 import { MAX_PERSISTED_FILES } from '../file-reads.constants.js';
 import { FileReads } from '../file-reads.service.js';
+import { hashText } from '../file-reads.utils.js';
 import { createFileReadsKeeper, restoreFileReads } from '../file-reads-store.helper.js';
 
 const FILE = '/w/a.ts';
-const view = { agent: 'main', file: FILE, text: 'const a = 1;\n', whole: true, hash: 'h1' };
+const TEXT = 'const a = 1;\n';
+// A whole-file view restores only when its text hashes to its hash, so the fixture is honest.
+const view = { agent: 'main', file: FILE, text: TEXT, whole: true, hash: hashText(TEXT) };
 
 /** Keeps `fileReads`' main agent in `store`, as a prompt ending does. */
 const keepOnce = (fileReads: FileReads, store: ReturnType<typeof memoryShellStore>) =>
@@ -25,7 +28,9 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
 
     // A reopened session may have another id: what is kept is the agent's views, not its id.
     expect(after.hasReadWhole({ agent: 'main-again', file: FILE })).toBe(true);
-    expect(after.forgetIfChanged({ agent: 'main-again', file: FILE, hash: 'h1' })).toBe(false);
+    expect(after.forgetIfChanged({ agent: 'main-again', file: FILE, hash: hashText(TEXT) })).toBe(
+      false,
+    );
     expect(after.forgetIfChanged({ agent: 'main-again', file: FILE, hash: 'h2' })).toBe(true);
   });
 

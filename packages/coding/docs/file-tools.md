@@ -68,15 +68,23 @@ must read for themselves, and a symlink and its target are one file.
 
 **Reads survive a reopen.** The backend keeps the main agent's reads (the pieces it was shown and
 each file's hash) in the conversation's `shell.json` when a prompt ends, and restores them when the
-conversation is reopened. `shell.json` therefore holds file text, private like the rest of the
-conversation store and already present in its history as tool results. What is kept is bounded:
-the 200 files touched last and at most 2,000,000 characters of text in all (a view that does not fit
-is left out, so that file is read again), and a stored document over those bounds is refused on
-restore. A prompt that read nothing new writes nothing, and saves never overlap. They are not trusted to still hold: the
-hash is compared with the file as it is then, so a file that changed while the conversation was
-closed asks for a new read, and one that did not change costs none. Sub-agents are not kept: a
-running one comes back interrupted. Stored reads that are not valid are reported and ignored, and
-the run starts with nothing read; a failed save is reported and the run goes on.
+conversation is reopened. `shell.json` therefore holds file text, untruncated, for as long as the
+conversation's folder exists (it goes when the conversation is deleted); the same text is already in
+the stored history as tool results, but history can be summarized and `shell.json` keeps the raw
+pieces. It is written private, like the rest of the conversation store. What is kept is bounded:
+the 200 files touched last and at most 2,000,000 characters of text in all (a view that does not
+fit is left out, so that file is read again), and a stored document over those bounds is refused on
+restore; the bounds are checked after the document is parsed, so refusal is all or nothing.
+
+A prompt that read nothing new writes nothing, and saves never overlap. Reads are saved when the
+main session goes idle, so a prompt cut short by a crash loses the reads since the last idle.
+
+Restored reads are not trusted to still hold. The hash is compared with the file as it is then, so
+a file that changed while the conversation was closed asks for a new read, and one that did not
+change costs none. A whole-file view whose text does not hash to its own hash is left out on
+restore; a partial view holds only pieces, so it cannot be checked that way. Sub-agents are not
+kept: a running one comes back interrupted. Stored reads that are not valid are reported and
+ignored, and the run starts with nothing read; a failed save is reported and the run goes on.
 
 Tool calls in a turn run in parallel, so `read_file`, `write_file`, `edit_file` and `delete_file` share a
 per-file lock (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the
