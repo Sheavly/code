@@ -180,6 +180,12 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   - `harness/guard-env-read`: a `resolveRead(requested)` call has `assertNotEnvFile` on the
     requested path before it and on the path it returns after it, as statements of their own in the
     same function, since a symlink can point at a `.env` file.
+  - `harness/guard-file-tool-resolve` (coding `*.tool.ts` files): a tool never touches the
+    workspace's `resolveRead`, `resolveWrite` or `resolveDelete` (a call, an alias, `.call`, a
+    destructured property, an import or a re-export of one); it asks the guard in
+    `packages/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
+    `resolveSearchRoot`. It cannot see a computed key that is not a literal or a resolver reached
+    through a helper that is not the guard; `harness/guard-working-root` and review carry those.
   - `harness/guard-search-root`: a `runRipgrep` call has `resolveSearchRoot` earlier in the same
     function, as a statement of its own, because ripgrep applies its `.env` and `.git` excludes to
     what it walks and never to a root path it is given.

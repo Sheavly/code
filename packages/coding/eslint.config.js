@@ -18,6 +18,12 @@ export default defineConfig([
       'harness/guard-working-root': 'error',
     },
   },
+  // A tool file asks the guard in `files/files.helper.ts` for a path; it never resolves one itself.
+  {
+    files: ['src/**/*.tool.ts'],
+    ignores: ['src/**/__tests__/**'],
+    rules: { 'harness/guard-file-tool-resolve': 'error' },
+  },
   // The agent's file tools write a project through the filesystem effects in this one helper,
   // which `Workspace` has confined; the user's own data is `@sheavly/storage`'s
   // (`harness/no-direct-file-writes`). A tool calls it rather than importing `node:fs` itself.

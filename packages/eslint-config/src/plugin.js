@@ -4,6 +4,7 @@ import { fileKind } from './rules/file-kind.js';
 import { brandedIds } from './rules/branded-ids.js';
 import { guardEnvRead } from './rules/guard-env-read.js';
 import { guardEnvWrite } from './rules/guard-env-write.js';
+import { guardFileToolResolve } from './rules/guard-file-tool-resolve.js';
 import { guardSearchRoot } from './rules/guard-search-root.js';
 import { guardWorkingRoot } from './rules/guard-working-root.js';
 import { importsRule } from './rules/imports.js';
@@ -40,6 +41,7 @@ const RULES = {
   'file-kind': fileKind,
   'guard-env-read': guardEnvRead,
   'guard-env-write': guardEnvWrite,
+  'guard-file-tool-resolve': guardFileToolResolve,
   'guard-search-root': guardSearchRoot,
   'guard-working-root': guardWorkingRoot,
   imports: importsRule,
