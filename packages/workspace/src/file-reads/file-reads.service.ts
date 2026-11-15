@@ -95,6 +95,22 @@ export class FileReads {
     this.#seen.delete(params.file);
   }
 
+  /**
+   * Forgets everything every agent was shown, for a change this service cannot see: a command may
+   * have rewritten or removed any file, so each edit must be preceded by a new read.
+   */
+  markAllUnknown(): void {
+    this.#seen.clear();
+  }
+
+  /** Forgets what one agent was shown, when its session ends. */
+  forgetAgent(params: { agent: string }): void {
+    for (const [file, byAgent] of this.#seen) {
+      byAgent.delete(params.agent);
+      if (byAgent.size === 0) this.#seen.delete(file);
+    }
+  }
+
   private agentsFor(file: string): Map<string, Seen> {
     const byAgent = this.#seen.get(file) ?? new Map<string, Seen>();
 

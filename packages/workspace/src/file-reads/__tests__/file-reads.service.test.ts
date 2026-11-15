@@ -140,6 +140,32 @@ describe('FileReads', () => {
     expect(reads.hasSeen({ ...MAIN, text: `piece ${String(MAX_CHUNKS_PER_FILE + 4)}` })).toBe(true);
   });
 
+  it('forgets every read of every agent once a change it cannot see may have happened', () => {
+    const reads = new FileReads();
+    const other = { agent: 'other', file: '/w/b.ts' };
+
+    read(reads, 'one\n', true);
+    read(reads, 'two\n', true, other);
+
+    reads.markAllUnknown();
+
+    expect(reads.hasRead(MAIN)).toBe(false);
+    expect(reads.hasRead(other)).toBe(false);
+  });
+
+  it('forgets one agent when its session ends, and keeps the others', () => {
+    const reads = new FileReads();
+    const other = { agent: 'other', file: '/w/a.ts' };
+
+    read(reads, 'one\n', true);
+    read(reads, 'one\n', true, other);
+
+    reads.forgetAgent({ agent: 'main' });
+
+    expect(reads.hasRead(MAIN)).toBe(false);
+    expect(reads.hasRead(other)).toBe(true);
+  });
+
   it('forgets the oldest piece of a file never read whole', () => {
     const reads = new FileReads();
 
