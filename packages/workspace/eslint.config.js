@@ -10,6 +10,25 @@ export default defineConfig([
     files: ['src/scratch/scratch-root.helper.ts', 'src/scratch/scratch.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // The confined reader opens a file with `fs.open` to read through the open handle, which is what
+  // closes the race between checking a path and reading it. The flags are `O_RDONLY`: it writes
+  // nothing, and `open` is on the file-writes rule's list only because it can write.
+  {
+    files: ['src/instruction-context/confined-read.helper.ts'],
+    rules: { 'harness/no-direct-file-writes': 'off' },
+  },
+  // The one caller of `appendInstructionContext`: the factory every instruction source goes through.
+  {
+    files: ['src/instruction-context/instruction-source.helper.ts'],
+    rules: { 'harness/no-direct-instruction-context': 'off' },
+  },
+  // The skills source reads folders fixed when the harness is built (the project's and the user's
+  // skills folders), never one the agent chooses, and each SKILL.md is resolved through its own
+  // folder as a `Workspace`, which refuses a link out of it.
+  {
+    files: ['src/skills/skills.helper.ts'],
+    rules: { 'harness/no-raw-fs-in-instruction-source': 'off' },
+  },
   // Looks through the messages a `beforeTurn` hook is handed (a model view) for the context it
   // added earlier, matched by its text; it is not looking for the request in stored history.
   {

@@ -120,6 +120,21 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `isMainSession` (`@sheavly/protocol/session/session.utils`); how the main run ended is asked of
   `runEnd` (`@sheavly/protocol/status/run-end.utils`). It sees only a comparison of a `.depth`
   member with the literal 1, so a depth copied into a variable first is left to review.
+- **Instruction context** (`harness/no-direct-instruction-context`, source files): no import of
+  `instruction-context.helper` (`appendInstructionContext`). An instruction source is an
+  `InstructionSource` built with `createInstructionHook`, which resolves the working root each turn
+  and owns the dedup; its own file is the one `files:` exception, in the workspace's
+  eslint.config.js. It matches the import, so a copy of the helper's text written by hand is left
+  to review.
+- **Instruction source reads** (`harness/no-raw-fs-in-instruction-source`, source files): a file
+  that imports the instruction factory or its types (`instruction-source.helper`/`.types`) does not
+  import `node:fs` or `node:fs/promises`. An instruction source's folder can be the agent's choice
+  (a working root), so its reads go through `readConfinedFile`
+  (`packages/workspace/src/instruction-context/confined-read.helper.ts`): real path inside the boundary, never `.env*`,
+  no link swapped after the check. The skills source is the one `files:` exception, since it reads
+  folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
+  `harness/no-direct-instruction-context` are on and off. A source that reads through a helper
+  that itself uses `node:fs` is not seen: the rule looks at the source file's own imports.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

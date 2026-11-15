@@ -36,6 +36,12 @@ const CREDENTIALS_PATH = '/(^|[\\\\\\u002F])credentials\\.json$/i';
 const KEY_HOLDER_MODULES =
   '/^@sheavly\\u002Fstorage\\u002F(credential-store|profile-registry)\\u002F/';
 
+/** The helper that appends instruction context, by path or package subpath, `.js` or not. */
+const INSTRUCTION_CONTEXT_MODULE = '/(^|\\u002F)instruction-context\\.helper(\\.js)?$/';
+
+/** The factory and its types: importing either makes a file an instruction source. */
+const INSTRUCTION_SOURCE_MODULE = '/(^|\\u002F)instruction-source\\.(helper|types)(\\.js)?$/';
+
 export const SYNTAX_RULES = {
   'no-default-export': [
     {
@@ -188,6 +194,29 @@ export const SYNTAX_RULES = {
         "BinaryExpression[operator=/^[!=]==?$/]:matches([left.type='MemberExpression'][left.property.name='depth'][right.value=1], [right.type='MemberExpression'][right.property.name='depth'][left.value=1])",
       message:
         "Do not tell the main session by `depth === 1`. Use `isMainSession(session)` (`@sheavly/protocol/session/session.utils`): only a sub-agent has a parent. To know how the main run ended, use `runEnd(entry)` (`@sheavly/protocol/status/run-end.utils`) instead of matching `done` or `session_idle` entries yourself. Code that truly reads depth (a sub-agent's nesting cap) compares it with `MAX_SESSION_DEPTH`, not 1.",
+    },
+  ],
+  // Instruction context reaches the history through `createInstructionHook`, which resolves the
+  // working root each turn and owns the dedup. A hook that calls `appendInstructionContext`
+  // itself is a fifth hand-rolled wrapper with its own idea of what it already sent. Only the
+  // factory's file (a `files:` override in the workspace's eslint.config.js) imports the helper.
+  'no-direct-instruction-context': [
+    {
+      selector: `:matches(ImportDeclaration, ImportExpression, ExportNamedDeclaration, ExportAllDeclaration)[source.value=${INSTRUCTION_CONTEXT_MODULE}]`,
+      message:
+        'Do not import or re-export `appendInstructionContext`. Add an instruction source: write `<name>Source(): InstructionSource` and build its hook with `createInstructionHook` (`@sheavly/workspace/instruction-context/instruction-source.helper`), registered with `registerInstructionHooks`. The factory resolves the working root per turn and owns the dedup, so a source keeps no state. See "An instruction source" in extending.md.',
+    },
+  ],
+  // An instruction source reads files whose folder the agent can choose (a working root), so a
+  // symlink there must not lead a foreign file or a `.env*` secret into the model's context. Such
+  // reads go through `readConfinedFile` (`instruction-context/confined-read.helper.ts`), which
+  // checks the real path and refuses to follow a swapped link. A file is an instruction source
+  // when it imports the factory or its types, so the scope follows the code, not a list of files.
+  'no-raw-fs-in-instruction-source': [
+    {
+      selector: `Program:has(ImportDeclaration[source.value=${INSTRUCTION_SOURCE_MODULE}]) :matches(ImportDeclaration, ImportExpression, ExportNamedDeclaration, ExportAllDeclaration)[source.value=${FS_MODULES}]`,
+      message:
+        "An instruction source does not read files with `node:fs`: its folder can be chosen by the agent, and a symlink there could lead a foreign file or a `.env*` secret into the model's context. Read through `readConfinedFile` (`@sheavly/workspace/instruction-context/confined-read.helper`), which checks the real path against the source's boundary and verifies the open file (a regular file, one name, under a size cap, the file the path names). The rule looks only at the source file's own imports: a source that reads through a sibling helper that uses `node:fs` is left to review. A source that reads only its own trusted folders says why in a `files:` override in the workspace's eslint.config.js.",
     },
   ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
