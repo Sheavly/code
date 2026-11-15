@@ -265,6 +265,30 @@ describe('start_agent', () => {
     expect(log).toEqual(['parent-only', 'for-children', 'child saw: Child task | child rule']);
   });
 
+  it('starts a sub-agent from a task the parent wrote, never marked as the user’s', async () => {
+    let origin: unknown = 'not seen';
+    const seesTask = defineHook({
+      name: 'sees-task',
+      sessionStart: async ({ messages }) => {
+        origin = messages.find((m) => m.role === 'user' && m.content === 'Child task');
+      },
+    });
+    const { run } = setup({
+      hooks: [seesTask],
+      scripts: {
+        Main: [calls(call('m', 'start_agent', { title: 'Child', task: 'Child task' })), say('ok')],
+        'Child task': [say('done')],
+      },
+    });
+
+    await run('Main');
+
+    // The task has an id (the child's own work is asked for by it) but a hook that acts on what the
+    // user said, like the repo's issue registration, must not take it for that.
+    expect(origin).toHaveProperty('id');
+    expect(origin).not.toHaveProperty('origin');
+  });
+
   it('gives sub-agents the sub-agent rules as system instructions', async () => {
     let instructions = '';
     const { run } = setup({
