@@ -158,6 +158,13 @@ describe('buildContributions', () => {
     ]);
   });
 
+  it('makes no room without a summary option, and registers the threshold summary with one', () => {
+    expect(buildContributions(options(false)).room).toEqual([]);
+    expect(buildContributions(options(true)).room.map((item) => item.name)).toEqual([
+      'summarize-at-threshold',
+    ]);
+  });
+
   it('registers delivery in order: steering, finished work, failed hooks, then the hooks', () => {
     expect(buildContributions(options(false)).delivery.map((item) => item.name)).toEqual([
       'steering-messages',
@@ -190,6 +197,7 @@ describe('buildContributions', () => {
     const built = buildContributions(options(true));
 
     for (const item of [
+      ...built.room,
       ...built.delivery,
       ...built.view,
       ...built.overflow,

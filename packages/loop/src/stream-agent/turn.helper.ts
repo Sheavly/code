@@ -1,7 +1,6 @@
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
-import { summarizeAtThreshold } from '../summary/summarize.helper.js';
 import { viewWithoutCallReferences } from '../summary/summary.utils.js';
 import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
 import { HookError } from '../errors/loop.errors.js';
@@ -32,7 +31,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   // No summary could make room and the view fills the window: stop here, recoverably (the history
   // is untouched and valid), rather than send a call the provider is sure to reject.
-  const room = await summarizeAtThreshold(context);
+  const room = await makeRoom(context);
 
   // An abort during the summary ends the run as interrupted, whatever the view's size.
   if (signal.aborted) return 'interrupted';
@@ -122,6 +121,22 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   });
 
   return finishTurn({ context, stopReason, running, reply: message });
+}
+
+/** The first `room` contribution to answer decides; with none registered no room is made. */
+async function makeRoom(context: TurnContext): Promise<'full' | undefined> {
+  for (const contribution of context.contributions.room) {
+    const { value } = await runContribution({
+      contribution,
+      input: context,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    if (value) return value;
+  }
+
+  return undefined;
 }
 
 /** Runs the start-of-turn delivery steps in order, each seeing what the earlier ones recorded. */

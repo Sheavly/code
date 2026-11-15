@@ -1,4 +1,5 @@
-import { summarizeHistory } from '../summary/summarize.helper.js';
+import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
+import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
 import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import { orderContributions } from './contributions.helper.js';
@@ -10,6 +11,7 @@ import type {
   DeliveryInput,
   LimitInput,
   LimitOutcome,
+  OverflowInput,
   TurnContributions,
 } from './contributions.types.js';
 import type { AgentOptions } from './stream-agent.types.js';
@@ -124,11 +126,28 @@ const COMPLETION: Contribution<LimitInput, LimitOutcome | undefined>[] = [
  * with a `summary` option, since both trade on a checkpoint being possible.
  */
 export function buildContributions(options: AgentOptions): TurnContributions {
+  const { summary } = options;
+
   return {
+    room: orderContributions(
+      summary
+        ? [
+            {
+              name: 'summarize-at-threshold',
+              onFailure: 'fail-run' as const,
+              abort: 'wait' as const,
+              run: async (context) =>
+                (await summarizeAtThreshold({ context, config: summary })) === 'full'
+                  ? ('full' as const)
+                  : undefined,
+            },
+          ]
+        : [],
+    ),
     delivery: orderContributions(DELIVERY),
     completion: orderContributions(COMPLETION),
     view: orderContributions(
-      options.summary
+      summary
         ? [
             {
               name: 'mask-old-tool-output',
@@ -140,13 +159,13 @@ export function buildContributions(options: AgentOptions): TurnContributions {
         : [],
     ),
     overflow: orderContributions(
-      options.summary
+      summary
         ? [
             {
               name: 'summarize-on-overflow',
               onFailure: 'fail-run' as const,
               abort: 'wait' as const,
-              run: summarizeOnOverflow,
+              run: (input) => summarizeOnOverflow({ ...input, config: summary }),
             },
           ]
         : [],
@@ -190,12 +209,10 @@ export function buildContributions(options: AgentOptions): TurnContributions {
  * call that ends any other way re-arms it), so it cannot loop. True when a checkpoint was
  * appended: the turn drops the rejected reply and the next turn calls the model again.
  */
-async function summarizeOnOverflow(params: {
-  context: Parameters<typeof summarizeHistory>[0]['context'];
-  stopReason: string;
-  started: boolean;
-}): Promise<boolean> {
-  const { context, stopReason, started } = params;
+async function summarizeOnOverflow(
+  params: OverflowInput & { config: SummaryOptions },
+): Promise<boolean> {
+  const { context, config, stopReason, started } = params;
   const { summaryFailures } = context;
 
   if (stopReason !== 'context_window_exceeded') {
@@ -208,5 +225,5 @@ async function summarizeOnOverflow(params: {
 
   summaryFailures.overflowTried = true;
 
-  return summarizeHistory({ context, reason: 'overflow' });
+  return summarizeHistory({ context, config, reason: 'overflow' });
 }

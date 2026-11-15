@@ -56,6 +56,12 @@ export type DeliveryInput = { context: TurnContext; state: DeliveryState };
  * turn: nothing in `runTurn` tests an option to decide.
  */
 export type TurnContributions = {
+  /**
+   * Make room before the turn's hooks and model call (the threshold summary). A contribution
+   * returns `'full'` when nothing could shrink a context that fills the window: the run then ends
+   * `context_window_exceeded`. First answer wins; none registered means no room is made.
+   */
+  room: readonly Contribution<TurnContext, 'full' | undefined>[];
   /** Start of a turn: what reaches history before any hook runs (steering, finished work, failures). */
   delivery: readonly Contribution<DeliveryInput, void>[];
   /** Reshape the view the model is sent for one call (never stored history). */
