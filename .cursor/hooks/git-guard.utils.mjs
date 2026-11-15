@@ -156,5 +156,5 @@ export function checkBranch(params) {
 
   const list = chatIssues.map((n) => `#${n}`).join(', ');
 
-  return `\`${name}\` is for #${issue}, but this chat works on ${list}. Use one of those, or ask the user to name #${issue} in a prompt (a stack can span several issues).`;
+  return `\`${name}\` is for #${issue}, but this chat works on ${list}. Use one of those, or ask the user to name #${issue} in a prompt (a stack can span several issues). Only prompts the user typed are scanned, for \`#${issue}\` or an \`/issues/${issue}\` URL. If the user already named it and this still fails, it was not recorded: ask the user to repeat \`#${issue}\` in a new prompt.`;
 }
