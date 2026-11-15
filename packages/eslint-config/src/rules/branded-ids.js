@@ -1,18 +1,20 @@
 // Ids are branded, so a session's id can't be passed where a tool call's goes. Two checks:
-// - zod: a property named `id` or `<x>Id` (`callId`, `sessionId`) in a validator or a tool's input
-//   schema whose value is a bare `z.string()` chain fails, and so does an id schema
-//   (`<x>IdSchema`) built without `.brand<'…'>()`.
+// - zod: a property named `id` or `<x>Id` (`callId`, `sessionId`) in any source file's zod schema
+//   whose value is a bare `z.string()` chain fails, and so does an id schema (`<x>IdSchema`)
+//   built without `.brand<'…'>()`.
 // - TypeScript: a type member (type literal, interface, inline parameter type) with such a name
 //   typed `string` (or `string | undefined`) fails; type it with the id's branded type
 //   (`SessionId`). The config applies this to source only: never tests, fakes or `*.prompt.ts`
-//   (text a prompt prints). Every workspace is covered.
+//   (text a prompt prints). Every workspace is covered. Only type members are checked: a plain
+//   function parameter, a class field, `id: string[]` and a `type X = string` alias are not, and
+//   neither is a name such as `ids`; review carries those.
 // Branding is type-only: the value and its JSON Schema stay a plain string.
 
 const ID_KEY = /^(id|[a-z]\w*Id)$/;
 const ID_SCHEMA = /IdSchema$/;
 
 const SCHEMAS =
-  '`sessionIdSchema`, `callIdSchema`, `taskIdSchema`, `approvalIdSchema`, `conversationIdSchema`, `modelIdSchema`, `profileIdSchema`, `messageIdSchema`, `outputRefSchema` from @sheavly/protocol';
+  '`sessionIdSchema`, `callIdSchema`, `taskIdSchema`, `approvalIdSchema`, `conversationIdSchema`, `modelIdSchema`, `profileIdSchema`, `messageIdSchema`, `outputRefSchema`, `summarySectionIdSchema` from @sheavly/protocol';
 
 const MESSAGES = {
   unbranded: `\`{{name}}\` is an id: use a branded id schema (${SCHEMAS}), or define one in a validator, \`export const <x>IdSchema = z.string().brand<'<X>Id'>();\`, with its type \`z.infer\` of it in the module's types file.`,

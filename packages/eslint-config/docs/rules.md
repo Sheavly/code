@@ -87,15 +87,17 @@ is split by responsibility only when it does several jobs, not to fit a number. 
 - **Typed errors only** (`harness/no-raw-error`): source never builds a plain `Error`; it throws
   a class from its area's errors (each workspace's `src/errors/`, `.cursor/hooks/hooks.errors.mjs`). Tests, fakes and `scripts/` are
   exempt. The classes are listed in [the overview](../../../docs/overview.md#errors).
-- **Branded ids** (`harness/branded-ids`, in `*.validator.ts` and `*.tool.ts`): a schema property
-  named `id` or `<x>Id`, and an id schema `<x>IdSchema`, is a branded zod schema
+- **Branded ids** (`harness/branded-ids`, in all source except tests and fakes): a zod schema
+  property named `id` or `<x>Id`, and an id schema `<x>IdSchema`, is a branded zod schema
   (`z.string().brand<'SessionId'>()`), never a bare `z.string()`, so a session's id can't go where a
   tool call's does. The brand is type-only: the wire and the JSON Schemas stay plain strings.
   The same names typed `string` in a type literal, interface or inline parameter type
   (`agentId: string`) fail too, in all source except tests, fakes and `*.prompt.ts`: type them with
   the branded type (`SessionId`) made by parsing with the schema (`sessionIdSchema`, `callIdSchema`,
-  `taskIdSchema`, …). Every workspace is checked. It cannot tell which kind of id a name holds:
-  that is review.
+  `taskIdSchema`, …). Every workspace is checked. Only type members are checked: a plain function
+  parameter, a class field, `id: string[]`, a `type X = string` alias and a name such as `ids` are
+  not, and a `*.prompt.ts` renderer's id parameters stay plain strings by design. It cannot tell
+  which kind of id a name holds: that is review.
 - **Brand casts** (`harness/no-brand-cast`, type-aware, tests included): `as` to a branded type
   fails; a value gets its brand by parsing with its schema (`sessionIdSchema.parse(id)`).
 - **Background work starts through a kind factory** (`harness/no-direct-task-start`, type-aware,

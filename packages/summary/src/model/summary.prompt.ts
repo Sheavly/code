@@ -4,7 +4,11 @@ import type { ModelSection } from '../sections/sections.types.js';
  * The default sections for a model-written checkpoint, as plain text: a prompt file imports no
  * validator, so `defaultModelSections` (prompt.utils.ts) parses each `id` into its branded type.
  */
-export const DEFAULT_SECTION_TEXTS = [
+export const DEFAULT_SECTION_TEXTS: readonly {
+  id: string;
+  title: string;
+  guidance: string;
+}[] = [
   {
     id: 'goal',
     title: 'Goal',
