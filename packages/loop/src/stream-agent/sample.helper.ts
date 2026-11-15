@@ -166,11 +166,11 @@ async function startTool(params: {
   stopped: Promise<string>;
 }): Promise<ToolOutcome> {
   const { start, described, stopped } = params;
-  const { tools, hooks = [], tasks, session, signal } = start;
+  const { tools, hooks = [], tasks, session, signal, onHookError } = start;
   const { call, description } = described;
   const started = performance.now();
   const { message, artifacts } = await Promise.race([
-    runToolCall({ hooks, tools, call, signal, session }),
+    runToolCall({ hooks, tools, call, signal, session, onHookError }),
     stopped.then((content) => {
       const placeholder: ToolMessage = {
         role: 'tool',

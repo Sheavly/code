@@ -11,12 +11,14 @@ import type { SummarySection } from '@sheavly/core/summary/summary.types';
 import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
-import { raceAbort } from '../abort/abort.utils.js';
-import { HookError } from '../errors/loop.errors.js';
 import { assertValidHistory, countChanges } from '../history/history.utils.js';
 import { parseSentMessages } from '../history/history.validator.js';
 import { mergeSections, viewOf } from '../summary/summary.utils.js';
 import { parseSummaryChange } from './summary-change.validator.js';
+import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { guarded, withTimeout } from './guarded.helper.js';
+import { SESSION_END_TIMEOUT_MS } from './hooks.constants.js';
+import type { OnHookError } from './hooks.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type {
@@ -33,32 +35,52 @@ type OnContext = (added: { hook: string; content: string }) => void;
 /**
  * `addContext` for one hook: appends a user message to the run's history and reports it. Every
  * handler is handed the model's view of that history (`viewOf`), never the stored entries: a
- * hook sees the shortened state after a summary and never the `summary` role.
+ * hook sees the shortened state after a summary and never the `summary` role. A hook still
+ * running after the run was aborted adds nothing: history is not for a late call to grow.
  */
-function contextAdder(params: { hook: Hook; messages: HistoryMessage[]; onContext: OnContext }) {
-  const { hook, messages, onContext } = params;
+export function contextAdder(params: {
+  hook: Hook;
+  messages: HistoryMessage[];
+  signal: AbortSignal;
+  onContext: OnContext;
+}) {
+  const { hook, messages, signal, onContext } = params;
 
   return (content: string) => {
+    if (signal.aborted) return;
     messages.push({ role: 'user', content, at: now() });
     onContext({ hook: hook.name, content });
   };
 }
 
-/** Runs every `sessionStart` handler in order, once per run, before the first turn. */
+/**
+ * Runs every `sessionStart` handler in order, once per run, before the first turn. A handler that
+ * fails is reported through `onHookError` and skipped; the run goes on.
+ */
 export async function runSessionStart(params: {
   hooks: Hook[];
   messages: HistoryMessage[];
   signal: AbortSignal;
   onContext: OnContext;
+  onHookError: OnHookError;
 }): Promise<void> {
-  const { hooks, messages, signal, onContext } = params;
+  const { hooks, messages, signal, onContext, onHookError } = params;
 
   for (const hook of hooks) {
-    if (!hook.sessionStart) continue;
-    await hook.sessionStart({
-      messages: viewOf(messages),
+    const { sessionStart } = hook;
+
+    if (!sessionStart || signal.aborted) continue;
+    await guarded({
+      hook,
+      handler: 'sessionStart',
       signal,
-      addContext: contextAdder({ hook, messages, onContext }),
+      onHookError,
+      work: () =>
+        sessionStart({
+          messages: viewOf(messages),
+          signal,
+          addContext: contextAdder({ hook, messages, signal, onContext }),
+        }),
     });
   }
 }
@@ -75,22 +97,36 @@ export async function runBeforeTurn(params: {
   context: ContextState;
   signal: AbortSignal;
   onContext: OnContext;
+  onHookError: OnHookError;
 }): Promise<string[]> {
-  const { hooks, turn, messages, context, signal, onContext } = params;
+  const { hooks, turn, messages, context, signal, onContext, onHookError } = params;
   const instructions: string[] = [];
 
   for (const hook of hooks) {
-    if (!hook.beforeTurn) continue;
-    await hook.beforeTurn({
-      turn,
-      context: { ...context },
-      messages: viewOf(messages),
+    const { beforeTurn } = hook;
+
+    if (!beforeTurn || signal.aborted) continue;
+    // Instructions are kept only from a handler that finished: a failed one adds none.
+    const added: string[] = [];
+    const result = await guarded({
+      hook,
+      handler: 'beforeTurn',
       signal,
-      addContext: contextAdder({ hook, messages, onContext }),
-      addInstructions: (content) => {
-        if (content.trim()) instructions.push(content);
-      },
+      onHookError,
+      work: () =>
+        beforeTurn({
+          turn,
+          context: { ...context },
+          messages: viewOf(messages),
+          signal,
+          addContext: contextAdder({ hook, messages, signal, onContext }),
+          addInstructions: (content) => {
+            if (content.trim()) added.push(content);
+          },
+        }),
     });
+
+    if (result.ok && !signal.aborted) instructions.push(...added);
   }
 
   return instructions;
@@ -114,35 +150,55 @@ export async function runBeforeModelCall(params: {
   context: ContextState;
   signal: AbortSignal;
   onChanged: (change: { hook: string; added: number; removed: number; edited: number }) => void;
+  onHookError: OnHookError;
 }): Promise<readonly Message[]> {
-  const { hooks, turn, messages, context, signal, onChanged } = params;
+  const { hooks, turn, messages, context, signal, onChanged, onHookError } = params;
   const latestUser = messages.findLast((message) => message.role === 'user');
   let current = messages;
 
   for (const hook of hooks) {
-    if (!hook.beforeModelCall) continue;
+    const { beforeModelCall } = hook;
+
+    if (!beforeModelCall || signal.aborted) continue;
 
     const source = `Hook ${hook.name}`;
-    // Typed `unknown`: a project hook is plain JavaScript, so its return value is unchecked.
-    const result: unknown = await hook.beforeModelCall({
-      turn,
-      messages: structuredClone(current),
-      context: { ...context },
+    const before = current;
+    // Parsing and the history check run inside the guard: a hook whose result breaks the rules
+    // is skipped like one that throws, and the model is sent the messages from before it.
+    const result = await guarded({
+      hook,
+      handler: 'beforeModelCall',
       signal,
+      onHookError,
+      work: async () => {
+        // Typed `unknown`: a project hook is plain JavaScript, so its return value is unchecked.
+        const returned: unknown = await beforeModelCall({
+          turn,
+          messages: structuredClone(before),
+          context: { ...context },
+          signal,
+        });
+        const sent = parseSentMessages({ input: returned, source });
+
+        if (!isDeepStrictEqual(sent, before)) {
+          assertValidHistory({ messages: sent, latestUser, source });
+        }
+
+        return sent;
+      },
     });
-    const sent = parseSentMessages({ input: result, source });
 
-    if (isDeepStrictEqual(sent, current)) continue;
+    if (!result.ok || result.value === undefined || isDeepStrictEqual(result.value, before)) {
+      continue;
+    }
 
-    assertValidHistory({ messages: sent, latestUser, source });
-
-    const { added, removed, edited } = countChanges({ before: current, after: sent });
+    const { added, removed, edited } = countChanges({ before, after: result.value });
 
     if (added > 0 || removed > 0 || edited > 0) {
       onChanged({ hook: hook.name, added, removed, edited });
     }
 
-    current = sent;
+    current = result.value;
   }
 
   return current;
@@ -162,38 +218,46 @@ export async function runBeforeSummary(params: {
   messages: readonly Message[];
   context: ContextState;
   signal: AbortSignal;
+  onHookError: OnHookError;
 }): Promise<{ keepTokens: number | undefined; sections: SummarySection[] }> {
-  const { hooks, reason, messages, context, signal } = params;
+  const { hooks, reason, messages, context, signal, onHookError } = params;
   let keepTokens: number | undefined;
   let sections: SummarySection[] = [];
 
   for (const hook of hooks) {
+    const { beforeSummary } = hook;
+
     // Stop asking once aborted; the caller sees the abort and fails the summary.
     if (signal.aborted) break;
 
-    if (!hook.beforeSummary) continue;
+    if (!beforeSummary) continue;
 
     // Typed `unknown`: a project hook is plain JavaScript, so its return value is unchecked.
-    // Raced against the abort, like the summarizer: a hook that ignores its signal must not hold
-    // the run.
-    const result: unknown = await raceAbort({
-      work: hook.beforeSummary({
-        reason,
-        messages: structuredClone(messages),
-        context: { ...context },
-        signal,
-      }),
+    // A hook that throws, or whose result is not a valid change, is reported and skipped: the
+    // summary is written without its contribution.
+    const result = await guarded({
+      hook,
+      handler: 'beforeSummary',
       signal,
-    }).catch((caughtError: unknown) => {
-      throw new HookError({ hook: hook.name, handler: 'beforeSummary', cause: caughtError });
+      onHookError,
+      work: async () => {
+        const returned: unknown = await beforeSummary({
+          reason,
+          messages: structuredClone(messages),
+          context: { ...context },
+          signal,
+        });
+
+        return parseSummaryChange({ input: returned, hook: hook.name });
+      },
     });
 
     if (signal.aborted) break;
 
-    const change = parseSummaryChange({ input: result, hook: hook.name });
+    if (!result.ok) continue;
 
-    keepTokens = change?.keepTokens ?? keepTokens;
-    sections = mergeSections({ written: sections, added: change?.sections ?? [] });
+    keepTokens = result.value?.keepTokens ?? keepTokens;
+    sections = mergeSections({ written: sections, added: result.value?.sections ?? [] });
   }
 
   return { keepTokens, sections };
@@ -212,44 +276,58 @@ export async function runAfterSummary(params: {
   messages: HistoryMessage[];
   signal: AbortSignal;
   onContext: OnContext;
+  onHookError: OnHookError;
 }): Promise<void> {
-  const { hooks, reason, checkpoint, messages, signal, onContext } = params;
+  const { hooks, reason, checkpoint, messages, signal, onContext, onHookError } = params;
 
   for (const hook of hooks) {
+    const { afterSummary } = hook;
+
     if (signal.aborted) return;
 
-    if (!hook.afterSummary) continue;
-
-    const addContext = contextAdder({ hook, messages, onContext });
+    if (!afterSummary) continue;
 
     // Copies, so a plain-JavaScript hook that edits what it was given can't change the stored
-    // checkpoint after `buildCheckpoint` checked it; each hook gets its own. Raced against the
-    // abort like `beforeSummary`, and a hook still running after it adds nothing: the run was
-    // told to stop, and history is not for a late `addContext` to grow.
-    await raceAbort({
-      work: hook.afterSummary({
-        reason,
-        checkpoint: structuredClone(checkpoint),
-        messages: structuredClone(viewOf(messages)),
-        signal,
-        addContext: (content) => {
-          if (!signal.aborted) addContext(content);
-        },
-      }),
+    // checkpoint after `buildCheckpoint` checked it; each hook gets its own.
+    await guarded({
+      hook,
+      handler: 'afterSummary',
       signal,
+      onHookError,
+      work: () =>
+        afterSummary({
+          reason,
+          checkpoint: structuredClone(checkpoint),
+          messages: structuredClone(viewOf(messages)),
+          signal,
+          addContext: contextAdder({ hook, messages, signal, onContext }),
+        }),
     });
   }
 }
 
-/** Runs every `afterTurn` handler in order, once the turn's reply and results are in history. */
+/**
+ * Runs every `afterTurn` handler in order, once the turn's reply and results are in history. A
+ * handler that fails is reported through `onHookError` and skipped; the run goes on.
+ */
 export async function runAfterTurn(
-  params: { hooks: Hook[] } & Omit<AfterTurnContext, 'messages'> & { messages: HistoryMessage[] },
+  params: { hooks: Hook[]; onHookError: OnHookError } & Omit<AfterTurnContext, 'messages'> & {
+      messages: HistoryMessage[];
+    },
 ): Promise<void> {
-  const { hooks, messages, ...turn } = params;
+  const { hooks, messages, onHookError, ...turn } = params;
 
   for (const hook of hooks) {
-    if (!hook.afterTurn) continue;
-    await hook.afterTurn({ ...turn, messages: viewOf(messages) });
+    const { afterTurn } = hook;
+
+    if (!afterTurn || turn.signal.aborted) continue;
+    await guarded({
+      hook,
+      handler: 'afterTurn',
+      signal: turn.signal,
+      onHookError,
+      work: () => afterTurn({ ...turn, messages: viewOf(messages) }),
+    });
   }
 }
 
@@ -262,13 +340,28 @@ export async function runOnError(params: {
   hooks: Hook[];
   error: unknown;
   messages: HistoryMessage[];
-  onHookError: (failure: HookError) => void;
+  onHookError: OnHookError;
 }): Promise<void> {
   const { hooks, error, messages, onHookError } = params;
+  // The run's signal is usually aborted by now and an error hook must still run, so it is
+  // raced against a signal that never aborts.
+  const never = new AbortController().signal;
 
   for (const hook of hooks) {
-    await hook.onError?.({ error, messages: viewOf(messages) }).catch((caughtError: unknown) => {
-      onHookError(new HookError({ hook: hook.name, handler: 'onError', cause: caughtError }));
+    const { onError } = hook;
+
+    if (!onError) continue;
+    await guarded({
+      hook,
+      handler: 'onError',
+      signal: never,
+      onHookError,
+      // Bounded: a hanging error hook must not keep the original error from reaching the caller.
+      work: () =>
+        withTimeout({
+          work: onError({ error, messages: viewOf(messages) }),
+          timeoutMs: SESSION_END_TIMEOUT_MS,
+        }),
     });
   }
 }
@@ -285,8 +378,10 @@ export async function runToolCall(params: {
   signal: AbortSignal;
   /** The calling session, handed to the tool (`context.session`). */
   session?: SessionRef | undefined;
+  /** Told about a hook that failed; the call is still blocked with an error result. */
+  onHookError: OnHookError;
 }): Promise<{ message: ToolMessage; artifacts?: readonly ToolArtifact[] | undefined }> {
-  const { hooks, tools, call, signal, session } = params;
+  const { hooks, tools, call, signal, session, onHookError } = params;
   const handlers = hooks.filter((hook) => hook.aroundToolCall);
   const description = describeCall(call);
 
@@ -297,18 +392,34 @@ export async function runToolCall(params: {
       return toResult(await runTool({ tools, call: current, signal, session }));
     }
 
-    try {
-      return await hook.aroundToolCall({
-        call: current,
-        description,
-        signal,
-        next: (input) => runFrom(index + 1, input === undefined ? current : { ...current, input }),
-      });
-    } catch (caughtError) {
-      const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
+    const { aroundToolCall } = hook;
+    const result = await guarded({
+      hook,
+      handler: 'aroundToolCall',
+      signal,
+      onHookError,
+      work: () =>
+        aroundToolCall({
+          call: current,
+          description,
+          signal,
+          next: (input) =>
+            runFrom(index + 1, input === undefined ? current : { ...current, input }),
+        }),
+    });
 
-      return { content: `Hook ${hook.name} failed: ${reason}`, isError: true };
+    // Fail closed: a hook that threw, or that the abort cut short, blocks the call with an error
+    // result, and a failure is reported like every other hook's.
+    if (!result.ok) {
+      const { error } = result;
+
+      return {
+        content: `Hook ${hook.name} failed: ${redactDiagnosticText(error instanceof Error ? error.message : String(error))}`,
+        isError: true,
+      };
     }
+
+    return result.value ?? { content: `Hook ${hook.name} was interrupted`, isError: true };
   };
 
   const { content, isError, artifacts } = await runFrom(0, call);

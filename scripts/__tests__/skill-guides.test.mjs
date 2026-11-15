@@ -133,7 +133,7 @@ describe('completeness, read from the code', () => {
   it('fails a hook handler no guide names, and passes once a guide does', () => {
     const handlers = {
       'packages/core/src/hook/hook.constants.ts':
-        'export const HANDLERS = {\n  sessionStart: true,\n  afterThing: true,\n};\n',
+        "export const HANDLER_NAMES = [\n  'sessionStart',\n  'afterThing',\n] as const;\n",
       [`${ROUTER}/loop.md`]: '# Loop\n\nA hook can define `sessionStart`.\n',
     };
 
@@ -146,52 +146,52 @@ describe('completeness, read from the code', () => {
   it('does not count a bare mention of a handler, only a backticked one', () => {
     const handlers = {
       'packages/core/src/hook/hook.constants.ts':
-        'export const HANDLERS = {\n  afterThing: true,\n};\n',
+        "export const HANDLER_NAMES = [\n  'afterThing',\n] as const;\n",
       [`${ROUTER}/loop.md`]: '# Loop\n\nthe afterThing handler\n',
     };
 
     expect(withRules(handlers, [])).toEqual([expect.stringContaining('hook handler `afterThing`')]);
   });
 
-  it('fails when the HANDLERS object cannot be read, instead of checking nothing', () => {
+  it('fails when the HANDLER_NAMES array cannot be read, instead of checking nothing', () => {
     const moved = {
-      'packages/core/src/hook/hook.constants.ts': 'export const OTHER = { a: 1 };\n',
+      'packages/core/src/hook/hook.constants.ts': 'export const OTHER = [1];\n',
     };
 
     expect(withRules(moved, [])).toEqual([
-      expect.stringContaining('could not read every entry of the HANDLERS'),
+      expect.stringContaining('could not read every entry of the HANDLER_NAMES'),
     ]);
   });
 
-  it('does not take a second object in the file for handlers', () => {
+  it('does not take a second array in the file for handlers', () => {
     const files = {
       'packages/core/src/hook/hook.constants.ts':
-        'export const HANDLERS = {\n  a: true,\n};\nexport const OTHER = {\n  b: true,\n};\n',
+        "export const HANDLER_NAMES = [\n  'a',\n] as const;\nexport const OTHER = [\n  'b',\n];\n",
       [`${ROUTER}/loop.md`]: '`a`\n',
     };
 
     expect(withRules(files, [])).toEqual([]);
   });
 
-  it('reads an entry with a trailing comment, even one holding a brace', () => {
+  it('reads an entry with a trailing comment, even one holding a bracket', () => {
     const files = {
       'packages/core/src/hook/hook.constants.ts':
-        'export const HANDLERS = {\n  a: true, // runs {once}\n  b: true,\n};\n',
+        "export const HANDLER_NAMES = [\n  'a', // runs [once]\n  'b',\n] as const;\n",
       [`${ROUTER}/loop.md`]: '`a` and `b`\n',
     };
 
     expect(withRules(files, [])).toEqual([]);
   });
 
-  it('fails a HANDLERS object it only partly reads, instead of checking some of it', () => {
+  it('fails a HANDLER_NAMES array it only partly reads, instead of checking some of it', () => {
     const nested = {
       'packages/core/src/hook/hook.constants.ts':
-        'export const HANDLERS = {\n  a: true,\n  b: { x: 1 },\n};\n',
+        "export const HANDLER_NAMES = [\n  'a',\n  ['b'],\n] as const;\n",
       [`${ROUTER}/loop.md`]: '`a`\n',
     };
 
     expect(withRules(nested, [])).toEqual([
-      expect.stringContaining('could not read every entry of the HANDLERS'),
+      expect.stringContaining('could not read every entry of the HANDLER_NAMES'),
     ]);
   });
 

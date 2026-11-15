@@ -10,7 +10,7 @@ check:
         'reply': ['BASE_COMMAND_OK', 'approval'],
         'outcome': 'completed',
       },
-    'forbid': { 'transcript': ["Command refused, it needs the user's approval: ls"] },
+    'forbid': { 'transcript': ['The user skipped this command: ls'] },
   }
 ---
 

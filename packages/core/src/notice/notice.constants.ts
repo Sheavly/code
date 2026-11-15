@@ -25,6 +25,13 @@ export const TASKS_FINISHED_NOTICE_TEXT = {
   closing: '</harness-notice>',
 } as const;
 
+export const HOOK_FAILED_NOTICE_TEXT = {
+  opening: '<harness-notice kind="hook-failed">',
+  errorOpening: 'hook error',
+  errorClosing: 'end of hook error',
+  closing: '</harness-notice>',
+} as const;
+
 export const TASK_COMPLETION_CONTEXT_TEXT = {
   reasonOpening: 'agent-authored completion reason',
   reasonClosing: 'end of completion reason',

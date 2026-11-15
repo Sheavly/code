@@ -53,6 +53,33 @@ describe('parseHookExport', () => {
     expect(parseHookExport(after)).toEqual({ hook: after });
   });
 
+  it.each(handlerNames())(
+    'accepts a hook that only defines %s, and rejects it as a non-function',
+    (name) => {
+      const exported = { name: 'any', [name]: async () => undefined };
+
+      expect(parseHookExport(exported)).toEqual({ hook: exported });
+      expect(parseHookExport({ name: 'any', [name]: 'no' })).toHaveProperty('error');
+    },
+  );
+
+  it('accepts after as a list of hook names, and rejects anything else', () => {
+    const exported = { name: 'late', after: ['early'], afterTurn: async () => undefined };
+
+    expect(parseHookExport(exported)).toEqual({ hook: exported });
+    expect(parseHookExport({ ...exported, after: 'early' })).toHaveProperty('error');
+    expect(parseHookExport({ ...exported, after: [''] })).toHaveProperty('error');
+  });
+
+  it('caps a hook name, and how many hooks and how long a name after may hold', () => {
+    const base = { name: 'late', afterTurn: async () => undefined };
+
+    expect(parseHookExport({ ...base, name: 'n'.repeat(101) })).toHaveProperty('error');
+    expect(parseHookExport({ ...base, after: Array(33).fill('a') })).toHaveProperty('error');
+    expect(parseHookExport({ ...base, after: ['a'.repeat(101)] })).toHaveProperty('error');
+    expect(parseHookExport({ ...base, after: Array(32).fill('a') })).not.toHaveProperty('error');
+  });
+
   it('rejects a summary handler that is not a function', () => {
     expect(parseHookExport({ name: 'keep', beforeSummary: {} })).toHaveProperty('error');
     expect(parseHookExport({ name: 'restore', afterSummary: 'no' })).toHaveProperty('error');

@@ -1,13 +1,20 @@
-import type { HookHandlerName } from './hook.types.js';
-
-/** Every handler a hook can define, so a check can't miss a newly added one. */
-export const HANDLERS = {
-  sessionStart: true,
-  beforeTurn: true,
-  beforeModelCall: true,
-  beforeSummary: true,
-  afterSummary: true,
-  aroundToolCall: true,
-  afterTurn: true,
-  onError: true,
-} satisfies Record<HookHandlerName, true>;
+/**
+ * The one list of hook points. `Hook` (its handlers), `handlerNames`, the project-hook schema
+ * and the loop's pipeline all derive from it, so a new point is one entry here (plus its
+ * signature in `hook.types.ts`) and a consumer that doesn't handle it fails its typecheck or its
+ * coverage test. The order is the order handlers are listed in messages.
+ */
+export const HANDLER_NAMES = [
+  'sessionStart',
+  'beforeTurn',
+  'beforeModelCall',
+  'beforeSummary',
+  'afterSummary',
+  'aroundToolCall',
+  'afterTurn',
+  'taskCompleted',
+  'notice',
+  'approval',
+  'sessionEnd',
+  'onError',
+] as const;

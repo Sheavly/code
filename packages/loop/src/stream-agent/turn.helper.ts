@@ -1,20 +1,21 @@
-import { reportFinishedTasks } from './task-delivery.helper.js';
-import { inboxText } from '@sheavly/runtime/sessions/sessions.utils';
-import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
-import { summarizeAtThreshold, summarizeHistory } from '../summary/summarize.helper.js';
-import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { viewWithoutCallReferences } from '../summary/summary.utils.js';
 import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
+import { HookError } from '../errors/loop.errors.js';
 import { sample } from './sample.helper.js';
-import { continueAfterOutputLimit } from './output-recovery.helper.js';
-import type { AgentEvents, AgentOptions, RunningCall, TurnContext } from './stream-agent.types.js';
+import { runContribution } from './contributions.helper.js';
+import type {
+  DeliveryState,
+  LimitInput,
+  LimitOutcome,
+  TurnContributions,
+} from './contributions.types.js';
+import type { AgentEvents, RunningCall, TurnContext } from './stream-agent.types.js';
 import type { DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { TurnStopReason } from '@sheavly/protocol/message/message.types';
+import type { Message, TurnStopReason } from '@sheavly/protocol/message/message.types';
 
 /** One model call plus its tool results. Returns why the run ends, or undefined to keep going. */
 export async function runTurn(context: TurnContext): Promise<DoneReason | undefined> {
@@ -22,13 +23,15 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
 
   if (signal.aborted) return 'interrupted';
 
-  // A follow-up already in the inbox belongs in the completion's messages-since snapshot.
-  deliverMessages({ session, messages, events });
-  reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+  await runPhase({ context, list: context.contributions.delivery });
+
+  // An abort while a delivery hook ran ends the run as interrupted, like every other abort.
+  if (signal.aborted) return 'interrupted';
+
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   // No summary could make room and the view fills the window: stop here, recoverably (the history
   // is untouched and valid), rather than send a call the provider is sure to reject.
-  const room = await summarizeAtThreshold(context);
+  const room = await makeRoom(context);
 
   // An abort during the summary ends the run as interrupted, whatever the view's size.
   if (signal.aborted) return 'interrupted';
@@ -47,16 +50,14 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     context: state,
     signal,
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+    onHookError: context.hookFailures.report,
   });
 
   // For this call only: `messages` stays the stored history, and the turn appends to that. The
   // model is sent the view (the newest checkpoint as text, then the messages it kept).
   // Old large tool results are hidden here too when a summary is configured: it is the cheaper
   // first step, and it delays the summary instead of replacing it.
-  const full = viewWithoutCallReferences(messages);
-  const source = options.summary
-    ? maskOldToolOutput({ view: full, window: options.provider.contextWindow })
-    : full;
+  const source = await shapeView({ context, view: viewWithoutCallReferences(messages) });
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,
@@ -64,15 +65,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     context: state,
     signal,
     onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
-  }).catch((caughtError: unknown) => {
-    // A hook that fails because the run was aborted ends it as interrupted, like every other
-    // abort; nothing has been added to history yet, so it stays valid.
-    if (signal.aborted) return undefined;
-
-    throw caughtError;
+    onHookError: context.hookFailures.report,
   });
 
-  if (!sent || signal.aborted) return 'interrupted';
+  // An abort during a hook ends the run as interrupted, like every other abort; nothing has been
+  // added to history yet, so it stays valid.
+  if (signal.aborted) return 'interrupted';
 
   const continuation = context.outputRecovery.pending;
 
@@ -87,6 +85,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     signal,
     aborted,
     events,
+    onHookError: context.hookFailures.report,
   });
 
   // A failed model call that started no tools fails the turn as it is, with nothing to record.
@@ -118,17 +117,80 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     reply: message,
     messages,
     signal,
+    onHookError: context.hookFailures.report,
   });
 
   return finishTurn({ context, stopReason, running, reply: message });
 }
 
+/** The first `room` contribution to answer decides; with none registered no room is made. */
+async function makeRoom(context: TurnContext): Promise<'full' | undefined> {
+  for (const contribution of context.contributions.room) {
+    const { value } = await runContribution({
+      contribution,
+      input: context,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    if (value) return value;
+  }
+
+  return undefined;
+}
+
+/** Runs the start-of-turn delivery steps in order, each seeing what the earlier ones recorded. */
+async function runPhase(params: {
+  context: TurnContext;
+  list: TurnContributions['delivery'];
+}): Promise<void> {
+  const { context, list } = params;
+  const state: DeliveryState = { noticesFrom: context.messages.length, tasks: [] };
+
+  for (const contribution of list) {
+    await runContribution({
+      contribution,
+      input: { context, state },
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+  }
+}
+
+/** Passes the view through each `view` contribution in order; the result is what the model sees. */
+async function shapeView(params: {
+  context: TurnContext;
+  view: readonly Message[];
+}): Promise<readonly Message[]> {
+  const { context, view } = params;
+  let current = view;
+
+  for (const contribution of context.contributions.view) {
+    const { value } = await runContribution({
+      contribution,
+      input: { view: current, window: context.options.provider.contextWindow },
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    current = value ?? current;
+  }
+
+  return current;
+}
+
+/** A skipped contribution is reported like a failed hook: `hook_failed`, and a model notice. */
+function reportContribution(context: TurnContext) {
+  return ({ name, error }: { name: string; error: unknown }) =>
+    context.hookFailures.report(
+      new HookError({ hook: name, handler: 'contribution', cause: error }),
+    );
+}
+
 /**
- * A call the provider rejected as too long gets one summary and a retry, once per model call (a
- * call that ends any other way re-arms it), so it cannot loop. True when a checkpoint was
- * appended: the caller drops the rejected reply and the next turn calls the model again. If the
- * summary fails, or none is configured, the run ends `context_window_exceeded` as before. The
- * retry uses a turn, so `maxTurns` still bounds the run.
+ * A call the provider rejected as too long: the `overflow` contributions may recover and ask for
+ * a retry. True when one did; the caller drops the rejected reply and the next turn calls the
+ * model again. With none registered the run ends `context_window_exceeded`.
  */
 async function retryAfterOverflow(params: {
   context: TurnContext;
@@ -136,20 +198,20 @@ async function retryAfterOverflow(params: {
   /** The rejected call had already started tools: its history is not ours to rewind. */
   started: boolean;
 }): Promise<boolean> {
-  const { context, stopReason, started } = params;
-  const { summaryFailures } = context;
+  const { context } = params;
 
-  if (stopReason !== 'context_window_exceeded') {
-    summaryFailures.overflowTried = false;
+  for (const contribution of context.contributions.overflow) {
+    const { value } = await runContribution({
+      contribution,
+      input: params,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
 
-    return false;
+    if (value) return true;
   }
 
-  if (started || summaryFailures.overflowTried || !context.options.summary) return false;
-
-  summaryFailures.overflowTried = true;
-
-  return summarizeHistory({ context, reason: 'overflow' });
+  return false;
 }
 
 /** Resolves recovery, pending work and completion only after results and afterTurn hooks. */
@@ -160,53 +222,47 @@ async function finishTurn(params: {
   reply: HistoryMessage;
 }): Promise<DoneReason | undefined> {
   const { context, stopReason, running, reply } = params;
-  const { signal, session, options } = context;
 
-  if (signal.aborted) return 'interrupted';
+  if (context.signal.aborted) return 'interrupted';
 
-  if (stopReason === 'context_window_exceeded') return 'context_window_exceeded';
+  const limited = await firstOutcome({
+    context,
+    list: context.contributions.limit,
+    input: { context, stopReason, running, reply },
+  });
 
-  if (stopReason === 'max_tokens') {
-    // Reasoning alone is not progress: a provider drops unfinished thinking, so only text or a
-    // tool call proves the next attempt can get further than this one.
-    const progressed = reply.role === 'assistant' && (reply.content !== '' || running.length > 0);
+  if (limited) return limited.ended;
 
-    return continueAfterOutputLimit({ context, progressed });
-  }
-
-  context.outputRecovery.fruitless = 0;
-
-  if (running.length > 0) return undefined;
-
-  // Messages from a parent agent wake the model without touching tasks or groups. Otherwise finite work keeps
-  // this session alive until its results can be delivered; services may outlive the run.
-  if (session.registry.hasMessages(session.ref.id)) return undefined;
-
-  // A requested yield outranks task completions: their results stay delivered to the next run.
-  // It does not outrank `await_tasks`: the queued line waits until the model has finished.
-  if (yieldEnds({ options, id: session.ref.id })) return 'completed';
-
-  if (await awaitTask({ options, session, signal, events: context.events })) return undefined;
-
-  return signal.aborted ? 'interrupted' : 'completed';
+  // The last completion contribution always answers, so this is never undefined in practice.
+  return (
+    await firstOutcome({
+      context,
+      list: context.contributions.completion,
+      input: { context, stopReason, running, reply },
+    })
+  )?.ended;
 }
 
-/**
- * Messages sent to this session while it worked (its parent's, for example): put in
- * history as user messages before the model call, and shown in order, like finished tasks.
- */
-function deliverMessages(params: {
-  session: RunSession;
-  messages: HistoryMessage[];
-  events: AgentEvents;
-}): void {
-  const { session, messages, events } = params;
+/** The first contribution of a list that takes the turn decides it; none: undefined. */
+async function firstOutcome(params: {
+  context: TurnContext;
+  list: TurnContributions['limit'];
+  input: LimitInput;
+}): Promise<LimitOutcome | undefined> {
+  const { context, list, input } = params;
 
-  for (const message of session.registry.takeMessages(session.ref.id)) {
-    events.enqueue({ type: 'message_received', message });
-    // The message is stamped with when it was sent, not when this turn read it.
-    messages.push({ role: 'user', content: inboxText(message), at: message.sentAt });
+  for (const contribution of list) {
+    const { value } = await runContribution({
+      contribution,
+      input,
+      signal: context.signal,
+      report: reportContribution(context),
+    });
+
+    if (value) return value;
   }
+
+  return undefined;
 }
 
 /**
@@ -243,114 +299,4 @@ async function releaseResults(params: {
   const outcomes = await Promise.all(running.map((r) => r.outcome));
 
   return outcomes.map((o) => o.message);
-}
-
-/**
- * Finite work keeps its session alive until results are delivered, individually or as a group.
- * False if only services remain, or the run was aborted while waiting. While it waits, the run
- * says so with `run_state`, and says it works again when a delivery or message ends the wait.
- */
-async function awaitTask(params: {
-  options: AgentOptions;
-  session: RunSession;
-  signal: AbortSignal;
-  events: AgentEvents;
-}): Promise<boolean> {
-  const { options, session, signal, events } = params;
-  const { tasks } = options;
-  const { registry, ref } = session;
-
-  if (!tasks) return false;
-
-  let reported: number | undefined;
-  let waitedOnGroup = false;
-
-  while (!tasks.hasDeliveries(ref.id) && !registry.hasMessages(ref.id)) {
-    if (!holdsRunOpen({ options, tasks, id: ref.id })) return false;
-    // An aborted yield resolves every further wait at once, so it must end the loop here.
-    if (yieldEnds({ options, id: ref.id })) return false;
-    const groupedTasks = tasks.groupedPendingCount(ref.id);
-
-    reported = reportWaiting({ groupedTasks, reported, events });
-    waitedOnGroup = groupedTasks > 0;
-    // Grouped work ignores the yield, so a wait on it must not resolve at once.
-    const yieldSignal = waitedOnGroup ? undefined : options.yieldSignal;
-    const woken = await waitForWake({ tasks, registry, id: ref.id, signal, yieldSignal });
-
-    if (!woken) return false;
-    // Loop again: a task cancelled on request settles silently, with nothing to report.
-  }
-
-  // A yield that raced an ungrouped delivery wins: the delivery stays for the next run. Not when
-  // the wait was on grouped work: the model must see what it waited for, and finish, before the
-  // queued line starts (`finishTurn` then ends the run on the yield).
-  if (!waitedOnGroup && yieldEnds({ options, id: ref.id })) return false;
-
-  if (reported !== undefined) {
-    events.enqueue({ type: 'run_state', state: 'working', groupedTasks: 0 });
-  }
-
-  return true;
-}
-
-/** Whether work still running keeps this run open, as `options.holdOpenFor` says. */
-function holdsRunOpen(params: {
-  options: AgentOptions;
-  tasks: TaskRegistry;
-  id: RunSession['ref']['id'];
-}): boolean {
-  const { options, tasks, id } = params;
-
-  return options.holdOpenFor === 'awaited' ? tasks.hasAwaitedTasks(id) : tasks.hasPendingTasks(id);
-}
-
-/**
- * Whether a requested yield ends the run now. Grouped work (`await_tasks`) is the one thing a
- * yield does not end: the queued line stays queued until the model has finished.
- */
-function yieldEnds(params: { options: AgentOptions; id: RunSession['ref']['id'] }): boolean {
-  const { options, id } = params;
-
-  return options.yieldSignal?.aborted === true && !options.tasks?.hasAwaitedTasks(id);
-}
-
-/** Tells a UI the run waits on this many grouped tasks, unless it was last told the same. */
-function reportWaiting(params: {
-  groupedTasks: number;
-  reported: number | undefined;
-  events: AgentEvents;
-}): number {
-  const { groupedTasks, reported, events } = params;
-
-  if (groupedTasks !== reported) {
-    events.enqueue({ type: 'run_state', state: 'waiting', groupedTasks });
-  }
-
-  return groupedTasks;
-}
-
-/**
- * Waits for a task to finish or a message to arrive; false if the run aborted first. Whichever
- * wait did not fire is cancelled before returning, so each pass leaves no waiter in the
- * registries.
- */
-async function waitForWake(params: {
-  tasks: TaskRegistry;
-  registry: RunSession['registry'];
-  id: RunSession['ref']['id'];
-  signal: AbortSignal;
-  /** Aborting it also ends the wait; the caller decides what a yield means. */
-  yieldSignal: AbortSignal | undefined;
-}): Promise<boolean> {
-  const { tasks, registry, id, signal, yieldSignal } = params;
-  const done = new AbortController();
-  const waits = AbortSignal.any([signal, done.signal, ...(yieldSignal ? [yieldSignal] : [])]);
-
-  try {
-    await Promise.race([tasks.nextSettled(waits), registry.nextMessage(id, waits)]);
-
-    return !signal.aborted;
-  } finally {
-    done.abort();
-  }
 }

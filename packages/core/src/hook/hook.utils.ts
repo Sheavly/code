@@ -1,10 +1,10 @@
 import type { Hook, HookHandlerName } from './hook.types.js';
 import { DefinitionError } from '../errors/definition.errors.js';
-import { HANDLERS } from './hook.constants.js';
+import { HANDLER_NAMES } from './hook.constants.js';
 
-/** Every handler name a hook can define, in the order of `HANDLERS`. */
-export function handlerNames(): HookHandlerName[] {
-  return Object.keys(HANDLERS) as HookHandlerName[];
+/** Every handler name a hook can define, in the order of `HANDLER_NAMES`. */
+export function handlerNames(): readonly HookHandlerName[] {
+  return HANDLER_NAMES;
 }
 
 /** True if the hook defines at least one handler. */

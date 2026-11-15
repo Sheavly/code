@@ -12,8 +12,23 @@ describe('handlerNames', () => {
       'afterSummary',
       'aroundToolCall',
       'afterTurn',
+      'taskCompleted',
+      'notice',
+      'approval',
+      'sessionEnd',
       'onError',
     ]);
+  });
+
+  it('has no duplicate and never lists the name', () => {
+    expect(new Set(handlerNames()).size).toBe(handlerNames().length);
+    expect(handlerNames()).not.toContain('name');
+  });
+
+  it.each(handlerNames())('counts %s as a handler', (name) => {
+    const hook = { name: 'any', [name]: async () => undefined };
+
+    expect(hasHandler(hook)).toBe(true);
   });
 });
 

@@ -1,7 +1,6 @@
 import { now } from '@sheavly/core/clock/clock.helper';
 import { randomUUID } from 'node:crypto';
 import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
-import { defineHook } from '@sheavly/core/hook/hook.utils';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -86,15 +85,9 @@ export function createConversation(options: ConversationOptions): Conversation {
     const events = run({
       provider,
       tools,
-      hooks: [
-        ...hooks,
-        defineHook({
-          name: 'conversation-history',
-          onError: async (context) => {
-            messages = [...context.messages];
-          },
-        }),
-      ],
+      // The user's hooks, unchanged: a failed run's history comes from its `done` event.
+      hooks,
+      approvals: harness.approvals,
       messages: startingMessages,
       signal,
       tasks,

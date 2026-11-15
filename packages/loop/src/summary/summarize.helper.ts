@@ -53,8 +53,9 @@ function doneEvent(params: {
 
 /**
  * Summarizes when the context nears the window, before the turn's hooks and model call. Does
- * nothing without the `summary` option, once threshold summaries have failed `maxFailures` times
- * in a row this run, or while the last call's usage is unknown. The caller reads the context
+ * nothing once threshold summaries have failed `maxFailures` times in a row this run, or while
+ * the last call's usage is unknown. `config` is the run's `summary` option: only a run that has
+ * one registers this step, so it never tests for its absence. The caller reads the context
  * state again afterwards: a checkpoint clears the session's last reported tokens.
  *
  * Returns `'full'` when the context is past the threshold, no summary could shrink it (one
@@ -63,12 +64,12 @@ function doneEvent(params: {
  * caller stops with a recoverable `context_window_exceeded`. Otherwise `'ok'`, and the run goes
  * on with the view unchanged.
  */
-export async function summarizeAtThreshold(context: TurnContext): Promise<'ok' | 'full'> {
+export async function summarizeAtThreshold(params: {
+  context: TurnContext;
+  config: SummaryOptions;
+}): Promise<'ok' | 'full'> {
+  const { context, config } = params;
   const { options, session, summaryFailures } = context;
-  const config = options.summary;
-
-  if (!config) return 'ok';
-
   const policy = { ...DEFAULT_SUMMARY_POLICY, ...config.policy };
   const state = contextState({
     window: options.provider.contextWindow,
@@ -79,7 +80,7 @@ export async function summarizeAtThreshold(context: TurnContext): Promise<'ok' |
 
   const gaveUp = summaryFailures.count >= policy.maxFailures;
   const summarized =
-    !gaveUp && (await summarizeHistory({ context, reason: 'threshold', used: state.used }));
+    !gaveUp && (await summarizeHistory({ context, config, reason: 'threshold', used: state.used }));
 
   if (summarized) return 'ok';
 
@@ -89,8 +90,8 @@ export async function summarizeAtThreshold(context: TurnContext): Promise<'ok' |
 }
 
 /**
- * Writes one checkpoint for the run's history, when the `summary` option is set and there is
- * something older than the tail to summarize. Emits `summary_started` and then exactly one
+ * Writes one checkpoint for the run's history, when there is something older than the tail to
+ * summarize. Emits `summary_started` and then exactly one
  * `summary_done` or `summary_failed`, so a spinner never hangs. Returns whether a checkpoint was
  * appended. A failed summary never fails the run: it is reported as an event and the history is
  * left as it was; threshold failures are counted so the run stops trying after `maxFailures` in
@@ -98,16 +99,14 @@ export async function summarizeAtThreshold(context: TurnContext): Promise<'ok' |
  */
 export async function summarizeHistory(params: {
   context: TurnContext;
+  /** The run's `summary` option: only a run that has one calls this. */
+  config: SummaryOptions;
   reason: SummaryReason;
   /** What the last model call reported, when known; otherwise the view is estimated. */
   used?: number | undefined;
 }): Promise<boolean> {
-  const { context, reason, used } = params;
+  const { context, config, reason, used } = params;
   const { options, session, signal, events, messages, summaryFailures } = context;
-  const config = options.summary;
-
-  if (!config) return false;
-
   const policy = { ...DEFAULT_SUMMARY_POLICY, ...config.policy };
   // A tail the UI chose is kept as chosen; otherwise it follows the window and how full it was.
   const keepTokens =
@@ -170,6 +169,7 @@ export async function summarizeHistory(params: {
     messages,
     signal,
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+    onHookError: context.hookFailures.report,
   });
 
   return true;
@@ -223,6 +223,7 @@ async function writeCheckpoint(params: {
       lastTokens: session.registry.lastTokens(session.ref.id),
     }),
     signal,
+    onHookError: context.hookFailures.report,
   });
 
   // A hook that ignores its signal is raced against the abort (`runBeforeSummary`), which leaves

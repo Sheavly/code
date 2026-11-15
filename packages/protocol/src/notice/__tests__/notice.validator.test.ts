@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { harnessNoticeSchema } from '../notice.validator.js';
+import { harnessNoticeSchema, persistentNoticeSchema } from '../notice.validator.js';
+import { MAX_HOOK_FAILED_ERROR_CHARS } from '../notice.constants.js';
+import { historyMessageSchema } from '../../history/history.validator.js';
 import { agentEventSchema, entryEventSchema } from '../../event/event.validator.js';
 import { contractJsonSchema } from '../../contract/contract.utils.js';
 
@@ -58,6 +60,31 @@ describe('harness notices on the wire', () => {
     { window: '1000', used: 10 },
   ])('rejects unknown or invalid measurements in %j', (context) => {
     expect(harnessNoticeSchema.safeParse({ kind: 'context-usage', context }).success).toBe(false);
+  });
+
+  it.each([
+    { kind: 'hook-failed', hook: 'audit', handler: 'beforeTurn', error: 'boom' },
+    { kind: 'hook-failed', hook: 'audit', handler: 'afterTurn', error: 'boom', repeats: 3 },
+  ])('keeps the failed hook in %j on the stream and in history', (notice) => {
+    const event = { type: 'harness_notice', seq: 0, notice };
+
+    expect(harnessNoticeSchema.parse(notice)).toEqual(notice);
+    expect(persistentNoticeSchema.parse(notice)).toEqual(notice);
+    expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+    expect(historyMessageSchema.parse({ role: 'notice', notice, at: 1 })).toEqual({
+      role: 'notice',
+      notice,
+      at: 1,
+    });
+  });
+
+  it.each([
+    { hook: '', handler: 'beforeTurn', error: 'x' },
+    { hook: 'audit', handler: '', error: 'x' },
+    { hook: 'audit', handler: 'beforeTurn', error: 'x'.repeat(MAX_HOOK_FAILED_ERROR_CHARS + 1) },
+    { hook: 'audit', handler: 'beforeTurn', error: 'x', repeats: 0 },
+  ])('rejects an invalid hook failure in %j', (data) => {
+    expect(harnessNoticeSchema.safeParse({ kind: 'hook-failed', ...data }).success).toBe(false);
   });
 
   it('rejects arbitrary prose and notice kinds outside the shared contract', () => {

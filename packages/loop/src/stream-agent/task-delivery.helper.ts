@@ -8,16 +8,19 @@ import type { AgentEvents } from './stream-agent.types.js';
 import { finishedTaskNotice } from './task-notice.helper.js';
 import { taskCompletionContext } from './task-context.utils.js';
 
-/** Releases only ready deliveries at a turn boundary, identically to history and the stream. */
+/**
+ * Releases only ready deliveries at a turn boundary, identically to history and the stream.
+ * Returns the tasks of each delivery, for the `taskCompleted` hooks.
+ */
 export function reportFinishedTasks(params: {
   tasks: TaskRegistry | undefined;
   session: RunSession;
   messages: HistoryMessage[];
   events: AgentEvents;
-}): void {
+}): TaskInfo[][] {
   const { tasks, session, messages, events } = params;
 
-  if (!tasks) return;
+  if (!tasks) return [];
 
   // Completion listeners may release any delivered task synchronously. Snapshot every report
   // before publishing the first event, including reports in later deliveries of this drain.
@@ -76,6 +79,8 @@ export function reportFinishedTasks(params: {
   for (const delivery of deliveries) {
     for (const task of delivery.tasks) releaseAgentOf({ task, session });
   }
+
+  return deliveries.map((delivery) => delivery.tasks);
 }
 
 /** Releases the sub-agent session the task's `start_agent` call started, if it started one. */

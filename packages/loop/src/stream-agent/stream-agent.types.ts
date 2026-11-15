@@ -1,8 +1,11 @@
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { ContextState, Hook } from '@sheavly/core/hook/hook.types';
 import type { ToolOutcome } from '../events/events.types.js';
+import type { HookFailures, OnHookError } from '../hooks/hooks.types.js';
+import type { TurnContributions } from './contributions.types.js';
 import type { OrderedQueue } from '../queue/queue.service.js';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type {
@@ -50,6 +53,11 @@ export type AgentOptions = {
    * gets only the hooks its parent passes it.
    */
   hooks?: Hook[];
+  /**
+   * The registry this run's tools ask approvals from. With it, the hooks' `approval` handlers
+   * see this session's requests before any UI does, for as long as the run lasts.
+   */
+  approvals?: ApprovalRegistry;
   /**
    * Which session this run is (from a `SessionRegistry`). Omit it and the run starts its own
    * main session with a fresh id. Either way the session is ended with the run's outcome.
@@ -113,6 +121,10 @@ export type TurnContext = RunContext & {
    * whether the current model call already got its one overflow summary.
    */
   summaryFailures: { count: number; overflowTried: boolean };
+  /** The run's failed hook handlers: reported as they fail, told to the model at its next call. */
+  hookFailures: HookFailures;
+  /** The run's turn features, ordered once at its start (`buildContributions`). */
+  contributions: TurnContributions;
 };
 
 /** A tool call that started while the model streamed, with its eventual outcome. */
@@ -134,6 +146,8 @@ export type ToolStart = {
   /** The run's session, passed on to tools (`context.session`). */
   session: SessionRef;
   signal: AbortSignal;
+  /** Told about a tool hook that failed (`hook_failed`, and a notice to the model). */
+  onHookError: OnHookError;
 };
 
 export type SampleContext = ToolStart & {

@@ -1,9 +1,9 @@
 import path from 'node:path';
 import { z } from 'zod';
 import { handlerNames, hasHandler } from '@sheavly/core/hook/hook.utils';
-import type { Hook } from '@sheavly/core/hook/hook.types';
+import type { Hook, HookHandlerName } from '@sheavly/core/hook/hook.types';
 import { validate } from '@sheavly/core/validation/validation.validator';
-import { HOOK_EXTENSIONS } from './project-hooks.constants.js';
+import { HOOK_EXTENSIONS, MAX_HOOK_AFTER, MAX_HOOK_NAME_CHARS } from './project-hooks.constants.js';
 
 /** `.sheavly/hooks.json`. Unknown keys are rejected, so a typo doesn't silently do nothing. */
 export const hooksManifestSchema = z.strictObject({
@@ -32,23 +32,19 @@ function handlerList(): string {
 /** A handler is any function; what it receives and returns is typed by `Hook`. */
 const handler = z.custom<() => unknown>((value) => typeof value === 'function').optional();
 
-/**
- * What a hook file must export (as default): the same shape `defineHook` accepts. Every key is
- * listed against `Hook`'s handlers (`satisfies`), so a new handler can't be forgotten here.
- */
+/** One optional function per handler name, read from the one list so none can be forgotten. */
+const handlerShape = Object.fromEntries(handlerNames().map((name) => [name, handler])) as Record<
+  HookHandlerName,
+  typeof handler
+>;
+
+/** What a hook file must export (as default): the same shape `defineHook` accepts. */
 const hookExportSchema = z
   .strictObject({
-    name: z.string().min(1),
-    ...({
-      sessionStart: handler,
-      beforeTurn: handler,
-      beforeModelCall: handler,
-      beforeSummary: handler,
-      afterSummary: handler,
-      aroundToolCall: handler,
-      afterTurn: handler,
-      onError: handler,
-    } satisfies Record<keyof Omit<Hook, 'name'>, typeof handler>),
+    name: z.string().min(1).max(MAX_HOOK_NAME_CHARS),
+    /** Hooks this one must run after, by name; bounded so a hook file cannot make ordering costly. */
+    after: z.array(z.string().min(1).max(MAX_HOOK_NAME_CHARS)).max(MAX_HOOK_AFTER).optional(),
+    ...handlerShape,
   })
   .refine((hook) => hasHandler(hook as Hook), {
     message: `Define at least one handler: ${handlerList()}`,

@@ -4,8 +4,8 @@ import type { AgentEventBody } from '@sheavly/protocol/event/event.types';
 
 type SummaryFailureKind = NonNullable<Extract<AgentEventBody, { type: 'summary_failed' }>['kind']>;
 
-/** Which hook handler failed. */
-type HookHandler = Exclude<keyof Hook, 'name'>;
+/** Which hook handler failed, or `contribution` for a turn contribution that was skipped. */
+type HookHandler = Exclude<keyof Hook, 'name'> | 'contribution';
 
 /**
  * A hook's handler threw where its failure must not stop the run (`onError`): the run's own error
@@ -22,6 +22,17 @@ export class HookError extends Error {
     super(`Hook ${hook} failed in ${handler}: ${errorMessage(cause)}`, { cause });
     this.hook = hook;
     this.handler = handler;
+  }
+}
+
+/** A hook handler that must not hold the run took longer than it was given. */
+export class HookTimeoutError extends Error {
+  override name = 'HookTimeoutError';
+  readonly timeoutMs: number;
+
+  constructor(params: { timeoutMs: number }) {
+    super(`did not finish within ${params.timeoutMs}ms`);
+    this.timeoutMs = params.timeoutMs;
   }
 }
 
@@ -86,6 +97,20 @@ export class SummaryHookError extends Error {
     super(`Hook ${hook} returned an invalid summary change: ${problem}`, { cause });
     this.hook = hook;
     this.problem = problem;
+  }
+}
+
+/**
+ * A phase's contributions are miswired: a name used twice, an `after` naming one that is not
+ * registered, or a cycle. Thrown when the run starts, so it never surfaces halfway through a turn.
+ */
+export class ContributionError extends Error {
+  override name = 'ContributionError';
+  readonly problem: 'duplicate' | 'unknown_after' | 'cycle';
+
+  constructor(params: { problem: 'duplicate' | 'unknown_after' | 'cycle'; message: string }) {
+    super(params.message);
+    this.problem = params.problem;
   }
 }
 

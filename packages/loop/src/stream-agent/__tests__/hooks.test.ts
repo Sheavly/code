@@ -204,26 +204,39 @@ describe('hooks in the loop', () => {
     expect(log).toEqual(['a sessionStart', 'a beforeTurn 1', 'a onError']);
   });
 
-  it('calls onError when a hook fails the run', async () => {
+  it('reports a failing afterTurn as hook_failed, tells the model once, and finishes the run', async () => {
     const errors: string[] = [];
+    const events: AgentEvent[] = [];
+    const history = await runAgent({
+      provider: twoTurns(),
+      tools: [ping],
+      messages: [{ role: 'user', content: 'ping' }],
+      hooks: [
+        defineHook({
+          name: 'strict',
+          afterTurn: async () => {
+            throw new Error('reply rejected');
+          },
+          onError: async ({ error }) => void errors.push((error as Error).message),
+        }),
+      ],
+      onEvent: (event) => events.push(event),
+    });
 
-    await expect(
-      runAgent({
-        provider: twoTurns(),
-        tools: [ping],
-        messages: [{ role: 'user', content: 'ping' }],
-        hooks: [
-          defineHook({
-            name: 'strict',
-            afterTurn: async () => {
-              throw new Error('reply rejected');
-            },
-            onError: async ({ error }) => void errors.push((error as Error).message),
-          }),
-        ],
-      }),
-    ).rejects.toThrow('reply rejected');
-    expect(errors).toEqual(['reply rejected']);
+    // The run is not failed, so onError never fires.
+    expect(errors).toEqual([]);
+    expect(events.filter((event) => event.type === 'hook_failed')).toEqual([
+      expect.objectContaining({ hook: 'strict', handler: 'afterTurn' }),
+      expect.objectContaining({ hook: 'strict', handler: 'afterTurn' }),
+    ]);
+    // The first failure reaches the model as one persistent notice at its next call; the second
+    // (after the last turn) is still pending when the run ends.
+    const notices = history.flatMap((message) =>
+      message.role === 'notice' && message.notice.kind === 'hook-failed' ? [message.notice] : [],
+    );
+
+    expect(notices).toEqual([expect.objectContaining({ hook: 'strict', handler: 'afterTurn' })]);
+    expect(history.at(-1)?.role).toBe('assistant');
   });
 
   /** Runs a provider that fails, with an `onError` hook that throws `hookError`; the run must still throw. */
