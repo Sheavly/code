@@ -1,45 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { until } from '@sheavly/testing/wait/until.fake';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { Renderer } from '../../render/render.service.js';
-import { ChatSession } from '../chat-session.service.js';
 import type { ChatConversation } from '../chat.types.js';
+import { MAIN_SESSION, doneEntry, quietChat } from '../testing/chat-session.fake.js';
 
-const MAIN = sessionIdSchema.parse('main');
-
-const runState = (params: {
+function runState(params: {
   seq: number;
   state: 'working' | 'waiting';
   groupedTasks: number;
-}): StreamEntry => ({
-  seq: params.seq,
-  at: 0,
-  sessionId: MAIN,
-  kind: 'event',
-  event: {
-    seq: params.seq,
-    type: 'run_state',
-    state: params.state,
-    groupedTasks: params.groupedTasks,
-  },
-});
+}): StreamEntry {
+  const { seq, state, groupedTasks } = params;
+
+  return {
+    seq,
+    at: 0,
+    sessionId: MAIN_SESSION,
+    kind: 'event',
+    event: { seq, type: 'run_state', state, groupedTasks },
+  };
+}
 
 const working = runState({ seq: 0, state: 'working', groupedTasks: 0 });
 const waiting = runState({ seq: 1, state: 'waiting', groupedTasks: 2 });
 const finished = runState({ seq: 2, state: 'working', groupedTasks: 0 });
-const done: StreamEntry = {
-  seq: 3,
-  at: 0,
-  sessionId: MAIN,
-  kind: 'event',
-  event: {
-    seq: 3,
-    type: 'done',
-    reason: 'completed',
-    session: { id: MAIN, rootId: MAIN, depth: 1 },
-  },
-};
 
 /** A chat whose first prompt streams `states` and then stays open until released. */
 function chatHeld(states: StreamEntry[]) {
@@ -58,64 +41,47 @@ function chatHeld(states: StreamEntry[]) {
       sent.push(text);
       yield* states;
       await new Promise<void>((resolve) => releases.push(resolve));
-      yield done;
+      yield doneEntry(10);
     },
   } as unknown as ChatConversation;
-  const session = new ChatSession({
-    conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
-    mainSession: MAIN,
-    write: () => undefined,
-    onExit: () => undefined,
-  });
 
-  return { session, sent, yields, releases };
+  return { session: quietChat({ conversation }), sent, yields, releases };
+}
+
+/** Runs 'first' with `states`, queues 'second' behind it, and returns the yields asked so far. */
+async function queueBehind(states: StreamEntry[]) {
+  const held = chatHeld(states);
+
+  held.session.submit('first');
+  await until(() => held.releases.length === 1);
+  held.session.submit('second');
+
+  return held;
+}
+
+async function finish(held: Awaited<ReturnType<typeof queueBehind>>) {
+  held.releases[0]?.();
+  await until(() => held.releases.length === 2);
+  held.releases[1]?.();
+  await held.session.idle();
 }
 
 describe('ChatSession: a line queued while the run waits on await_tasks', () => {
   it('stays queued, without asking the prompt to yield', async () => {
-    const { session, sent, yields, releases } = chatHeld([working, waiting]);
+    const held = await queueBehind([working, waiting]);
 
-    session.submit('first');
-    await until(() => releases.length === 1);
-    session.submit('second');
-
-    expect(session.queued).toEqual(['second']);
-    expect(yields).toEqual([]);
-    releases[0]?.();
-    await until(() => sent.length === 2);
-    releases[1]?.();
-    await session.idle();
+    expect(held.session.queued).toEqual(['second']);
+    expect(held.yields).toEqual([]);
+    await finish(held);
   });
 
-  it('asks it to yield once the grouped tasks are done and the run works again', async () => {
-    const { session, yields, releases } = chatHeld([working, waiting, finished]);
+  it.each([
+    ['once the grouped tasks are done and the run works again', [working, waiting, finished]],
+    ['at once for a plain working run', [working]],
+  ])('asks the prompt to yield %s', async (_name, states) => {
+    const held = await queueBehind(states);
 
-    session.submit('first');
-    await until(() => releases.length === 1);
-    session.submit('second');
-
-    expect(yields).toHaveLength(1);
-    releases[0]?.();
-    await until(() => releases.length === 2);
-    releases[1]?.();
-    await session.idle();
-  });
-
-  it('asks a plain working run to yield, as before', async () => {
-    const { session, yields, releases } = chatHeld([working]);
-
-    session.submit('first');
-    await until(() => releases.length === 1);
-    session.submit('second');
-
-    expect(yields).toHaveLength(1);
-    releases[0]?.();
-    await until(() => releases.length === 2);
-    releases[1]?.();
-    await session.idle();
+    expect(held.yields).toHaveLength(1);
+    await finish(held);
   });
 });

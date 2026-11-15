@@ -35,7 +35,10 @@ describe('Renderer: per-prompt state', () => {
     expect(out.slice(before).join('')).toBe('next');
   });
 
-  it('counts reasoning items per prompt, not across prompts', () => {
+  it.each([
+    ['a prompt that completed', done(1)],
+    ['a run that failed', failed],
+  ])('does not carry reasoning from %s into the next prompt', (_name, ending) => {
     const out: string[] = [];
     const renderer = new Renderer(
       (chunk) => out.push(chunk),
@@ -43,21 +46,7 @@ describe('Renderer: per-prompt state', () => {
     );
 
     renderer.event(reasoning);
-    renderer.event(done(1));
-    renderer.event(done(1));
-
-    expect(out.at(-1)).toContain('reasoning items kept: 0');
-  });
-
-  it('does not carry reasoning from a failed run into the next prompt', () => {
-    const out: string[] = [];
-    const renderer = new Renderer(
-      (chunk) => out.push(chunk),
-      () => 0,
-    );
-
-    renderer.event(reasoning);
-    renderer.event(failed);
+    renderer.event(ending);
     renderer.event(done(1));
 
     expect(out.at(-1)).toContain('reasoning items kept: 0');

@@ -1,32 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
-import { Renderer } from '../../render/render.service.js';
-import { ChatSession } from '../chat-session.service.js';
-import type { ChatConversation, TurnOutcome } from '../chat.types.js';
-
-const MAIN = sessionIdSchema.parse('main');
-
-const reply: StreamEntry = {
-  seq: 0,
-  at: 0,
-  sessionId: MAIN,
-  kind: 'event',
-  event: { seq: 0, type: 'text_delta', text: 'working' },
-};
-
-const done: StreamEntry = {
-  seq: 1,
-  at: 0,
-  sessionId: MAIN,
-  kind: 'event',
-  event: {
-    seq: 1,
-    type: 'done',
-    reason: 'completed',
-    session: { id: MAIN, rootId: MAIN, depth: 1 },
-  },
-};
+import type { TurnOutcome } from '../chat.types.js';
+import type { ChatConversation } from '../chat.types.js';
+import { doneEntry, quietChat } from '../testing/chat-session.fake.js';
 
 /** A chat whose first prompt waits on `release`, and whose yield request is never answered. */
 function chatWithUnansweredYield() {
@@ -40,22 +15,14 @@ function chatWithUnansweredYield() {
     skills: () => Promise.resolve([]),
     async *send(params: { text: string }) {
       reached.push(params.text);
-      yield reply;
       await release.promise;
-      yield done;
+      yield doneEntry();
     },
   } as unknown as ChatConversation;
-  const session = new ChatSession({
+  const session = quietChat({
     conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
-    mainSession: MAIN,
-    write: () => undefined,
     onSend: (text) => sent.push(text),
     onTurnEnd: (outcome) => ends.push(outcome),
-    onExit: () => undefined,
   });
 
   return { session, release, sent, ends, reached };
