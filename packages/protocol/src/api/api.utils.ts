@@ -1,6 +1,12 @@
 import { contractDefinitions, contractName } from '../contract/contract.utils.js';
 import { serverErrorSchema } from '../server/server.validator.js';
-import { API_ROUTES, LAST_EVENT_ID_HEADER, OPENAPI_VERSION, SCHEMAS } from './api.constants.js';
+import {
+  API_ROUTES,
+  LAST_EVENT_ID_HEADER,
+  OPENAPI_VERSION,
+  ROUTE_TABLE_MARKERS,
+  SCHEMAS,
+} from './api.constants.js';
 import type { ApiResponse, ApiRoute, OpenApiDocument } from './api.types.js';
 
 /** A `$ref` to the contract's schema; a schema the contract doesn't name fails loudly. */
@@ -70,6 +76,46 @@ function operationOf(params: { operationId: string; route: ApiRoute }): Record<s
     }),
     responses: { [String(route.response.status)]: successOf(route.response), default: error },
   };
+}
+
+/** What a route answers, as the route table in `docs/contract.md` says it. */
+function answerCell(response: ApiResponse): string {
+  if ('schema' in response) return `\`${contractName(response.schema) ?? '?'}\``;
+  if ('stream' in response) return `\`${contractName(response.stream) ?? '?'}\`s (SSE)`;
+
+  return `nothing (\`${response.status}\`)`;
+}
+
+/**
+ * The route table of `docs/contract.md`, one row per `API_ROUTES` entry in definition order:
+ * request, body schema and answer. `npm run schema -w @sheavly/protocol` writes it between the
+ * doc's markers and a test holds the doc to it.
+ */
+function routeTableMarkdown(): string {
+  const rows = Object.values(API_ROUTES).map((route: ApiRoute) => {
+    const request = `\`${route.method.toUpperCase()} ${route.path}\``;
+    const body = route.body ? `\`${contractName(route.body) ?? '?'}\`` : 'none';
+
+    return `| ${request} | ${body} | ${answerCell(route.response)} |`;
+  });
+
+  return ['| Request | Body | Answer |', '| --- | --- | --- |', ...rows].join('\n');
+}
+
+/**
+ * `markdown` with the block between the route table markers replaced by the current table, or
+ * null when the markers are missing or out of order.
+ */
+export function withRouteTable(markdown: string): string | null {
+  const { start, end } = ROUTE_TABLE_MARKERS;
+  const from = markdown.indexOf(start);
+  const to = markdown.indexOf(end);
+
+  if (from === -1 || to < from) return null;
+
+  const block = [start, '', routeTableMarkdown(), '', end].join('\n');
+
+  return markdown.slice(0, from) + block + markdown.slice(to + end.length);
 }
 
 /**

@@ -197,12 +197,6 @@ const stepEventSchemas = [
     /** Further tries this run before summaries stop being attempted. */
     retriesLeft: z.number().int().nonnegative(),
   }),
-  /** Accept stored continuation entries; new recovery is reported through harness notices. */
-  z.object({
-    type: z.literal('output_continuation'),
-    attempt: z.number().int().positive(),
-    maxAttempts: z.number().int().positive(),
-  }),
   /**
    * A hook handler failed where it must not stop the run (`onError`). The run's own error is
    * still what ends the stream; this says the hook couldn't do its job.

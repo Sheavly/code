@@ -1,11 +1,25 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { API_ROUTES, OPENAPI_FILE } from '../api.constants.js';
-import { openApiDocument } from '../api.utils.js';
+import { API_ROUTES, OPENAPI_FILE, ROUTE_TABLE_DOC } from '../api.constants.js';
+import { openApiDocument, withRouteTable } from '../api.utils.js';
 import { refsIn } from '../../testing/refs.fake.js';
 
 const PACKAGE_ROOT = join(import.meta.dirname, '../../..');
+
+describe('the route table in docs/contract.md', () => {
+  it('is generated from API_ROUTES (rerun `npm run schema -w @sheavly/protocol`)', async () => {
+    const markdown = await readFile(join(PACKAGE_ROOT, ROUTE_TABLE_DOC), 'utf8');
+    const generated = withRouteTable(markdown);
+
+    expect(generated).not.toBeNull();
+    // Prettier pads the written table, so compare cells, not spacing.
+    const cells = (text: string | null) =>
+      (text ?? '').replaceAll(/[ \t]+/g, ' ').replaceAll(/-{3,}/g, '---');
+
+    expect(cells(markdown)).toEqual(cells(generated));
+  });
+});
 
 describe('openApiDocument', () => {
   it('matches the committed openapi.json (rerun `npm run schema -w @sheavly/protocol`)', async () => {

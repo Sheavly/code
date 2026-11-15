@@ -40,7 +40,8 @@ import { HistoryFile } from './history-file.service.js';
 
 /**
  * A workspace's conversations on disk: `<workspace folder>/conversations/<conversation-id>/`, one
- * folder each, holding `index.json`, `stream.jsonl`, `history.json` and `agents/<session-id>.history.json`.
+ * folder each, holding `index.json`, `stream.jsonl`, `history.jsonl` and `agents/<session-id>.history.jsonl`
+ * (a legacy `history.json`, still written by `writeMessages`, is imported into the log once).
  * Everything is named by an id, so no title or path from a person reaches a file name, and
  * deleting a conversation deletes its folder and nothing else.
  *

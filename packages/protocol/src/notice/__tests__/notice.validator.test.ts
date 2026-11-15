@@ -4,10 +4,10 @@ import { agentEventSchema, entryEventSchema } from '../../event/event.validator.
 import { contractJsonSchema } from '../../contract/contract.utils.js';
 
 describe('harness notices on the wire', () => {
-  it('still reads continuation events in previously stored streams', () => {
+  it('no longer reads the removed output_continuation event, so a stored stream holding it fails', () => {
     const event = { type: 'output_continuation', seq: 0, attempt: 1, maxAttempts: 2 };
 
-    expect(entryEventSchema.parse(event)).toEqual(event);
+    expect(entryEventSchema.safeParse(event).success).toBe(false);
   });
 
   it.each([

@@ -77,7 +77,7 @@ export class ChatScreen {
       commands: { name: string; description?: string }[];
       cwd: string;
       onSubmit: (line: string) => void;
-      /** Ctrl+C or Esc while a prompt runs. */
+      /** Ctrl+C while a prompt runs; Esc only skips an approval or cancels a typed reply. */
       onStop: () => 'stopped' | 'stopping' | 'idle';
       onAnswer: (answer: ApprovalAnswer) => void;
       onQuit: () => void;

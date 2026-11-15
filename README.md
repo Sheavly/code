@@ -236,9 +236,11 @@ Before moving a session into a separate worktree, run from the initialized check
 node scripts/bootstrap-worktree.mjs /path/to/worktree
 ```
 
-This installs with `npm ci`, probes the configured fail-closed guards with isolated temporary chat
-state, and checks the quality-tool executables. Move the session only after successful verification;
-on failure stay in the original checkout. Missing tools are setup failures, not skipped checks.
+It is a manual step: no hook or npm script runs `bootstrap-worktree.mjs` or `verify-worktree.mjs`,
+and the `/git` skill's start procedure calls it. It installs with `npm ci`, probes the configured
+fail-closed guards with isolated temporary chat state, and checks the quality-tool executables.
+Move the session only after successful verification; on failure stay in the original checkout.
+Missing tools are setup failures, not skipped checks.
 
 | Event                           | Script                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

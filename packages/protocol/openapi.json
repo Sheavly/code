@@ -1619,19 +1619,6 @@
           {
             "type": "object",
             "properties": {
-              "type": { "type": "string", "const": "output_continuation" },
-              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-              "maxAttempts": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": ["type", "attempt", "maxAttempts"]
-          },
-          {
-            "type": "object",
-            "properties": {
               "type": { "type": "string", "const": "hook_failed" },
               "hook": { "type": "string" },
               "handler": { "type": "string" },
@@ -1911,20 +1898,6 @@
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
             "required": ["seq", "type", "reason", "error", "retriesLeft"]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
-              "type": { "type": "string", "const": "output_continuation" },
-              "attempt": { "type": "integer", "exclusiveMinimum": 0, "maximum": 9007199254740991 },
-              "maxAttempts": {
-                "type": "integer",
-                "exclusiveMinimum": 0,
-                "maximum": 9007199254740991
-              }
-            },
-            "required": ["seq", "type", "attempt", "maxAttempts"]
           },
           {
             "type": "object",
