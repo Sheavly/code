@@ -61,6 +61,14 @@ describe('liveLayout', () => {
     expect(layout.lines.length + 1).toBeLessThan(8);
   });
 
+  it('says why confirmation is blocked when the editor leaves the approval no row', () => {
+    const layout = liveLayout(frame({ approval: 'command\nchoice', rows: 5 }));
+
+    expect(layout.approvalFits).toBe(false);
+    expect(layout.lines.join('\n')).toContain('Enlarge terminal or Esc to skip');
+    expect(layout.lines.length + 1).toBeLessThan(5);
+  });
+
   it.each([2, 3, 4, 10, 24])('bounds the footer at %i rows', (rows) => {
     const layout = liveLayout(
       frame({ rows, live: 'large\n'.repeat(100), approval: 'long\n'.repeat(100) }),

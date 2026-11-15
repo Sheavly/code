@@ -35,8 +35,11 @@ function rowsOf(params: { text: string; columns: number }): string[] {
 export function liveLayout(props: ReactScreenProps): LiveLayout {
   const { columns, rows, editor } = props;
   const capacity = Math.max(0, rows - 2);
-  const editorLines = editor.lines.slice(0, Math.min(editor.lines.length, capacity));
   const approval = rowsOf({ text: props.approval, columns });
+  // A waiting approval keeps one row, so it or its "does not fit" hint is never squeezed out by
+  // the editor, which would leave Enter blocked with no explanation.
+  const editorCapacity = approval.length > 0 ? Math.max(0, capacity - 1) : capacity;
+  const editorLines = editor.lines.slice(0, Math.min(editor.lines.length, editorCapacity));
   const available = Math.max(0, capacity - editorLines.length);
   const approvalFits = approval.length <= available;
   const beforeEditor = approval.slice(0, available);
