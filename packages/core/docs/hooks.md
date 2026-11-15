@@ -4,16 +4,24 @@ The `Hook` contract (`@sheavly/core/hook/`): what a hook can do and when. How th
 
 ## Hook points
 
-| Handler           | When                                                    | Can                                                              |
-| ----------------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
-| `sessionStart`    | Once per run, before the first turn                     | Add opening context                                              |
-| `beforeTurn`      | Before each model call                                  | Add context, add system instructions                             |
-| `beforeModelCall` | After `beforeTurn`, just before the model is called     | Replace the messages sent to this one call                       |
-| `beforeSummary`   | Before a summary is written                             | Choose how much stays word for word, supply a section            |
-| `afterSummary`    | After the checkpoint is in history                      | Add context back                                                 |
-| `aroundToolCall`  | Around each tool call                                   | Block it, change its input or result (including its `artifacts`) |
-| `afterTurn`       | After each turn, with its reply and tool results        | Observe, record, fail the run                                    |
-| `onError`         | When the run fails, before the error reaches the caller | Log, report (its own failure is a `hook_failed` event)           |
+| Handler           | When                                                    | Can                                                                     |
+| ----------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `sessionStart`    | Once per run, before the first turn                     | Add opening context                                                     |
+| `beforeTurn`      | Before each model call                                  | Add context, add system instructions                                    |
+| `beforeModelCall` | After `beforeTurn`, just before the model is called     | Replace the messages sent to this one call                              |
+| `beforeSummary`   | Before a summary is written                             | Choose how much stays word for word, supply a section                   |
+| `afterSummary`    | After the checkpoint is in history                      | Add context back                                                        |
+| `aroundToolCall`  | Around each tool call                                   | Block it, change its input or result (including its `artifacts`)        |
+| `afterTurn`       | After each turn, with its reply and tool results        | Observe, record                                                         |
+| `taskCompleted`   | When finished work is delivered to the model            | Add context                                                             |
+| `notice`          | For each persistent harness notice that reaches history | Add context                                                             |
+| `approval`        | When a tool waits for approval, before any UI hears it  | Stop it (skip, or skip with a message); never approve; a throw skips it |
+| `sessionEnd`      | Once, when the run's outcome is known, before `done`    | Clean up, record                                                        |
+| `onError`         | When the run fails, before the error reaches the caller | Log, report                                                             |
+
+A handler that throws never fails the run: it is reported as a `hook_failed` event and a
+`hook-failed` notice the model sees, and the run goes on without that contribution. The exceptions
+fail closed: `aroundToolCall` and `approval` block the call.
 
 Two ways to tell the model something:
 
@@ -107,11 +115,13 @@ hook points surround each checkpoint. Neither runs without that option.
 
 ## Adding a hook point
 
-1. Add an optional handler and its context type to `Hook` in `packages/core/src/hook/hook.types.ts`.
-2. Add it to `HANDLERS` in `hook.constants.ts` and to `hookExportSchema` in
-   `packages/workspace/src/project-hooks/project-hooks.validator.ts` (the typecheck fails if either is missed).
-3. Add a runner in `packages/loop/src/hooks/hooks.helper.ts` and call it from the loop.
-4. Test it in `packages/loop/src/hooks/__tests__/` and in the loop (`stream-agent/__tests__/hooks.test.ts`).
+1. Add its name to `HANDLER_NAMES` in `hook.constants.ts` and its signature and context type to
+   `HookHandlers` in `hook.types.ts` (the typecheck fails if a name has no signature).
+   `Hook`, `handlerNames` and the project-hook schema derive from that list.
+2. Add a runner in `packages/loop/src/hooks/` and call it from the loop.
+3. Name the runner in `RUNNERS` in `packages/loop/src/hooks/__tests__/handler-coverage.test.ts`:
+   the typecheck fails until you do, and the test fails if it does not exist.
+4. Test it in `packages/loop/src/hooks/__tests__/` and in the loop (`stream-agent/__tests__/`).
 
 Every handler is given the model's view of the history (the newest checkpoint as text, then the
 messages it kept), never the stored `summary` entries; see

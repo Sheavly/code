@@ -34,18 +34,21 @@ One entry in `API_ROUTES` (`packages/protocol/src/api/api.constants.ts`), named 
 
 ## A hook
 
-`defineHook({ name, sessionStart?, beforeTurn?, beforeModelCall?, beforeSummary?, afterSummary?, aroundToolCall?, afterTurn?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters).
+`defineHook({ name, sessionStart?, beforeTurn?, beforeModelCall?, beforeSummary?, afterSummary?, aroundToolCall?, afterTurn?, taskCompleted?, notice?, approval?, sessionEnd?, onError? })` from `@sheavly/core/hook/hook.utils`, passed in the loop's `hooks` option (order matters).
 
 - `sessionStart` (once per run) and `beforeTurn` add context with `addContext` (a user message kept in history, emitted as `context_added`); `beforeTurn` can also `addInstructions` (system instructions for that model call only, appended to the run's `instructions` option, never in history). Changing the system prompt invalidates Claude's signed thinking prefix: the built-in AGENTS.md and skills hooks append changed instructions with `appendInstructionContext` (`@sheavly/workspace/instruction-context/instruction-context.helper`), deduplicated from history, rather than replacing system instructions.
 - `beforeModelCall` returns the messages to send for that one call (it gets a deep copy and its result is parsed and checked by `assertValidHistory`: tool calls stay paired and the latest user message unchanged, a violation is an `InvalidHistoryError`; stored history never changes, and edits should be deterministic so the prompt prefix stays cacheable).
 - `beforeSummary` (only with the loop's `summary` option) may return `{ keepTokens?, sections? }`, parsed by the loop, to move the cut or add sections, and a bad result fails that summary (`summary_failed`), never the run; `afterSummary` gets copies of the new checkpoint and of the view, and adds context back with `addContext` (never copy the checkpoint's text into it: it comes from tool output).
 - `aroundToolCall` calls `next()` to continue, or returns a result to block; `afterTurn` sees the turn's reply with tool results in history; `onError` is told when the run fails (the run's error is rethrown; a handler that throws doesn't stop the others and is reported as a `hook_failed` event).
-- A new hook point is a new optional handler on `Hook`, added to `HANDLERS` in `hook.constants.ts` and run from `@sheavly/loop/hooks/hooks.helper`. Today it is four edits: `Hook`, `HANDLERS`, the project-hook schema (`hookExportSchema`) and the loop's runners; a `satisfies` check fails the typecheck if the schema misses one. Add all four in one change.
+- A new hook point is one name in `HANDLER_NAMES` (`hook.constants.ts`) plus its signature in `HookHandlers` (`hook.types.ts`). `Hook`, `handlerNames` and the project-hook schema derive from that list. Add its runner in `@sheavly/loop/hooks/` and name it in `RUNNERS` in `handler-coverage.test.ts`: the typecheck fails until you do, and the test fails if the runner does not exist.
+- `taskCompleted` (finished work delivered) and `notice` (a persistent notice reached history) may `addContext`; `approval` may return an answer the request offers (e.g. `skip_with_message`) to settle a request before any UI hears it; `sessionEnd` runs once before `done`, even after an abort.
+- A handler that throws never fails the run: it is a `hook_failed` event and a `hook-failed` notice, and the run goes on without it. `aroundToolCall` and `approval` fail closed.
+- A feature of the turn (masking, overflow recovery, output limits) is a contribution in `turn-contributions.helper.ts`, with a name, an `after`, an `onFailure` and an `abort` policy; never an `if (options.x)` in `runTurn`.
 - Two hooks, or two tools, with the same name are a collision: never rely on one shadowing the other.
 
 ## A project hook (`.sheavly/`)
 
-Listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler on `Hook` must also be added to `hookExportSchema` in `project-hooks.validator.ts`. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).
+Listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler is accepted here with no edit: `hookExportSchema` reads its keys from the handler list. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).
 
 ## A notice
 

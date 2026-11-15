@@ -229,14 +229,15 @@ the UI passes them.
   that the request is still shown word for word. `harness/no-adhoc-latest-request` keeps other
   code from looking it up by hand.
 - **Hooks.** `beforeSummary` runs after `summary_started`, in hook order, and may move the cut
-  (`keepTokens`) or add sections (`runBeforeSummary`); its result is parsed, and a bad one is a
-  `SummaryHookError`, and a throw a `HookError`, in the text of a `summary_failed`, like any other
-  failed summary. A hook that
-  ignores its signal is raced against the abort, like the summarizer.
+  (`keepTokens`) or add sections (`runBeforeSummary`); its result is parsed, and a bad one (a
+  `SummaryHookError`) or a throw (a `HookError`) is reported as `hook_failed`: the hook is skipped
+  and the summary is written without it. A hook that ignores its signal is raced against the
+  abort, like the summarizer.
   `afterSummary` runs once the checkpoint is appended and `summary_done` is emitted
   (`runAfterSummary`, handing each hook copies of the checkpoint and the view), so what it adds
   with `addContext` follows the checkpoint in history, is
-  reported as `context_added`, and a throw fails the run. It is raced against the abort too, and an
+  reported as `context_added`, and a throw is reported as `hook_failed` without failing the run.
+  It is raced against the abort too, and an
   `addContext` that arrives after the abort adds nothing. See
   [hooks](../../core/docs/hooks.md#around-a-summary).
 - **Rejected results.** `SummaryRejectedError` (never thrown to the caller; it is the text of a
@@ -285,6 +286,37 @@ clears them, since stale ones would say the context is emptier than it is. After
 the count is the previous model's measure of the same history, paired with the new window until
 the next call reports its own.
 
+## The turn as a state machine
+
+A turn is a fixed sequence of phases; features join it as contributions rather than branches.
+
+| Phase | What happens                                                                      | Failure / abort                               |
+| ----- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| 1     | abort check, steering messages, finished tasks delivered                          | none                                          |
+| 2     | `hook-failed` notices from earlier failures reach history                         | none                                          |
+| 3     | `taskCompleted` and `notice` hooks                                                | reported, skipped; raced                      |
+| 4     | summary at the threshold (`full` ends `context_window_exceeded`)                  | summary failures reported as `summary_failed` |
+| 5     | `beforeTurn` hooks                                                                | reported, skipped; raced                      |
+| 6     | **`view` contributions** (masking), then `beforeModelCall` hooks                  | contribution policy; hooks reported, skipped  |
+| 7     | model call, tools start as they stream                                            | provider failure fails the run                |
+| 8     | **`overflow` contributions** (summarize and retry)                                | contribution policy                           |
+| 9     | reply and tool results into history                                               | none                                          |
+| 10    | `afterTurn` hooks                                                                 | reported, skipped; raced                      |
+| 11    | **`limit` contributions**: window exceeded, then output-limit recovery            | contribution policy                           |
+| 12    | completion decision: running tools, inbox, yield, `await_tasks`, else `completed` | abort gives `interrupted`                     |
+
+`finishTurn` decides in the order of phases 11 then 12. The run around the turns: `sessionStart`,
+the turns, `sessionEnd`, then `done` (always last).
+
+A **contribution** (`contributions.types.ts`) has a `name`, an optional `after` (ordering), an
+`onFailure` (`fail-run`, or `report`: skip it and report like a failed hook) and an `abort`
+(`race`: stop waiting when the run aborts, or `wait`). `buildContributions(options)` builds the
+lists once per run, orders them (a duplicate name, an unknown `after` or a cycle throws a
+`ContributionError` before the first model call) and is the one place that decides which features
+exist: masking and overflow recovery are absent without a `summary` option, and `runTurn` never
+tests an option. To add a feature to a phase, add one entry to that phase's list in
+`turn-contributions.helper.ts` and a test in `contributions.test.ts`.
+
 ## Hook order
 
 - Hooks run in the order given. Every handler runs one after another, except `aroundToolCall`,
@@ -298,14 +330,23 @@ the next call reports its own.
   by it; the turn goes on appending the reply and tool results to the history. Each result is
   parsed as a list of messages and goes through `assertValidHistory` (`history/`), so something
   that is not messages, a broken pairing, an empty list, or a dropped or changed latest user
-  message fails the run with an `InvalidHistoryError` naming the hook, before any model call. A
-  hook that returns its input unchanged is not checked. An abort while a hook runs ends the run
-  `interrupted`. A hook whose result added, dropped or edited messages emits
+  message is an `InvalidHistoryError` naming the hook: the hook is skipped, reported (see
+  below) and the model is sent the messages from before it. A hook that returns its input
+  unchanged is not checked. An abort while a hook runs ends the run `interrupted`. A hook whose result added, dropped or edited messages emits
   `model_input_changed` (`{ hook, turn, added, removed, edited }`) through the ordered queue,
   after the turn's `context_added` events and before the model streams. A hook that returns what
   it was given emits nothing.
-- A handler that throws fails the run, except `aroundToolCall` (the call gets an error result)
-  and `onError`: its failure doesn't stop the other `onError` handlers or replace the run's
-  error, but it is reported as a `hook_failed` event (`{ hook, handler, error }`, from a
-  `HookError` in `runtime/errors/`).
+- **One failure path.** Every handler runs through `guarded` (`hooks/guarded.helper.ts`): raced
+  against the abort, so a hook that ignores its signal cannot hold the run. A handler that
+  throws is skipped and reported: a `hook_failed` event (`{ hook, handler, error }`, redacted)
+  at once, and a persistent `hook-failed` notice the model sees at its next call, once per hook
+  and handler (later failures arrive as a `repeats` count). The run goes on without that hook's
+  contribution (instructions it added before throwing are dropped). An abort is not a failure
+  and is not reported. `onError` handlers run after an abort too. `sessionEnd` likewise.
+- Fail closed: `aroundToolCall` turns a throw into an error result, and an `approval` hook that
+  throws skips the command with the reason, so a broken guard never lets a call through.
+- New points: `taskCompleted` (finished work delivered) and `notice` (a persistent notice in
+  history; never a `hook-failed` one) may `addContext`; `sessionEnd` runs once before `done`;
+  `approval` screens the run's own session's requests on `options.approvals` before a UI hears
+  of them (`ApprovalRegistry.screen`), the first answer winning.
 - A sub-agent run gets only the hooks its parent passes it, and runs its own `sessionStart`.
