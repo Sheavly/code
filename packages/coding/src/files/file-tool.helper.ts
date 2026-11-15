@@ -1,7 +1,7 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { errorCode, isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { PathCheckError, WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
-import { FS_FAILURE, FS_REFUSALS } from './files.constants.js';
+import { FS_FAILURE, FS_REFUSALS, SYSTEM_ERROR_CODE } from './files.constants.js';
 
 /**
  * Runs the body of a file tool with the one abort rule and the one error mapping they share. An
@@ -41,7 +41,9 @@ function toToolError(params: { error: unknown; requested: string; signal: AbortS
   if (error instanceof PathCheckError) {
     return new ToolCallError({
       reason: 'forbidden',
-      message: `Could not check ${requested}${error.code ? ` (${error.code})` : ''}.`,
+      message: `Could not check ${requested}${
+        error.code && SYSTEM_ERROR_CODE.test(error.code) ? ` (${error.code})` : ''
+      }.`,
     });
   }
 
@@ -52,11 +54,14 @@ function toToolError(params: { error: unknown; requested: string; signal: AbortS
   // The system's own text carries absolute host paths, so the model gets a fixed sentence.
   const code = errorCode(error);
 
-  // Only a system error (its code is `E` and capitals): anything else is not ours to rename.
-  if (code !== undefined && /^E[A-Z0-9]+$/.test(code)) {
+  // Only a system error (a short `E` code): anything else is not ours to rename. A code the table
+  // does not know is not a permission problem, so it is reported as unavailable, not forbidden.
+  if (code !== undefined && SYSTEM_ERROR_CODE.test(code)) {
+    const known = FS_REFUSALS[code];
+
     return new ToolCallError({
-      reason: 'forbidden',
-      message: `${FS_REFUSALS[code] ?? `${FS_FAILURE} (${code})`}: ${requested}.`,
+      reason: known?.reason ?? 'unavailable',
+      message: `${known?.text ?? `${FS_FAILURE} (${code})`}: ${requested}.`,
     });
   }
 

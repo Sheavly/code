@@ -54,21 +54,33 @@ describe('runFileTool', () => {
   });
 
   it.each([
-    ['EACCES', 'Permission denied: a.ts.'],
-    ['EISDIR', 'Not a file: a.ts.'],
-    ['ELOOP', 'Too many symbolic links: a.ts.'],
-    ['ENAMETOOLONG', 'Path too long: a.ts.'],
-    ['EMFILE', 'Too many open files: a.ts.'],
-    ['EBUSY', 'File is busy: a.ts.'],
-    // Any other system code still gets a fixed phrase, with the code and the path the model gave.
-    ['EXDEV', 'The file system refused the operation (EXDEV): a.ts.'],
+    ['EACCES', 'forbidden', 'Permission denied: a.ts.'],
+    ['EROFS', 'forbidden', 'Read-only file system: a.ts.'],
+    ['EISDIR', 'invalid_input', 'Not a file: a.ts.'],
+    ['ELOOP', 'invalid_input', 'Too many symbolic links: a.ts.'],
+    ['ENAMETOOLONG', 'invalid_input', 'Path too long: a.ts.'],
+    ['EEXIST', 'invalid_input', 'Something is already there: a.ts.'],
+    ['EMFILE', 'unavailable', 'Too many open files: a.ts.'],
+    ['EBUSY', 'unavailable', 'File is busy: a.ts.'],
+    ['ENOSPC', 'unavailable', 'No space left on the device: a.ts.'],
+    // Any other system code gets a fixed phrase with the code, and is not a permission problem.
+    ['EXDEV', 'unavailable', 'The file system refused the operation (EXDEV): a.ts.'],
   ])(
-    'tells the model %s in a fixed phrase, never the system text with its host path',
-    async (code, said) => {
+    'tells the model %s as %s in a fixed phrase, never the system text with its host path',
+    async (code, reason, said) => {
       const raw = Object.assign(new Error(`${code}: /home/user/secret/a.ts`), { code });
       const failure = await run(failWith(raw)).catch((caughtError: unknown) => caughtError);
 
-      expect(failure).toMatchObject({ reason: 'forbidden', message: said });
+      expect(failure).toMatchObject({ reason, message: said });
+    },
+  );
+
+  it.each(['ECONNRESET_X', 'E', 'EXTREMELYLONGERRORCODEHERE', 'e1', 'ERR CODE'])(
+    'leaves a code that is not a short system code (%s) as it was',
+    async (code) => {
+      const raw = Object.assign(new Error('x'), { code });
+
+      await expect(run(failWith(raw))).rejects.toBe(raw);
     },
   );
 

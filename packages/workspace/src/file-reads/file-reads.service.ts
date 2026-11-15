@@ -29,7 +29,9 @@ export class FileReads {
   /**
    * Agents whose session was released. A tool still running when that happened can finish and
    * record a read afterwards; ignoring it keeps a released agent's text from coming back. A
-   * session id is never reused, so the set is only ever added to.
+   * session id is never reused and a `FileReads` is not kept across a release and a restore of
+   * the same id (a reopen builds a new one), so the set is only ever added to and one id costs one
+   * short string. `importAgent` runs once, on a new instance, and does not consult it.
    */
   readonly #released = new Set<string>();
   #clock = 0;

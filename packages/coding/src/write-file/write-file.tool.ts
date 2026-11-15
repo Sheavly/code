@@ -1,4 +1,5 @@
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import { z } from 'zod';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
@@ -67,7 +68,7 @@ async function writeFile(params: {
         await writeText({ file: real, content, signal, create: true });
       } catch (caughtError) {
         // EEXIST is the one failure expected here: something is already at the path.
-        if ((caughtError as NodeJS.ErrnoException).code !== 'EEXIST') throw caughtError;
+        if (errorCode(caughtError) !== 'EEXIST') throw caughtError;
 
         throw new ToolCallError({
           reason: 'invalid_input',
