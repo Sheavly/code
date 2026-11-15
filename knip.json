@@ -18,6 +18,8 @@
         "!.sheavly/hooks/cursor-bridge.mjs"
       ],
       "ignore": ["workbook/workspaces/**"]
-    }
+    },
+    // The two-process lock test starts this file as a child process by path; nothing imports it.
+    "packages/storage": { "entry": ["src/testing/lock-worker.fake.ts"] }
   }
 }
