@@ -67,8 +67,12 @@ unread; another agent's view of the file goes stale. A released session's reads 
 must read for themselves, and a symlink and its target are one file.
 
 **Reads survive a reopen.** The backend keeps the main agent's reads (the pieces it was shown and
-each file's hash, at most the 200 files read last) in the conversation's `shell.json` when a prompt
-ends, and restores them when the conversation is reopened. They are not trusted to still hold: the
+each file's hash) in the conversation's `shell.json` when a prompt ends, and restores them when the
+conversation is reopened. `shell.json` therefore holds file text, private like the rest of the
+conversation store and already present in its history as tool results. What is kept is bounded:
+the 200 files touched last and at most 2,000,000 characters of text in all (a view that does not fit
+is left out, so that file is read again), and a stored document over those bounds is refused on
+restore. A prompt that read nothing new writes nothing, and saves never overlap. They are not trusted to still hold: the
 hash is compared with the file as it is then, so a file that changed while the conversation was
 closed asks for a new read, and one that did not change costs none. Sub-agents are not kept: a
 running one comes back interrupted. Stored reads that are not valid are reported and ignored, and

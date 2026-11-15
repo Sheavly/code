@@ -24,20 +24,45 @@ export async function restoreFileReads(params: {
 
 /**
  * Keeps `agent`'s reads in `store` next to the rest of the document (its working root stays), so
- * the next reopen can restore them. Call it when a prompt ends, not on every read.
+ * the next reopen can restore them. `keep` is for when a prompt ends, not on every read. It writes
+ * only when the reads differ from what it last wrote or restored, and writes one after another,
+ * so a prompt that read nothing new rewrites nothing and two saves never overlap. `remember`
+ * tells it what was restored, so the first prompt after a reopen does not write it back.
  */
-export async function keepFileReads(params: {
+export function createFileReadsKeeper(params: {
   fileReads: FileReads;
   agent: string;
   store: WorkingRootStore;
-}): Promise<void> {
+}): { keep: () => Promise<void>; remember: () => void } {
   const { fileReads, agent, store } = params;
-  const views = fileReads.exportAgent({ agent });
+  let last = JSON.stringify({});
+  let queue: Promise<void> = Promise.resolve();
 
-  await store.update((current) => ({
-    ...(isRecord(current) ? current : {}),
-    [FILE_READS_KEY]: views,
-  }));
+  const write = async () => {
+    const views = fileReads.exportAgent({ agent });
+    const serialized = JSON.stringify(views);
+
+    if (serialized === last) return;
+
+    await store.update((current) => ({
+      ...(isRecord(current) ? current : {}),
+      [FILE_READS_KEY]: views,
+    }));
+    last = serialized;
+  };
+
+  return {
+    remember: () => {
+      last = JSON.stringify(fileReads.exportAgent({ agent }));
+    },
+    // Each save runs once the one before it has settled, whether it worked or not: a failed save
+    // is its own caller's to hear of and must not stop the next one.
+    keep: () => {
+      queue = queue.then(write, write);
+
+      return queue;
+    },
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

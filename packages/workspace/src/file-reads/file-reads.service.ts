@@ -1,7 +1,9 @@
-import { MAX_CHUNKS_PER_FILE, MAX_PERSISTED_FILES } from './file-reads.constants.js';
+import {
+  MAX_CHUNKS_PER_FILE,
+  MAX_PERSISTED_CHARS,
+  MAX_PERSISTED_FILES,
+} from './file-reads.constants.js';
 import type { FileView, FileViews } from './file-reads.types.js';
-
-type Seen = FileView;
 
 /**
  * What each agent has been shown of each file, so a tool that changes a file can refuse text the
@@ -20,7 +22,10 @@ type Seen = FileView;
  */
 export class FileReads {
   /** What each agent was shown, by the file's real path, then by agent. */
-  readonly #seen = new Map<string, Map<string, Seen>>();
+  readonly #seen = new Map<string, Map<string, FileView>>();
+  /** When each view was last read, written or edited, so what is kept is what was touched last. */
+  readonly #touched = new WeakMap<FileView, number>();
+  #clock = 0;
 
   /**
    * Remembers that `agent` was shown `text` of `file`: what a read returned, or all of a file the
@@ -39,7 +44,7 @@ export class FileReads {
     const byAgent = this.agentsFor(file);
 
     if (whole) {
-      byAgent.set(agent, { chunks: [text], whole: true, hash });
+      this.#keep({ byAgent, agent, view: { chunks: [text], whole: true, hash } });
 
       return;
     }
@@ -50,7 +55,7 @@ export class FileReads {
     seen.chunks.push(text);
     // Dropping the oldest never drops a whole-file read: that one is `chunks[0]` and stays.
     if (seen.chunks.length > MAX_CHUNKS_PER_FILE) seen.chunks.splice(seen.whole ? 1 : 0, 1);
-    byAgent.set(agent, seen);
+    this.#keep({ byAgent, agent, view: seen });
   }
 
   /**
@@ -111,6 +116,7 @@ export class FileReads {
     seen.chunks = seen.chunks.map((chunk) =>
       replaceAll ? chunk.replaceAll(oldText, () => newText) : chunk.replace(oldText, () => newText),
     );
+    this.#touched.set(seen, (this.#clock += 1));
   }
 
   /**
@@ -127,14 +133,29 @@ export class FileReads {
    * read, copied so later reads do not change it. `importAgent` is its counterpart.
    */
   exportAgent(params: { agent: string }): FileViews {
+    const own = [...this.#seen]
+      .flatMap(([file, byAgent]) => {
+        const seen = byAgent.get(params.agent);
+
+        return seen ? [{ file, seen, at: this.#touched.get(seen) ?? 0 }] : [];
+      })
+      .sort((left, right) => right.at - left.at);
+    const kept: typeof own = [];
+    let chars = 0;
+
+    for (const entry of own) {
+      const size = entry.seen.chunks.reduce((total, chunk) => total + chunk.length, 0);
+
+      // A view too big for what is left is skipped, not cut: a cut one would claim text it lacks.
+      if (kept.length >= MAX_PERSISTED_FILES || chars + size > MAX_PERSISTED_CHARS) continue;
+      kept.push(entry);
+      chars += size;
+    }
+
+    // Oldest first, so `importAgent` touches them in the order they were touched.
     const views: FileViews = {};
-    const own = [...this.#seen].flatMap(([file, byAgent]) => {
-      const seen = byAgent.get(params.agent);
 
-      return seen ? [[file, seen] as const] : [];
-    });
-
-    for (const [file, seen] of own.slice(-MAX_PERSISTED_FILES)) {
+    for (const { file, seen } of kept.reverse()) {
       views[file] = { chunks: [...seen.chunks], whole: seen.whole, hash: seen.hash };
     }
 
@@ -148,12 +169,20 @@ export class FileReads {
    */
   importAgent(params: { agent: string; views: FileViews }): void {
     for (const [file, view] of Object.entries(params.views)) {
-      this.agentsFor(file).set(params.agent, {
-        chunks: [...view.chunks],
-        whole: view.whole,
-        hash: view.hash,
+      this.#keep({
+        byAgent: this.agentsFor(file),
+        agent: params.agent,
+        view: { chunks: [...view.chunks], whole: view.whole, hash: view.hash },
       });
     }
+  }
+
+  /** Stores `view` for `agent` and notes it was just touched. */
+  #keep(params: { byAgent: Map<string, FileView>; agent: string; view: FileView }): void {
+    const { byAgent, agent, view } = params;
+
+    byAgent.set(agent, view);
+    this.#touched.set(view, (this.#clock += 1));
   }
 
   /** Forgets what one agent was shown, when its session ends. */
@@ -164,8 +193,8 @@ export class FileReads {
     }
   }
 
-  private agentsFor(file: string): Map<string, Seen> {
-    const byAgent = this.#seen.get(file) ?? new Map<string, Seen>();
+  private agentsFor(file: string): Map<string, FileView> {
+    const byAgent = this.#seen.get(file) ?? new Map<string, FileView>();
 
     this.#seen.set(file, byAgent);
 
