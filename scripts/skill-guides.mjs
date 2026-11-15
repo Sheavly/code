@@ -84,8 +84,8 @@ function uncoveredProblems(params) {
 const HOOK_HANDLERS_FILE = 'packages/core/src/hook/hook.constants.ts';
 
 /**
- * The handler names in the `HANDLERS` object (a `name: true,` entry each): `names`, or a
- * `problem` when the file exists but the object cannot be read, so moving it fails this check
+ * The handler names in the `HANDLER_NAMES` array (a `'name',` entry each): `names`, or a
+ * `problem` when the file exists but the array cannot be read, so moving it fails this check
  * instead of silently turning it off. A repo without the file has no handlers to check.
  */
 function hookHandlers(root) {
@@ -93,17 +93,19 @@ function hookHandlers(root) {
 
   if (!existsSync(file)) return { names: [] };
 
-  // From the declaration to the first line that starts with `}`: entries are one per line, so a
-  // `}` inside a trailing comment cannot end the block early.
-  const block = /export const HANDLERS = \{\n([\s\S]*?)\n\}/.exec(readFileSync(file, 'utf8'))?.[1];
+  // From the declaration to the first line that starts with `]`: entries are one per line, so a
+  // `]` inside a trailing comment cannot end the block early.
+  const block = /export const HANDLER_NAMES = \[\n([\s\S]*?)\n\]/.exec(
+    readFileSync(file, 'utf8'),
+  )?.[1];
   const lines = (block ?? '').split('\n').filter((line) => line.trim() !== '');
-  const names = lines.flatMap((line) => /^\s+(\w+): true,\s*(\/\/.*)?$/.exec(line)?.[1] ?? []);
+  const names = lines.flatMap((line) => /^\s+'(\w+)',\s*(\/\/.*)?$/.exec(line)?.[1] ?? []);
 
   // Every line must be an entry: a partly read block would leave handlers unchecked unnoticed.
   if (names.length === 0 || names.length !== lines.length) {
     return {
       names,
-      problem: `${HOOK_HANDLERS_FILE}: could not read every entry of the HANDLERS object (one \`name: true,\` per line, an optional // comment after), so hook handlers are not checked against the guides. Update scripts/skill-guides.mjs with the file.`,
+      problem: `${HOOK_HANDLERS_FILE}: could not read every entry of the HANDLER_NAMES array (one \`'name',\` per line, an optional // comment after), so hook handlers are not checked against the guides. Update scripts/skill-guides.mjs with the file.`,
     };
   }
 
