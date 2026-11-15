@@ -144,7 +144,7 @@ describe('an entry log with a store', () => {
 });
 
 describe('an entry log whose store fails', () => {
-  it('stops writing at the first failure, says why, and keeps the entries in memory', async () => {
+  it('stops writing at a failure, says why, and keeps the entries in memory', async () => {
     const store = new MemoryConversationStore();
     const disk = new Error('ENOSPC');
     const log = new EntryLog({ lineage: noLineage, store: store.entries(id) });
@@ -154,15 +154,49 @@ describe('an entry log whose store fails', () => {
     store.failWith(disk);
     addEvents({ log, count: 3 });
     await log.flush();
-    store.failWith(undefined);
     addEvents({ log, count: 1 });
     await log.flush();
 
     expect(log.failure).toBeInstanceOf(StoreError);
     expect(log.failure).toMatchObject({ reason: 'failed', cause: disk });
-    // The write after the lost ones was never tried: it would have been out of order.
+    // Nothing after the lost entry was tried: it would have been out of order.
     expect(await storedSeqs(store)).toEqual([0, 1]);
     expect(log.retained).toBe(6);
+  });
+
+  it('writes the lost entries first, in order, once the disk is mended, and clears the failure', async () => {
+    const store = new MemoryConversationStore();
+    const log = new EntryLog({ lineage: noLineage, store: store.entries(id) });
+
+    addEvents({ log, count: 2 });
+    store.failWith(new Error('ENOSPC'));
+    addEvents({ log, count: 3 });
+    await log.flush();
+    expect(log.failure).toBeInstanceOf(StoreError);
+
+    store.failWith(undefined);
+    await log.recover();
+
+    expect(log.failure).toBeUndefined();
+    expect(await storedSeqs(store)).toEqual([0, 1, 2, 3, 4]);
+
+    addEvents({ log, count: 1 });
+    await log.flush();
+    expect(await storedSeqs(store)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it('keeps the failure when a recovery fails again, and loses no entry', async () => {
+    const store = new MemoryConversationStore();
+    const log = new EntryLog({ lineage: noLineage, store: store.entries(id) });
+
+    store.failWith(new Error('ENOSPC'));
+    addEvents({ log, count: 2 });
+    await log.recover();
+    expect(log.failure).toBeInstanceOf(StoreError);
+
+    store.failWith(undefined);
+    await log.recover();
+    expect(await storedSeqs(store)).toEqual([0, 1]);
   });
 
   it('keeps the whole conversation in memory once a write has failed, so replay stays whole', async () => {

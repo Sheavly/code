@@ -22,7 +22,8 @@ type Matcher = (entry: StreamEntry) => boolean;
  * bounded. Without a store, a replay starts at the oldest of them. With one, each entry is also
  * written to it, in order, and a replay that reaches further back reads the rest from the store.
  * If a write fails, nothing more is written and `failure` says why: the log then keeps every
- * entry in memory, and whoever owns the conversation decides to stop it.
+ * entry in memory, and whoever owns the conversation decides to stop it, or calls `recover` to
+ * try the failed write again.
  */
 export class EntryLog {
   #tail: StreamEntry[] = [];
@@ -33,6 +34,8 @@ export class EntryLog {
   readonly #store: EntryStore | undefined;
   /** The writes queued so far, one after another. Never rejects: a failure goes to `#failure`. */
   #written: Promise<void> = Promise.resolve();
+  /** Entries not yet stored, oldest first; the one that failed stays at the front. */
+  readonly #pending: StreamEntry[] = [];
   #failure: StoreError | undefined;
 
   /**
@@ -174,14 +177,34 @@ export class EntryLog {
     };
   }
 
-  /** Queues the write after the ones before it. Once one fails, no later one is attempted. */
+  /**
+   * Tries the failed write again, and the entries queued behind it, in order. Resolves when they
+   * are stored or one fails again (`failure` says which); once stored, `failure` clears.
+   */
+  recover(): Promise<void> {
+    this.#written = this.#written.then(async () => this.#drain());
+
+    return this.#written;
+  }
+
+  /** Queues the write after the ones before it; a failed one stays first until it succeeds. */
   #queueWrite(entry: StreamEntry): void {
+    if (!this.#store) return;
+
+    this.#pending.push(entry);
+    // Nothing is tried while a write is failing: only `recover` tries again.
+    this.#written = this.#written.then(async () => {
+      if (!this.#failure) await this.#drain();
+    });
+  }
+
+  async #drain(): Promise<void> {
     const store = this.#store;
 
-    if (!store) return;
+    while (store && this.#pending.length > 0) {
+      const entry = this.#pending[0];
 
-    this.#written = this.#written.then(async () => {
-      if (this.#failure) return;
+      if (!entry) break;
 
       try {
         await store.append(entry);
@@ -190,8 +213,14 @@ export class EntryLog {
           error: caughtError,
           message: `Could not store entry ${String(entry.seq)}`,
         });
+
+        return;
       }
-    });
+
+      this.#pending.shift();
+    }
+
+    this.#failure = undefined;
   }
 
   /**

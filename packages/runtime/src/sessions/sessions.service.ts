@@ -102,6 +102,9 @@ export class SessionRegistry {
     return this.#entries.failure;
   }
 
+  /** Tries a failed store write again, with the entries behind it; see `storageFailure`. */
+  readonly recoverStore = (): Promise<void> => this.#entries.recover();
+
   /** Resolves once every entry so far is in the store (or a write has failed). */
   flushStore(): Promise<void> {
     return this.#entries.flush();
