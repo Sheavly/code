@@ -46,7 +46,9 @@ export class ReactView implements ChatView {
     this.#host.addChild(this.editor);
   }
 
+  /** Starts drawing; a second call while running does nothing, so no Ink instance is leaked. */
   start(): void {
+    if (this.#instance) return;
     this.#host.start();
 
     try {

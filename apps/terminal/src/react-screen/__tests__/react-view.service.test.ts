@@ -42,6 +42,18 @@ function screenOver(params: { view: ReactView; onAnswer?: () => void }): ChatScr
 }
 
 describe('ReactView', () => {
+  it('starts once: a second start leaves the running instance, not a leaked one', () => {
+    const { view, terminal } = open();
+    const started = vi.spyOn(terminal, 'start');
+
+    view.start();
+    view.start();
+    view.stop();
+
+    expect(started).toHaveBeenCalledTimes(1);
+    expect(terminal.stopped).toBe(true);
+  });
+
   it.each([false, true])('uses output TTY status in CI: %s', async (interactive) => {
     vi.stubEnv('CI', 'true');
 
