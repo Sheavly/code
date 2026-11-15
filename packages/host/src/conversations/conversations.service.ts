@@ -295,6 +295,10 @@ export class Conversations {
     const { id, prompt, signal } = params;
     const { conversation, skills } = this.get(id);
 
+    // Awaited only after a failure: an await on a healthy conversation would open a gap before
+    // the stop switch below is registered, and a stop arriving in it would be missed.
+    if (this.#storageFailureOf(id)) await this.#recoverStorage(id);
+
     this.#assertStorageHealthy(id);
 
     // A prompt still preparing is in flight too: a second send must not take over its stop switch.
@@ -331,6 +335,14 @@ export class Conversations {
     this.#assertStorageHealthy(id);
 
     return this.get(id).conversation.yieldPrompt();
+  }
+
+  /** Tries a failed write again, so a disk that has recovered does not refuse prompts for good. */
+  async #recoverStorage(id: ConversationId): Promise<void> {
+    if (!this.#storageFailureOf(id)) return;
+
+    await this.#keepers.get(id)?.recover();
+    await this.get(id).harness.sessions.recoverStore();
   }
 
   #assertStorageHealthy(id: ConversationId): void {

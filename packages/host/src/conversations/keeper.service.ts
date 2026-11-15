@@ -10,14 +10,17 @@ import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 /**
  * Keeps one conversation's history log and index entry in its store, as it runs. Writes go one after
  * another, never overtaking each other, and `keepHistory` returns at once: the conversation
- * isn't held up by the disk. The first failed write stops the rest and is `failure`, which the
- * owner turns into refusing the conversation's next prompt, so nothing carries on unrecorded.
+ * isn't held up by the disk. A failed write stops the ones behind it and is `failure`, which the
+ * owner turns into refusing the conversation's next prompt, so nothing carries on unrecorded;
+ * `recover` tries it again, and once it is written `failure` clears.
  */
 export class ConversationKeeper {
   readonly #store: ConversationStore;
   readonly #id: ConversationId;
   #index: StoredConversation | undefined;
   #written: Promise<void> = Promise.resolve();
+  /** Writes not yet done, oldest first: the failed one stays at the front until it succeeds. */
+  readonly #pending: (() => Promise<void>)[] = [];
   #failure: StoreError | undefined;
   /** How many entries of the history are queued or written to the log. */
   #kept = 0;
@@ -29,7 +32,7 @@ export class ConversationKeeper {
     this.#id = params.id;
   }
 
-  /** The first failed write, if any. */
+  /** The write that is failing now, if any; cleared when it is written. */
   get failure(): StoreError | undefined {
     return this.#failure;
   }
@@ -135,19 +138,46 @@ export class ConversationKeeper {
     await this.#store.writeIndex(this.#index);
   }
 
-  /** After the writes before it; once one has failed, no later one is tried. */
-  #queue(write: () => Promise<void>): void {
-    this.#written = this.#written.then(async () => {
-      if (this.#failure) return;
+  /**
+   * Tries the failed write again, and the ones queued behind it, in order. Resolves when they are
+   * written or one fails again; `failure` says which. The owner calls it before it refuses work
+   * over a failure, so a disk that has recovered is not held against the conversation forever.
+   */
+  recover(): Promise<void> {
+    this.#written = this.#written.then(async () => this.#drain());
 
+    return this.#written;
+  }
+
+  /**
+   * After the writes before it. A failed write stays first in line, so order is never broken, and
+   * nothing is tried while it is failing: only `recover` tries again, so a conversation the owner
+   * stopped does not quietly turn healthy.
+   */
+  #queue(write: () => Promise<void>): void {
+    this.#pending.push(write);
+    this.#written = this.#written.then(async () => {
+      if (!this.#failure) await this.#drain();
+    });
+  }
+
+  /** Writes what is pending in order, stopping at the first failure; clears `failure` when done. */
+  async #drain(): Promise<void> {
+    while (this.#pending.length > 0) {
       try {
-        await write();
+        await this.#pending[0]?.();
       } catch (caughtError) {
         this.#failure = toStoreError({
           error: caughtError,
           message: `Could not store conversation ${this.#id}`,
         });
+
+        return;
       }
-    });
+
+      this.#pending.shift();
+    }
+
+    this.#failure = undefined;
   }
 }

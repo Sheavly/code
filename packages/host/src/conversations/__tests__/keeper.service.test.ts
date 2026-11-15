@@ -68,7 +68,7 @@ describe('ConversationKeeper sub-agent history', () => {
     expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a')]);
   });
 
-  it('stops writing after the first failure, so nothing later is recorded out of order', async () => {
+  it('stops writing at a failure, so nothing later is recorded out of order', async () => {
     const { store, keeper } = newKeeper();
 
     keeper.keepHistory([user('a'), user('b')]);
@@ -78,5 +78,24 @@ describe('ConversationKeeper sub-agent history', () => {
 
     expect(keeper.failure).toBeDefined();
     expect(await readHistoryEntries(store.history({ id }))).toHaveLength(2);
+  });
+
+  it('writes what a failed disk lost, in order, once it recovers, and clears the failure', async () => {
+    const { store, keeper } = newKeeper();
+
+    store.failWith(new Error('ENOSPC'));
+    keeper.keepHistory([user('a')]);
+    keeper.keepHistory([user('a'), user('b')]);
+    await keeper.flush();
+    expect(keeper.failure).toMatchObject({ name: 'StoreError' });
+
+    await keeper.recover();
+    expect(keeper.failure).toMatchObject({ name: 'StoreError' });
+
+    store.failWith(undefined);
+    await keeper.recover();
+
+    expect(keeper.failure).toBeUndefined();
+    expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a'), user('b')]);
   });
 });
