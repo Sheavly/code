@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeFiles } from '../../packages/eslint-config/src/testing/workspace.fake.js';
-import { CursorBridgeError, runCursorHook } from '../../.sheavly/hooks/cursor-bridge.mjs';
+import { CHAT_ID, CursorBridgeError, runCursorHook } from '../../.sheavly/hooks/cursor-bridge.mjs';
 import { createEditFeedbackHook } from '../../.sheavly/hooks/edit-feedback.mjs';
 import { createSessionStartHook } from '../../.sheavly/hooks/session-start.mjs';
 import { createShellGuardHook } from '../../.sheavly/hooks/shell-guard.mjs';
@@ -483,12 +483,43 @@ describe('the bridge runs scripts with a narrow environment', () => {
 });
 
 describe('the session start hook', () => {
+  let nextId = 0;
+  /** A prompt a person typed: only the host sets `origin: 'user'`, and it also gives an `id`. */
+  const typed = (content) => ({
+    role: 'user',
+    id: `prompt-${(nextId += 1)}`,
+    origin: 'user',
+    content,
+  });
+  const injected = (content) => ({ role: 'user', content });
+  /** A sub-agent's task: it has an `id` but the parent agent wrote it, so it has no `origin`. */
+  const task = (content) => ({ role: 'user', id: `task-${(nextId += 1)}`, content });
+
+  /** Runs `hook.beforeTurn` over `messages`; what it adds is pushed to `context`. */
+  const turnOf = (hook, messages, context = []) =>
+    hook.beforeTurn({
+      messages,
+      signal: new AbortController().signal,
+      addContext: (text) => context.push(text),
+      addInstructions: () => undefined,
+    });
+
+  /** The git guard's answer for a command, against the state the hook recorded. */
+  const gitGuard = (command) =>
+    runCursorHook({
+      script: 'guard-git-workflow.mjs',
+      input: { conversation_id: CHAT_ID, command, cwd: project },
+      root: project,
+      hooksDir: HOOKS_DIR,
+      env: { SHEAVLY_HOOK_STATE_DIR: stateDir },
+    });
+
   /** What the hook adds, for an opening prompt. */
   async function added(prompt, hookOptions = options()) {
     const context = [];
 
     await createSessionStartHook(hookOptions).sessionStart({
-      messages: [{ role: 'user', content: prompt }],
+      messages: [typed(prompt)],
       signal: new AbortController().signal,
       addContext: (text) => context.push(text),
     });
@@ -512,6 +543,82 @@ describe('the session start hook', () => {
 
     expect(context).toHaveLength(2);
     expect(context[1]).toContain('Name the GitHub issue');
+  });
+
+  it('registers an issue named in a later prompt, so the git guard accepts its branch', async () => {
+    const hook = createSessionStartHook(options());
+    const develop = 'gh issue develop 265 --name 265-docs-lint --base main --checkout';
+    const first = typed('#263: first task');
+
+    await hook.sessionStart({
+      messages: [first],
+      signal: new AbortController().signal,
+      addContext: () => undefined,
+    });
+    expect(await gitGuard(develop)).toMatchObject({ permission: 'deny' });
+
+    // Context a hook added after the prompt is the newest user-role message, and is not scanned.
+    await turnOf(hook, [first, injected('see #265 in the notes')]);
+    expect(await gitGuard(develop)).toMatchObject({ permission: 'deny' });
+
+    await turnOf(hook, [first, injected('see #265 in the notes'), typed('/git start #265')]);
+    expect(await gitGuard(develop)).toEqual({ permission: 'allow' });
+  });
+
+  it('never registers an issue named in a sub-agent task, which an agent wrote', async () => {
+    const hook = createSessionStartHook(options());
+    const develop = 'gh issue develop 999 --name 999-other --base main --checkout';
+    const first = typed('#263: first task');
+
+    await hook.sessionStart({
+      messages: [first],
+      signal: new AbortController().signal,
+      addContext: () => undefined,
+    });
+    // The child run's history starts with the task its parent wrote, in the same hook instance.
+    await turnOf(hook, [task('work on #999')]);
+    await turnOf(hook, [first, injected('note'), task('work on #999')]);
+
+    expect(await gitGuard(develop)).toMatchObject({ permission: 'deny' });
+  });
+
+  it('never registers the issue examples of its own rule message', async () => {
+    const hook = createSessionStartHook(options());
+    const context = [];
+    const first = typed('fix the bug');
+
+    await hook.sessionStart({
+      messages: [first],
+      signal: new AbortController().signal,
+      addContext: (text) => context.push(text),
+    });
+    await turnOf(hook, [first, ...context.map(injected)], context);
+
+    // The rule message names "#123" and "#124"; the next turn must still say no issue is named.
+    expect(context.filter((text) => text.includes('Name the GitHub issue'))).toHaveLength(1);
+    expect(await gitGuard('git switch -c 123-example')).toMatchObject({ permission: 'deny' });
+  });
+
+  it('scans a prompt once, however many turns it takes', async () => {
+    const context = [];
+    const hook = createSessionStartHook(options());
+    const messages = [typed('no issue here')];
+
+    await turnOf(hook, messages, context);
+    await turnOf(hook, messages, context);
+
+    expect(context).toHaveLength(1);
+  });
+
+  it('scans a prompt again on the next turn when the script failed', async () => {
+    const context = [];
+    const hook = createSessionStartHook({ ...options(), hooksDir: path.join(project, 'missing') });
+    const messages = [typed('#265')];
+
+    await turnOf(hook, messages, context);
+    await turnOf(hook, messages, context);
+
+    expect(context).toHaveLength(2);
   });
 
   it('adds the bridge error when the issue script cannot run', async () => {

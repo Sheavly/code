@@ -254,6 +254,7 @@ export function createConversation(options: ConversationOptions): Conversation {
       const user: Message = {
         role: 'user',
         id: messageId,
+        origin: 'user',
         content: text,
         ...(sendOptions.parts && { parts: sendOptions.parts }),
         at: now(),

@@ -211,6 +211,13 @@ next prompt. Unknown conversation ids use the ordinary `not_found` error.
 - A normal prompt's user message keeps `content`, what the model saw (with a skill's
   instructions), and may keep `parts`, what the user typed, for a UI to show the skills as chips.
   Providers send only `content`.
+- `origin: 'user'` marks a prompt a person typed, set only by the host's `send`. Context a hook
+  added, a sub-agent's task and a message from another agent carry none, so a hook that must act
+  on what the user said (the repo's issue registration) reads `origin`, never `id`: a sub-agent's
+  task has an `id` but is written by the agent that started it. The host does not check `origin`
+  on history a client seeds (`StartConversationRequest.messages`) or on stored history it
+  reopens: a client is the user, so what it marks `origin: 'user'` counts as the user's. A client
+  must not relay an agent's text that way.
 - Every failure is a `ServerError`: `{ error: { code, message } }`, where `code` is one of
   `ServerErrorCode`.
 

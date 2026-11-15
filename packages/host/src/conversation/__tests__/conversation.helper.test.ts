@@ -99,6 +99,21 @@ describe('a conversation', () => {
     expect(conversation.messages).toHaveLength(4);
   });
 
+  it('marks the prompts a person sends as theirs, and nothing a hook adds', async () => {
+    const addsContext = defineHook({
+      name: 'adds-context',
+      sessionStart: async ({ addContext }) => addContext('see #265'),
+    });
+    const { conversation } = setup([say('hello')], [], [addsContext]);
+
+    await collect(conversation.send('hi'));
+
+    const users = conversation.messages.filter((message) => message.role === 'user');
+
+    expect(users).toMatchObject([{ content: 'hi', origin: 'user' }, { content: 'see #265' }]);
+    expect(users[1]).not.toHaveProperty('origin');
+  });
+
   it('refuses a prompt while one runs, and once closed', async () => {
     const { conversation } = setup([say('slow'), say('later')]);
     const first = conversation.send('first');

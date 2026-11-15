@@ -56,7 +56,9 @@ runs the Cursor script as a process through `hooks/cursor-bridge.mjs` instead of
   link need a hook that continues a run and hook points for sub-agents; those stay Cursor-only.
 - A hook is not told its conversation, so the scripts' per-chat state (hints shown once, the
   issue a chat named) is one per backend process: once any conversation names an issue, the
-  issue rule stays quiet for the rest of that process.
+  issue rule stays quiet for the rest of that process. `session-start.mjs` scans each new user
+  prompt (at `beforeTurn`, once per prompt), so an issue named mid-run is registered for the git
+  guard, as `require-issue.mjs` does for a Cursor chat.
 - The shell guard fails closed (only an explicit `allow` runs a command; a guard that cannot run
   blocks it), but covers only `run_command`. A command started with `background: true` is checked
   before it runs and not compared afterwards, parallel commands share one snapshot state, and a

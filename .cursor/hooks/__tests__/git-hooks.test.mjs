@@ -111,6 +111,15 @@ describe('stacked PRs', () => {
     expect(shell(command)).toMatchObject({ permission: 'deny' });
   });
 
+  it('says how an issue is registered when it denies a branch for another one', () => {
+    const message = shell('git switch -c 14-other').agent_message;
+
+    expect(message).toContain('Only prompts the user typed are scanned');
+    expect(message).toContain('`#14` or an `/issues/14` URL');
+    expect(message).toContain('ask the user to repeat `#14` in a new prompt');
+    expect(message).not.toContain('check out');
+  });
+
   it('adds issues named in later prompts to the stack', () => {
     prompt('and #14 on top');
     expect(shell('gh stack add 14-other')).toEqual({ permission: 'allow' });

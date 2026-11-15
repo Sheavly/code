@@ -53,6 +53,18 @@ describe('the summary message', () => {
   });
 });
 
+describe('who wrote a user message', () => {
+  it('accepts `origin: user` and no other origin, in both schemas', () => {
+    for (const schema of [messageSchema, historyMessageSchema]) {
+      expect(schema.safeParse({ role: 'user', origin: 'user', content: 'hi' }).success).toBe(true);
+      expect(schema.safeParse({ role: 'user', content: 'hi' }).success).toBe(true);
+      expect(schema.safeParse({ role: 'user', origin: 'agent', content: 'hi' }).success).toBe(
+        false,
+      );
+    }
+  });
+});
+
 describe('what a model is sent versus what is stored', () => {
   it('stores a checkpoint in history but never sends one: the model schema refuses it', () => {
     expect(historyMessageSchema.safeParse(checkpoint).success).toBe(true);
