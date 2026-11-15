@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SummaryReplyError } from '../../errors/summary.errors.js';
-import { defaultModelSections } from '../summary.prompt.js';
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
+import { defaultModelSections } from '../prompt.utils.js';
 import { parseSectionReply } from '../model.validator.js';
 
 const parse = (reply: string) =>
@@ -80,7 +81,7 @@ describe('parseSectionReply by heading', () => {
   });
 
   it('matches a title with marks in it, and one written with different spacing', () => {
-    const sections = [{ id: 'cs', title: 'C# notes', guidance: 'x' }];
+    const sections = [{ id: summarySectionIdSchema.parse('cs'), title: 'C# notes', guidance: 'x' }];
     const written = parseSectionReply({
       summarizer: 'model',
       reply: '##   C#   notes  \nText.',

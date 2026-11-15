@@ -47,9 +47,10 @@ async function setup(responses: StreamEvent[][]) {
     workspaceRoot: root,
     env: { PATH: process.env.PATH },
   });
-  const { workspace, tasks, processes } = harness;
+  const { workspace, tasks, processes, fileReads } = harness;
   const commandOptions = {
     workspace,
+    fileReads,
     permissions: testPermissions({ mode: 'allow_all' }),
     tasks,
     processes,

@@ -134,6 +134,20 @@ describe('WorkingRoots', () => {
     await expect(store.load()).resolves.toEqual({ other: 1 });
   });
 
+  it('keeps the file reads another owner stored in the same document, through set and clear', async () => {
+    const reads = { '/w/a.ts': { chunks: ['x'], whole: true, hash: 'h' } };
+    const store = memoryWorkingRootStore({ fileReads: reads });
+    const roots = await rootsOver(store);
+
+    await roots.set(repo.worktree);
+    await expect(store.load()).resolves.toMatchObject({ fileReads: reads });
+    // The document now holds a key the working root does not own: reading it must still work.
+    await expect(roots.get()).resolves.toMatchObject({ root: repo.worktree });
+
+    await roots.clear();
+    await expect(store.load()).resolves.toEqual({ fileReads: reads });
+  });
+
   it('follows the branch when it is switched', async () => {
     const roots = await rootsOver();
 

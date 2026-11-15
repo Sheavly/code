@@ -1,3 +1,4 @@
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { mergeEntries } from './entries.utils.js';
 import { TRAIL_MAX_CHARS } from './sections.constants.js';
 import type { RuleSection, TrailExtractor } from './sections.types.js';
@@ -15,7 +16,7 @@ export function trailSection(params: { extract: TrailExtractor; maxChars?: numbe
   const { extract, maxChars = TRAIL_MAX_CHARS } = params;
 
   return {
-    id: 'trail',
+    id: summarySectionIdSchema.parse('trail'),
     title: 'What was done',
     write: ({ messages, previous }) => {
       // A cut never splits a call from its result, so a call's result is in the same span.

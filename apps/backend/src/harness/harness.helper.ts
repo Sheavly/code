@@ -25,6 +25,7 @@ import { createAgentsMdHook } from '@sheavly/workspace/agents-md/agents-md.helpe
 import { createScratchHook } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import { createSkillsHook } from '@sheavly/workspace/skills/skills.helper';
+import { keepReadsWithConversation } from './file-reads.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
@@ -51,6 +52,7 @@ export async function createBackendHarness(
     logOf,
     shell = memoryShellStore(),
     outputs,
+    onFileReadsProblem,
     ...coding
   } = options;
   const harness = await createCodingHarness(coding);
@@ -58,6 +60,14 @@ export async function createBackendHarness(
     harness;
   // One per conversation, over its `shell.json`: the main session and every sub-agent share it.
   const workingRoots = new WorkingRoots({ store: shell, workspace, env: options.env });
+
+  await keepReadsWithConversation({
+    fileReads,
+    sessions,
+    agentId: harness.mainSession.id,
+    store: shell,
+    ...(onFileReadsProblem && { onProblem: onFileReadsProblem }),
+  });
   // A broken `.sheavly` hook stops the run here, with the file and the reason. An untrusted
   // workspace loads none: `projectTrust` says why, for a UI to show.
   const projectHooks = await loadProjectHooks({
@@ -79,8 +89,9 @@ export async function createBackendHarness(
     createWorkingRootHook({ workingRoots }),
     ...projectHooks.hooks,
   ];
+
   const fileTools = [
-    createReadFileTool({ workspace, workingRoots, fileReads }),
+    createReadFileTool({ workspace, workingRoots, fileLocks, fileReads }),
     createGlobTool({ workspace, workingRoots, processes }),
     createGrepTool({ workspace, workingRoots, processes }),
     createWriteFileTool({ workspace, workingRoots, fileLocks, fileReads }),

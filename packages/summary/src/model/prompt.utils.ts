@@ -1,6 +1,7 @@
 import type { SummaryBody } from '@sheavly/core/summary/summary.types';
 import { neutralize, oneLine } from '@sheavly/core/text/text.utils';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import {
   MAX_TOOL_INPUT_CHARS,
   MAX_TOOL_NAME_CHARS,
@@ -8,9 +9,18 @@ import {
 } from './model.constants.js';
 import type { ModelSection } from '../sections/sections.types.js';
 import {
+  DEFAULT_SECTION_TEXTS,
   summaryInstructions as buildSummaryInstructions,
   summaryRequest as buildSummaryRequest,
 } from './summary.prompt.js';
+
+/** Default sections for a model-written checkpoint; callers may supply their own guidance. */
+export function defaultModelSections(): readonly ModelSection[] {
+  return DEFAULT_SECTION_TEXTS.map((section) => ({
+    ...section,
+    id: summarySectionIdSchema.parse(section.id),
+  }));
+}
 
 /** Cuts `text` at `max` characters and marks the cut. */
 function cut(params: { text: string; max: number }): string {

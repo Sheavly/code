@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
+import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { createReadFileTool } from '../read-file.tool.js';
 import { isFileRead } from '../read-file.utils.js';
@@ -34,6 +35,7 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+const fileLocks = useFileLocks();
 const fileReads = useFileReads();
 
 const read = (
@@ -42,7 +44,13 @@ const read = (
   session?: SessionRef,
 ) =>
   runTool({
-    tools: [createReadFileTool({ workspace, fileReads: fileReads.current })],
+    tools: [
+      createReadFileTool({
+        workspace,
+        fileLocks: fileLocks.current,
+        fileReads: fileReads.current,
+      }),
+    ],
     call: {
       id: callIdSchema.parse('1'),
       name: 'read_file',
@@ -130,8 +138,8 @@ describe('read_file remembers what was read', () => {
   const MAIN = sessionIdSchema.parse('7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20');
   const CHILD = sessionIdSchema.parse('1b8e4f02-9c3d-4a65-b7e1-6d2f0a9c5e38');
   const asSession = (id: typeof MAIN) => ({ id, rootId: MAIN, depth: 0 }) as unknown as SessionRef;
-  const hasRead = (agent: string, file: string) =>
-    fileReads.current.hasRead({ agent, file: path.join(workspace.root, file) });
+  const hasRead = (agentId: typeof MAIN, file: string) =>
+    fileReads.current.hasRead({ agentId, file: path.join(workspace.root, file) });
 
   it('marks the file read for the agent that read it, by real path', async () => {
     expect(hasRead(MAIN, 'index.ts')).toBe(false);
@@ -163,7 +171,7 @@ describe('read_file remembers what was read', () => {
 
     expect(
       fileReads.current.hasRead({
-        agent: 'no-session',
+        agentId: agentIdFor('no-session'),
         file: path.join(workspace.root, 'index.ts'),
       }),
     ).toBe(true);

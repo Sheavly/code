@@ -2,7 +2,7 @@ import path from 'node:path';
 import { parseCheckApprovalOptions } from './check-approval.validator.js';
 import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES, USAGE } from './workbook.constants.js';
-import type { Command, RunPaths, RunResult } from './workbook.types.js';
+import type { Command, RunId, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 
@@ -23,7 +23,7 @@ export function runId(params: { number: number; prompt: string }): string {
 }
 
 /** Every file of a run, under `runsDir/<id>/`. */
-export function runPaths(params: { runsDir: string; id: string }): RunPaths {
+export function runPaths(params: { runsDir: string; id: RunId }): RunPaths {
   const dir = path.join(params.runsDir, params.id);
   const files = Object.fromEntries(
     Object.entries(RUN_FILES).map(([key, file]) => [key, path.join(dir, file)]),
@@ -214,8 +214,8 @@ export function mergeTextDeltas(events: EntryEvent[]): EntryEvent[] {
 
 /** What two runs did differently: one line per field that differs, or a note that none do. */
 export function diffResults(params: {
-  a: { id: string; result: RunResult; tools: string[]; answer: string };
-  b: { id: string; result: RunResult; tools: string[]; answer: string };
+  a: { id: RunId; result: RunResult; tools: string[]; answer: string };
+  b: { id: RunId; result: RunResult; tools: string[]; answer: string };
 }): string[] {
   const { a, b } = params;
   const lines: string[] = [];

@@ -1,4 +1,4 @@
-import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import type { Message, SummarySectionId, ToolCall } from '@sheavly/protocol/message/message.types';
 
 /**
  * A section a rule writes, with no model: from the span being summarized and the same section's
@@ -8,7 +8,7 @@ import type { Message, ToolCall } from '@sheavly/protocol/message/message.types'
  */
 export type RuleSection = {
   /** Stable across checkpoints, so a UI can pick the section out by it. */
-  id: string;
+  id: SummarySectionId;
   title: string;
   write(input: { messages: readonly Message[]; previous: string | undefined }): string;
 };
@@ -19,7 +19,7 @@ export type RuleSection = {
  */
 export type ModelSection = {
   /** Stable across checkpoints, so a UI can pick the section out by it. */
-  id: string;
+  id: SummarySectionId;
   title: string;
   guidance: string;
 };

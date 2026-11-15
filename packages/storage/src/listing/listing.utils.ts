@@ -1,3 +1,5 @@
+import type { ModelId } from '@sheavly/protocol/model/model.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { FileProblem, ListedFile } from './listing.types.js';
 
 const collator = new Intl.Collator('en');
@@ -7,7 +9,9 @@ const collator = new Intl.Collator('en');
  * same on every machine; two items with one name (allowed: it is only a label) keep a stable order
  * by their ids. Returns a new array.
  */
-export function sortByName<T extends { id: string; name: string }>(items: readonly T[]): T[] {
+export function sortByName<T extends { id: ModelId | ProfileId; name: string }>(
+  items: readonly T[],
+): T[] {
   return [...items].sort((a, b) => {
     const byName = collator.compare(a.name, b.name);
 

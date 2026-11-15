@@ -1,10 +1,14 @@
-import { z } from 'zod';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { FileToolServices } from '../files/files.types.js';
+import type { ToolContext } from '@sheavly/core/tool/tool.types';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { fileSize, readForChange, removeFile } from '../files/file-effects.helper.js';
+import { runFileTool } from '../files/file-tool.helper.js';
+import type { FileToolServices } from '../files/files.types.js';
+import { z } from 'zod';
 import { changeResult } from '../files/file-change.helper.js';
 import { assertSameDeletable, resolveDeletable } from '../files/files.helper.js';
+import { agentOf } from '../files/files.utils.js';
 import { currentRoot } from '../files/working-root.helper.js';
 import { MAX_DELETE_BYTES } from './delete-file.constants.js';
 import { DELETE_FILE_PROMPTS } from './delete-file.prompt.js';
@@ -15,64 +19,90 @@ import { DELETE_FILE_PROMPTS } from './delete-file.prompt.js';
  * deleted; a file already gone is an error, never a silent success, since the delete may have been
  * meant for another path.
  *
- * Unlike `edit_file`, a delete is not gated on the agent having read the file: the call names a
- * path, not remembered text, and the content is read under the lock for the artifact. Its result is
- * the only record of what was there.
+ * Like `edit_file`, a delete is gated on the calling agent having read the file (`read_file`) or
+ * made it, so it removes what the agent has seen, not a path it guessed. The content is read under
+ * the lock for the artifact, whose result is the only record of what was there.
  *
  * `fileLocks` is the harness's, as in `write_file` and `edit_file`: a delete and a write of one
  * file take their turns, so a delete never removes a file another call is about to change.
  * `fileReads` is told the file is gone, so what an agent was shown of it can't let an edit through
  * a file later created at that path.
  */
-export function createDeleteFileTool({
-  workspace,
-  workingRoots,
-  fileLocks,
-  fileReads,
-}: FileToolServices) {
+export function createDeleteFileTool(services: FileToolServices) {
   return defineTool({
     name: 'delete_file',
     description: DELETE_FILE_PROMPTS.description,
     inputSchema: z.object({
       path: z.string().min(1).describe(DELETE_FILE_PROMPTS.path),
     }),
-    execute: async ({ input: { path: requested }, signal }) => {
-      const root = await currentRoot(workingRoots);
-      const real = await resolveDeletable({ workspace, requested, root });
-
-      return fileLocks.run({
-        file: real,
+    execute: ({ input: { path: requested }, signal, context }) =>
+      runFileTool({
+        requested,
         signal,
-        change: async () => {
-          // Resolved before the lock to queue on the file, then again under it: a path swapped
-          // while the delete waited would otherwise be read or removed without the guards.
-          await assertSameDeletable({ workspace, requested, expected: real, root });
-          await assertReadableSize({ requested, file: real });
+        run: () => deleteFile({ services, requested, signal, context }),
+      }),
+  });
+}
 
-          const before = await readForChange({
-            file: real,
-            requested,
-            signal,
-            hint: 'It may already be deleted.',
-          });
+async function deleteFile(params: {
+  services: FileToolServices;
+  requested: string;
+  signal: AbortSignal;
+  context: ToolContext;
+}) {
+  const { services, requested, signal, context } = params;
+  const { workspace, workingRoots, fileLocks, fileReads } = services;
+  const agentId = agentOf(context);
+  const root = await currentRoot(workingRoots);
+  const real = await resolveDeletable({ workspace, requested, root });
 
-          assertReportedSize({ requested, content: before });
+  return fileLocks.run({
+    file: real,
+    signal,
+    change: async () => {
+      // Resolved before the lock to queue on the file, then again under it: a path swapped
+      // while the delete waited would otherwise be read or removed without the guards.
+      await assertSameDeletable({ workspace, requested, expected: real, root });
 
-          // Node has no unlink-by-handle, so the unlink is a fresh path lookup after this check: a
-          // parent swapped in that last moment is the one case neither check can close.
-          await assertSameDeletable({ workspace, requested, expected: real, root });
-          await removeFile({ file: real, signal });
-          fileReads.markDeleted({ file: real });
+      if (!fileReads.hasRead({ agentId, file: real })) {
+        throw new ToolCallError({
+          reason: 'forbidden',
+          message: `You have not read ${requested}. Read it with read_file first, so the delete is of what the file holds now.`,
+        });
+      }
 
-          return changeResult({
-            workspace,
-            file: real,
-            verb: 'Deleted',
-            before,
-            after: null,
-            root,
-          });
-        },
+      await assertReadableSize({ requested, file: real });
+
+      const before = await readForChange({
+        file: real,
+        requested,
+        signal,
+        hint: 'It may already be deleted.',
+      });
+
+      assertReportedSize({ requested, content: before });
+
+      // What the agent read is not what is there now, so the delete is not of what it saw.
+      if (fileReads.forgetIfChanged({ agentId, file: real, hash: hashText(before) })) {
+        throw new ToolCallError({
+          reason: 'forbidden',
+          message: `${requested} changed since you read it. Read it again with read_file, so the delete is of what the file holds now.`,
+        });
+      }
+
+      // Node has no unlink-by-handle, so the unlink is a fresh path lookup after this check: a
+      // parent swapped in that last moment is the one case neither check can close.
+      await assertSameDeletable({ workspace, requested, expected: real, root });
+      await removeFile({ file: real, signal });
+      fileReads.markDeleted({ file: real });
+
+      return changeResult({
+        workspace,
+        file: real,
+        verb: 'Deleted',
+        before,
+        after: null,
+        root,
       });
     },
   });

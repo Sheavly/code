@@ -3,7 +3,12 @@ import { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { WorkspaceError } from '../errors/workspace.errors.js';
 
-/** What `shell.json` holds: the agents' working root, when one is set. */
+/**
+ * What `shell.json` holds that the working root owns: the agents' working root, when one is set.
+ * The document is shared (the main agent's file reads live in it too), so another owner's keys are
+ * stripped here on purpose, never rejected: do not make this schema strict, or a conversation
+ * with kept reads would lose its working root.
+ */
 export const shellStateSchema = z.object({
   workingRoot: z
     .string()

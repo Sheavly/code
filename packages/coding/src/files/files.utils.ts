@@ -3,6 +3,10 @@ import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { FileChange, FileChangeVerb } from './files.types.js';
 import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
+import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+
+const NO_SESSION = sessionIdSchema.parse('no-session');
 
 /**
  * True for `.env`, `.env.local`, `.env.production`, ... (case-insensitive). Windows drops trailing
@@ -91,6 +95,6 @@ export function isFileChange(artifact: ToolArtifact): artifact is FileChange {
  * agent and each sub-agent are told apart. A call with no session (a tool run on its own) is the
  * only agent there is.
  */
-export function agentOf(context: ToolContext): string {
-  return context.session?.id ?? 'no-session';
+export function agentOf(context: ToolContext): SessionId {
+  return context.session?.id ?? NO_SESSION;
 }

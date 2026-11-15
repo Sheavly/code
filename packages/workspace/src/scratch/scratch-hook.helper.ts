@@ -1,5 +1,6 @@
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
+import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { appendInstructionContext } from '../instruction-context/instruction-context.helper.js';
 import type { Workspace } from '../workspace/workspace.service.js';
 import { renderScratchInstructions } from './scratch.prompt.js';
@@ -11,7 +12,7 @@ import { renderScratchInstructions } from './scratch.prompt.js';
  * is shared on purpose, across agents and conversations: anything written there is visible to
  * every agent, so it holds no secrets.
  */
-export function createScratchHook(params: { workspace: Workspace; agentId: string }): Hook {
+export function createScratchHook(params: { workspace: Workspace; agentId: SessionId }): Hook {
   const { workspace, agentId } = params;
 
   return defineHook({

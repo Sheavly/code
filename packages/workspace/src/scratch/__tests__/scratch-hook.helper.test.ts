@@ -2,6 +2,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { BeforeTurnContext } from '@sheavly/core/hook/hook.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { Workspace } from '../../workspace/workspace.service.js';
 import { createScratchHook } from '../scratch-hook.helper.js';
@@ -25,7 +26,7 @@ describe('createScratchHook', () => {
   it('renders the exact trust guidance and deduplicates it from history', async () => {
     const root = path.join(temp.base, 'scratch');
     const workspace = await Workspace.open(temp.root, { scratchRoot: root });
-    const hook = createScratchHook({ workspace, agentId: 'agent-a' });
+    const hook = createScratchHook({ workspace, agentId: agentIdFor('agent-a') });
     const messages: Message[] = [];
     const folder = path.join(root, 'agent-a');
 
@@ -49,7 +50,7 @@ describe('createScratchHook', () => {
   });
 
   it('adds nothing without a scratch root', async () => {
-    const hook = createScratchHook({ workspace: temp.workspace, agentId: 'agent-a' });
+    const hook = createScratchHook({ workspace: temp.workspace, agentId: agentIdFor('agent-a') });
     const messages: Message[] = [];
 
     await hook.beforeTurn?.(historyContext(messages));

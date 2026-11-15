@@ -4,6 +4,7 @@ import type {
   messageSchema,
   messageIdSchema,
   summaryMessageSchema,
+  summarySectionIdSchema,
   promptPartSchema,
   reasoningItemSchema,
   toolCallSchema,
@@ -12,6 +13,7 @@ import type {
 
 export type CallId = z.infer<typeof callIdSchema>;
 export type MessageId = z.infer<typeof messageIdSchema>;
+export type SummarySectionId = z.infer<typeof summarySectionIdSchema>;
 
 export type ToolCall = z.infer<typeof toolCallSchema>;
 

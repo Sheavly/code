@@ -1,4 +1,5 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import { mergeEntries } from './entries.utils.js';
 import {
   USER_MESSAGE_MAX_CHARS,
@@ -42,7 +43,7 @@ export function userMessagesSection(
   } = options;
 
   return {
-    id: 'user-messages',
+    id: summarySectionIdSchema.parse('user-messages'),
     title,
     write: ({ messages, previous }) => {
       // With no earlier entries the first message written here is the conversation's opening.

@@ -240,7 +240,11 @@ describe('modelSummarizer', () => {
 
   it('refuses sections whose titles or ids would make a heading ambiguous', () => {
     const { provider } = answering('');
-    const section = (id: string, title: string) => ({ id, title, guidance: 'x' });
+    const section = (id: string, title: string) => ({
+      id: summarySectionIdSchema.parse(id),
+      title,
+      guidance: 'x',
+    });
 
     expect(() =>
       modelSummarizer({ provider, redact, sections: [section('a', 'Same'), section('b', 'same')] }),
@@ -271,7 +275,7 @@ describe('modelSummarizer', () => {
       modelSummarizer({
         provider,
         redact,
-        sections: [{ id: 'window', title: 'Clash', guidance: 'x' }],
+        sections: [{ id: summarySectionIdSchema.parse('window'), title: 'Clash', guidance: 'x' }],
         ruleSections: [windowSection],
       }),
     ).toThrow('two sections share an id');

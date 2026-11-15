@@ -123,11 +123,14 @@ describe('background run_command', () => {
         .mockRejectedValue(new Error('Unexpected process launch'));
       const start = vi.spyOn(tasks, 'start');
       const controller = new AbortController();
+      const options = {
+        workspace: temp.workspace,
+        permissions,
+        processes,
+        tasks,
+      };
       const running = runTool({
-        tools: [
-          createRunCommandTool({ workspace: temp.workspace, permissions, processes, tasks }),
-          createStartServiceTool({ workspace: temp.workspace, permissions, processes, tasks }),
-        ],
+        tools: [createRunCommandTool({ ...options }), createStartServiceTool({ ...options })],
         call: {
           id: callId,
           name: toolName,

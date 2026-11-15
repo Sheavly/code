@@ -25,21 +25,21 @@ export function unsafeRootReason(root: string): string | undefined {
 }
 
 /**
- * Why `<id><extension>` is not a name a store may give a file or folder, or `undefined` when it
- * is. `id` is taken as the plain string it is: a type that says it is an id proves nothing about
+ * Why `<name><extension>` is not a name a store may give a file or folder, or `undefined` when it
+ * is. `name` is taken as the plain string it is: a type that says it is an id proves nothing about
  * a value that came from outside, so only what `shape` accepts passes (by default a lowercase
  * UUID: no separator, no `..`, no reserved name), and `extension` must be empty or a short plain
  * suffix like `.json`. A folder named by something else with a precise shape, like a workspace
  * key, passes that shape. Pure.
  */
 export function unsafeNameReason(params: {
-  id: string;
+  name: string;
   extension?: string;
   shape?: z.ZodType<string>;
 }): string | undefined {
-  const { id, extension = '', shape = lowercaseUuidSchema } = params;
+  const { name, extension = '', shape = lowercaseUuidSchema } = params;
 
-  if (!shape.safeParse(id).success) return 'its name is not an id';
+  if (!shape.safeParse(name).success) return 'its name is not an id';
 
   if (extension !== '' && !PLAIN_EXTENSION.test(extension)) {
     return 'its extension is not a plain suffix like .json';
@@ -74,7 +74,7 @@ export function unsafeRemovalReason(params: {
 
   if (path.dirname(target) !== parent) return 'it is not directly inside its store’s folder';
 
-  const nameReason = unsafeNameReason({ id: path.basename(target) });
+  const nameReason = unsafeNameReason({ name: path.basename(target) });
 
   if (nameReason) return `${nameReason}, so it is not one a store made`;
 

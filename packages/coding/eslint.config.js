@@ -18,6 +18,12 @@ export default defineConfig([
       'harness/guard-working-root': 'error',
     },
   },
+  // A tool file asks the guard in `files/files.helper.ts` for a path; it never resolves one itself.
+  {
+    files: ['src/**/*.tool.ts'],
+    ignores: ['src/**/__tests__/**'],
+    rules: { 'harness/guard-file-tool-resolve': 'error' },
+  },
   // The agent's file tools write a project through the filesystem effects in this one helper,
   // which `Workspace` has confined; the user's own data is `@sheavly/storage`'s
   // (`harness/no-direct-file-writes`). A tool calls it rather than importing `node:fs` itself.
@@ -25,10 +31,11 @@ export default defineConfig([
     files: ['src/files/file-effects.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
-  // The guarded resolvers are the one place `Workspace.resolveWrite` / `resolveDelete` are called,
-  // with the `.env` and `.git` guards on both sides (`harness/guard-env-write`).
+  // The guarded resolvers are the one place `Workspace.resolveRead` / `resolveWrite` /
+  // `resolveDelete` are called for a tool's own path, with the `.env` and `.git` guards on both
+  // sides, in `resolveGuarded` rather than in each resolver (so the per-function env rules are off).
   {
     files: ['src/files/files.helper.ts'],
-    rules: { 'harness/guard-env-write': 'off' },
+    rules: { 'harness/guard-env-write': 'off', 'harness/guard-env-read': 'off' },
   },
 ]);

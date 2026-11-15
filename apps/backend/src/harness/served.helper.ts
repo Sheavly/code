@@ -122,6 +122,8 @@ export async function servedConversation(params: {
       : false,
     home: homedir(),
     onModelCall,
+    onFileReadsProblem: (caughtError) =>
+      log(`Could not restore or keep the file reads: ${errorMessage(caughtError)}\n`),
     ...(storage && {
       entries: storage.entries,
       resume: storage.resume,

@@ -96,7 +96,7 @@ export class OpenProfile {
 
     const folder = namedPath({
       folder: path.join(this.#folder, WORKSPACES_FOLDER),
-      id: key,
+      name: key,
       shape: workspaceKeySchema,
     });
     const store = this.#conversations.get(key) ?? new FileConversationStore({ folder, onProblem });

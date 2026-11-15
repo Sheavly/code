@@ -47,20 +47,46 @@ is gated by the user's command permissions. It refuses a folder, since removing 
 agent never named (`run_command` can ask for it), and a symlink whichever way it points: the tool
 deletes the file the agent named, never the target that a link names for it. It reads and removes
 under the file's lock, and a file already gone is an error rather than a success, since the delete
-may have been meant for another path. Unlike `edit_file`, it is not gated on a read: the call names
-a path, not remembered text, and its result is the record of what was there. A file larger than
+may have been meant for another path. Like `edit_file`, it is gated on a read: the agent must have
+read the file (`read_file`) or created it, so it removes what it has seen, not a path it guessed. A
+file larger than
 `MAX_DELETE_BYTES` (100,000 bytes) is refused with a pointer to `run_command`, so a deletion never
 reads a huge file into its result. What each agent was shown of the file is forgotten, so an edit of
 a file later created at that path is not made from memory.
 
-**Read before edit.** `edit_file` refuses a file the calling agent has not read (`read_file`) or
-created (`write_file`), so an edit is made from what the file holds, not from memory. Reads are
-kept per agent (a `FileReads` from `@sheavly/workspace/file-reads/`, one per harness), by real
-path: the main agent and each sub-agent must read for themselves, and a symlink and its target are
-one file. It does not stop a file changing after it was read; the exact-text match does that, so an
-edit to text that has since changed fails. A reopened conversation starts with nothing read.
+**Read before edit or delete.** `edit_file` and `delete_file` refuse a file the calling agent has
+not read (`read_file`) or created (`write_file`), so a change is made from what the file holds, not
+from memory. Each read keeps a hash of the whole file as it was then. `edit_file` and
+`delete_file` already hold the file's current text under its lock, so they compare its hash: a file
+that changed since (by a command, the user or another agent) is refused with "changed since you read
+it" and needs a new read, and a file that did not change keeps its read, so a command that never
+touched it costs no re-read. An agent's own edit updates its hash, so it can edit that place again
+unread; another agent's view of the file goes stale. A released session's reads go with it
+(`createCodingHarness` clears them). Reads are kept per agent (a `FileReads` from
+`@sheavly/workspace/file-reads/`, one per harness), by real path: the main agent and each sub-agent
+must read for themselves, and a symlink and its target are one file.
 
-Tool calls in a turn run in parallel, so `write_file`, `edit_file` and `delete_file` share a
+**Reads survive a reopen.** The backend keeps the main agent's reads (the pieces it was shown and
+each file's hash) in the conversation's `shell.json` when a prompt ends, and restores them when the
+conversation is reopened. `shell.json` therefore holds file text, untruncated, for as long as the
+conversation's folder exists (it goes when the conversation is deleted); the same text is already in
+the stored history as tool results, but history can be summarized and `shell.json` keeps the raw
+pieces. It is written private, like the rest of the conversation store. What is kept is bounded:
+the 200 files touched last and at most 2,000,000 characters of text in all (a view that does not
+fit is left out, so that file is read again), and a stored document over those bounds is refused on
+restore; the bounds are checked after the document is parsed, so refusal is all or nothing.
+
+A prompt that read nothing new writes nothing, and saves never overlap. Reads are saved when the
+main session goes idle, so a prompt cut short by a crash loses the reads since the last idle.
+
+Restored reads are not trusted to still hold. The hash is compared with the file as it is then, so
+a file that changed while the conversation was closed asks for a new read, and one that did not
+change costs none. A whole-file view whose text does not hash to its own hash is left out on
+restore; a partial view holds only pieces, so it cannot be checked that way. Sub-agents are not
+kept: a running one comes back interrupted. Stored reads that are not valid are reported and
+ignored, and the run starts with nothing read; a failed save is reported and the run goes on.
+
+Tool calls in a turn run in parallel, so `read_file`, `write_file`, `edit_file` and `delete_file` share a
 per-file lock (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the
 file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
@@ -70,7 +96,10 @@ files still run at the same time. A call aborted while it waits gives up its pla
 `read_file` returns at most 1,000 lines per call (and at most 100,000 characters, for files with
 very long lines). Pass `startLine` and `endLine` (1-based, inclusive) to read a range. Its limits
 **fail open**: a request it can't fully serve is never an error, so no information is lost. It
-returns what fits, plus a note at the end saying which lines were shown, why, and how to read on:
+returns what fits, plus a note at the end saying which lines were shown, why, and how to read on.
+It reads the file as a stream, under the file's lock, in one pass that hashes the text, counts the
+lines and keeps only the lines to show (a line longer than the character cap is kept only as far as
+the cap), so a file of any size is read in bounded memory and never refused for its size:
 
 ```
 [Showing lines 1–1000 of 1500. read_file returns at most 1000 lines per call. To read on, call read_file with startLine 1001.]
@@ -86,8 +115,42 @@ A range past the end, a reversed range or a line number that isn't one is adjust
 with a note. Only the guards fail closed: `.env` files, writes and deletes inside `.git` and paths
 outside the workspace are always refused.
 
-Shared pieces live in `@sheavly/coding/files/`: `files.helper.ts` holds `resolveWritable` and
-`resolveDeletable` (the write- and delete-path checks, with the `.env` and `.git` guards);
+## Policy table
+
+One policy, decided once in `files/files.helper.ts` (`resolveReadable`, `resolveWritable`,
+`resolveDeletable`; a search root goes through `resolveSearchRoot`). A tool file never calls the
+workspace's `resolveRead`, `resolveWrite` or `resolveDelete` itself: `harness/guard-file-tool-resolve`
+fails it. `file-tool-policy.test.ts` asserts every cell below for every tool.
+
+| Case                       | read_file / grep / glob | write_file       | edit_file              | delete_file                     |
+| -------------------------- | ----------------------- | ---------------- | ---------------------- | ------------------------------- |
+| `.env`, by name or symlink | refused                 | refused          | refused                | refused                         |
+| inside `.git` (any root)   | refused                 | refused          | refused                | refused                         |
+| outside the workspace      | refused                 | refused          | refused                | refused                         |
+| symlink out of the root    | refused                 | refused          | refused                | refused                         |
+| symlink inside the root    | follows to the target   | refused (exists) | writes through         | refused                         |
+| needs a prior read         | no                      | no               | yes                    | yes                             |
+| takes the file's lock      | read_file: yes          | yes              | yes                    | yes                             |
+| size over `MAX_FILE_BYTES` | streamed, never refused | content refused  | file or result refused | over `MAX_DELETE_BYTES` refused |
+| aborted call               | fails, nothing changes  | same             | same                   | same                            |
+
+Every file tool runs its body through `runFileTool` (`files/file-tool.helper.ts`): an already
+aborted call fails before it touches the disk, a path with nothing at it is a `not_found` error
+naming the path the model gave, a path the workspace refused or could not check is `forbidden`,
+and anything else (including an abort mid-call) passes through. No raw `ENOENT` reaches the model.
+
+Decisions: reads are locked (a read never sees a half-written file); a delete needs a read, like an
+edit; a write or edit follows a symlink inside the root to its target (outside the root it is
+refused), while a delete never follows or removes a link. `grep` and `glob` take no lock and need no
+read, and apply the same `.env`/`.git`/confinement checks to the path they are given and to what
+they walk. `read_file` streams, so it has no size limit of its own; `edit_file` (which must hold the
+file and its result in memory) refuses a file over `MAX_FILE_BYTES` (5,000,000 bytes) from its size
+on disk before it is loaded, and `write_file` refuses content over it. A read stays valid until the
+file's hash changes, not until the next command.
+
+Shared pieces live in `@sheavly/coding/files/`: `files.helper.ts` holds `resolveReadable`,
+`resolveWritable` and `resolveDeletable` (the read-, write- and delete-path checks, with the `.env`
+and `.git` guards);
 `file-effects.helper.ts` holds the filesystem effects (`readIfExists`, `readForChange`, `writeText`,
 `createParentFolder`, `removeFile`, `fileSize`); and `file-change.helper.ts` builds the result a
 tool returns.

@@ -1,3 +1,4 @@
+import { summarySectionIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { RuleSection } from './sections.types.js';
 
 /** The count in this section's one line, or zero when there is none to read. */
@@ -13,7 +14,7 @@ function countIn(text: string | undefined): number {
  * across checkpoints, so the model can tell a long conversation from a short one.
  */
 export const windowSection: RuleSection = {
-  id: 'window',
+  id: summarySectionIdSchema.parse('window'),
   title: 'Earlier history',
   write: ({ messages, previous }) => {
     const total = countIn(previous) + messages.length;

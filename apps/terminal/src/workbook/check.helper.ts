@@ -23,7 +23,7 @@ import { parseApprovedCommands } from './check-approval.validator.js';
 import { stepApprovedCommands } from './check-approval.utils.js';
 import type { WorkbookStore } from './store.service.js';
 import { ATTEMPTS, BASE, RUN_SOURCES_FILE } from './workbook.constants.js';
-import type { StoredPrompt } from './workbook.types.js';
+import type { RunId, StoredPrompt } from './workbook.types.js';
 import { toolsUsed } from './workbook.utils.js';
 
 /** A stored prompt that has a check. */
@@ -97,7 +97,7 @@ async function readRunSources(store: WorkbookStore): Promise<RunSources> {
 }
 
 /** What a saved run produced, read back from its files. */
-async function observe(params: { store: WorkbookStore; id: string }): Promise<Observed> {
+async function observe(params: { store: WorkbookStore; id: RunId }): Promise<Observed> {
   const { store, id } = params;
   const [events, result, reply, meta] = await Promise.all([
     store.events(id),

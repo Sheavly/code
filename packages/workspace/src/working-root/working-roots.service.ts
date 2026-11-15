@@ -37,7 +37,9 @@ export class WorkingRoots {
     if (workingRoot === undefined) return { kind: 'unset' };
 
     try {
-      return { kind: 'set', info: await this.#inspect(workingRoot) };
+      const real = await this.#usable(workingRoot);
+
+      return { kind: 'set', info: { root: real, branch: await this.#branch(real) } };
     } catch (caughtError) {
       // Only a refusal about the folder (gone, no longer reachable, no longer a work tree) is a
       // root that went bad; any other failure is not ours to hide.
@@ -74,11 +76,7 @@ export class WorkingRoots {
     if (workingRoot === undefined) return undefined;
 
     try {
-      const real = await this.#reachableFolder(workingRoot);
-
-      await assertWorkTree({ dir: real, env: this.#env });
-
-      return real;
+      return await this.#usable(workingRoot);
     } catch (caughtError) {
       if (caughtError instanceof WorkspaceError) {
         throw goneError({ root: workingRoot, reason: caughtError.message });
@@ -102,7 +100,8 @@ export class WorkingRoots {
 
     // Before git looks at it: a folder about to be refused is never handed to a git process.
     options.check?.(real);
-    const info = await this.#describe(real);
+    const root = await this.#usable(real);
+    const info: WorkingRootInfo = { root, branch: await this.#branch(root) };
 
     await this.#store.update((current) => withRoot({ current, workingRoot: info.root }));
 
@@ -114,15 +113,21 @@ export class WorkingRoots {
     await this.#store.update((current) => withRoot({ current, workingRoot: undefined }));
   }
 
-  async #inspect(dir: string): Promise<WorkingRootInfo> {
-    return this.#describe(await this.#reachableFolder(dir));
-  }
+  /**
+   * The one definition of a usable root: a folder the workspace reaches that is a git work tree.
+   * `state`, `root` and `set` all decide through it; throws a `WorkspaceError` when it is not.
+   */
+  async #usable(dir: string): Promise<string> {
+    const real = await this.#reachableFolder(dir);
 
-  /** The folder and its branch, once it is known to be a git work tree. */
-  async #describe(real: string): Promise<WorkingRootInfo> {
     await assertWorkTree({ dir: real, env: this.#env });
 
-    return { root: real, branch: await checkedOutBranch({ dir: real, env: this.#env }) };
+    return real;
+  }
+
+  /** The branch checked out in a folder already known to be usable. */
+  #branch(real: string): Promise<string | undefined> {
+    return checkedOutBranch({ dir: real, env: this.#env });
   }
 
   /**

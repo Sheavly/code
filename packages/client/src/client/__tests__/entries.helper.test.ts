@@ -36,7 +36,7 @@ const frame = (seq: number, newline = '\n') =>
 async function read(chunks: string[]) {
   const seen: string[] = [];
 
-  for await (const { id } of readEntries(body(chunks))) seen.push(id);
+  for await (const { cursor } of readEntries(body(chunks))) seen.push(cursor);
 
   return seen;
 }

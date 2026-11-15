@@ -27,8 +27,8 @@ export function assertSafeRoot(root: string): string {
 }
 
 /**
- * The path of `<id><extension>` inside `folder`, for a store to read, write or delete, so every
- * file it names is made one way. `id` must be a lowercase UUID (or match `shape`, for a name with
+ * The path of `<name><extension>` inside `folder`, for a store to read, write or delete, so every
+ * file it names is made one way. `name` must be a lowercase UUID (or match `shape`, for a name with
  * its own precise form, like a workspace key) and `extension` empty or a plain suffix (`.json`): a
  * value that came from outside can't name another file, or climb out of `folder`, whatever its
  * type says. `folder` must be absolute and not the top of a file system. Throws an
@@ -36,14 +36,14 @@ export function assertSafeRoot(root: string): string {
  */
 export function namedPath(params: {
   folder: string;
-  id: string;
+  name: string;
   extension?: string;
   shape?: z.ZodType<string>;
 }): string {
-  const { folder, id, extension = '', shape } = params;
-  const target = path.join(folder, `${id}${extension}`);
+  const { folder, name, extension = '', shape } = params;
+  const target = path.join(folder, `${name}${extension}`);
   const reason =
-    unsafeRootReason(folder) ?? unsafeNameReason({ id, extension, ...(shape && { shape }) });
+    unsafeRootReason(folder) ?? unsafeNameReason({ name, extension, ...(shape && { shape }) });
 
   if (reason) throw new UnsafePathError({ target, reason });
 
@@ -97,11 +97,11 @@ export async function removeFolder(params: {
  */
 export async function removeFile(params: {
   folder: string;
-  id: string;
+  name: string;
   extension: string;
 }): Promise<void> {
-  const { folder, id, extension } = params;
-  const file = namedPath({ folder, id, extension });
+  const { folder, name, extension } = params;
+  const file = namedPath({ folder, name, extension });
 
   await assertRealFolderIsSafe({ folder, target: file });
 

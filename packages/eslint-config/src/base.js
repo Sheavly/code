@@ -211,10 +211,17 @@ export function baseConfig(params) {
       files: ['src/**/*.utils.ts', 'src/**/*.validator.ts', 'src/**/*.prompt.ts'],
       rules: { 'harness/pure-imports': 'error' },
     },
-    // Ids in schemas (validators, and a tool's input schema) are branded zod schemas.
+    // Ids are branded: in zod schemas, and in the types of source (`agentId: string`). Tests and
+    // fakes keep fixtures, and a prompt renderer takes the text it prints.
     {
-      files: ['src/**/*.validator.ts', 'src/**/*.tool.ts'],
+      files: SOURCE_FILES,
+      ignores: testFiles,
       rules: { 'harness/branded-ids': 'error' },
+    },
+    {
+      files: ['src/**/*.prompt.ts'],
+      ignores: testFiles,
+      rules: { 'harness/branded-ids': ['error', { types: false }] },
     },
 
     // --- Tests: may set env, assert known shapes, and repeat setup by design ---

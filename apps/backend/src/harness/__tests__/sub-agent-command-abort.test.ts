@@ -108,7 +108,12 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         tasksTools: (childTasks) => {
           const child = instrumentChild({
             create,
-            options: { workspace: temp.workspace, permissions, processes, tasks: childTasks },
+            options: {
+              workspace: temp.workspace,
+              permissions,
+              processes,
+              tasks: childTasks,
+            },
           });
 
           childBuilt.resolve(child);

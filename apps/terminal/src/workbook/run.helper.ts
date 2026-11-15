@@ -12,7 +12,7 @@ import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { RunRecorder } from './recorder.service.js';
 import { runEnv } from './run-env.utils.js';
 import type { WorkbookStore } from './store.service.js';
-import type { CheckContext, RunRequest, RunResult } from './workbook.types.js';
+import type { CheckContext, RunId, RunRequest, RunResult } from './workbook.types.js';
 import { CheckApprovals } from './check-approvals.service.js';
 import { assertCheckBackend, assertCheckWorkspace } from './check-isolation.helper.js';
 import { WorkbookCheckError } from './check.errors.js';
@@ -31,7 +31,7 @@ export async function runWorkbook(params: {
   /** Where trust is remembered: the user's store by default, a throwaway file for `check`. */
   trustFile?: string;
   checkContext?: CheckContext;
-}): Promise<RunResult & { id: string }> {
+}): Promise<RunResult & { id: RunId }> {
   const { store, request, trustFile } = params;
   const checkContext = params.checkContext && {
     approvedCommands: parseApprovedCommands(params.checkContext.approvedCommands),
@@ -108,7 +108,7 @@ async function streamRun(params: {
   backend: Awaited<ReturnType<typeof connectBackend>>;
   checkContext: CheckContext | undefined;
   workspaceRoot: string;
-}): Promise<RunResult & { id: string }> {
+}): Promise<RunResult & { id: RunId }> {
   const { backend, history } = params;
   const conversation = await RemoteConversation.open({
     backend,
@@ -130,7 +130,7 @@ async function recordConversation(
     conversation: RemoteConversation;
     stopStream: AbortController;
   },
-): Promise<RunResult & { id: string }> {
+): Promise<RunResult & { id: RunId }> {
   const { request, history, paths, recorder, write, conversation, stopStream, checkContext } =
     params;
   const details = await conversation.details();

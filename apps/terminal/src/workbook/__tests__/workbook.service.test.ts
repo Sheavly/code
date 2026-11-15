@@ -7,6 +7,7 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
+import { runIdSchema } from '../workbook.validator.js';
 import {
   diffResults,
   mergeTextDeltas,
@@ -187,9 +188,9 @@ describe('diffResults', () => {
 
   it('lists only what differs, plus the duration and whether the answer changed', () => {
     const lines = diffResults({
-      a: { id: 'a', result: result(), tools: ['read_file'], answer: 'same' },
+      a: { id: runIdSchema.parse('a'), result: result(), tools: ['read_file'], answer: 'same' },
       b: {
-        id: 'b',
+        id: runIdSchema.parse('b'),
         result: result({ outcome: 'failed', toolErrors: 1 }),
         tools: ['read_file'],
         answer: 'same',
@@ -303,7 +304,7 @@ describe('WorkbookStore', () => {
     const paths = await store.beginRun({ prompt: 'demo', id: () => 'r1' });
 
     await writeFile(paths.events, '{"seq":0,"type":"not_an_event"}\n');
-    await expect(store.events('r1')).rejects.toThrow('Could not read');
+    await expect(store.events(runIdSchema.parse('r1'))).rejects.toThrow('Could not read');
 
     await writeFile(
       path.join(store.root, 'state.json'),

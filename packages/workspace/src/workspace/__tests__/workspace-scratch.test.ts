@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, rm, stat, symlink, writeFile } from 'node:fs/pro
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { Workspace } from '../workspace.service.js';
 import { WorkspaceError } from '../../errors/workspace.errors.js';
 
@@ -33,7 +34,7 @@ describe('Workspace scratch root', () => {
   });
 
   it('allows reading and writing under the scratch root, including other agents folders', async () => {
-    const dir = await workspace.scratchDir('agent-a');
+    const dir = await workspace.scratchDir(agentIdFor('agent-a'));
     const file = path.join(dir, 'note.md');
 
     await writeFile(file, 'hi');
@@ -76,7 +77,7 @@ describe('Workspace scratch root', () => {
 
   it('only accepts a single path segment as agent id', async () => {
     for (const id of ['', '.', '..', 'a/b', '../x']) {
-      await expect(workspace.scratchDir(id)).rejects.toThrow(WorkspaceError);
+      await expect(workspace.scratchDir(agentIdFor(id))).rejects.toThrow(WorkspaceError);
     }
   });
 
@@ -93,7 +94,9 @@ describe('Workspace scratch root', () => {
 
   it('refuses an agent folder that is a symlink', async () => {
     await symlink(path.join(base, 'outside'), path.join(scratch, 'linked-agent'));
-    await expect(workspace.scratchDir('linked-agent')).rejects.toThrow(/symlinks are refused/);
+    await expect(workspace.scratchDir(agentIdFor('linked-agent'))).rejects.toThrow(
+      /symlinks are refused/,
+    );
   });
 
   it('refuses an agent folder that others can write to', async () => {
@@ -101,7 +104,9 @@ describe('Workspace scratch root', () => {
 
     await mkdir(open);
     await chmod(open, 0o777);
-    await expect(workspace.scratchDir('open-agent')).rejects.toThrow(/writable by other users/);
+    await expect(workspace.scratchDir(agentIdFor('open-agent'))).rejects.toThrow(
+      /writable by other users/,
+    );
   });
 
   it('refuses a scratch root that is a symlink', async () => {
@@ -126,7 +131,9 @@ describe('Workspace scratch root', () => {
     const other = vi.spyOn(process, 'getuid').mockReturnValue(uid + 1);
 
     try {
-      await expect(workspace.scratchDir('agent-a')).rejects.toThrow(/belongs to another user/);
+      await expect(workspace.scratchDir(agentIdFor('agent-a'))).rejects.toThrow(
+        /belongs to another user/,
+      );
       await expect(
         Workspace.open(path.join(base, 'workspace'), { scratchRoot: scratch }),
       ).rejects.toThrow(/belongs to another user/);
@@ -138,6 +145,6 @@ describe('Workspace scratch root', () => {
   it('has no scratch dir without a scratch root', async () => {
     const plain = await Workspace.open(path.join(base, 'workspace'));
 
-    await expect(plain.scratchDir('a')).rejects.toThrow(WorkspaceError);
+    await expect(plain.scratchDir(agentIdFor('a'))).rejects.toThrow(WorkspaceError);
   });
 });

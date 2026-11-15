@@ -220,7 +220,7 @@ describe('queueText', () => {
 
 describe('runningToolsText', () => {
   const tool = (description: string, startedAt: number) => ({
-    id: description,
+    id: callIdSchema.parse(description),
     description,
     startedAt,
   });

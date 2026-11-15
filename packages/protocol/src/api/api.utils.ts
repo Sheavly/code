@@ -57,15 +57,15 @@ function parametersOf(route: ApiRoute): Record<string, unknown>[] {
 }
 
 /** One route as an OpenAPI operation: its params, body, success and the shared error. */
-function operationOf(params: { operationId: string; route: ApiRoute }): Record<string, unknown> {
-  const { operationId, route } = params;
+function operationOf(params: { operation: string; route: ApiRoute }): Record<string, unknown> {
+  const { operation, route } = params;
   const error = {
     description: 'Refused: its `code` says why',
     content: { 'application/json': { schema: refTo(serverErrorSchema) } },
   };
 
   return {
-    operationId,
+    operationId: operation,
     summary: route.summary,
     parameters: parametersOf(route),
     ...(route.body && {
@@ -125,10 +125,10 @@ export function withRouteTable(markdown: string): string | null {
 export function openApiDocument(): OpenApiDocument {
   const paths: OpenApiDocument['paths'] = {};
 
-  for (const [operationId, route] of Object.entries(API_ROUTES)) {
+  for (const [operation, route] of Object.entries(API_ROUTES)) {
     paths[route.path] = {
       ...paths[route.path],
-      [route.method]: operationOf({ operationId, route }),
+      [route.method]: operationOf({ operation, route }),
     };
   }
 

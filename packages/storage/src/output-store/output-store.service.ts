@@ -209,7 +209,7 @@ export class FileOutputStore implements OutputStore {
   }
 
   #file(params: { ref: string; extension: string }): string {
-    return namedPath({ folder: this.#folder, id: params.ref, extension: params.extension });
+    return namedPath({ folder: this.#folder, name: params.ref, extension: params.extension });
   }
 
   async #record(log: OutputLog): Promise<void> {

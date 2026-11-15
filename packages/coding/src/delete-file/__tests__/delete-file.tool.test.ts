@@ -5,9 +5,10 @@ import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
-import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
 import { isFileChange } from '../../files/files.utils.js';
@@ -62,8 +63,29 @@ const call = (
   });
 const remove = (filePath: string) => call('delete_file', { path: filePath });
 
+/** Records that the agent has read the whole file, as `read_file` does. */
+const markRead = async (file: string, text: string) =>
+  fileReads.current.markRead({
+    agentId: agentIdFor('no-session'),
+    file: await realpath(path.join(temp.root, file)),
+    text,
+    whole: true,
+    hash: hashText(text),
+  });
+
 describe('delete_file', () => {
-  it('deletes a file with no prior read, and reports the content it held with after: null', async () => {
+  it('refuses a file the agent has not read, and leaves it in place', async () => {
+    const result = await remove('existing.ts');
+
+    expect(result).toMatchObject({ isError: true });
+    expect(result.content).toContain('You have not read existing.ts');
+    expect(result.artifacts).toBeUndefined();
+    expect(existsSync(path.join(temp.root, 'existing.ts'))).toBe(true);
+  });
+
+  it('deletes a file the agent has read, and reports the content it held with after: null', async () => {
+    await markRead('existing.ts', 'old\ntext\n');
+
     const result = await remove('existing.ts');
 
     expect(result).toMatchObject({ isError: false, content: 'Deleted existing.ts (3 → 0 lines)' });
@@ -154,7 +176,10 @@ describe('delete_file', () => {
   });
 
   it('refuses a file larger than a deletion reports, and points to run_command', async () => {
-    await writeFile(path.join(temp.root, 'big.txt'), 'x'.repeat(MAX_DELETE_BYTES + 1));
+    const big = 'x'.repeat(MAX_DELETE_BYTES + 1);
+
+    await writeFile(path.join(temp.root, 'big.txt'), big);
+    await markRead('big.txt', big);
 
     const result = await remove('big.txt');
 
@@ -186,20 +211,21 @@ describe('delete_file', () => {
   it('forgets the deleted file, so an edit after a new file takes its place is not from memory', async () => {
     const file = await realpath(path.join(temp.root, 'existing.ts'));
 
-    fileReads.current.markRead({ agent: 'no-session', file, text: 'old\ntext\n', whole: true });
-    expect(fileReads.current.hasRead({ agent: 'no-session', file })).toBe(true);
+    await markRead('existing.ts', 'old\ntext\n');
+    const agentId = agentIdFor('no-session');
+
+    expect(fileReads.current.hasRead({ agentId, file })).toBe(true);
 
     await remove('existing.ts');
 
-    expect(fileReads.current.hasRead({ agent: 'no-session', file })).toBe(false);
-    expect(fileReads.current.hasSeen({ agent: 'no-session', file, text: 'old' })).toBe(false);
+    expect(fileReads.current.hasRead({ agentId, file })).toBe(false);
+    expect(fileReads.current.hasSeen({ agentId, file, text: 'old' })).toBe(false);
   });
 
   it('takes turns with an edit of the same file, so neither starts from stale content', async () => {
     const tools = [createDeleteFileTool(shared()), createEditFileTool(shared())];
-    const file = await realpath(path.join(temp.root, 'existing.ts'));
 
-    fileReads.current.markRead({ agent: 'no-session', file, text: 'old\ntext\n', whole: true });
+    await markRead('existing.ts', 'old\ntext\n');
 
     const [deleted, edited] = await Promise.all([
       call('delete_file', { path: 'existing.ts' }, tools),
