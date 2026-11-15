@@ -184,7 +184,9 @@ is split by responsibility only when it does several jobs, not to fit a number. 
     workspace's `resolveRead`, `resolveWrite` or `resolveDelete` (a call, an alias, `.call`, a
     destructured property, an import or a re-export of one); it asks the guard in
     `packages/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
-    `resolveSearchRoot`. It cannot see a computed key that is not a literal or a resolver reached
+    `resolveSearchRoot`. A tool file that calls one of those guards must also call `runFileTool`
+    (`packages/coding/src/files/file-tool.helper.ts`), the shared abort and error mapping; it
+    cannot see that the call wraps the right body. It cannot see a computed key that is not a literal or a resolver reached
     through a helper that is not the guard; `harness/guard-working-root` and review carry those.
   - `harness/guard-search-root`: a `runRipgrep` call has `resolveSearchRoot` earlier in the same
     function, as a statement of its own, because ripgrep applies its `.env` and `.git` excludes to

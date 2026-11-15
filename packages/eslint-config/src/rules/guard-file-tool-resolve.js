@@ -4,6 +4,9 @@
 // the working root the same way for all of them. A tool that calls the workspace's raw
 // `resolveRead`, `resolveWrite` or `resolveDelete` has stepped around that policy.
 //
+// A tool file that calls one of those guards must also call `runFileTool` (the shared abort and
+// error mapping) somewhere in the file; it cannot see that the call wraps the right body.
+//
 // Fails, in a tool file: a member access of one of the three names (a call, an alias such as
 // `const f = workspace.resolveRead`, `.call`, `.apply`, `workspace['resolveRead']`), a destructured
 // property of that name, and an import or re-export of that name (`import { resolveRead as r }`,
@@ -33,12 +36,30 @@ function specifierName(node) {
   return side.type === 'Literal' ? String(side.value) : side.name;
 }
 
+const UNWRAPPED_MESSAGE =
+  'A file tool that asks the guard for a path runs its body through `runFileTool` (`packages/coding/src/files/file-tool.helper.ts`), so an aborted call fails before it touches the disk and a missing or refused path reaches the model as a tool error, not a raw `ENOENT`. See `read_file`.';
+
+const GUARDS = new Set(['resolveReadable', 'resolveWritable', 'resolveDeletable']);
+
 export const guardFileToolResolve = {
-  meta: { type: 'problem', schema: [], messages: { raw: MESSAGE } },
+  meta: { type: 'problem', schema: [], messages: { raw: MESSAGE, unwrapped: UNWRAPPED_MESSAGE } },
   create(context) {
     const report = (node) => context.report({ node, messageId: 'raw' });
+    const guardCalls = [];
+    let wrapped = false;
 
     return {
+      CallExpression(node) {
+        const name = node.callee.type === 'Identifier' ? node.callee.name : undefined;
+
+        if (GUARDS.has(name)) guardCalls.push(node);
+        if (name === 'runFileTool') wrapped = true;
+      },
+      'Program:exit'() {
+        if (wrapped) return;
+
+        for (const call of guardCalls) context.report({ node: call, messageId: 'unwrapped' });
+      },
       MemberExpression(node) {
         if (RESOLVERS.has(keyName({ key: node.property, computed: node.computed }))) report(node);
       },

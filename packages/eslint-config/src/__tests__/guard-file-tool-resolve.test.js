@@ -8,9 +8,9 @@ const ruleTester = typescriptRuleTester({ sourceType: 'module' });
 ruleTester.run('guard-file-tool-resolve', harnessPlugin.rules['guard-file-tool-resolve'], {
   valid: [
     // The supported path: the guard, per intent.
-    'const run = async () => resolveReadable({ workspace, requested, root });',
-    'const run = async () => resolveWritable({ workspace, requested, root });',
-    'const run = async () => resolveDeletable({ workspace, requested, root });',
+    'const run = () => runFileTool({ requested, signal, run: () => resolveReadable({ workspace, requested, root }) });',
+    'const run = () => runFileTool({ requested, signal, run: () => resolveWritable({ workspace, requested, root }) });',
+    'const run = () => runFileTool({ requested, signal, run: () => resolveDeletable({ workspace, requested, root }) });',
     'const run = async () => resolveSearchRoot({ workspace, workingRoots, requested });',
     // Importing the guard is fine.
     "import { resolveReadable } from '../files/files.helper.js';",
@@ -40,6 +40,23 @@ ruleTester.run('guard-file-tool-resolve', harnessPlugin.rules['guard-file-tool-r
     "export { resolveDelete as remove } from './somewhere.js';",
   ].map((code) => ({ code, errors: [{ messageId: 'raw' }] })),
 });
+
+ruleTester.run(
+  'guard-file-tool-resolve (runFileTool)',
+  harnessPlugin.rules['guard-file-tool-resolve'],
+  {
+    valid: [
+      // The supported shape: the body runs through the wrapper.
+      'const run = () => runFileTool({ requested, signal, run: () => resolveReadable({ workspace, requested, root }) });',
+      // A file that never asks the guard needs no wrapper.
+      'const run = () => resolveSearchRoot({ workspace, requested });',
+    ],
+    invalid: [
+      'const run = async () => resolveWritable({ workspace, requested, root });',
+      'const run = async () => resolveDeletable({ workspace, requested, root });',
+    ].map((code) => ({ code, errors: [{ messageId: 'unwrapped' }] })),
+  },
+);
 
 const ruleOn = (file) => ruleIsErrorOn({ rule: 'harness/guard-file-tool-resolve', file });
 
