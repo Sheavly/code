@@ -1,14 +1,7 @@
-import { MAX_CHUNKS_PER_FILE } from './file-reads.constants.js';
+import { MAX_CHUNKS_PER_FILE, MAX_PERSISTED_FILES } from './file-reads.constants.js';
+import type { FileView, FileViews } from './file-reads.types.js';
 
-/** What one agent has been shown of one file. */
-type Seen = {
-  /** Pieces of the file as shown, kept in step with the agent's own edits. */
-  chunks: string[];
-  /** Some read showed the whole file. */
-  whole: boolean;
-  /** `hashText` of the whole file as the agent last saw it or left it by its own edit. */
-  hash: string;
-};
+type Seen = FileView;
 
 /**
  * What each agent has been shown of each file, so a tool that changes a file can refuse text the
@@ -127,6 +120,40 @@ export class FileReads {
    */
   markDeleted(params: { file: string }): void {
     this.#seen.delete(params.file);
+  }
+
+  /**
+   * What `agent` was shown, to keep with its conversation: the last `MAX_PERSISTED_FILES` files it
+   * read, copied so later reads do not change it. `importAgent` is its counterpart.
+   */
+  exportAgent(params: { agent: string }): FileViews {
+    const views: FileViews = {};
+    const own = [...this.#seen].flatMap(([file, byAgent]) => {
+      const seen = byAgent.get(params.agent);
+
+      return seen ? [[file, seen] as const] : [];
+    });
+
+    for (const [file, seen] of own.slice(-MAX_PERSISTED_FILES)) {
+      views[file] = { chunks: [...seen.chunks], whole: seen.whole, hash: seen.hash };
+    }
+
+    return views;
+  }
+
+  /**
+   * Gives `agent` the views a reopened conversation kept. They are not trusted to still hold: each
+   * carries the hash of the file when it was read, so the next edit or delete compares it with the
+   * file now and asks for a new read if the file changed in the meantime.
+   */
+  importAgent(params: { agent: string; views: FileViews }): void {
+    for (const [file, view] of Object.entries(params.views)) {
+      this.agentsFor(file).set(params.agent, {
+        chunks: [...view.chunks],
+        whole: view.whole,
+        hash: view.hash,
+      });
+    }
   }
 
   /** Forgets what one agent was shown, when its session ends. */

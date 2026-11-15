@@ -61,11 +61,18 @@ from memory. Each read keeps a hash of the whole file as it was then. `edit_file
 that changed since (by a command, the user or another agent) is refused with "changed since you read
 it" and needs a new read, and a file that did not change keeps its read, so a command that never
 touched it costs no re-read. An agent's own edit updates its hash, so it can edit that place again
-unread; another agent's view of the file goes stale. A released session's reads go with it (the
-backend clears them). Reads are kept per agent (a `FileReads` from
+unread; another agent's view of the file goes stale. A released session's reads go with it
+(`createCodingHarness` clears them). Reads are kept per agent (a `FileReads` from
 `@sheavly/workspace/file-reads/`, one per harness), by real path: the main agent and each sub-agent
-must read for themselves, and a symlink and its target are one file. A reopened conversation starts
-with nothing read.
+must read for themselves, and a symlink and its target are one file.
+
+**Reads survive a reopen.** The backend keeps the main agent's reads (the pieces it was shown and
+each file's hash, at most the 200 files read last) in the conversation's `shell.json` when a prompt
+ends, and restores them when the conversation is reopened. They are not trusted to still hold: the
+hash is compared with the file as it is then, so a file that changed while the conversation was
+closed asks for a new read, and one that did not change costs none. Sub-agents are not kept: a
+running one comes back interrupted. Stored reads that are not valid are reported and ignored, and
+the run starts with nothing read; a failed save is reported and the run goes on.
 
 Tool calls in a turn run in parallel, so `read_file`, `write_file`, `edit_file` and `delete_file` share a
 per-file lock (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the

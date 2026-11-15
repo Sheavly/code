@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_CHUNKS_PER_FILE } from '../file-reads.constants.js';
+import { MAX_CHUNKS_PER_FILE, MAX_PERSISTED_FILES } from '../file-reads.constants.js';
 import { FileReads } from '../file-reads.service.js';
 
 const MAIN = { agent: 'main', file: '/w/a.ts' };
@@ -199,6 +199,50 @@ describe('FileReads', () => {
 
     expect(reads.hasSeen({ ...MAIN, text: 'old top' })).toBe(false);
     expect(reads.hasSeen({ ...MAIN, text: 'new bottom' })).toBe(true);
+  });
+
+  it('exports one agent’s views and gives them to another instance, hash and pieces intact', () => {
+    const reads = new FileReads();
+    const other = { agent: 'other', file: '/w/b.ts' };
+
+    read(reads, 'part one\n');
+    read(reads, 'only other\n', true, other);
+
+    const restored = new FileReads();
+
+    restored.importAgent({ agent: 'main', views: reads.exportAgent({ agent: 'main' }) });
+
+    expect(restored.hasSeen({ ...MAIN, text: 'part one' })).toBe(true);
+    expect(restored.hasRead(other)).toBe(false);
+    // The hash came with it, so a file that changed since is caught, one that did not is kept.
+    expect(restored.forgetIfChanged({ ...MAIN, hash: 'v1' })).toBe(false);
+    expect(restored.forgetIfChanged({ ...MAIN, hash: 'v9' })).toBe(true);
+  });
+
+  it('exports a copy, so a later read does not change what was kept', () => {
+    const reads = new FileReads();
+
+    read(reads, 'one\n');
+
+    const kept = reads.exportAgent({ agent: 'main' });
+
+    read(reads, 'two\n');
+
+    expect(kept['/w/a.ts']?.chunks).toEqual(['one\n']);
+  });
+
+  it('keeps only the most recent files when it exports', () => {
+    const reads = new FileReads();
+
+    for (let index = 0; index < MAX_PERSISTED_FILES + 5; index += 1) {
+      read(reads, 'x\n', true, { agent: 'main', file: `/w/f${String(index)}.ts` });
+    }
+
+    const kept = Object.keys(reads.exportAgent({ agent: 'main' }));
+
+    expect(kept).toHaveLength(MAX_PERSISTED_FILES);
+    expect(kept).not.toContain('/w/f0.ts');
+    expect(kept).toContain(`/w/f${String(MAX_PERSISTED_FILES + 4)}.ts`);
   });
 
   it('forgets one agent when its session ends, and keeps the others', () => {

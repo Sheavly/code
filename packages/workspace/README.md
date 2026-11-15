@@ -61,21 +61,21 @@ same verification, and returns `root` itself when it is in no repo, its link doe
 folder is missing from the main worktree, or the main worktree holds it as a symlink to another
 folder.
 
-| Module                 | What it holds                                                                                                         |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)               |
-| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                        |
-| `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in `shell.json`; `anchorToRoot`, `showFromRoot`    |
-| `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell                           |
-| `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                       |
-| `file-reads/`          | `FileReads`: which files each agent has seen, so an edit to one it never read is refused; a deleted file is forgotten |
-| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                    |
-| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                                |
-| `agents-md/`           | `createAgentsMdHook`: AGENTS.md files as append-only instruction context                                              |
-| `instruction-context/` | `appendInstructionContext`: append changed instructions, deduplicated from history                                    |
-| `skills/`              | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs                                     |
-| `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                                |
-| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                                  |
+| Module                 | What it holds                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)            |
+| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                     |
+| `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in `shell.json`; `anchorToRoot`, `showFromRoot` |
+| `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell                        |
+| `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                    |
+| `file-reads/`          | `FileReads`: which files each agent has seen, by hash; kept in `shell.json` and restored on reopen                 |
+| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                 |
+| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                             |
+| `agents-md/`           | `createAgentsMdHook`: AGENTS.md files as append-only instruction context                                           |
+| `instruction-context/` | `appendInstructionContext`: append changed instructions, deduplicated from history                                 |
+| `skills/`              | `findSkills`, `createSkillsHook`, `skillRequest`; mentions and completion for UIs                                  |
+| `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                             |
+| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                               |
 
 ## Instruction rendering
 
