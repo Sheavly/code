@@ -1,6 +1,7 @@
 import { whenAborted } from '../abort/abort.utils.js';
 import { OrderedQueue } from '../queue/queue.service.js';
 import { runOnError, runSessionStart } from '../hooks/hooks.helper.js';
+import { createHookFailures } from '../hooks/hook-failures.helper.js';
 import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
@@ -99,6 +100,7 @@ async function drive(context: RunContext) {
     pending: undefined,
   };
   const summaryFailures = { count: 0, overflowTried: false };
+  const hookFailures = createHookFailures(events);
   // Set when a turn ends the run; still unset only if the turn cap ran out first.
   let reason: DoneReason | undefined;
 
@@ -124,11 +126,19 @@ async function drive(context: RunContext) {
         messages,
         signal,
         onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+        onHookError: hookFailures.report,
       });
     }
 
     for (let turn = 1; turn <= maxTurns; turn++) {
-      const ended = await runTurn({ ...context, turn, messages, outputRecovery, summaryFailures });
+      const ended = await runTurn({
+        ...context,
+        turn,
+        messages,
+        outputRecovery,
+        summaryFailures,
+        hookFailures,
+      });
 
       // Each turn's work is recorded as it happens, not only when the run ends.
       options.keepHistory?.(messages);
@@ -151,13 +161,7 @@ async function drive(context: RunContext) {
       hooks,
       error: caughtError,
       messages,
-      onHookError: ({ hook, handler, message }) =>
-        events.enqueue({
-          type: 'hook_failed',
-          hook,
-          handler,
-          error: redactDiagnosticText(message),
-        }),
+      onHookError: hookFailures.report,
     });
     events.enqueue({
       type: 'run_failed',

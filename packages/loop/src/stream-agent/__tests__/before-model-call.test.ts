@@ -3,7 +3,6 @@ import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { InvalidHistoryError } from '../../errors/loop.errors.js';
 import { ping, pingCall as call, twoTurns } from '../../testing/ping-turns.fake.js';
 import { runAgent, streamAgent } from '../stream-agent.helper.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
@@ -179,43 +178,64 @@ describe('beforeModelCall in the loop', () => {
     expect(seen).toEqual(['ping', '<rules/>']);
   });
 
-  it('fails the run with the hook’s name when it drops a tool result', async () => {
+  /** Runs twoTurns with one hook; returns what each call was sent and the hook_failed events. */
+  async function runWith(hook: Hook) {
     const sent: Message[][] = [];
-    const dropResults = defineHook({
-      name: 'drop-results',
-      beforeModelCall: async ({ messages }) =>
-        messages.filter((message) => message.role !== 'tool'),
-    });
-
-    const run = runAgent({
+    const events: AgentEvent[] = [];
+    const history = await runAgent({
       provider: recording(twoTurns(), sent),
       tools: [ping],
       messages: [prompt],
-      hooks: [dropResults],
+      hooks: [hook],
+      onEvent: (event) => events.push(event),
     });
 
-    await expect(run).rejects.toThrow(InvalidHistoryError);
-    await expect(run).rejects.toThrow('Hook drop-results produced invalid history');
-    expect(sent).toHaveLength(1);
+    return {
+      sent,
+      history,
+      failures: events.flatMap((event) => (event.type === 'hook_failed' ? [event] : [])),
+    };
+  }
+
+  it('skips a hook that drops a tool result, names it in hook_failed, and finishes the run', async () => {
+    const { sent, history, failures } = await runWith(
+      defineHook({
+        name: 'drop-results',
+        beforeModelCall: async ({ messages }) =>
+          messages.filter((message) => message.role !== 'tool'),
+      }),
+    );
+
+    expect(failures).toEqual([
+      expect.objectContaining({ hook: 'drop-results', handler: 'beforeModelCall' }),
+    ]);
+    expect(failures[0]?.error).toContain('Hook drop-results produced invalid history');
+    // The model still got the tool result: the invalid edit was not applied.
+    expect(sent[1]?.some((message) => message.role === 'tool')).toBe(true);
+    expect(history.at(-1)?.role).toBe('assistant');
   });
 
-  it('fails the run when the hook changes the latest user message', async () => {
-    const reword = defineHook({
-      name: 'reword',
-      beforeModelCall: async () => [{ role: 'user', content: 'something else' }],
-    });
+  it('skips a hook that changes the latest user message', async () => {
+    const { sent, failures } = await runWith(
+      defineHook({
+        name: 'reword',
+        beforeModelCall: async () => [{ role: 'user', content: 'something else' }],
+      }),
+    );
 
-    await expect(
-      runAgent({ provider: twoTurns(), tools: [ping], messages: [prompt], hooks: [reword] }),
-    ).rejects.toThrow('the latest user message was removed or changed');
+    expect(failures[0]?.error).toContain('the latest user message was removed or changed');
+    expect(sent[0]).toEqual([prompt]);
   });
 
-  it('fails the run when a hook returns something that is not an array', async () => {
-    const broken = { name: 'broken', beforeModelCall: async () => undefined } as unknown as Hook;
+  it('skips a hook that returns something that is not an array', async () => {
+    const { failures } = await runWith({
+      name: 'broken',
+      beforeModelCall: async () => undefined,
+    } as unknown as Hook);
 
-    await expect(
-      runAgent({ provider: twoTurns(), tools: [ping], messages: [prompt], hooks: [broken] }),
-    ).rejects.toThrow('Hook broken produced invalid history: the result is not a list of messages');
+    expect(failures[0]?.error).toContain(
+      'Hook broken produced invalid history: the result is not a list of messages',
+    );
   });
 
   it('ends the run as interrupted when a hook fails because the run was aborted', async () => {
@@ -245,38 +265,35 @@ describe('beforeModelCall in the loop', () => {
     expect(sent).toHaveLength(0);
   });
 
-  it('still fails the run for a hook error that is not an abort', async () => {
-    const broken = defineHook({
-      name: 'broken',
-      beforeModelCall: async () => {
-        throw new Error('bug in the hook');
-      },
-    });
+  it('reports a hook error that is not an abort and carries on without it', async () => {
+    const { history, failures } = await runWith(
+      defineHook({
+        name: 'broken',
+        beforeModelCall: async () => {
+          throw new Error('bug in the hook');
+        },
+      }),
+    );
 
-    await expect(
-      runAgent({ provider: twoTurns(), tools: [ping], messages: [prompt], hooks: [broken] }),
-    ).rejects.toThrow('bug in the hook');
+    expect(failures[0]?.error).toContain('bug in the hook');
+    expect(history.at(-1)?.role).toBe('assistant');
   });
 
   it('keeps a message object edited in place by a hook out of stored history', async () => {
-    const sneaky = defineHook({
-      name: 'sneaky',
-      beforeModelCall: async ({ messages }) => {
-        (messages.at(-1) as { content: string }).content = 'tampered';
+    const { history, failures } = await runWith(
+      defineHook({
+        name: 'sneaky',
+        beforeModelCall: async ({ messages }) => {
+          (messages.at(-1) as { content: string }).content = 'tampered';
 
-        return messages;
-      },
-    });
+          return messages;
+        },
+      }),
+    );
 
-    const run = runAgent({
-      provider: twoTurns(),
-      tools: [ping],
-      messages: [prompt],
-      hooks: [sneaky],
-    });
-
-    await expect(run).rejects.toThrow(InvalidHistoryError);
+    expect(failures[0]?.error).toContain('Hook sneaky produced invalid history');
     expect(prompt.content).toBe('ping');
+    expect(history[0]?.content).toBe('ping');
   });
 
   it('gives the hook a copy, so changing it in place changes nothing stored', async () => {

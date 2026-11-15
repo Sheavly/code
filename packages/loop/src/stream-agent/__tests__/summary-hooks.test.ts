@@ -138,22 +138,26 @@ describe('beforeSummary and afterSummary in the loop', () => {
     expect(JSON.stringify(requests[1]?.messages)).toContain('restored after test');
   });
 
-  it('reports a bad beforeSummary result as a failed summary and carries on', async () => {
+  it('skips a bad beforeSummary result, reports it as hook_failed, and still summarizes', async () => {
     const { summarizer, spans } = spying();
     const { reason, messages, events } = await run({
       summarizer,
       // Typed correctly but not valid: the schema, not the compiler, is what a plain-JS hook meets.
       hooks: [{ name: 'typo', beforeSummary: async () => ({ keepTokens: -5 }) }],
     });
-    const failed = events.find((event) => event.type === 'summary_failed');
+    const failed = events.find((event) => event.type === 'hook_failed');
 
     expect(reason).toBe('completed');
-    expect(spans).toHaveLength(0);
-    expect(messages.some((m) => m.role === 'summary')).toBe(false);
-    expect(failed?.type === 'summary_failed' && failed.error).toContain('Hook typo');
+    expect(spans).toHaveLength(1);
+    expect(messages.some((m) => m.role === 'summary')).toBe(true);
+    expect(failed?.type === 'hook_failed' && [failed.hook, failed.handler]).toEqual([
+      'typo',
+      'beforeSummary',
+    ]);
+    expect(failed?.type === 'hook_failed' && failed.error).toContain('Hook typo');
   });
 
-  it('reports a beforeSummary that throws as a failed summary, never failing the run', async () => {
+  it('reports a beforeSummary that throws as hook_failed, never failing the run or the summary', async () => {
     const { summarizer } = spying();
     const { reason, events } = await run({
       summarizer,
@@ -167,12 +171,12 @@ describe('beforeSummary and afterSummary in the loop', () => {
       ],
     });
 
-    const failed = events.find((event) => event.type === 'summary_failed');
+    const failed = events.find((event) => event.type === 'hook_failed');
 
     expect(reason).toBe('completed');
-    expect(events.map((e) => e.type)).not.toContain('summary_done');
+    expect(events.map((e) => e.type)).toContain('summary_done');
     // The hook is named, as `onError` and tool hooks are, so a project can find the culprit.
-    expect(failed?.type === 'summary_failed' && failed.error).toContain(
+    expect(failed?.type === 'hook_failed' && failed.error).toContain(
       'Hook broken failed in beforeSummary: nope',
     );
   });
@@ -240,9 +244,9 @@ describe('beforeSummary and afterSummary in the loop', () => {
     expect(messages.some((m) => m.role === 'summary')).toBe(false);
   });
 
-  it('fails the run when afterSummary throws, after the summary was reported done', async () => {
+  it('reports an afterSummary that throws as hook_failed, after the summary was reported done', async () => {
     const { summarizer } = spying();
-    const result = run({
+    const { reason, events } = await run({
       summarizer,
       hooks: [
         {
@@ -253,8 +257,10 @@ describe('beforeSummary and afterSummary in the loop', () => {
         },
       ],
     });
+    const types = events.map((event) => event.type);
 
-    await expect(result).rejects.toThrow('after failed');
+    expect(reason).toBe('completed');
+    expect(types.indexOf('hook_failed')).toBeGreaterThan(types.indexOf('summary_done'));
   });
 
   it('runs both hooks for an overflow summary, with the overflow reason', async () => {

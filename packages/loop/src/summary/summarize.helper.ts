@@ -170,6 +170,7 @@ export async function summarizeHistory(params: {
     messages,
     signal,
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+    onHookError: context.hookFailures.report,
   });
 
   return true;
@@ -223,6 +224,7 @@ async function writeCheckpoint(params: {
       lastTokens: session.registry.lastTokens(session.ref.id),
     }),
     signal,
+    onHookError: context.hookFailures.report,
   });
 
   // A hook that ignores its signal is raced against the abort (`runBeforeSummary`), which leaves

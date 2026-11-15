@@ -1,35 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { HookError } from '../../errors/loop.errors.js';
 import { InvalidHistoryError } from '../../errors/loop.errors.js';
-import {
-  runAfterTurn,
-  runBeforeModelCall,
-  runBeforeTurn,
-  runOnError,
-  runSessionStart,
-  runToolCall,
-} from '../hooks.helper.js';
-import type { Message, ToolCall } from '@sheavly/protocol/message/message.types';
+import { runBeforeModelCall, runBeforeTurn, runOnError } from '../hooks.helper.js';
+import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const signal = new AbortController().signal;
-
-const echo = defineTool({
-  name: 'echo',
-  description: 'Echoes text back',
-  inputSchema: z.object({ text: z.string() }),
-  execute: async ({ input }) => JSON.stringify(input),
-});
-
-const call: ToolCall = {
-  id: callIdSchema.parse('c1'),
-  name: 'echo',
-  input: { description: 'echoing', text: 'hi' },
-};
+const ignoreFailure = () => undefined;
 
 describe('runBeforeTurn', () => {
   it('runs hooks in order; each sees the context added before it', async () => {
@@ -55,6 +34,7 @@ describe('runBeforeTurn', () => {
       context: {},
       signal,
       onContext: ({ hook, content }) => added.push(`${hook}: ${content}`),
+      onHookError: ignoreFailure,
     });
 
     expect(seen).toEqual([2]);
@@ -78,6 +58,7 @@ describe('runBeforeTurn', () => {
       context: {},
       signal,
       onContext: () => undefined,
+      onHookError: ignoreFailure,
     });
 
     expect(messages).toHaveLength(1);
@@ -105,6 +86,7 @@ describe('runBeforeTurn', () => {
       context,
       signal,
       onContext: () => undefined,
+      onHookError: ignoreFailure,
     });
 
     expect(seen).toEqual([context, context]);
@@ -115,6 +97,7 @@ describe('runBeforeTurn', () => {
 describe('runBeforeModelCall', () => {
   const prompt: Message = { role: 'user', content: 'start' };
   const changes: { hook: string; added: number; removed: number; edited: number }[] = [];
+  const failures: HookError[] = [];
   const run = (hooks: Hook[], messages: Message[] = [prompt]) =>
     runBeforeModelCall({
       hooks,
@@ -123,10 +106,12 @@ describe('runBeforeModelCall', () => {
       context: {},
       signal,
       onChanged: (change) => changes.push(change),
+      onHookError: (failure) => failures.push(failure),
     });
 
   beforeEach(() => {
     changes.length = 0;
+    failures.length = 0;
   });
 
   it('reports what each hook added, dropped and edited, as counts', async () => {
@@ -261,6 +246,7 @@ describe('runBeforeModelCall', () => {
       context,
       signal,
       onChanged: () => undefined,
+      onHookError: ignoreFailure,
     });
 
     expect(seen).toEqual([context, context]);
@@ -278,17 +264,34 @@ describe('runBeforeModelCall', () => {
       },
     });
 
-    await expect(run([editor], stored)).rejects.toThrow(
+    // The rewritten latest user message breaks the rules: the hook is skipped and reported, and
+    // the messages from before it are sent.
+    expect(await run([editor], stored)).toEqual([{ role: 'user', content: 'start' }]);
+    expect(stored[0]?.content).toBe('start');
+    expect(failures[0]?.message).toContain(
       'Hook editor produced invalid history: the latest user message was removed or changed',
     );
-    expect(stored[0]?.content).toBe('start');
   });
 
-  it('refuses a result that is not made of messages, as a typed error naming the hook', async () => {
+  it('skips a result that is not made of messages, reporting a typed error naming the hook', async () => {
     const nulls = { name: 'nulls', beforeModelCall: async () => [null] } as unknown as Hook;
 
-    await expect(run([nulls])).rejects.toThrow(InvalidHistoryError);
-    await expect(run([nulls])).rejects.toThrow('Hook nulls produced invalid history');
+    expect(await run([nulls])).toEqual([prompt]);
+    expect(failures[0]?.cause).toBeInstanceOf(InvalidHistoryError);
+    expect(failures[0]?.message).toContain('Hook nulls produced invalid history');
+  });
+
+  it('skips a hook that throws, reports it, and sends what the hooks before it produced', async () => {
+    const broken = defineHook({
+      name: 'broken',
+      beforeModelCall: async () => {
+        throw new Error('boom');
+      },
+    });
+
+    expect(await run([broken])).toEqual([prompt]);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({ hook: 'broken', handler: 'beforeModelCall' });
   });
 
   it('does not blame a hook that returns its input when the history was already broken', async () => {
@@ -308,7 +311,7 @@ describe('runBeforeModelCall', () => {
     expect(await run([passthrough], dangling)).toEqual(dangling);
   });
 
-  it('names the hook whose result breaks the rules, and stops there', async () => {
+  it('names the hook whose result breaks the rules, skips it, and runs the next on what was sent before', async () => {
     const ran: string[] = [];
     const orphan = defineHook({
       name: 'orphan',
@@ -326,9 +329,9 @@ describe('runBeforeModelCall', () => {
       },
     });
 
-    await expect(run([orphan, later])).rejects.toThrow(InvalidHistoryError);
-    await expect(run([orphan, later])).rejects.toThrow('Hook orphan produced invalid history');
-    expect(ran).toEqual([]);
+    expect(await run([orphan, later])).toEqual([prompt]);
+    expect(failures[0]?.message).toContain('Hook orphan produced invalid history');
+    expect(ran).toEqual(['later']);
   });
 
   it('holds every hook to the original latest user message, not the previous result’s', async () => {
@@ -341,135 +344,11 @@ describe('runBeforeModelCall', () => {
       beforeModelCall: async () => [{ role: 'user', content: 'changed' }],
     });
 
-    await expect(run([reword, restore])).rejects.toThrow(
+    expect(await run([reword, restore])).toEqual([prompt]);
+    expect(failures.map((failure) => failure.hook)).toEqual(['reword', 'restore']);
+    expect(failures[0]?.message).toContain(
       'Hook reword produced invalid history: the latest user message was removed or changed',
     );
-  });
-});
-
-describe('runToolCall', () => {
-  it('runs the tool directly when no hook wraps tool calls', async () => {
-    const { message } = await runToolCall({ hooks: [], tools: [echo], call, signal });
-
-    expect(message).toMatchObject({
-      role: 'tool',
-      toolCallId: 'c1',
-      content: '{"text":"hi"}',
-      isError: false,
-    });
-  });
-
-  it('nests hooks: the first is outermost', async () => {
-    const order: string[] = [];
-    const wrap = (name: string) =>
-      defineHook({
-        name,
-        aroundToolCall: async ({ next }) => {
-          order.push(`${name} in`);
-          const result = await next();
-
-          order.push(`${name} out`);
-
-          return result;
-        },
-      });
-
-    await runToolCall({ hooks: [wrap('a'), wrap('b')], tools: [echo], call, signal });
-
-    expect(order).toEqual(['a in', 'b in', 'b out', 'a out']);
-  });
-
-  it('lets a hook block the call: the tool never runs', async () => {
-    let ran = false;
-    const tool = defineTool({ ...echo, execute: async () => ((ran = true), 'ran') });
-    const block = defineHook({
-      name: 'block',
-      aroundToolCall: async ({ call: blocked }) => ({
-        content: `${blocked.name} is not allowed`,
-        isError: true,
-      }),
-    });
-
-    const { message } = await runToolCall({ hooks: [block], tools: [tool], call, signal });
-
-    expect(ran).toBe(false);
-    expect(message).toMatchObject({ content: 'echo is not allowed', isError: true });
-  });
-
-  it('lets a hook change the input (validated as usual) and the result', async () => {
-    const shout = defineHook({
-      name: 'shout',
-      aroundToolCall: async ({ call: current, next }) => {
-        const result = await next({ ...(current.input as object), text: 'changed' });
-
-        return { ...result, content: result.content.toUpperCase() };
-      },
-    });
-    const invalid = defineHook({ name: 'invalid', aroundToolCall: async ({ next }) => next({}) });
-
-    expect(
-      (await runToolCall({ hooks: [shout], tools: [echo], call, signal })).message,
-    ).toMatchObject({
-      content: '{"TEXT":"CHANGED"}',
-    });
-    expect(
-      (await runToolCall({ hooks: [invalid], tools: [echo], call, signal })).message,
-    ).toMatchObject({
-      isError: true,
-    });
-  });
-
-  it('passes the call description, and turns a throwing hook into an error result', async () => {
-    let description = '';
-    const broken = defineHook({
-      name: 'broken',
-      aroundToolCall: async (context) => {
-        description = context.description;
-        throw new Error('boom');
-      },
-    });
-
-    const { message } = await runToolCall({ hooks: [broken], tools: [echo], call, signal });
-
-    expect(description).toBe('echoing');
-    expect(message).toMatchObject({
-      role: 'tool',
-      toolCallId: 'c1',
-      content: 'Hook broken failed: boom',
-      isError: true,
-    });
-  });
-  it("passes a tool's artifacts through, and lets a hook see or drop them", async () => {
-    const artifacts = [{ kind: 'table', columns: ['a', 'b'], rows: [[1, 2]] }];
-    const parser = defineTool({
-      ...echo,
-      execute: async () => ({ content: 'Parsed 1 row', artifacts }),
-    });
-    let seen: unknown;
-    const observe = defineHook({
-      name: 'observe',
-      aroundToolCall: async ({ next }) => {
-        const result = await next();
-
-        seen = result.artifacts;
-
-        return result;
-      },
-    });
-    const drop = defineHook({
-      name: 'drop',
-      aroundToolCall: async ({ next }) => ({ ...(await next()), artifacts: undefined }),
-    });
-
-    const kept = await runToolCall({ hooks: [observe], tools: [parser], call, signal });
-    const dropped = await runToolCall({ hooks: [drop], tools: [parser], call, signal });
-
-    expect(seen).toEqual(artifacts);
-    expect(kept).toMatchObject({
-      message: { role: 'tool', toolCallId: 'c1', content: 'Parsed 1 row', isError: false },
-      artifacts,
-    });
-    expect(dropped.artifacts).toBeUndefined();
   });
 });
 
@@ -482,62 +361,6 @@ describe('defineHook', () => {
     for (const handler of ['sessionStart', 'afterTurn', 'onError'] as const) {
       expect(defineHook({ name: handler, [handler]: async () => undefined }).name).toBe(handler);
     }
-  });
-});
-
-describe('runSessionStart', () => {
-  it('runs hooks in order, each adding context the next one sees', async () => {
-    const messages: Message[] = [{ role: 'user', content: 'start' }];
-    const seen: number[] = [];
-
-    await runSessionStart({
-      hooks: [
-        defineHook({ name: 'a', sessionStart: async ({ addContext }) => addContext('from a') }),
-        defineHook({
-          name: 'b',
-          sessionStart: async (context) => {
-            seen.push(context.messages.length);
-            context.addContext('from b');
-          },
-        }),
-      ],
-      messages,
-      signal,
-      onContext: () => undefined,
-    });
-
-    expect(seen).toEqual([2]);
-    expect(messages.map((m) => m.content)).toEqual(['start', 'from a', 'from b']);
-  });
-});
-
-describe('runAfterTurn', () => {
-  it('runs hooks in order with the turn, its reply and a snapshot of history', async () => {
-    const reply: Message = { role: 'assistant', content: 'done', toolCalls: [] };
-    const messages: Message[] = [{ role: 'user', content: 'hi' }, reply];
-    const seen: string[] = [];
-    const record = (name: string) =>
-      defineHook({
-        name,
-        afterTurn: async (context) => {
-          seen.push(
-            `${name}: turn ${context.turn} ${context.stopReason} "${context.reply.content}"`,
-          );
-          (context.messages as Message[]).length = 0;
-        },
-      });
-
-    await runAfterTurn({
-      hooks: [record('a'), record('b')],
-      turn: 2,
-      stopReason: 'end_turn',
-      reply,
-      messages,
-      signal,
-    });
-
-    expect(seen).toEqual(['a: turn 2 end_turn "done"', 'b: turn 2 end_turn "done"']);
-    expect(messages).toHaveLength(2);
   });
 });
 

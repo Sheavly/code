@@ -7,6 +7,7 @@ import { runAfterSummary, runBeforeSummary } from '../hooks.helper.js';
 import { parseSummaryChange } from '../summary-change.validator.js';
 
 const signal = new AbortController().signal;
+const ignoreFailure = () => undefined;
 const section = (id: string, body: string) => ({
   id: summarySectionIdSchema.parse(id),
   title: id,
@@ -56,6 +57,7 @@ describe('runBeforeSummary', () => {
       messages: [],
       context: {},
       signal,
+      onHookError: ignoreFailure,
     });
 
     expect(result).toEqual({ keepTokens: undefined, sections: [] });
@@ -84,6 +86,7 @@ describe('runBeforeSummary', () => {
       messages: [],
       context: { window: 1000 },
       signal,
+      onHookError: ignoreFailure,
     });
 
     expect(seen).toEqual(['overflow', { window: 1000 }]);
@@ -113,22 +116,30 @@ describe('runBeforeSummary', () => {
       messages,
       context: {},
       signal,
+      onHookError: ignoreFailure,
     });
 
     expect(messages[0]?.content).toBe('keep me');
   });
 
-  it('throws a SummaryHookError naming a hook that returns an invalid change', async () => {
+  it('reports a SummaryHookError naming a hook that returns an invalid change, and skips it', async () => {
+    const failures: Error[] = [];
     // Typed correctly but not valid: the schema, not the compiler, is what a plain-JS hook meets.
-    const run = runBeforeSummary({
-      hooks: [{ name: 'typo', beforeSummary: async () => ({ keepTokens: -1 }) }],
+    const result = await runBeforeSummary({
+      hooks: [
+        { name: 'typo', beforeSummary: async () => ({ keepTokens: -1 }) },
+        { name: 'fine', beforeSummary: async () => ({ keepTokens: 7 }) },
+      ],
       reason: 'threshold',
       messages: [],
       context: {},
       signal,
+      onHookError: (failure) => failures.push(failure),
     });
 
-    await expect(run).rejects.toThrow('Hook typo returned an invalid summary change');
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.message).toContain('Hook typo returned an invalid summary change');
+    expect(result.keepTokens).toBe(7);
   });
 
   it('does not ask any hook when the run is already aborted', async () => {
@@ -152,14 +163,16 @@ describe('runBeforeSummary', () => {
       messages: [],
       context: {},
       signal: aborted.signal,
+      onHookError: ignoreFailure,
     });
 
     expect(asked).toEqual([]);
     expect(result).toEqual({ keepTokens: undefined, sections: [] });
   });
 
-  it('names the hook when its handler throws', async () => {
-    const run = runBeforeSummary({
+  it('reports the hook by name when its handler throws, and the summary goes on', async () => {
+    const failures: Error[] = [];
+    const result = await runBeforeSummary({
       hooks: [
         {
           name: 'broken',
@@ -172,9 +185,11 @@ describe('runBeforeSummary', () => {
       messages: [],
       context: {},
       signal,
+      onHookError: (failure) => failures.push(failure),
     });
 
-    await expect(run).rejects.toThrow('Hook broken failed in beforeSummary: nope');
+    expect(failures[0]?.message).toBe('Hook broken failed in beforeSummary: nope');
+    expect(result).toEqual({ keepTokens: undefined, sections: [] });
   });
 
   it('stops waiting on a hook that ignores its signal once the run aborts', async () => {
@@ -187,6 +202,7 @@ describe('runBeforeSummary', () => {
       messages: [],
       context: {},
       signal: controller.signal,
+      onHookError: ignoreFailure,
     });
 
     controller.abort();
@@ -222,6 +238,7 @@ describe('runAfterSummary', () => {
       messages,
       signal,
       onContext: ({ hook, content }) => added.push(`${hook}: ${content}`),
+      onHookError: ignoreFailure,
     });
 
     // Handlers see the model's view: the checkpoint as a user message, never the `summary` role.
@@ -255,6 +272,7 @@ describe('runAfterSummary', () => {
       messages,
       signal: aborted.signal,
       onContext: () => undefined,
+      onHookError: ignoreFailure,
     });
 
     expect(asked).toEqual([]);
@@ -284,6 +302,7 @@ describe('runAfterSummary', () => {
       messages,
       signal,
       onContext: () => undefined,
+      onHookError: ignoreFailure,
     });
 
     expect(stored.kept).toBe(1);

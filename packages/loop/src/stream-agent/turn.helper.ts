@@ -25,6 +25,8 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // A follow-up already in the inbox belongs in the completion's messages-since snapshot.
   deliverMessages({ session, messages, events });
   reportFinishedTasks({ tasks: options.tasks, session, messages, events });
+  // Handlers that failed since the last call: the model hears of them at this call, once.
+  context.hookFailures.deliver(messages);
   // After tasks and messages are in history, before any hook: hooks see the shortened state.
   // No summary could make room and the view fills the window: stop here, recoverably (the history
   // is untouched and valid), rather than send a call the provider is sure to reject.
@@ -47,6 +49,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     context: state,
     signal,
     onContext: (added) => events.enqueue({ type: 'context_added', ...added }),
+    onHookError: context.hookFailures.report,
   });
 
   // For this call only: `messages` stays the stored history, and the turn appends to that. The
@@ -64,15 +67,12 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     context: state,
     signal,
     onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
-  }).catch((caughtError: unknown) => {
-    // A hook that fails because the run was aborted ends it as interrupted, like every other
-    // abort; nothing has been added to history yet, so it stays valid.
-    if (signal.aborted) return undefined;
-
-    throw caughtError;
+    onHookError: context.hookFailures.report,
   });
 
-  if (!sent || signal.aborted) return 'interrupted';
+  // An abort during a hook ends the run as interrupted, like every other abort; nothing has been
+  // added to history yet, so it stays valid.
+  if (signal.aborted) return 'interrupted';
 
   const continuation = context.outputRecovery.pending;
 
@@ -87,6 +87,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     signal,
     aborted,
     events,
+    onHookError: context.hookFailures.report,
   });
 
   // A failed model call that started no tools fails the turn as it is, with nothing to record.
@@ -118,6 +119,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     reply: message,
     messages,
     signal,
+    onHookError: context.hookFailures.report,
   });
 
   return finishTurn({ context, stopReason, running, reply: message });

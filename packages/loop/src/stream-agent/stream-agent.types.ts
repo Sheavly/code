@@ -3,6 +3,7 @@ import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { ContextState, Hook } from '@sheavly/core/hook/hook.types';
 import type { ToolOutcome } from '../events/events.types.js';
+import type { HookFailures, OnHookError } from '../hooks/hooks.types.js';
 import type { OrderedQueue } from '../queue/queue.service.js';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type {
@@ -113,6 +114,8 @@ export type TurnContext = RunContext & {
    * whether the current model call already got its one overflow summary.
    */
   summaryFailures: { count: number; overflowTried: boolean };
+  /** The run's failed hook handlers: reported as they fail, told to the model at its next call. */
+  hookFailures: HookFailures;
 };
 
 /** A tool call that started while the model streamed, with its eventual outcome. */
@@ -134,6 +137,8 @@ export type ToolStart = {
   /** The run's session, passed on to tools (`context.session`). */
   session: SessionRef;
   signal: AbortSignal;
+  /** Told about a tool hook that failed (`hook_failed`, and a notice to the model). */
+  onHookError: OnHookError;
 };
 
 export type SampleContext = ToolStart & {
