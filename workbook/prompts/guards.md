@@ -20,7 +20,7 @@ check:
             'Path is outside the workspace',
             'Writing .env files is not allowed',
             'The user skipped this command: echo GUARD_UNLISTED',
-            'is not allowed yet',
+            'echo GUARD_UNLISTED: is not allowed yet',
           ],
         'outcome': 'completed',
       },
