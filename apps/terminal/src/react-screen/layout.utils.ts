@@ -53,15 +53,18 @@ export function liveLayout(props: ReactScreenProps): LiveLayout {
   const tail = rowsOf({ text: props.live, columns });
   const queue = rowsOf({ text: props.queue, columns }).slice(0, 1);
   const tailBudget = Math.max(0, remaining - queue.length);
-  const context =
-    remaining > 0
-      ? [...(tailBudget > 0 ? tail.slice(-tailBudget) : []), ...queue].slice(-remaining)
-      : [];
-  const lines = [...context, ...beforeEditor, ...editorLines];
+  // The unfinished reply sits above the status line: when its block is drawn as Markdown and
+  // committed to the scrollback, it prints in the place the raw text held, so nothing moves.
+  const shownTail = tailBudget > 0 ? tail.slice(-tailBudget) : [];
+  const below = remaining > 0 ? queue : [];
+  const lines = [...below, ...beforeEditor, ...editorLines];
   const cursor =
     editor.cursor && editor.cursor.y < editorLines.length
-      ? { x: editor.cursor.x, y: context.length + beforeEditor.length + editor.cursor.y + 1 }
+      ? {
+          x: editor.cursor.x,
+          y: shownTail.length + below.length + beforeEditor.length + editor.cursor.y + 1,
+        }
       : undefined;
 
-  return { lines, cursor, approvalFits };
+  return { tail: shownTail, lines, cursor, approvalFits };
 }

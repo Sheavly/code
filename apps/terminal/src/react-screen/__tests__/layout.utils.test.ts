@@ -19,6 +19,11 @@ function frame(patch: Partial<ReactScreenProps> = {}): ReactScreenProps {
   };
 }
 
+/** Every row the footer draws: the tail, the status line, then the rows under it. */
+function footerRows(layout: ReturnType<typeof liveLayout>): string[] {
+  return [...layout.tail, 'STATUS', ...layout.lines];
+}
+
 describe('editorFrame', () => {
   it('keeps the caret in display columns and removes private markers', () => {
     const result = editorFrame([`界${CURSOR_MARKER}\u001b_pi:fc\u0007x\u001b_pi:/fc\u0007`]);
@@ -39,17 +44,39 @@ describe('transcriptRows', () => {
 });
 
 describe('liveLayout', () => {
-  it('keeps the newest live rows and preserves the editor and queue', () => {
-    const layout = liveLayout(frame({ live: 'one\ntwo\nthree\nfour', queue: 'queued', rows: 8 }));
+  it('draws the unfinished reply above the status line, never under it', () => {
+    const layout = liveLayout(frame({ live: 'one\ntwo' }));
 
-    expect(layout.lines).toEqual(['three', 'four', 'queued', 'border', 'input', 'border']);
-    expect(layout.cursor).toEqual({ x: 0, y: 5 });
-    expect(layout.lines.length + 1).toBeLessThan(8);
+    expect(footerRows(layout)).toEqual(['one', 'two', 'STATUS', 'border', 'input', 'border']);
+    expect(layout.lines).not.toContain('one');
   });
 
-  it('does not accidentally keep every tail row when the budget is zero', () => {
+  it('keeps the newest rows of the reply and preserves the editor and queue', () => {
+    const layout = liveLayout(frame({ live: 'one\ntwo\nthree\nfour', queue: 'queued', rows: 8 }));
+
+    expect(layout.tail).toEqual(['three', 'four']);
+    expect(layout.lines).toEqual(['queued', 'border', 'input', 'border']);
+    expect(footerRows(layout).length).toBeLessThan(8);
+  });
+
+  it('counts the rows above the status line in the cursor row', () => {
+    const layout = liveLayout(frame({ live: 'one\ntwo', queue: 'queued' }));
+    const rows = footerRows(layout);
+
+    expect(rows[layout.cursor?.y ?? 0]).toBe('input');
+  });
+
+  it('puts the cursor on the input row with a reply and an approval both showing', () => {
+    const layout = liveLayout(frame({ live: 'one\ntwo', approval: 'command\nchoice', rows: 14 }));
+
+    expect(layout.tail).toEqual(['one', 'two']);
+    expect(footerRows(layout)[layout.cursor?.y ?? 0]).toBe('input');
+  });
+
+  it('does not keep any reply rows when there is no room for them', () => {
     const layout = liveLayout(frame({ live: 'one\ntwo', queue: 'queued', rows: 5 }));
 
+    expect(layout.tail).toEqual([]);
     expect(layout.lines).toEqual(['border', 'input', 'border']);
   });
 
@@ -58,7 +85,7 @@ describe('liveLayout', () => {
 
     expect(layout.approvalFits).toBe(false);
     expect(layout.lines.join('\n')).toContain('Enlarge terminal or Esc to skip');
-    expect(layout.lines.length + 1).toBeLessThan(8);
+    expect(footerRows(layout).length).toBeLessThan(8);
   });
 
   it('says why confirmation is blocked when the editor leaves the approval no row', () => {
@@ -66,14 +93,34 @@ describe('liveLayout', () => {
 
     expect(layout.approvalFits).toBe(false);
     expect(layout.lines.join('\n')).toContain('Enlarge terminal or Esc to skip');
-    expect(layout.lines.length + 1).toBeLessThan(5);
+    expect(footerRows(layout).length).toBeLessThan(5);
   });
 
-  it.each([2, 3, 4, 10, 24])('bounds the footer at %i rows', (rows) => {
+  it('never lets the reply displace a waiting approval or the editor', () => {
     const layout = liveLayout(
-      frame({ rows, live: 'large\n'.repeat(100), approval: 'long\n'.repeat(100) }),
+      frame({ live: 'one\ntwo\nthree', approval: 'command\nchoice', rows: 9 }),
     );
 
-    expect(layout.lines.length + 1).toBeLessThan(rows);
+    expect(layout.approvalFits).toBe(true);
+    expect(layout.lines.join('\n')).toContain('command\nchoice');
+    expect(layout.lines.slice(-3)).toEqual(['border', 'input', 'border']);
+    expect(footerRows(layout).length).toBeLessThan(9);
+  });
+
+  it('draws nothing above the status line when there is no unfinished reply', () => {
+    expect(liveLayout(frame()).tail).toEqual([]);
+  });
+
+  it.each([2, 3, 4, 5, 6, 8, 10, 24])('bounds the footer at %i rows', (rows) => {
+    const layout = liveLayout(
+      frame({
+        rows,
+        live: 'large\n'.repeat(100),
+        queue: 'queued',
+        approval: 'long\n'.repeat(100),
+      }),
+    );
+
+    expect(footerRows(layout).length).toBeLessThan(rows);
   });
 });
