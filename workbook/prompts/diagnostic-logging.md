@@ -18,7 +18,7 @@ check:
         'outcome': 'completed',
         'reply': ['DIAGNOSTICS_OK'],
         'tools': ['read_file'],
-        'toolErrors': { 'read_file': ['ENOENT'] },
+        'toolErrors': { 'read_file': ['File not found'] },
       },
     'forbid': { 'events': ['run_failed'] },
   }
