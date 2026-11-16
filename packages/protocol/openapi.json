@@ -1154,7 +1154,7 @@
                   "report": { "type": "string" },
                   "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                 },
-                "required": ["kind", "agent", "outcome", "report"]
+                "required": ["kind", "agent", "outcome", "report", "context"]
               },
               {
                 "type": "object",
@@ -1163,7 +1163,7 @@
                   "task": { "$ref": "#/components/schemas/TaskInfo" },
                   "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                 },
-                "required": ["kind", "task"]
+                "required": ["kind", "task", "context"]
               }
             ]
           },
@@ -1198,7 +1198,7 @@
                         "report": { "type": "string" },
                         "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                       },
-                      "required": ["kind", "agent", "outcome", "report"]
+                      "required": ["kind", "agent", "outcome", "report", "context"]
                     },
                     {
                       "type": "object",
@@ -1207,14 +1207,14 @@
                         "task": { "$ref": "#/components/schemas/TaskInfo" },
                         "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
                       },
-                      "required": ["kind", "task"]
+                      "required": ["kind", "task", "context"]
                     }
                   ]
                 }
               },
               "context": { "$ref": "#/components/schemas/TaskCompletionContext" }
             },
-            "required": ["kind", "reason", "notices"]
+            "required": ["kind", "reason", "notices", "context"]
           }
         ]
       },
@@ -1625,7 +1625,7 @@
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
-            "required": ["type", "reason", "error", "retriesLeft"]
+            "required": ["type", "reason", "kind", "error", "retriesLeft"]
           },
           {
             "type": "object",
@@ -1916,7 +1916,7 @@
               "error": { "type": "string" },
               "retriesLeft": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
-            "required": ["seq", "type", "reason", "error", "retriesLeft"]
+            "required": ["seq", "type", "reason", "kind", "error", "retriesLeft"]
           },
           {
             "type": "object",
@@ -2084,7 +2084,7 @@
               "summarizer": { "type": "string", "minLength": 1 },
               "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
             },
-            "required": ["role", "sections", "kept", "summarized", "summarizer"]
+            "required": ["role", "sections", "kept", "summarized", "covered", "summarizer"]
           },
           { "$ref": "#/components/schemas/NoticeMessage" }
         ]
@@ -2368,7 +2368,7 @@
           },
           "error": { "type": "string" }
         },
-        "required": ["id", "command", "description", "status", "startedAt", "output"]
+        "required": ["id", "command", "description", "kind", "status", "startedAt", "output"]
       },
       "TaskUpdate": {
         "oneOf": [
@@ -2586,7 +2586,7 @@
                     "summarizer": { "type": "string", "minLength": 1 },
                     "at": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
                   },
-                  "required": ["role", "sections", "kept", "summarized", "summarizer"]
+                  "required": ["role", "sections", "kept", "summarized", "covered", "summarizer"]
                 }
               ]
             }
@@ -2821,6 +2821,7 @@
           "id",
           "title",
           "modelId",
+          "mode",
           "workspace",
           "profile",
           "status",

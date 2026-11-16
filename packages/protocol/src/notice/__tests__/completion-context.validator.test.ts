@@ -4,8 +4,16 @@ import { entryEventSchema } from '../../event/event.validator.js';
 import { historyMessageSchema } from '../../history/history.validator.js';
 import { harnessNoticeSchema, taskCompletionContextSchema } from '../notice.validator.js';
 
+const CONTEXT = {
+  reason: 'Use the results to choose the next step',
+  startedAt: 100,
+  durationMs: 100,
+  userMessagesSinceStart: 2,
+  callId: 'call-1',
+};
 const TASK = {
   id: 'task-1',
+  kind: 'task',
   command: 'npm test',
   description: 'Run tests',
   status: 'completed',
@@ -29,21 +37,16 @@ const AGENT_REPORT = {
   taskId: 'task-1',
   outcome: 'completed',
   report: 'All tests passed',
+  context: CONTEXT,
 };
-const TASK_FINISHED = { kind: 'task-finished', task: TASK };
+const TASK_FINISHED = { kind: 'task-finished', task: TASK, context: CONTEXT };
 const GROUP = {
   kind: 'tasks-finished',
   reason: 'Compare both results',
   notices: [AGENT_REPORT, TASK_FINISHED],
+  context: CONTEXT,
 };
-const CONTEXT = {
-  reason: 'Use the results to choose the next step',
-  startedAt: 100,
-  durationMs: 100,
-  userMessagesSinceStart: 2,
-  callId: 'call-1',
-};
-const LEGACY_NOTICES = [AGENT_REPORT, TASK_FINISHED, GROUP];
+const NOTICES = [AGENT_REPORT, TASK_FINISHED, GROUP];
 
 describe('taskCompletionContextSchema', () => {
   it('preserves completion facts and the optional originating call', () => {
@@ -84,32 +87,41 @@ describe('taskCompletionContextSchema', () => {
 
     expect(taskCompletionContextSchema.safeParse(context).success).toBe(false);
 
-    for (const notice of LEGACY_NOTICES) {
+    for (const notice of NOTICES) {
       expect(harnessNoticeSchema.safeParse({ ...notice, context }).success).toBe(false);
     }
   });
 });
 
-describe('completion notice compatibility', () => {
-  it.each([false, true])(
-    'round-trips every notice kind with completion context: %s',
-    (enriched) => {
-      for (const legacy of LEGACY_NOTICES) {
-        const notice = enriched ? { ...legacy, context: CONTEXT } : legacy;
-        const history = { role: 'notice', notice, at: 200 };
-        const event = { type: 'harness_notice', seq: 0, notice };
+describe('completion notices', () => {
+  it('round-trips every notice kind with its completion context', () => {
+    for (const notice of NOTICES) {
+      const history = { role: 'notice', notice, at: 200 };
+      const event = { type: 'harness_notice', seq: 0, notice };
 
-        expect(harnessNoticeSchema.parse(notice)).toEqual(notice);
-        expect(historyMessageSchema.parse(JSON.parse(JSON.stringify(history)))).toEqual(history);
-        expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
-      }
-    },
-  );
+      expect(harnessNoticeSchema.parse(notice)).toEqual(notice);
+      expect(historyMessageSchema.parse(JSON.parse(JSON.stringify(history)))).toEqual(history);
+      expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+    }
+  });
+
+  it('requires the completion context in every notice kind, and in each group member', () => {
+    const { context: _context, ...bareReport } = AGENT_REPORT;
+    const { context: _unused, ...bareFinished } = TASK_FINISHED;
+    const { context: _group, ...bareGroup } = GROUP;
+
+    for (const notice of [bareReport, bareFinished, bareGroup]) {
+      expect(harnessNoticeSchema.safeParse(notice).success).toBe(false);
+    }
+
+    expect(
+      harnessNoticeSchema.safeParse({ ...GROUP, notices: [bareReport, TASK_FINISHED] }).success,
+    ).toBe(false);
+  });
 
   it('retains separate group and member contexts alongside the existing group reason', () => {
     const notice = {
       ...GROUP,
-      context: CONTEXT,
       notices: [
         { ...AGENT_REPORT, context: { ...CONTEXT, reason: 'Review report' } },
         {
@@ -124,7 +136,7 @@ describe('completion notice compatibility', () => {
   });
 
   it.each([undefined, null])('rejects a present invalid context %j', (context) => {
-    for (const notice of LEGACY_NOTICES) {
+    for (const notice of NOTICES) {
       expect(harnessNoticeSchema.safeParse({ ...notice, context }).success).toBe(false);
     }
   });
@@ -135,7 +147,7 @@ describe('completion notice compatibility', () => {
     { ...GROUP, notices: [{ kind: 'output-continuation', attempt: 1 }] },
     { ...GROUP, reason: undefined },
   ])('keeps the existing group contract restrictions for %j', (group) => {
-    expect(harnessNoticeSchema.safeParse({ ...group, context: CONTEXT }).success).toBe(false);
+    expect(harnessNoticeSchema.safeParse(group).success).toBe(false);
   });
 
   it('names the completion context in the generated contract for non-TypeScript clients', () => {

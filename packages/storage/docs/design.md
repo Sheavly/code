@@ -126,7 +126,7 @@ profile write queue and atomic file replacement. Omitting a mode restores that m
 mode, or medium for a new model. Renames preserve both preferences, and profiles remain separate.
 Legacy `lastModelId` is read as a medium-mode selection; the next profile write saves the new
 structure. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
-take another conversation's latest preferences. A legacy index without a mode resumes on medium.
+take another conversation's latest preferences.
 
 Terminal preferences live in `config.json` under `terminal`: `reducedMotion` and `bell` are
 optional booleans. Missing preferences mean animated activity and no terminal bell.

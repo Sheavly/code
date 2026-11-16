@@ -15,6 +15,7 @@ const context = {
 };
 const task = {
   id: 'release-task',
+  kind: 'agent',
   command: 'release review',
   description: 'Review the release',
   status: 'completed',

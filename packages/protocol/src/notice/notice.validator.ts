@@ -87,14 +87,13 @@ const individualPersistentNoticeSchema = z.discriminatedUnion('kind', [
     outcome: runOutcomeSchema,
     /** What the sub-agent reported, whole: its final answer and nothing else. */
     report: z.string(),
-    /** Optional only so stored histories written without completion context remain readable. */
-    context: taskCompletionContextSchema.exactOptional(),
+    context: taskCompletionContextSchema,
   }),
   /** A background task finished: its snapshot, whose `output` stays the bounded preview. */
   z.object({
     kind: z.literal('task-finished'),
     task: taskInfoSchema,
-    context: taskCompletionContextSchema.exactOptional(),
+    context: taskCompletionContextSchema,
   }),
 ]);
 
@@ -120,7 +119,7 @@ export const persistentNoticeSchema = z.union([
     kind: z.literal('tasks-finished'),
     reason: z.string(),
     notices: z.array(individualPersistentNoticeSchema).min(1),
-    context: taskCompletionContextSchema.exactOptional(),
+    context: taskCompletionContextSchema,
   }),
 ]);
 

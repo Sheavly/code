@@ -45,7 +45,7 @@ export async function owedAgentReports(params: {
     if (report !== undefined) reports.set(agent.id, report);
   }
 
-  return restoredReportNotices({ agents, reports, at });
+  return restoredReportNotices({ agents, reports, history, at });
 }
 
 /**

@@ -4,6 +4,7 @@ import { taskInfoSchema } from '../task.validator.js';
 describe('taskInfoSchema', () => {
   const TASK = {
     id: 'task-1',
+    kind: 'task',
     command: 'npm test',
     description: 'running the tests',
     status: 'completed',
@@ -17,7 +18,7 @@ describe('taskInfoSchema', () => {
     expect(taskInfoSchema.parse({ ...TASK, exitCode: null }).exitCode).toBeNull();
   });
 
-  it('keeps an explicit wait reason without adding one to an ungrouped or legacy task', () => {
+  it('keeps an explicit wait reason without adding one to an ungrouped task', () => {
     expect(taskInfoSchema.parse(TASK)).not.toHaveProperty('reason');
     expect(taskInfoSchema.parse({ ...TASK, reason: 'Compare the test results' }).reason).toBe(
       'Compare the test results',
@@ -29,11 +30,13 @@ describe('taskInfoSchema', () => {
     expect(taskInfoSchema.safeParse({ ...TASK, reason }).success).toBe(false);
   });
 
-  it('keeps a task or service kind, leaves a legacy snapshot without one, and rejects others', () => {
+  it('keeps a task, agent or service kind, and rejects a missing or unknown one', () => {
     expect(taskInfoSchema.parse({ ...TASK, kind: 'service' }).kind).toBe('service');
     expect(taskInfoSchema.parse({ ...TASK, kind: 'task' }).kind).toBe('task');
     expect(taskInfoSchema.parse({ ...TASK, kind: 'agent' }).kind).toBe('agent');
-    expect(taskInfoSchema.parse(TASK)).not.toHaveProperty('kind');
+    const { kind: _kind, ...withoutKind } = TASK;
+
+    expect(taskInfoSchema.safeParse(withoutKind).success).toBe(false);
     expect(taskInfoSchema.safeParse({ ...TASK, kind: 'daemon' }).success).toBe(false);
     expect(taskInfoSchema.safeParse({ ...TASK, kind: undefined }).success).toBe(false);
   });

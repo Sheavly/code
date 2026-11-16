@@ -29,13 +29,15 @@ workspace package, and the layout check holds it to that.
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.
 
-## Version and legacy fields
+## Version
 
 `CONTRACT_VERSION` (`contract/contract.constants.ts`) is published as `contractVersion` in
 `contract.schema.json`. Raise it for a change an older client or a stored conversation cannot
-read; adding an optional field does not. Stored conversations carry no marker: a field that is
-optional only so older data still reads is listed in `LEGACY_FIELDS` with the condition that
-removes it, and a test checks each is still readable when absent (`legacy-fields.test.ts`).
+read; adding an optional field does not. The harness reads only data written under the current
+contract: a field is optional only when absence means something (the first checkpoint's
+`incorporated`, an ungrouped task's `reason`, a message a caller wrote without `at`), never so
+that older data still parses. A field that stopped being optional drops the data that lacks it,
+with no compatibility reader; `required-fields.test.ts` pins the fields that were once optional.
 
 ## Tool results arrive as tools finish
 
@@ -131,8 +133,7 @@ read it from either and decides whether and how to show it.
 - `tasks-finished`: one completion delivery, with an agent-authored `reason` string and a nonempty
   ordered `notices` array of `agent-report` and/or `task-finished` snapshots. Nested groups and
   transient notices are rejected. The reason is retained as data, not a model instruction; reports
-  remain whole and task outputs remain the existing bounded previews. Individual persistent kinds
-  remain readable in older histories and streams.
+  remain whole and task outputs remain the existing bounded previews.
 
 All three completion kinds carry `context: TaskCompletionContext`, defined by
 `taskCompletionContextSchema` in `notice/notice.validator.ts` and inferred in `notice/notice.types.ts`:
@@ -143,14 +144,13 @@ All three completion kinds carry `context: TaskCompletionContext`, defined by
 - `userMessagesSinceStart`: a nonnegative integer count of user messages since launch.
 - Optional `callId`: the originating tool call, when known.
 
-The `context` field is optional on the wire solely for compatibility: old stored histories and
-streams without it remain valid, and parsing does not invent missing context. New loop-produced
-completion notices supply it on individual notices and groups. A group's existing `reason` and
-ordered `notices` shape are unchanged; each member retains its own context alongside the group's.
-`TaskInfo.reason` separately retains the explicit `await_tasks` reason on every grouped task,
-including tasks that settled before grouping. It is absent for ungrouped tasks and old task
-snapshots; when there is no explicit wait reason, the loop uses the task's description for
-completion context rather than changing the task's launch semantics.
+The `context` field is required on all three: the loop supplies it on every individual notice
+and every group, and a report written when a conversation is reopened carries one too. Each
+member of a group retains its own context alongside the group's. `TaskInfo.reason` separately
+retains the explicit `await_tasks` reason on every grouped task, including tasks that settled
+before grouping. It is absent for ungrouped tasks; when there is no explicit wait reason, the loop
+uses the task's description for completion context rather than changing the task's launch
+semantics.
 
 A persistent notice is a snapshot at the moment it was written. Live state comes from the session
 stream, and a UI joins the two by session or task id. `history/` sits above `message/`,

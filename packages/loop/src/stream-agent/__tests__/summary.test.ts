@@ -355,6 +355,8 @@ describe('summarizing in the loop', () => {
         sections: section('old work'),
         kept: 1,
         summarized: 1,
+        // Its own index (3) less `kept`.
+        covered: 2,
         summarizer: 'test',
         at: 9,
       },
@@ -375,6 +377,8 @@ describe('summarizing in the loop', () => {
         sections: section('old work'),
         kept: 5,
         summarized: 1,
+        // Its own index (1) less `kept`.
+        covered: -4,
         summarizer: 'test',
         at: 9,
       },

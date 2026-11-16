@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { Provider } from '@sheavly/core/provider/provider.types';
-import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
+import { answer } from '../../testing/summary-run.constants.js';
+import { recording } from '../../testing/summary-run.fake.js';
 import { historyMessageSchema } from '@sheavly/protocol/history/history.validator';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
@@ -37,6 +37,7 @@ const history: HistoryMessage[] = [
       kind: 'task-finished',
       task: {
         id: 't1',
+        kind: 'agent',
         command: 'review',
         description: 'Review',
         status: 'completed',
@@ -52,22 +53,9 @@ const history: HistoryMessage[] = [
 
 const POINTER = 'starting tool call ID launch';
 
-/** Wraps a provider and keeps a copy of the messages each model call was sent. */
-function recording(inner: Provider, sent: Message[][]): Provider {
-  return {
-    contextWindow: 1_000,
-    stream: (request) => {
-      sent.push([...request.messages]);
-
-      return inner.stream(request);
-    },
-  };
-}
-
 /** Runs one turn; returns the messages the hook was given and the ones the provider was sent. */
 async function run(edit: (messages: readonly Message[]) => Message[]) {
   const seen: Message[][] = [];
-  const sent: Message[][] = [];
   const hook = defineHook({
     name: 'edit',
     beforeModelCall: ({ messages }) => {
@@ -76,16 +64,11 @@ async function run(edit: (messages: readonly Message[]) => Message[]) {
       return Promise.resolve(edit(messages));
     },
   });
-  const provider = scriptedProvider([[{ type: 'done', stopReason: 'end_turn' }]]);
+  const { provider, requests } = recording([answer]);
 
-  await runAgent({
-    provider: recording(provider, sent),
-    tools: [],
-    hooks: [hook],
-    messages: history,
-  });
+  await runAgent({ provider, tools: [], hooks: [hook], messages: history });
 
-  return { seen: seen[0] ?? [], sent: sent[0] ?? [] };
+  return { seen: seen[0] ?? [], sent: requests[0]?.messages ?? [] };
 }
 
 const noticeIn = (messages: readonly Message[]) =>

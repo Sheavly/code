@@ -89,6 +89,7 @@ describe('the other requests', () => {
       summarizer: 'rules',
       summarized: 12,
       kept: 3,
+      covered: 1,
       sections: [{ id: 'state', title: 'Task state', body: 'Tests pass.' }],
       role: 'summary',
     });
@@ -105,12 +106,14 @@ describe('the other requests', () => {
         kind: 'task-finished',
         task: {
           id: 't1',
+          kind: 'task',
           command: 'ls',
           description: 'list',
           status: 'completed',
           output: '',
           startedAt: 1,
         },
+        context: { reason: 'list files', startedAt: 1, durationMs: 3, userMessagesSinceStart: 0 },
       },
       at: 4,
     };

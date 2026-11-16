@@ -8,6 +8,7 @@ function finishedTask(id: string) {
     id,
     command: 'npm run build',
     description: 'Build the package',
+    kind: 'task',
     status: 'completed',
     startedAt: 400,
     endedAt: FINISHED_AT,
@@ -26,8 +27,18 @@ function reportFrom(agentId: string) {
   };
 }
 
-const AGENT_REPORT = reportFrom('agent-7');
-const TASK_FINISHED = { kind: 'task-finished', task: finishedTask('task-7') };
+const COMPLETION = {
+  reason: 'Check the build',
+  startedAt: 400,
+  durationMs: 500,
+  userMessagesSinceStart: 1,
+};
+const AGENT_REPORT = { ...reportFrom('agent-7'), context: COMPLETION };
+const TASK_FINISHED = {
+  kind: 'task-finished',
+  task: finishedTask('task-7'),
+  context: COMPLETION,
+};
 
 /**
  * One valid notice of every kind, parsed through the contract so a sample can't drift. The `Record`
@@ -49,6 +60,7 @@ export const NOTICE_SAMPLES: Record<HarnessNotice['kind'], HarnessNotice> = {
     kind: 'tasks-finished',
     reason: 'Compare both results',
     notices: [AGENT_REPORT, TASK_FINISHED],
+    context: COMPLETION,
   }),
   'hook-failed': harnessNoticeSchema.parse({
     kind: 'hook-failed',

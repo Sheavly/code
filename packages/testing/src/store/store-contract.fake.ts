@@ -31,6 +31,7 @@ export const indexOf = (conversationId: typeof id, startedAt: number, title = 'C
   id: conversationId,
   title,
   modelId: modelIdSchema.parse('4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30'),
+  mode: 'medium' as const,
   workspace: '/work',
   profile: profileIdSchema.parse('9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b99'),
   status: 'open' as const,

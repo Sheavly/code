@@ -38,7 +38,13 @@ describe('agentEventSchema', () => {
         summarizer: 'model',
         sections: [{ id: 'goal', title: 'Goal', chars: 420 }],
       },
-      { type: 'summary_failed', reason: 'overflow', error: 'provider down', retriesLeft: 2 },
+      {
+        type: 'summary_failed',
+        kind: 'generation',
+        reason: 'overflow',
+        error: 'provider down',
+        retriesLeft: 2,
+      },
       { type: 'hook_failed', hook: 'h', handler: 'onError', error: 'boom' },
       { type: 'storage_failed', error: 'Could not store entry 4: disk full' },
       { type: 'message_received', message: { from: 'user', content: 'stop', sentAt: 1 } },
@@ -86,19 +92,43 @@ describe('agentEventSchema', () => {
       agentEventSchema.safeParse({ ...started, reason: 'manual', tokensBefore: -1 }).success,
     ).toBe(false);
     expect(
-      agentEventSchema.safeParse({ seq: 1, type: 'summary_failed', reason: 'manual', error: 'x' })
-        .success,
+      agentEventSchema.safeParse({
+        seq: 1,
+        type: 'summary_failed',
+        kind: 'size',
+        reason: 'whenever',
+        error: 'x',
+        retriesLeft: 0,
+      }).success,
     ).toBe(false);
+  });
+
+  it('requires the kind of a failed summary, one of the four', () => {
+    const failed = {
+      seq: 0,
+      type: 'summary_failed',
+      reason: 'manual',
+      error: 'x',
+      retriesLeft: 0,
+    };
+
+    for (const kind of ['generation', 'preservation', 'size', 'cancellation']) {
+      expect(agentEventSchema.safeParse({ ...failed, kind }).success).toBe(true);
+    }
+
+    expect(agentEventSchema.safeParse({ ...failed, kind: 'other' }).success).toBe(false);
   });
 
   it('lets done carry a history that holds a checkpoint', () => {
     const messages = [
+      { role: 'user', content: 'start' },
       { role: 'user', content: 'go' },
       {
         role: 'summary',
         sections: [{ id: 'goal', title: 'Goal', body: 'Fix it.' }],
         kept: 1,
         summarized: 4,
+        covered: 1,
         summarizer: 'model',
         at: 1,
       },

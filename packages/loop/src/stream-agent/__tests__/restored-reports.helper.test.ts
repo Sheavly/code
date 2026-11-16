@@ -7,6 +7,7 @@ import {
   storedOutcome,
   undeliveredAgents,
 } from '../restored-reports.helper.js';
+import { RESTORED_REPORT_REASON } from '../stream-agent.constants.js';
 
 const MAIN = sessionIdSchema.parse('main-1');
 
@@ -57,7 +58,13 @@ describe('undeliveredAgents', () => {
 
   it('skips one delivered by an agent-report for its session', () => {
     const history = [
-      notice({ kind: 'agent-report', agent: agent('a'), outcome: 'completed', report: 'r' }),
+      notice({
+        kind: 'agent-report',
+        agent: agent('a'),
+        outcome: 'completed',
+        report: 'r',
+        context: { reason: 'x', startedAt: 1, durationMs: 0, userMessagesSinceStart: 0 },
+      }),
     ];
 
     expect(undeliveredAgents({ main: MAIN, sessions: [agent('a')], history })).toEqual([]);
@@ -70,15 +77,18 @@ describe('undeliveredAgents', () => {
         id: 't1',
         command: 'x',
         description: 'x',
+        kind: 'task',
         status: 'failed',
         output: '',
         startedAt: 1,
         callId: 'call-a',
       },
+      context: { reason: 'x', startedAt: 1, durationMs: 0, userMessagesSinceStart: 0 },
     };
     const grouped = {
       kind: 'tasks-finished',
       reason: 'wait',
+      context: { reason: 'x', startedAt: 1, durationMs: 0, userMessagesSinceStart: 0 },
       notices: [
         {
           kind: 'agent-report',
@@ -128,6 +138,7 @@ describe('restoredReportNotices', () => {
     const [entry] = restoredReportNotices({
       agents: [agent('a')],
       reports: new Map([[agent('a').id, 'THE REPORT']]),
+      history: [],
       at: 99,
     });
 
@@ -140,7 +151,12 @@ describe('restoredReportNotices', () => {
   });
 
   it('calls a completed sub-agent whose report could not be read back interrupted', () => {
-    const [entry] = restoredReportNotices({ agents: [agent('a')], reports: new Map(), at: 1 });
+    const [entry] = restoredReportNotices({
+      agents: [agent('a')],
+      reports: new Map(),
+      history: [],
+      at: 1,
+    });
 
     expect(entry).toMatchObject({
       notice: { outcome: 'interrupted', report: '', agent: { state: 'interrupted' } },
@@ -156,6 +172,7 @@ describe('restoredReportNotices', () => {
         [cut.id, 'ignored'],
         [failed.id, 'ignored'],
       ]),
+      history: [],
       at: 1,
     });
 
@@ -163,5 +180,39 @@ describe('restoredReportNotices', () => {
       { notice: { outcome: 'interrupted', report: '', agent: { state: 'interrupted' } } },
       { notice: { outcome: 'failed', report: '', agent: { state: 'failed' } } },
     ]);
+  });
+
+  it('gives each report a restored completion context, with the call only when it is visible', () => {
+    const visible = agent('a', { startedAt: 10 });
+    const hidden = agent('b', { startedAt: 10 });
+    const history = [
+      historyMessageSchema.parse({
+        role: 'assistant',
+        content: '',
+        toolCalls: [{ id: visible.startedByCall, name: 'agent', input: {} }],
+        at: 5,
+      }),
+      historyMessageSchema.parse({ role: 'user', content: 'later', at: 20 }),
+    ];
+    const entries = restoredReportNotices({
+      agents: [visible, hidden],
+      reports: new Map(),
+      history,
+      at: 99,
+    });
+    const contexts = entries.map((entry) =>
+      entry.role === 'notice' && entry.notice.kind === 'agent-report'
+        ? entry.notice.context
+        : undefined,
+    );
+
+    expect(contexts[0]).toMatchObject({
+      reason: RESTORED_REPORT_REASON,
+      startedAt: 10,
+      userMessagesSinceStart: 1,
+      callId: visible.startedByCall,
+    });
+    expect(contexts[1]).toMatchObject({ reason: RESTORED_REPORT_REASON, startedAt: 10 });
+    expect(contexts[1] && 'callId' in contexts[1]).toBe(false);
   });
 });

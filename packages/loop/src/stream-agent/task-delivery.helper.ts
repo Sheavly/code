@@ -36,28 +36,26 @@ export function reportFinishedTasks(params: {
         history: messages,
       }),
     ),
-    context:
+    // Only a delivery with an `await_tasks` reason is a group; the rest is one notice per task.
+    group:
       delivery.reason === undefined
         ? undefined
-        : taskCompletionContext({
+        : {
             reason: delivery.reason,
-            startedAt: Math.min(...delivery.tasks.map((task) => task.startedAt)),
-            endedAt: Math.max(...delivery.tasks.map((task) => task.endedAt ?? task.startedAt)),
-            history: messages,
-          }),
+            context: taskCompletionContext({
+              reason: delivery.reason,
+              startedAt: Math.min(...delivery.tasks.map((task) => task.startedAt)),
+              endedAt: Math.max(...delivery.tasks.map((task) => task.endedAt ?? task.startedAt)),
+              history: messages,
+            }),
+          },
   }));
 
   for (const delivery of deliveries) {
-    const { notices } = delivery;
-    const notice: HarnessNotice | undefined =
-      delivery.reason === undefined
-        ? notices[0]
-        : {
-            kind: 'tasks-finished',
-            reason: delivery.reason,
-            notices,
-            ...(delivery.context !== undefined && { context: delivery.context }),
-          };
+    const { notices, group } = delivery;
+    const notice: HarnessNotice | undefined = group
+      ? { kind: 'tasks-finished', ...group, notices }
+      : notices[0];
 
     if (!notice) continue;
 

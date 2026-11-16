@@ -3,6 +3,9 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { RunOutcome, SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 
+import { RESTORED_REPORT_REASON } from './stream-agent.constants.js';
+import { taskCompletionContext } from './task-context.utils.js';
+
 type SubAgent = Extract<SessionInfo, { parentId: SessionId }>;
 
 /**
@@ -46,9 +49,11 @@ export function storedOutcome(agent: SubAgent): RunOutcome {
 export function restoredReportNotices(params: {
   agents: readonly SubAgent[];
   reports: ReadonlyMap<SessionId, string>;
+  /** The conversation's history, for the completion context each report carries. */
+  history: readonly HistoryMessage[];
   at: number;
 }): HistoryMessage[] {
-  const { agents, reports, at } = params;
+  const { agents, reports, history, at } = params;
 
   return agents.map((agent) => {
     const read = reports.get(agent.id);
@@ -67,6 +72,13 @@ export function restoredReportNotices(params: {
         agent: { ...agent, state: outcome, lastOutcome: outcome },
         outcome,
         report,
+        context: taskCompletionContext({
+          reason: RESTORED_REPORT_REASON,
+          startedAt: agent.startedAt,
+          endedAt: agent.endedAt ?? agent.startedAt,
+          history,
+          callId: agent.startedByCall,
+        }),
       },
       at,
     };
@@ -96,13 +108,13 @@ function noteDelivered(params: { notice: HarnessNotice; delivered: Delivered }):
 
   if (notice.kind === 'agent-report') {
     delivered.sessions.add(notice.agent.id);
-    addCall({ delivered, callId: notice.context?.callId });
+    addCall({ delivered, callId: notice.context.callId });
 
     return;
   }
 
   if (notice.kind === 'task-finished') {
-    addCall({ delivered, callId: notice.task.callId ?? notice.context?.callId });
+    addCall({ delivered, callId: notice.task.callId ?? notice.context.callId });
   }
 }
 

@@ -7,6 +7,7 @@ const checkpoint = {
   sections: [{ id: 'goal', title: 'Goal', body: 'Fix the invoice total.' }],
   kept: 12,
   summarized: 40,
+  covered: 5,
   summarizer: 'model',
   at: 1,
 };
@@ -20,6 +21,15 @@ describe('the summary message', () => {
     const empty = { ...checkpoint, sections: [], kept: 1, summarized: 0 };
 
     expect(summaryMessageSchema.parse(empty)).toEqual(empty);
+  });
+
+  it('requires where coverage ends, and leaves the folded-in checkpoint optional', () => {
+    const { covered: _covered, ...uncovered } = checkpoint;
+
+    expect(summaryMessageSchema.safeParse(uncovered).success).toBe(false);
+    expect(summaryMessageSchema.safeParse({ ...checkpoint, covered: 0 }).success).toBe(false);
+    expect(summaryMessageSchema.parse(checkpoint)).not.toHaveProperty('incorporated');
+    expect(summaryMessageSchema.parse({ ...checkpoint, incorporated: 3 }).incorporated).toBe(3);
   });
 
   it('refuses to keep nothing, since the latest user message is always kept', () => {

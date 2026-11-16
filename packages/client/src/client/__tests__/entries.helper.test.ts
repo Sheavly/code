@@ -12,6 +12,7 @@ const entry = (seq: number) => ({
       id: 't1',
       command: 'npm test',
       description: 'Tests',
+      kind: 'task',
       status: 'running',
       startedAt: 1,
       output: '',

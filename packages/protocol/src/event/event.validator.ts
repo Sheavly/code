@@ -191,8 +191,7 @@ const stepEventSchemas = [
   z.object({
     type: z.literal('summary_failed'),
     reason: summaryReasonSchema,
-    /** Optional only so streams stored before failures were classified still read. */
-    kind: summaryFailureKindSchema.exactOptional(),
+    kind: summaryFailureKindSchema,
     /** Redacted like `run_failed`. */
     error: z.string(),
     /** Further tries this run before summaries stop being attempted. */

@@ -20,8 +20,8 @@ export const storedConversationSchema = z.object({
   title: z.string(),
   /** The model it ran on last, by its id; a name is a label and could be shared or renamed. */
   modelId: modelIdSchema,
-  /** Absent in legacy indexes: medium. Restoring never uses the profile's newer selection. */
-  mode: modelModeSchema.exactOptional(),
+  /** Restoring uses this, never the profile's newer selection. */
+  mode: modelModeSchema,
   /** The folder it works in, as a real path, fixed when it started. */
   workspace: z.string(),
   /** The profile whose models and keys it runs on, fixed when it started. */

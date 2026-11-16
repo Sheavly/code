@@ -26,8 +26,7 @@ export const taskInfoSchema = z.object({
   callId: callIdSchema.exactOptional(),
   command: z.string(),
   description: z.string(),
-  /** Absent in snapshots stored before it existed: read as a `task`, a sub-agent's included. */
-  kind: taskKindSchema.exactOptional(),
+  kind: taskKindSchema,
   /** Explicit await_tasks reason, absent until the task joins a delivery group. */
   reason: z.string().exactOptional(),
   status: taskStatusSchema,

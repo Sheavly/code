@@ -16,7 +16,7 @@ run `npm run schema -w @sheavly/protocol`; a test fails while either file is out
 
 Model-first setup uses `GET /setup/models` to return `ModelOffering` choices and supported hosting
 routes. Optional `ModelIdentity` metadata keeps the chosen model separate from its profile UUID,
-display name and adapter definition. Legacy model files without it remain valid. Catalogue values
+display name and adapter definition; a model need not have one. Catalogue values
 belong to the backend app; this package defines and validates only their wire shapes.
 
 | Module               | What it holds                                                                                |
@@ -53,8 +53,8 @@ Before each model call with known context data, a `harness_notice` event carries
 notice the model receives. UIs can display or ignore it through the ordinary stream; the payload
 contains no model instructions or UI presentation. Completion notices share `TaskCompletionContext`
 (`reason`, `startedAt`, `durationMs`, `userMessagesSinceStart`, optional `callId`). Their `context`
-field is optional for old stored histories; new loop-produced completions supply it. `TaskInfo.reason`
-is the explicit `await_tasks` reason retained per grouped task, absent on ungrouped and legacy tasks.
+field is required. `TaskInfo.reason` is the explicit `await_tasks` reason retained per grouped
+task, absent on ungrouped tasks.
 `running-tasks` is a transient, nonempty snapshot with at most 10 entries: task ID, title (max 200
 characters), agent-authored reason (max 1000 characters), epoch `startedAt`, and optional scalar
 `group` (the first requested member ID). `total` equals shown entries plus `omitted`; commands and
@@ -64,8 +64,10 @@ See [harness notices](docs/contract.md#harness-notices).
 
 ## Docs
 
-New user messages can carry a stable `id`; stream entries carry the originating `messageId`.
-Both are optional for older histories. A `run_failed` event reports selected error details,
+A prompt a person typed carries a stable `id`; stream entries carry the originating `messageId`.
+Both are optional because other user messages (a hook's context) have none. The contract is
+versioned (`contractVersion` in `contract.schema.json`) and the harness reads only data written
+under it: see [Version](docs/contract.md#version). A `run_failed` event reports selected error details,
 including a bounded stack and cause chain, before the failed session update. These diagnostics
 never enter model history.
 

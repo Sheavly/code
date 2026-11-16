@@ -7,6 +7,7 @@ const stored = {
   modelId: '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30',
   workspace: '/work/repo',
   profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
+  mode: 'medium',
   status: 'interrupted',
   startedAt: 1,
   updatedAt: 2,
@@ -35,6 +36,13 @@ describe('storedConversationSchema', () => {
       false,
     );
     expect(storedConversationSchema.safeParse({ ...stored, title: undefined }).success).toBe(false);
+  });
+
+  it('always has an effort mode, one of the known ones', () => {
+    const { mode: _mode, ...unmoded } = stored;
+
+    expect(storedConversationSchema.safeParse(unmoded).success).toBe(false);
+    expect(storedConversationSchema.safeParse({ ...stored, mode: 'turbo' }).success).toBe(false);
   });
 
   it('always knows where it belongs: its workspace, and its profile by id', () => {

@@ -17,6 +17,7 @@ const agentReport = {
   taskId: 't1',
   outcome: 'completed',
   report: 'REPORT-BEGIN\n'.concat('Finding: x\n'.repeat(900), 'REPORT-END'),
+  context: { reason: 'Research', startedAt: 10, durationMs: 0, userMessagesSinceStart: 0 },
 };
 const taskFinished = {
   kind: 'task-finished',
@@ -24,19 +25,32 @@ const taskFinished = {
     id: 't2',
     command: 'npm test',
     description: 'running tests',
+    kind: 'task',
     status: 'completed',
     exitCode: 0,
     startedAt: 1_000,
     endedAt: 2_000,
     output: 'Tests passed\n',
   },
+  context: {
+    reason: 'running tests',
+    startedAt: 1_000,
+    durationMs: 1_000,
+    userMessagesSinceStart: 0,
+  },
 };
+const groupContext = { reason: '', startedAt: 10, durationMs: 1_990, userMessagesSinceStart: 0 };
 
 function formatGroup(params: { reason: string; notices?: unknown[] }): string {
   const { reason, notices = [agentReport, taskFinished] } = params;
 
   return formatHarnessNotice(
-    harnessNoticeSchema.parse({ kind: 'tasks-finished', reason, notices }),
+    harnessNoticeSchema.parse({
+      kind: 'tasks-finished',
+      reason,
+      context: { ...groupContext, reason },
+      notices,
+    }),
   );
 }
 

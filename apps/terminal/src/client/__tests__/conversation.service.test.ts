@@ -36,6 +36,7 @@ const TASK = {
   id: taskIdSchema.parse('t1'),
   command: 'npm run dev',
   description: 'Dev server',
+  kind: 'task' as const,
   startedAt: 1,
   output: '',
 };
@@ -63,15 +64,19 @@ async function replaying(prompts: [StreamEntry[], StreamEntry[]]) {
   return { told, conversation };
 }
 
-/** A task `id` of `kind` (none: an older backend's snapshot) starting at `seq`. */
-const started = (seq: number, id: string, kind?: 'task' | 'agent' | 'service'): StreamEntry => ({
+/** A task `id` of `kind` starting at `seq`. */
+const started = (
+  seq: number,
+  id: string,
+  kind: 'task' | 'agent' | 'service' = 'task',
+): StreamEntry => ({
   seq,
   at: 0,
   sessionId: MAIN,
   kind: 'task',
   update: {
     type: 'task_started',
-    task: { ...TASK, id: taskIdSchema.parse(id), status: 'running', ...(kind && { kind }) },
+    task: { ...TASK, id: taskIdSchema.parse(id), status: 'running', kind },
   },
 });
 
@@ -276,7 +281,7 @@ describe('RemoteConversation', () => {
         entries(
           started(0, 't1', 'service'),
           started(1, 't2', 'task'),
-          started(2, 't3'),
+          started(2, 't3', 'task'),
           started(3, 't4', 'agent'),
           task(4, 'task_ended'),
           done(5, 'completed'),
@@ -286,8 +291,7 @@ describe('RemoteConversation', () => {
     conversation.watchBackground((background) => told.push(background));
     await sent(conversation);
 
-    // A snapshot without a kind (an older backend) counts as a task. The `task_ended` helper
-    // ends t1, the service.
+    // The `task_ended` helper ends t1, the service.
     expect(told).toEqual([
       { tasks: 0, agents: 0, services: 0 },
       { tasks: 0, agents: 0, services: 1 },

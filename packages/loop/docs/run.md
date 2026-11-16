@@ -78,7 +78,7 @@ message. A UI reads the same data from the event or from history. See
 Every new completion notice includes a `context` snapshot: the explicit grouping reason (or
 an ungrouped task's launch description), `startedAt`, `durationMs` and `userMessagesSinceStart`.
 The count includes stored user-role messages with timestamps strictly after the task started,
-including entries hidden by summaries; untimed legacy entries are not guessed, and rendered
+including entries hidden by summaries; an entry without a timestamp is not counted, and rendered
 notices or checkpoints are never counted as user messages. Pending inbox messages are added
 before the snapshot, so a message arriving with a completion is included. Counts stop at
 notice delivery; a task's duration stops at its own settlement even when its group waits longer.
@@ -89,7 +89,7 @@ The context's `callId` is included only if the starting assistant tool call is v
 delivery. If a later checkpoint hides that call but keeps the notice, the model formatter's
 view omits the pointer without changing stored history or the arrival-time measurements. This
 also handles a summary written in the same turn as delivery. Task and agent snapshots still
-retain their identity links for UIs. Older notices without context stay readable.
+retain their identity links for UIs.
 
 The view is built once, by `viewOf`, and `beforeModelCall` hooks receive exactly the text the model
 is sent, pointers included. Nothing is rewritten after the hooks: a hook that removes the
@@ -215,8 +215,8 @@ the UI passes them.
   own tail begins) and `incorporated` (the position of the checkpoint it folded in), so
   successive summaries advance from the beginning without skipping or repeating entries. Stored
   history is held to it (`assertValidStoredHistory`): a checkpoint that does not end at its own
-  tail, does not fold in exactly the one before it, or covers less than it is refused. A
-  checkpoint stored before coverage was recorded carries neither field and is not held to it.
+  tail, does not fold in exactly the one before it, or covers less than it is refused.
+  `incorporated` is absent only on the first checkpoint.
 - **No room.** When the context is past the threshold, no summary helped (one failed, was not
   tried again, or there was nothing to summarize) and what a model would be sent is estimated to
   fill the whole window, the run ends `context_window_exceeded` before calling the model, with
