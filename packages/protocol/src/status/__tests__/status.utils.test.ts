@@ -87,6 +87,12 @@ describe('isConsistentSession', () => {
       false,
     );
   });
+
+  it('rejects an ended session that lacks its end time or its last outcome', () => {
+    expect(isConsistentSession({ state: 'failed', lastOutcome: 'failed' })).toBe(false);
+    expect(isConsistentSession({ state: 'failed', endedAt: 3 })).toBe(false);
+    expect(isConsistentSession({ state: 'completed' })).toBe(false);
+  });
 });
 
 describe('the guide table', () => {
