@@ -20,24 +20,27 @@ describe('isRetryableStatus', () => {
   });
 });
 
+/** The response headers of a server that asked to wait `value`. */
+const asking = (value: string) => new Headers({ 'retry-after': value });
+
 describe('retryAfterMs', () => {
   it('reads delta-seconds', () => {
-    expect(retryAfterMs('2')).toBe(2000);
-    expect(retryAfterMs('0.05')).toBe(50);
+    expect(retryAfterMs(asking('2'))).toBe(2000);
+    expect(retryAfterMs(asking('0.05'))).toBe(50);
   });
 
   it('reads an HTTP date relative to now', () => {
-    expect(retryAfterMs('Wed, 21 Oct 2026 07:28:30 GMT')).toBe(30_000);
+    expect(retryAfterMs(asking('Wed, 21 Oct 2026 07:28:30 GMT'))).toBe(30_000);
     clock.advance(10_000);
-    expect(retryAfterMs('Wed, 21 Oct 2026 07:28:30 GMT')).toBe(20_000);
+    expect(retryAfterMs(asking('Wed, 21 Oct 2026 07:28:30 GMT'))).toBe(20_000);
   });
 
   it('is 0 for a date already past, a missing header or an unusable one', () => {
-    expect(retryAfterMs('Wed, 21 Oct 2026 07:20:00 GMT')).toBe(0);
-    expect(retryAfterMs(null)).toBe(0);
-    expect(retryAfterMs('')).toBe(0);
-    expect(retryAfterMs('soon')).toBe(0);
-    expect(retryAfterMs('-5')).toBe(0);
+    expect(retryAfterMs(asking('Wed, 21 Oct 2026 07:20:00 GMT'))).toBe(0);
+    expect(retryAfterMs(new Headers())).toBe(0);
+    expect(retryAfterMs(asking(' '))).toBe(0);
+    expect(retryAfterMs(asking('soon'))).toBe(0);
+    expect(retryAfterMs(asking('-5'))).toBe(0);
   });
 });
 

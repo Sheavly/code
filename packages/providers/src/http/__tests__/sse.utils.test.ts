@@ -85,6 +85,16 @@ describe('readServerSentEvents', () => {
     await expect(read([body])).rejects.toThrow("SSE stream sent a data payload that isn't JSON");
   });
 
+  it('keeps a credential out of the error for a payload that is not JSON', async () => {
+    const body = new TextEncoder().encode(
+      'data: <html>Incorrect API key provided: sk-abcdefghijklmnopqrstuvwx</html>\n\n',
+    );
+    const failure: unknown = await read([body]).catch((caughtError: unknown) => caughtError);
+
+    expect((failure as Error).message).toContain("isn't JSON");
+    expect((failure as Error).message).not.toContain('sk-abcdef');
+  });
+
   it('discards a last event the body is cut off in the middle of', async () => {
     const body = new TextEncoder().encode('data: 1\n\ndata: {"type":"response.compl');
 

@@ -41,7 +41,7 @@ function networkMessage(caughtError: unknown): string {
   const reason = [typeof code === 'string' ? code : undefined, detail].filter(Boolean).join(': ');
   const message = caughtError instanceof Error ? caughtError.message : String(caughtError);
 
-  return reason ? `${message} (${reason})` : message;
+  return providerErrorText(reason ? `${message} (${reason})` : message);
 }
 
 /** One attempt's outcome: the response, or a failure and whether another attempt may help. */
@@ -72,7 +72,7 @@ async function attempt(params: {
 
     if (response.ok && response.body) return { response };
 
-    const waitMs = retryAfterMs(response.headers.get('retry-after'));
+    const waitMs = retryAfterMs(response.headers);
 
     return {
       failure: new ModelApiError({

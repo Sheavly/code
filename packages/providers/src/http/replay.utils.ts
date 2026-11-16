@@ -1,4 +1,4 @@
-import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
+import { providerErrorText, redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import type { ReasoningItem } from '@sheavly/protocol/message/message.types';
 import { REDACTED_QUERY_VALUE, SECRET_QUERY_NAME } from './http.constants.js';
 import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
@@ -21,18 +21,40 @@ export function replaySource(params: {
  * URL must never reach it. Other query values (`api-version`) stay, as they tell endpoints apart.
  */
 function withoutCredentials(endpoint: string): string {
-  if (!URL.canParse(endpoint)) return redactDiagnosticText(endpoint);
+  if (!URL.canParse(endpoint)) {
+    return redactDiagnosticText(endpoint.replace(/\/\/[^/@\s]*@/, '//').replace(/#.*$/, ''));
+  }
 
   const url = new URL(endpoint);
 
   url.username = '';
   url.password = '';
+  // The model is appended after `#`, so a fragment of the endpoint's own would blur the source.
+  url.hash = '';
 
   for (const name of [...url.searchParams.keys()]) {
     if (SECRET_QUERY_NAME.test(name)) url.searchParams.set(name, REDACTED_QUERY_VALUE);
   }
 
   return url.toString();
+}
+
+/**
+ * A stored source made safe to show: sources built before credentials were stripped may still
+ * hold a key, and a source is text from disk, so it is cleaned and flattened to one line before
+ * any handler or log sees it. Path-embedded keys are out of scope: they are not told apart from
+ * ordinary path segments.
+ */
+export function safeReplaySource(source: string): string {
+  const parts = /^(responses|chat|messages):(.*)#([^#]*)$/s.exec(source);
+
+  if (!parts) return providerErrorText(source);
+
+  const [, protocol = '', endpoint = '', model = ''] = parts;
+
+  // Cleaned apart: a credential pattern at the end of the endpoint would otherwise run on into
+  // the `#model` that follows it.
+  return `${protocol}:${providerErrorText(withoutCredentials(endpoint))}#${providerErrorText(model)}`;
 }
 
 /**
@@ -56,7 +78,7 @@ export function ownReplay(params: {
 
     onDropped?.({
       reason: source === undefined ? 'replay_off' : 'source_mismatch',
-      source: item.source,
+      source: safeReplaySource(item.source),
     });
   }
 

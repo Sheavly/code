@@ -1,7 +1,7 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
-import { ownReplay } from '../http/replay.utils.js';
+import { ownReplay, safeReplaySource } from '../http/replay.utils.js';
 import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { MessagesApiMessage } from './messages.types.js';
 import { messagesReplaySchema } from './messages.validator.js';
@@ -134,8 +134,10 @@ function replayContent(params: {
 
   const parsed = messagesReplaySchema.safeParse(replay.data);
 
+  const source = safeReplaySource(replay.source);
+
   if (!parsed.success) {
-    onReplayDropped?.({ reason: 'invalid_state', source: replay.source });
+    onReplayDropped?.({ reason: 'invalid_state', source });
 
     return undefined;
   }
@@ -148,7 +150,7 @@ function replayContent(params: {
 
   // A caller may have edited this message while leaving its old opaque replay state attached.
   if (text !== message.content || JSON.stringify(calls) !== JSON.stringify(message.toolCalls)) {
-    onReplayDropped?.({ reason: 'message_edited', source: replay.source });
+    onReplayDropped?.({ reason: 'message_edited', source });
 
     return undefined;
   }
@@ -158,7 +160,7 @@ function replayContent(params: {
   );
 
   if (kept.length < content.length) {
-    onReplayDropped?.({ reason: 'prefix_changed', source: replay.source });
+    onReplayDropped?.({ reason: 'prefix_changed', source });
   }
 
   return kept;

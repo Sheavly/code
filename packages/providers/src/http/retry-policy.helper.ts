@@ -15,8 +15,8 @@ export function isRetryableStatus(status: number): boolean {
  * The server's `retry-after` in ms, in either form (delta-seconds or an HTTP date), or 0 when it
  * sent none, one that is unusable, or a date already past.
  */
-export function retryAfterMs(header: string | null): number {
-  const value = header?.trim();
+export function retryAfterMs(headers: Headers): number {
+  const value = headers.get('retry-after')?.trim();
 
   if (!value) return 0;
 
