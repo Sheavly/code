@@ -39,6 +39,41 @@ describe('ProcessRunner kill', () => {
   });
 });
 
+describe('ProcessRunner timeout', () => {
+  const sleep = (extra: { timeoutMs?: number; signal?: AbortSignal }) =>
+    runner.run({
+      file: 'sleep',
+      args: ['5'],
+      cwd: process.cwd(),
+      shell: false,
+      signal,
+      ...extra,
+    });
+
+  it('kills the group at timeoutMs and reports timedOut, as runScript does', async () => {
+    expect(await sleep({ timeoutMs: 100 })).toMatchObject({ exitCode: null, timedOut: true });
+    expect(runner.running).toBe(0);
+  });
+
+  it('does not report a cancel as a timeout, even with a deadline set', async () => {
+    const controller = new AbortController();
+    const running = sleep({ timeoutMs: 10_000, signal: controller.signal });
+
+    controller.abort();
+
+    expect(await running).toMatchObject({ exitCode: null, timedOut: false });
+  });
+
+  it('rejects, rather than throwing, for a timeout that cannot be set', async () => {
+    await expect(sleep({ timeoutMs: -1 })).rejects.toThrow();
+    expect(runner.running).toBe(0);
+  });
+
+  it('refuses to start when the caller has already aborted', async () => {
+    await expect(sleep({ timeoutMs: 100, signal: AbortSignal.abort() })).rejects.toThrow();
+  });
+});
+
 describe('ProcessRunner env', () => {
   it('decodes UTF-8 split across output chunks without corrupting text', async () => {
     const chunks: string[] = [];
