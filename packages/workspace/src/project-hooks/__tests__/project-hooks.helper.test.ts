@@ -271,7 +271,64 @@ describe('loadProjectHooks', () => {
       files: { 'hooks/a.js': ESM('same'), 'hooks/b.js': ESM('same') },
     });
 
-    expect(await loadError(root)).toMatch(/already named "same"/);
+    const message = await loadError(root);
+
+    expect(message).toContain('.sheavly/hooks/b.js');
+    expect(message).toContain('already used by .sheavly/hooks/a.js');
+  });
+
+  it('rejects a project hook named like a host hook, naming both sources', async () => {
+    const root = await project({
+      type: 'module',
+      manifest: manifestOf('hooks/a.js'),
+      files: { 'hooks/a.js': ESM('shared') },
+    });
+    const hostHooks = [defineHook({ name: 'shared', beforeTurn: async () => undefined })];
+    const failure: unknown = await loadProjectHooks({
+      root,
+      trust: trustStoreIn(root),
+      grant: true,
+      hostHooks,
+    }).catch((caughtError: unknown) => caughtError);
+
+    expect(failure).toBeInstanceOf(ProjectHooksError);
+    expect((failure as Error).message).toContain(
+      '.sheavly/hooks/a.js: hook name "shared" is already used by a host hook',
+    );
+  });
+
+  it('loads hooks once: a second load in the same process returns the first code', async () => {
+    const root = await project({
+      type: 'module',
+      manifest: manifestOf('hooks/a.js'),
+      files: { 'hooks/a.js': ESM('first') },
+    });
+    const trust = trustStoreIn(root);
+
+    await loadProjectHooks({ root, trust, grant: true });
+    await writeFile(path.join(root, '.sheavly', 'hooks', 'a.js'), ESM('second'));
+
+    const again = await loadProjectHooks({ root, trust, grant: true });
+
+    expect(again.hooks.map((hook) => hook.name)).toEqual(['first']);
+  });
+
+  it('keeps refusing imports outside .sheavly/ made by a loaded hook after loading', async () => {
+    const root = await project({
+      type: 'module',
+      manifest: manifestOf('hooks/a.js'),
+      files: {
+        'hooks/a.js': `export default { name: 'late', beforeTurn: async () => { await import('../../outside.js'); } };\n`,
+      },
+    });
+
+    await writeFile(path.join(root, 'outside.js'), 'export const x = 1;\n');
+
+    const [hook] = await loadTrusted(root);
+
+    await expect(contextFrom(hook ? [hook] : [])).rejects.toThrow(
+      'may only import Node built-ins and files inside .sheavly/',
+    );
   });
 });
 

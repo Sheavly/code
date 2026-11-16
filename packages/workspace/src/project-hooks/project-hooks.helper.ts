@@ -24,14 +24,21 @@ import { hooksManifestSchema, parseHookExport } from './project-hooks.validator.
  *
  * Hook files are loaded with a plain `import()`: JavaScript or TypeScript (Node strips the
  * types), ESM or CommonJS. Call it once at startup and pass the hooks to the loop after the
- * host's own: `hooks: [...hostHooks, ...projectHooks.hooks]`.
+ * host's own: `hooks: [...hostHooks, ...projectHooks.hooks]`. Pass those as `hostHooks` too: a
+ * project hook named like one of them, or like an earlier project hook, throws a
+ * `ProjectHooksError` naming both.
+ *
+ * Hooks are loaded once per process and never reloaded: Node caches each module, so a later call
+ * returns the code first imported. A change to `.sheavly/` takes effect on restart.
  */
 export async function loadProjectHooks(params: {
   root: string;
   trust: TrustStore;
   grant?: boolean;
+  /** The host's own hooks, whose names a project hook may not reuse. */
+  hostHooks?: readonly Hook[];
 }): Promise<ProjectHooks> {
-  const { root, trust, grant = false } = params;
+  const { root, trust, grant = false, hostHooks = [] } = params;
   const dir = path.join(root, SHEAVLY_DIR);
   const manifestFile = path.join(dir, HOOKS_MANIFEST);
 
@@ -61,18 +68,15 @@ export async function loadProjectHooks(params: {
 
   confineImports({ folder: folder.root });
   const hooks: Hook[] = [];
+  const sources = new Map(hostHooks.map((hook) => [hook.name, 'a host hook']));
 
   for (const entry of manifest.hooks) {
     if (!entry.enabled) continue;
     await assertStillTrusted({ trust, root });
     const hook = await loadHookFile({ folder, file: entry.path });
 
-    if (hooks.some((loaded) => loaded.name === hook.name)) {
-      throw new ProjectHooksError(
-        `${label(entry.path)}: another hook is already named "${hook.name}"`,
-      );
-    }
-
+    assertNameFree({ sources, name: hook.name, file: entry.path });
+    sources.set(hook.name, label(entry.path));
     hooks.push(hook);
   }
 
@@ -80,6 +84,22 @@ export async function loadProjectHooks(params: {
   await assertStillTrusted({ trust, root });
 
   return { hooks, trust: 'trusted' };
+}
+
+/** Two hooks with one name can't be told apart in logs and errors, so the second one fails the load. */
+function assertNameFree(params: {
+  sources: ReadonlyMap<string, string>;
+  name: string;
+  file: string;
+}): void {
+  const { sources, name, file } = params;
+  const taken = sources.get(name);
+
+  if (taken === undefined) return;
+
+  throw new ProjectHooksError(
+    `${label(file)}: hook name "${name}" is already used by ${taken}. Rename one of them.`,
+  );
 }
 
 /**

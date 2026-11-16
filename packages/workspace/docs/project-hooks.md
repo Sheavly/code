@@ -103,7 +103,13 @@ runs the Cursor script as a process through `hooks/cursor-bridge.mjs` instead of
 - Node runs TypeScript by removing types: no `enum`, `namespace` or parameter properties.
 - Plain `.js` / `.ts` follow the project's package.json `"type"`. A hook in the other format
   fails with a message to rename it (`.cjs` / `.cts` or `.mjs` / `.mts`).
-- Hosts pass them inside their own: `hooks: [...hostHooks, ...projectHooks.hooks]`.
+- Hosts pass them inside their own: `hooks: [...hostHooks, ...projectHooks.hooks]`, and give the
+  same host hooks to `loadProjectHooks({ hostHooks })`. A project hook named like a host hook or
+  an earlier project hook stops startup with a `ProjectHooksError` naming both sources.
+- **Reload: restart required.** Hooks load once per process and Node caches each module, so a
+  change to `.sheavly/` applies on the next start (and, since it changes the fingerprint, needs
+  the workspace trusted again). Trust is re-checked right before each hook file is imported, so a
+  change made while loading stops the load; it cannot close the gap to the `import()` itself.
 
 ## Workspace trust
 
