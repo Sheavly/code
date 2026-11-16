@@ -4,7 +4,8 @@
 // file with the time; the shell recorder leaves out what another chat edited while its command
 // ran, and the stop hook reports only problems in what this chat and its subagents edited
 // (gate-scope.utils.mjs, chat-links.utils.mjs).
-import { chatStateId, hookNow, listChatStates } from './hooks.utils.mjs';
+import { chatStateId, listChatStates } from './chat-state.utils.mjs';
+import { hookNow } from './hooks.utils.mjs';
 
 /**
  * The state fields that record `files` (project-relative) as edited by this chat at `now`. A chat

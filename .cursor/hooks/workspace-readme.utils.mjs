@@ -5,7 +5,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { workspaceOfRelative } from '../../packages/eslint-config/src/layout.utils.js';
-import { getChatState, PROJECT_ROOT, updateChatState } from './hooks.utils.mjs';
+import { keepShownInChat, shownInChat } from './chat-state.utils.mjs';
+import { PROJECT_ROOT } from './hooks.utils.mjs';
 import { readWorkspaces } from './layout.utils.mjs';
 
 /** The workspace (`{ name, relative }`) that holds `relative`, a `/`-separated path; or undefined. */
@@ -33,15 +34,15 @@ export function hintWorkspaceReadme(params) {
 
   if (!workspace) return [];
 
-  const shown = new Set(getChatState(conversationId)?.workspaceReadmesShown ?? []);
+  const field = 'workspaceReadmesShown';
 
-  if (shown.has(workspace.name)) return [];
+  if (shownInChat({ conversationId, field }).has(workspace.name)) return [];
 
   const note = readmeNote({ root, workspace });
 
   if (!note) return [];
 
-  updateChatState({ conversationId, workspaceReadmesShown: [...shown, workspace.name] });
+  keepShownInChat({ conversationId, field, values: [workspace.name] });
 
   return [note];
 }

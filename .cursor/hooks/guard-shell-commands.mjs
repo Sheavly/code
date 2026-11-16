@@ -3,13 +3,8 @@
 // editors: `sed -i`, `perl -pi`, scripted vim), whose edits are never formatted, linted or checked
 // on stop, and show no diff in the editor. A command it allows is snapshotted first, so
 // record-shell-writes.mjs can tell which files it changed and catch the workarounds it missed.
-import {
-  getChatState,
-  PROJECT_ROOT,
-  readHookInput,
-  runGuard,
-  updateChatState,
-} from './hooks.utils.mjs';
+import { getChatState, updateChatState } from './chat-state.utils.mjs';
+import { PROJECT_ROOT, readHookInput, runGuard } from './hooks.utils.mjs';
 import { findShellViolation } from './shell-guard.utils.mjs';
 import { snapshotProject } from './shell-writes.utils.mjs';
 import { predictFormatterChanges } from './formatter-attribution.utils.mjs';

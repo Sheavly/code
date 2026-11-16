@@ -3,7 +3,8 @@
 // that call as `parent_tool_call_id`. Without both ids it can't be tied to that chat's issue,
 // approvals or stop checks, so it is refused rather than started untracked.
 import { linkFromToolCall, linkSubagent } from './chat-links.utils.mjs';
-import { hookNow, readHookInput, respond, updateChatState } from './hooks.utils.mjs';
+import { updateChatState } from './chat-state.utils.mjs';
+import { hookNow, readHookInput, respond } from './hooks.utils.mjs';
 
 const input = await readHookInput();
 const { subagent_id: subagentId, parent_conversation_id: parentId } = input;

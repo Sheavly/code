@@ -12,14 +12,8 @@ import {
   filesOtherChatsEdited,
 } from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
-import {
-  getChatState,
-  hookNow,
-  PROJECT_ROOT,
-  readHookInput,
-  respond,
-  updateChatState,
-} from './hooks.utils.mjs';
+import { getChatState, updateChatState } from './chat-state.utils.mjs';
+import { hookNow, PROJECT_ROOT, readHookInput, respond } from './hooks.utils.mjs';
 import { changedFiles, isSanctionedWriter, snapshotProject } from './shell-writes.utils.mjs';
 import { verifiedFormatterWrite, withoutFormatterWrites } from './formatter-attribution.utils.mjs';
 

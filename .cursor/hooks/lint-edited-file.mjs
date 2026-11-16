@@ -12,11 +12,11 @@
 import { architectureRule, coveredByRule, whereCodeGoes } from './architecture.utils.mjs';
 import { editToolFields } from './chat-files.utils.mjs';
 import { linkFromToolCall } from './chat-links.utils.mjs';
+import { changeChatState, getChatState } from './chat-state.utils.mjs';
 import { SkillMetadataError } from '../../packages/eslint-config/src/skills.errors.js';
 import { HookStateError, ProjectReadError } from './hooks.errors.mjs';
 import {
   FORMATTABLE,
-  getChatState,
   getEditedFilePath,
   isProjectSource,
   LINTABLE,
@@ -24,7 +24,6 @@ import {
   readHookInput,
   respond,
   runBin,
-  updateChatState,
 } from './hooks.utils.mjs';
 import { formatEslintReport } from './lint-report.utils.mjs';
 import { hintGoverningSkills } from './skills.utils.mjs';
@@ -48,8 +47,9 @@ const projectFile = path.relative(PROJECT_ROOT, filePath).split(path.sep).join('
 // A subagent's edits are checked by the chat that started it (chat-links.utils.mjs).
 linkFromToolCall(input);
 
-// Recorded first, so an edit Prettier or ESLint then fails on still counts.
-remember(editToolFields({ state: readState(), files: [projectFile] }));
+// Recorded first, so an edit Prettier or ESLint then fails on still counts. Built from the state
+// as it is under the lock: another hook (the shell recorder) writes the same lists.
+remember((state) => editToolFields({ state, files: [projectFile] }));
 
 // A deleted file has nothing left to format or lint; the stop hook checks what it broke.
 if (!existsSync(filePath)) {
@@ -84,7 +84,7 @@ if (FORMATTABLE.test(filePath)) {
     );
     // The rewrite is the edit tools' change too, and lands after the stamp above: a shell command
     // started in between would otherwise be blamed for it.
-    remember(editToolFields({ state: readState(), files: [projectFile] }));
+    remember((state) => editToolFields({ state, files: [projectFile] }));
   }
 }
 
@@ -107,7 +107,7 @@ if (coveredByRule(relative) && (!ruleShown || ruleBroken)) {
 
   if (rule) {
     notes.push(rule);
-    remember({ architectureRuleShown: true });
+    remember(() => ({ architectureRuleShown: true }));
   }
 }
 
@@ -118,7 +118,7 @@ if (coveredByRule(relative) && readState()?.whereCodeGoesShown !== true) {
 
   if (guide) {
     notes.push(guide);
-    remember({ whereCodeGoesShown: true });
+    remember(() => ({ whereCodeGoesShown: true }));
   }
 }
 
@@ -164,9 +164,9 @@ function advise(produce) {
  * lose the notes. The agent is told; the rule is shown again on the next edit, and the stop hook
  * skips a chat it has no record of.
  */
-function remember(fields) {
+function remember(change) {
   try {
-    updateChatState({ conversationId, ...fields });
+    changeChatState({ conversationId, change });
   } catch (caughtError) {
     if (!(caughtError instanceof HookStateError) && !caughtError?.code) throw caughtError;
     notes.push(`This edit could not be recorded in the chat's state: ${caughtError.message}`);
