@@ -1,9 +1,12 @@
 import type { z } from 'zod';
 import type { Provider } from '../provider/provider.types.js';
+import type { ReplayDropHandler } from './replay.types.js';
 
 /** Things adapters need from the outside world. Injected so tests can pass a fake `fetch`. */
 export type AdapterDeps = {
   fetch: typeof fetch;
+  /** Told of each reasoning item an adapter leaves out of a request, with why. Optional. */
+  onReplayDropped?: ReplayDropHandler | undefined;
 };
 
 /**
