@@ -1,24 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readEntries } from '../entries.helper.js';
-
-const entry = (seq: number) => ({
-  seq,
-  at: 1_700_000_000_000,
-  sessionId: 'main',
-  kind: 'task',
-  update: {
-    type: 'task_started',
-    task: {
-      id: 't1',
-      command: 'npm test',
-      description: 'Tests',
-      kind: 'task',
-      status: 'running',
-      startedAt: 1,
-      output: '',
-    },
-  },
-});
+import { taskEntry as entry } from '../../testing/sse-body.fake.js';
+import { readEntries, readFrames } from '../entries.helper.js';
 
 /** A body that sends `chunks` as they are, split wherever a network might split them. */
 const body = (chunks: string[]) =>
@@ -65,5 +47,26 @@ describe('readEntries', () => {
 
     for await (const frameRead of readEntries(null)) seen.push(frameRead);
     expect(seen).toEqual([]);
+  });
+
+  it('skips a head frame, an id and nothing else', async () => {
+    expect(await read(['id: 41\n\n', frame(42)])).toEqual(['42']);
+  });
+});
+
+describe('readFrames', () => {
+  it('gives a head frame with its cursor and no entry, before the entries', async () => {
+    const seen: { cursor: string; entry: boolean }[] = [];
+
+    for await (const { cursor, entry: parsed } of readFrames(
+      body([': heartbeat\n\n', 'id: 41\n\n', frame(42)]),
+    )) {
+      seen.push({ cursor, entry: parsed !== undefined });
+    }
+
+    expect(seen).toEqual([
+      { cursor: '41', entry: false },
+      { cursor: '42', entry: true },
+    ]);
   });
 });

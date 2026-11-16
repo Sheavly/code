@@ -38,6 +38,11 @@ export function createHarness(options: HarnessOptions): Harness {
   // call that asked or started them.
   approvals.observe((update) => sessions.publishApproval(update));
   tasks.observe((task) => sessions.publishTask(task));
+  // An ended session can no longer be asked for anything: its open approvals end with it. Cancelled
+  // here, not at release, while they are still kept under it, so each cancel lands in its stream.
+  sessions.subscribe((update) => {
+    if (update.type === 'session_ended') approvals.cancelSession(update.session.id);
+  });
 
   return {
     provider,

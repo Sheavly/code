@@ -142,6 +142,13 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `isMainSession` (`@sheavly/protocol/session/session.utils`); how the main run ended is asked of
   `runEnd` (`@sheavly/protocol/status/run-end.utils`). It sees only a comparison of a `.depth`
   member with the literal 1, so a depth copied into a variable first is left to review.
+- **Approvals no longer waiting** (`harness/no-adhoc-unknown-approval`, source files): no
+  `'unknown_approval'` string (a plain template literal of it too). A UI's answer that finds its approval gone (answered elsewhere, or
+  its call interrupted) is a normal end, forgiven once by `answerWhileWaiting`
+  (`@sheavly/client/approvals/approvals.helper`), which the terminal's chat and the workbook's
+  `CheckApprovals` both use. The code that defines or produces the error code is a `files:`
+  override with its reason: the client helper itself, the protocol's error list and the backend's
+  error mapping. It matches the literal, so the code read through a variable is left to review.
 - **Instruction context** (`harness/no-direct-instruction-context`, source files): no import of
   `instruction-context.helper` (`appendInstructionContext`). An instruction source is an
   `InstructionSource` built with `createInstructionHook`, which resolves the working root each turn

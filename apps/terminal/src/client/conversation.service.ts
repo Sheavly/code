@@ -1,7 +1,7 @@
 import { watchApprovals } from '@sheavly/client/approvals/approvals.helper';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import { createClient } from '@sheavly/client/client/client.helper';
-import { readEntries } from '@sheavly/client/client/entries.helper';
+import { reconnectingEntries } from '@sheavly/client/client/reconnect.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -26,6 +26,7 @@ function clientFor(backend: Backend): Client {
     url: backend.url,
     token: backend.token,
     ...(backend.fetch && { fetch: backend.fetch }),
+    ...(backend.reconnect && { reconnect: backend.reconnect }),
   });
 }
 
@@ -227,24 +228,38 @@ export class RemoteConversation {
    * what a run the backend starts itself does (it wakes the idle conversation when background work
    * finishes). Entries a prompt's own stream carries arrive here too: the caller shows each once.
    * Resolves once the backend accepted the stream; `ended` resolves when `signal` aborts and
-   * rejects on any other end, including the backend closing the stream.
+   * rejects when the stream is lost: a dropped or cut stream is reopened after the last entry
+   * heard, and `StreamLostError` says when it gave up.
    */
   async follow(params: {
     onEntry: (entry: StreamEntry) => void;
     signal: AbortSignal;
   }): Promise<{ ended: Promise<void> }> {
     const { onEntry, signal } = params;
-    const body = await this.#client.open('streamConversation', { id: this.id, body: {}, signal });
-    const ended = (async () => {
-      try {
-        for await (const { entry } of readEntries(body)) {
-          this.#countTask(entry);
-          onEntry(entry);
-        }
+    const open = (lastEventId?: number) =>
+      this.#client.open('streamConversation', {
+        id: this.id,
+        body: {},
+        signal,
+        ...(lastEventId !== undefined && { lastEventId }),
+      });
+    let first: ReadableStream<Uint8Array> | undefined = await open();
+    const entries = reconnectingEntries({
+      signal,
+      endless: true,
+      ...this.#client.reconnect,
+      open: ({ lastEventId }) => {
+        const body = first;
 
-        if (!signal.aborted) throw new BackendError({ message: 'The live stream was closed' });
-      } catch (caughtError) {
-        if (!signal.aborted) throw caughtError;
+        first = undefined;
+
+        return body ? Promise.resolve(body) : open(lastEventId);
+      },
+    });
+    const ended = (async () => {
+      for await (const entry of entries) {
+        this.#countTask(entry);
+        onEntry(entry);
       }
     })();
 

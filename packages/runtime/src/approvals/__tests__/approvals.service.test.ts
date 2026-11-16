@@ -191,7 +191,11 @@ describe('ApprovalRegistry', () => {
     expect(failed).toBeInstanceOf(ApprovalListenerError);
     expect(failed).toMatchObject({ update: 'approval_requested' });
     expect((failed as Error).message).toContain('UI bug');
-    expect(updates.map((update) => update.type)).toEqual(['approval_requested']);
+    // The listeners that heard it asked are told it is gone, so none keeps showing a dead request.
+    expect(updates.map((update) => update.type)).toEqual([
+      'approval_requested',
+      'approval_cancelled',
+    ]);
     expect(approvals.pending()).toEqual([]);
   });
 

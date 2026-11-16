@@ -24,6 +24,8 @@ export function createClient(options: ClientOptions) {
     request({ options, ...params });
 
   return {
+    /** How the streams followed through this client reconnect (`ClientOptions.reconnect`). */
+    reconnect: options.reconnect ?? {},
     /** Calls a route that answers JSON, and returns its answer, parsed. */
     async call<N extends JsonRoute>(name: N, call: CallParams<N>): Promise<AnswerOf<N>> {
       const response = await send({ name, call });

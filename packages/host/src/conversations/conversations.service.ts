@@ -18,7 +18,7 @@ import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import { prepareForSend, refuseOverlappingSend } from './prompt.helper.js';
+import { prepareForSend, refuseOverlappingSend, releaseOnAbort } from './prompt.helper.js';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
@@ -318,6 +318,8 @@ export class Conversations {
     const stopSignal = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
 
     this.#running.set(id, stop);
+    // Cleared on a stop too: a caller that never reads the events would leave it for good.
+    const release = releaseOnAbort({ signal: stopSignal, switches: this.#running, id, stop });
 
     // Nothing iterates `events` when a step throws, so the switch is released here.
     const { prepared, events } = await prepareForSend({
@@ -328,11 +330,11 @@ export class Conversations {
       settleWake: () => conversation.settleWake(),
       start: (prepared) =>
         conversation.send(prepared.text, { signal: stopSignal, parts: prepared.parts }),
-      onFailure: () => this.#forgetStop({ id, stop }),
+      onFailure: release,
     });
 
     return {
-      events: this.#untilDone({ id, stop, events }),
+      events: this.#untilDone({ release, events }),
       text: prepared.text,
       ...(prepared.parts && { parts: prepared.parts }),
     };
@@ -436,21 +438,11 @@ export class Conversations {
   }
 
   /** The prompt's events, forgetting its stop switch once it ends, however it ends. */
-  async *#untilDone(params: {
-    id: ConversationId;
-    stop: AbortController;
-    events: AsyncIterable<AgentEvent>;
-  }) {
-    const { id, stop, events } = params;
-
+  async *#untilDone(params: { release: () => void; events: AsyncIterable<AgentEvent> }) {
     try {
-      yield* events;
+      yield* params.events;
     } finally {
-      this.#forgetStop({ id, stop });
+      params.release();
     }
-  }
-
-  #forgetStop(params: { id: ConversationId; stop: AbortController }): void {
-    if (this.#running.get(params.id) === params.stop) this.#running.delete(params.id);
   }
 }

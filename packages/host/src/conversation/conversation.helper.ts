@@ -209,6 +209,36 @@ export function createConversation(options: ConversationOptions): Conversation {
     }
   }
 
+  /**
+   * `running` is cleared only when the prompt's run ends, which needs someone to iterate it. A
+   * stream that closed before it was read (the SSE callback never ran) is drained here once it is
+   * stopped, so the conversation is not left running for good. A stop that came before `send`
+   * leaves the prompt to its caller: it ends as interrupted when read.
+   */
+  function endIfNeverIterated(params: {
+    events: AsyncGenerator<AgentEvent>;
+    signal: AbortSignal;
+  }): AsyncIterable<AgentEvent> {
+    const { events, signal } = params;
+    let iterated = false;
+
+    signal.addEventListener(
+      'abort',
+      () => {
+        if (!iterated) void drain(events);
+      },
+      { once: true },
+    );
+
+    return {
+      [Symbol.asyncIterator]() {
+        iterated = true;
+
+        return events;
+      },
+    };
+  }
+
   /** Every settlement may have made a notice ready for an idle session. */
   async function wakeOnSettled(): Promise<void> {
     while (!closing.signal.aborted) {
@@ -262,7 +292,10 @@ export function createConversation(options: ConversationOptions): Conversation {
         at: now(),
       };
 
-      return prompt({ user, resumed, signal: runSignal, yieldSignal: yielding.signal });
+      return endIfNeverIterated({
+        events: prompt({ user, resumed, signal: runSignal, yieldSignal: yielding.signal }),
+        signal: runSignal,
+      });
     },
     yieldPrompt() {
       if (closed) {

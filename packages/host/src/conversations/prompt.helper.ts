@@ -46,6 +46,29 @@ export function refuseOverlappingSend(sessionId: SessionId): never {
 }
 
 /**
+ * Returns the function that releases `stop` from `switches` (unless a later prompt has taken the
+ * conversation's place), and calls it when `signal` aborts, at once if it already has: an abort
+ * that came before this call fires no event, and a caller that never reads the prompt's events
+ * would otherwise leave the switch for good.
+ */
+export function releaseOnAbort<TKey>(params: {
+  signal: AbortSignal;
+  switches: Map<TKey, AbortController>;
+  id: TKey;
+  stop: AbortController;
+}): () => void {
+  const { signal, switches, id, stop } = params;
+  const release = () => {
+    if (switches.get(id) === stop) switches.delete(id);
+  };
+
+  if (signal.aborted) release();
+  else signal.addEventListener('abort', release, { once: true });
+
+  return release;
+}
+
+/**
  * Prepares a prompt for sending, lets a wake run end so the prompt is the next one, then starts
  * it with `start`. The caller's stop switch is already registered, so a stop meanwhile aborts
  * `signal`; `onFailure` runs when any step throws (`start` included, which refuses a busy

@@ -2,6 +2,26 @@
 
 How a tool asks the user to approve something, and how a UI answers. `run_command` is the tool that asks ([@sheavly/coding](../../coding/docs/run-command.md)).
 
+## One state machine
+
+Every approval is in one state of `APPROVAL_TABLE` (`approvals.constants.ts`), held by the
+registry (`state(id)`), and reaches a terminal state once:
+
+| State       | Meaning                                                                 | May move to                  |
+| ----------- | ----------------------------------------------------------------------- | ---------------------------- |
+| `requested` | waiting for an answer                                                   | answered, cancelled, expired |
+| `answered`  | `respond`, or a screener's answer                                       | final                        |
+| `cancelled` | its call was interrupted, or its session ended (`cancelSession`)        | final                        |
+| `expired`   | failed closed: nobody was listening, or a listener threw on the request | final                        |
+
+A refused move changes nothing: `respond` for an id that is not `requested` throws `unknown_id`
+and names its state, so a UI that answers late can tell "someone answered first" from "never
+existed" in the message. `createHarness` calls `cancelSession` when a session ends, while its
+approvals are still kept under it, and the session registry forgets the approval-to-session map of
+a released session. A request that expired is announced as `approval_cancelled` too, so a listener
+that heard it asked does not keep showing it. Settled states are kept for `SETTLED_KEPT`
+approvals, oldest forgotten first.
+
 ## The harness asks, the UI renders
 
 The harness renders no prompt. A command that needs approval waits in an `ApprovalRegistry`

@@ -7,8 +7,9 @@
 import { ApprovalListenerError, ApprovalRequestError } from '../errors/approvals.errors.js';
 import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { errorMessage } from '../errors/errors.utils.js';
+import { ApprovalStates } from './approval-states.service.js';
 import { DEFAULT_OPTIONS, HOOK_DECISIONS } from './approvals.constants.js';
-import type { Screener } from './approvals.types.js';
+import type { ApprovalState, Screener } from './approvals.types.js';
 import type {
   ApprovalConcern,
   ApprovalId,
@@ -51,11 +52,30 @@ function fromHook(answer: ApprovalResponse): ApprovalResponse {
   return answer;
 }
 
-type Listener = (update: ApprovalUpdate) => void;
-type Pending = { request: ApprovalRequest; resolve: (response: ApprovalResponse) => void };
+/** What a request fails with when its session ended before anyone could answer it. */
+function sessionEnded(sessionId: SessionId | undefined): ApprovalRequestError {
+  return new ApprovalRequestError({
+    reason: 'session_ended',
+    message: `Session ${sessionId ?? 'main'} ended while an approval was waiting`,
+  });
+}
 
+type Listener = (update: ApprovalUpdate) => void;
+type Pending = {
+  request: ApprovalRequest;
+  answer: (response: ApprovalResponse) => void;
+  fail: (error: Error) => void;
+};
+
+/**
+ * Every approval is in one state of `APPROVAL_TABLE` (requested, then answered, cancelled or
+ * expired, once), held by `ApprovalStates`; the methods below only move it through there.
+ */
 export class ApprovalRegistry {
   #pending = new Map<ApprovalId, Pending>();
+  /** Requests with their screeners, before any UI hears of them. */
+  #screening = new Map<ApprovalId, ApprovalRequest>();
+  #states = new ApprovalStates();
   #screeners = new Set<Screener>();
   #listeners = new Set<Listener>();
   /** Record updates (the combined stream) but can't answer, so they never make `listening` true. */
@@ -98,11 +118,69 @@ export class ApprovalRegistry {
       options,
     };
 
+    this.#states.begin(request.id);
+
     // Without screeners the request is announced in this call, as before: waiting a microtask
     // would change when a UI hears of it.
     if (this.#screeners.size === 0) return this.#ask(request, signal);
 
-    return this.#screen({ request, signal }).then((answer) => answer ?? this.#ask(request, signal));
+    this.#screening.set(request.id, request);
+
+    return this.#screen({ request, signal }).then(
+      (answer) => this.#afterScreening({ request, signal, answer }),
+      (caughtError: unknown) => {
+        this.#screening.delete(request.id);
+        this.#states.move({ id: request.id, to: 'cancelled' });
+        throw caughtError;
+      },
+    );
+  }
+
+  /**
+   * A screener's answer settles the request; with none, the UIs are asked. A request whose session
+   * ended while it was being screened (`cancelSession`) is refused instead, never announced.
+   */
+  #afterScreening(params: {
+    request: ApprovalRequest;
+    signal: AbortSignal;
+    answer: ApprovalResponse | undefined;
+  }): Promise<ApprovalResponse> {
+    const { request, signal, answer } = params;
+
+    this.#screening.delete(request.id);
+
+    if (this.#states.get(request.id) !== 'requested') {
+      return Promise.reject(sessionEnded(request.sessionId));
+    }
+
+    if (answer === undefined) return this.#ask(request, signal);
+
+    this.#states.move({ id: request.id, to: 'answered' });
+
+    return Promise.resolve(answer);
+  }
+
+  /** The state of an approval this registry issued, until it is forgotten. */
+  state(id: ApprovalId): ApprovalState | undefined {
+    return this.#states.get(id);
+  }
+
+  /**
+   * Cancels every request still waiting for `sessionId` (it ended): each rejects with a
+   * `session_ended` error and its subscribers hear `approval_cancelled`. For the host to call when
+   * a session ends, while its approvals are still kept under it.
+   */
+  cancelSession(sessionId: SessionId): void {
+    const reason = sessionEnded(sessionId);
+
+    for (const { request } of [...this.#pending.values()]) {
+      if (request.sessionId === sessionId) this.#cancel({ id: request.id, reason });
+    }
+
+    // Still with its screeners, so no UI has heard of it: it only must not be announced afterwards.
+    for (const request of this.#screening.values()) {
+      if (request.sessionId === sessionId) this.#states.move({ id: request.id, to: 'cancelled' });
+    }
   }
 
   /**
@@ -166,9 +244,15 @@ export class ApprovalRegistry {
   #ask(request: ApprovalRequest, signal: AbortSignal): Promise<ApprovalResponse> {
     // A screener can take time, and an abort during it fires no event later: an already-aborted
     // signal would never reject the wait below, so the request would sit in the UI forever.
-    if (signal.aborted) return Promise.reject(signal.reason as Error);
+    if (signal.aborted) {
+      this.#states.move({ id: request.id, to: 'cancelled' });
+
+      return Promise.reject(signal.reason as Error);
+    }
 
     if (!this.listening) {
+      this.#states.move({ id: request.id, to: 'expired' });
+
       return Promise.reject(
         new ApprovalRequestError({
           reason: 'no_listener',
@@ -178,25 +262,17 @@ export class ApprovalRegistry {
     }
 
     return new Promise<ApprovalResponse>((resolve, reject) => {
-      // Called from the abort event, so a listener failure can't be thrown: the call fails
-      // with it instead of the abort reason (it was stopped either way).
-      const onAbort = () => {
-        this.#pending.delete(request.id);
-
-        try {
-          this.#emit({ type: 'approval_cancelled', id: request.id });
-          reject(signal.reason as Error);
-        } catch (caughtError) {
-          if (!(caughtError instanceof ApprovalListenerError)) throw caughtError;
-          reject(caughtError);
-        }
-      };
+      const onAbort = () => this.#cancel({ id: request.id, reason: signal.reason as Error });
 
       this.#pending.set(request.id, {
         request,
-        resolve: (response) => {
+        answer: (response) => {
           signal.removeEventListener('abort', onAbort);
           resolve(response);
+        },
+        fail: (error) => {
+          signal.removeEventListener('abort', onAbort);
+          reject(error);
         },
       });
       signal.addEventListener('abort', onAbort, { once: true });
@@ -207,11 +283,50 @@ export class ApprovalRegistry {
         this.#emit({ type: 'approval_requested', request });
       } catch (caughtError) {
         if (!(caughtError instanceof ApprovalListenerError)) throw caughtError;
-        this.#pending.delete(request.id);
-        signal.removeEventListener('abort', onAbort);
-        reject(caughtError);
+        this.#expire({ id: request.id, reason: caughtError });
       }
     });
+  }
+
+  /**
+   * Cancels a waiting request. Also called from an abort event, so a listener failure can't be
+   * thrown: the call fails with it instead of `reason` (it was stopped either way).
+   */
+  #cancel(params: { id: ApprovalId; reason: Error }): void {
+    const { id, reason } = params;
+    const pending = this.#pending.get(id);
+
+    if (!pending || !this.#states.move({ id, to: 'cancelled' })) return;
+    this.#pending.delete(id);
+
+    try {
+      this.#emit({ type: 'approval_cancelled', id });
+      pending.fail(reason);
+    } catch (caughtError) {
+      // `#emit` only throws listener failures, so anything else is not ours to fail the call with.
+      if (!(caughtError instanceof ApprovalListenerError)) throw caughtError;
+      pending.fail(caughtError);
+    }
+  }
+
+  /**
+   * Fails a request closed because it could not be heard, and tells the listeners that did hear it
+   * it is gone. A request already answered stands.
+   */
+  #expire(params: { id: ApprovalId; reason: Error }): void {
+    const { id, reason } = params;
+    const pending = this.#pending.get(id);
+
+    if (!pending || !this.#states.move({ id, to: 'expired' })) return;
+    this.#pending.delete(id);
+    pending.fail(reason);
+
+    try {
+      this.#emit({ type: 'approval_cancelled', id });
+    } catch (caughtError) {
+      // The listener that failed on the request fails here too: the call already has its error.
+      if (!(caughtError instanceof ApprovalListenerError)) throw caughtError;
+    }
   }
 
   /** Answers a waiting request. Throws for an unknown (or already answered) id or a bad answer. */
@@ -220,9 +335,11 @@ export class ApprovalRegistry {
     const pending = this.#pending.get(id);
 
     if (!pending) {
+      const state = this.#states.get(id);
+
       throw new ApprovalRequestError({
         reason: 'unknown_id',
-        message: `No approval is waiting with id ${id}`,
+        message: `No approval is waiting with id ${id}${state ? ` (it is ${state})` : ''}`,
       });
     }
 
@@ -238,8 +355,9 @@ export class ApprovalRegistry {
       });
     }
 
+    this.#states.move({ id, to: 'answered' });
     this.#pending.delete(id);
-    pending.resolve(response);
+    pending.answer(response);
     this.#emit({ type: 'approval_resolved', id, response });
   }
 

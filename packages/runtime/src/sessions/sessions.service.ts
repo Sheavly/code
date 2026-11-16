@@ -110,6 +110,12 @@ export class SessionRegistry {
   /** Resolves once every entry so far is in the store (or a write has failed). */
   readonly flushStore = (): Promise<void> => this.#entries.flush();
 
+  /**
+   * The `seq` the next entry of the combined stream will get. A subscriber that reads it before it
+   * subscribes knows which entries are history (below it) and which are live (at or above).
+   */
+  readonly nextSeq = (): number => this.#entries.next;
+
   /** How many entries of the combined stream are in memory (the newest few, with a store). */
   get retainedEntries(): number {
     return this.#entries.retained;
@@ -255,7 +261,7 @@ export class SessionRegistry {
     const released = releaseSubtree({
       id,
       sessions: this.#sessions,
-      holders: [this.#inboxes, this.#lastTokens, this.#messageContexts],
+      holders: [this.#inboxes, this.#lastTokens, this.#messageContexts, this.#approvalSessions],
     });
 
     for (const session of released) {

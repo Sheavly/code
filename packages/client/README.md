@@ -17,8 +17,8 @@ for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' }
 | Module       | What it holds                                                                                                                                                                      |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `approvals/` | `watchApprovals` / `followApprovals`: a conversation's approvals, each with the sub-agent that asked (`HeardApproval`), learned from the stream, so a UI needn't build that itself |
-| `client/`    | `createClient`: a client built from `API_ROUTES`, every call typed and parsed; `readEntries`: an SSE stream's entries                                                              |
-| `errors/`    | `RefusedError` (the backend's `code`) and `AnswerError` (an answer off the contract)                                                                                               |
+| `client/`    | `createClient`: a client built from `API_ROUTES`, every call typed and parsed; `readEntries`: an SSE stream's entries; `reconnectingEntries`: a stream that resumes after a drop   |
+| `errors/`    | `RefusedError` (the backend's `code`), `AnswerError` (an answer off the contract) and `StreamLostError` (a stream it gave up reconnecting)                                         |
 | `testing`    | `fakeServer`: a `fetch` that answers the routes as a UI's test says, checked against the contract                                                                                  |
 
 ## Docs

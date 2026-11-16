@@ -146,6 +146,8 @@ async function setup(
     url: 'http://fake.test',
     token: 'fake',
     fetch,
+    // A dropped stream is lost at once, so a failing fake stream fails the run without waiting.
+    reconnect: { attempts: 0 },
     stop,
   });
 

@@ -300,6 +300,20 @@ export const SYNTAX_RULES = {
         'Do not run a timer for a command by hand. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
     },
   ],
+  // An approval that is no longer waiting (`unknown_approval`: answered elsewhere, or its call was
+  // interrupted) is a normal end for a UI's answer, decided once in `answerWhileWaiting`. A UI that
+  // matches the code itself is another copy of that rule, as the chat and the workbook's
+  // `CheckApprovals` once were. Only the code that defines or produces the code is exempt, with a
+  // `files:` override in its workspace's eslint.config.js. Not covered: the code read through a
+  // variable or compared as another string.
+  'no-adhoc-unknown-approval': [
+    {
+      selector:
+        "Literal[value='unknown_approval'], TemplateLiteral[expressions.length=0] > TemplateElement[value.cooked='unknown_approval']",
+      message:
+        "Do not match `unknown_approval` yourself. Wrap the `answerApproval` call in `answerWhileWaiting` (`@sheavly/client/approvals/approvals.helper`): an approval that is no longer waiting (answered elsewhere, or its call interrupted) is a normal end for a UI's answer, and that is the one place that rule lives. The code that defines or produces the error code is a `files:` override with its reason in this workspace's eslint.config.js.",
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

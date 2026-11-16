@@ -128,6 +128,12 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-adhoc-main-session': 'error' },
     },
+    // --- An answer that finds its approval gone is `answerWhileWaiting`'s to forgive, not a match on the code ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-adhoc-unknown-approval': 'error' },
+    },
     // --- Background work starts through `startWork` and a kind's factory, not `TaskRegistry.start` ---
     {
       files: SOURCE_FILES,

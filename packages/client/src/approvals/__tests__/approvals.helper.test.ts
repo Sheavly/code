@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { approvalUpdateSchema } from '@sheavly/protocol/approval/approval.validator';
 import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { followApprovals } from '../approvals.helper.js';
+import { RefusedError } from '../../errors/client.errors.js';
+import { answerWhileWaiting, followApprovals } from '../approvals.helper.js';
 import type { HeardApproval } from '../approvals.types.js';
 
 const details = { title: 'Helper', state: 'running', startedAt: 1 };
@@ -52,6 +53,20 @@ async function heardFrom(entries: AsyncIterable<StreamEntry>) {
 
   return heard;
 }
+
+describe('answerWhileWaiting', () => {
+  it('treats an approval that is no longer waiting as answered, and throws anything else', async () => {
+    const gone = new RefusedError({ status: 404, code: 'unknown_approval', message: 'gone' });
+    const other = new RefusedError({ status: 404, code: 'not_found', message: 'no conversation' });
+
+    await expect(answerWhileWaiting(() => Promise.reject(gone))).resolves.toBeUndefined();
+    await expect(answerWhileWaiting(() => Promise.resolve())).resolves.toBeUndefined();
+    await expect(answerWhileWaiting(() => Promise.reject(other))).rejects.toBe(other);
+    await expect(answerWhileWaiting(() => Promise.reject(new Error('reset')))).rejects.toThrow(
+      'reset',
+    );
+  });
+});
 
 describe('followApprovals', () => {
   it('names the sub-agent that asked, from the session update it saw before', async () => {

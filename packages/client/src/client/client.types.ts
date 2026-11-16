@@ -42,6 +42,14 @@ export type AnswerOf<N extends JsonRoute> = RouteOf<N>['response'] extends { sch
     : never
   : never;
 
+/** How a stream reconnects after a drop; the defaults are `reconnect.constants.ts`. */
+export type ReconnectPolicy = {
+  /** How many attempts in a row, without an entry arriving, before the stream is lost. */
+  attempts?: number;
+  /** Replaces the wait between attempts, for a test that must not sleep. */
+  wait?: (params: { ms: number; signal: AbortSignal }) => Promise<void>;
+};
+
 /** Where a client reaches a backend, and how. */
 export type ClientOptions = {
   url: string;
@@ -49,4 +57,6 @@ export type ClientOptions = {
   token: string;
   /** Reaches the backend (the global `fetch` when unset): a test's fake, a proxy. */
   fetch?: typeof fetch;
+  /** How the streams this client's helpers follow reconnect. */
+  reconnect?: ReconnectPolicy;
 };

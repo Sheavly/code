@@ -9,6 +9,7 @@ import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { ApiHandlers, ConversationRouteName } from './api.types.js';
 import { parseLastEventId } from './api.utils.js';
+import { recordPromptStart } from './prompt-start.helper.js';
 import { streamEntries } from './sse.helper.js';
 
 /**
@@ -134,17 +135,18 @@ async function sendPrompt(params: {
   await live.conversation.settleWake();
 
   // Sending resumes the session at once (its `session_resumed`); the response opens later, so
-  // the first entry the prompt makes is recorded here and the response replays from it.
-  let first: number | undefined;
-  const stopRecording = sessions.subscribeEntries((entry) => (first ??= entry.seq));
+  // where the prompt begins is recorded here and the response replays from it.
+  const start = recordPromptStart({ sessions, mainId: live.harness.mainSession.id });
   let sent: Awaited<ReturnType<Conversations['send']>>;
 
   try {
     // Validates and prepares it (skills), so a refusal is an error response, not a stream.
     sent = await conversations.send({ id, prompt: body });
   } finally {
-    stopRecording();
+    start.stop();
   }
+
+  const first = start.seq();
 
   return streamEntries({
     c,
