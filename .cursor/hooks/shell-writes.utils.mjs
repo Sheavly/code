@@ -154,9 +154,124 @@ function isLinePrint(tokens) {
   return LINE_PRINT_SCRIPT.test(script) && tokens.slice(3).every((token) => !token.startsWith('-'));
 }
 
+// `sh -c "npx prettier --write a.ts; npx vitest run"` is the command line inside the quotes, run
+// by a shell: it is read as that line, and trusted only when every part of it is. The wrapper must
+// be the whole command, so nothing else can ride along outside the quotes.
+const SHELL_WRAPPER = /^\s*(?:\S*\/)?(?:ba|z)?sh\s+-c\s+(?:"([^"$`\\]*)"|'([^']*)')\s*$/;
+
+/** The command line a `sh -c '…'` wrapper runs, or null when `command` is not just that. */
+function wrappedCommand(command) {
+  const match = SHELL_WRAPPER.exec(command);
+
+  return match ? (match[1] ?? match[2] ?? null) : null;
+}
+
+// The line is split after the quoted text is masked (so a `;` in a pattern is not a separator),
+// and the masking pairs quotes left to right without knowing the shell's other ways to quote or
+// escape. Anything the shell reads differently hides a command from the check, so a line that
+// holds one is not trusted (it fails closed, and is only looked at when it changed files):
+// - `$(…)`, `${…}` or a backtick inside double quotes, which still runs: `npx x "$(cp a b)"`;
+// - an escaped quote (`\"`, `\'`), which the masking takes for a real one;
+// - ANSI-C quoting (`$'…'`), whose `\'` the masking takes for the end of the string;
+// - a quote left open.
+// Single-quoted text is literal and is skipped.
+const SUBSTITUTION = /\$\(|\$\{|`/;
+
+/** The quote open after `char` (`'`, `"` or null for none), given the one open before it. */
+function quoteAfter(params) {
+  const { quote, char } = params;
+
+  if (quote === null) return char === '"' || char === "'" ? char : null;
+
+  return char === quote ? null : quote;
+}
+
+/** Whether `char` and what follows it hides a command, outside single quotes. */
+function hidesCommand(params) {
+  const { quote, char, next } = params;
+
+  if (char === '\\') return next === '"' || next === "'";
+  if (char === '$' && next === "'") return true;
+
+  return quote === '"' && SUBSTITUTION.test(char + (next ?? ''));
+}
+
+function quotingHidesCommands(text) {
+  let quote = null;
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (quote !== "'" && hidesCommand({ quote, char, next })) return true;
+    // An escaped character is literal, so it opens and closes nothing.
+    if (quote !== "'" && char === '\\') index++;
+    else quote = quoteAfter({ quote, char });
+  }
+
+  return quote !== null;
+}
+
+const HERE_STRING = /<<</;
+const HEREDOC_OPENER = /<<-?\s*(['"]?)(\w+)\1/;
+
+/** Whether `index` in `line` is inside quotes: an odd number of either quote comes before it. */
+function insideQuote(params) {
+  const { line, index } = params;
+
+  return ['"', "'"].some((quote) => line.slice(0, index).split(quote).length % 2 === 0);
+}
+
+/**
+ * Whether the heredocs of `command` could hide a command. Lines after a heredoc opener are taken
+ * for its body and dropped before the line is read, so a `<<` that is no heredoc (a here-string
+ * `<<<`, or text inside quotes) would drop real commands with it. And the shell expands `$(…)` in
+ * the body of an unquoted-delimiter heredoc (`<<EOF`), unlike `<<'EOF'`, whose body is literal.
+ */
+function heredocsHideCommands(command) {
+  if (HERE_STRING.test(command)) return true;
+
+  const lines = command.split('\n');
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? '';
+    const opener = HEREDOC_OPENER.exec(line);
+
+    if (!opener) continue;
+    if (insideQuote({ line, index: opener.index })) return true;
+
+    const end = lines.findIndex((next, at) => at > index && next.trim() === opener[2]);
+    const stop = end === -1 ? lines.length : end;
+
+    if (opener[1] === '' && SUBSTITUTION.test(lines.slice(index + 1, stop).join('\n'))) {
+      return true;
+    }
+
+    index = stop;
+  }
+
+  return false;
+}
+
+// The one substitution a commit or PR message may hold: `"$(cat <<'EOF' … EOF)"`, whose body is
+// literal text. Any other `$(…)` in a message runs like one anywhere else.
+const SAFE_MESSAGE = /"\$\(cat <<-?\s*'(\w+)'\n[\s\S]*?\n\s*\1\s*\)"/g;
+
 /** Whether every part of `command` is a known writer or writes nothing. */
 export function isSanctionedWriter(command) {
-  return toSegments(
-    normalize(maskQuotedOperators(withoutHeredocBodies(stripMessages(command)))),
-  ).every(isSanctionedSegment);
+  const inner = wrappedCommand(command);
+
+  if (inner !== null) return isSanctionedWriter(inner);
+
+  // The checks below read the command with its messages still in it: a message in double quotes
+  // is shell too (`git commit -m "$(cp a b)"`), so it is only blanked after they have looked.
+  const kept = command.replace(SAFE_MESSAGE, '"MESSAGE"');
+
+  if (heredocsHideCommands(kept)) return false;
+
+  const text = withoutHeredocBodies(kept);
+
+  if (quotingHidesCommands(text)) return false;
+
+  return toSegments(normalize(maskQuotedOperators(stripMessages(text)))).every(isSanctionedSegment);
 }
