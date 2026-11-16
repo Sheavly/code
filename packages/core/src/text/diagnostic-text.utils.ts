@@ -37,7 +37,9 @@ export function redactDiagnosticText(text: string): string {
  * collapsed and the length bounded, since a provider can echo request fragments back.
  */
 export function providerErrorText(text: string): string {
-  const flat = redactDiagnosticText(text.replaceAll(/\s+/g, ' ').trim());
+  // Control characters (an escape sequence, a carriage return) go with the whitespace: this text
+  // reaches logs and terminals, and a provider or a stored source is not trusted not to send them.
+  const flat = redactDiagnosticText(text.replaceAll(/[\s\p{Cc}]+/gu, ' ').trim());
 
   return flat.length > MAX_PROVIDER_ERROR_CHARS
     ? `${flat.slice(0, MAX_PROVIDER_ERROR_CHARS)}…`

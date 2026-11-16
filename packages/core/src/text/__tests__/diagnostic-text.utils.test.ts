@@ -14,6 +14,10 @@ describe('providerErrorText', () => {
     expect(providerErrorText('bad\n  request \t here')).toBe('bad request here');
   });
 
+  it('removes control characters, so text cannot drive a terminal or forge a log line', () => {
+    expect(providerErrorText('a\u001b[2Jb\rc\u0000d')).toBe('a [2Jb c d');
+  });
+
   it('bounds the length, marking the cut', () => {
     const text = providerErrorText('x'.repeat(MAX_PROVIDER_ERROR_CHARS * 2));
 
