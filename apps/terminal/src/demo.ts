@@ -18,89 +18,10 @@
  * For stored prompts, saved runs and inspecting what happened, use the workbook instead
  * (`npm run workbook`, see apps/terminal/docs/workbook.md).
  */
-import { createWriteStream } from 'node:fs';
-import { Writable } from 'node:stream';
-import { now } from '@sheavly/core/clock/clock.helper';
-import type { RunOutcome } from '@sheavly/protocol/session/session.types';
-import { runEnd } from '@sheavly/protocol/status/run-end.utils';
-import { openSession } from './client/session.helper.js';
-import { DEFAULT_PROMPT } from './demo/demo.prompt.js';
-import { SAME_KEYPRESS_MS } from './render/render.constants.js';
-import { shortId } from './render/render.utils.js';
-import { plainTerminalText } from './render/terminal-text.utils.js';
+import { runDemo } from './demo/demo.helper.js';
 
-const write = (text: string) => void process.stdout.write(text);
-const session = await openSession({
+process.exitCode = await runDemo({
   env: process.env,
   args: process.argv.slice(2),
-  write,
+  write: (text) => void process.stdout.write(text),
 });
-const { backend, conversation, details, renderer } = session;
-const prompt = session.prompt || DEFAULT_PROMPT;
-
-console.log(`→ ${prompt}\n`);
-console.log(`→ main session ${shortId(details.session)}`);
-
-/** With SESSIONS_SSE_LOG, the conversation's SSE stream (what a UI reads) goes to a file. */
-const sseLog = process.env.SESSIONS_SSE_LOG;
-const stopSse = new AbortController();
-const sseWritten = sseLog
-  ? (await conversation.rawStream(stopSse.signal))
-      .pipeTo(Writable.toWeb(createWriteStream(sseLog)) as WritableStream<Uint8Array>)
-      // Stopping it below aborts the pipe: expected, the file has everything up to there.
-      .catch((caughtError: unknown) => {
-        if (!stopSse.signal.aborted) throw caughtError;
-      })
-  : Promise.resolve();
-
-// Ctrl+C once: stop the prompt cleanly (tools killed, partial history kept). Twice: force quit.
-const interrupt = new AbortController();
-let interruptedAt = 0;
-
-process.on('SIGINT', () => {
-  if (interrupt.signal.aborted) {
-    if (now() - interruptedAt < SAME_KEYPRESS_MS) return;
-    process.stdout.write('\n✗ Forced exit.\n');
-    void backend.stop().finally(() => process.exit(130));
-
-    return;
-  }
-
-  interruptedAt = now();
-  process.stdout.write('\n⏹ Interrupting… (Ctrl+C again to force quit)\n');
-  interrupt.abort();
-});
-
-/** Set when the run fails (a provider error, a hook throwing): shown once, then exit code 1. */
-let failure: string | undefined;
-/** How the main run ended, from its `done`. A run that hit a limit did not finish: exit code 1. */
-let outcome: RunOutcome | undefined;
-
-try {
-  for await (const entry of conversation.send({ text: prompt, signal: interrupt.signal })) {
-    renderer.entry(entry, details.session);
-    outcome = runEnd(entry) ?? outcome;
-  }
-} catch (caughtError) {
-  // The message can be text a backend sent, so control characters are shown, not obeyed.
-  failure = plainTerminalText(
-    caughtError instanceof Error ? caughtError.message : String(caughtError),
-  );
-  process.stdout.write(`\n✗ Run failed: ${failure}\n`);
-}
-
-// Background tasks outlive a prompt, but not the demo: closing stops whatever is left.
-if (conversation.runningTasks > 0) {
-  console.log(`⏹ Stopping ${String(conversation.runningTasks)} background task(s)`);
-}
-
-stopSse.abort();
-await sseWritten;
-await conversation.close();
-await backend.stop();
-
-// Nothing else should be keeping the process alive; exit with the conventional code for Ctrl+C.
-const interrupted = interrupt.signal.aborted ? 130 : 0;
-const unfinished = outcome !== undefined && outcome !== 'completed' && outcome !== 'interrupted';
-
-process.exitCode = failure || unfinished ? 1 : interrupted;

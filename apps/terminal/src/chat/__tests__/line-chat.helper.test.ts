@@ -37,7 +37,8 @@ function lineChat(firstPrompt?: string) {
     stop: vi.fn<() => 'idle' | 'stopped' | 'stopping'>(() => 'idle'),
   };
   const write = vi.fn();
-  const forceQuit = vi.fn();
+  const forceQuit = vi.fn(async () => undefined);
+  const processExit = vi.fn<(code: number) => void>();
   let exit: () => void = () => undefined;
 
   mocks.input.mockReturnValue(input);
@@ -60,9 +61,20 @@ function lineChat(firstPrompt?: string) {
     write,
     firstPrompt,
     forceQuit,
+    exit: processExit,
   });
 
-  return { source, input, pending, session, write, forceQuit, running, exit: () => exit() };
+  return {
+    source,
+    input,
+    pending,
+    session,
+    write,
+    forceQuit,
+    processExit,
+    running,
+    exit: () => exit(),
+  };
 }
 
 describe('runLineChat', () => {
@@ -127,14 +139,16 @@ describe('runLineChat', () => {
     chat.input.emit('SIGINT');
     chat.input.emit('SIGINT');
     expect(chat.session.stop).toHaveBeenCalledOnce();
-    expect(chat.write).toHaveBeenCalledWith(expect.stringContaining('Stopping this prompt'));
+    expect(chat.write).toHaveBeenCalledWith(expect.stringContaining('Stopping'));
     expect(chat.forceQuit).not.toHaveBeenCalled();
 
     clock.advance(SAME_KEYPRESS_MS);
     chat.input.emit('SIGINT');
     expect(chat.forceQuit).toHaveBeenCalledOnce();
     expect(chat.write).toHaveBeenCalledWith('\n✗ Forced exit.\n');
-    // The production forceQuit exits the process; let the stubbed process reach EOF instead.
+    // The cleanup runs first, and only then does the process exit.
+    expect(chat.processExit).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(chat.processExit).toHaveBeenCalledWith(130));
     chat.source.end();
     chat.pending.resolve(undefined);
     await chat.running;

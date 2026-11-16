@@ -101,7 +101,7 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
  * The only source files that may write a file by hand: the storage primitives every store writes
  * through (and the output store's two files, which append a command's output as it arrives), the
  * agent's file-tool helper, the backend's model-call debug log, and the terminal's
- * developer tooling (its workbook and demo), and the workspace's two scratch helpers, which create
+ * developer tooling (its workbook, and `saveRawStream`, which the demo and the recorder share), and the workspace's two scratch helpers, which create
  * the shared scratch folder and remove its stale entries (no user data; the same folder is exempt
  * in `packages/workspace/eslint.config.js`), and the confined reader, which calls `fs.open` with
  * `O_RDONLY` only to read through the open handle (`open` is on the rule's list because it can
@@ -115,7 +115,7 @@ const FILE_WRITERS = new RegExp(
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]instruction-context[/\\\\]confined-read\\.helper\\.ts$',
     '^apps[/\\\\]backend[/\\\\]src[/\\\\]harness[/\\\\]model-calls\\.helper\\.ts$',
-    '^apps[/\\\\]terminal[/\\\\]src[/\\\\](demo\\.ts$|workbook[/\\\\](recorder\\.service|store\\.service|check\\.helper)\\.ts$)',
+    '^apps[/\\\\]terminal[/\\\\]src[/\\\\](client[/\\\\]raw-stream\\.helper\\.ts$|workbook[/\\\\](recorder\\.service|store\\.service|check\\.helper)\\.ts$)',
   ].join('|'),
 );
 

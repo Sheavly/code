@@ -1,8 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { BackendError } from '../errors/backend.errors.js';
-import { BACKEND_PACKAGE, BACKEND_READY_MS, LISTENING_LINE } from './client.constants.js';
+import {
+  BACKEND_PACKAGE,
+  BACKEND_READY_MS,
+  BACKEND_STOP_MS,
+  LISTENING_LINE,
+} from './client.constants.js';
 import type { Backend, BackendOptions } from './client.types.js';
+import { stopProcessGroup } from './process-group.helper.js';
 
 /**
  * The backend the terminal talks to: `BACKEND_URL` and `BACKEND_TOKEN` connect to one already
@@ -49,9 +55,28 @@ async function startBackend(options: BackendOptions): Promise<Backend> {
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: true,
   });
-  const url = await waitForListening({ child, onOutput });
+  let stopping: Promise<void> | undefined;
+  // Memoized: the first caller's timeout decides, and every later one waits on the same stop.
+  const stopGroup = (stopOptions: { timeoutMs?: number; afterLeaderExit?: boolean }) =>
+    (stopping ??= stopProcessGroup({
+      child,
+      timeoutMs: stopOptions.timeoutMs ?? BACKEND_STOP_MS,
+      afterLeaderExit: stopOptions.afterLeaderExit ?? false,
+    }));
+  const stop = (stopOptions?: { timeoutMs?: number }) => stopGroup(stopOptions ?? {});
 
-  return { url, token, stop: () => stopChild(child) };
+  try {
+    const url = await waitForListening({ child, onOutput, signal: options.signal });
+
+    return { url, token, stop };
+  } catch (caughtError) {
+    // No handle reaches the caller, so nothing else would stop it: a slow start, an exit and an
+    // abort all end the whole group (npm and the backend it runs) here. When npm itself exited
+    // (the start failed), the backend it launched may still run in its group: it ended moments
+    // ago, so its group id cannot belong to anyone else yet.
+    await stopGroup({ afterLeaderExit: true });
+    throw caughtError;
+  }
 }
 
 /**
@@ -77,15 +102,23 @@ function npmArgs(params: { env: NodeJS.ProcessEnv; args: readonly string[] }): s
 function waitForListening(params: {
   child: ChildProcess;
   onOutput: (text: string) => void;
+  signal: AbortSignal | undefined;
 }): Promise<string> {
-  const { child, onOutput } = params;
+  const { child, onOutput, signal } = params;
 
   return new Promise((resolve, reject) => {
     let seen = '';
     const timer = setTimeout(() => {
-      child.kill('SIGTERM');
       reject(new BackendError({ message: `The backend didn't start in ${BACKEND_READY_MS} ms` }));
     }, BACKEND_READY_MS);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new BackendError({ message: 'Interrupted while the backend was starting' }));
+    };
+
+    if (signal?.aborted) onAbort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     const forward = (chunk: Buffer) => {
       const text = chunk.toString();
 
@@ -108,20 +141,5 @@ function waitForListening(params: {
         new BackendError({ message: `The backend exited (${String(code)}) before it listened` }),
       );
     });
-  });
-}
-
-/**
- * Asks a started backend to stop (it closes its conversations first) and waits for it to exit.
- * The signal goes to its whole process group: npm and the backend it runs.
- */
-function stopChild(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.pid === undefined) return Promise.resolve();
-
-  const { pid } = child;
-
-  return new Promise((resolve) => {
-    child.once('exit', () => resolve());
-    process.kill(-pid, 'SIGTERM');
   });
 }

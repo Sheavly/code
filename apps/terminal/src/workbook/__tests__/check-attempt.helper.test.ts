@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkWorkbook } from '../check.helper.js';
 import { runWorkbook } from '../run.helper.js';
 import { WorkbookStore } from '../store.service.js';
+import { runIdSchema } from '../workbook.validator.js';
 
 vi.mock('../run.helper.js', () => ({ runWorkbook: vi.fn() }));
 
@@ -55,7 +56,6 @@ describe('check attempt authorization and cleanup', () => {
       await writeFile(params.trustFile ?? '', '{"fixture":true}');
 
       const paths = await store.beginRun({
-        prompt: 'fixture',
         id: (number) => `${number.toString().padStart(4, '0')}-fixture`,
       });
       const result = {
@@ -96,7 +96,7 @@ describe('check attempt authorization and cleanup', () => {
     });
 
     const output: string[] = [];
-    const passed = await checkWorkbook({
+    const ended = await checkWorkbook({
       store,
       names: ['fixture'],
       all: false,
@@ -104,7 +104,7 @@ describe('check attempt authorization and cleanup', () => {
       write: (text) => output.push(text),
     });
 
-    expect(passed).toBe(true);
+    expect(ended).toBe('passed');
     expect(captured).toEqual([[], ['node'], [], ['node']]);
     expect(new Set(trustFiles).size).toBe(2);
     expect(output.join('')).toContain('passed on retry');
@@ -137,6 +137,36 @@ describe('check attempt authorization and cleanup', () => {
       }),
     ).rejects.toThrow('backend failed');
     await expect(access(path.dirname(trustFile))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(runWorkbook).toHaveBeenCalledOnce();
+  });
+
+  it('ends as interrupted, neither passed nor failed, when Ctrl+C stops a run', async () => {
+    vi.stubEnv('BACKEND_URL', '');
+
+    const store = await storeForCheck();
+
+    vi.mocked(runWorkbook).mockResolvedValue({
+      outcome: 'interrupted',
+      endedAt: 0,
+      durationMs: 0,
+      events: 0,
+      modelCalls: 0,
+      toolCalls: 0,
+      toolErrors: 0,
+      sessions: 1,
+      messages: 0,
+      id: runIdSchema.parse('0001-fixture'),
+    });
+
+    const ended = await checkWorkbook({
+      store,
+      names: ['fixture'],
+      all: false,
+      write: () => undefined,
+    });
+
+    expect(ended).toBe('interrupted');
+    // No retry and no further step after a stopped run.
     expect(runWorkbook).toHaveBeenCalledOnce();
   });
 

@@ -38,9 +38,6 @@ export type ChatConversation = Pick<
 > &
   Partial<Pick<RemoteConversation, 'queue' | 'setQueue' | 'stop'>>;
 
-/** What `ChatSession.stop` found: a prompt to stop, one already stopping, or nothing running. */
-export type StopResult = 'stopped' | 'stopping' | 'idle';
-
 /**
  * How a message ended: the main run's outcome from its `done`, or `failed` when the prompt threw
  * before one arrived (the backend went away, a request was refused). A stopped prompt is

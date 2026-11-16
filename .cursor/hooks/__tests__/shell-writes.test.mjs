@@ -133,6 +133,20 @@ describe('isSanctionedWriter', () => {
     // The layout checker only prints what it finds, whether run through npm or directly.
     'npm run graph 2>&1 | tail -3; git diff --stat -- docs/overview.md | cat; node scripts/check-layout.mjs 2>&1 | head -4 | cut -c1-220',
     "npm pkg set 'exports[./listing/*.helper]=null' --json -w @sheavly/storage 2>&1 | tail -1; node scripts/check-layout.mjs 2>&1 | head -4",
+    // A shell wrapper is read as the line inside it: the formatter, then a test run.
+    'npx prettier --write a.ts ; npx vitest run --config ../../vitest.config.ts src/a.test.ts',
+    'sh -c "npx prettier --write a.ts; npx eslint src; npx vitest run src/a.test.ts"',
+    "bash -c 'npx prettier --write a.ts && npx vitest run'",
+    // A message with prose in it, and the quoted-heredoc message form.
+    'git commit -m "fix(terminal): stop it, it\'s done; cp is not run"',
+    'git commit -m "$(cat <<\'EOF\'\nfix: x\n\nRefs: #1\nEOF\n)"',
+    'gh pr create --title t --body "$(cat <<\'EOF\'\nbody\nEOF\n)"',
+    // Text that only looks like a substitution is literal: single quotes, a quoted heredoc, an
+    // escaped `$`, and a plain variable.
+    "rg '$(cp a b)' README.md; npx vitest run",
+    "npx vitest run <<'EOF'\n$(cp /tmp/x a.ts)\nEOF",
+    'rg "a\\$(b" README.md | head',
+    'for p in a b; do npx tsc --noEmit -p packages/$p; done',
   ])('trusts %s', (command) => expect(isSanctionedWriter(command)).toBe(true));
 
   it.each([
@@ -178,6 +192,45 @@ describe('isSanctionedWriter', () => {
     'node scripts/check-layout.mjs > a.ts',
     'node scripts/check-layout.mjs; cp /tmp/x a.ts',
     'node ./a.mjs',
+    // A shell wrapper is trusted only for a line that is itself trusted, and only as the whole
+    // command: a writer inside it, a redirect, a variable or substitution, or anything outside
+    // the quotes is not.
+    'sh -c "npx prettier --write a.ts; cp /tmp/x a.ts"',
+    "sh -c 'echo x > a.ts'",
+    'sh -c "npx vitest run > a.ts"',
+    'sh -c "npx prettier --write $FILE"',
+    'sh -c "npx prettier --write `cp x a.ts`"',
+    'sh -c "npx vitest run" && cp /tmp/x a.ts',
+    'sh -c "npx vitest run"; cp /tmp/x a.ts',
+    'sh -c "sh -c \\"cp /tmp/x a.ts\\""',
+    // A substitution inside double quotes runs, whether or not a wrapper hides it.
+    'sh -c \'npx vitest run "$(cp /tmp/x a.ts)"\'',
+    'sh -c \'npx vitest run "`cp /tmp/x a.ts`"\'',
+    'sh -c \'npx vitest run "$(rm -rf src)"\'',
+    'npx vitest run "$(cp /tmp/x a.ts)"',
+    'npx vitest run "${FILE}"',
+    // A `"` inside single quotes must not shift which quotes are paired.
+    `npx x 'a"' "$(cp x a.ts)" 'b"'`,
+    // Quoting the masking reads differently from the shell hides the `;` that follows.
+    "npx x $'\\'' ; cp x a.ts ; echo $'\\''",
+    'npx x "\\""; cp x a.ts; echo ""',
+    "npx x \\'; cp x a.ts; echo \\'",
+    'npx x "unclosed; cp x a.ts',
+    // A message in double quotes is shell too: only the quoted-heredoc form is literal text.
+    'git commit -m "$(cp /tmp/x a.ts)"',
+    'git commit -m "x" -m "$(cp /tmp/x a.ts)"',
+    'git commit -m "`cp /tmp/x a.ts`"',
+    'gh pr create --body "$(cp /tmp/x a.ts)"',
+    'git commit -m "$(cat <<\'EOF\'\nfix: x\nEOF\n)" -m "$(cp /tmp/x a.ts)"',
+    // A `<<` that is no heredoc must not hide the lines after it as a body.
+    'npx x <<< foo\ncp /tmp/x a.ts\nfoo',
+    'npx x "<<EOF"\ncp /tmp/x a.ts\nEOF',
+    "npx x '<<EOF'\ncp /tmp/x a.ts\nEOF",
+    // An unquoted heredoc delimiter expands its body; a quoted one does not.
+    'npx vitest run <<EOF\n$(cp /tmp/x a.ts)\nEOF',
+    'npx vitest run <<-EOF\n`cp /tmp/x a.ts`\nEOF',
+    'sh -c',
+    'sh script.sh',
   ])('does not trust %s', (command) => expect(isSanctionedWriter(command)).toBe(false));
 });
 

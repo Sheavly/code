@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { createClient } from '@sheavly/client/client/client.helper';
-import { openSession } from '../client/session.helper.js';
+import { closeSession, openSession } from '../client/session.helper.js';
+import { abortingStop, interruptOnCtrlC } from '../interrupt/interrupt.helper.js';
 import { prepareSetup } from '../setup/setup.helper.js';
 import { startScreenChat } from '../tui/screen-chat.helper.js';
 import { runLineChat } from './line-chat.helper.js';
@@ -11,22 +12,17 @@ export async function runTerminalChat(): Promise<void> {
   const args = process.argv.slice(2);
   const interactive = process.stdin.isTTY && process.stdout.isTTY;
   const workspace = path.resolve(process.env.WORKSPACE_ROOT ?? process.cwd());
-  const session = await openSession({
-    env: process.env,
-    args: args.filter((arg) => arg !== '--setup'),
-    write,
-    workspace,
-    prepare: (backend) =>
-      prepareSetup({
-        backend,
-        workspace,
-        interactive,
-        force: args.includes('--setup'),
-      }),
-  });
+  const session = await openSessionInterruptibly({ write, args, workspace, interactive });
+
+  if (!session) {
+    process.exitCode = 130;
+
+    return;
+  }
+
   const { backend, conversation, details, renderer, prompt: firstPrompt } = session;
   let closing: Promise<void> | undefined;
-  const end = () => (closing ??= conversation.close().finally(() => backend.stop()));
+  const end = () => (closing ??= closeSession({ backend, conversation }));
   const onHangup = () => void end().finally(() => process.exit(129));
   const onTerminate = () => void end().finally(() => process.exit(143));
 
@@ -61,7 +57,7 @@ export async function runTerminalChat(): Promise<void> {
         renderer,
         write,
         firstPrompt,
-        forceQuit: () => void end().finally(() => process.exit(130)),
+        forceQuit: end,
       });
     }
   } finally {
@@ -71,4 +67,42 @@ export async function runTerminalChat(): Promise<void> {
   }
 
   write('→ conversation ended\n');
+}
+
+/**
+ * Opens the chat's session with Ctrl+C live from the first moment, so a press while the backend
+ * starts (or setup runs) stops that start. Undefined when it was interrupted: nothing to clean up,
+ * as a backend that was starting has been stopped. The chat's own handlers take over after.
+ */
+async function openSessionInterruptibly(params: {
+  write: (text: string) => void;
+  args: readonly string[];
+  workspace: string;
+  interactive: boolean;
+}): Promise<Awaited<ReturnType<typeof openSession>> | undefined> {
+  const { write, args, workspace, interactive } = params;
+  const startup = new AbortController();
+  const ctrlC = interruptOnCtrlC({
+    write,
+    stop: abortingStop(startup),
+    // Nothing exists yet to clean up: a starting backend is stopped by the abort itself.
+    forceQuit: () => Promise.resolve(),
+  });
+
+  try {
+    return await openSession({
+      env: process.env,
+      args: args.filter((arg) => arg !== '--setup'),
+      write,
+      workspace,
+      signal: startup.signal,
+      prepare: (backend) =>
+        prepareSetup({ backend, workspace, interactive, force: args.includes('--setup') }),
+    });
+  } catch (caughtError) {
+    if (startup.signal.aborted) return undefined;
+    throw caughtError;
+  } finally {
+    ctrlC.dispose();
+  }
 }

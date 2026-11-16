@@ -6,7 +6,8 @@ import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice } from '../render/render.utils.js';
 import { connectBackend } from './backend.helper.js';
 import type { Backend } from './client.types.js';
-import { RemoteConversation } from './conversation.service.js';
+import { openConversation } from './conversation.helper.js';
+import type { RemoteConversation } from './conversation.service.js';
 
 /**
  * A terminal CLI's conversation, as the chat and the demo open it: the backend (started with
@@ -19,6 +20,8 @@ export async function openSession(params: {
   args: readonly string[];
   write: (text: string) => void;
   workspace?: string;
+  /** Aborting while the backend starts stops it and rejects: Ctrl+C before a conversation exists. */
+  signal?: AbortSignal;
   /** A chat may configure the backend before opening its first conversation. */
   prepare?: (backend: Backend) => Promise<ModelId | undefined>;
 }): Promise<{
@@ -34,19 +37,18 @@ export async function openSession(params: {
     env,
     args: args.filter((arg) => arg === '--trust'),
     onOutput: write,
+    ...(params.signal && { signal: params.signal }),
   });
   let conversation: RemoteConversation | undefined;
 
   try {
     const model = await params.prepare?.(backend);
 
-    if (resume.id) conversation = await RemoteConversation.reopen({ backend, id: resume.id });
-    else {
-      conversation = await RemoteConversation.open({
-        backend,
-        ...(params.workspace && { workspace: params.workspace }),
-      });
-    }
+    conversation = await openConversation({
+      backend,
+      resume: resume.id,
+      workspace: params.workspace,
+    });
 
     if (!resume.id && model && !(await conversation.useModel(model))) {
       throw new BackendError({
@@ -56,13 +58,24 @@ export async function openSession(params: {
 
     return await describeSession({ backend, conversation, args: resume.args, write });
   } catch (caughtError) {
-    try {
-      await conversation?.close();
-    } finally {
-      await backend.stop();
-    }
-
+    await closeSession({ backend, conversation });
     throw caughtError;
+  }
+}
+
+/**
+ * The one way a terminal entry point ends a session: closes the conversation (it stops what the
+ * conversation started), then stops the backend even when closing fails. A caller with two ways to
+ * end (the normal one and a force quit) keeps the promise and calls this once.
+ */
+export async function closeSession(params: {
+  backend: Backend;
+  conversation: RemoteConversation | undefined;
+}): Promise<void> {
+  try {
+    await params.conversation?.close();
+  } finally {
+    await params.backend.stop();
   }
 }
 

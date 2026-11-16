@@ -41,26 +41,28 @@ environment and go to the backend it starts ([the backend's settings](../backend
 `WEB_FETCH=false` disables public web reading for the main agent and sub-agents. It is enabled
 by default and validated by the backend; when connecting to an existing backend, use its setting.
 
-| Folder          | What it holds                                                                                            |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| `client/`       | Reaching a backend (`connectBackend`), one conversation on it over HTTP (`RemoteConversation`)           |
-| `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's |
-| `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                     |
-| `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                             |
-| `markdown/`     | A streamed reply drawn as Markdown: a block at a time, a code fence line by line (`MarkdownStream`)      |
-| `diff/`         | A file change as rows (`buildDiff`, `countChanges`) and as styled lines (`formatDiff`)                   |
-| `changes/`      | Every file change a chat made (`ChangeLog`), shown collapsed, listed or in full (`/changes`, Ctrl+O)     |
-| `failures/`     | Failed steps with more to say than their first line (`FailureLog`): collapsed, `/errors`, Ctrl+O         |
-| `marks/`        | OSC 133 turn markers: what stands for one through Ink, and the stdout that restores them                 |
-| `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                        |
-| `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them  |
-| `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)           |
-| `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                  |
-| `setup/`        | Guided profile, provider, model and credential setup through the backend's API                           |
-| `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                            |
-| `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion               |
-| `chat.ts`       | The chat CLI: one conversation across prompts                                                            |
-| `demo.ts`       | The demo CLI                                                                                             |
+| Folder          | What it holds                                                                                                                                                                |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client/`       | Reaching a backend (`connectBackend`, `withBackend`, `stopProcessGroup`), one conversation on it (`RemoteConversation`, `openConversation`, `closeSession`), `saveRawStream` |
+| `interrupt/`    | Ctrl+C for the demo, workbook and line chat: `interruptOnCtrlC`, `abortingStop`                                                                                              |
+| `demo/`         | The demo's run (`runDemo`) and its default prompt                                                                                                                            |
+| `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's                                                                     |
+| `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                                                                                         |
+| `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                                                                                                 |
+| `markdown/`     | A streamed reply drawn as Markdown: a block at a time, a code fence line by line (`MarkdownStream`)                                                                          |
+| `diff/`         | A file change as rows (`buildDiff`, `countChanges`) and as styled lines (`formatDiff`)                                                                                       |
+| `changes/`      | Every file change a chat made (`ChangeLog`), shown collapsed, listed or in full (`/changes`, Ctrl+O)                                                                         |
+| `failures/`     | Failed steps with more to say than their first line (`FailureLog`): collapsed, `/errors`, Ctrl+O                                                                             |
+| `marks/`        | OSC 133 turn markers: what stands for one through Ink, and the stdout that restores them                                                                                     |
+| `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                                                                                            |
+| `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them                                                                      |
+| `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)                                                                               |
+| `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                                                                                      |
+| `setup/`        | Guided profile, provider, model and credential setup through the backend's API                                                                                               |
+| `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                                                                                                |
+| `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion                                                                                   |
+| `chat.ts`       | The chat CLI: one conversation across prompts                                                                                                                                |
+| `demo.ts`       | The demo CLI                                                                                                                                                                 |
 
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.

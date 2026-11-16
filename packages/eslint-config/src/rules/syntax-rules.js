@@ -300,6 +300,20 @@ export const SYNTAX_RULES = {
         'Do not run a timer for a command by hand. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
     },
   ],
+  // Ctrl+C in the terminal app is `interruptOnCtrlC`'s: the same-keypress window, one force-quit
+  // policy that runs the cleanup before the process exits 130, and the stop that reports what it
+  // found. A listener of its own is how four copies of that policy once drifted apart (a second
+  // press that skipped cleanup, a window of 500 ms in one place and 1500 in another). Enabled for
+  // the terminal app's source, with a `files:` override for the helper itself. Not covered: a
+  // signal name held in a variable, or a key handled as raw input (the screen's `ctrl+c`).
+  'no-adhoc-ctrl-c': [
+    {
+      selector:
+        "CallExpression[callee.property.name=/^(on|once|addListener|prependListener)$/][arguments.0.value='SIGINT']",
+      message:
+        'Do not listen for SIGINT yourself. `interruptOnCtrlC` (`apps/terminal/src/interrupt/interrupt.helper.ts`) is the one Ctrl+C policy: a press within the same-keypress window is ignored, the first stops the work (`stop`), a press while it is stopping runs your `forceQuit` cleanup first and only then exits 130, and a press with nothing running calls `onIdle`. Pass `source` when readline owns the key. For work that is one `AbortController`, use `abortingStop`.',
+    },
+  ],
   // An approval that is no longer waiting (`unknown_approval`: answered elsewhere, or its call was
   // interrupted) is a normal end for a UI's answer, decided once in `answerWhileWaiting`. A UI that
   // matches the code itself is another copy of that rule, as the chat and the workbook's

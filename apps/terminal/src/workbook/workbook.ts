@@ -13,6 +13,7 @@
  * like the demo: the profile's own choice, or `--model` / `WORKBOOK_MODEL` for this run only.
  */
 import path from 'node:path';
+import { describeFailure } from '../render/terminal-text.utils.js';
 import { checkWorkbook } from './check.helper.js';
 import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';
@@ -93,7 +94,7 @@ try {
     }
 
     case 'check': {
-      const passed = await checkWorkbook({
+      const ended = await checkWorkbook({
         store,
         names: command.prompts,
         all: command.all,
@@ -103,7 +104,7 @@ try {
         write,
       });
 
-      process.exitCode = passed ? 0 : 1;
+      process.exitCode = ended === 'interrupted' ? 130 : Number(ended === 'failed');
       break;
     }
 
@@ -129,7 +130,7 @@ try {
       break;
   }
 } catch (caughtError) {
-  write(`✗ ${caughtError instanceof Error ? caughtError.message : String(caughtError)}\n`);
+  write(`✗ ${describeFailure(caughtError)}\n`);
   process.exitCode = 1;
 }
 

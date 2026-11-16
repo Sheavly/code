@@ -268,9 +268,11 @@ you` keeps its own words.
   one that goes on (`MAX_TURNS` in the backend's environment sets a cap if you want one).
 - Ctrl+C stops the running message (and skips a question it waits on); history stays valid, and the
   next message continues from it. With nothing running, Ctrl+C asks to be pressed again to quit,
-  so one stray press never ends the conversation. In the plain line chat, pressed again while the
-  message stops, it force-quits (after stopping what the conversation started); at the input line
-  it quits. Lines waiting are still sent after a stopped message; leaving drops them.
+  so one stray press never ends the conversation. Pressed again while the message is still
+  stopping, it force-quits in the screen chat and the plain line chat alike: the conversation and
+  its backend are ended first (a backend that ignores SIGTERM is killed after ten seconds), then
+  the process exits 130. At the line chat's input line it quits. Ctrl+C during startup stops the
+  backend that is starting. Lines waiting are still sent after a stopped message; leaving drops them.
 - `/model` lists the models of your profile, with their ids, and `/model <id or name>` switches to
   one, from the next model call on, keeping the history
   ([models and keys](../../backend/docs/harness.md#models-and-keys)). The switch is made by

@@ -37,6 +37,9 @@ export type Observed = {
   adapter: string;
 };
 
+/** How the whole `check` command ended: every check passed, one failed, or Ctrl+C stopped it. */
+export type CheckEnd = 'passed' | 'failed' | 'interrupted';
+
 /**
  * How one check went: passed, passed only on its retry, failed with what broke, or stopped by
  * the user (Ctrl+C), which ends the whole command: no retry, no further checks.

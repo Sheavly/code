@@ -7,14 +7,10 @@ import type { LinkFile } from '../changes/changes.types.js';
 import { describeChanges, describeFailures, describeLatest } from './chat-describe.helper.js';
 import { CHAT_HELP, LINE_COLUMNS, YIELD_REQUEST_MS } from './chat.constants.js';
 import { ChatQueue } from './chat-queue.service.js';
-import type {
-  ChatConversation,
-  Describer,
-  RunState,
-  StopResult,
-  TurnOutcome,
-} from './chat.types.js';
-import { errorText, mainRunState, parseChatInput } from './chat.utils.js';
+import type { ChatConversation, Describer, RunState, TurnOutcome } from './chat.types.js';
+import { mainRunState, parseChatInput } from './chat.utils.js';
+import type { StopResult } from '../interrupt/interrupt.types.js';
+import { describeFailure } from '../render/terminal-text.utils.js';
 import { runModelCommand, runModeCommand } from './chat-model.helper.js';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -269,7 +265,7 @@ export class ChatSession {
     try {
       this.#print(await run());
     } catch (caughtError) {
-      this.#print(`✗ ${errorText(caughtError)}`);
+      this.#print(`✗ ${describeFailure(caughtError)}`);
     }
   }
 
@@ -316,7 +312,7 @@ export class ChatSession {
       outcome = await this.#showEntries({ text, signal: current.signal });
     } catch (caughtError) {
       outcome = 'failed';
-      this.#write(`\n✗ ${errorText(caughtError)}\n`);
+      this.#write(`\n✗ ${describeFailure(caughtError)}\n`);
     } finally {
       this.#current = undefined;
       this.#streamOpen = false;
@@ -407,7 +403,7 @@ export class ChatSession {
     const request = this.#conversation.yieldPrompt(AbortSignal.timeout(YIELD_REQUEST_MS)).then(
       () => undefined,
       (caughtError: unknown) => {
-        this.#write(`\n✗ Could not ask the agent to yield: ${errorText(caughtError)}\n`);
+        this.#write(`\n✗ Could not ask the agent to yield: ${describeFailure(caughtError)}\n`);
       },
     );
 
