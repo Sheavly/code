@@ -3,7 +3,7 @@ import { answerWhileWaiting } from '@sheavly/client/approvals/approvals.helper';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
-import { errorText } from '../chat/chat.utils.js';
+import { describeFailure } from '../render/terminal-text.utils.js';
 import { TerminalBell } from '../bell/bell.service.js';
 import { UsageLedger } from '@sheavly/runtime/usage/usage.service';
 import { ContextUsageTracker } from '../usage/context-usage.service.js';
@@ -173,7 +173,7 @@ export async function startScreenChat(params: {
   });
 
   void followed.ended.catch((caughtError: unknown) => {
-    screen.notice(`✗ lost the live stream: ${errorText(caughtError)}`);
+    screen.notice(`✗ lost the live stream: ${describeFailure(caughtError)}`);
   });
 
   conversation.watchBackground((background) => screen.setStatus(background));

@@ -5,12 +5,14 @@ import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.typ
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
+import type { Backend } from '../client/client.types.js';
+import { openConversation } from '../client/conversation.helper.js';
+import type { RemoteConversation } from '../client/conversation.service.js';
 import { BackendError } from '../errors/backend.errors.js';
-import { RemoteConversation } from '../client/conversation.service.js';
-import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
+import { abortingStop, interruptOnCtrlC } from '../interrupt/interrupt.helper.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
-import { plainTerminalText } from '../render/terminal-text.utils.js';
+import { describeFailure } from '../render/terminal-text.utils.js';
 import { settleBackground } from './background.helper.js';
 import { RunRecorder } from './recorder.service.js';
 import { runEnv } from './run-env.utils.js';
@@ -50,6 +52,56 @@ export async function runWorkbook(params: {
     }
   }
 
+  const interrupt = new AbortController();
+  const live: LiveRun = {};
+  // Everything printed goes in the transcript too, once there is a recorder.
+  const write = (text: string) => {
+    process.stdout.write(text);
+    live.recorder?.transcript(text);
+  };
+  // Installed before the run folder and the backend exist, so a press during startup stops that
+  // too. A force quit ends the backend and closes the recorder's files first: nothing buffered is
+  // lost, and the run folder stays readable.
+  const ctrlC = interruptOnCtrlC({
+    write,
+    stop: abortingStop(interrupt),
+    forceQuit: () => endRun(live),
+  });
+
+  try {
+    return await startRun({ store, request, trustFile, checkContext, interrupt, live, write });
+  } finally {
+    try {
+      await endRun(live);
+    } finally {
+      ctrlC.dispose();
+    }
+  }
+}
+
+/** What a run has started so far, for whatever ends it to clean up. */
+type LiveRun = { backend?: Backend; recorder?: RunRecorder };
+
+/** Stops the run's backend and closes its recorder, even when the backend fails to stop. */
+async function endRun(live: LiveRun): Promise<void> {
+  try {
+    await live.backend?.stop();
+  } finally {
+    await live.recorder?.dispose();
+  }
+}
+
+/** Claims the run folder and workspace, starts the backend and streams the run on it. */
+async function startRun(params: {
+  store: WorkbookStore;
+  request: RunRequest;
+  trustFile: string | undefined;
+  checkContext: CheckContext | undefined;
+  interrupt: AbortController;
+  live: LiveRun;
+  write: (text: string) => void;
+}): Promise<RunResult & { id: RunId }> {
+  const { store, request, trustFile, checkContext, interrupt, live, write } = params;
   const paths = await store.beginRun({
     prompt: request.name,
     id: (number) => runId({ number, prompt: request.name }),
@@ -60,14 +112,11 @@ export async function runWorkbook(params: {
     : await store.workspace({ prompt: request.stored, key: request.name, keep: request.keep });
   // The recorder is created first so everything the backend prints goes in the transcript.
   const recorder = new RunRecorder(paths);
-  const write = (text: string) => {
-    process.stdout.write(text);
-    recorder.transcript(text);
-  };
-  let backend: Awaited<ReturnType<typeof connectBackend>> | undefined;
+
+  live.recorder = recorder;
 
   try {
-    backend = await connectBackend({
+    const backend = await connectBackend({
       env: runEnv({
         env: process.env,
         request,
@@ -78,7 +127,10 @@ export async function runWorkbook(params: {
       // Fresh committed fixture copies are trusted; kept workspaces require explicit trust.
       args: workspace.fresh || request.trust ? ['--trust'] : [],
       onOutput: write,
+      signal: interrupt.signal,
     });
+
+    live.backend = backend;
 
     return await streamRun({
       store,
@@ -90,13 +142,20 @@ export async function runWorkbook(params: {
       backend,
       checkContext,
       workspaceRoot: workspace.dir,
+      interrupt: interrupt.signal,
     });
-  } finally {
-    try {
-      await backend?.stop();
-    } finally {
-      await recorder.dispose();
-    }
+  } catch (caughtError) {
+    // Interrupted while the backend started: the run is saved as interrupted, not as a crash.
+    if (!interrupt.signal.aborted || live.backend) throw caughtError;
+
+    const result = await recorder.finish({
+      outcome: 'interrupted',
+      error: describeFailure(caughtError),
+      messages: [],
+      sessions: 0,
+    });
+
+    return { ...result, id: paths.id };
   }
 }
 
@@ -108,12 +167,14 @@ async function streamRun(params: {
   paths: Awaited<ReturnType<WorkbookStore['beginRun']>>;
   recorder: RunRecorder;
   write: (text: string) => void;
-  backend: Awaited<ReturnType<typeof connectBackend>>;
+  backend: Backend;
   checkContext: CheckContext | undefined;
   workspaceRoot: string;
+  /** Aborted by the first Ctrl+C: the run stops cleanly and its result is still saved. */
+  interrupt: AbortSignal;
 }): Promise<RunResult & { id: RunId }> {
   const { backend, history } = params;
-  const conversation = await RemoteConversation.open({
+  const conversation = await openConversation({
     backend,
     messages: history,
     model: params.request.model,
@@ -178,7 +239,7 @@ async function recordConversation(
   if (trustNotice) write(`${trustNotice}\n`);
   write(`→ main session ${shortId(details.session)}\n→ ${request.text}\n\n`);
 
-  const interrupt = interruptOnCtrlC(write);
+  const interrupt = { signal: params.interrupt };
   const sessions = new Set([details.session]);
   let outcome: RunResult['outcome'] = 'failed';
   let error: string | undefined;
@@ -266,9 +327,7 @@ async function recordConversation(
   } catch (caughtError) {
     outcome = interrupt.signal.aborted ? 'interrupted' : 'failed';
     error = caughtError instanceof Error ? caughtError.message : String(caughtError);
-    write(`\n✗ Run failed: ${plainTerminalText(error)}\n`);
-  } finally {
-    interrupt.dispose();
+    write(`\n✗ Run failed: ${describeFailure(caughtError)}\n`);
   }
 
   const result = await recorder.finish({
@@ -302,27 +361,6 @@ async function startingPoint(params: {
     history: history.filter((entry) => entry.role !== 'notice'),
     workspace: meta.workspace,
   };
-}
-
-/** Ctrl+C once stops the run cleanly (its result is still saved); twice force-quits. */
-function interruptOnCtrlC(write: (text: string) => void) {
-  const controller = new AbortController();
-  let interruptedAt = 0;
-  const onSigint = () => {
-    if (controller.signal.aborted) {
-      if (now() - interruptedAt < SAME_KEYPRESS_MS) return;
-      write('\n✗ Forced exit (the run folder has everything up to here).\n');
-      process.exit(130);
-    }
-
-    interruptedAt = now();
-    write('\n⏹ Interrupting… (Ctrl+C again to force quit)\n');
-    controller.abort();
-  };
-
-  process.on('SIGINT', onSigint);
-
-  return { signal: controller.signal, dispose: () => process.off('SIGINT', onSigint) };
 }
 
 /** The commit the harness was at, so a run can be tied to the code that produced it. */

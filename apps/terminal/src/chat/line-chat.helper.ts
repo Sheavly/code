@@ -1,12 +1,12 @@
 import { createInterface } from 'node:readline/promises';
 import { stripVTControlCharacters } from 'node:util';
-import { now } from '@sheavly/core/clock/clock.helper';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from './chat-session.service.js';
-import { completeChatLine, errorText } from './chat.utils.js';
+import { completeChatLine } from './chat.utils.js';
 import type { RemoteConversation } from '../client/conversation.service.js';
-import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
+import { interruptOnCtrlC } from '../interrupt/interrupt.helper.js';
 import type { Renderer } from '../render/render.service.js';
+import { describeFailure } from '../render/terminal-text.utils.js';
 
 /**
  * Runs the chat as lines in and lines out, for input that is not a terminal (piped, scripted) and
@@ -23,10 +23,12 @@ export async function runLineChat(params: {
   renderer: Renderer;
   write: (text: string) => void;
   firstPrompt: string | undefined;
-  /** Called when a second, deliberate Ctrl+C asks to leave while a prompt still runs. */
-  forceQuit: () => void;
+  /** Ends the conversation and its backend when a second, deliberate Ctrl+C asks to leave. */
+  forceQuit: () => Promise<void>;
+  /** Exits the process after `forceQuit`; the process's own unless a test stands in. */
+  exit?: (code: number) => void;
 }): Promise<void> {
-  const { conversation, details, renderer, write, firstPrompt, forceQuit } = params;
+  const { conversation, details, renderer, write, firstPrompt, forceQuit, exit } = params;
 
   if (details.models.length > 0) {
     write(
@@ -48,7 +50,6 @@ export async function runLineChat(params: {
   const lines = input[Symbol.asyncIterator]();
   let inputOpen = true;
   let quitting = false;
-  let interruptedAt = 0;
 
   input.once('close', () => (inputOpen = false));
 
@@ -64,31 +65,21 @@ export async function runLineChat(params: {
     },
   });
 
-  // Ctrl+C stops the running prompt; pressed again while it stops, it force-quits (stopping what the
-  // conversation started first), and at the input line it quits.
-  input.on('SIGINT', () => {
-    // The same key press seen twice (as under `npx tsx`) acts once, whatever it did.
-    if (quitting || now() - interruptedAt < SAME_KEYPRESS_MS) return;
-    interruptedAt = now();
+  // readline owns Ctrl+C while it reads, so it is the signal source here, not `process`.
+  const ctrlC = interruptOnCtrlC({
+    write,
+    source: input,
+    stop: () => session.stop(),
+    onIdle: () => {
+      quitting = true;
+      input.close();
+    },
+    forceQuit: () => {
+      quitting = true;
 
-    const stopped = session.stop();
-
-    if (stopped === 'stopped') {
-      write('\n⏹ Stopping this prompt… (Ctrl+C again to force quit)\n');
-
-      return;
-    }
-
-    quitting = true;
-
-    if (stopped === 'stopping') {
-      write('\n✗ Forced exit.\n');
-      forceQuit();
-
-      return;
-    }
-
-    input.close();
+      return forceQuit();
+    },
+    ...(exit && { exit }),
   });
 
   const following = new AbortController();
@@ -100,7 +91,7 @@ export async function runLineChat(params: {
     });
 
     void followed.ended.catch((caughtError: unknown) => {
-      write(`✗ lost the live stream: ${errorText(caughtError)}\n`);
+      write(`✗ lost the live stream: ${describeFailure(caughtError)}\n`);
     });
 
     if (firstPrompt) session.submit(firstPrompt);
@@ -118,6 +109,7 @@ export async function runLineChat(params: {
     // EOF ends input, not the conversation work already submitted (including queued commands).
     await session.idle();
   } finally {
+    ctrlC.dispose();
     following.abort();
     input.close();
   }

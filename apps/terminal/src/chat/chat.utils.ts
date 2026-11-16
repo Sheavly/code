@@ -1,16 +1,10 @@
 import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
-import { plainTerminalText } from '../render/terminal-text.utils.js';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import type { SkillInfo } from '@sheavly/protocol/skill/skill.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ChatInput, RunState } from './chat.types.js';
-
-/** What a caught error says, as plain terminal text. */
-export function errorText(caught: unknown): string {
-  return plainTerminalText(caught instanceof Error ? caught.message : String(caught));
-}
 
 /** The main session's `run_state` an entry carries, or undefined for any other entry. */
 export function mainRunState(params: {

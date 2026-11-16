@@ -9,11 +9,12 @@ export default defineConfig([
     entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
   }),
   // The workbook is a developer tool: it records each run (events, transcript, results) and
-  // prepares a scratch workspace in its own folder, and the demo can log the SSE stream to a file.
-  // None of it is the user's data, which is `@sheavly/storage`'s (`harness/no-direct-file-writes`).
+  // prepares a scratch workspace in its own folder, and `saveRawStream` logs the SSE stream to a
+  // file for the demo and the recorder. None of it is the user's data, which is
+  // `@sheavly/storage`'s (`harness/no-direct-file-writes`).
   {
     files: [
-      'src/demo.ts',
+      'src/client/raw-stream.helper.ts',
       'src/workbook/recorder.service.ts',
       'src/workbook/store.service.ts',
       'src/workbook/check.helper.ts',

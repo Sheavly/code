@@ -65,7 +65,8 @@ export async function openSession(params: {
 
 /**
  * The one way a terminal entry point ends a session: closes the conversation (it stops what the
- * conversation started), then stops the backend even when closing fails. Safe to call twice.
+ * conversation started), then stops the backend even when closing fails. A caller with two ways to
+ * end (the normal one and a force quit) keeps the promise and calls this once.
  */
 export async function closeSession(params: {
   backend: Backend;

@@ -1,8 +1,8 @@
 import { createWriteStream, type WriteStream } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { Writable } from 'node:stream';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
+import { saveRawStream } from '../client/raw-stream.helper.js';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import type { RunMeta, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
@@ -51,12 +51,8 @@ export class RunRecorder {
   /** Records the conversation's SSE stream until `finish`, which aborts `stop` to end it. */
   recordSessions(stream: ReadableStream<Uint8Array>, stop: AbortController): void {
     this.#stopSse = stop;
-    this.#sseWritten = stream
-      .pipeTo(Writable.toWeb(createWriteStream(this.paths.sessions)) as WritableStream<Uint8Array>)
-      .catch((caughtError: unknown) => {
-        // `finish` ends the stream by aborting it: expected, the file has everything up to there.
-        if (!stop.signal.aborted) throw caughtError;
-      });
+    // `finish` ends the stream by aborting `stop`.
+    this.#sseWritten = saveRawStream({ stream, file: this.paths.sessions, stop });
   }
 
   /** One loop event of the main session. */

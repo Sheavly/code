@@ -6,7 +6,9 @@ import { stripTerminalSequences, TuiMainScreen } from '@earendil-works/pi-tui';
 import type { ApprovalOption, ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { fakeTerminal } from '../../testing/terminal.fake.js';
+import { QUIT_WINDOW_MS } from '../tui.constants.js';
 import { createPalette } from '../../theme/palette.utils.js';
 import { THEMES } from '../../theme/theme.constants.js';
 import type { Palette } from '../../theme/theme.types.js';
@@ -21,6 +23,7 @@ const ESC = '\u001b';
 const DOWN = '\u001b[B';
 const UP = '\u001b[A';
 const CTRL_C = '\u0003';
+const clock = useFixedClock();
 
 const request = (id: string): ApprovalRequest => ({
   id: approvalIdSchema.parse(id),
@@ -403,6 +406,31 @@ describe.each(['classic', 'react'] as const)('ChatScreen (%s)', (renderer) => {
       await type(CTRL_C);
       expect(quits()).toBe(0);
       expect(text()).toContain('Press Ctrl+C again to quit');
+
+      await type(CTRL_C);
+      expect(quits()).toBe(1);
+    });
+
+    it('quits on a press while the prompt is still stopping, which leaves cleanly', async () => {
+      const { type, quits, stops, running } = open();
+
+      running('stopped');
+      await type(CTRL_C);
+      expect(quits()).toBe(0);
+
+      running('stopping');
+      await type(CTRL_C);
+      expect(stops()).toBe(2);
+      expect(quits()).toBe(1);
+    });
+
+    it('only arms quit again when the second idle press comes after the window', async () => {
+      const { type, quits } = open();
+
+      await type(CTRL_C);
+      clock.advance(QUIT_WINDOW_MS);
+      await type(CTRL_C);
+      expect(quits()).toBe(0);
 
       await type(CTRL_C);
       expect(quits()).toBe(1);
