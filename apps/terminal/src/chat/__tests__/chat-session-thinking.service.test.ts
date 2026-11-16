@@ -39,14 +39,10 @@ function thinkingChat(params: { entries: StreamEntry[]; failAfter?: boolean }) {
     details: unused,
     useModel: unused,
     skills: () => Promise.resolve([]),
-    runningTasks: 0,
   };
   const session = new ChatSession({
     conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
+    renderer: new Renderer(() => undefined),
     mainSession: MAIN,
     write: () => undefined,
     onThinking: (thinking) => told.push(thinking),

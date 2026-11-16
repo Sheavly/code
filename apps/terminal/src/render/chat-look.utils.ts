@@ -56,11 +56,9 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
       paint.status.error(`✗ hook ${hook} failed in ${handler}: ${error}\n`),
     storageFailed: (error) =>
       paint.status.error(`✗ This chat could not be saved: ${error}\n  The next prompt retries.\n`),
-    turnEnd: ({ stopReason, waiting }) => {
-      if (stopReason !== 'end_turn' || waiting === 0) return '';
-
-      return paint.text.secondary(`… waiting for ${waiting} background task(s) · Ctrl+C to stop\n`);
-    },
+    turnEnd: () => '',
+    awaitingTasks: (count) =>
+      paint.text.secondary(`… waiting for ${count} background task(s) · Ctrl+C to stop\n`),
     done: ({ reason }) => {
       if (reason === 'interrupted') return paint.text.secondary('■ stopped\n');
       if (reason === 'max_turns') return paint.status.warning('⚠ stopped at the turn limit\n');

@@ -81,8 +81,9 @@ export type Look = {
   storageFailed: (error: string) => string;
   turnEnd: (params: {
     stopReason: Extract<EntryEvent, { type: 'turn_end' }>['stopReason'];
-    waiting: number;
   }) => string;
+  /** The run is held open on `await_tasks`, with this many grouped tasks still running. */
+  awaitingTasks: (count: number) => string;
   done: (params: {
     reason: Extract<EntryEvent, { type: 'done' }>['reason'];
     events: number;

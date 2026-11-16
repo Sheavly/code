@@ -107,7 +107,7 @@ async function describeSession(params: {
     backend,
     conversation,
     details,
-    renderer: new Renderer(write, () => conversation.runningTasks),
+    renderer: new Renderer(write),
     prompt: args.filter((arg) => arg !== '--trust').join(' '),
   };
 }

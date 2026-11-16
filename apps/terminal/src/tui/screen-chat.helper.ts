@@ -89,12 +89,7 @@ export async function startScreenChat(params: {
     onQuit: () => leave(),
     onExpand: () => session.describeLatest(),
   });
-  const renderer = new Renderer(
-    screen.write,
-    () => conversation.runningTasks,
-    createChatLook(palette),
-    screen.reply,
-  );
+  const renderer = new Renderer(screen.write, createChatLook(palette), screen.reply);
   const keepUsage = (entry: StreamEntry) => {
     usage.observe(entry);
     context.observe(entry);

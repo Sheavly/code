@@ -23,7 +23,6 @@ const done: StreamEntry = {
 
 /** The parts of a conversation these tests never use. */
 const unused = {
-  runningTasks: 0,
   skills: async () => [],
   details: async () => {
     throw new Error('not used');
@@ -37,10 +36,7 @@ function sessionFor(params: {
 }) {
   return new ChatSession({
     conversation: params.conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
+    renderer: new Renderer(() => undefined),
     mainSession: MAIN,
     write: () => undefined,
     ...(params.onQueue && { onQueue: params.onQueue }),

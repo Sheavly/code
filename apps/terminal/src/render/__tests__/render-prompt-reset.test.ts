@@ -16,12 +16,10 @@ const done = (seq: number): EntryEvent => ({ seq, type: 'done', reason: 'complet
 function chatRenderer() {
   const out: string[] = [];
   const end = vi.fn();
-  const renderer = new Renderer(
-    (chunk) => out.push(chunk),
-    () => 0,
-    createChatLook(),
-    { write: (chunk) => out.push(chunk), end },
-  );
+  const renderer = new Renderer((chunk) => out.push(chunk), createChatLook(), {
+    write: (chunk) => out.push(chunk),
+    end,
+  });
 
   return { out, end, renderer };
 }
@@ -59,10 +57,7 @@ describe('Renderer: per-prompt state', () => {
     ['a run that failed', failed],
   ])('does not carry reasoning from %s into the next prompt', (_name, ending) => {
     const out: string[] = [];
-    const renderer = new Renderer(
-      (chunk) => out.push(chunk),
-      () => 0,
-    );
+    const renderer = new Renderer((chunk) => out.push(chunk));
 
     renderer.event(reasoning);
     renderer.event(ending);

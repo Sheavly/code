@@ -13,11 +13,7 @@ const main = sessionIdSchema.parse('main');
 /** What a look prints for these events, without colour. */
 function printed(params: { look: Look; events: EntryEvent[] }): string {
   let out = '';
-  const renderer = new Renderer(
-    (text) => (out += text),
-    () => 0,
-    params.look,
-  );
+  const renderer = new Renderer((text) => (out += text), params.look);
 
   for (const event of params.events) renderer.event(event);
 
@@ -65,11 +61,7 @@ describe('Renderer: a batch of tool calls, in the chat look', () => {
 
   it('still shows a title that never got its result when the run ends without one', () => {
     let out = '';
-    const renderer = new Renderer(
-      (text) => (out += text),
-      () => 0,
-      look,
-    );
+    const renderer = new Renderer((text) => (out += text), look);
     const [startA] = step('a', 'Cut off');
 
     renderer.event(startA);

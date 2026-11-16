@@ -7,11 +7,7 @@ import { Renderer } from '../render.service.js';
 /** What a person sees in the chat for these events, without colour. */
 function chatted(events: EntryEvent[]): string {
   let out = '';
-  const renderer = new Renderer(
-    (text) => (out += text),
-    () => 0,
-    createChatLook(),
-  );
+  const renderer = new Renderer((text) => (out += text), createChatLook());
 
   for (const event of events) renderer.event(event);
 

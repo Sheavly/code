@@ -17,10 +17,10 @@ type EventOf<T extends EntryEvent['type']> = Extract<EntryEvent, { type: T }>;
 /**
  * The terminal front end of the chat, the demo and the workbook: one line (or block) per event of
  * the main session and per sub-agent update, from the backend's stream, written to `write`.
- * `runningTasks` says how many background tasks still run, from the stream's task entries. Kept
- * stateful only for the current tool batch size, the titles it holds back until their result
- * (when the look pairs steps), the reasoning count, the tools running now (`running`), and the
- * file changes and failures it has seen (`changes`, `failures`, whatever the look shows of them).
+ * It says the run waits only when `run_state` says it is held on grouped tasks. Kept stateful
+ * only for the current tool batch size, the titles it holds back until their result (when the
+ * look pairs steps), the reasoning count, the tools running now (`running`), and the file changes
+ * and failures it has seen (`changes`, `failures`, whatever the look shows of them).
  */
 export class Renderer {
   /** Every file change printed so far, for a screen to show in full when asked. */
@@ -44,7 +44,6 @@ export class Renderer {
    */
   constructor(
     private readonly write: Write,
-    private readonly runningTasks: () => number,
     private readonly look: Look = logLook,
     private readonly reply: ReplySink = { write, end: () => undefined },
   ) {}
@@ -91,13 +90,16 @@ export class Renderer {
   /** One loop event of the main session. */
   event(event: EntryEvent): void {
     switch (event.type) {
+      case 'run_state':
+        if (event.state === 'waiting' && event.groupedTasks > 0) {
+          this.#activity(this.look.awaitingTasks(event.groupedTasks));
+        }
+
+        break;
       case 'usage':
       case 'harness_notice':
-      case 'run_state':
-        // Notices are not transcript output. Other UIs can display recovery or telemetry;
-        // this terminal keeps continuations seamless and uses usage events in its status line.
-        // A persistent notice (a finished task, a sub-agent's report) is ignored here on purpose:
-        // the `task_completed` event and the sub-agent's session updates already draw its line.
+        // Not transcript output: usage feeds the status line, and a persistent notice (a finished
+        // task, a sub-agent's report) is already drawn by `task_completed` and session updates.
         break;
       case 'text_delta':
         this.#reply(plainTerminalText(event.text));
@@ -205,9 +207,7 @@ export class Renderer {
         this.#activity(this.look.storageFailed(plainTerminalText(event.error)));
         break;
       case 'turn_end':
-        this.#activity(
-          this.look.turnEnd({ stopReason: event.stopReason, waiting: this.runningTasks() }),
-        );
+        this.#activity(this.look.turnEnd({ stopReason: event.stopReason }));
         break;
       case 'done':
         this.#done(event);
@@ -367,9 +367,7 @@ export class Renderer {
       return;
     }
 
-    if (!change) return;
-
-    const edit = this.changes.keep(change);
+    const edit = change && this.changes.keep(change);
 
     if (!edit) return;
     this.#latest = 'change';

@@ -88,8 +88,7 @@ describe.each([
   it.each(cases)('ignores $name without changing output or progress', ({ notice }) => {
     const write = vi.fn();
     const reply = { write: vi.fn(), end: vi.fn() };
-    const runningTasks = vi.fn(() => 1);
-    const renderer = new Renderer(write, runningTasks, look, reply);
+    const renderer = new Renderer(write, look, reply);
     const event: EntryEvent = {
       seq: 3,
       type: 'harness_notice',
@@ -114,7 +113,6 @@ describe.each([
     expect(write).not.toHaveBeenCalled();
     expect(reply.write).not.toHaveBeenCalled();
     expect(reply.end).not.toHaveBeenCalled();
-    expect(runningTasks).not.toHaveBeenCalled();
     expect(renderer.running).toBe(running);
     expect(renderer.running).toHaveLength(1);
     expect(renderer.thinking).toBe(true);

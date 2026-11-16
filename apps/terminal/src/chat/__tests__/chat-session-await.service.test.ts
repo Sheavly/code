@@ -30,7 +30,6 @@ function chatHeld(states: StreamEntry[]) {
   const yields: number[] = [];
   const releases: (() => void)[] = [];
   const conversation = {
-    runningTasks: 0,
     skills: () => Promise.resolve([]),
     yieldPrompt: () => {
       yields.push(sent.length);
