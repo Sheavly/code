@@ -1640,6 +1640,14 @@
           {
             "type": "object",
             "properties": {
+              "type": { "type": "string", "const": "storage_failed" },
+              "error": { "type": "string" }
+            },
+            "required": ["type", "error"]
+          },
+          {
+            "type": "object",
+            "properties": {
               "type": { "type": "string", "const": "done" },
               "reason": { "$ref": "#/components/schemas/DoneReason" },
               "session": { "$ref": "#/components/schemas/SessionRef" },
@@ -1920,6 +1928,15 @@
               "error": { "type": "string" }
             },
             "required": ["seq", "type", "hook", "handler", "error"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+              "type": { "type": "string", "const": "storage_failed" },
+              "error": { "type": "string" }
+            },
+            "required": ["seq", "type", "error"]
           },
           {
             "type": "object",

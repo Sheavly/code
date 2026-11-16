@@ -60,6 +60,16 @@ is the current state, and a UI of a sub-agent's session reads that session's own
 with no closing `working` (the run was aborted or yielded, or only services remain), so `done`
 ends the state: a UI treats the run as over when it arrives.
 
+## Storage failure
+
+`storage_failed` (`{ error: string }`) says live that the conversation could not be stored: a
+stream, history or index write failed. It is sent once when writes start failing (not per write, and
+not for a retry that fails again), under the main session, and again only after storage was healthy
+in between. It never ends a run: the prompt carries on, and the conversation refuses its next
+prompt with `storage_failed` unless a retry (`recover`) has stored what was lost. `error` names the
+file or conversation and never what it holds. It is not history and not model input. A UI shows it
+and does not treat the run as over: `done` still ends the run.
+
 ## Harness notices
 
 `HarnessNotice` (`@sheavly/protocol/notice/notice.types`) is defined by `harnessNoticeSchema` in
