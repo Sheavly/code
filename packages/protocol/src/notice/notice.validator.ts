@@ -124,5 +124,11 @@ export const persistentNoticeSchema = z.union([
   }),
 ]);
 
+/**
+ * How long a notice lives: `transient` is sent beside one model call and never stored,
+ * `persistent` is also kept in history. The kind decides, in `NOTICE_LIFETIMES`.
+ */
+export const noticeLifetimeSchema = z.enum(['transient', 'persistent']);
+
 /** Harness-originated data shared by the model and UI, without model instructions or UI styling. */
 export const harnessNoticeSchema = z.union([transientNoticeSchema, persistentNoticeSchema]);

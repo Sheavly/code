@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 import type {
   harnessNoticeSchema,
+  noticeLifetimeSchema,
+  persistentNoticeSchema,
   runningTaskSchema,
   runningTasksNoticeSchema,
   taskCompletionContextSchema,
@@ -17,3 +19,9 @@ export type TaskCompletionContext = z.infer<typeof taskCompletionContextSchema>;
 
 /** Notice data that UIs receive as structured protocol data, and that a model may be shown. */
 export type HarnessNotice = z.infer<typeof harnessNoticeSchema>;
+
+/** A notice the model must remember, so it is also stored in history. */
+export type PersistentNotice = z.infer<typeof persistentNoticeSchema>;
+
+/** Whether a notice is sent beside one model call only, or also kept in history. */
+export type NoticeLifetime = z.infer<typeof noticeLifetimeSchema>;

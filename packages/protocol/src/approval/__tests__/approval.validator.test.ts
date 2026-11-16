@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   approvalOptionSchema,
   approvalRequestSchema,
+  approvalResponseOfferedBy,
   approvalResponseSchema,
   approvalUpdateSchema,
 } from '../approval.validator.js';
@@ -40,6 +41,28 @@ describe('approvalResponseSchema', () => {
   it('rejects an unknown or missing decision', () => {
     expect(approvalResponseSchema.safeParse({ decision: 'maybe' }).success).toBe(false);
     expect(approvalResponseSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('approvalResponseOfferedBy', () => {
+  const offered = approvalResponseOfferedBy(['approve', 'skip']);
+
+  it('accepts a decision the request offered', () => {
+    expect(offered.parse({ decision: 'approve' })).toEqual({ decision: 'approve' });
+  });
+
+  it('rejects a well-formed decision the request did not offer', () => {
+    const result = offered.safeParse({ decision: 'always_allow' });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['decision']);
+  });
+
+  it('still rejects a malformed answer to an offered decision', () => {
+    expect(
+      approvalResponseOfferedBy(['skip_with_message']).safeParse({ decision: 'skip_with_message' })
+        .success,
+    ).toBe(false);
   });
 });
 

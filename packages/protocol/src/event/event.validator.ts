@@ -64,7 +64,7 @@ export const doneReasonSchema = z.enum(RUN_OUTCOMES);
  *   → harness_notice                              (structured telemetry sent to this model call)
  *   → text_delta / reasoning / tool_call_started  (live, as the model streams)
  *   → turn_end
- *   → tool_batch → tool_result | task_running × N (each as its tool finishes; match by call id)
+ *   → tool_batch → tool_result | task_running × N (after the turn, in finish order; match by call id)
  *   → next turn ... → done
  */
 /** Every step but `done`: the events a run and the combined stream (`StreamEntry`) share. */
@@ -95,10 +95,11 @@ const stepEventSchemas = [
     turn: z.number().int().nonnegative(),
     stopReason: turnStopReasonSchema,
   }),
-  /** The turn ended with these calls; their results follow in this order. */
+  /** The turn ended with these calls, in the order the model made them; results follow as they finish. */
   z.object({ type: z.literal('tool_batch'), calls: z.array(describedCallSchema) }),
   /**
-   * A tool's result, released only after the turn ended and all earlier results were.
+   * A tool's result, released only after the turn ended, in the order the tools finished (not
+   * call order; history keeps call order).
    * `artifacts`: what the tool returned for a UI (a file diff, a read range, a parsed table),
    * passed on as the tool (or a hook) left them. A UI renders the kinds it knows.
    */

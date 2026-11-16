@@ -29,15 +29,25 @@ workspace package, and the layout check holds it to that.
   the code contracts (`Tool`, `Hook`, `Adapter`) stay in `@sheavly/core`, and the queue's generic
   `Sequenced<T>` in the loop.
 
+## Version and legacy fields
+
+`CONTRACT_VERSION` (`contract/contract.constants.ts`) is published as `contractVersion` in
+`contract.schema.json`. Raise it for a change an older client or a stored conversation cannot
+read; adding an optional field does not. Stored conversations carry no marker: a field that is
+optional only so older data still reads is listed in `LEGACY_FIELDS` with the condition that
+removes it, and a test checks each is still readable when absent (`legacy-fields.test.ts`).
+
 ## Tool results arrive as tools finish
 
 `tool_call_started` comes when the model asks for a call, so a UI can show every call of a turn
-at once. `tool_batch` then lists the turn's calls in the order the model made them, and each
-call's `tool_result` (or `task_running`) is released only after the turn ended and all earlier
-results were, so results arrive in call order even when tools finish in another. Still match a
+at once. `tool_batch` then lists the turn's calls in the order the model made them. Each call's
+`tool_result` (or `task_running`) is released only after the turn ended, in the order the tools
+finished: a result that finished while the model still streamed is released first, in the order
+those finished, and the rest follow as they finish. It is **not** call order, so always match a
 result to its call by `call.id`, and fill in a call's row when its result comes. A UI that cannot
 update lines it already wrote (a terminal) can hold a call's title until its result. The history
-(`done.messages`, `GET /messages`) keeps the results in call order.
+(`done.messages`, `GET /messages`) keeps the results in call order, which is what the model is
+sent next. `event-order.test.ts` and `parallel.test.ts` in the loop pin both orders.
 
 ## Reasoning activity
 
@@ -102,7 +112,11 @@ commands and output. `RunningTask` and `RunningTasksNotice` are inferred protoco
 equality is enforced by zod parsing; standard generated JSON Schema describes the field bounds
 but cannot express this cross-field arithmetic invariant.
 
-Every kind has a lifetime. The three above are **transient**: sent beside the history on one model
+Every kind has a lifetime, declared once in `NOTICE_LIFETIMES` (`notice/notice.constants.ts`); the
+formatter, history, the loop and the stream read it through `isPersistentNotice` and
+`noticeLifetime`, never by listing kinds. Adding a kind is its schema plus one registry entry
+(typecheck fails without it, and `NOTICE_SAMPLES` in `@sheavly/testing` needs a sample, which runs
+the new kind through the formatter, history and stream tests). The three above are **transient**: sent beside the history on one model
 call and never stored, because context and running-task snapshots become stale on the next call
 and a continuation's partial reply is already in history. **Persistent** kinds are facts the model has to remember, so
 they are also stored in history as a `notice` entry (`NoticeMessage`, in `history/`: `{ role:
@@ -248,7 +262,8 @@ the optional `keeps` array carries the exact allow-list entries the choice would
 entries rather than guessing their scope from `command`; requests without `keeps` remain valid.
 `{ decision: 'allow_session' }` grants those entries for the current conversation without persistence;
 `{ decision: 'always_allow' }` saves them for the workspace. The caller owns applying the grant;
-the registry refuses decisions that were not offered. A grant covers every option, path and
+the registry refuses decisions that were not offered, and `approvalResponseOfferedBy(options)`
+is the schema a client or server can validate an answer against. A grant covers every option, path and
 other argument of its base command, including secret files, outside-workspace access, editing,
 execution overrides and npx downloads. Built-in approvals follow the same rule. Different base
 commands in a chain are checked independently. `always_ask` ignores every grant.

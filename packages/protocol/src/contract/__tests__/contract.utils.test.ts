@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CONTRACT_SCHEMA_FILE } from '../contract.constants.js';
+import { CONTRACT_SCHEMA_FILE, CONTRACT_VERSION } from '../contract.constants.js';
 import { contractJsonSchema } from '../contract.utils.js';
 import { refsIn } from '../../testing/refs.fake.js';
 
@@ -14,6 +14,10 @@ describe('contractJsonSchema', () => {
     );
 
     expect(committed).toEqual(contractJsonSchema());
+  });
+
+  it('declares the contract version for clients that are not TypeScript', () => {
+    expect(contractJsonSchema().contractVersion).toBe(CONTRACT_VERSION);
   });
 
   it('names every type of the contract under $defs', () => {
