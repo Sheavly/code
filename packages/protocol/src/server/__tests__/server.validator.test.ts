@@ -78,6 +78,11 @@ describe('the other requests', () => {
     expect(startConversationRequestSchema.parse({ messages })).toEqual({ messages });
   });
 
+  it('starts a conversation on a reasoning effort, and refuses one that is not a mode', () => {
+    expect(startConversationRequestSchema.parse({ mode: 'high' })).toEqual({ mode: 'high' });
+    expect(startConversationRequestSchema.safeParse({ mode: 'max' }).success).toBe(false);
+  });
+
   it('resumes from, and reads back, a history that holds a checkpoint', () => {
     const checkpoint = summaryMessageSchema.parse({
       at: 7,
