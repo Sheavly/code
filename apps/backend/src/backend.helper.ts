@@ -9,6 +9,7 @@ import { permissionStoreFor, sheavlyHome, trustStoreFor } from './profiles/home.
 import { PermissionSetup } from './profiles/permission-setup.service.js';
 import { PlacedConversationStore } from './profiles/placed-conversation-store.service.js';
 import { Profiles } from './profiles/profiles.service.js';
+import { createReplayDropLog } from './profiles/replay-drop-log.helper.js';
 import type { ProfileSetup } from './profiles/setup.service.js';
 import type { WorkspaceSetup } from './profiles/workspace-setup.service.js';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
@@ -39,7 +40,13 @@ export function createBackend(params: {
   permissions: PermissionSetup;
 } {
   const { env, settings, log, remoteSetupAllowed, adapters } = params;
-  const profiles = new Profiles({ env, ...(adapters && { adapters }) });
+  const profiles = new Profiles({
+    env,
+    ...(adapters && { adapters }),
+    // A person sees why a model lost its reasoning, once per kind: a drop that repeats every call
+    // (a changing notice moves the request prefix) is one line, not one per call.
+    onReplayDropped: createReplayDropLog(log),
+  });
   const trustStore = trustStoreFor(env);
   const permissionStore = permissionStoreFor(env);
   const places = new PlacedConversationStore({

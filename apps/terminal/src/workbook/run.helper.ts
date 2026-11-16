@@ -3,12 +3,15 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.types';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
+import { BackendError } from '../errors/backend.errors.js';
 import { RemoteConversation } from '../client/conversation.service.js';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
+import { settleBackground } from './background.helper.js';
 import { RunRecorder } from './recorder.service.js';
 import { runEnv } from './run-env.utils.js';
 import type { WorkbookStore } from './store.service.js';
@@ -180,21 +183,71 @@ async function recordConversation(
   let error: string | undefined;
 
   try {
+    // The prompt's stream and the live feed both carry some entries, so each is shown once by seq.
+    // A set, not the highest seq seen: the two streams are not ordered against each other, so an
+    // earlier entry can arrive after a later one and must still be shown.
+    const shown = new Set<number>();
+    const show = (entry: StreamEntry) => {
+      if (shown.has(entry.seq)) return;
+
+      shown.add(entry.seq);
+      sessions.add(entry.sessionId);
+      if (entry.kind === 'event') recorder.event(entry.event);
+      renderer.entry(entry, details.session);
+      outcome = runEnd(entry) ?? outcome;
+    };
     const send = async (signal: AbortSignal) => {
       const combined = AbortSignal.any([signal, interrupt.signal]);
 
       combined.throwIfAborted();
 
-      // Skills mentioned by the prompt run with it, as in the chat.
-      for await (const entry of conversation.send({ text: request.text, signal: combined })) {
-        // A watcher failure races the prompt to close the conversation; its late events must
-        // not overwrite the saved failure or write to an already-closed recorder.
-        if (signal.aborted && !interrupt.signal.aborted) break;
+      // A watcher failure races the prompt to close the conversation; its late events, from the
+      // prompt or the live feed, must not overwrite the saved failure or write to a closed recorder.
+      const accept = (entry: StreamEntry) => {
+        if (signal.aborted && !interrupt.signal.aborted) return;
 
-        sessions.add(entry.sessionId);
-        if (entry.kind === 'event') recorder.event(entry.event);
-        renderer.entry(entry, details.session);
-        outcome = runEnd(entry) ?? outcome;
+        show(entry);
+      };
+      // The backend ends the prompt when the model does, then starts a run of its own to deliver
+      // what its background work produced; only the live feed carries that run.
+      const stopFollowing = new AbortController();
+      const feedFailed = new AbortController();
+      const live = await conversation.follow({ onEntry: accept, signal: stopFollowing.signal });
+      // The feed's failure is kept and read below, and it also stops the wait for background work:
+      // without the feed that work's counts no longer move, so waiting on them would only run out.
+      const followFailure = live.ended.then(
+        () => undefined,
+        (caughtError: unknown) => {
+          feedFailed.abort();
+
+          return caughtError;
+        },
+      );
+
+      try {
+        // Skills mentioned by the prompt run with it, as in the chat.
+        for await (const entry of conversation.send({ text: request.text, signal: combined })) {
+          if (signal.aborted && !interrupt.signal.aborted) break;
+
+          accept(entry);
+        }
+
+        await settleBackground({
+          conversation,
+          signal: AbortSignal.any([combined, feedFailed.signal]),
+        });
+        // Interrupted while waiting: the run is saved as interrupted, not as a completed one.
+        interrupt.signal.throwIfAborted();
+      } finally {
+        stopFollowing.abort();
+      }
+
+      const failure = await followFailure;
+
+      if (failure instanceof Error) throw failure;
+
+      if (failure !== undefined) {
+        throw new BackendError({ message: 'The live stream failed', cause: failure });
       }
     };
 

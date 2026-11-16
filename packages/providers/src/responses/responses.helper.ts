@@ -11,6 +11,7 @@ import type {
 import { breakpointIndexes, toInputItems } from './input.utils.js';
 import { EXPLICIT_CACHE_OPTIONS } from './responses.constants.js';
 import { sendRequest } from '../http/request.helper.js';
+import { replaySource } from '../http/replay.utils.js';
 import { readResponsesReply } from './responses-stream.helper.js';
 
 /** A Provider for any backend that speaks the OpenAI Responses API. */
@@ -18,7 +19,11 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
   const { endpoint } = config;
   const reasoning = config.reasoning ?? true;
   /** Encrypted reasoning is only valid for the backend + model that produced it. */
-  const source = `responses:${endpoint.baseUrl}#${endpoint.model}`;
+  const source = replaySource({
+    protocol: 'responses',
+    endpoint: endpoint.baseUrl,
+    model: endpoint.model,
+  });
   const reasoningSource = reasoning ? source : undefined;
 
   return {
@@ -57,6 +62,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
                 toInputItems({
                   message,
                   reasoningSource,
+                  onReplayDropped: config.onReplayDropped,
                   ...(marked && { cache: { marked: marked.has(index) } }),
                 }),
               ),
@@ -114,6 +120,7 @@ export function defineResponsesAdapter<TSchema extends z.ZodType<ResponsesAdapte
         request: config.request,
         explicitCache: config.explicitCache,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
       }),
   });
 }

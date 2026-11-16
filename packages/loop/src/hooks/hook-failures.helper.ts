@@ -1,5 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { AgentEvents } from '../stream-agent/stream-agent.types.js';

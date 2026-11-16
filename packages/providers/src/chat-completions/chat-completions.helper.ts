@@ -3,6 +3,7 @@ import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
+import { replaySource } from '../http/replay.utils.js';
 import { chatRequestBody } from './request.utils.js';
 import { readChatReply } from './chat-stream.helper.js';
 import { chatMaxTokens } from './output-tokens.utils.js';
@@ -16,7 +17,7 @@ import type {
 export function createChatCompletionsProvider(config: ChatProviderConfig): Provider {
   const { endpoint, replayReasoning = false, thinkingMode, effortProfile = 'openai' } = config;
   const maxTokens = chatMaxTokens({ model: endpoint.model, maxTokens: config.maxTokens });
-  const source = `chat:${endpoint.url}#${endpoint.model}`;
+  const source = replaySource({ protocol: 'chat', endpoint: endpoint.url, model: endpoint.model });
 
   return {
     async *stream(request) {
@@ -40,6 +41,7 @@ export function createChatCompletionsProvider(config: ChatProviderConfig): Provi
               maxTokens,
               thinkingMode,
               effortProfile,
+              onReplayDropped: config.onReplayDropped,
             }),
           ),
         },
@@ -72,6 +74,7 @@ export function defineChatCompletionsAdapter<S extends z.ZodType<ChatAdapterConf
         endpoint: toEndpoint(config),
         request: config.request,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
         maxTokens: config.maxTokens,
         replayReasoning: config.replayReasoning,
         thinkingMode: config.thinkingMode,

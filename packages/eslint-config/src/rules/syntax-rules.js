@@ -42,6 +42,9 @@ const INSTRUCTION_CONTEXT_MODULE = '/(^|\\u002F)instruction-context\\.helper(\\.
 /** The factory and its types: importing either makes a file an instruction source. */
 const INSTRUCTION_SOURCE_MODULE = '/(^|\\u002F)instruction-source\\.(helper|types)(\\.js)?$/';
 
+/** The SSE reader, by path or package subpath, `.js` or not. */
+const SSE_READER_MODULE = '/(^|\\u002F)sse\\.utils(\\.js)?$/';
+
 export const SYNTAX_RULES = {
   'no-default-export': [
     {
@@ -228,6 +231,41 @@ export const SYNTAX_RULES = {
         "NewExpression[callee.name='SerialQueue'], NewExpression[callee.property.name='SerialQueue'], ImportSpecifier[imported.name='SerialQueue'][local.name!='SerialQueue']",
       message:
         'Do not queue a read-modify-write with a bare `SerialQueue`: it orders only this process, so two processes on one `~/.sheavly` lose updates. Change a file through `LockedChange` (`packages/storage/src/serial-queue/locked-change.service.ts`): a queue in the process and a lock file across processes. A queue that guards no file (the append-only logs, the profile queue that orders a check with a delete) is a `files:` override with its reason in packages/storage/eslint.config.js.',
+    },
+  ],
+  // A protocol's reply is read by `readReply` (`http/reply-reader.helper.ts`), which owns the
+  // event loop: unknown events skipped, cut-off versus abort, `done` only after a complete reply.
+  // A protocol that imports the SSE reader itself is a fourth copy of that loop. Only the shared
+  // reader's file (a `files:` override in the providers' eslint.config.js) imports it. Not
+  // covered: a reader built on another way of reading the body (`response.body.getReader()`).
+  'no-handrolled-reply-reader': [
+    {
+      selector: `:matches(ImportDeclaration, ImportExpression, ExportNamedDeclaration, ExportAllDeclaration)[source.value=${SSE_READER_MODULE}]`,
+      message:
+        'Do not read a reply\'s server-sent events yourself. Give `readReply` (`packages/providers/src/http/reply-reader.helper.ts`) the protocol\'s `parse`, `step` and `finish`: it owns the event loop, so unknown events, a cut-off stream, an abort and the final `done` behave the same in every protocol. See "Adding a backend" in packages/providers/docs/backends.md.',
+    },
+  ],
+  // Three decisions every model protocol shares live in `packages/providers/src/http/`: how a body
+  // is read (`readReply`), when and how long a call waits (`retry-policy.helper.ts`), and which
+  // stored reasoning a request may carry (`ownReplay`). A protocol that reads the body with
+  // `getReader()`, reads `retry-after` itself or compares a reasoning item's `source` rewrites one
+  // of them. Enabled for the providers workspace, with `files:` overrides for the helpers that
+  // own each. Not covered: a status compared as a number, a header read through a variable name.
+  'no-handrolled-provider-policy': [
+    {
+      selector: "CallExpression[callee.property.name='getReader']",
+      message:
+        "Do not read a model reply's body with `getReader()`. Give `readReply` (`packages/providers/src/http/reply-reader.helper.ts`) the protocol's `parse`, `step` and `finish`.",
+    },
+    {
+      selector: 'Literal[value=/^retry-after$/i]',
+      message:
+        'Do not read `retry-after` yourself. `retryAfterMs` and `backoffMs` (`packages/providers/src/http/retry-policy.helper.ts`) are the one retry policy: both header forms, jitter, and the longest wait.',
+    },
+    {
+      selector: "BinaryExpression[operator=/^[!=]==?$/] > MemberExpression[property.name='source']",
+      message:
+        "Do not compare a reasoning item's `source` by hand. `ownReplay` (`packages/providers/src/http/replay.utils.ts`) is the one compatibility check, and it reports each item it leaves out.",
     },
   ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built

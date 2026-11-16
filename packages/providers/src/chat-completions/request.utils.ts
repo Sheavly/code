@@ -5,6 +5,7 @@ import type {
   ChatEndpoint,
   ChatThinkingMode,
 } from './chat-completions.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import { chatMessages } from './input.utils.js';
 
 /** Serializes only native Chat Completions fields, with an explicit output bound. */
@@ -17,6 +18,7 @@ export function chatRequestBody(params: {
   maxTokens: number | undefined;
   thinkingMode: ChatThinkingMode | undefined;
   effortProfile: ChatEffortProfile;
+  onReplayDropped: ReplayDropHandler | undefined;
 }): Record<string, unknown> {
   const { request, endpoint, source, replayReasoning, maxTokens, thinkingMode, effortProfile } =
     params;
@@ -26,7 +28,12 @@ export function chatRequestBody(params: {
     model: endpoint.model,
     messages: [
       ...(request.instructions ? [{ role: 'system', content: request.instructions }] : []),
-      ...chatMessages({ messages: request.messages, source, replayReasoning }),
+      ...chatMessages({
+        messages: request.messages,
+        source,
+        replayReasoning,
+        onReplayDropped: params.onReplayDropped,
+      }),
       ...(request.notices ?? []).map((notice) => ({
         role: 'user',
         content: formatHarnessNotice(notice),

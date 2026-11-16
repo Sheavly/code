@@ -156,6 +156,21 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `packages/storage/eslint.config.js`; `no-raw-serial-queue.test.js` pins where the rule is on and
   off. It sees the construction only, so a queue passed in from elsewhere, or a lock written by
   hand, is left to review.
+- **Reading a model reply** (`harness/no-handrolled-reply-reader`, source files): no import of the
+  SSE reader (`http/sse.utils`). A protocol gives `readReply`
+  (`packages/providers/src/http/reply-reader.helper.ts`) its `parse`, `step` and `finish`, so
+  unknown events, a cut-off stream, an abort and the final `done` behave the same in every
+  protocol. The shared reader is the one `files:` exception, in `packages/providers/eslint.config.js`;
+  `no-handrolled-reply-reader.test.js` pins where the rule is on and off. It sees the import only,
+  so a reader that reads the body another way (`response.body.getReader()`) is left to review.
+- **Provider policy** (`harness/no-handrolled-provider-policy`, the providers workspace's source,
+  enabled in `packages/providers/eslint.config.js`): no `getReader()`, no `'retry-after'` string
+  and no `item.source ===` comparison. A body is read by `readReply`, a wait is decided by
+  `retry-policy.helper.ts`, and stored reasoning is checked by `ownReplay`
+  (`packages/providers/src/http/replay.utils.ts`). `retry-policy.helper.ts` (reads the header) and
+  `replay.utils.ts` (compares the source) are the two `files:` exceptions; `no-handrolled-provider-policy.test.js` pins where
+  the rule is on and off. It matches these spellings only: a status compared as a number
+  (`=== 429`), or a header name held in a variable, is left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

@@ -9,6 +9,22 @@ import type { ModelMode } from '@sheavly/protocol/model/model.types';
  *
  * Swaps take effect on the next model call. A stream already in progress
  * finishes on the provider it started with.
+ *
+ * States and transitions (the active name is `none` or one added provider):
+ *
+ * | From            | Operation        | To                                              |
+ * | --------------- | ---------------- | ----------------------------------------------- |
+ * | none            | `add(n)`         | active `n`                                      |
+ * | active `a`      | `add(n)`         | active `a` (a repeated name replaces its provider) |
+ * | any             | `use(n)`         | active `n`; an unknown `n` is refused           |
+ * | active `a`      | `remove(a)`      | the first remaining provider, or none           |
+ * | active `a`      | `remove(n ≠ a)`  | active `a`                                      |
+ * | any             | `remove(unknown)`| refused                                         |
+ * | none            | `stream`         | refused (`none_active`)                         |
+ *
+ * `remove` also forgets the provider's mode. A mode is read when a call starts (`stream`) or when
+ * a provider is pinned, never later, so removing a provider changes neither a stream in flight
+ * nor a provider already pinned.
  */
 export class ProviderSwitch implements Provider {
   private readonly providers = new Map<string, Provider>();
@@ -23,15 +39,31 @@ export class ProviderSwitch implements Provider {
     return this;
   }
 
+  /**
+   * Removes a named provider and its mode. If it was active, the first remaining provider (in the
+   * order added) becomes active, or none is. Throws a `ProviderSwitchError` (`unknown`) for a name
+   * that was never added. A stream in flight and a provider already `pinned` are unaffected.
+   */
+  remove(name: string): void {
+    if (!this.providers.has(name)) throw this.#unknown(name);
+
+    this.providers.delete(name);
+    this.modes.delete(name);
+
+    if (this.activeName === name) this.activeName = this.names()[0];
+  }
+
   use(name: string): void {
-    if (!this.providers.has(name)) {
-      throw new ProviderSwitchError({
-        reason: 'unknown',
-        message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
-      });
-    }
+    if (!this.providers.has(name)) throw this.#unknown(name);
 
     this.activeName = name;
+  }
+
+  #unknown(name: string): ProviderSwitchError {
+    return new ProviderSwitchError({
+      reason: 'unknown',
+      message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
+    });
   }
 
   get active(): string | undefined {
@@ -68,12 +100,7 @@ export class ProviderSwitch implements Provider {
   pinned(key: string): Provider {
     const provider = this.providers.get(key);
 
-    if (!provider) {
-      throw new ProviderSwitchError({
-        reason: 'unknown',
-        message: `Unknown provider: ${key} (available: ${this.names().join(', ') || 'none'})`,
-      });
-    }
+    if (!provider) throw this.#unknown(key);
 
     const mode = this.modes.get(key);
 

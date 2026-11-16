@@ -1,6 +1,6 @@
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { DiagnosticRecord } from './diagnostic-record.types.js';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 
 /** Selects failure metadata, not prompts, tool inputs, successful outputs or reasoning. */
 export function diagnosticRecord(params: {

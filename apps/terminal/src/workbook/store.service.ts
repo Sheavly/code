@@ -29,7 +29,7 @@ import {
   savedMessagesSchema,
   stateSchema,
 } from './workbook.validator.js';
-import { finalAnswer } from './workbook.utils.js';
+import { finalAnswer, runReply } from './workbook.utils.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import { entryEventSchema } from '@sheavly/protocol/event/event.validator';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
@@ -225,6 +225,16 @@ export class WorkbookStore {
     if (raw === undefined) return '';
 
     return finalAnswer(parseStored({ file, raw, schema: savedMessagesSchema }));
+  }
+
+  /** Everything the main session replied during the run, for a check to read; empty if unfinished. */
+  async runReply(id: RunId): Promise<string> {
+    const file = this.#paths(id).messages;
+    const raw = await readIfThere(file);
+
+    if (raw === undefined) return '';
+
+    return runReply(parseStored({ file, raw, schema: savedMessagesSchema }));
   }
 
   /** The run's final conversation, to continue from. */

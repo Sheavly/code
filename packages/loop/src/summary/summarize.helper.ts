@@ -1,5 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { SummaryReason } from '@sheavly/core/hook/hook.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
@@ -185,7 +185,9 @@ function failureKindOf(params: { error: unknown; aborted: boolean }): SummaryFai
 /**
  * One initial attempt plus one retry, never more: a second try often succeeds where a model
  * wrote something unusable, but the same failed snapshot must not be retried turn after turn.
- * A cancelled run is not retried. Throws the retry's error when both fail.
+ * A cancelled run is not retried. Throws the retry's error when both fail. This is not the
+ * providers' retry policy (`http/retry-policy.helper.ts`): that one re-sends a call that never
+ * started, with backoff; this one re-asks for content the model wrote badly, at once.
  */
 async function writeCheckpointWithRetry(
   params: Parameters<typeof writeCheckpoint>[0],

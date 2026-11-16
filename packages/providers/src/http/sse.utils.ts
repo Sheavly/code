@@ -1,3 +1,4 @@
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { LINE_BREAK } from './http.constants.js';
 
@@ -41,7 +42,7 @@ function* parseData(params: { data: string[]; atEnd?: boolean }): Generator {
 
     throw new ModelApiError({
       reason: 'bad_payload',
-      message: `SSE stream sent a data payload that isn't JSON: ${payload.slice(0, 200)}`,
+      message: `SSE stream sent a data payload that isn't JSON: ${providerErrorText(payload.slice(0, 200))}`,
       cause: caughtError,
     });
   }

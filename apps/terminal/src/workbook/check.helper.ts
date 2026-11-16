@@ -102,7 +102,7 @@ async function observe(params: { store: WorkbookStore; id: RunId }): Promise<Obs
   const [events, result, reply, meta] = await Promise.all([
     store.events(id),
     store.result(id),
-    store.answer(id),
+    store.runReply(id),
     store.meta(id),
   ]);
   const file = store.paths(id).transcript;

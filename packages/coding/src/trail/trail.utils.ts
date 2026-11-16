@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ToolCall } from '@sheavly/protocol/message/message.types';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { MAX_COMMAND_CHARS, MAX_PATH_CHARS } from './trail.constants.js';
 
 const pathInput = z.object({ path: z.string().min(1) });

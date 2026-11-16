@@ -1,4 +1,4 @@
-import { SECRET_NAMES } from './errors.constants.js';
+import { MAX_PROVIDER_ERROR_CHARS, SECRET_NAMES } from './text.constants.js';
 
 /**
  * Redacts common credential forms in exception text without examining request objects. This is
@@ -30,4 +30,18 @@ export function redactDiagnosticText(text: string): string {
       // A bare 32-character or longer hex run, the shape of many providers' unprefixed keys.
       .replace(/\b[a-f0-9]{32,}\b/gi, '[REDACTED]')
   );
+}
+
+/**
+ * Text from a model API that is safe to put in an error: credential forms redacted, whitespace
+ * collapsed and the length bounded, since a provider can echo request fragments back.
+ */
+export function providerErrorText(text: string): string {
+  // Control characters (an escape sequence, a carriage return) go with the whitespace: this text
+  // reaches logs and terminals, and a provider or a stored source is not trusted not to send them.
+  const flat = redactDiagnosticText(text.replaceAll(/[\s\p{Cc}]+/gu, ' ').trim());
+
+  return flat.length > MAX_PROVIDER_ERROR_CHARS
+    ? `${flat.slice(0, MAX_PROVIDER_ERROR_CHARS)}…`
+    : flat;
 }

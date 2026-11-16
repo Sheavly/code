@@ -1,6 +1,8 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
+import { ownReplay, safeReplaySource } from '../http/replay.utils.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { MessagesApiMessage } from './messages.types.js';
 import { messagesReplaySchema } from './messages.validator.js';
 import { messagesPrefix } from './prefix.utils.js';
@@ -23,8 +25,9 @@ export function toMessagesApiMessages(params: {
   reasoningSource: string | undefined;
   instructions: string | undefined;
   tools: Block[];
+  onReplayDropped?: ReplayDropHandler | undefined;
 }): MessagesApiMessage[] {
-  const { messages, reasoningSource } = params;
+  const { messages, reasoningSource, onReplayDropped } = params;
   const joined: MessagesApiMessage[] = [];
 
   for (const message of messages) {
@@ -33,7 +36,7 @@ export function toMessagesApiMessages(params: {
       tools: params.tools,
       messages: joined,
     });
-    const next = toMessage({ message, reasoningSource, prefix });
+    const next = toMessage({ message, reasoningSource, prefix, onReplayDropped });
     const last = joined.at(-1);
 
     if (next.content.length === 0) continue;
@@ -71,8 +74,9 @@ function toMessage(params: {
   message: Message;
   reasoningSource: string | undefined;
   prefix: string;
+  onReplayDropped: ReplayDropHandler | undefined;
 }): MessagesApiMessage {
-  const { message, reasoningSource, prefix } = params;
+  const { message, reasoningSource, prefix, onReplayDropped } = params;
   const text = (value: string): Block[] => (value ? [{ type: 'text', text: value }] : []);
 
   switch (message.role) {
@@ -80,7 +84,7 @@ function toMessage(params: {
       return { role: 'user', content: text(message.content) };
 
     case 'assistant': {
-      const content = replayContent({ message, reasoningSource, prefix });
+      const content = replayContent({ message, reasoningSource, prefix, onReplayDropped });
 
       if (content) return { role: 'assistant', content };
 
@@ -117,12 +121,26 @@ function replayContent(params: {
   message: Extract<Message, { role: 'assistant' }>;
   reasoningSource: string | undefined;
   prefix: string;
+  onReplayDropped: ReplayDropHandler | undefined;
 }): Block[] | undefined {
-  const { message, reasoningSource, prefix } = params;
-  const replay = message.reasoning?.find((item) => item.source === reasoningSource);
-  const parsed = messagesReplaySchema.safeParse(replay?.data);
+  const { message, reasoningSource, prefix, onReplayDropped } = params;
+  const [replay] = ownReplay({
+    items: message.reasoning,
+    source: reasoningSource,
+    onDropped: onReplayDropped,
+  });
 
-  if (!parsed.success) return undefined;
+  if (!replay) return undefined;
+
+  const parsed = messagesReplaySchema.safeParse(replay.data);
+
+  const source = safeReplaySource(replay.source);
+
+  if (!parsed.success) {
+    onReplayDropped?.({ reason: 'invalid_state', source });
+
+    return undefined;
+  }
 
   const { content } = parsed.data;
   const text = content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
@@ -132,12 +150,20 @@ function replayContent(params: {
 
   // A caller may have edited this message while leaving its old opaque replay state attached.
   if (text !== message.content || JSON.stringify(calls) !== JSON.stringify(message.toolCalls)) {
+    onReplayDropped?.({ reason: 'message_edited', source });
+
     return undefined;
   }
 
-  return content.filter(
+  const kept = content.filter(
     (block) => parsed.data.prefix === prefix || block.type === 'text' || block.type === 'tool_use',
   );
+
+  if (kept.length < content.length) {
+    onReplayDropped?.({ reason: 'prefix_changed', source });
+  }
+
+  return kept;
 }
 
 /**

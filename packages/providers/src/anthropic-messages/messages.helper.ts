@@ -3,6 +3,7 @@ import { defineAdapter } from '@sheavly/core/adapter/adapter.utils';
 import type { Adapter } from '@sheavly/core/adapter/adapter.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
+import { replaySource } from '../http/replay.utils.js';
 import { ANTHROPIC_VERSION, MESSAGES_API, PROMPT_CACHE_CONTROL } from './messages.constants.js';
 import { toMessagesApiMessages, withNotices } from './input.utils.js';
 import { withCacheBreakpoint } from './cache-breakpoint.utils.js';
@@ -27,7 +28,11 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
         mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
-          ? `messages:${endpoint.baseUrl}#${endpoint.model}`
+          ? replaySource({
+              protocol: 'messages',
+              endpoint: endpoint.baseUrl,
+              model: endpoint.model,
+            })
           : undefined;
       const apiTools = tools.map((tool) => ({
         name: tool.name,
@@ -39,6 +44,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         reasoningSource,
         instructions,
         tools: apiTools,
+        onReplayDropped: config.onReplayDropped,
       });
 
       const sent = withNotices({ messages: apiMessages, notices });
@@ -122,6 +128,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
         promptCaching: config.promptCaching,
         request: config.request,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
       }),
   });
 }

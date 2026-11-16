@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { latestRequestIndex } from '@sheavly/core/history/history.utils';
 import { parseCheckApprovalOptions } from './check-approval.validator.js';
 import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES, USAGE } from './workbook.constants.js';
@@ -264,6 +265,22 @@ export function toolsUsed(events: EntryEvent[]): string[] {
   const names = events.filter((e) => e.type === 'tool_call_started').map((e) => e.call.name);
 
   return [...new Set(names)];
+}
+
+/**
+ * Every assistant reply since the last user message, in order, one after another. A run is more
+ * than the prompt's own reply: the backend wakes the conversation to deliver finished background
+ * work, and the model answers again, so a check that looks for what the run said must read all of
+ * it, not only the last short reply. It reads the replies to the latest request only, which is the
+ * run's prompt: a conversation with several user messages returns the replies to the last one. A
+ * delivery that wakes the conversation is stored as a notice, never a `user` entry, so it does not
+ * cut the run short.
+ */
+export function runReply(messages: HistoryMessage[]): string {
+  return messages
+    .slice(latestRequestIndex(messages) + 1)
+    .flatMap((m) => (m.role === 'assistant' && m.content.trim() ? [m.content] : []))
+    .join('\n\n');
 }
 
 /** The text of the last assistant reply in a conversation. */

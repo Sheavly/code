@@ -1,9 +1,12 @@
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
-import { MAX_RETRY_AFTER_MS, MS_PER_SECOND } from './http.constants.js';
 import type { RequestPolicy } from './http.types.js';
-
-/** HTTP statuses worth another attempt: rate limited, or the server failed. */
-const RETRYABLE_STATUS = (status: number) => status === 429 || status >= 500;
+import {
+  backoffMs,
+  isRetryableStatus,
+  isWorthWaiting,
+  retryAfterMs,
+} from './retry-policy.helper.js';
 
 /** Waits `ms`, or rejects as soon as `signal` aborts. */
 function wait(params: { ms: number; signal: AbortSignal }): Promise<void> {
@@ -30,13 +33,6 @@ function wait(params: { ms: number; signal: AbortSignal }): Promise<void> {
   });
 }
 
-/** The server's `retry-after`, in ms, when it sent one in seconds. */
-function retryAfterMs(response: Response): number {
-  const seconds = Number(response.headers.get('retry-after'));
-
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * MS_PER_SECOND : 0;
-}
-
 /** What the failed request's error says, with Node's real reason (on `cause`) named. */
 function networkMessage(caughtError: unknown): string {
   const cause = caughtError instanceof Error ? caughtError.cause : undefined;
@@ -45,7 +41,7 @@ function networkMessage(caughtError: unknown): string {
   const reason = [typeof code === 'string' ? code : undefined, detail].filter(Boolean).join(': ');
   const message = caughtError instanceof Error ? caughtError.message : String(caughtError);
 
-  return reason ? `${message} (${reason})` : message;
+  return providerErrorText(reason ? `${message} (${reason})` : message);
 }
 
 /** One attempt's outcome: the response, or a failure and whether another attempt may help. */
@@ -76,15 +72,15 @@ async function attempt(params: {
 
     if (response.ok && response.body) return { response };
 
-    const waitMs = retryAfterMs(response);
+    const waitMs = retryAfterMs(response.headers);
 
     return {
       failure: new ModelApiError({
         reason: 'http',
         status: response.status,
-        message: `${api} error ${response.status}: ${await response.text()}`,
+        message: `${api} error ${response.status}: ${providerErrorText(await response.text())}`,
       }),
-      retryable: RETRYABLE_STATUS(response.status) && waitMs <= MAX_RETRY_AFTER_MS,
+      retryable: isRetryableStatus(response.status) && isWorthWaiting(waitMs),
       waitMs,
     };
   } catch (caughtError) {
@@ -143,6 +139,14 @@ export async function sendRequest(params: {
       });
     }
 
-    await wait({ ms: Math.max(outcome.waitMs, policy.retryDelayMs * 2 ** tried), signal });
+    await wait({
+      ms: backoffMs({
+        tried,
+        retryDelayMs: policy.retryDelayMs,
+        serverWaitMs: outcome.waitMs,
+        random: Math.random,
+      }),
+      signal,
+    });
   }
 }

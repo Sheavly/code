@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { errorDetails } from '../error-details.utils.js';
-import { redactDiagnosticText } from '../diagnostic-text.utils.js';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 
 describe('safe error diagnostics', () => {
   it('retains the stack and cause code while excluding request data and credentials', () => {

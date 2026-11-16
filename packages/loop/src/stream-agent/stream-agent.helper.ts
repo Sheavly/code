@@ -7,7 +7,7 @@ import { StreamEndedError } from '../errors/loop.errors.js';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import { errorDetails } from '@sheavly/runtime/errors/error-details.utils';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type {

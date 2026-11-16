@@ -47,6 +47,22 @@ export const EMPTY_STATE = {
 /** A check is retried once: real models aren't fully repeatable, so one bad answer can be noise. */
 export const ATTEMPTS = 2;
 
+/**
+ * How long a run follows its conversation past the prompt's own `done` while finite background work
+ * runs: the backend ends the prompt when the model does, then starts a run of its own to deliver
+ * what finished. Past this the run is saved as it is, so a stuck task cannot hang a check.
+ */
+export const BACKGROUND_WAIT_MS = 600_000;
+
+/** How often a run looks again at its background work while it still runs. */
+export const BACKGROUND_POLL_MS = 250;
+
+/**
+ * How long nothing may run before a run is called settled: finished work wakes the idle
+ * conversation a moment after it ends, so "nothing runs" right then is not yet "nothing is coming".
+ */
+export const BACKGROUND_GRACE_MS = 1_500;
+
 /** The base the branch is compared to, for which checks are relevant. */
 export const BASE = 'origin/main';
 

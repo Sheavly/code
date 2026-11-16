@@ -1,19 +1,21 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeServer } from '@sheavly/client/testing/fake-server.fake';
 import {
   approvalRequestSchema,
   approvalResponseSchema,
 } from '@sheavly/protocol/approval/approval.validator';
-import {
-  conversationDetailsSchema,
-  conversationIdSchema,
-} from '@sheavly/protocol/server/server.validator';
-import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../../client/backend.helper.js';
+import {
+  FAKE_CONVERSATION,
+  FAKE_MAIN_SESSION,
+  fakeConversationDetails,
+  fakeRunRequest,
+  useWorkbookRunEnvironment,
+} from '../../testing/workbook-run.fake.js';
 import { runWorkbook } from '../run.helper.js';
 import { WorkbookStore } from '../store.service.js';
 
@@ -21,28 +23,10 @@ vi.mock('../../client/backend.helper.js', () => ({ connectBackend: vi.fn() }));
 // Metadata is the only Git caller in a named run; never invoke real Git in these tests.
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(() => '') }));
 
-const roots: string[] = [];
-const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
-const main = sessionIdSchema.parse('main');
-const request = {
-  name: 'fixture',
-  text: 'Check the fixture',
-  keep: false,
-  trust: false,
-  showModelCalls: false,
-};
-
-beforeEach(() => {
-  vi.stubEnv('BACKEND_URL', '');
-  vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-});
-
-afterEach(async () => {
-  vi.restoreAllMocks();
-  vi.unstubAllEnvs();
-  vi.mocked(connectBackend).mockReset();
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
-});
+const id = FAKE_CONVERSATION;
+const main = FAKE_MAIN_SESSION;
+const request = fakeRunRequest('Check the fixture');
+const environment = useWorkbookRunEnvironment();
 
 async function setup(
   params: {
@@ -54,7 +38,7 @@ async function setup(
 ) {
   const root = await mkdtemp(path.join(tmpdir(), 'workbook-run-'));
 
-  roots.push(root);
+  environment.keep(root);
 
   const store = new WorkbookStore(path.join(root, 'workbook'));
   const generatedWorkspace = store.runWorkspaceDir(request.name);
@@ -67,31 +51,15 @@ async function setup(
   const promptStarted = Promise.withResolvers<undefined>();
   const answered = Promise.withResolvers<undefined>();
   const streamEnded = Promise.withResolvers<undefined>();
+  // The live feed ends with its own request, as on a real backend, not with the approvals stream.
+  const liveEnded = Promise.withResolvers<undefined>();
   const responses: string[] = [];
   const sessionGrants = new Set<string>();
   let nodeExecutions = 0;
   let closed = 0;
   const server = fakeServer({
     startConversation: () => ({ id }),
-    getConversation: () =>
-      conversationDetailsSchema.parse({
-        id,
-        title: 'fixture',
-        session: main,
-        running: false,
-        startedAt: 0,
-        workspace: params.mismatch ? root : generatedWorkspace,
-        profile: '00000000-0000-4000-8000-000000000003',
-        model: {
-          id: '00000000-0000-4000-8000-000000000002',
-          name: 'Fake',
-          adapter: 'openai',
-          model: 'fake',
-        },
-        models: [],
-        projectTrust: 'no_hooks',
-        permissionMode: 'ask',
-      }),
+    getConversation: () => fakeConversationDetails(params.mismatch ? root : generatedWorkspace),
     async *streamConversation({ body }) {
       if ((body as { approvals?: boolean }).approvals) {
         await promptStarted.promise;
@@ -122,7 +90,7 @@ async function setup(
         }
       }
 
-      await streamEnded.promise;
+      await ((body as { approvals?: boolean }).approvals ? streamEnded.promise : liveEnded.promise);
     },
     async answerApproval({ body }) {
       const response = approvalResponseSchema.parse((body as { response: unknown }).response);
@@ -158,12 +126,18 @@ async function setup(
     closeConversation: () => {
       closed++;
       streamEnded.resolve(undefined);
+      liveEnded.resolve(undefined);
     },
     stopPrompt: () => undefined,
   });
   const stop = vi.fn(async () => undefined);
   const fetch: typeof globalThis.fetch = async (input, init) => {
-    init?.signal?.addEventListener('abort', () => streamEnded.resolve(undefined), { once: true });
+    // Streams end independently on a real backend: aborting the live feed must not end the
+    // approvals stream, nor the other way round.
+    const watchesApprovals = typeof init?.body === 'string' && init.body.includes('"approvals"');
+    const ended = watchesApprovals ? streamEnded : liveEnded;
+
+    init?.signal?.addEventListener('abort', () => ended.resolve(undefined), { once: true });
 
     return server.fetch(input, init);
   };

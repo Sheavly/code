@@ -1,5 +1,5 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { MAX_SCAN_ENTRIES, MAX_SEARCH_LIMIT } from './history.constants.js';

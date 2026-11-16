@@ -190,7 +190,9 @@ function reportContribution(context: TurnContext) {
 /**
  * A call the provider rejected as too long: the `overflow` contributions may recover and ask for
  * a retry. True when one did; the caller drops the rejected reply and the next turn calls the
- * model again. With none registered the run ends `context_window_exceeded`.
+ * model again. With none registered the run ends `context_window_exceeded`. This is recovery by
+ * changing what is sent, not the providers' retry policy (`http/retry-policy.helper.ts`), which
+ * repeats the same call after a wait.
  */
 async function retryAfterOverflow(params: {
   context: TurnContext;

@@ -1,4 +1,6 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { ownReplay } from '../http/replay.utils.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import { CACHE_BREAKPOINT, MAX_CACHE_BREAKPOINTS } from './responses.constants.js';
 
 // Translation from our Message shape to Responses API input items.
@@ -46,6 +48,7 @@ function textBlock(params: { text: string; marked: boolean }) {
 export function toInputItems(params: {
   message: Message;
   reasoningSource: string | undefined;
+  onReplayDropped?: ReplayDropHandler | undefined;
   cache?: { marked: boolean };
 }): unknown[] {
   const { message, reasoningSource, cache } = params;
@@ -56,9 +59,11 @@ export function toInputItems(params: {
       return [{ role: 'user', content: content(message.content) }];
     case 'assistant':
       return [
-        ...(message.reasoning ?? [])
-          .filter((item) => item.source === reasoningSource)
-          .map((item) => item.data),
+        ...ownReplay({
+          items: message.reasoning,
+          source: reasoningSource,
+          onDropped: params.onReplayDropped,
+        }).map((item) => item.data),
         ...(message.content ? [{ role: 'assistant', content: message.content }] : []),
         ...message.toolCalls.map((call) => ({
           type: 'function_call',

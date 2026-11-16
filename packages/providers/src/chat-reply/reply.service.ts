@@ -69,6 +69,12 @@ export class ChatReply {
     return [];
   }
 
+  /** True once a finish reason arrived; only then may `finish` be called. */
+  get finished(): boolean {
+    return this.#stopReason !== undefined;
+  }
+
+  /** The events that close a reply that `finished`: reasoning replay, its calls, then `done`. */
   finish(params: { source: string; replayReasoning: boolean }): StreamEvent[] {
     if (!this.#stopReason) {
       throw new ModelApiError({
