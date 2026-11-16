@@ -65,6 +65,18 @@ describe('connectBackend', () => {
     ).rejects.toThrow('Set BACKEND_TOKEN');
   });
 
+  it('rejects and stops what it started when interrupted while the backend starts', async () => {
+    const interrupt = new AbortController();
+    const starting = connectBackend({
+      env,
+      onOutput: () => undefined,
+      signal: interrupt.signal,
+    });
+
+    interrupt.abort();
+    await expect(starting).rejects.toThrow('Interrupted while the backend was starting');
+  }, 30_000);
+
   it('says so when the backend exits before it listens', async () => {
     await expect(
       connectBackend({

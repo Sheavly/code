@@ -8,16 +8,19 @@ export type BackendOptions = {
   args?: readonly string[];
   /** A started backend's output (its notices, model calls), as it comes. */
   onOutput: (text: string) => void;
+  /** Aborting while a backend starts stops it and rejects: Ctrl+C during startup. */
+  signal?: AbortSignal;
 };
 
 /**
- * A backend the terminal talks to; `stop` ends it if the terminal started it. `fetch` reaches it
- * (the global one when unset): another transport, or a server app in the same process.
+ * A backend the terminal talks to; `stop` ends it if the terminal started it: SIGTERM to its
+ * process group, then SIGKILL after `timeoutMs`. Calling it again returns the same stop. `fetch`
+ * reaches it (the global one when unset): another transport, or a server app in the same process.
  */
 export type Backend = {
   url: string;
   token: string;
-  stop: () => Promise<void>;
+  stop: (options?: { timeoutMs?: number }) => Promise<void>;
   fetch?: typeof fetch;
   /** How its streams reconnect after a drop: the client's defaults unless a test says otherwise. */
   reconnect?: ReconnectPolicy;
