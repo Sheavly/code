@@ -28,6 +28,48 @@ They run automatically:
 - **On stop**, typecheck and ESLint run through turbo (so cached results are reused), then Prettier check, knip, the layout check and jscpd, but only for a chat that edited or deleted project source in this checkout. Each chat records the files it edits (`.cursor/hooks/chat-files.utils.mjs`), and the gate holds it to those. A failure comes back as a follow-up message (up to 3 rounds): fix the cause in code, never by suppressing it. Once they pass, the docs nudge runs.
 - **Subagents** (the Task tool) get no `beforeSubmitPrompt` of their own, so `record-subagent.mjs` (`subagentStart`) links each Task call to the chat that made it; a subagent's edits are its parent's to check, and the parent's stop hook waits while one still works.
 
+## Where the hooks keep state
+
+- **Per-chat state** is one JSON file per chat in `~/.cache/sheavly-harness/chats/<id>.json`
+  (`SHEAVLY_HOOK_STATE_DIR` moves it, for tests), outside the repo. `.cursor/hooks/chat-state.utils.mjs`
+  is its only reader and writer: its schema names every field (the chat's issues and approvals, the
+  subagent links, the edited files, the shell snapshots, what the chat was shown once), and a write of
+  a field it lacks, or of the wrong type, throws. A new field is a line in that schema. It is plain
+  functions, not zod: the guards run before `npm ci`.
+- A file records its format (`CHAT_STATE_VERSION`). One from before versions is read as version 1 if
+  it passes the schema, and any other version is rejected with the field or version named.
+- Hooks write the same chat at once, so a write takes a lock (a file beside the state file, holding
+  its owner's token), re-reads, merges its fields and replaces the file atomically with private
+  permissions: two hooks setting different fields keep both. A hook that changes a field from its
+  current value (a list, a map of entries, the edited-file records) uses `changeChatState`, whose
+  callback runs with the lock held, as `keepShownInChat`, the shell snapshots and the edit records
+  do. A lock a crashed hook left is broken after ten seconds, and a hook releases only a lock that
+  still holds its own token; a hook that holds one past those ten seconds can lose exclusivity for
+  that write. A chat untouched for `MAX_AGE_MS` is deleted when a new chat starts, with what a
+  crashed hook left; only files this module writes are deleted.
+- **Shell snapshots** are kept in that state by command text, from the before-hook to the
+  after-hook. One older than `SNAPSHOT_TTL_MS` (a command that crashed, or ran for hours) is read as
+  absent and dropped (`shell-snapshots.utils.mjs`). An after-hook that finds no usable snapshot, an
+  expired one or none (two identical commands at once), can't tell what the command changed, so it
+  records the chat's edits as incomplete, in the write that drops the snapshot, and the stop gate
+  runs unscoped instead of skipping them.
+- **The docs nudge** keeps its own file, cursor-docs-nudged.json, in the clone's git folder
+  (`onlyNew` in `docs.utils.mjs`): per clone and shared by its chats on purpose, so a set of changed
+  files is nudged once however many chats see it. It is the one state not in the chat files.
+- **One matcher each.** `isTestOrFake` (`packages/eslint-config/src/test-paths.utils.js`) answers "is
+  this a test or a fake" for the lint rules and the hooks, and `workspaceOfRelative` (`layout.utils.js`)
+  "which workspace holds this repo-relative file". Fakes are told by folder, so judge a path below
+  its workspace's `src/` where the workspace itself may be called `testing`.
+- **The stop gate's flow:** the stop hook runs the checks for the files this chat edited and answers
+  a failure with a follow-up message. Cursor allows 3 such rounds (`loop_limit` in `hooks.json`); that
+  limit is Cursor's, not hook state, and the hooks keep no round count.
+- `harness/prompt-location` checks the harness APIs listed in `OPTION_APIS`
+  (`rules/prompt-apis.utils.js`). A test compares it with `findInstructionApis`
+  (`testing/instruction-apis.fake.js`), which reads the exported functions whose options carry
+  `instructions`, and fails on a missing or a stale entry.
+- `bootstrap-worktree.mjs` and `verify-worktree.mjs` are manual: nothing runs them for you. See the
+  root README.
+
 ## The layout and reference checks
 
 The layout check (`npm run layout`) holds the words to the code: the graph in `docs/overview.md` is current and drawn nowhere else, no doc or comment names a path in the old root `src/` (one starting `src/<workspace>`), source names no issue number, and no doc promises what an issue will do ("until" or "once" one lands). Say what is true now; history and plans live in the issue. It also holds AGENTS.md and the skills to the code: every path, import, `npm run` script, `harness/*` rule and code name they put in backticks must exist (`scripts/rule-references.mjs`). A reference meant to point outside the repo goes in `scripts/rule-references.allowlist.json` with its reason; an entry nothing needs any more fails too.
