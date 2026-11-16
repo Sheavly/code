@@ -38,8 +38,8 @@ describe('MemoryConversationStore', () => {
     for (const write of [
       () => store.entries(id).append(entry(0)),
       () => store.writeIndex(indexOf(id, 1)),
-      () => store.writeMessages({ id, messages: [] }),
-      () => store.writeAgentMessages({ id, session, messages: [] }),
+      () =>
+        store.history({ id, session }).append([{ seq: 0, entry: { role: 'user', content: 'hi' } }]),
       () => store.delete(id),
     ]) {
       await expect(write()).rejects.toBeInstanceOf(StoreError);

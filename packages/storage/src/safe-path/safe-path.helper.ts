@@ -90,8 +90,8 @@ export async function removeFolder(params: {
 }
 
 /**
- * Deletes the one file `<folder>/<id><extension>` (see `namedPath` for what it accepts), and
- * nothing else. Never recursive: if that name is a folder it is left alone and this throws. A file
+ * Deletes the one file `<folder>/<id><extension>` (see `namedPath` for what it accepts, `shape`
+ * included, for a name with its own precise form), and nothing else. Never recursive: if that name is a folder it is left alone and this throws. A file
  * that is not there is fine. Throws an `UnsafePathError` for a refused name (nothing is touched)
  * and a `StorageFileError` naming the file when it can't be removed.
  */
@@ -99,9 +99,10 @@ export async function removeFile(params: {
   folder: string;
   name: string;
   extension: string;
+  shape?: z.ZodType<string>;
 }): Promise<void> {
-  const { folder, name, extension } = params;
-  const file = namedPath({ folder, name, extension });
+  const { folder, name, extension, shape } = params;
+  const file = namedPath({ folder, name, extension, ...(shape && { shape }) });
 
   await assertRealFolderIsSafe({ folder, target: file });
 

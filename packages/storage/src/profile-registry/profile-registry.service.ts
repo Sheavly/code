@@ -146,14 +146,20 @@ export class ProfileRegistry {
 
   /** Makes profile `id` the default for workspaces not bound to one; it must exist. */
   async setDefaultProfile(id: ProfileId): Promise<void> {
-    await requireProfile({ profiles: this.#profiles, id });
-    await this.#config.setDefaultProfile(id);
+    // In the profile queue with `delete`, so the profile checked is still there when config is
+    // written: a delete cannot land between the check and the write.
+    await this.#profileWrites.run(async () => {
+      await requireProfile({ profiles: this.#profiles, id });
+      await this.#config.setDefaultProfile(id);
+    });
   }
 
   /** Binds the workspace with this key (see `workspaceKey`) to a profile, which must exist. */
   async bindWorkspace(params: { key: string; profile: ProfileId }): Promise<void> {
-    await requireProfile({ profiles: this.#profiles, id: params.profile });
-    await this.#config.bindWorkspace(params);
+    await this.#profileWrites.run(async () => {
+      await requireProfile({ profiles: this.#profiles, id: params.profile });
+      await this.#config.bindWorkspace(params);
+    });
   }
 
   /** Unbinds the workspace, so it uses the default again; none bound is fine. */

@@ -78,6 +78,7 @@ export type Look = {
   summaryFailed: (params: { error: string; cancelled: boolean }) => string;
   runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
+  storageFailed: (error: string) => string;
   turnEnd: (params: {
     stopReason: Extract<EntryEvent, { type: 'turn_end' }>['stopReason'];
     waiting: number;

@@ -183,6 +183,8 @@ export function describeEvent(event: EntryEvent): string {
       return `${head}  ${event.reason}: ${firstLine(event.error)}`;
     case 'hook_failed':
       return `${head}  ${event.hook}.${event.handler}: ${firstLine(event.error)}`;
+    case 'storage_failed':
+      return `${head}  ${firstLine(event.error)}`;
     case 'turn_end':
       return `${head}  turn ${event.turn} · ${event.stopReason}`;
     case 'done':

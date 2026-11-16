@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { StoreError } from '@sheavly/core/errors/store.errors';
 import { readHistoryEntries } from '@sheavly/core/store/history-log.helper';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
@@ -10,11 +11,14 @@ const id = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
 const agent = sessionIdSchema.parse('7d9a2c41-5e0b-4f63-8a17-3c6e9b1d4f20');
 const user = (content: string): HistoryMessage => ({ role: 'user', content, at: 1 });
 
-/** A keeper over a fresh in-memory store, and the store, to read back what it wrote. */
-function newKeeper() {
+/**
+ * A keeper over a fresh in-memory store, and the store, to read back what it wrote. `onFailure`
+ * is what the keeper tells its owner when writes start failing.
+ */
+function newKeeper(onFailure?: (failure: StoreError) => void) {
   const store = new MemoryConversationStore();
 
-  return { store, keeper: new ConversationKeeper({ store, id }) };
+  return { store, keeper: new ConversationKeeper({ store, id, ...(onFailure && { onFailure }) }) };
 }
 
 describe('ConversationKeeper sub-agent history', () => {
@@ -68,7 +72,7 @@ describe('ConversationKeeper sub-agent history', () => {
     expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a')]);
   });
 
-  it('stops writing after the first failure, so nothing later is recorded out of order', async () => {
+  it('stops writing at a failure, so nothing later is recorded out of order', async () => {
     const { store, keeper } = newKeeper();
 
     keeper.keepHistory([user('a'), user('b')]);
@@ -78,5 +82,61 @@ describe('ConversationKeeper sub-agent history', () => {
 
     expect(keeper.failure).toBeDefined();
     expect(await readHistoryEntries(store.history({ id }))).toHaveLength(2);
+  });
+
+  it('tells its owner once when writes start failing, not on each failed retry', async () => {
+    const told: unknown[] = [];
+    const { store, keeper } = newKeeper((failure) => told.push(failure));
+
+    store.failWith(new Error('ENOSPC'));
+    keeper.keepHistory([user('a')]);
+    await keeper.flush();
+    await keeper.recover();
+    await keeper.recover();
+
+    expect(told).toHaveLength(1);
+  });
+
+  it('is not poisoned by an owner callback that throws: recovery still writes what was lost', async () => {
+    const rethrown: (() => void)[] = [];
+    const spy = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((run) => {
+      rethrown.push(run);
+    });
+    const { store, keeper } = newKeeper(() => {
+      throw new Error('owner bug');
+    });
+
+    try {
+      store.failWith(new Error('ENOSPC'));
+      keeper.keepHistory([user('a')]);
+      await keeper.flush();
+      store.failWith(undefined);
+      await keeper.recover();
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(rethrown).toHaveLength(1);
+    expect(keeper.failure).toBeUndefined();
+    expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a')]);
+  });
+
+  it('writes what a failed disk lost, in order, once it recovers, and clears the failure', async () => {
+    const { store, keeper } = newKeeper();
+
+    store.failWith(new Error('ENOSPC'));
+    keeper.keepHistory([user('a')]);
+    keeper.keepHistory([user('a'), user('b')]);
+    await keeper.flush();
+    expect(keeper.failure).toMatchObject({ name: 'StoreError' });
+
+    await keeper.recover();
+    expect(keeper.failure).toMatchObject({ name: 'StoreError' });
+
+    store.failWith(undefined);
+    await keeper.recover();
+
+    expect(keeper.failure).toBeUndefined();
+    expect(await readHistoryEntries(store.history({ id }))).toEqual([user('a'), user('b')]);
   });
 });

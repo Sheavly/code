@@ -1,13 +1,10 @@
 import path from 'node:path';
-import { StoreError } from '@sheavly/core/errors/store.errors';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import { appendJsonLine, readJsonLines, trimPartialLine } from '../jsonl-file/jsonl-file.helper.js';
-import { SerialQueue } from '../serial-queue/serial-queue.service.js';
+import { AppendLog } from './append-log.service.js';
 import { STREAM_FILE } from './conversation-store.constants.js';
-import { asStoreError } from './conversation-store.utils.js';
 import { DiagnosticFile } from './diagnostic-file.service.js';
 
 /**
@@ -20,32 +17,27 @@ import { DiagnosticFile } from './diagnostic-file.service.js';
  * count on their own and both think they were next.
  */
 export class EntryFile implements EntryStore {
-  readonly #file: string;
-  readonly #queue = new SerialQueue();
-  #next: number | undefined;
-  readonly #diagnostics: DiagnosticFile;
+  readonly #log: AppendLog<StreamEntry>;
 
   constructor(params: { folder: string; conversationId?: ConversationId }) {
-    this.#file = path.join(params.folder, STREAM_FILE);
-    this.#diagnostics = new DiagnosticFile(params);
+    const diagnostics = new DiagnosticFile(params);
+
+    this.#log = new AppendLog({
+      file: path.join(params.folder, STREAM_FILE),
+      schema: streamEntrySchema,
+      noun: 'Stream',
+      unit: 'entry',
+      prepare: async () => diagnostics.prepare(),
+      observe: async (entry) => diagnostics.observe(entry),
+    });
   }
 
   async append(entry: StreamEntry): Promise<void> {
-    try {
-      await this.#queue.run(() => this.#appendNext(entry));
-    } catch (caughtError) {
-      throw asStoreError(caughtError);
-    }
+    await this.#log.append([entry]);
   }
 
-  async *read(from = 0): AsyncGenerator<StreamEntry> {
-    try {
-      for await (const entry of readJsonLines({ file: this.#file, schema: streamEntrySchema })) {
-        if (entry.seq >= from) yield entry;
-      }
-    } catch (caughtError) {
-      throw asStoreError(caughtError);
-    }
+  read(from = 0): AsyncGenerator<StreamEntry> {
+    return this.#log.read(from);
   }
 
   /**
@@ -53,57 +45,6 @@ export class EntryFile implements EntryStore {
    * same id starts from its first entry. Waits for appends already queued.
    */
   async forget(): Promise<void> {
-    await this.#queue.run(async () => {
-      this.#next = undefined;
-    });
-  }
-
-  async #appendNext(entry: StreamEntry): Promise<void> {
-    const next = await this.#nextSeq();
-
-    if (entry.seq !== next) {
-      throw new StoreError({
-        reason: 'out_of_order',
-        message: `Stream ${this.#file} expected entry ${String(next)}, got ${String(entry.seq)}`,
-      });
-    }
-
-    try {
-      await appendJsonLine({ file: this.#file, value: entry });
-      await this.#diagnostics.observe(entry);
-    } catch (caughtError) {
-      // The line may have reached the file even though the call failed: count it again next time.
-      this.#next = undefined;
-      throw caughtError;
-    }
-
-    this.#next = next + 1;
-  }
-
-  /** The `seq` the next entry must have: counted from the file the first time, then kept. */
-  async #nextSeq(): Promise<number> {
-    if (this.#next !== undefined) return this.#next;
-
-    // A line cut off by a crash would have the next entry joined onto it, so it goes first.
-    await trimPartialLine({ file: this.#file });
-    await this.#diagnostics.prepare();
-
-    let count = 0;
-
-    for await (const entry of readJsonLines({ file: this.#file, schema: streamEntrySchema })) {
-      if (entry.seq !== count) {
-        throw new StoreError({
-          reason: 'failed',
-          message: `Stream ${this.#file} skips from ${String(count)} to ${String(entry.seq)}`,
-        });
-      }
-
-      count += 1;
-      await this.#diagnostics.observe(entry);
-    }
-
-    this.#next = count;
-
-    return count;
+    await this.#log.forget();
   }
 }

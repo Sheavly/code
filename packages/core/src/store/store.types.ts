@@ -1,6 +1,6 @@
 import type { OutputStore } from '../output/output.types.js';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
-import type { HistoryMessage, HistoryRecord } from '@sheavly/protocol/history/history.types';
+import type { HistoryRecord } from '@sheavly/protocol/history/history.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
@@ -48,33 +48,9 @@ export type ConversationStore = {
   /** Conversation `id`'s entries; the conversation exists in the store from its first `append`. */
   entries(id: ConversationId): EntryStore;
   /**
-   * The history conversation `id` continues from: the messages as last written, `[]` when none
-   * were. Entries can't rebuild it (a prompt is not an entry, and a reply arrives in pieces), so
-   * the owner of the conversation writes it whole.
-   */
-  readMessages(id: ConversationId): Promise<HistoryMessage[]>;
-  /** Replaces conversation `id`'s history with `messages`. */
-  writeMessages(params: { id: ConversationId; messages: readonly HistoryMessage[] }): Promise<void>;
-  /**
-   * The history of sub-agent `session` in conversation `id`, as last written, `[]` when none was:
-   * what a sub-agent that finished continues from when its parent follows up with it. Each
-   * sub-agent has its own, apart from the conversation's (`readMessages`) and from every other
-   * sub-agent's. Written whole by the owner, like the conversation's, for the same reason.
-   * `session` is an id the registry made; a store that names a file after it must refuse one that
-   * is not safe to use as a name rather than trust it.
-   */
-  readAgentMessages(params: { id: ConversationId; session: SessionId }): Promise<HistoryMessage[]>;
-  /** Replaces sub-agent `session`'s history in conversation `id` with `messages`. */
-  writeAgentMessages(params: {
-    id: ConversationId;
-    session: SessionId;
-    messages: readonly HistoryMessage[];
-  }): Promise<void>;
-  /**
    * The durable history log of conversation `id`'s main session, or of sub-agent `session`'s when
-   * given. A history stored whole before logs existed is imported into the log the first time it
-   * is used, once, keeping every entry in order. `session` is held to the same rule as
-   * `readAgentMessages`'s.
+   * given. `session` is an id the registry made; a store that names a file after it must refuse
+   * one that is not safe to use as a name rather than trust it.
    */
   history(params: { id: ConversationId; session?: SessionId | undefined }): HistoryLog;
   /**

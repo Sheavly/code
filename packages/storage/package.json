@@ -42,7 +42,8 @@
     },
     "./serial-queue/*": null,
     "./jsonl-file/*": null,
-    "./safe-path/*": null
+    "./safe-path/*": null,
+    "./file-lock/*": null
   },
   "files": [
     "dist",

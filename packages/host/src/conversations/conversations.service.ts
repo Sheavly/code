@@ -13,7 +13,7 @@ import type {
   SentPrompt,
   StartConversationParams,
 } from './conversations.types.js';
-import { storageOf } from './storage.helper.js';
+import { announceStorageFailure, refuseWhenStorageFailed, storageOf } from './storage.helper.js';
 import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
@@ -240,7 +240,14 @@ export class Conversations {
   #keeperFor(id: ConversationId): ConversationKeeper | undefined {
     if (!this.#store) return undefined;
 
-    const keeper = this.#keepers.get(id) ?? new ConversationKeeper({ store: this.#store, id });
+    const keeper =
+      this.#keepers.get(id) ??
+      new ConversationKeeper({
+        store: this.#store,
+        id,
+        // Looked up when it fires: the conversation may be gone by then.
+        onFailure: (failure) => announceStorageFailure({ live: this.#live.get(id), failure }),
+      });
 
     this.#keepers.set(id, keeper);
 
@@ -295,6 +302,10 @@ export class Conversations {
     const { id, prompt, signal } = params;
     const { conversation, skills } = this.get(id);
 
+    // Awaited only after a failure: an await on a healthy conversation would open a gap before
+    // the stop switch below is registered, and a stop arriving in it would be missed.
+    if (this.#storageFailureOf(id)) await this.#recoverStorage(id);
+
     this.#assertStorageHealthy(id);
 
     // A prompt still preparing is in flight too: a second send must not take over its stop switch.
@@ -333,16 +344,16 @@ export class Conversations {
     return this.get(id).conversation.yieldPrompt();
   }
 
+  /** Tries a failed write again, so a disk that has recovered does not refuse prompts for good. */
+  async #recoverStorage(id: ConversationId): Promise<void> {
+    if (!this.#storageFailureOf(id)) return;
+
+    await this.#keepers.get(id)?.recover();
+    await this.get(id).harness.sessions.recoverStore();
+  }
+
   #assertStorageHealthy(id: ConversationId): void {
-    const failure = this.#storageFailureOf(id);
-
-    if (!failure) return;
-
-    throw new ConversationsError({
-      reason: 'storage_failed',
-      message: `Conversation ${id} could not be stored (${failure.message}), so it takes no more prompts rather than carry on unrecorded`,
-      cause: failure,
-    });
+    refuseWhenStorageFailed({ id, failure: this.#storageFailureOf(id) });
   }
 
   /** Stops conversation `id`'s running prompt, if one runs; its history stays valid. */

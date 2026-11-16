@@ -135,6 +135,14 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
   `harness/no-direct-instruction-context` are on and off. A source that reads through a helper
   that itself uses `node:fs` is not seen: the rule looks at the source file's own imports.
+- **Locked changes** (`harness/no-raw-serial-queue`, source files): no `new SerialQueue()`. A store
+  that reads a file and writes it back whole changes it through `LockedChange`
+  (`packages/storage/src/serial-queue/locked-change.service.ts`): a queue in the process plus a
+  lock file across processes, so two processes on one `~/.sheavly` lose no update. The primitive,
+  the append-only `AppendLog` and the profile registry's queue are the three `files:` exceptions in
+  `packages/storage/eslint.config.js`; `no-raw-serial-queue.test.js` pins where the rule is on and
+  off. It sees the construction only, so a queue passed in from elsewhere, or a lock written by
+  hand, is left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

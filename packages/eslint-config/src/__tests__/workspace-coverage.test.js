@@ -109,7 +109,7 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
  */
 const FILE_WRITERS = new RegExp(
   [
-    '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path)[/\\\\]',
+    '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path|file-lock)[/\\\\]',
     '^packages[/\\\\]storage[/\\\\]src[/\\\\]output-store[/\\\\]output-(store|writer)\\.service\\.ts$',
     '^packages[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]file-effects\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',

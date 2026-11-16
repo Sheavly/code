@@ -40,6 +40,7 @@ describe('agentEventSchema', () => {
       },
       { type: 'summary_failed', reason: 'overflow', error: 'provider down', retriesLeft: 2 },
       { type: 'hook_failed', hook: 'h', handler: 'onError', error: 'boom' },
+      { type: 'storage_failed', error: 'Could not store entry 4: disk full' },
       { type: 'message_received', message: { from: 'user', content: 'stop', sentAt: 1 } },
       {
         type: 'done',

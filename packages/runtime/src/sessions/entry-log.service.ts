@@ -22,7 +22,8 @@ type Matcher = (entry: StreamEntry) => boolean;
  * bounded. Without a store, a replay starts at the oldest of them. With one, each entry is also
  * written to it, in order, and a replay that reaches further back reads the rest from the store.
  * If a write fails, nothing more is written and `failure` says why: the log then keeps every
- * entry in memory, and whoever owns the conversation decides to stop it.
+ * entry in memory, and whoever owns the conversation decides to stop it, or calls `recover` to
+ * try the failed write again.
  */
 export class EntryLog {
   #tail: StreamEntry[] = [];
@@ -33,7 +34,10 @@ export class EntryLog {
   readonly #store: EntryStore | undefined;
   /** The writes queued so far, one after another. Never rejects: a failure goes to `#failure`. */
   #written: Promise<void> = Promise.resolve();
+  /** Entries not yet stored, oldest first; the one that failed stays at the front. */
+  readonly #pending: StreamEntry[] = [];
   #failure: StoreError | undefined;
+  readonly #onFailure: ((failure: StoreError) => void) | undefined;
 
   /**
    * `lineage` lists a session and its ancestors' ids, released ones too, for a filter on a whole
@@ -45,9 +49,12 @@ export class EntryLog {
     lineage: (id: SessionId) => SessionId[];
     store?: EntryStore;
     resume?: Pick<StoredLog, 'next' | 'tail'>;
+    /** Told once each time writes start failing (not per write), so a UI can say so. */
+    onFailure?: (failure: StoreError) => void;
   }) {
     this.#lineage = params.lineage;
     this.#store = params.store;
+    this.#onFailure = params.onFailure;
 
     const { resume } = params;
 
@@ -174,24 +181,59 @@ export class EntryLog {
     };
   }
 
-  /** Queues the write after the ones before it. Once one fails, no later one is attempted. */
+  /**
+   * Tries the failed write again, and the entries queued behind it, in order. Resolves when they
+   * are stored or one fails again (`failure` says which); once stored, `failure` clears.
+   */
+  recover(): Promise<void> {
+    this.#written = this.#written.then(async () => this.#drain());
+
+    return this.#written;
+  }
+
+  /** Queues the write after the ones before it; a failed one stays first until it succeeds. */
   #queueWrite(entry: StreamEntry): void {
+    if (!this.#store) return;
+
+    this.#pending.push(entry);
+    // Nothing is tried while a write is failing: only `recover` tries again.
+    this.#written = this.#written.then(async () => {
+      if (!this.#failure) await this.#drain();
+    });
+  }
+
+  async #drain(): Promise<void> {
     const store = this.#store;
 
-    if (!store) return;
+    while (store && this.#pending.length > 0) {
+      const entry = this.#pending[0];
 
-    this.#written = this.#written.then(async () => {
-      if (this.#failure) return;
+      if (!entry) break;
 
       try {
         await store.append(entry);
       } catch (caughtError) {
+        const first = this.#failure === undefined;
+
         this.#failure = toStoreError({
           error: caughtError,
           message: `Could not store entry ${String(entry.seq)}`,
         });
+
+        // Once per failure: a retry that fails again is the same failure, not a new event.
+        if (first && this.#onFailure) {
+          // Like a listener: a throw here must not reject `#written`, which every later write
+          // chains on. It fails loudly on its own instead.
+          notifyAll({ listeners: [this.#onFailure], value: this.#failure });
+        }
+
+        return;
       }
-    });
+
+      this.#pending.shift();
+    }
+
+    this.#failure = undefined;
   }
 
   /**

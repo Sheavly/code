@@ -17,6 +17,7 @@ import { ApprovalSessions } from './approval-sessions.service.js';
 import { assertCanSend } from './send-check.helper.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
+import { announceStorageFailure } from './storage-failure.helper.js';
 import { isOpen, refOf, toEntryEvent } from './sessions.utils.js';
 import { SessionError } from '../errors/sessions.errors.js';
 import type {
@@ -78,6 +79,7 @@ export class SessionRegistry {
       lineage: (id) => lineageIds({ id, sessions: this.#sessions, released: this.#released }),
       ...(store && { store }),
       ...(resume && { resume }),
+      onFailure: (failure) => announceStorageFailure({ sessions: this, failure }),
     });
 
     if (resume) {
@@ -102,10 +104,11 @@ export class SessionRegistry {
     return this.#entries.failure;
   }
 
+  /** Tries a failed store write again, with the entries behind it; see `storageFailure`. */
+  readonly recoverStore = (): Promise<void> => this.#entries.recover();
+
   /** Resolves once every entry so far is in the store (or a write has failed). */
-  flushStore(): Promise<void> {
-    return this.#entries.flush();
-  }
+  readonly flushStore = (): Promise<void> => this.#entries.flush();
 
   /** How many entries of the combined stream are in memory (the newest few, with a store). */
   get retainedEntries(): number {

@@ -207,6 +207,13 @@ const stepEventSchemas = [
     handler: z.string(),
     error: z.string(),
   }),
+  /**
+   * The conversation could not be stored (a stream, history or index write failed). Sent once when
+   * storage starts failing, not per write, and never ends a run: the conversation refuses its
+   * next prompt (`storage_failed`) unless a retry has stored what was lost. `error` is redacted
+   * like `run_failed`. Live data for a UI; it is not model input.
+   */
+  z.object({ type: z.literal('storage_failed'), error: z.string() }),
 ] as const;
 
 /** The run's end, as the combined stream carries it: how it ended, without the history. */
