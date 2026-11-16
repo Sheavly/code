@@ -263,8 +263,7 @@ export const SYNTAX_RULES = {
         'Do not read `retry-after` yourself. `retryAfterMs` and `backoffMs` (`packages/providers/src/http/retry-policy.helper.ts`) are the one retry policy: both header forms, jitter, and the longest wait.',
     },
     {
-      selector:
-        "BinaryExpression[operator=/^[!=]==?$/] > MemberExpression.left[property.name='source']",
+      selector: "BinaryExpression[operator=/^[!=]==?$/] > MemberExpression[property.name='source']",
       message:
         "Do not compare a reasoning item's `source` by hand. `ownReplay` (`packages/providers/src/http/replay.utils.ts`) is the one compatibility check, and it reports each item it leaves out.",
     },

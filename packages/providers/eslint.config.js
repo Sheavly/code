@@ -10,8 +10,9 @@ export default [
     rules: { 'harness/no-handrolled-provider-policy': 'error' },
   },
   {
-    // The one place each decision is made.
-    files: ['src/http/request.helper.ts', 'src/http/replay.utils.ts'],
+    // The one place each decision is made: the retry policy reads `retry-after`, the replay check
+    // compares a reasoning item's `source`. `request.helper.ts` needs no exemption.
+    files: ['src/http/retry-policy.helper.ts', 'src/http/replay.utils.ts'],
     rules: { 'harness/no-handrolled-provider-policy': 'off' },
   },
   {

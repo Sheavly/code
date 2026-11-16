@@ -22,6 +22,7 @@ policyTester.run(POLICY_RULE, harnessPlugin.rules[POLICY_RULE], {
       errors: [{ messageId: 'm2' }],
     },
     { code: 'if (item.source !== source) drop(item);', errors: [{ messageId: 'm2' }] },
+    { code: 'if (source === item.source) keep(item);', errors: [{ messageId: 'm2' }] },
   ],
 });
 
@@ -41,10 +42,14 @@ describe('no-handrolled-provider-policy in providers', () => {
     }
   });
 
-  it('is off only where each decision is made: the request helper and the replay check', async () => {
-    for (const file of ['src/http/request.helper.ts', 'src/http/replay.utils.ts']) {
+  it('is off only where each decision is made: the retry policy and the replay check', async () => {
+    for (const file of ['src/http/retry-policy.helper.ts', 'src/http/replay.utils.ts']) {
       expect(await on(file), file).toBe(false);
     }
+  });
+
+  it('is on in the request helper, which only uses the policy', async () => {
+    expect(await on('src/http/request.helper.ts')).toBe(true);
   });
 
   it('is off in tests and fakes, which assert on headers and sources', async () => {

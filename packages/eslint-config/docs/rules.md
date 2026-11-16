@@ -167,7 +167,7 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   enabled in `packages/providers/eslint.config.js`): no `getReader()`, no `'retry-after'` string
   and no `item.source ===` comparison. A body is read by `readReply`, a wait is decided by
   `retry-policy.helper.ts`, and stored reasoning is checked by `ownReplay`
-  (`packages/providers/src/http/replay.utils.ts`). `request.helper.ts` (reads the header) and
+  (`packages/providers/src/http/replay.utils.ts`). `retry-policy.helper.ts` (reads the header) and
   `replay.utils.ts` (compares the source) are the two `files:` exceptions; `no-handrolled-provider-policy.test.js` pins where
   the rule is on and off. It matches these spellings only: a status compared as a number
   (`=== 429`), or a header name held in a variable, is left to review.
