@@ -18,10 +18,22 @@ const temp = useTempFolder('file-lock-');
 const WORKER = path.join(import.meta.dirname, '../../testing/lock-worker.fake.ts');
 const CHANGES = 12;
 
+// The condition makes workspace packages resolve to their source, as in vitest: a checkout that
+// has not been built (CI) has no `dist` to import.
 const startWorker = (params: { root: string; name: string }) =>
-  run(process.execPath, ['--import', 'tsx', WORKER, params.root, params.name, String(CHANGES)], {
-    cwd: import.meta.dirname,
-  });
+  run(
+    process.execPath,
+    [
+      '--conditions=@sheavly/source',
+      '--import',
+      'tsx',
+      WORKER,
+      params.root,
+      params.name,
+      String(CHANGES),
+    ],
+    { cwd: import.meta.dirname },
+  );
 
 describe('two processes on one folder', () => {
   it('lose no update in config, credentials, permissions or a document', async () => {
