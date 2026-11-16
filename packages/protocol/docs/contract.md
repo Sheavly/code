@@ -38,6 +38,8 @@ contract: a field is optional only when absence means something (the first check
 `incorporated`, an ungrouped task's `reason`, a message a caller wrote without `at`), never so
 that older data still parses. A field that stopped being optional drops the data that lacks it,
 with no compatibility reader; `required-fields.test.ts` pins the fields that were once optional.
+Version 1 is the first declared one and the baseline: data written before the version existed is
+not read, so nothing is raised for the change that introduced it.
 
 ## Tool results arrive as tools finish
 

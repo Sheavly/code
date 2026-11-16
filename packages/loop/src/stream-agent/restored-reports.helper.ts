@@ -3,6 +3,7 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { RunOutcome, SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 
+import { noticeEntries } from './notice-publish.helper.js';
 import { RESTORED_REPORT_REASON } from './stream-agent.constants.js';
 import { taskCompletionContext } from './task-context.utils.js';
 
@@ -55,7 +56,7 @@ export function restoredReportNotices(params: {
 }): HistoryMessage[] {
   const { agents, reports, history, at } = params;
 
-  return agents.map((agent) => {
+  return agents.flatMap((agent) => {
     const read = reports.get(agent.id);
     const stored = storedOutcome(agent);
     // A completed sub-agent is only reported as one when its report was read back.
@@ -63,25 +64,22 @@ export function restoredReportNotices(params: {
       stored === 'completed' && read !== undefined
         ? { outcome: stored, report: read }
         : { outcome: stored === 'completed' ? 'interrupted' : stored, report: '' };
-
-    return {
-      role: 'notice',
-      notice: {
-        kind: 'agent-report',
-        // The card says how the sub-agent ended, not that it was open when the process did.
-        agent: { ...agent, state: outcome, lastOutcome: outcome },
-        outcome,
-        report,
-        context: taskCompletionContext({
-          reason: RESTORED_REPORT_REASON,
-          startedAt: agent.startedAt,
-          endedAt: agent.endedAt ?? agent.startedAt,
-          history,
-          callId: agent.startedByCall,
-        }),
-      },
-      at,
+    const notice: HarnessNotice = {
+      kind: 'agent-report',
+      // The card says how the sub-agent ended, not that it was open when the process did.
+      agent: { ...agent, state: outcome, lastOutcome: outcome },
+      outcome,
+      report,
+      context: taskCompletionContext({
+        reason: RESTORED_REPORT_REASON,
+        startedAt: agent.startedAt,
+        endedAt: agent.endedAt ?? agent.startedAt,
+        history,
+        callId: agent.startedByCall,
+      }),
     };
+
+    return noticeEntries({ notice, at });
   });
 }
 
