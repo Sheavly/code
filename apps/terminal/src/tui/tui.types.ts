@@ -46,8 +46,12 @@ export type StatusInfo = {
    * need not repeat the worktree. A detached HEAD shows as its own label.
    */
   workingBranch?: string | undefined;
-  /** Background tasks still running. */
+  /** Background commands still running. */
   tasks: number;
+  /** Background sub-agents still running; none when absent. */
+  agents?: number;
+  /** Background services still running; none when absent. */
+  services?: number;
   /** Tool calls the prompt waits on now, which a screen that can animate shows with their time. */
   tools?: readonly RunningTool[];
   /** The model signalled reasoning; only shown while working, never claimed without a signal. */

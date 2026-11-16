@@ -131,6 +131,30 @@ export function statusLabel(params: {
   return params.state;
 }
 
+/**
+ * What runs in the background, as ` · 2 tasks, 1 agent and 1 service running in background`: each
+ * kind only when some run, and nothing when none do.
+ */
+export function backgroundText(params: {
+  tasks: number;
+  agents: number;
+  services: number;
+}): string {
+  const { tasks, agents, services } = params;
+  const count = (n: number, one: string, many: string) =>
+    n > 0 ? [`${String(n)} ${n === 1 ? one : many}`] : [];
+  const parts = [
+    ...count(tasks, 'task', 'tasks'),
+    ...count(agents, 'agent', 'agents'),
+    ...count(services, 'service', 'services'),
+  ];
+  const last = parts.pop();
+
+  if (last === undefined) return '';
+
+  return ` · ${parts.length > 0 ? `${parts.join(', ')} and ` : ''}${last} running in background`;
+}
+
 /** The line under the conversation: what it is doing, the model, the permission mode, tasks. */
 export function statusText(params: { info: StatusInfo; palette?: Palette }): string {
   const { info, palette = defaultPalette } = params;
@@ -143,7 +167,11 @@ export function statusText(params: { info: StatusInfo; palette?: Palette }): str
       `● ${statusLabel({ state: 'awaiting_tasks', thinking: undefined, awaitedTasks: info.awaitedTasks })}`,
     ),
   }[info.state];
-  const tasks = info.tasks > 0 ? ` · ${String(info.tasks)} running in background` : '';
+  const tasks = backgroundText({
+    tasks: info.tasks,
+    agents: info.agents ?? 0,
+    services: info.services ?? 0,
+  });
   const mode = info.mode === 'allow_all' ? status.error('allow all') : info.mode;
 
   const effort = info.modelMode ? ` · ${info.modelMode}` : '';

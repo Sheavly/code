@@ -176,6 +176,7 @@ export async function startScreenChat(params: {
     screen.notice(`✗ lost the live stream: ${errorText(caughtError)}`);
   });
 
+  conversation.watchBackground((background) => screen.setStatus(background));
   screen.start();
   // Lines queued before a restart are shown as waiting and not sent: reopening never runs them.
   session.restoreQueued(await conversation.queue());
