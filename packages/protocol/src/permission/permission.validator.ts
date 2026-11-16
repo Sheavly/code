@@ -6,7 +6,7 @@ const exactArgvSchema = z
   .rest(z.string())
   .refine((argv) => argv[0] !== '*');
 
-/** Decodes a legacy serialized grant; the coding layer now uses only its base-command identity. */
+/** Decodes an `exact:` grant, which keeps a base command whose words contain spaces; the coding layer uses its base-command identity. */
 export function parseExactAllowEntry(entry: string): string[] | undefined {
   if (!entry.startsWith('exact:')) return undefined;
 
@@ -34,8 +34,8 @@ export const permissionModeSchema = z.enum(['ask', 'always_ask', 'allow_all']);
 
 /**
  * A base-command grant, usually words ending in `*` (`git diff *`, `npm run test *`, `npx eslint *`).
- * Options and paths are not permission scopes. Older command strings and `exact:` JSON arrays
- * remain readable and now grant their base command too. A first word of `*` is never valid.
+ * Options and paths are not permission scopes. An `exact:` JSON array names a command whose words
+ * contain spaces and grants its base command too. A first word of `*` is never valid.
  */
 export const allowEntrySchema = z.union([
   z

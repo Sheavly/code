@@ -64,16 +64,18 @@ export function restoredReportNotices(params: {
       stored === 'completed' && read !== undefined
         ? { outcome: stored, report: read }
         : { outcome: stored === 'completed' ? 'interrupted' : stored, report: '' };
+    // One still open when the process ended has no end time: it ended at its start, as far as is known.
+    const endedAt = agent.endedAt ?? agent.startedAt;
     const notice: HarnessNotice = {
       kind: 'agent-report',
       // The card says how the sub-agent ended, not that it was open when the process did.
-      agent: { ...agent, state: outcome, lastOutcome: outcome },
+      agent: { ...agent, state: outcome, lastOutcome: outcome, endedAt },
       outcome,
       report,
       context: taskCompletionContext({
         reason: RESTORED_REPORT_REASON,
         startedAt: agent.startedAt,
-        endedAt: agent.endedAt ?? agent.startedAt,
+        endedAt,
         history,
         callId: agent.startedByCall,
       }),

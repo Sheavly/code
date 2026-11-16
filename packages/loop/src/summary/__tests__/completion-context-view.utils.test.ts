@@ -46,6 +46,7 @@ const agent = {
   state: 'completed',
   startedAt: 10,
   endedAt: 20,
+  lastOutcome: 'completed',
 };
 const taskNotice = { kind: 'task-finished', task, context };
 const agentNotice = {

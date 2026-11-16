@@ -25,8 +25,14 @@ describe('sessionUpdateSchema', () => {
       },
       { type: 'session_idle', session: { ...SESSION, state: 'idle', lastOutcome: 'completed' } },
       { type: 'session_resumed', session: { ...SESSION, lastOutcome: 'interrupted' } },
-      { type: 'session_ended', session: { ...SESSION, state: 'failed', endedAt: 3 } },
-      { type: 'session_released', session: { ...SESSION, state: 'completed', endedAt: 3 } },
+      {
+        type: 'session_ended',
+        session: { ...SESSION, state: 'failed', endedAt: 3, lastOutcome: 'failed' },
+      },
+      {
+        type: 'session_released',
+        session: { ...SESSION, state: 'completed', endedAt: 3, lastOutcome: 'completed' },
+      },
     ];
 
     for (const update of updates) expect(sessionUpdateSchema.parse(update)).toEqual(update);

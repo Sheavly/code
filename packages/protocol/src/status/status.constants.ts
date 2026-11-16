@@ -37,7 +37,7 @@ export const TURN_STOP_REASONS = [
 
 /** What a session snapshot is refused with when its state, last outcome and end disagree. */
 export const INCONSISTENT_SESSION_MESSAGE =
-  'An open session has no endedAt; an ended one has no lastOutcome other than its state';
+  'An open session has no endedAt; an ended one has an endedAt and a lastOutcome equal to its state';
 
 /**
  * The one table of what may follow what, for each machine that has states. A key is a state and

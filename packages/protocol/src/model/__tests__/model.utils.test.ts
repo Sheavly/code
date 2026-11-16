@@ -41,9 +41,11 @@ describe('toModel', () => {
     expect(model.identity).toEqual(identity);
     expect(model.definition).toEqual({ deployment: 'prod' });
     expect(toModelFile(model)).toEqual(file);
-    const { identity: _identity, ...legacy } = model;
+    const { identity: _identity, ...withoutIdentity } = model;
 
-    expect(toModelFile({ ...legacy, definition: { identity } })).not.toHaveProperty('identity');
+    expect(toModelFile({ ...withoutIdentity, definition: { identity } })).not.toHaveProperty(
+      'identity',
+    );
   });
   it('keeps prices in the envelope, out of the adapter definition, across a round trip', () => {
     const pricing = { input: 2, output: 8, cacheRead: 0.2, cacheWrite: 2.5 };

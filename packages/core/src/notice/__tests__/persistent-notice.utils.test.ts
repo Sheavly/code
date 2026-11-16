@@ -12,6 +12,8 @@ const agent = {
   status: 'reading files',
   state: 'completed',
   startedAt: 10,
+  endedAt: 20,
+  lastOutcome: 'completed',
 };
 
 const context = { reason: 'because', startedAt: 10, durationMs: 0, userMessagesSinceStart: 0 };

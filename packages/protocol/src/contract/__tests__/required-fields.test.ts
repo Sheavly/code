@@ -27,6 +27,7 @@ const AGENT_REPORT = {
     state: 'completed',
     startedAt: 400,
     endedAt: 900,
+    lastOutcome: 'completed',
   },
   outcome: 'completed',
   report: 'The docs agree',
@@ -71,7 +72,7 @@ const without = (value: object, key: string) =>
   Object.fromEntries(Object.entries(value).filter(([name]) => name !== key));
 const notice = (value: object) => ({ role: 'notice', notice: value });
 
-/** The fields that were once optional so older data still read; the contract no longer reads it. */
+/** Fields the contract requires: a payload without one is rejected. */
 const CASES: [string, () => boolean, () => boolean][] = [
   [
     'a summary checkpoint names the entries it covers',

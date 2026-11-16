@@ -13,6 +13,8 @@ const agentReport = {
     title: 'Research',
     state: 'completed',
     startedAt: 10,
+    endedAt: 20,
+    lastOutcome: 'completed',
   },
   taskId: 't1',
   outcome: 'completed',

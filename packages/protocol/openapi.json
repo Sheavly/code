@@ -506,27 +506,6 @@
         }
       }
     },
-    "/terminal-settings/migrate": {
-      "post": {
-        "operationId": "migrateTerminalSettings",
-        "summary": "Move legacy profile terminal preferences into global config and return them",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/TerminalSettings" } }
-            }
-          },
-          "default": {
-            "description": "Refused: its `code` says why",
-            "content": {
-              "application/json": { "schema": { "$ref": "#/components/schemas/ServerError" } }
-            }
-          }
-        }
-      }
-    },
     "/profiles/{profile}": {
       "get": {
         "operationId": "getProfile",
@@ -2952,7 +2931,6 @@
         "properties": {
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "terminal": { "$ref": "#/components/schemas/TerminalSettings" },
           "lastModelSelection": { "$ref": "#/components/schemas/ModelSelection" },
           "modelModes": {
             "type": "object",

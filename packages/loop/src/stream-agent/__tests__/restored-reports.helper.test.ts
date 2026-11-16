@@ -22,6 +22,7 @@ function agent(id: string, extra: Record<string, unknown> = {}) {
     state: 'completed',
     lastOutcome: 'completed',
     startedAt: 10,
+    endedAt: 100,
     ...extra,
   };
   // An `undefined` in `extra` removes the field: the schema's optional fields are exact.
@@ -126,10 +127,10 @@ describe('storedOutcome', () => {
   it('is how a run ended, and interrupted for one cut off while open', () => {
     expect(storedOutcome(agent('a', { state: 'failed', lastOutcome: 'failed' }))).toBe('failed');
     // A run cut off by the end of the process is interrupted, whatever an earlier run ended as.
-    expect(storedOutcome(agent('a', { state: 'running' }))).toBe('interrupted');
-    expect(storedOutcome(agent('a', { state: 'running', lastOutcome: undefined }))).toBe(
-      'interrupted',
-    );
+    expect(storedOutcome(agent('a', { state: 'running', endedAt: undefined }))).toBe('interrupted');
+    expect(
+      storedOutcome(agent('a', { state: 'running', lastOutcome: undefined, endedAt: undefined })),
+    ).toBe('interrupted');
   });
 });
 
@@ -164,7 +165,7 @@ describe('restoredReportNotices', () => {
   });
 
   it('gives a sub-agent that did not complete an empty report and its real outcome', () => {
-    const cut = agent('a', { state: 'running', lastOutcome: undefined });
+    const cut = agent('a', { state: 'running', lastOutcome: undefined, endedAt: undefined });
     const failed = agent('b', { state: 'failed', lastOutcome: 'failed' });
     const entries = restoredReportNotices({
       agents: [cut, failed],

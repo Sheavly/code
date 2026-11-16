@@ -216,13 +216,6 @@ export const API_ROUTES = {
     body: terminalSettingsSchema,
     response: { status: 204 },
   },
-  migrateTerminalSettings: {
-    effect: 'change',
-    method: 'post',
-    path: '/terminal-settings/migrate',
-    summary: 'Move legacy profile terminal preferences into global config and return them',
-    response: { status: 200, schema: terminalSettingsSchema },
-  },
   getProfile: {
     effect: 'read',
     method: 'get',

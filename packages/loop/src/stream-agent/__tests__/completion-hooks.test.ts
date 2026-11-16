@@ -38,6 +38,7 @@ const individual = [
       state: 'completed',
       startedAt: 100,
       endedAt: 300,
+      lastOutcome: 'completed',
     },
     outcome: 'completed',
     report: 'Release findings',

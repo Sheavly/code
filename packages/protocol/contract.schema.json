@@ -1826,7 +1826,6 @@
       "properties": {
         "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "terminal": { "$ref": "#/$defs/TerminalSettings" },
         "lastModelSelection": { "$ref": "#/$defs/ModelSelection" },
         "modelModes": {
           "type": "object",

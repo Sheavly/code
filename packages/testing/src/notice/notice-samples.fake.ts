@@ -21,7 +21,14 @@ function reportFrom(agentId: string) {
 
   return {
     kind: 'agent-report',
-    agent: { ...agent, startedByCall: 'call-9', state: 'completed', startedAt: 400, endedAt: 900 },
+    agent: {
+      ...agent,
+      startedByCall: 'call-9',
+      state: 'completed',
+      lastOutcome: 'completed',
+      startedAt: 400,
+      endedAt: 900,
+    },
     outcome: 'completed',
     report: 'The docs agree',
   };

@@ -20,20 +20,10 @@ describe('profileIdSchema', () => {
 });
 
 describe('profileSchema', () => {
-  it('accepts legacy terminal preferences for migration without coercing motion values', () => {
-    for (const reducedMotion of [true, false]) {
-      const profile = { id: ID, name: 'Work', terminal: { reducedMotion } };
+  it('holds no fields beyond id, name, lastModelSelection and modelModes', () => {
+    const parsed = profileSchema.parse({ id: ID, name: 'Work', terminal: { reducedMotion: true } });
 
-      expect(profileSchema.parse(profile)).toEqual(profile);
-    }
-
-    expect(profileSchema.parse({ id: ID, name: 'Work', terminal: {} }).terminal).toEqual({});
-
-    for (const reducedMotion of ['true', 1, null]) {
-      expect(
-        profileSchema.safeParse({ id: ID, name: 'Work', terminal: { reducedMotion } }).success,
-      ).toBe(false);
-    }
+    expect(parsed).toEqual({ id: ID, name: 'Work' });
   });
 
   it('holds a selection and per-model modes, rejecting unknown modes and non-ID keys', () => {

@@ -14,10 +14,8 @@ export function canTransition<M extends Machine>(params: {
 }
 
 /**
- * Whether a session's `state`, `lastOutcome` and `endedAt` do not contradict each other: an open
- * session (running or idle) has not ended, and an ended one's last outcome, when it has one, is
- * its state. A missing field is not a contradiction, so a conversation stored before the fields
- * were always set still reads.
+ * Whether a session's `state`, `lastOutcome` and `endedAt` agree: an open session (running or
+ * idle) has not ended, and an ended one has both an end time and a last outcome equal to its state.
  */
 export function isConsistentSession(session: {
   state: StateOf<'session'>;
@@ -28,7 +26,7 @@ export function isConsistentSession(session: {
 
   if (state === 'running' || state === 'idle') return endedAt === undefined;
 
-  return lastOutcome === undefined || lastOutcome === state;
+  return endedAt !== undefined && lastOutcome === state;
 }
 
 /** The status table as the Markdown the state-machines guide prints, one row per state. */

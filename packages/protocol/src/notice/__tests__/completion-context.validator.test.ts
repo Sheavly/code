@@ -33,6 +33,7 @@ const AGENT_REPORT = {
     state: 'completed',
     startedAt: 100,
     endedAt: 200,
+    lastOutcome: 'completed',
   },
   taskId: 'task-1',
   outcome: 'completed',
