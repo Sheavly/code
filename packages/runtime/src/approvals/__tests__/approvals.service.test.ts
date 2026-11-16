@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ZodError } from 'zod';
 import { ApprovalListenerError } from '../../errors/approvals.errors.js';
 import { ApprovalRegistry } from '../approvals.service.js';
 import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
@@ -148,7 +149,7 @@ describe('ApprovalRegistry', () => {
     void ask(approvals);
 
     expect(() => approvals.respond({ id: a1, response: { decision: 'always_allow' } })).toThrow(
-      'not one of the options offered',
+      expect.objectContaining({ reason: 'not_offered' }) as Error,
     );
     expect(approvals.pending()).toHaveLength(1);
   });
@@ -163,7 +164,7 @@ describe('ApprovalRegistry', () => {
     listen(approvals);
     void ask(approvals);
 
-    expect(() => approvals.respond({ id: a1, response })).toThrow();
+    expect(() => approvals.respond({ id: a1, response })).toThrow(ZodError);
     expect(approvals.pending()).toHaveLength(1);
   });
 
