@@ -153,6 +153,12 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-direct-file-writes': 'error' },
     },
+    // --- A model reply is read by the shared `readReply`, not a protocol's own event loop ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-handrolled-reply-reader': 'error' },
+    },
     // --- A file changed whole goes through LockedChange, not a bare in-process queue ---
     {
       files: SOURCE_FILES,
