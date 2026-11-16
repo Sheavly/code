@@ -200,6 +200,24 @@ missed one.
   one). Its body filters it (`session`, with `subtree` the session's sub-agents too) and `replay`
   sends it from the start first. `Last-Event-ID: <seq>` resumes right after the last entry a
   client got.
+- **A head frame.** A live stream that starts from now (no `replay`, no `Last-Event-ID`) opens with
+  one frame that has an `id` and nothing else: `id: <seq>\n\n`, the `seq` of the last entry made
+  before it opened. It announces no entry (SSE sets the last event id from it), and a reader that
+  skips frames without an `event` ignores it. A client that has received no entry when its
+  connection drops resumes after it, so what was made meanwhile is not missed, once the head has
+  reached it: a drop before the head arrives still reopens with no id. A conversation with no
+  entry yet sends none (a started one always has `session_started`).
+- **A slow consumer is cut off, not buffered for.** A stream holds at most 1000 entries a client
+  has not read yet (`SSE_QUEUE_LIMIT`). One that falls further behind ends, with what was queued
+  dropped, and the client resumes after the last entry it got (`Last-Event-ID`), so nothing is
+  lost and the server's memory per stream is bounded. `@sheavly/client`'s `reconnectingEntries`
+  does this for a stream with no end of its own, such as `QUERY /stream` (`endless`), where an end
+  can only be a cut. A prompt's response cut this way ends without its `done`: the prompt keeps
+  running, and the client reads the rest from `QUERY /stream` with `Last-Event-ID`. The bound
+  counts live entries only; a replay of history is sent whole. Without a store, a resume reaches
+  back only as far as the entries kept in memory (`ENTRY_TAIL_SIZE`); this backend always has one.
+- A prompt's response starts at the prompt's own `session_resumed`, so entries made while its
+  skills were being prepared (a task ending, an approval) are not mixed into it.
 - A `done` in the stream carries no history; `GET /messages` has it.
 - A quiet stream gets a `: heartbeat` comment every 15 seconds, and `X-Accel-Buffering: no`, so a
   proxy in between neither closes nor buffers it.
@@ -238,16 +256,16 @@ leaves a run waiting on an approval no one will give.
 
 Every failure is `{ error: { code, message } }` (`ServerError`):
 
-| Status | Code               | When                                                   |
-| ------ | ------------------ | ------------------------------------------------------ |
-| 400    | `bad_request`      | a body that doesn't parse, or over 5 MB                |
-| 401    | `unauthorized`     | no token, or a wrong one                               |
-| 404    | `not_found`        | no such conversation (or route), or one already closed |
-| 404    | `unknown_approval` | no approval waiting with that id                       |
-| 409    | `session_running`  | a prompt is still running in that conversation         |
-| 422    | `unknown_skill`    | `parts` picked a skill no one has                      |
-| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't       |
-| 500    | `internal`         | the server failed; the message never holds its details |
+| Status | Code               | When                                                                                      |
+| ------ | ------------------ | ----------------------------------------------------------------------------------------- |
+| 400    | `bad_request`      | a body that doesn't parse or is over 5 MB, or an approval answer its request didn't offer |
+| 401    | `unauthorized`     | no token, or a wrong one                                                                  |
+| 404    | `not_found`        | no such conversation (or route), or one already closed                                    |
+| 404    | `unknown_approval` | no approval waiting with that id                                                          |
+| 409    | `session_running`  | a prompt is still running in that conversation                                            |
+| 422    | `unknown_skill`    | `parts` picked a skill no one has                                                         |
+| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't                                          |
+| 500    | `internal`         | the server failed; the message never holds its details                                    |
 
 A prompt that can't start is answered with an error before its stream opens.
 

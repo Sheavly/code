@@ -4,7 +4,8 @@ import type { LiveConversation } from '@sheavly/host/conversations/conversations
 import { ENTRY_EVENT } from '@sheavly/protocol/api/api.constants';
 import type { EntryFilter } from '@sheavly/runtime/sessions/sessions.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
-import { HEARTBEAT_MS } from './api.constants.js';
+import { HEARTBEAT_MS, SSE_QUEUE_LIMIT } from './api.constants.js';
+import { EntryQueue } from './entry-queue.service.js';
 import { isAfter } from './api.utils.js';
 
 /**
@@ -13,7 +14,8 @@ import { isAfter } from './api.utils.js';
  * `answersApprovals`, the client counts as someone who can answer them while it is open, so a
  * request waits for its answer; a client that didn't say so never makes one wait. It ends when the
  * client leaves, or once `isLast` says an entry was the stream's last (a prompt's response ends
- * with its `done`). A heartbeat comment keeps a quiet stream open through proxies. Disconnecting
+ * with its `done`). A stream that starts from now first sends a head frame (see below). A
+ * heartbeat comment keeps a quiet stream open through proxies. Disconnecting
  * only ends this subscription: the prompt runs on.
  */
 export function streamEntries(params: {
@@ -32,7 +34,9 @@ export function streamEntries(params: {
   c.header('X-Accel-Buffering', 'no'); // a buffering proxy (nginx) would hold events back
 
   return streamSSE(c, async (stream) => {
-    const queue: StreamEntry[] = [];
+    // Read before subscribing: what is below it is history, which a resume replays in bulk.
+    const liveFrom = live.harness.sessions.nextSeq();
+    const queue = new EntryQueue({ limit: SSE_QUEUE_LIMIT, liveFrom });
     let wake: (() => void) | undefined;
     let ended = false;
     const end = () => {
@@ -41,7 +45,9 @@ export function streamEntries(params: {
     };
     const unsubscribe = live.harness.sessions.subscribeEntries((entry) => {
       if (!isAfter({ entry, lastEventId })) return;
-      queue.push(entry);
+
+      // A consumer too slow to keep up is cut off, not buffered for: it resumes where it left off.
+      if (!queue.push(entry)) end();
       wake?.();
     }, filter);
     // Listening makes an approval wait for an answer; the answer comes as its own request.
@@ -54,6 +60,14 @@ export function streamEntries(params: {
 
     try {
       onOpen?.();
+
+      // A live stream that starts from now says where "now" is, as a frame with an `id` and nothing
+      // else (SSE sets the last event id from it), so a client that gets no entry before the
+      // connection drops can still resume after it and not miss what is made meanwhile. It is
+      // written before the loop, so it comes first whatever `onOpen` started.
+      if (!filter.replay && lastEventId === undefined && liveFrom > 0) {
+        await stream.write(`id: ${String(liveFrom - 1)}\n\n`);
+      }
 
       while (!ended) {
         const entry = queue.shift();

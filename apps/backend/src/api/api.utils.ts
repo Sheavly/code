@@ -53,6 +53,12 @@ export function toApiFailure(error: unknown): ApiFailure {
     return { status: 404, code: 'not_found', message: error.message };
   }
 
+  // A decision the request did not offer is the caller's to fix and the approval still waits, so it
+  // is not `unknown_approval`, which a UI forgives as "answered elsewhere".
+  if (error instanceof ApprovalRequestError && error.reason === 'not_offered') {
+    return { status: 400, code: 'bad_request', message: error.message };
+  }
+
   if (error instanceof ApprovalRequestError) {
     return { status: 404, code: 'unknown_approval', message: error.message };
   }
