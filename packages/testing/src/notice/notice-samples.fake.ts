@@ -1,32 +1,33 @@
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import { harnessNoticeSchema } from '@sheavly/protocol/notice/notice.validator';
 
-const TASK = {
-  id: 'task-1',
-  command: 'npm test',
-  description: 'Run tests',
-  status: 'completed',
-  startedAt: 100,
-  endedAt: 200,
-  output: 'ok',
-};
-const AGENT_REPORT = {
-  kind: 'agent-report',
-  agent: {
-    id: 'agent-1',
-    parentId: 'main',
-    rootId: 'main',
-    startedByCall: 'call-1',
-    depth: 2,
-    title: 'Review tests',
-    state: 'completed',
-    startedAt: 100,
-    endedAt: 200,
-  },
-  outcome: 'completed',
-  report: 'All tests passed',
-};
-const TASK_FINISHED = { kind: 'task-finished', task: TASK };
+const FINISHED_AT = 900;
+
+function finishedTask(id: string) {
+  return {
+    id,
+    command: 'npm run build',
+    description: 'Build the package',
+    status: 'completed',
+    startedAt: 400,
+    endedAt: FINISHED_AT,
+    output: 'built',
+  };
+}
+
+function reportFrom(agentId: string) {
+  const agent = { id: agentId, parentId: 'root', rootId: 'root', depth: 2, title: 'Check docs' };
+
+  return {
+    kind: 'agent-report',
+    agent: { ...agent, startedByCall: 'call-9', state: 'completed', startedAt: 400, endedAt: 900 },
+    outcome: 'completed',
+    report: 'The docs agree',
+  };
+}
+
+const AGENT_REPORT = reportFrom('agent-7');
+const TASK_FINISHED = { kind: 'task-finished', task: finishedTask('task-7') };
 
 /**
  * One valid notice of every kind, parsed through the contract so a sample can't drift. The `Record`
