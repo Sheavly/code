@@ -8,3 +8,10 @@ import { DateTime } from 'luxon';
 export function now(): number {
   return DateTime.now().toMillis();
 }
+
+/** An HTTP date (`Wed, 21 Oct 2026 07:28:00 GMT`) as epoch milliseconds, or undefined if it is not one. */
+export function httpDateMs(value: string): number | undefined {
+  const date = DateTime.fromHTTP(value);
+
+  return date.isValid ? date.toMillis() : undefined;
+}
