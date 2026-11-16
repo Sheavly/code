@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest';
+import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
+import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
+import { harnessPlugin } from '../plugin.js';
+
+const RULE = 'no-adhoc-notice-entry';
+const tester = typescriptRuleTester({ ecmaVersion: 'latest', sourceType: 'module' });
+
+tester.run(RULE, harnessPlugin.rules[RULE], {
+  valid: [
+    'publishNotice({ events, messages, notice, at });',
+    "messages.push({ role: 'user', content: 'hi' });",
+    "const schema = z.object({ role: z.literal('notice') });",
+    'const entry = { role, notice };',
+    "if (message.role === 'notice') show(message.notice);",
+  ],
+  invalid: [
+    {
+      code: "messages.push({ role: 'notice', notice, at: now() });",
+      errors: [{ messageId: 'm0' }],
+    },
+    { code: "const entry = { notice, role: 'notice' };", errors: [{ messageId: 'm0' }] },
+    { code: "return [{ role: 'notice', notice }];", errors: [{ messageId: 'm0' }] },
+  ],
+});
+
+const LOOP = 'packages/loop';
+const on = (file) => ruleIsErrorOn({ rule: `harness/${RULE}`, folder: LOOP, file });
+
+// The two exceptions are pinned: a renamed helper or a widened override changes these answers.
+describe('no-adhoc-notice-entry in the loop', () => {
+  it('is on for the code that delivers notices', async () => {
+    for (const file of [
+      'src/stream-agent/task-delivery.helper.ts',
+      'src/hooks/hook-failures.helper.ts',
+      'src/stream-agent/sample.helper.ts',
+    ]) {
+      expect(await on(file), file).toBe(true);
+    }
+  });
+
+  it('is off only in publishNotice and the helper that restores reports', async () => {
+    for (const file of [
+      'src/stream-agent/notice-publish.helper.ts',
+      'src/stream-agent/restored-reports.helper.ts',
+    ]) {
+      expect(await on(file), file).toBe(false);
+    }
+  });
+
+  it('is off in tests, which write entries to set a history up', async () => {
+    expect(await on('src/stream-agent/__tests__/x.test.ts')).toBe(false);
+  });
+});

@@ -176,6 +176,18 @@ export const SYNTAX_RULES = {
         'Do not write a `<harness-notice` envelope by hand. Add the notice as a kind of `harnessNoticeSchema` (`@sheavly/protocol/notice/notice.validator`) and format it in `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`), whose wording lives in `notice.constants.ts`: it frames the text as harness data, not a user message, and escapes what is inserted inside it.',
     },
   ],
+  // Whether a notice is kept in history is its kind's lifetime (`NOTICE_LIFETIMES`), applied once
+  // by `publishNotice`. A history entry written by hand (`{ role: 'notice', ... }`) decides it at
+  // the call site again, which is how a persistent kind could be streamed and never stored. Only
+  // `publishNotice` and the reopening helper that restores reports are `files:` exceptions in the
+  // loop's eslint.config.js. Not covered: an entry built from a variable role.
+  'no-adhoc-notice-entry': [
+    {
+      selector: "ObjectExpression > Property[key.name='role'][value.value='notice']",
+      message:
+        "Do not write a `{ role: 'notice' }` history entry by hand. `publishNotice` (`packages/loop/src/stream-agent/notice-publish.helper.ts`) sends the event and keeps the entry exactly when the kind's lifetime in `NOTICE_LIFETIMES` (`@sheavly/protocol/notice/notice.constants`) says persistent, so a call site never decides it. A new kind is its schema plus one registry entry. Restoring stored reports is the one other `files:` exception, in the loop's eslint.config.js.",
+    },
+  ],
   // What counts as the request in stored history is decided once, in `@sheavly/core`'s history
   // helpers: a stored `user` entry, never a notice, which only becomes a `user`-role message in
   // what a model is sent. A lookup of "the last user message" written by hand reads a model view
