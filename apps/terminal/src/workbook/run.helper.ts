@@ -201,27 +201,43 @@ async function recordConversation(
 
       combined.throwIfAborted();
 
+      // A watcher failure races the prompt to close the conversation; its late events, from the
+      // prompt or the live feed, must not overwrite the saved failure or write to a closed recorder.
+      const accept = (entry: StreamEntry) => {
+        if (signal.aborted && !interrupt.signal.aborted) return;
+
+        show(entry);
+      };
       // The backend ends the prompt when the model does, then starts a run of its own to deliver
       // what its background work produced; only the live feed carries that run.
       const stopFollowing = new AbortController();
-      const live = await conversation.follow({ onEntry: show, signal: stopFollowing.signal });
-      // The feed's failure is kept, not thrown here: it may end while the prompt still streams.
+      const feedFailed = new AbortController();
+      const live = await conversation.follow({ onEntry: accept, signal: stopFollowing.signal });
+      // The feed's failure is kept and read below, and it also stops the wait for background work:
+      // without the feed that work's counts no longer move, so waiting on them would only run out.
       const followFailure = live.ended.then(
         () => undefined,
-        (caughtError: unknown) => caughtError,
+        (caughtError: unknown) => {
+          feedFailed.abort();
+
+          return caughtError;
+        },
       );
 
       try {
         // Skills mentioned by the prompt run with it, as in the chat.
         for await (const entry of conversation.send({ text: request.text, signal: combined })) {
-          // A watcher failure races the prompt to close the conversation; its late events must
-          // not overwrite the saved failure or write to an already-closed recorder.
           if (signal.aborted && !interrupt.signal.aborted) break;
 
-          show(entry);
+          accept(entry);
         }
 
-        await settleBackground({ conversation, signal: combined });
+        await settleBackground({
+          conversation,
+          signal: AbortSignal.any([combined, feedFailed.signal]),
+        });
+        // Interrupted while waiting: the run is saved as interrupted, not as a completed one.
+        interrupt.signal.throwIfAborted();
       } finally {
         stopFollowing.abort();
       }
