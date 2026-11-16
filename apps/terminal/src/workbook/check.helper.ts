@@ -9,7 +9,14 @@ import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import { resolveWritable } from '@sheavly/coding/files/files.helper';
-import type { Check, CheckOutcome, CheckStep, Observed, RunSources } from './check.types.js';
+import type {
+  Check,
+  CheckEnd,
+  CheckOutcome,
+  CheckStep,
+  Observed,
+  RunSources,
+} from './check.types.js';
 import {
   formatReport,
   isRunSource,
@@ -251,8 +258,9 @@ async function runCheck(params: {
 }
 
 /**
- * `check`: runs the selected checks against the real model and reports each. Returns whether
- * every one passed. Says which changed source no check covers, so missing coverage shows.
+ * `check`: runs the selected checks against the real model and reports each. Returns `passed`
+ * when every one did, `interrupted` when Ctrl+C stopped it (not a pass, and not a failure), and
+ * `failed` otherwise. Says which changed source no check covers, so missing coverage shows.
  */
 export async function checkWorkbook(params: {
   store: WorkbookStore;
@@ -264,7 +272,7 @@ export async function checkWorkbook(params: {
   /** The reasoning effort every run of every check starts on; the profile's own when omitted. */
   mode?: ModelMode | undefined;
   write: (text: string) => void;
-}): Promise<boolean> {
+}): Promise<CheckEnd> {
   assertCheckBackend(process.env);
   const approvedCommands = parseApprovedCommands(params.approvedCommands ?? []);
   const { store, names, all, write, model, mode } = params;
@@ -282,7 +290,7 @@ export async function checkWorkbook(params: {
       `✗ No check named ${unknown.join(', ')} (a prompt needs a \`check\` in its front matter)\n`,
     );
 
-    return false;
+    return 'failed';
   }
 
   if (uncovered.length > 0) write(`No check covers: ${uncovered.join(', ')}\n`);
@@ -290,7 +298,7 @@ export async function checkWorkbook(params: {
   if (checks.length === 0) {
     write('No checks to run: nothing this branch changed is covered (--all runs every one).\n');
 
-    return true;
+    return 'passed';
   }
 
   write(`Checking ${checks.map((prompt) => prompt.name).join(', ')}…\n`);
@@ -307,7 +315,11 @@ export async function checkWorkbook(params: {
 
   write(`\n${formatReport(outcomes)}\n`);
 
-  return outcomes.every(
+  if (outcomes.some((outcome) => outcome.status === 'interrupted')) return 'interrupted';
+
+  const passed = outcomes.every(
     (outcome) => outcome.status === 'passed' || outcome.status === 'passed_on_retry',
   );
+
+  return passed ? 'passed' : 'failed';
 }

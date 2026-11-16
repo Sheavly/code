@@ -40,10 +40,7 @@ async function tempWorkbook(): Promise<WorkbookStore> {
 /** A temp workbook with one run of the `demo` prompt claimed: its store and the run's files. */
 async function demoRun() {
   const store = await tempWorkbook();
-  const paths = await store.beginRun({
-    prompt: 'demo',
-    id: (n) => runId({ number: n, prompt: 'demo' }),
-  });
+  const paths = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
 
   return { store, paths };
 }
@@ -244,18 +241,17 @@ describe('diffResults', () => {
 });
 
 describe('WorkbookStore', () => {
-  it('numbers runs across calls and remembers the last one, overall and per prompt', async () => {
+  it('numbers runs across calls and remembers the last finished one, overall and per prompt', async () => {
     const store = await tempWorkbook();
-    const first = await store.beginRun({
-      prompt: 'demo',
-      id: (n) => runId({ number: n, prompt: 'demo' }),
-    });
-    const second = await store.beginRun({
-      prompt: 'ask',
-      id: (n) => runId({ number: n, prompt: 'ask' }),
-    });
+    const first = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+    const second = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'ask' }) });
 
     expect([first.id, second.id]).toEqual(['0001-demo', '0002-ask']);
+    // Begun is not finished: neither is `last` yet.
+    expect((await store.state()).lastRun).toBeUndefined();
+
+    await store.finishRun({ id: first.id, prompt: 'demo' });
+    await store.finishRun({ id: second.id, prompt: 'ask' });
     expect(await store.state()).toEqual({
       version: 1,
       runCount: 2,
@@ -263,20 +259,59 @@ describe('WorkbookStore', () => {
       lastRunByPrompt: { demo: '0001-demo', ask: '0002-ask' },
     });
     // The workbook picks up where it left off: a new store on the same folder continues the count.
-    const again = await new WorkbookStore(store.root).beginRun({
-      prompt: 'demo',
-      id: (n) => `${n}`,
-    });
+    const again = await new WorkbookStore(store.root).beginRun({ id: (n) => `${n}` });
 
     expect(again.id).toBe('3');
+  });
+
+  it('hands out distinct run numbers to runs begun at the same time', async () => {
+    const store = await tempWorkbook();
+    const begun = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        new WorkbookStore(store.root).beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) }),
+      ),
+    );
+
+    expect(new Set(begun.map(({ id }) => id)).size).toBe(8);
+    expect((await store.state()).runCount).toBe(8);
+  });
+
+  it('names state.json and says how to start over when it is not JSON or not a state', async () => {
+    const store = await tempWorkbook();
+    const claim = () => store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    for (const contents of ['not json{', '{"version":99}']) {
+      await writeFile(path.join(store.root, 'state.json'), contents);
+      await expect(claim()).rejects.toThrow(/state\.json.*delete it to start over/s);
+      await expect(store.finishRun({ id: runIdSchema.parse('1-a'), prompt: 'a' })).rejects.toThrow(
+        /delete it to start over/,
+      );
+    }
+  });
+
+  it('does not let a run that was cut short become "last"', async () => {
+    const store = await tempWorkbook();
+    const done = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    await store.finishRun({ id: done.id, prompt: 'demo' });
+    // A second run is claimed and then force-quit: its folder exists, but it never finished.
+    const cut = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    expect(await store.resolveRun('last')).toBe(done.id);
+    expect(await store.metaIfThere(cut.id)).toBeUndefined();
+    expect(await store.result(cut.id)).toBeUndefined();
+    expect(await store.events(cut.id)).toEqual([]);
   });
 
   it('resolves runs by full id, number, prefix or "last", and explains a miss', async () => {
     const store = await tempWorkbook();
 
     await expect(store.resolveRun(undefined)).rejects.toThrow('No runs yet');
-    await store.beginRun({ prompt: 'demo', id: (n) => runId({ number: n, prompt: 'demo' }) });
-    await store.beginRun({ prompt: 'demo', id: (n) => runId({ number: n, prompt: 'demo' }) });
+    await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    const second = await store.beginRun({ id: (n) => runId({ number: n, prompt: 'demo' }) });
+
+    await store.finishRun({ id: second.id, prompt: 'demo' });
 
     expect(await store.resolveRun('last')).toBe('0002-demo');
     expect(await store.resolveRun('1')).toBe('0001-demo');
@@ -338,7 +373,7 @@ describe('WorkbookStore', () => {
 
   it('checks what it reads back: the last run must exist, and saved events must be events', async () => {
     const store = await tempWorkbook();
-    const paths = await store.beginRun({ prompt: 'demo', id: () => 'r1' });
+    const paths = await store.beginRun({ id: () => 'r1' });
 
     await writeFile(paths.events, '{"seq":0,"type":"not_an_event"}\n');
     await expect(store.events(runIdSchema.parse('r1'))).rejects.toThrow('Could not read');

@@ -46,7 +46,7 @@ export async function showRun(params: {
 }): Promise<void> {
   const { store, id, write } = params;
   const [meta, result, events, answer] = await Promise.all([
-    store.meta(id),
+    store.metaIfThere(id),
     store.result(id),
     store.events(id),
     store.answer(id),
@@ -55,13 +55,19 @@ export async function showRun(params: {
   const tools = toolsUsed(events);
 
   write(`Run ${id}\n`);
-  write(`  prompt     ${meta.prompt}${meta.continues ? ` (continues ${meta.continues})` : ''}\n`);
-  write(`  text       ${meta.text}\n`);
-  write(`  model      ${meta.adapter} / ${meta.model}\n`);
-  write(`  workspace  ${meta.workspace}\n`);
-  write(
-    `  started    ${DateTime.fromMillis(meta.startedAt).toFormat('yyyy-LL-dd HH:mm:ss')}${meta.gitCommit ? ` · commit ${meta.gitCommit}` : ''}\n`,
-  );
+
+  if (meta) {
+    write(`  prompt     ${meta.prompt}${meta.continues ? ` (continues ${meta.continues})` : ''}\n`);
+    write(`  text       ${meta.text}\n`);
+    write(`  model      ${meta.adapter} / ${meta.model}\n`);
+    write(`  workspace  ${meta.workspace}\n`);
+    write(
+      `  started    ${DateTime.fromMillis(meta.startedAt).toFormat('yyyy-LL-dd HH:mm:ss')}${meta.gitCommit ? ` · commit ${meta.gitCommit}` : ''}\n`,
+    );
+  } else {
+    // A force quit before the conversation opened: only what was recorded by then is there.
+    write('  no run.json: the run ended before it started its conversation\n');
+  }
 
   if (result) {
     write(`  outcome    ${result.outcome}${result.error ? ` · ${result.error}` : ''}\n`);

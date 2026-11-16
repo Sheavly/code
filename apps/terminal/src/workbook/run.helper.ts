@@ -103,7 +103,6 @@ async function startRun(params: {
 }): Promise<RunResult & { id: RunId }> {
   const { store, request, trustFile, checkContext, interrupt, live, write } = params;
   const paths = await store.beginRun({
-    prompt: request.name,
     id: (number) => runId({ number, prompt: request.name }),
   });
   const { history, workspace: previousWorkspace } = await startingPoint({ store, request });
@@ -154,6 +153,8 @@ async function startRun(params: {
       messages: [],
       sessions: 0,
     });
+
+    await store.finishRun({ id: paths.id, prompt: request.name });
 
     return { ...result, id: paths.id };
   }
@@ -330,6 +331,9 @@ async function recordConversation(
     write(`\n✗ Run failed: ${describeFailure(caughtError)}\n`);
   }
 
+  // Before `finish`, which closes the transcript: the saved run says where it is.
+  write(`\n→ saved to ${paths.dir}\n`);
+
   const result = await recorder.finish({
     outcome,
     error,
@@ -337,7 +341,7 @@ async function recordConversation(
     sessions: sessions.size,
   });
 
-  process.stdout.write(`\n→ saved to ${paths.dir}\n`);
+  await params.store.finishRun({ id: paths.id, prompt: request.name });
 
   return { ...result, id: paths.id };
 }

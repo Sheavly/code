@@ -3,6 +3,8 @@ import path from 'node:path';
 import type { z } from 'zod';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
+import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
+import { StorageFileError } from '@sheavly/storage/errors/storage.errors';
 import { WorkbookNotFoundError, WorkbookStoreError } from '../errors/workbook.errors.js';
 import {
   EMPTY_STATE,
@@ -44,12 +46,14 @@ export class WorkbookStore {
   readonly runsDir: string;
   readonly workspacesDir: string;
   readonly #stateFile: string;
+  readonly #state: DocumentFile;
 
   constructor(readonly root: string) {
     this.promptsDir = path.join(root, PROMPTS_DIR);
     this.runsDir = path.join(root, RUNS_DIR);
     this.workspacesDir = path.join(root, WORKSPACES_DIR);
     this.#stateFile = path.join(root, STATE_FILE);
+    this.#state = new DocumentFile({ file: this.#stateFile });
   }
 
   async prompts(): Promise<StoredPrompt[]> {
@@ -77,38 +81,45 @@ export class WorkbookStore {
 
     if (raw === undefined) return { ...EMPTY_STATE, lastRunByPrompt: {} };
 
-    const file = this.#stateFile;
-
-    return parseOrThrow({
-      schema: stateSchema,
-      input: parseJson({ file, raw }),
-      onInvalid: ({ details, error }) =>
-        new WorkbookStoreError({
-          file,
-          cause: error,
-          reason: `invalid (delete it to start over):\n${details}`,
-        }),
-    });
+    return this.#parseState(parseJson({ file: this.#stateFile, raw }));
   }
 
-  /** Claims the next run number and folder, and remembers it as the prompt's latest run. */
-  async beginRun(params: {
-    prompt: string;
-    id: (number: number) => string;
-  }): Promise<RunPaths & { id: RunId }> {
-    const state = await this.state();
-    const id = runIdSchema.parse(params.id(state.runCount + 1));
+  /**
+   * Claims the next run number and its folder. The number is taken in a locked change of
+   * `state.json` (`DocumentFile.update`: one at a time here and across processes), so two workbook
+   * processes never get the same one. The run is not `last` yet: that is `finishRun`, so a run
+   * that is cut short never becomes what `show` and `continue` default to.
+   */
+  async beginRun(params: { id: (number: number) => string }): Promise<RunPaths & { id: RunId }> {
+    const claimed: { name?: string } = {};
+
+    await this.#updateState((current) => {
+      const state = this.#stateFrom(current);
+
+      claimed.name = params.id(state.runCount + 1);
+
+      return { ...state, runCount: state.runCount + 1 };
+    });
+
+    const id = runIdSchema.parse(claimed.name);
     const paths = runPaths({ runsDir: this.runsDir, id });
 
     await mkdir(paths.dir, { recursive: true });
-    await this.#saveState({
-      ...state,
-      runCount: state.runCount + 1,
-      lastRun: id,
-      lastRunByPrompt: { ...state.lastRunByPrompt, [params.prompt]: id },
-    });
 
     return { ...paths, id };
+  }
+
+  /** Remembers a run that ended (completed, failed or interrupted, with a result) as the latest. */
+  async finishRun(params: { id: RunId; prompt: string }): Promise<void> {
+    await this.#updateState((current) => {
+      const state = this.#stateFrom(current);
+
+      return {
+        ...state,
+        lastRun: params.id,
+        lastRunByPrompt: { ...state.lastRunByPrompt, [params.prompt]: params.id },
+      };
+    });
   }
 
   /**
@@ -197,6 +208,14 @@ export class WorkbookStore {
     return parseStored({ file, raw: await readStored(file), schema: runMetaSchema });
   }
 
+  /** The run's metadata, or undefined if it ended before `run.json` was written (a force quit). */
+  async metaIfThere(id: RunId): Promise<RunMeta | undefined> {
+    const file = this.#paths(id).meta;
+    const raw = await readIfThere(file);
+
+    return raw === undefined ? undefined : parseStored({ file, raw, schema: runMetaSchema });
+  }
+
   /** The run's result, or undefined if it never finished (crashed or still running). */
   async result(id: RunId): Promise<RunResult | undefined> {
     const file = this.#paths(id).result;
@@ -260,9 +279,44 @@ export class WorkbookStore {
     return runPaths({ runsDir: this.runsDir, id });
   }
 
-  async #saveState(state: WorkbookState): Promise<void> {
-    await mkdir(this.root, { recursive: true });
-    await writeFile(this.#stateFile, `${JSON.stringify(state, null, 2)}\n`);
+  /**
+   * A locked change of `state.json`. A file that cannot be read fails with the workbook's own
+   * error and its hint, as `state()` does, not with the storage layer's.
+   */
+  async #updateState(change: (current: unknown) => unknown): Promise<void> {
+    try {
+      await this.#state.update(change);
+    } catch (caughtError) {
+      if (!(caughtError instanceof StorageFileError)) throw caughtError;
+
+      throw new WorkbookStoreError({
+        file: this.#stateFile,
+        cause: caughtError,
+        reason: `unreadable (delete it to start over): ${caughtError.message}`,
+      });
+    }
+  }
+
+  /** The state a locked change starts from: what is stored, or the empty state before any run. */
+  #stateFrom(current: unknown): WorkbookState {
+    return current === undefined
+      ? { ...EMPTY_STATE, lastRunByPrompt: {} }
+      : this.#parseState(current);
+  }
+
+  #parseState(input: unknown): WorkbookState {
+    const file = this.#stateFile;
+
+    return parseOrThrow({
+      schema: stateSchema,
+      input,
+      onInvalid: ({ details, error }) =>
+        new WorkbookStoreError({
+          file,
+          cause: error,
+          reason: `invalid (delete it to start over):\n${details}`,
+        }),
+    });
   }
 }
 
