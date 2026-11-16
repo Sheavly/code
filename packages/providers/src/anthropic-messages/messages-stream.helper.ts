@@ -4,6 +4,7 @@ import { doneEvent } from '../http/done-event.utils.js';
 import { readReply } from '../http/reply-reader.helper.js';
 import { MESSAGES_API } from './messages.constants.js';
 import { createMessagesReader } from './events.utils.js';
+import type { MessagesReplay } from './messages.types.js';
 import { messagesEventSchema } from './messages.validator.js';
 import { messageUsage } from './usage.utils.js';
 
@@ -12,6 +13,8 @@ export function readMessagesReply(params: {
   body: ReadableStream<Uint8Array>;
   reasoningSource: string | undefined;
   prefix: string;
+  /** The notice blocks the request carried, kept in the reply's replay state. */
+  notices: NonNullable<MessagesReplay['notices']>;
   signal: AbortSignal;
 }): AsyncGenerator<StreamEvent> {
   const reader = createMessagesReader(params);

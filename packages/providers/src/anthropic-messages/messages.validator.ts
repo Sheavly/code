@@ -26,6 +26,12 @@ export const messagesReplaySchema = z.object({
   type: z.literal('messages-replay'),
   prefix: z.string(),
   content: z.array(replayBlockSchema),
+  /**
+   * The notice blocks that rode the request this reply answered. Its signature covers them, so
+   * they are sent again in the same place for the thinking to stay valid. Absent for a reply
+   * that had none, and for state stored before this field.
+   */
+  notices: z.array(z.object({ type: z.literal('text'), text: z.string() })).optional(),
 });
 
 const deltaSchema = z.discriminatedUnion('type', [

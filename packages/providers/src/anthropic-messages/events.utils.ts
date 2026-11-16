@@ -18,8 +18,10 @@ import type {
 export function createMessagesReader(params: {
   reasoningSource: string | undefined;
   prefix: string;
+  /** The notice blocks the request carried, which the reply's signature covers. */
+  notices: NonNullable<MessagesReplay['notices']>;
 }) {
-  const { reasoningSource, prefix } = params;
+  const { reasoningSource, prefix, notices } = params;
   const blocks = new Map<number, StreamingBlock>();
   const content: MessagesReplay['content'] = [];
   let reportedStop: string | undefined;
@@ -57,7 +59,7 @@ export function createMessagesReader(params: {
       }
 
       case 'message_stop':
-        return finishReply({ blocks, content, reasoningSource, prefix, reportedStop });
+        return finishReply({ blocks, content, reasoningSource, prefix, notices, reportedStop });
       case 'error':
         throw new ModelApiError({
           reason: 'stream_error',
@@ -75,9 +77,10 @@ function finishReply(params: {
   content: MessagesReplay['content'];
   reasoningSource: string | undefined;
   prefix: string;
+  notices: NonNullable<MessagesReplay['notices']>;
   reportedStop: string | undefined;
 }): MessagesStep {
-  const { blocks, content, reasoningSource, prefix, reportedStop } = params;
+  const { blocks, content, reasoningSource, prefix, notices, reportedStop } = params;
 
   if (blocks.size > 0 && reportedStop !== 'max_tokens') {
     const unfinished = [...blocks]
@@ -103,7 +106,15 @@ function finishReply(params: {
     events: [
       {
         type: 'reasoning',
-        item: { source: reasoningSource, data: { type: 'messages-replay', prefix, content } },
+        item: {
+          source: reasoningSource,
+          data: {
+            type: 'messages-replay',
+            prefix,
+            content,
+            ...(notices.length > 0 && { notices }),
+          },
+        },
       },
     ],
     ended: true,

@@ -5,7 +5,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import { sendRequest } from '../http/request.helper.js';
 import { replaySource } from '../http/replay.utils.js';
 import { ANTHROPIC_VERSION, MESSAGES_API, PROMPT_CACHE_CONTROL } from './messages.constants.js';
-import { toMessagesApiMessages, withNotices } from './input.utils.js';
+import { noticeBlocks, toMessagesApiMessages, withNotices } from './input.utils.js';
 import { withCacheBreakpoint } from './cache-breakpoint.utils.js';
 import type {
   MessagesAdapterConfig,
@@ -91,13 +91,14 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
       });
 
       // sendRequest guarantees a body for a started stream. The API binds a thinking signature to
-      // everything sent before it, the notice included, and refuses it (400) once that content is
-      // missing. The notice is gone next turn, so the prefix covers what was sent: it then no
-      // longer matches, and the thinking is dropped instead of replayed.
+      // everything sent before it, the notice included. The reply keeps those notice blocks next to
+      // the prefix covering them, and the next request sends them again in the same place, so the
+      // signature still matches and the thinking is replayed instead of dropped.
       yield* readMessagesReply({
         body: response.body as ReadableStream<Uint8Array>,
         reasoningSource,
         prefix: messagesPrefix({ instructions, tools: apiTools, messages: sent }),
+        notices: noticeBlocks(notices),
         signal,
       });
     },

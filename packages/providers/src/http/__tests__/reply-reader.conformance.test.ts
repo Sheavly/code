@@ -70,7 +70,13 @@ const PROTOCOLS: Record<
   },
   messages: {
     read: ({ events, signal }) =>
-      readMessagesReply({ body: body(events), reasoningSource: undefined, prefix: '', signal }),
+      readMessagesReply({
+        body: body(events),
+        reasoningSource: undefined,
+        prefix: '',
+        notices: [],
+        signal,
+      }),
     fixtures: {
       complete: [
         { type: 'message_start', message: { usage: { input_tokens: 10, output_tokens: 1 } } },

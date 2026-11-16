@@ -27,19 +27,24 @@ export function toMessagesApiMessages(params: {
   tools: Block[];
   onReplayDropped?: ReplayDropHandler | undefined;
 }): MessagesApiMessage[] {
-  const { messages, reasoningSource, onReplayDropped } = params;
-  const joined: MessagesApiMessage[] = [];
+  const { messages, reasoningSource, instructions, tools, onReplayDropped } = params;
+  let joined: MessagesApiMessage[] = [];
 
   for (const message of messages) {
-    const prefix = messagesPrefix({
-      instructions: params.instructions,
-      tools: params.tools,
-      messages: joined,
+    const { next, notices } = toMessage({
+      message,
+      reasoningSource,
+      context: { instructions, tools, history: joined },
+      onReplayDropped,
     });
-    const next = toMessage({ message, reasoningSource, prefix, onReplayDropped });
-    const last = joined.at(-1);
 
     if (next.content.length === 0) continue;
+
+    // A reply whose thinking is replayed was signed over the notices its request carried, so they
+    // go back into the user message before it. A reply that lost its thinking brings none.
+    joined = withUserBlocks({ messages: joined, blocks: notices });
+
+    const last = joined.at(-1);
 
     if (last?.role === next.role) last.content.push(...next.content);
     else joined.push(next);
@@ -57,62 +62,100 @@ export function withNotices(params: {
   messages: MessagesApiMessage[];
   notices: ProviderRequest['notices'];
 }): MessagesApiMessage[] {
-  const { messages, notices = [] } = params;
+  return withUserBlocks({ messages: params.messages, blocks: noticeBlocks(params.notices) });
+}
 
-  if (notices.length === 0) return messages;
+/**
+ * A request's notices as the text blocks that are sent. A reply keeps them in its replay state:
+ * its signature covers them, so a later request sends the same text again in the same place.
+ */
+export function noticeBlocks(notices: ProviderRequest['notices']): NoticeBlock[] {
+  return (notices ?? []).map((notice) => ({ type: 'text', text: formatHarnessNotice(notice) }));
+}
 
-  const blocks = notices.map((notice) => ({ type: 'text', text: formatHarnessNotice(notice) }));
+type NoticeBlock = { type: 'text'; text: string };
+
+/** `blocks` added to the last user message, or as a user message of its own. A copy. */
+function withUserBlocks(params: {
+  messages: MessagesApiMessage[];
+  blocks: NoticeBlock[];
+}): MessagesApiMessage[] {
+  const { messages, blocks } = params;
+
+  if (blocks.length === 0) return messages;
+
   const last = messages.at(-1);
 
-  if (last?.role !== 'user') return [...messages, { role: 'user', content: blocks }];
+  if (last?.role !== 'user') return [...messages, { role: 'user', content: [...blocks] }];
 
   return [...messages.slice(0, -1), { ...last, content: [...last.content, ...blocks] }];
 }
 
-/** A replay envelope retains block boundaries, including thinking between text and tool calls. */
+/** What a reply's signature was made over, besides its own notices: the history before it. */
+type PrefixContext = {
+  instructions: string | undefined;
+  tools: Block[];
+  history: MessagesApiMessage[];
+};
+
+/**
+ * A replay envelope retains block boundaries, including thinking between text and tool calls.
+ * `notices` are the blocks to put back before an assistant message whose thinking is replayed.
+ */
 function toMessage(params: {
   message: Message;
   reasoningSource: string | undefined;
-  prefix: string;
+  context: PrefixContext;
   onReplayDropped: ReplayDropHandler | undefined;
-}): MessagesApiMessage {
-  const { message, reasoningSource, prefix, onReplayDropped } = params;
+}): { next: MessagesApiMessage; notices: NoticeBlock[] } {
+  const { message, reasoningSource, context, onReplayDropped } = params;
   const text = (value: string): Block[] => (value ? [{ type: 'text', text: value }] : []);
 
   switch (message.role) {
     case 'user':
-      return { role: 'user', content: text(message.content) };
+      return { next: { role: 'user', content: text(message.content) }, notices: [] };
 
     case 'assistant': {
-      const content = replayContent({ message, reasoningSource, prefix, onReplayDropped });
+      const replayed = replayContent({ message, reasoningSource, context, onReplayDropped });
 
-      if (content) return { role: 'assistant', content };
+      if (replayed) {
+        return {
+          next: { role: 'assistant', content: replayed.content },
+          notices: replayed.notices,
+        };
+      }
 
       return {
-        role: 'assistant',
-        content: [
-          ...text(message.content),
-          ...message.toolCalls.map((call) => ({
-            type: 'tool_use',
-            id: call.id,
-            name: call.name,
-            input: toolInput(call.input),
-          })),
-        ],
+        next: {
+          role: 'assistant',
+          content: [
+            ...text(message.content),
+            ...message.toolCalls.map((call) => ({
+              type: 'tool_use',
+              id: call.id,
+              name: call.name,
+              input: toolInput(call.input),
+            })),
+          ],
+        },
+        notices: [],
       };
     }
 
     case 'tool':
       return {
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: message.toolCallId,
-            content: message.content,
-            is_error: message.isError,
-          },
-        ],
+        next: {
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: message.toolCallId,
+              content: message.content,
+              is_error: message.isError,
+            },
+          ],
+        },
+        notices: [],
       };
   }
 }
@@ -120,10 +163,10 @@ function toMessage(params: {
 function replayContent(params: {
   message: Extract<Message, { role: 'assistant' }>;
   reasoningSource: string | undefined;
-  prefix: string;
+  context: PrefixContext;
   onReplayDropped: ReplayDropHandler | undefined;
-}): Block[] | undefined {
-  const { message, reasoningSource, prefix, onReplayDropped } = params;
+}): { content: Block[]; notices: NoticeBlock[] } | undefined {
+  const { message, reasoningSource, context, onReplayDropped } = params;
   const [replay] = ownReplay({
     items: message.reasoning,
     source: reasoningSource,
@@ -155,15 +198,24 @@ function replayContent(params: {
     return undefined;
   }
 
-  const kept = content.filter(
-    (block) => parsed.data.prefix === prefix || block.type === 'text' || block.type === 'tool_use',
-  );
+  // The signature covers the notices the reply's request carried, so the check is over the history
+  // with them put back. Without a stored notice this is the history as it was.
+  const notices = parsed.data.notices ?? [];
+  const signedPrefix = messagesPrefix({
+    instructions: context.instructions,
+    tools: context.tools,
+    messages: withUserBlocks({ messages: context.history, blocks: notices }),
+  });
+
+  if (parsed.data.prefix === signedPrefix) return { content, notices };
+
+  const kept = content.filter((block) => block.type === 'text' || block.type === 'tool_use');
 
   if (kept.length < content.length) {
     onReplayDropped?.({ reason: 'prefix_changed', source });
   }
 
-  return kept;
+  return { content: kept, notices: [] };
 }
 
 /**

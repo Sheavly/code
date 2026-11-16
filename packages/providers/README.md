@@ -55,9 +55,9 @@ An explicit `max_tokens` termination with an open block retains streamed text an
 calls, but discards unfinished tools and thinking so the loop can request continuation. Other open
 block endings fail with the stop reason and block types, never their content.
 Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
-is omitted without losing text or tool calls. Transient task notices can invalidate the generating
-reply's thinking even with stable system instructions and history, and affect later dependent
-prefixes without discarding earlier matching replies. See
+is omitted without losing text or tool calls. A reply keeps the transient notice blocks its request
+carried and the next request sends them again in the same place, so a changing notice no longer
+costs the thinking; the model therefore reads earlier notices. See
 [the replay tradeoff](docs/prompt-caching.md#signed-thinking-replay-and-transient-notices) and
 [Model effort modes](docs/backends.md#model-effort-modes).
 
