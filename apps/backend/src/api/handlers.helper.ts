@@ -52,6 +52,7 @@ export function apiHandlers(
             workspace: body.workspace,
             profile: body.profile,
             model: body.model,
+            mode: body.mode,
           }),
         },
         201,
