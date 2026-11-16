@@ -18,8 +18,8 @@ const provider = createDefaultRegistry().create('openai', {
 | Module                | What it holds                                                                                                   |
 | --------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `registry/`           | `AdapterRegistry` (kind + config → `Provider`), `describe`, `validateDefinition`, `check`                       |
-| `switch/`             | `ProviderSwitch`: swap the active provider between turns, or pin a run to one                                   |
-| `http/`               | What every protocol shares: `sendRequest` (timeouts, retries), the SSE reader, config schemas                   |
+| `switch/`             | `ProviderSwitch`: swap, remove or pin a provider between turns (states tabled in the class)                     |
+| `http/`               | What every protocol shares: `sendRequest` and its retry policy, `readReply`, replay check, output-token limits  |
 | `responses/`          | The OpenAI Responses protocol: `createResponsesProvider`, `defineResponsesAdapter`                              |
 | `chat-completions/`   | Native Chat Completions: `createChatCompletionsProvider`, `defineChatCompletionsAdapter`, `readChatReply`       |
 | `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`                              |

@@ -159,8 +159,9 @@ and types without including text, arguments or signatures.
   backend that accepts a call and never answers holds the run for Node's five minutes. It covers
   the start only: a long reply streams for as long as it takes.
 - `retries` and `retryDelayMs`: a call that fails before anything streamed is sent again, up to
-  `retries` more times, waiting `retryDelayMs`, doubled each time (or the server's `retry-after`,
-  if longer). It retries a request that never reached the server, one that timed out, HTTP 429
+  `retries` more times, waiting `retryDelayMs`, doubled each time and cut by jitter to between
+  half and all of it (or the server's `retry-after`, in seconds or as an HTTP date, if longer).
+  The policy is `http/retry-policy.helper.ts`. It retries a request that never reached the server, one that timed out, HTTP 429
   and 5xx; any other HTTP error fails at once. Once an event has streamed it never retries, since
   the turn may have started tools: a stream cut off mid-reply fails the run.
 - An interrupt (the run's `signal`) stops the wait and every attempt, and is never retried.
@@ -259,9 +260,21 @@ description, configSchema, toEndpoint })`. `toEndpoint` is a pure map from valid
 - **It speaks another protocol** (Google Gemini, Chat Completions): a protocol folder next to
   `responses/` and `anthropic-messages/` with its own `create<Name>Provider` that turns a
   `ProviderRequest` into that API's request and its stream into `StreamEvent`s, and backends built
-  on it. What every protocol shares is in `http/` (`sendRequest`, the SSE reader, the config
-  schemas, `parseToolArguments`); nothing in one protocol's folder is reused by another. Reasoning
-  items keep a `source` naming the protocol, endpoint and model, so one provider's reasoning is
-  never sent to another.
+  on it. What every protocol shares is in `http/` (`sendRequest` and its retry policy, `readReply`,
+  the output-token limits, the replay check, the config schemas, `parseToolArguments`); nothing in
+  one protocol's folder is reused by another.
+  - **Read the reply with `readReply`** (`http/reply-reader.helper.ts`), never your own loop over
+    the SSE reader (`harness/no-handrolled-reply-reader` fails the import). Give it `parse` (the
+    typed event, or undefined for one you don't use), `step` (events to yield, and `ended` on the
+    event that finishes the reply; throw a `ModelApiError` for an error event) and `finish` (replay
+    state, then `done` with the stop reason and usage). It decides, once: unknown events are
+    skipped, a stream that ends early is `cut_off` unless the caller aborted, and `done` follows a
+    complete reply only. `http/__tests__/reply-reader.conformance.test.ts` runs the same
+    scenarios through every protocol: add yours to it.
+  - **Reasoning replay:** build the `source` with `replaySource` and filter stored items with
+    `ownReplay`, which reports each item left out to `onReplayDropped` with a reason
+    (`ReplayDropReason`); report your own reasons through the same handler.
+  - **Output tokens:** put a model's limit table in `http/output-tokens.constants.ts`.
+  - **Failures:** a failure after the reply started streaming is never retried by the provider.
 - Register it in `createDefaultRegistry` if it is built in, or `registry.register(adapter)` from
   the caller.
