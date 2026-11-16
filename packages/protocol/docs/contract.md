@@ -201,7 +201,6 @@ routes themselves (`API_ROUTES`), each with its method, path and these schemas:
 | `GET /adapters`                                      | none                       | `AdaptersResponse`            |
 | `GET /setup/models`                                  | none                       | `ModelCatalogResponse`        |
 | `PUT /terminal-settings`                             | `TerminalSettings`         | nothing (`204`)               |
-| `POST /terminal-settings/migrate`                    | none                       | `TerminalSettings`            |
 | `GET /profiles/{profile}`                            | none                       | `ProfileSetup`                |
 | `PUT /profiles/{profile}`                            | `PutProfileRequest`        | nothing (`204`)               |
 | `DELETE /profiles/{profile}`                         | none                       | nothing (`204`)               |
@@ -270,11 +269,9 @@ other argument of its base command, including secret files, outside-workspace ac
 execution overrides and npx downloads. Built-in approvals follow the same rule. Different base
 commands in a chain are checked independently. `always_ask` ignores every grant.
 
-Older path-specific entries, `read:`, `tool:` and `script:` scopes, and `exact:` JSON argument
-arrays remain readable for compatibility, but their effective scope is now their base command.
-For example, `read:sed *` grants `sed *` and `tool:npx eslint check *` grants `npx eslint *`.
-The stored strings need not be rewritten. A JSON array can still preserve a command identity
-such as an npm script name containing spaces; it does not impose exact argument matching.
+A grant covers its base command: `sed -n 1,200p src/a.ts` grants `sed *`. An `exact:` JSON array
+names a command whose words contain spaces, such as an npm script name; it does not impose exact
+argument matching.
 
 ## Run limits
 

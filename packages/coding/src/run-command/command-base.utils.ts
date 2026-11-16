@@ -135,34 +135,14 @@ export function gitWorktreeSubcommand(argv: readonly string[]): string | undefin
   return command?.word === 'worktree' ? args[command.next] : undefined;
 }
 
-/** Older exact, path-specific and operation-specific entries now approve their base command too. */
+/** A grant covers its base command. An `exact:` JSON array names a command whose words contain spaces. */
 export function allowEntryBase(entry: string): string[] {
   const exact = parseExactAllowEntry(entry);
 
   if (exact) return commandBase(exact);
   if (entry.startsWith('exact:')) return [];
 
-  let text = entry;
-
-  if (entry.startsWith('read:')) {
-    if (!['read:find *', 'read:sed *'].includes(entry)) return [];
-
-    text = entry.slice('read:'.length);
-  }
-
-  if (entry.startsWith('tool:')) {
-    if (!/^tool:npx \S+ (check|fix|write|format|emit) \*$/.test(entry)) return [];
-
-    text = entry.slice('tool:'.length);
-  }
-
-  if (entry.startsWith('script:')) {
-    if (!/^script:(node |npx tsx )/.test(entry)) return [];
-
-    text = entry.slice('script:'.length);
-  }
-
-  const words = text.trim().split(/\s+/);
+  const words = entry.trim().split(/\s+/);
 
   return commandBase(words.at(-1) === '*' ? words.slice(0, -1) : words);
 }

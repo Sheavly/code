@@ -93,14 +93,11 @@ describe('command-only approvals', () => {
   it.each([
     ['find apps/terminal *', 'find /outside -delete'],
     ['sed -n 1,200p src/a.ts', 'sed -i s/a/b/ .env'],
-    ['read:find *', 'find . -exec arbitrary {} +'],
-    ['tool:npx eslint check *', 'npx eslint --fix --config=anything ..'],
-    ['script:node tmp/probe.mjs *', 'node --import=anything /outside/other.mjs'],
     ['exact:["cat",".env"]', 'cat /outside/another'],
     ['npm run test', 'npm run test --script-shell=anything -- .env'],
     ['npx tsc -p src --noEmit', 'npx --yes tsc --noEmit false --project=..'],
   ])(
-    'legacy entries now approve only the base identity, not their old restrictions: %s',
+    'an entry approves only the base identity, not its paths or options: %s',
     async (entry, command) => {
       const permissions = testPermissions({ allow: [entry] });
       const ui = answeringUi({ decision: 'skip' });
