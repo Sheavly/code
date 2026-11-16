@@ -5,6 +5,7 @@ import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { AgentEvents } from './stream-agent.types.js';
+import { publishNotice } from './notice-publish.helper.js';
 import { finishedTaskNotice } from './task-notice.helper.js';
 import { taskCompletionContext } from './task-context.utils.js';
 
@@ -63,10 +64,9 @@ export function reportFinishedTasks(params: {
     for (const task of delivery.tasks) events.enqueue({ type: 'task_completed', task });
 
     // One grouped event and history entry: no member notice leaks before the group is complete.
-    events.enqueue({ type: 'harness_notice', notice });
     const at = Math.max(...delivery.tasks.map((task) => task.endedAt ?? now()));
 
-    messages.push({ role: 'notice', notice, at });
+    publishNotice({ events, messages, notice, at });
   }
 
   // Every notice is built and in history, so nothing reads these tasks again. Silent settled

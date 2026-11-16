@@ -2,6 +2,7 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import { publishNotice } from '../stream-agent/notice-publish.helper.js';
 import type { AgentEvents } from '../stream-agent/stream-agent.types.js';
 import type { HookError } from '../errors/loop.errors.js';
 import { MAX_HOOK_FAILED_ERROR_CHARS } from '@sheavly/protocol/notice/notice.constants';
@@ -49,8 +50,7 @@ export function createHookFailures(events: AgentEvents): HookFailures {
       for (const { notice, count } of pending.values()) {
         const delivered: HookFailedNotice = count > 1 ? { ...notice, repeats: count - 1 } : notice;
 
-        events.enqueue({ type: 'harness_notice', notice: delivered });
-        messages.push({ role: 'notice', notice: delivered, at: now() });
+        publishNotice({ events, messages, notice: delivered, at: now() });
       }
 
       pending.clear();
