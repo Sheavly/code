@@ -11,6 +11,7 @@ import { importsRule } from './rules/imports.js';
 import { kindContents } from './rules/kind-contents.js';
 import { layoutRule } from './rules/layout.js';
 import { noBrandCast } from './rules/no-brand-cast.js';
+import { noAdhocTaskKind } from './rules/no-adhoc-task-kind.js';
 import { noDirectTaskStart } from './rules/no-direct-task-start.js';
 import { noRawError } from './rules/no-raw-error.js';
 import { noSilentCatch } from './rules/no-silent-catch.js';
@@ -47,6 +48,7 @@ const RULES = {
   imports: importsRule,
   'kind-contents': kindContents,
   layout: layoutRule,
+  'no-adhoc-task-kind': noAdhocTaskKind,
   'no-brand-cast': noBrandCast,
   'no-direct-task-start': noDirectTaskStart,
   'no-raw-error': noRawError,

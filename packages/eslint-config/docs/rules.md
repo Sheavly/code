@@ -108,6 +108,19 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   the shared config's ignores. A registry typed `any`, cast to another shape, assigned to a
   structural type that re-declares `start` or extended through a mixin is left to review, and so
   is whether reads of the shared registry pass the caller's session.
+- **A task kind is not compared by hand** (`harness/no-adhoc-task-kind`, type-aware, source files
+  of packages, not apps): a comparison (`===`, `!==`, `==`, `!=`, either side) or a `switch` on a
+  value whose type is a union of two or more of `'task'`, `'agent'` and `'service'` fails. It reads
+  the type's shape, not its name (`TaskKind` is `z.infer` of a schema), so any such union fails,
+  one of a UI's own too; a check for presence (`kind === undefined`) passes. Which kinds are finite
+  (held open for, grouped, awaited, waking an idle session) is decided once, by `isFiniteKind`
+  (`@sheavly/runtime/tasks/work.utils`), so a new kind joins the finite machine there. Only that
+  `work.utils.ts`, beside the `tasks.service.ts` holding `TaskRegistry`, may compare; tests and
+  `src/testing` files are exempt through the shared config's ignores, and an app may compare kinds
+  to show them apart (counting commands, agents and services is presentation, not policy). A kind
+  widened to `string` or `any` first, a lookup (`Set.has`, `includes`, a record indexed by the
+  kind), a type of one literal only, a union that mixes in another literal, and a comparison in a
+  test are left to review.
 - **The latest request** (`harness/no-adhoc-latest-request`, source files): no
   `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
   history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`
