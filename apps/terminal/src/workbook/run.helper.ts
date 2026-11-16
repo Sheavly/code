@@ -3,12 +3,15 @@ import { now } from '@sheavly/core/clock/clock.helper';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.types';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
+import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { connectBackend } from '../client/backend.helper.js';
+import { BackendError } from '../errors/backend.errors.js';
 import { RemoteConversation } from '../client/conversation.service.js';
 import { SAME_KEYPRESS_MS } from '../render/render.constants.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice, shortId } from '../render/render.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
+import { settleBackground } from './background.helper.js';
 import { RunRecorder } from './recorder.service.js';
 import { runEnv } from './run-env.utils.js';
 import type { WorkbookStore } from './store.service.js';
@@ -180,21 +183,53 @@ async function recordConversation(
   let error: string | undefined;
 
   try {
+    // The prompt's stream and the live feed both carry some entries, so each is shown once by seq.
+    let shownSeq = -1;
+    const show = (entry: StreamEntry) => {
+      if (entry.seq <= shownSeq) return;
+
+      shownSeq = entry.seq;
+      sessions.add(entry.sessionId);
+      if (entry.kind === 'event') recorder.event(entry.event);
+      renderer.entry(entry, details.session);
+      outcome = runEnd(entry) ?? outcome;
+    };
     const send = async (signal: AbortSignal) => {
       const combined = AbortSignal.any([signal, interrupt.signal]);
 
       combined.throwIfAborted();
 
-      // Skills mentioned by the prompt run with it, as in the chat.
-      for await (const entry of conversation.send({ text: request.text, signal: combined })) {
-        // A watcher failure races the prompt to close the conversation; its late events must
-        // not overwrite the saved failure or write to an already-closed recorder.
-        if (signal.aborted && !interrupt.signal.aborted) break;
+      // The backend ends the prompt when the model does, then starts a run of its own to deliver
+      // what its background work produced; only the live feed carries that run.
+      const stopFollowing = new AbortController();
+      const live = await conversation.follow({ onEntry: show, signal: stopFollowing.signal });
+      // The feed's failure is kept, not thrown here: it may end while the prompt still streams.
+      const followFailure = live.ended.then(
+        () => undefined,
+        (caughtError: unknown) => caughtError,
+      );
 
-        sessions.add(entry.sessionId);
-        if (entry.kind === 'event') recorder.event(entry.event);
-        renderer.entry(entry, details.session);
-        outcome = runEnd(entry) ?? outcome;
+      try {
+        // Skills mentioned by the prompt run with it, as in the chat.
+        for await (const entry of conversation.send({ text: request.text, signal: combined })) {
+          // A watcher failure races the prompt to close the conversation; its late events must
+          // not overwrite the saved failure or write to an already-closed recorder.
+          if (signal.aborted && !interrupt.signal.aborted) break;
+
+          show(entry);
+        }
+
+        await settleBackground({ conversation, signal: combined });
+      } finally {
+        stopFollowing.abort();
+      }
+
+      const failure = await followFailure;
+
+      if (failure instanceof Error) throw failure;
+
+      if (failure !== undefined) {
+        throw new BackendError({ message: 'The live stream failed', cause: failure });
       }
     };
 
