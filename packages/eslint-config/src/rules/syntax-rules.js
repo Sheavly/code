@@ -245,6 +245,30 @@ export const SYNTAX_RULES = {
         'Do not read a reply\'s server-sent events yourself. Give `readReply` (`packages/providers/src/http/reply-reader.helper.ts`) the protocol\'s `parse`, `step` and `finish`: it owns the event loop, so unknown events, a cut-off stream, an abort and the final `done` behave the same in every protocol. See "Adding a backend" in packages/providers/docs/backends.md.',
     },
   ],
+  // Three decisions every model protocol shares live in `packages/providers/src/http/`: how a body
+  // is read (`readReply`), when and how long a call waits (`retry-policy.helper.ts`), and which
+  // stored reasoning a request may carry (`ownReplay`). A protocol that reads the body with
+  // `getReader()`, reads `retry-after` itself or compares a reasoning item's `source` rewrites one
+  // of them. Enabled for the providers workspace, with `files:` overrides for the helpers that
+  // own each. Not covered: a status compared as a number, a header read through a variable name.
+  'no-handrolled-provider-policy': [
+    {
+      selector: "CallExpression[callee.property.name='getReader']",
+      message:
+        "Do not read a model reply's body with `getReader()`. Give `readReply` (`packages/providers/src/http/reply-reader.helper.ts`) the protocol's `parse`, `step` and `finish`.",
+    },
+    {
+      selector: 'Literal[value=/^retry-after$/i]',
+      message:
+        'Do not read `retry-after` yourself. `retryAfterMs` and `backoffMs` (`packages/providers/src/http/retry-policy.helper.ts`) are the one retry policy: both header forms, jitter, and the longest wait.',
+    },
+    {
+      selector:
+        "BinaryExpression[operator=/^[!=]==?$/] > MemberExpression.left[property.name='source']",
+      message:
+        "Do not compare a reasoning item's `source` by hand. `ownReplay` (`packages/providers/src/http/replay.utils.ts`) is the one compatibility check, and it reports each item it leaves out.",
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [
