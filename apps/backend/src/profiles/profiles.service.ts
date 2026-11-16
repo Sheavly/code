@@ -1,3 +1,4 @@
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
@@ -30,10 +31,17 @@ export class Profiles {
   readonly #home: string;
 
   /** `env` says where the user's folder is (`sheavly_home`); `adapters` is for a test's fake fetch. */
-  constructor(params: { env: Environment; adapters?: AdapterRegistry }) {
+  constructor(params: {
+    env: Environment;
+    adapters?: AdapterRegistry;
+    /** Told of each reasoning item a model call leaves out; used only when `adapters` is not given. */
+    onReplayDropped?: ReplayDropHandler;
+  }) {
     this.#home = sheavlyHome(params.env);
     this.#registry = new ProfileRegistry({ root: this.#home });
-    this.#adapters = params.adapters ?? createDefaultRegistry();
+    this.#adapters =
+      params.adapters ??
+      createDefaultRegistry({ fetch: globalThis.fetch, onReplayDropped: params.onReplayDropped });
   }
 
   /**

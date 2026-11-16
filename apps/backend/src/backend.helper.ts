@@ -39,7 +39,13 @@ export function createBackend(params: {
   permissions: PermissionSetup;
 } {
   const { env, settings, log, remoteSetupAllowed, adapters } = params;
-  const profiles = new Profiles({ env, ...(adapters && { adapters }) });
+  const profiles = new Profiles({
+    env,
+    ...(adapters && { adapters }),
+    // A person sees why a model lost its reasoning; the drop carries no reasoning and no key.
+    onReplayDropped: ({ reason, source }) =>
+      log(`Reasoning left out of a model call (${reason})${source ? ` from ${source}` : ''}\n`),
+  });
   const trustStore = trustStoreFor(env);
   const permissionStore = permissionStoreFor(env);
   const places = new PlacedConversationStore({
