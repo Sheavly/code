@@ -268,6 +268,24 @@ export const SYNTAX_RULES = {
         "Do not compare a reasoning item's `source` by hand. `ownReplay` (`packages/providers/src/http/replay.utils.ts`) is the one compatibility check, and it reports each item it leaves out.",
     },
   ],
+  // "Timed out" for a command or a script is decided once, in `withDeadline`
+  // (`packages/workspace/src/process/deadline.helper.ts`): the deadline aborted and the caller did
+  // not. A timer of its own beside it is a second definition, which is how `ProcessRunner.run` and
+  // `runScript` once disagreed about a cancel after the deadline. Enabled for the process folder
+  // in the workspace's eslint.config.js, with a `files:` override for the helper itself. Not
+  // covered: a timer made another way (`timers/promises`, `AbortSignal.any` with your own signal).
+  'no-adhoc-command-deadline': [
+    {
+      selector: "CallExpression[callee.object.name='AbortSignal'][callee.property.name='timeout']",
+      message:
+        'Do not set a command timeout with `AbortSignal.timeout` yourself. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: the deadline aborted and the caller did not. Use its `signal` to stop the command and its `timedOut()` for the result.',
+    },
+    {
+      selector: 'CallExpression[callee.name=/^(setTimeout|setInterval)$/]',
+      message:
+        'Do not run a timer for a command by hand. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [
