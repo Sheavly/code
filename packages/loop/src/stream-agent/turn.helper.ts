@@ -1,8 +1,7 @@
 import { contextState } from '../context/context.utils.js';
 import { runAfterTurn, runBeforeModelCall, runBeforeTurn } from '../hooks/hooks.helper.js';
 import { joinInstructions } from '../hooks/hooks.utils.js';
-import { viewWithoutCallReferences } from '../summary/summary.utils.js';
-import { withNoticeCallReferences } from '../summary/model-notice.utils.js';
+import { viewOf } from '../summary/summary.utils.js';
 import { HookError } from '../errors/loop.errors.js';
 import { sample } from './sample.helper.js';
 import { runContribution } from './contributions.helper.js';
@@ -57,11 +56,11 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
   // model is sent the view (the newest checkpoint as text, then the messages it kept).
   // Old large tool results are hidden here too when a summary is configured: it is the cheaper
   // first step, and it delays the summary instead of replacing it.
-  const source = await shapeView({ context, view: viewWithoutCallReferences(messages) });
+  const view = await shapeView({ context, view: viewOf(messages) });
   const sent = await runBeforeModelCall({
     hooks: options.hooks ?? [],
     turn,
-    messages: source,
+    messages: view,
     context: state,
     signal,
     onChanged: (change) => events.enqueue({ type: 'model_input_changed', turn, ...change }),
@@ -79,7 +78,7 @@ export async function runTurn(context: TurnContext): Promise<DoneReason | undefi
     ...options,
     instructions: joinInstructions([options.instructions, ...instructions]),
     session: session.ref,
-    messages: withNoticeCallReferences({ history: messages, source, messages: sent }),
+    messages: sent,
     state,
     continuation,
     signal,

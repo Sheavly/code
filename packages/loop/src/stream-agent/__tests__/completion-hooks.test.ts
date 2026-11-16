@@ -48,7 +48,7 @@ const notices = [
   { kind: 'tasks-finished', reason: context.reason, context, notices: individual },
 ];
 
-it.each(notices)('resolves completion pointers after model-input hooks for %s', async (raw) => {
+it.each(notices)('shows hooks and the model the same completion pointers for %s', async (raw) => {
   const notice = harnessNoticeSchema.parse(raw);
 
   for (const keepCalls of [false, true]) {
@@ -79,7 +79,7 @@ it.each(notices)('resolves completion pointers after model-input hooks for %s', 
         defineHook({
           name: 'trim-starting-call',
           beforeModelCall: async ({ messages: input }) => {
-            expect(input.at(-1)?.content).not.toContain('starting tool call ID');
+            expect(input.at(-1)?.content).toContain('starting tool call ID release-call');
 
             return keepCalls ? [...input] : input.filter((message) => message.role === 'user');
           },
@@ -94,7 +94,8 @@ it.each(notices)('resolves completion pointers after model-input hooks for %s', 
 
     expect(result.reason).toBe('completed');
     expect(containsCall).toBe(keepCalls);
-    expect(containsPointer).toBe(keepCalls);
+    // The view is built once: a hook that drops the call leaves the pointer as plain data.
+    expect(containsPointer).toBe(true);
     expect(sent?.at(-1)?.content).toContain(context.reason);
     expect(sent?.at(-1)?.content).toContain('user messages since start 2');
     expect(result.messages.slice(0, before.length)).toEqual(before);

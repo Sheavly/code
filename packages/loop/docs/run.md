@@ -91,12 +91,11 @@ view omits the pointer without changing stored history or the arrival-time measu
 also handles a summary written in the same turn as delivery. Task and agent snapshots still
 retain their identity links for UIs. Older notices without context stay readable.
 
-`beforeModelCall` hooks receive completion text without provisional starting-call pointers.
-After all hooks finish, the loop restores pointers only for unchanged, known notice entries
-whose starting assistant call remains in the final input. Hook-edited text stays as the hook
-wrote it. If a stored user message is indistinguishable from a rendered notice, both stay
-pointer-free rather than rewriting the person's words. No notice envelope is parsed from user
-or hook-authored text, and stored snapshots remain unchanged.
+The view is built once, by `viewOf`, and `beforeModelCall` hooks receive exactly the text the model
+is sent, pointers included. Nothing is rewritten after the hooks: a hook that removes the
+assistant call but keeps the notice leaves the pointer naming a call that is no longer in the
+input, which is harmless data. No notice envelope is parsed from user or hook-authored text, and
+stored snapshots remain unchanged.
 
 Each event also joins its session tree's combined stream the moment it is released
 (`sessions.publish`), so a UI following every session at once (`sessions.subscribeEntries`) sees
