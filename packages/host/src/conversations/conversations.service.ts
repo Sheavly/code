@@ -13,7 +13,7 @@ import type {
   SentPrompt,
   StartConversationParams,
 } from './conversations.types.js';
-import { storageOf } from './storage.helper.js';
+import { announceStorageFailure, refuseWhenStorageFailed, storageOf } from './storage.helper.js';
 import { matchesSearch, matchesStored } from './conversations.utils.js';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
@@ -240,7 +240,14 @@ export class Conversations {
   #keeperFor(id: ConversationId): ConversationKeeper | undefined {
     if (!this.#store) return undefined;
 
-    const keeper = this.#keepers.get(id) ?? new ConversationKeeper({ store: this.#store, id });
+    const keeper =
+      this.#keepers.get(id) ??
+      new ConversationKeeper({
+        store: this.#store,
+        id,
+        // Looked up when it fires: the conversation may be gone by then.
+        onFailure: (failure) => announceStorageFailure({ live: this.#live.get(id), failure }),
+      });
 
     this.#keepers.set(id, keeper);
 
@@ -346,15 +353,7 @@ export class Conversations {
   }
 
   #assertStorageHealthy(id: ConversationId): void {
-    const failure = this.#storageFailureOf(id);
-
-    if (!failure) return;
-
-    throw new ConversationsError({
-      reason: 'storage_failed',
-      message: `Conversation ${id} could not be stored (${failure.message}), so it takes no more prompts rather than carry on unrecorded`,
-      cause: failure,
-    });
+    refuseWhenStorageFailed({ id, failure: this.#storageFailureOf(id) });
   }
 
   /** Stops conversation `id`'s running prompt, if one runs; its history stays valid. */

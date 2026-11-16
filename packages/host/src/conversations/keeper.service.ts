@@ -22,14 +22,21 @@ export class ConversationKeeper {
   /** Writes not yet done, oldest first: the failed one stays at the front until it succeeds. */
   readonly #pending: (() => Promise<void>)[] = [];
   #failure: StoreError | undefined;
+  readonly #onFailure: ((failure: StoreError) => void) | undefined;
   /** How many entries of the history are queued or written to the log. */
   #kept = 0;
   /** How many entries of each sub-agent's history are queued or written to its log. */
   readonly #agentKept = new Map<SessionId, number>();
 
-  constructor(params: { store: ConversationStore; id: ConversationId }) {
+  /** `onFailure` is told once each time writes start failing, so the owner can tell a UI. */
+  constructor(params: {
+    store: ConversationStore;
+    id: ConversationId;
+    onFailure?: (failure: StoreError) => void;
+  }) {
     this.#store = params.store;
     this.#id = params.id;
+    this.#onFailure = params.onFailure;
   }
 
   /** The write that is failing now, if any; cleared when it is written. */
@@ -161,16 +168,31 @@ export class ConversationKeeper {
     });
   }
 
+  #callOnFailure(failure: StoreError): void {
+    try {
+      this.#onFailure?.(failure);
+    } catch (caughtError) {
+      queueMicrotask(() => {
+        throw caughtError;
+      });
+    }
+  }
+
   /** Writes what is pending in order, stopping at the first failure; clears `failure` when done. */
   async #drain(): Promise<void> {
     while (this.#pending.length > 0) {
       try {
         await this.#pending[0]?.();
       } catch (caughtError) {
+        const first = this.#failure === undefined;
+
         this.#failure = toStoreError({
           error: caughtError,
           message: `Could not store conversation ${this.#id}`,
         });
+        // A throw here must not reject `#written`, which every later write chains on: it fails
+        // loudly on its own, like a throwing listener.
+        if (first) this.#callOnFailure(this.#failure);
 
         return;
       }
