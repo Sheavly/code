@@ -192,6 +192,10 @@ tester.run('prompt-location', promptLocation, {
       ),
     ),
     invalid(instructions("'Apply the policy.'")),
+    // Found by the derived list (prompt-apis.test.js), which the hand-written one had missed.
+    invalid(
+      "import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool'; createSubAgentTool({ baseInstructions: 'Be careful.' });",
+    ),
     invalid(
       `${harnessImport} function pick({ instructions, ...rest }) { return instructions; } create({ instructions: pick({ instructions: 'Apply policy', title: callerTitle }) });`,
     ),
