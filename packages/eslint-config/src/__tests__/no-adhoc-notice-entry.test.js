@@ -13,6 +13,7 @@ tester.run(RULE, harnessPlugin.rules[RULE], {
     "const schema = z.object({ role: z.literal('notice') });",
     'const entry = { role, notice };',
     "if (message.role === 'notice') show(message.notice);",
+    "messages.push({ role: 'user' as const, content: 'hi' });",
   ],
   invalid: [
     {
@@ -21,31 +22,36 @@ tester.run(RULE, harnessPlugin.rules[RULE], {
     },
     { code: "const entry = { notice, role: 'notice' };", errors: [{ messageId: 'm0' }] },
     { code: "return [{ role: 'notice', notice }];", errors: [{ messageId: 'm0' }] },
+    {
+      code: "messages.push({ role: 'notice' as const, notice, at });",
+      errors: [{ messageId: 'm0' }],
+    },
+    {
+      code: "messages.push({ role: 'notice' satisfies HistoryMessage['role'], notice });",
+      errors: [{ messageId: 'm0' }],
+    },
+    { code: "const entry = { 'role': 'notice', notice };", errors: [{ messageId: 'm0' }] },
   ],
 });
 
 const LOOP = 'packages/loop';
 const on = (file) => ruleIsErrorOn({ rule: `harness/${RULE}`, folder: LOOP, file });
 
-// The two exceptions are pinned: a renamed helper or a widened override changes these answers.
+// The one exception is pinned: a renamed helper or a widened override changes these answers.
 describe('no-adhoc-notice-entry in the loop', () => {
-  it('is on for the code that delivers notices', async () => {
+  it('is on for the code that delivers or restores notices', async () => {
     for (const file of [
       'src/stream-agent/task-delivery.helper.ts',
       'src/hooks/hook-failures.helper.ts',
       'src/stream-agent/sample.helper.ts',
+      'src/stream-agent/restored-reports.helper.ts',
     ]) {
       expect(await on(file), file).toBe(true);
     }
   });
 
-  it('is off only in publishNotice and the helper that restores reports', async () => {
-    for (const file of [
-      'src/stream-agent/notice-publish.helper.ts',
-      'src/stream-agent/restored-reports.helper.ts',
-    ]) {
-      expect(await on(file), file).toBe(false);
-    }
+  it('is off only in the helper that turns a kind’s lifetime into an entry', async () => {
+    expect(await on('src/stream-agent/notice-publish.helper.ts')).toBe(false);
   });
 
   it('is off in tests, which write entries to set a history up', async () => {

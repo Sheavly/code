@@ -125,10 +125,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `{ role: 'notice' }` object written by hand. Whether a notice is kept in history is its kind's
   lifetime in `NOTICE_LIFETIMES` (`@sheavly/protocol/notice/notice.constants`), applied once by
   `publishNotice` (`packages/loop/src/stream-agent/notice-publish.helper.ts`), which sends the event
-  and keeps the entry for a persistent kind. The helper itself and the one that restores reports
-  for a reopened conversation are the `files:` exceptions, in packages/loop/eslint.config.js. It
-  sees only an object literal with a literal role, so an entry built from a variable is left to
-  review.
+  and keeps the entry for a persistent kind; a writer that sends no event (restoring a reopened
+  conversation's reports) uses `noticeEntries` from the same file. That helper is the one `files:`
+  exception, in packages/loop/eslint.config.js. It sees an object literal with a literal role
+  (plain, quoted key, `as const` or `satisfies`), so an entry built from a variable role, a
+  computed key or a spread is left to review.
 - **The latest request** (`harness/no-adhoc-latest-request`, source files): no
   `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
   history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`

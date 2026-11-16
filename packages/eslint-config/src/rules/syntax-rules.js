@@ -177,13 +177,15 @@ export const SYNTAX_RULES = {
     },
   ],
   // Whether a notice is kept in history is its kind's lifetime (`NOTICE_LIFETIMES`), applied once
-  // by `publishNotice`. A history entry written by hand (`{ role: 'notice', ... }`) decides it at
-  // the call site again, which is how a persistent kind could be streamed and never stored. Only
-  // `publishNotice` and the reopening helper that restores reports are `files:` exceptions in the
-  // loop's eslint.config.js. Not covered: an entry built from a variable role.
+  // by `publishNotice` (and `noticeEntries`, for a writer that sends no event). A history entry
+  // written by hand (`{ role: 'notice', ... }`) decides it at the call site again, which is how a
+  // persistent kind could be streamed and never stored. Only that helper file is a `files:` exception in the
+  // loop's eslint.config.js. It sees a plain, quoted-key, `as const` or `satisfies` literal role;
+  // not covered: an entry built from a variable role, a computed key or a spread.
   'no-adhoc-notice-entry': [
     {
-      selector: "ObjectExpression > Property[key.name='role'][value.value='notice']",
+      selector:
+        "ObjectExpression > Property:matches([key.name='role'], [key.value='role']):matches([value.value='notice'], [value.expression.value='notice'])",
       message:
         "Do not write a `{ role: 'notice' }` history entry by hand. `publishNotice` (`packages/loop/src/stream-agent/notice-publish.helper.ts`) sends the event and keeps the entry exactly when the kind's lifetime in `NOTICE_LIFETIMES` (`@sheavly/protocol/notice/notice.constants`) says persistent, so a call site never decides it. A new kind is its schema plus one registry entry. Restoring stored reports is the one other `files:` exception, in the loop's eslint.config.js.",
     },

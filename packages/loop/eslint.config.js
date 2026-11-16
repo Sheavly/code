@@ -9,13 +9,10 @@ export default [
     files: ['src/history/history.utils.ts', 'src/hooks/hooks.helper.ts'],
     rules: { 'harness/no-adhoc-latest-request': 'off' },
   },
-  // `publishNotice` is where a kind's lifetime becomes a history entry. Restoring reports writes
-  // entries for a reopened conversation without sending any event, so it has no lifetime to apply.
+  // `noticeEntries` is where a kind's lifetime becomes a history entry; every other writer of a
+  // notice (delivery, hook failures, restored reports) goes through it.
   {
-    files: [
-      'src/stream-agent/notice-publish.helper.ts',
-      'src/stream-agent/restored-reports.helper.ts',
-    ],
+    files: ['src/stream-agent/notice-publish.helper.ts'],
     rules: { 'harness/no-adhoc-notice-entry': 'off' },
   },
 ];
