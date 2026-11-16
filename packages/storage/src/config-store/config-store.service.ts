@@ -45,19 +45,6 @@ export class ConfigStore {
     await this.#change((config) => ({ ...config, terminal }));
   }
 
-  /** Migration must not overwrite a global choice, including false or an empty settings object. */
-  async initializeTerminalSettings(terminal: TerminalSettings): Promise<TerminalSettings> {
-    return this.#writes.run(async () => {
-      const config = await this.read();
-
-      if (config.terminal !== undefined) return config.terminal;
-
-      await writeJsonFile({ file: this.#file, value: { ...config, terminal } });
-
-      return terminal;
-    });
-  }
-
   /** Binds the workspace with this key to `profile`, replacing a binding it had. */
   async bindWorkspace(params: { key: string; profile: ProfileId }): Promise<void> {
     const { key, profile } = params;

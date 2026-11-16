@@ -1,7 +1,6 @@
 import path from 'node:path';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
-import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
-import { storedProfileSchema } from './profile.validator.js';
+import { profileIdSchema, profileSchema } from '@sheavly/protocol/profile/profile.validator';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
 import { listFolderNames } from '../listing/listing.helper.js';
@@ -82,7 +81,7 @@ export class ProfileStore {
 
   async #read(id: ProfileId): Promise<Profile | undefined> {
     const file = path.join(this.folderOf(id), PROFILE_FILE);
-    const stored = await readJsonFile({ file, schema: storedProfileSchema, holdsSecrets: false });
+    const stored = await readJsonFile({ file, schema: profileSchema, holdsSecrets: false });
 
     if (!stored) return undefined;
 

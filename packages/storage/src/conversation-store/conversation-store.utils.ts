@@ -7,7 +7,6 @@ import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import {
   AGENT_HISTORY_LOG_SUFFIX,
-  AGENT_HISTORY_SUFFIX,
   AGENTS_FOLDER,
   HISTORY_LOG_FILE,
 } from './conversation-store.constants.js';
@@ -30,20 +29,6 @@ export function conversationFolder(params: { conversations: string; id: Conversa
   return path.join(conversations, id);
 }
 
-/**
- * The file of sub-agent `session`'s history in a conversation's folder. A session id is a plain
- * string (a caller may pass its own, like `main`), so it is not trusted to be a file name: only the
- * lowercase UUID the registry makes is one, and anything else (a separator, `..`, a reserved
- * name) throws a `StoreError` before it is a path.
- */
-export function agentHistoryFile(params: { folder: string; session: SessionId }): string {
-  const { folder, session } = params;
-
-  assertSafeSessionName(session);
-
-  return path.join(folder, AGENTS_FOLDER, `${session}${AGENT_HISTORY_SUFFIX}`);
-}
-
 /** Throws a `StoreError` unless `session` is a lowercase UUID, the only shape that names a file. */
 function assertSafeSessionName(session: SessionId): void {
   if (lowercaseUuidSchema.safeParse(session).success) return;
@@ -56,7 +41,9 @@ function assertSafeSessionName(session: SessionId): void {
 
 /**
  * The file of a session's history log in a conversation's folder: the main session's, or
- * sub-agent `session`'s, held to the same rule as `agentHistoryFile` (only a UUID names a file).
+ * sub-agent `session`'s. A session id is a plain string (a caller may pass its own, like `main`),
+ * so only the lowercase UUID the registry makes names a file; anything else (a separator, `..`, a
+ * reserved name) throws a `StoreError` before it is a path.
  */
 export function historyLogFile(params: { folder: string; session: SessionId | undefined }): string {
   const { folder, session } = params;

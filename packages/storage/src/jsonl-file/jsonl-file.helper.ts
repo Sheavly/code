@@ -1,12 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { appendFile, mkdir, open, rm, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, open, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { z } from 'zod';
 import { validate } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { StorageFileError } from '../errors/storage.errors.js';
-import { replaceFile } from '../json-file/json-file.helper.js';
 import { PRIVATE_FILE_MODE, PRIVATE_FOLDER_MODE } from '../json-file/json-file.constants.js';
 import { MAX_LINE_CHARS, NEWLINE, TAIL_BLOCK_BYTES } from './jsonl-file.constants.js';
 
@@ -22,31 +20,6 @@ export async function appendJsonLine(params: { file: string; value: unknown }): 
     await mkdir(path.dirname(file), { recursive: true, mode: PRIVATE_FOLDER_MODE });
     await appendFile(file, `${JSON.stringify(value)}\n`, { mode: PRIVATE_FILE_MODE });
   } catch (caughtError) {
-    throw new StorageFileError({ file, cause: caughtError });
-  }
-}
-
-/**
- * Creates `file` holding `values`, one JSON line each, all at once: written to a temp file beside
- * it and renamed into place, so a crash leaves either no file or the whole one, never a prefix a
- * reader would take for the complete log. Replaces a file already there. Throws a
- * `StorageFileError` naming `file`; the temp file is removed.
- */
-export async function writeJsonLines(params: {
-  file: string;
-  values: readonly unknown[];
-}): Promise<void> {
-  const { file, values } = params;
-  const temp = `${file}.${randomUUID()}.tmp`;
-
-  try {
-    await mkdir(path.dirname(file), { recursive: true, mode: PRIVATE_FOLDER_MODE });
-    await writeFile(temp, values.map((value) => `${JSON.stringify(value)}\n`).join(''), {
-      mode: PRIVATE_FILE_MODE,
-    });
-    await replaceFile({ from: temp, to: file });
-  } catch (caughtError) {
-    await rm(temp, { force: true });
     throw new StorageFileError({ file, cause: caughtError });
   }
 }

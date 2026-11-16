@@ -14,7 +14,7 @@ type Numbered = { seq: number };
  * can never be hidden by a later one. One process owns a log's file: two writing it would each
  * count on their own and both think they were next.
  *
- * `prepare` runs before the first count (a legacy import, a repair file); `observe` sees each item
+ * `prepare` runs before the first count (a repair file); `observe` sees each item
  * as it is counted and again as it is appended, so a projection of the log stays in step.
  */
 export class AppendLog<T extends Numbered> {
