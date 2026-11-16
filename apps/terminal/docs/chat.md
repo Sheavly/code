@@ -2,7 +2,7 @@
 
 ## Chat diagnostics
 
-Kept chats have a private `errors.jsonl` beside `history.json` and `stream.jsonl` under
+Kept chats have a private `errors.jsonl` beside `history.jsonl` and `stream.jsonl` under
 `~/.sheavly/profiles/<profile-id>/workspaces/<workspace-key>/conversations/<chat-id>/`.
 The startup line prints the chat ID. Find its log with:
 

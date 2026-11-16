@@ -44,7 +44,6 @@ its models and keys are its own, and a conversation sees only its profile's.
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `GET /setup`                                                            | the home folder, profiles with models, the default and global terminal settings |
 | `PUT /terminal-settings`, `{ reducedMotion?, bell? }`                   | `204`: replaces global terminal preferences                                     |
-| `POST /terminal-settings/migrate`                                       | global preferences after migrating legacy profiles                              |
 | `GET /adapters`                                                         | what each adapter takes, as JSON Schema, with its secrets marked                |
 | `GET /setup/models`                                                     | model-first catalogue choices and their supported hosting routes                |
 | `GET /profiles/:profile`                                                | one profile; `ready` says a conversation can start on it                        |

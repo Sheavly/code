@@ -26,7 +26,7 @@ Start from what the run stored. Everything a conversation did is on disk, so rea
       outputs/                   captured command output
 ```
 
-A conversation from before the move to JSONL may hold `history.json` instead of `history.jsonl`. The workspace key is a hash of the workspace path, so find a conversation by searching `index.json` for the title or the workspace instead of computing it.
+The workspace key is a hash of the workspace path, so find a conversation by searching `index.json` for the title or the workspace instead of computing it.
 
 Elsewhere: `workbook/runs/<id>/` (a workbook run: its prompt, events, `transcript.txt`, `result.json`; a run without `result.json` did not finish), `MODEL_CALLS_FILE` (opt-in log of model requests: SENSITIVE, it holds prompts and may hold more; read it by field, never print it whole), and `~/.cache/sheavly-harness/chats/<chat-id>.json` (the dev hooks' per-chat state: files edited, hints shown).
 
