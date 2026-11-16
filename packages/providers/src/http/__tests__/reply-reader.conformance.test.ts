@@ -130,10 +130,33 @@ describe.each(Object.entries(PROTOCOLS))('%s reader conformance', (_name, { fixt
     expect((failure as Error).message).toContain('boom');
   });
 
+  it('keeps a credential the provider echoes out of the error', async () => {
+    const leaked = JSON.stringify(fixtures.errorEvent).replace(
+      'boom',
+      'Incorrect API key provided: sk-abcdefghijklmnopqrstuvwx',
+    );
+    const failure: unknown = await collect(
+      read({ events: [JSON.parse(leaked) as object], signal: live() }),
+    ).catch((caughtError: unknown) => caughtError);
+
+    expect((failure as Error).message).not.toContain('sk-abcdef');
+  });
+
   it('fails a stream that ends before its end marker as cut_off', async () => {
     await expect(collect(read({ events: fixtures.cutOff, signal: live() }))).rejects.toMatchObject({
       reason: 'cut_off',
     });
+  });
+
+  it.each([
+    ['a bare number', 42],
+    ['an empty object', {}],
+  ])('skips %s and then reports the missing end marker as cut_off', async (_label, payload) => {
+    const failure: unknown = await collect(
+      read({ events: [payload as object, ...fixtures.cutOff], signal: live() }),
+    ).catch((caughtError: unknown) => caughtError);
+
+    expect(failure).toMatchObject({ reason: 'cut_off' });
   });
 
   it('lets the caller interrupt a cut-off stream go up as the abort, not as cut_off', async () => {

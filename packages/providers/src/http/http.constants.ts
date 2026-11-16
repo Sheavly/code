@@ -14,5 +14,11 @@ export const MS_PER_SECOND = 1000;
  */
 export const MAX_RETRY_AFTER_MS = 60_000;
 
+/** Query parameter names that carry a credential, so an endpoint URL is stored without them. */
+export const SECRET_QUERY_NAME = /key|token|secret|sig|auth|password|credential/i;
+
+/** What a credential query value is replaced with in a stored endpoint. */
+export const REDACTED_QUERY_VALUE = 'REDACTED';
+
 /** Where a server-sent events line ends: `\r\n`, `\r` or `\n`. */
 export const LINE_BREAK = /\r\n|\r|\n/;

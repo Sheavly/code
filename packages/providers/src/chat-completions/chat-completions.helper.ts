@@ -74,6 +74,7 @@ export function defineChatCompletionsAdapter<S extends z.ZodType<ChatAdapterConf
         endpoint: toEndpoint(config),
         request: config.request,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
         maxTokens: config.maxTokens,
         replayReasoning: config.replayReasoning,
         thinkingMode: config.thinkingMode,

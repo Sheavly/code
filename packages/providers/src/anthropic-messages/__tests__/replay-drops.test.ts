@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import type { ReplayDrop } from '../../http/replay.types.js';
+import type { ReplayDrop } from '@sheavly/core/adapter/replay.types';
 import { toMessagesApiMessages } from '../input.utils.js';
 import { messagesPrefix } from '../prefix.utils.js';
 

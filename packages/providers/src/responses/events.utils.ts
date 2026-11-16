@@ -1,3 +1,4 @@
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { parseToolArguments } from '../http/json.utils.js';
 import type { EventStep, FunctionCallItem, ResponsesEvent } from './responses.types.js';
@@ -46,12 +47,12 @@ export function handleEvent(params: {
     case 'response.failed':
       throw new ModelApiError({
         reason: 'failed',
-        message: `Responses API failed: ${event.response.error?.message ?? 'unknown error'}`,
+        message: `Responses API failed: ${providerErrorText(event.response.error?.message ?? 'unknown error')}`,
       });
     case 'error':
       throw new ModelApiError({
         reason: 'stream_error',
-        message: `Responses API stream error: ${event.error?.message ?? event.message ?? 'unknown error'}`,
+        message: `Responses API stream error: ${providerErrorText(event.error?.message ?? event.message ?? 'unknown error')}`,
       });
   }
 }

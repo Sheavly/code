@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { chatChunkSchema } from './chat-completions.validator.js';
 
 export type ChatChunk = z.infer<typeof chatChunkSchema>;

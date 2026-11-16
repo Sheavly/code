@@ -2,7 +2,7 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { ownReplay } from '../http/replay.utils.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import { chatReasoningSchema } from './chat-completions.validator.js';
 
 /** Converts fresh message objects, excluding reasoning from other protocols/endpoints/models. */

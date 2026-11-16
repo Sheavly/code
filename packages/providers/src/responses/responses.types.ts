@@ -2,7 +2,7 @@ import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { responsesEventSchema } from './responses.validator.js';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 

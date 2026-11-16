@@ -1,4 +1,5 @@
 import type { StreamEvent } from '@sheavly/core/message/message.types';
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { parseToolArguments } from '../http/json.utils.js';
 import { STOP_REASONS } from './messages.constants.js';
@@ -60,7 +61,7 @@ export function createMessagesReader(params: {
       case 'error':
         throw new ModelApiError({
           reason: 'stream_error',
-          message: `Anthropic Messages API stream error: ${event.error.type}: ${event.error.message}`,
+          message: `Anthropic Messages API stream error: ${providerErrorText(`${event.error.type}: ${event.error.message}`)}`,
         });
     }
   };

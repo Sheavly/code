@@ -5,7 +5,7 @@ import type {
   ChatEndpoint,
   ChatThinkingMode,
 } from './chat-completions.types.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import { chatMessages } from './input.utils.js';
 
 /** Serializes only native Chat Completions fields, with an explicit output bound. */

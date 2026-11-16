@@ -1,5 +1,7 @@
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import type { ReasoningItem } from '@sheavly/protocol/message/message.types';
-import type { ReplayDropHandler } from './replay.types.js';
+import { REDACTED_QUERY_VALUE, SECRET_QUERY_NAME } from './http.constants.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 
 /**
  * The `source` tag of the reasoning a protocol stores: it names the protocol, the endpoint and
@@ -10,7 +12,27 @@ export function replaySource(params: {
   endpoint: string;
   model: string;
 }): string {
-  return `${params.protocol}:${params.endpoint}#${params.model}`;
+  return `${params.protocol}:${withoutCredentials(params.endpoint)}#${params.model}`;
+}
+
+/**
+ * The endpoint without anything that authenticates: userinfo and secret-looking query values
+ * (`?api-key=`, `?sig=`). The source is stored in history and reported on drops, so a key in the
+ * URL must never reach it. Other query values (`api-version`) stay, as they tell endpoints apart.
+ */
+function withoutCredentials(endpoint: string): string {
+  if (!URL.canParse(endpoint)) return redactDiagnosticText(endpoint);
+
+  const url = new URL(endpoint);
+
+  url.username = '';
+  url.password = '';
+
+  for (const name of [...url.searchParams.keys()]) {
+    if (SECRET_QUERY_NAME.test(name)) url.searchParams.set(name, REDACTED_QUERY_VALUE);
+  }
+
+  return url.toString();
 }
 
 /**

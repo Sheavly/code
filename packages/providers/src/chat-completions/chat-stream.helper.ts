@@ -1,4 +1,5 @@
 import type { StreamEvent } from '@sheavly/core/message/message.types';
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
 import { readReply } from '../http/reply-reader.helper.js';
 import { ChatReply } from '../chat-reply/reply.service.js';
@@ -40,7 +41,7 @@ export function readChatReply(params: {
         if ('error' in event) {
           throw new ModelApiError({
             reason: 'stream_error',
-            message: `Chat Completions stream error: ${event.error.message ?? 'unknown error'}`,
+            message: `Chat Completions stream error: ${providerErrorText(event.error.message ?? 'unknown error')}`,
           });
         }
 

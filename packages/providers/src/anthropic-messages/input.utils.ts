@@ -2,7 +2,7 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { formatHarnessNotice } from '@sheavly/core/notice/notice.utils';
 import { ownReplay } from '../http/replay.utils.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { MessagesApiMessage } from './messages.types.js';
 import { messagesReplaySchema } from './messages.validator.js';
 import { messagesPrefix } from './prefix.utils.js';

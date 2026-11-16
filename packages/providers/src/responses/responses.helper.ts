@@ -120,6 +120,7 @@ export function defineResponsesAdapter<TSchema extends z.ZodType<ResponsesAdapte
         request: config.request,
         explicitCache: config.explicitCache,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
       }),
   });
 }

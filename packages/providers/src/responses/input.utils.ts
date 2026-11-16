@@ -1,6 +1,6 @@
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { ownReplay } from '../http/replay.utils.js';
-import type { ReplayDropHandler } from '../http/replay.types.js';
+import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import { CACHE_BREAKPOINT, MAX_CACHE_BREAKPOINTS } from './responses.constants.js';
 
 // Translation from our Message shape to Responses API input items.

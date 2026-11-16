@@ -1,3 +1,4 @@
+import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
 import type { RequestPolicy } from './http.types.js';
 import {
@@ -77,7 +78,7 @@ async function attempt(params: {
       failure: new ModelApiError({
         reason: 'http',
         status: response.status,
-        message: `${api} error ${response.status}: ${await response.text()}`,
+        message: `${api} error ${response.status}: ${providerErrorText(await response.text())}`,
       }),
       retryable: isRetryableStatus(response.status) && isWorthWaiting(waitMs),
       waitMs,

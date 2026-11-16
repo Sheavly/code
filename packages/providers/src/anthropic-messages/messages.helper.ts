@@ -128,6 +128,7 @@ export function defineMessagesAdapter<TSchema extends z.ZodType<MessagesAdapterC
         promptCaching: config.promptCaching,
         request: config.request,
         fetch: deps.fetch,
+        onReplayDropped: deps.onReplayDropped,
       }),
   });
 }
