@@ -49,7 +49,7 @@ const translate = (
 
 describe('signed Messages replay', () => {
   it('refuses unfinished or unsigned thinking instead of storing poisoned replay state', () => {
-    const reader = createMessagesReader({ reasoningSource: source, prefix });
+    const reader = createMessagesReader({ reasoningSource: source, prefix, notices: [] });
 
     reader.read(
       messagesEventSchema.parse({

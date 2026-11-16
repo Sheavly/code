@@ -37,6 +37,11 @@ export const startConversationRequestSchema = z.object({
    * profile's next one.
    */
   model: z.string().trim().min(1).max(200).exactOptional(),
+  /**
+   * The reasoning effort this conversation starts its model on, instead of the one the profile
+   * remembers for it. For this conversation only: it is not remembered for the profile.
+   */
+  mode: modelModeSchema.exactOptional(),
 });
 
 export const startConversationResponseSchema = z.object({ id: conversationIdSchema });

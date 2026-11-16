@@ -90,6 +90,13 @@ export async function servedConversation(params: {
     startOnRequestedModel({ models: workspace.models, requested: asked.model });
   }
 
+  // Like the model, a requested mode is for this new conversation only and is never remembered.
+  const active = workspace.models.switch.active;
+
+  if (asked.mode && active && !asked.modelSelection) {
+    workspace.models.switch.setMode({ name: active, mode: asked.mode });
+  }
+
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
     workspace.models.switch.use(asked.modelSelection.modelId);

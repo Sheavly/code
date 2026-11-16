@@ -301,16 +301,16 @@ describe('createMessagesProvider', () => {
     expect(input.messages).toEqual(original);
   });
 
-  it('drops, not replays, signed thinking from a reply made while a notice was sent', async () => {
-    // The API binds the signature to the notice too, and the next request no longer has it: a
-    // replay would be refused with a 400, so the thinking is left out and the rest is kept.
+  it('replays signed thinking from a reply made while a notice was sent, with that notice', async () => {
+    // The API binds the signature to the notice too. The reply keeps the notice it was signed
+    // over, and the next request sends it again in the same place, so the thinking stays valid.
     const { fetch, requests } = replies([...thinking, ...toolUse(1, ['{}']), STOP], [STOP]);
     const thinker = provider({ fetch, thinkingMode: 'adaptive' });
-    const events = await collect(
-      thinker.stream(
-        request({ notices: [{ kind: 'context-usage', context: { window: 5_000, used: 1_000 } }] }),
-      ),
-    );
+    const first: HarnessNotice = {
+      kind: 'context-usage',
+      context: { window: 5_000, used: 1_000 },
+    };
+    const events = await collect(thinker.stream(request({ notices: [first] })));
     const reasoning = events.flatMap((event) => (event.type === 'reasoning' ? [event.item] : []));
 
     const history: Message[] = [
@@ -331,15 +331,21 @@ describe('createMessagesProvider', () => {
 
     await collect(thinker.stream(request({ messages: history, notices: [notice] })));
 
-    const [, assistant, results] = (requests[1]?.body.messages ?? []) as {
+    const [prompt, assistant, results] = (requests[1]?.body.messages ?? []) as {
       content: { type: string; text?: string }[];
     }[];
 
-    expect(assistant?.content.map((block) => block.type)).toEqual(['tool_use']);
+    expect(prompt?.content.map((block) => block.text ?? block.type)).toEqual([
+      'hi',
+      formatHarnessNotice(first),
+    ]);
+    expect(assistant?.content.map((block) => block.type)).toEqual(['thinking', 'tool_use']);
     expect(results?.content.map((block) => block.text ?? block.type)).toEqual([
       'tool_result',
       formatHarnessNotice(notice),
     ]);
+    // The stored history is left as it was: the notice lives in the reply's replay state only.
+    expect(history.map((message) => message.content)).toEqual(['hi', '', 'found']);
   });
 
   it('keeps no thinking when thinking is off', async () => {

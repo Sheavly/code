@@ -58,7 +58,7 @@ describe('running task notices and signed Messages replay', () => {
     { label: 'removed', notices: [] },
     { label: 'identical', notices: [RUNNING_TASKS_NOTICE] },
   ])(
-    'drops notice-bound thinking with $label notices, not earlier or fresh replay',
+    'replays notice-bound thinking with its notice when the next call has $label notices',
     async ({ notices }) => {
       const { fetch, requests } = fakeFetchSequence({
         responses: [
@@ -107,6 +107,7 @@ describe('running task notices and signed Messages replay', () => {
               }),
             }),
             content: replyBlocks('noticed'),
+            notices: [{ type: 'text', text: formatHarnessNotice(RUNNING_TASKS_NOTICE) }],
           },
         },
       });
@@ -118,7 +119,17 @@ describe('running task notices and signed Messages replay', () => {
       const sent = requests[2]?.body.messages as MessagesApiMessage[];
 
       expect(sent[1]?.content).toEqual(replyBlocks('earlier'));
-      expect(sent[3]?.content).toEqual(replyBlocks('noticed').slice(2));
+      // The notice the reply was signed over comes back in the same place, whatever this call sends.
+      expect(sent[2]?.content).toEqual([
+        {
+          type: 'tool_result',
+          tool_use_id: 'earlier',
+          content: 'result-earlier',
+          is_error: false,
+        },
+        { type: 'text', text: formatHarnessNotice(RUNNING_TASKS_NOTICE) },
+      ]);
+      expect(sent[3]?.content).toEqual(replyBlocks('noticed'));
       expect(sent.at(-1)?.content).toEqual([
         {
           type: 'tool_result',
@@ -136,16 +147,22 @@ describe('running task notices and signed Messages replay', () => {
         instructions,
       ]);
 
-      // A reply generated after the dropped prefix can recover replay when it has no notices.
+      // A reply made with other notices replays too, and a call with none sends only history.
       history.push(retainedReply('fresh', fresh), result('fresh'));
       await collect(provider.stream(providerRequest({ instructions, messages: history })));
       const replayed = requests[3]?.body.messages as MessagesApiMessage[];
 
       expect(replayed[1]?.content).toEqual(replyBlocks('earlier'));
-      expect(replayed[3]?.content).toEqual(replyBlocks('noticed').slice(2));
-      expect(replayed[5]?.content).toEqual(
-        notices.length === 0 ? replyBlocks('fresh') : replyBlocks('fresh').slice(2),
-      );
+      expect(replayed[3]?.content).toEqual(replyBlocks('noticed'));
+      expect(replayed[5]?.content).toEqual(replyBlocks('fresh'));
+      expect(replayed.at(-1)?.content).toEqual([
+        {
+          type: 'tool_result',
+          tool_use_id: 'fresh',
+          content: 'result-fresh',
+          is_error: false,
+        },
+      ]);
     },
   );
 

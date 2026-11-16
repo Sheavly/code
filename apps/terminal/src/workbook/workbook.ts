@@ -18,13 +18,15 @@ import { diffRuns, listWorkbook, showRun, stepRun } from './inspect.helper.js';
 import { runWorkbook } from './run.helper.js';
 import { WorkbookStore } from './store.service.js';
 import { WORKBOOK_DIR } from './workbook.constants.js';
-import { parseCommand, usage, workbookModel } from './workbook.utils.js';
+import { parseCommand, usage, workbookMode, workbookModel } from './workbook.utils.js';
 
 const store = new WorkbookStore(path.resolve(WORKBOOK_DIR));
 const write = (text: string) => void process.stdout.write(text);
 const command = parseCommand(process.argv.slice(2));
 const modelFor = (parsed: { model?: string | undefined }) =>
   workbookModel({ flag: parsed.model, env: process.env });
+const modeFor = (parsed: { mode?: string | undefined }) =>
+  workbookMode({ flag: parsed.mode, env: process.env });
 
 try {
   switch (command.name) {
@@ -43,6 +45,7 @@ try {
           showModelCalls: command.showModelCalls,
           trust: command.trust,
           model: modelFor(command),
+          mode: modeFor(command),
         },
       });
 
@@ -60,6 +63,7 @@ try {
           showModelCalls: command.showModelCalls,
           trust: command.trust,
           model: modelFor(command),
+          mode: modeFor(command),
         },
       });
 
@@ -80,6 +84,7 @@ try {
           showModelCalls: command.showModelCalls,
           trust: command.trust,
           model: modelFor(command),
+          mode: modeFor(command),
         },
       });
 
@@ -94,6 +99,7 @@ try {
         all: command.all,
         approvedCommands: command.approvedCommands,
         model: modelFor(command),
+        mode: modeFor(command),
         write,
       });
 

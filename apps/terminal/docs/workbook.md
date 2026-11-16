@@ -40,6 +40,24 @@ export WORKBOOK_MODEL=deepseek                              # a default of your 
 - **Underneath** it is the optional `model` of `POST /conversations`
   ([API](../../backend/docs/api.md)), so any UI can start a conversation on a model too.
 
+## Choosing the reasoning effort
+
+A run starts on the effort the profile remembers for its model. To run on another without changing
+that, name it:
+
+```bash
+npm run workbook -- run signed-prefix --model claude-sonnet-5-5 --mode high   # this run only
+export WORKBOOK_MODE=high                                                     # a default of your own
+```
+
+- **`--mode <low|medium|high|extreme>`**, else **`WORKBOOK_MODE`**, else the profile's mode for the
+  model. An empty value means none. Any other value is refused, so a typo never runs on another
+  effort.
+- **It is for that run only**, like `--model`: `/mode` in the chat is what changes the remembered
+  one. A conversation that is reopened keeps the mode it was saved with.
+- **Underneath** it is the optional `mode` of `POST /conversations`
+  ([API](../../backend/docs/api.md)).
+
 ## Layout
 
 ```

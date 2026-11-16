@@ -153,6 +153,25 @@ describe('servedConversation', () => {
     await restarted.closeAll();
   });
 
+  it('starts one conversation on a requested effort without remembering it for the profile', async () => {
+    const registry = await setUpProfile({ home, models: [fast, deep], lastModelId: FAST_ID });
+    const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'OK' }]);
+    const { conversations } = serve({}, fetch);
+    const asked = await conversations.start({ mode: 'extreme' });
+    const other = await conversations.start();
+
+    expect((await conversations.details(asked)).model).toMatchObject({
+      id: FAST_ID,
+      mode: 'extreme',
+    });
+    expect((await conversations.details(other)).model.mode).toBe('medium');
+
+    await collect((await conversations.send({ id: asked, prompt: { text: 'hi' } })).events);
+    expect(requests[0]?.body.reasoning).toEqual({ effort: 'xhigh' });
+    expect((await registry.get(TEST_PROFILE))?.modelModes?.[FAST_ID]).not.toBe('extreme');
+    await conversations.closeAll();
+  });
+
   it('serializes simultaneous model and effort selections without losing the model’s remembered mode', async () => {
     await setUpProfile({ home, models: [fast, deep] });
     const { conversations } = serve();

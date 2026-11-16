@@ -44,8 +44,9 @@ export function createBackend(params: {
     env,
     ...(adapters && { adapters }),
     // A person sees why a model lost its reasoning, once per kind: a drop that repeats every call
-    // (a changing notice moves the request prefix) is one line, not one per call.
-    onReplayDropped: createReplayDropLog(log),
+    // (a changing notice moves the request prefix) is one line, not one per call. With
+    // `SHOW_MODEL_CALLS` every drop is told, under the model call that made it.
+    onReplayDropped: createReplayDropLog({ log, everyDrop: settings.showModelCalls }),
   });
   const trustStore = trustStoreFor(env);
   const permissionStore = permissionStoreFor(env);

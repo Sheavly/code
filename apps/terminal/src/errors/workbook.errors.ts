@@ -42,6 +42,18 @@ export class WorkbookNotFoundError extends Error {
   }
 }
 
+/** A workbook option (`--mode` or `WORKBOOK_MODE`) holds a value the workbook can't use. */
+export class WorkbookOptionError extends Error {
+  override name = 'WorkbookOptionError';
+  /** The rejected value, as given. */
+  readonly value: string;
+
+  constructor(params: { value: string; message: string }) {
+    super(params.message);
+    this.value = params.value;
+  }
+}
+
 /** A stored prompt file has bad front matter; `problems` lists what to fix. */
 export class WorkbookPromptError extends Error {
   override name = 'WorkbookPromptError';

@@ -9,10 +9,26 @@ import { MAX_TOLD_DROPS } from './profiles.constants.js';
  * comes from stored history, so a long-lived backend must not grow without bound, and past the cap
  * the oldest is forgotten (and may be reported once more).
  */
-export function createReplayDropLog(log: (text: string) => void): (drop: ReplayDrop) => void {
+export function createReplayDropLog(params: {
+  log: (text: string) => void;
+  /**
+   * Tell of every drop, not each kind once. For `SHOW_MODEL_CALLS`, where each model call is
+   * printed too, so a drop falls under the call that made it and a run's drops can be counted.
+   */
+  everyDrop?: boolean;
+}): (drop: ReplayDrop) => void {
+  const { log, everyDrop = false } = params;
   const told = new Set<string>();
 
   return ({ reason, source }) => {
+    const from = source ? ` from ${source}` : '';
+
+    if (everyDrop) {
+      log(`Reasoning left out of a model call (${reason})${from}\n`);
+
+      return;
+    }
+
     const kind = `${reason}\n${source ?? ''}`;
 
     if (told.has(kind)) return;
@@ -24,7 +40,7 @@ export function createReplayDropLog(log: (text: string) => void): (drop: ReplayD
     if (told.size > MAX_TOLD_DROPS && !oldest.done) told.delete(oldest.value);
 
     log(
-      `Reasoning left out of a model call (${reason})${source ? ` from ${source}` : ''}; the same drop is not reported again\n`,
+      `Reasoning left out of a model call (${reason})${from}; the same drop is not reported again\n`,
     );
   };
 }

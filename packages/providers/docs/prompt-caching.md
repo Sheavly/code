@@ -31,32 +31,50 @@ A session is one cache scope: the main session and each sub-agent have their own
 
 #### Signed-thinking replay and transient notices
 
-Prompt-cache reuse and signed-thinking replay are separate mechanisms. Messages records each
-completed reply's provenance as a hash of system instructions, tool definitions and all preceding
-API messages, including formatted transient notices, but excluding cache-control markers. When
-replaying history it checks each assistant reply against the messages reconstructed **before that
-reply**, then appends the current call's notices only after all history has been translated.
+Prompt-cache reuse and signed-thinking replay are separate mechanisms. On models with preserved
+thinking (Sonnet 5.5, Opus 5.5 and later) a thinking block's signature covers `system`, `tools`
+and every earlier message, and the API may refuse a block whose prefix changed (400) or let it
+through and bill it. Anthropic's rule is append-only: anything the caller adds to a request is
+stored with its message and sent again in the same place
+([preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking)).
 
-Consequently, a reply generated with a `running-tasks` notice can lose its signed and redacted
-thinking on the next call even when system instructions and stored history are unchanged. Task
-starts, finishes, regrouping or reason changes can change the notice, and removing it also loses
-that provenance. Even an identical notice on the next call does not restore it: the earlier notice
-is absent from the reconstructed history prefix where the check runs. The adapter leaves text and
-completed tool calls intact and does not mutate stored reasoning or history.
+A transient notice (`context-usage`, `running-tasks`) rides one call, so the reply made on that
+call is signed over a prefix that includes it. Messages therefore stores, in the reply's replay
+state, the notice text blocks its request carried (`notices`) next to the prefix hash covering
+them. When it rebuilds history it puts those blocks back at the end of the user message before
+that reply, checks the hash, and replays the thinking. The current call's own notices are then
+appended after all history, as before. Stored history is not changed: the notice text lives only
+in the opaque replay state. Cache breakpoints stay on the last history block, so the current
+notice never ends a cached prefix.
 
-This does **not** discard all prior thinking. Earlier replies whose own preceding prefixes still
-match remain replayable. Removing a thinking block changes the reconstructed prefix for later
-replies, so later signatures that depended on those blocks can also fail. A fresh reply signed over
-the reconstructed, reduced prefix can replay on a subsequent call, provided its own prefix still
-matches (in particular, it was not itself generated with transient notices).
+A reply whose hash still fails (instructions, tools or an earlier message changed, or state stored
+before `notices` existed) keeps its text and tool calls and loses its thinking, reported as
+`prefix_changed`. Removing a thinking block changes the prefix of later replies, so those fail
+too. Earlier replies that still match remain replayable.
 
-The tradeoff is live task awareness and avoiding incompatible signature replay at the expense of
-retained thinking continuity. Claude may need to reason again, potentially adding output tokens,
-latency and cost; there is no fixed surcharge or offline measurement of that effect. Stable-history
-cache breakpoints keep notices outside the intended cached history boundary, but do not make signed
-thinking valid, and dropping thinking can also change later cacheable message bytes. Fake-network
-regressions verify serialization and these local prefix decisions, not server cache hits, billing
-or model quality. Responses and Chat Completions have no analogous notice-bound signature check.
+**Cost of the choice.** Every earlier notice stays in the request, so the model reads one
+`context-usage` line per earlier call, about 60 tokens each, cacheable like the rest of history.
+A transient notice is therefore no longer transient to the model, only to stored history and the
+UI. Responses and Chat Completions have no analogous signature check and are unchanged.
+
+**Measured** (Sonnet 5.5, `thinking-replay` workbook check, `--mode high`, a `context-usage`
+notice on every call; one run each unless stated):
+
+| Version                     | Calls | Thinking blocks per reply | Calls with a drop | Output tokens | Time   |
+| --------------------------- | ----- | ------------------------- | ----------------- | ------------- | ------ |
+| Notices dropped (two runs)  | 4     | 0/0/2/1                   | 1 of 4, both runs | 965, 1,000    | 10-11s |
+| Notices replayed (one run)  | 4     | 0/0/2/0                   | 0 of 4            | 783           | 9.6s   |
+| Notices dropped (`extreme`) | 4+    | 1/2/2/2                   | 0, 1, 2, 3, 4     | 6,013 over 4  | 42s    |
+
+The drop count grows with each reply that carried thinking, which is what the rule predicts.
+Cache reads were the same size either way, so caching did not drive the difference. The "after"
+row is a single run, and its last reply happened to carry no thinking, so it shows the drop gone
+but does not price it: output tokens differ by 180 to 220 between versions against a run-to-run
+spread near 35 for the same version, which is suggestive and not a measurement of savings. A
+fuller comparison needs repeated runs at `high` and `extreme` on both versions.
+
+Fake-network regressions verify serialization and these local prefix decisions, not server cache
+hits, billing or model quality.
 
 ### Azure OpenAI and OpenAI Responses
 

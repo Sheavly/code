@@ -5,7 +5,7 @@ import { createReplayDropLog } from '../replay-drop-log.helper.js';
 describe('createReplayDropLog', () => {
   it('reports a drop once however many calls repeat it', () => {
     const lines: string[] = [];
-    const heard = createReplayDropLog((text) => lines.push(text));
+    const heard = createReplayDropLog({ log: (text) => lines.push(text) });
 
     for (let call = 0; call < 5; call++) {
       heard({ reason: 'prefix_changed', source: 'messages:https://a.test/v1#m' });
@@ -16,9 +16,21 @@ describe('createReplayDropLog', () => {
     expect(lines[0]).toContain('messages:https://a.test/v1#m');
   });
 
+  it('reports every drop when asked, so each falls under the model call that made it', () => {
+    const lines: string[] = [];
+    const heard = createReplayDropLog({ log: (text) => lines.push(text), everyDrop: true });
+
+    for (let call = 0; call < 5; call++) {
+      heard({ reason: 'prefix_changed', source: 'messages:https://a.test/v1#m' });
+    }
+
+    expect(lines).toHaveLength(5);
+    expect(lines[0]).not.toContain('not reported again');
+  });
+
   it('reports a different reason or source as its own drop', () => {
     const lines: string[] = [];
-    const heard = createReplayDropLog((text) => lines.push(text));
+    const heard = createReplayDropLog({ log: (text) => lines.push(text) });
 
     heard({ reason: 'prefix_changed', source: 'messages:https://a.test/v1#m' });
     heard({ reason: 'source_mismatch', source: 'messages:https://a.test/v1#m' });
@@ -31,7 +43,7 @@ describe('createReplayDropLog', () => {
 
   it('remembers a bounded number of kinds, forgetting the oldest past the cap', () => {
     const lines: string[] = [];
-    const heard = createReplayDropLog((text) => lines.push(text));
+    const heard = createReplayDropLog({ log: (text) => lines.push(text) });
     const drop = (n: number) =>
       ({ reason: 'prefix_changed', source: `chat:https://a${n}.test#m` }) as const;
 
@@ -50,8 +62,8 @@ describe('createReplayDropLog', () => {
     const lines: string[] = [];
     const drop = { reason: 'message_edited', source: 'chat:https://a.test/v1#m' } as const;
 
-    createReplayDropLog((text) => lines.push(text))(drop);
-    createReplayDropLog((text) => lines.push(text))(drop);
+    createReplayDropLog({ log: (text) => lines.push(text) })(drop);
+    createReplayDropLog({ log: (text) => lines.push(text) })(drop);
 
     expect(lines).toHaveLength(2);
   });

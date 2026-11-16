@@ -88,6 +88,8 @@ export type StartConversationParams = {
   profile?: ProfileId | undefined;
   /** The model a new conversation starts on (an id or a name): for the app to resolve and act on. */
   model?: string | undefined;
+  /** The reasoning effort a new conversation starts on, for this conversation only. */
+  mode?: ModelMode | undefined;
   /** An explicitly resumed selection, not the profile's last-used preference. */
   modelSelection?: ModelSelection | undefined;
 };

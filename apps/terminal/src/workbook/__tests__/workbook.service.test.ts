@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { WorkbookOptionError } from '../../errors/workbook.errors.js';
 import { RunRecorder } from '../recorder.service.js';
 import { WorkbookStore } from '../store.service.js';
 import type { RunResult } from '../workbook.types.js';
@@ -13,6 +14,7 @@ import {
   mergeTextDeltas,
   parseCommand,
   runId,
+  workbookMode,
   workbookModel,
 } from '../workbook.utils.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
@@ -66,6 +68,41 @@ describe('workbookModel', () => {
   it('treats an empty value as none, so a default can be cleared for one run', () => {
     expect(workbookModel({ flag: '', env: { WORKBOOK_MODEL: '' } })).toBeUndefined();
     expect(workbookModel({ flag: '  ', env: { WORKBOOK_MODEL: 'deepseek' } })).toBe('deepseek');
+  });
+});
+
+describe('workbookMode', () => {
+  it('uses --mode, else WORKBOOK_MODE, else none', () => {
+    expect(workbookMode({ flag: 'high', env: { WORKBOOK_MODE: 'low' } })).toBe('high');
+    expect(workbookMode({ flag: undefined, env: { WORKBOOK_MODE: 'low' } })).toBe('low');
+    expect(workbookMode({ flag: undefined, env: {} })).toBeUndefined();
+    expect(workbookMode({ flag: '', env: { WORKBOOK_MODE: '' } })).toBeUndefined();
+  });
+
+  it('refuses a value that is not a mode, rather than running on another effort', () => {
+    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow(WorkbookOptionError);
+    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow(
+      expect.objectContaining({ value: 'max' }) as Error,
+    );
+    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow('not one of');
+    expect(() => workbookMode({ flag: undefined, env: { WORKBOOK_MODE: 'fast' } })).toThrow(
+      'WORKBOOK_MODE',
+    );
+  });
+
+  it('is read by every command that runs, and never mistaken for a word', () => {
+    expect(parseCommand(['run', 'guards', '--mode', 'high'])).toMatchObject({
+      name: 'run',
+      prompt: 'guards',
+      mode: 'high',
+    });
+    expect(parseCommand(['check', 'guards', '--mode', 'low'])).toMatchObject({
+      name: 'check',
+      prompts: ['guards'],
+      mode: 'low',
+    });
+    expect(parseCommand(['run', 'guards', '--mode'])).toEqual({ name: 'help' });
+    expect(parseCommand(['run', 'guards', '--mode=high'])).toEqual({ name: 'help' });
   });
 });
 
