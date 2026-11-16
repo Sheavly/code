@@ -37,6 +37,7 @@ export class EntryLog {
   /** Entries not yet stored, oldest first; the one that failed stays at the front. */
   readonly #pending: StreamEntry[] = [];
   #failure: StoreError | undefined;
+  readonly #onFailure: ((failure: StoreError) => void) | undefined;
 
   /**
    * `lineage` lists a session and its ancestors' ids, released ones too, for a filter on a whole
@@ -48,9 +49,12 @@ export class EntryLog {
     lineage: (id: SessionId) => SessionId[];
     store?: EntryStore;
     resume?: Pick<StoredLog, 'next' | 'tail'>;
+    /** Told once each time writes start failing (not per write), so a UI can say so. */
+    onFailure?: (failure: StoreError) => void;
   }) {
     this.#lineage = params.lineage;
     this.#store = params.store;
+    this.#onFailure = params.onFailure;
 
     const { resume } = params;
 
@@ -209,10 +213,19 @@ export class EntryLog {
       try {
         await store.append(entry);
       } catch (caughtError) {
+        const first = this.#failure === undefined;
+
         this.#failure = toStoreError({
           error: caughtError,
           message: `Could not store entry ${String(entry.seq)}`,
         });
+
+        // Once per failure: a retry that fails again is the same failure, not a new event.
+        if (first && this.#onFailure) {
+          // Like a listener: a throw here must not reject `#written`, which every later write
+          // chains on. It fails loudly on its own instead.
+          notifyAll({ listeners: [this.#onFailure], value: this.#failure });
+        }
 
         return;
       }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { StoreError } from '@sheavly/core/errors/store.errors';
 import { MemoryConversationStore } from '@sheavly/testing/store/memory-store.fake';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
@@ -183,6 +183,62 @@ describe('an entry log whose store fails', () => {
     addEvents({ log, count: 1 });
     await log.flush();
     expect(await storedSeqs(store)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it('tells the owner once when writes start failing, not on each failed retry', async () => {
+    const store = new MemoryConversationStore();
+    const told: StoreError[] = [];
+    const log = new EntryLog({
+      lineage: noLineage,
+      store: store.entries(id),
+      onFailure: (failure) => told.push(failure),
+    });
+
+    store.failWith(new Error('ENOSPC'));
+    addEvents({ log, count: 2 });
+    await log.flush();
+    await log.recover();
+    await log.recover();
+    expect(told).toHaveLength(1);
+
+    store.failWith(undefined);
+    await log.recover();
+    store.failWith(new Error('ENOSPC'));
+    addEvents({ log, count: 1 });
+    await log.flush();
+    // Healthy in between, so this is a new failure.
+    expect(told).toHaveLength(2);
+  });
+
+  it('is not poisoned by an owner callback that throws: later writes and recovery still work', async () => {
+    const store = new MemoryConversationStore();
+    const rethrown: (() => void)[] = [];
+    // The throw is rethrown on its own, as for a listener; catch that here so it is not uncaught.
+    const spy = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((run) => {
+      rethrown.push(run);
+    });
+    const log = new EntryLog({
+      lineage: noLineage,
+      store: store.entries(id),
+      onFailure: () => {
+        throw new Error('owner bug');
+      },
+    });
+
+    try {
+      store.failWith(new Error('ENOSPC'));
+      addEvents({ log, count: 2 });
+      await log.flush();
+      store.failWith(undefined);
+      await log.recover();
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(rethrown).toHaveLength(1);
+    expect(() => rethrown[0]?.()).toThrow('owner bug');
+    expect(log.failure).toBeUndefined();
+    expect(await storedSeqs(store)).toEqual([0, 1]);
   });
 
   it('keeps the failure when a recovery fails again, and loses no entry', async () => {
