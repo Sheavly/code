@@ -70,6 +70,7 @@ export class Conversations {
       workspace: params.workspace,
       profile: params.profile,
       model: params.model,
+      mode: params.mode,
       ...(keeper && storageOf({ store: this.#store, keeper, id })),
     });
 
