@@ -1,23 +1,14 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import { describe, expect, it } from 'vitest';
+import { useTempFolders } from '../../testing/temp-folders.fake.js';
 import { showRun, stepRun } from '../inspect.helper.js';
 import { WorkbookStore } from '../store.service.js';
 
-const roots: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
-});
+const folders = useTempFolders();
 
 /** A run that was force-quit: its folder and transcript exist, but no run.json or result.json. */
 async function forceQuitRun() {
-  const root = await mkdtemp(path.join(tmpdir(), 'workbook-unfinished-'));
-
-  roots.push(root);
-
-  const store = new WorkbookStore(root);
+  const store = new WorkbookStore(await folders.make('workbook-unfinished'));
   const paths = await store.beginRun({ id: (number) => `${number}-demo` });
 
   await writeFile(paths.transcript, '→ run 1-demo\n');

@@ -1,34 +1,34 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
-import { connectBackend } from '../../client/backend.helper.js';
-import { BackendError } from '../../errors/backend.errors.js';
 import { SAME_KEYPRESS_MS } from '../../render/render.constants.js';
 import { fakeRunRequest, useWorkbookRunEnvironment } from '../../testing/workbook-run.fake.js';
-import { runWorkbook } from '../run.helper.js';
+import { useTempFolders } from '../../testing/temp-folders.fake.js';
+import { BackendError } from '../../errors/backend.errors.js';
 import { WorkbookStore } from '../store.service.js';
+import { connectBackend } from '../../client/backend.helper.js';
+import { runWorkbook } from '../run.helper.js';
 
 vi.mock('../../client/backend.helper.js', () => ({ connectBackend: vi.fn() }));
-vi.mock('node:child_process', () => ({ execFileSync: vi.fn(() => '') }));
 
 const clock = useFixedClock();
-const environment = useWorkbookRunEnvironment();
+const folders = useTempFolders();
 
-async function newStore() {
-  const root = await mkdtemp(path.join(tmpdir(), 'workbook-interrupt-'));
+useWorkbookRunEnvironment();
 
-  environment.keep(root);
+/**
+ * Starts a run whose backend start is still going, and waits until it is. It ends when Ctrl+C
+ * aborts it, as `connectBackend` does; with `stuck` it never ends, so only a force quit can.
+ */
+async function runStartingBackend(params: { stuck?: boolean } = {}) {
+  const store = new WorkbookStore(path.join(await folders.make('workbook-interrupt'), 'workbook'));
 
-  return new WorkbookStore(path.join(root, 'workbook'));
-}
-
-/** A backend start that ends only when Ctrl+C aborts it, as `connectBackend` does. */
-function startingBackend() {
   vi.mocked(connectBackend).mockImplementation(
     ({ signal }) =>
       new Promise((_, reject) => {
+        if (params.stuck) return;
+
         signal?.addEventListener(
           'abort',
           () => reject(new BackendError({ message: 'Interrupted while the backend was starting' })),
@@ -36,22 +36,18 @@ function startingBackend() {
         );
       }),
   );
-}
 
-/** A backend start that never answers, so only a force quit can end the run. */
-function stuckBackend() {
-  vi.mocked(connectBackend).mockReturnValue(new Promise(() => undefined));
+  const running = runWorkbook({ store, request: fakeRunRequest('hi') });
+
+  await vi.waitFor(() => expect(connectBackend).toHaveBeenCalled());
+
+  return { store, running };
 }
 
 describe('workbook run: Ctrl+C', () => {
   it('during the backend start saves the run as interrupted, not as a crash', async () => {
-    const store = await newStore();
+    const { store, running } = await runStartingBackend();
 
-    startingBackend();
-
-    const running = runWorkbook({ store, request: fakeRunRequest('hi') });
-
-    await vi.waitFor(() => expect(connectBackend).toHaveBeenCalled());
     process.emit('SIGINT');
 
     const result = await running;
@@ -62,25 +58,17 @@ describe('workbook run: Ctrl+C', () => {
   });
 
   it('ignores the same keypress seen twice', async () => {
-    const store = await newStore();
+    const { running } = await runStartingBackend();
 
-    startingBackend();
-
-    const running = runWorkbook({ store, request: fakeRunRequest('hi') });
-
-    await vi.waitFor(() => expect(connectBackend).toHaveBeenCalled());
     process.emit('SIGINT');
     process.emit('SIGINT');
     await expect(running).resolves.toMatchObject({ outcome: 'interrupted' });
   });
 
   it('force-quits on a second press after the window, leaving the run folder readable', async () => {
-    const store = await newStore();
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    const { store } = await runStartingBackend({ stuck: true });
 
-    stuckBackend();
-    void runWorkbook({ store, request: fakeRunRequest('hi') });
-    await vi.waitFor(() => expect(connectBackend).toHaveBeenCalled());
     process.emit('SIGINT');
     clock.advance(SAME_KEYPRESS_MS);
     process.emit('SIGINT');
