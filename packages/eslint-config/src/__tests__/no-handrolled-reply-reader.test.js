@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { harnessPlugin } from '../plugin.js';
-import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
+import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
+import { harnessPlugin } from '../plugin.js';
 
-const ruleTester = typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' });
+const RULE_NAME = 'no-handrolled-reply-reader';
+const readerRule = typescriptRuleTester({ ecmaVersion: 'latest', sourceType: 'module' });
 
-ruleTester.run('no-handrolled-reply-reader', harnessPlugin.rules['no-handrolled-reply-reader'], {
+readerRule.run(RULE_NAME, harnessPlugin.rules[RULE_NAME], {
   valid: [
     "import { readReply } from '../http/reply-reader.helper.js';",
     "import { parseToolArguments } from '../http/json.utils.js';",
