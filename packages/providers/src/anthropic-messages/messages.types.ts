@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
+import type { ReplayDropHandler } from '../http/replay.types.js';
 import type { messagesEventSchema, messagesReplaySchema } from './messages.validator.js';
 
 /**
@@ -37,6 +38,8 @@ export type MessagesProviderConfig = {
   promptCaching?: boolean | undefined;
   request: RequestPolicy;
   fetch: typeof fetch;
+  /** Told of each reasoning item left out of a request, with why. */
+  onReplayDropped?: ReplayDropHandler | undefined;
 };
 
 /** The config every Messages adapter's schema must produce, besides its own fields. */

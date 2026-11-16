@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RequestPolicy } from '../http/http.types.js';
+import type { ReplayDropHandler } from '../http/replay.types.js';
 import type { chatChunkSchema } from './chat-completions.validator.js';
 
 export type ChatChunk = z.infer<typeof chatChunkSchema>;
@@ -26,6 +27,8 @@ export type ChatAdapterConfig = {
 export type ChatProviderConfig = ChatAdapterConfig & {
   endpoint: ChatEndpoint;
   fetch: typeof fetch;
+  /** Told of each reasoning item left out of a request, with why. */
+  onReplayDropped?: ReplayDropHandler | undefined;
 };
 
 /** Stream fragments do not yet guarantee an id, function name or complete arguments. */
