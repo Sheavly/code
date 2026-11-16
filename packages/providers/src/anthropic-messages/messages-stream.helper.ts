@@ -1,5 +1,6 @@
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
+import { doneEvent } from '../http/done-event.utils.js';
 import { readReply } from '../http/reply-reader.helper.js';
 import { MESSAGES_API } from './messages.constants.js';
 import { createMessagesReader } from './events.utils.js';
@@ -35,7 +36,7 @@ export function readMessagesReply(params: {
 
         return { events: step.events, ...(step.ended && { ended: true }) };
       },
-      finish: () => [{ type: 'done', stopReason, ...(usage && { usage: { tokens: usage } }) }],
+      finish: () => [doneEvent({ stopReason, usage })],
     },
   });
 }

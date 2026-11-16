@@ -45,12 +45,7 @@ export class ProviderSwitch implements Provider {
    * that was never added. A stream in flight and a provider already `pinned` are unaffected.
    */
   remove(name: string): void {
-    if (!this.providers.has(name)) {
-      throw new ProviderSwitchError({
-        reason: 'unknown',
-        message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
-      });
-    }
+    if (!this.providers.has(name)) throw this.#unknown(name);
 
     this.providers.delete(name);
     this.modes.delete(name);
@@ -59,14 +54,16 @@ export class ProviderSwitch implements Provider {
   }
 
   use(name: string): void {
-    if (!this.providers.has(name)) {
-      throw new ProviderSwitchError({
-        reason: 'unknown',
-        message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
-      });
-    }
+    if (!this.providers.has(name)) throw this.#unknown(name);
 
     this.activeName = name;
+  }
+
+  #unknown(name: string): ProviderSwitchError {
+    return new ProviderSwitchError({
+      reason: 'unknown',
+      message: `Unknown provider: ${name} (available: ${this.names().join(', ') || 'none'})`,
+    });
   }
 
   get active(): string | undefined {
@@ -103,12 +100,7 @@ export class ProviderSwitch implements Provider {
   pinned(key: string): Provider {
     const provider = this.providers.get(key);
 
-    if (!provider) {
-      throw new ProviderSwitchError({
-        reason: 'unknown',
-        message: `Unknown provider: ${key} (available: ${this.names().join(', ') || 'none'})`,
-      });
-    }
+    if (!provider) throw this.#unknown(key);
 
     const mode = this.modes.get(key);
 
