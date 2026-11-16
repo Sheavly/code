@@ -37,16 +37,9 @@ export const logLook: Look = {
   runFailed: (error) => `\n✗ Model run failed: ${error}\n`,
   hookFailed: ({ hook, handler, error }) => `\n✗ hook ${hook} failed in ${handler}: ${error}\n`,
   storageFailed: (error) => `\n✗ chat could not be saved: ${error}\n`,
-  turnEnd: ({ stopReason, waiting }) => {
-    const stopped =
-      stopReason === 'tool_use' || stopReason === 'max_tokens' ? '' : `\n\n[stop: ${stopReason}]\n`;
-    const waits =
-      stopReason === 'end_turn' && waiting > 0
-        ? `… waiting for ${waiting} background task(s) · Ctrl+C to stop\n`
-        : '';
-
-    return stopped + waits;
-  },
+  turnEnd: ({ stopReason }) =>
+    stopReason === 'tool_use' || stopReason === 'max_tokens' ? '' : `\n\n[stop: ${stopReason}]\n`,
+  awaitingTasks: (count) => `… waiting for ${count} background task(s) · Ctrl+C to stop\n`,
   done: ({ reason, events, reasoning }) =>
     `[${reason} · ${events} events · reasoning items kept: ${reasoning}]\n`,
   subAgentStarted: ({ indent, depth, parent, root, ...agent }) =>

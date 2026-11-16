@@ -40,7 +40,6 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
   const modes = new Map<string, ModelMode>();
 
   const conversation: ChatConversation = {
-    runningTasks: 0,
     yieldPrompt: () => Promise.resolve(false),
     skills: () =>
       Promise.resolve(
@@ -85,10 +84,7 @@ function chat(extra: { skills?: string[]; failOn?: string } = {}) {
   const written: string[] = [];
   const queues: string[][] = [];
   let exited = 0;
-  const renderer = new Renderer(
-    (out) => written.push(out),
-    () => 0,
-  );
+  const renderer = new Renderer((out) => written.push(out));
   const session = new ChatSession({
     conversation: fake.conversation,
     renderer,
@@ -145,10 +141,7 @@ describe('ChatSession: file changes', () => {
   });
 
   it('draws what /changes and /errors print in the palette it was given', () => {
-    const renderer = new Renderer(
-      () => undefined,
-      () => 0,
-    );
+    const renderer = new Renderer(() => undefined);
     const session = new ChatSession({
       conversation: fakeConversation({ skills: [], failOn: undefined }).conversation,
       renderer,
@@ -202,7 +195,6 @@ describe('ChatSession: running tools', () => {
   function toolChat(params: { entries: StreamEntry[]; failAfter: boolean }) {
     const told: string[][] = [];
     const conversation: ChatConversation = {
-      runningTasks: 0,
       yieldPrompt: () => Promise.resolve(false),
       skills: () => Promise.resolve([]),
       details: () => Promise.reject(new Error('not needed')),
@@ -211,10 +203,7 @@ describe('ChatSession: running tools', () => {
     };
     const session = new ChatSession({
       conversation,
-      renderer: new Renderer(
-        () => undefined,
-        () => 0,
-      ),
+      renderer: new Renderer(() => undefined),
       mainSession: MAIN,
       write: () => undefined,
       onTools: (tools) => told.push(tools.map(({ description }) => description)),
@@ -469,10 +458,7 @@ describe('ChatSession', () => {
     const fake = fakeConversation({ skills: [], failOn: undefined });
     const session = new ChatSession({
       conversation: fake.conversation,
-      renderer: new Renderer(
-        () => undefined,
-        () => 0,
-      ),
+      renderer: new Renderer(() => undefined),
       mainSession: MAIN,
       write: () => undefined,
       onBusy: (isBusy) => busy.push(isBusy),

@@ -7,6 +7,13 @@ import { timestampSchema } from '../time/time.validator.js';
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 
 /**
+ * What a UI calls a piece of background work: a command (`task`), a sub-agent (`agent`), or a
+ * service that is never awaited and may outlive the run. Naming, not policy: a sub-agent is
+ * finite work like a task.
+ */
+export const taskKindSchema = z.enum(['task', 'agent', 'service']);
+
+/**
  * A background task's id, unique within its registry. Branded, so it can't be passed where a
  * session's, tool call's or approval's id goes; it is still a plain string on the wire.
  */
@@ -19,6 +26,8 @@ export const taskInfoSchema = z.object({
   callId: callIdSchema.exactOptional(),
   command: z.string(),
   description: z.string(),
+  /** Absent in snapshots stored before it existed: read as a `task`, a sub-agent's included. */
+  kind: taskKindSchema.exactOptional(),
   /** Explicit await_tasks reason, absent until the task joins a delivery group. */
   reason: z.string().exactOptional(),
   status: taskStatusSchema,

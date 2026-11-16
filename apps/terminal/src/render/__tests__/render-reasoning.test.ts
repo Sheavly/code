@@ -15,10 +15,7 @@ describe('Renderer: reasoning activity', () => {
   const session = { id: main, rootId: main, depth: 1 as const };
   const setup = () => {
     let out = '';
-    const renderer = new Renderer(
-      (text) => (out += text),
-      () => 0,
-    );
+    const renderer = new Renderer((text) => (out += text));
 
     return { renderer, output: () => out };
   };

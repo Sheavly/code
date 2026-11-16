@@ -1256,6 +1256,7 @@
         "callId": { "$ref": "#/$defs/CallId" },
         "command": { "type": "string" },
         "description": { "type": "string" },
+        "kind": { "type": "string", "enum": ["task", "agent", "service"] },
         "reason": { "type": "string" },
         "status": { "$ref": "#/$defs/TaskStatus" },
         "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },

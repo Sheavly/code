@@ -32,10 +32,7 @@ export function quietChat(params: {
 
   return new ChatSession({
     conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
+    renderer: new Renderer(() => undefined),
     mainSession: MAIN_SESSION,
     write: () => undefined,
     onExit: () => undefined,
@@ -67,15 +64,11 @@ export function listeningChat(params: {
     details: unused,
     useModel: unused,
     skills: () => Promise.resolve([]),
-    runningTasks: 0,
   };
 
   return new ChatSession({
     conversation,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
+    renderer: new Renderer(() => undefined),
     mainSession: MAIN_SESSION,
     write: () => undefined,
     onExit: () => undefined,

@@ -38,7 +38,6 @@ function chat(params: {
   const ends: { outcome: TurnOutcome; writes: number }[] = [];
   const completedWrites: number[] = [];
   const conversation = {
-    runningTasks: 0,
     yieldPrompt: () => Promise.resolve(false),
     skills: () =>
       Promise.resolve(
@@ -58,10 +57,7 @@ function chat(params: {
   } as unknown as ChatConversation;
   const session = new ChatSession({
     conversation,
-    renderer: new Renderer(
-      (out) => written.push(out),
-      () => 0,
-    ),
+    renderer: new Renderer((out) => written.push(out)),
     mainSession: MAIN,
     write: (out) => written.push(out),
     onTurnEnd: (outcome) => ends.push({ outcome, writes: written.length }),

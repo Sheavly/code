@@ -89,12 +89,7 @@ export async function startScreenChat(params: {
     onQuit: () => leave(),
     onExpand: () => session.describeLatest(),
   });
-  const renderer = new Renderer(
-    screen.write,
-    () => conversation.runningTasks,
-    createChatLook(palette),
-    screen.reply,
-  );
+  const renderer = new Renderer(screen.write, createChatLook(palette), screen.reply);
   const keepUsage = (entry: StreamEntry) => {
     usage.observe(entry);
     context.observe(entry);
@@ -181,6 +176,7 @@ export async function startScreenChat(params: {
     screen.notice(`✗ lost the live stream: ${errorText(caughtError)}`);
   });
 
+  conversation.watchBackground((background) => screen.setStatus(background));
   screen.start();
   // Lines queued before a restart are shown as waiting and not sent: reopening never runs them.
   session.restoreQueued(await conversation.queue());

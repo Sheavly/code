@@ -4,6 +4,7 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
+import { isFiniteKind } from '@sheavly/runtime/tasks/work.utils';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import { runSession } from '../stream-agent/stream-agent.helper.js';
@@ -91,7 +92,7 @@ export const WORK_KINDS: WorkKind[] = [
   ...(['task', 'service'] as const).map((backgroundKind): WorkKind => ({
     name: `background command (${backgroundKind})`,
     background: true,
-    finite: backgroundKind === 'task',
+    finite: isFiniteKind(backgroundKind),
     tools: ({ tasks }) => [startTaskTool(tasks)],
     start: ({ speed, id }) =>
       toolTurn({

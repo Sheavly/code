@@ -3,7 +3,7 @@ import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { RunningTask } from '@sheavly/protocol/notice/notice.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskId, TaskInfo, TaskStatus } from '@sheavly/protocol/task/task.types';
+import type { TaskId, TaskInfo, TaskKind, TaskStatus } from '@sheavly/protocol/task/task.types';
 import type { Entry } from './tasks.types.js';
 
 /** Whether `id` is a canonical id (`t1`, `t42`, never `t0` or `t01`) below `nextId`. */
@@ -28,15 +28,17 @@ export function runningInfo(params: {
   callId: CallId | undefined;
   command: string;
   description: string;
+  kind: TaskKind;
   startedAt: number;
 }): TaskInfo {
-  const { id, callId, command, description, startedAt } = params;
+  const { id, callId, command, description, kind, startedAt } = params;
 
   return {
     id,
     ...(callId ? { callId } : {}),
     command,
     description,
+    kind,
     status: 'running',
     startedAt,
     output: '',
@@ -48,7 +50,7 @@ export function newEntry(params: {
   info: TaskInfo;
   controller: AbortController;
   sessionId: SessionId | undefined;
-  backgroundKind: 'task' | 'service';
+  backgroundKind: TaskKind;
 }): Entry {
   return { ...params, settled: Promise.resolve(), silent: false };
 }

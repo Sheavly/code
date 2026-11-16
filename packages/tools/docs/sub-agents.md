@@ -7,7 +7,8 @@ The `start_agent`, `report_status` and `message_agent` tools. The session tree, 
 `createSubAgentTool(options)` (`@sheavly/tools/sub-agent/`) is the `start_agent` tool: it starts a
 sub-agent on one task, `{ title, task }`.
 
-- **A background task.** The sub-agent runs as a task in the parent's `TaskRegistry`, so the
+- **A background task.** The sub-agent runs as a task of kind `agent` (finite work, named apart so
+  a UI can count it separately from commands and services) in the parent's `TaskRegistry`, so the
   parent sees it with `task_status`, stops it with `cancel_task` (its session ends as
   `interrupted`), and is told its report when it finishes. Its task requires completion:
   the parent prompt stays alive and resumes automatically with the report. No user message or

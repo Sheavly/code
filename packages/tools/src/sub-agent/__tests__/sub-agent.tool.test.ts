@@ -126,7 +126,7 @@ describe('start_agent task lifecycle', () => {
       description: 'Review the patch',
       callId: 'child',
       sessionId: parent.id,
-      backgroundKind: 'task',
+      backgroundKind: 'agent',
     });
     const childOptions = runAgent.mock.calls[0]![0];
 

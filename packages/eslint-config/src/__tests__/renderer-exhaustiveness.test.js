@@ -22,7 +22,7 @@ describe('the Renderer handles every event and session update kind', () => {
   });
 
   it.each([
-    ['an event', "      case 'run_state':\n"],
+    ['an event', "      case 'usage':\n"],
     ['a session update', "      case 'session_released':\n"],
   ])('fails when %s kind is left out of its switch', async (_name, line) => {
     expect(source).toContain(line);

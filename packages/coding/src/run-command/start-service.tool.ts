@@ -54,7 +54,7 @@ export function createStartServiceTool({
       return backgroundStartedPrompt({
         taskId: task.id,
         command,
-        backgroundKind: 'service',
+        finite: false,
         outputLines: startedOutputLines({ capture, log: task.outputLog }),
       });
     },

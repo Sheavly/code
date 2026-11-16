@@ -56,10 +56,7 @@ function lineChat(firstPrompt?: string) {
   const running = runLineChat({
     conversation: conversation as unknown as RemoteConversation,
     details: lineChatDetails,
-    renderer: new Renderer(
-      () => undefined,
-      () => 0,
-    ),
+    renderer: new Renderer(() => undefined),
     write,
     firstPrompt,
     forceQuit,

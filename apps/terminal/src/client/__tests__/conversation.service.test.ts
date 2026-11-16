@@ -8,6 +8,7 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
+import { ENDED_TASKS_KEPT } from '../client.constants.js';
 import { RemoteConversation } from '../conversation.service.js';
 
 const ID = conversationIdSchema.parse('00000000-0000-4000-8000-000000000001');
@@ -44,6 +45,34 @@ const task = (seq: number, type: 'task_started' | 'task_ended'): StreamEntry => 
   sessionId: MAIN,
   kind: 'task',
   update: { type, task: { ...TASK, status: type === 'task_started' ? 'running' : 'completed' } },
+});
+
+/**
+ * A conversation that sends two prompts, each answered by the next of `prompts`, with the task
+ * count `watchBackground` was told along the way.
+ */
+async function replaying(prompts: [StreamEntry[], StreamEntry[]]) {
+  const queue = [...prompts];
+  const { conversation } = await open({ sendPrompt: () => entries(...(queue.shift() ?? [])) });
+  const told: number[] = [];
+
+  conversation.watchBackground(({ tasks }) => told.push(tasks));
+  await sent(conversation);
+  await sent(conversation);
+
+  return { told, conversation };
+}
+
+/** A task `id` of `kind` (none: an older backend's snapshot) starting at `seq`. */
+const started = (seq: number, id: string, kind?: 'task' | 'agent' | 'service'): StreamEntry => ({
+  seq,
+  at: 0,
+  sessionId: MAIN,
+  kind: 'task',
+  update: {
+    type: 'task_started',
+    task: { ...TASK, id: taskIdSchema.parse(id), status: 'running', ...(kind && { kind }) },
+  },
 });
 
 /** A conversation on a fake backend that answers the routes as `handlers` say. */
@@ -238,6 +267,97 @@ describe('RemoteConversation', () => {
     }
 
     expect(counts).toEqual([1, 0, 0]);
+  });
+
+  it('splits what runs in the background into tasks, agents and services, and tells a watcher', async () => {
+    const told: { tasks: number; agents: number; services: number }[] = [];
+    const { conversation } = await open({
+      sendPrompt: () =>
+        entries(
+          started(0, 't1', 'service'),
+          started(1, 't2', 'task'),
+          started(2, 't3'),
+          started(3, 't4', 'agent'),
+          task(4, 'task_ended'),
+          done(5, 'completed'),
+        ),
+    });
+
+    conversation.watchBackground((background) => told.push(background));
+    await sent(conversation);
+
+    // A snapshot without a kind (an older backend) counts as a task. The `task_ended` helper
+    // ends t1, the service.
+    expect(told).toEqual([
+      { tasks: 0, agents: 0, services: 0 },
+      { tasks: 0, agents: 0, services: 1 },
+      { tasks: 1, agents: 0, services: 1 },
+      { tasks: 2, agents: 0, services: 1 },
+      { tasks: 2, agents: 1, services: 1 },
+      { tasks: 2, agents: 1, services: 0 },
+    ]);
+    expect(conversation.background).toEqual({ tasks: 2, agents: 1, services: 0 });
+  });
+
+  it('does not bring a task back when its start is seen again after its end', async () => {
+    // The second stream replays the start after the end was counted, as the live feed can.
+    const { told, conversation } = await replaying([
+      [task(0, 'task_started'), task(1, 'task_ended'), done(2, 'completed')],
+      [task(0, 'task_started'), done(3, 'completed')],
+    ]);
+
+    expect(told).toEqual([0, 1, 0]);
+    expect(conversation.background).toEqual({ tasks: 0, agents: 0, services: 0 });
+  });
+
+  it('treats ended as final: an end seen before its start, or twice, never counts a task', async () => {
+    const { told, conversation } = await replaying([
+      [task(1, 'task_ended'), task(0, 'task_started'), done(2, 'completed')],
+      [task(1, 'task_ended'), done(3, 'completed')],
+    ]);
+
+    // Told once on subscribe; the end came first, so the late start and the repeated end say nothing.
+    expect(told).toEqual([0]);
+    expect(conversation.background).toEqual({ tasks: 0, agents: 0, services: 0 });
+  });
+
+  it('remembers only the last ENDED_TASKS_KEPT ended ids, so a long chat does not grow', async () => {
+    const ended = (seq: number, id: string): StreamEntry => ({
+      seq,
+      at: 0,
+      sessionId: MAIN,
+      kind: 'task',
+      update: {
+        type: 'task_ended',
+        task: { ...TASK, id: taskIdSchema.parse(id), status: 'completed' },
+      },
+    });
+    const total = ENDED_TASKS_KEPT + 5;
+    const ids = Array.from({ length: total }, (_, index) => `t${String(index + 1)}`);
+    const lifecycles = ids.flatMap((id, index) => [
+      started(index * 2, id),
+      ended(index * 2 + 1, id),
+    ]);
+    const { conversation } = await replaying([
+      [...lifecycles, done(total * 2, 'completed')],
+      // The oldest id was forgotten, so a start for it counts again; the newest is still known.
+      [started(0, 't1'), started(0, ids[total - 1] ?? ''), done(total * 2 + 1, 'completed')],
+    ]);
+
+    expect(conversation.background).toEqual({ tasks: 1, agents: 0, services: 0 });
+  });
+
+  it('counts another task’s start that arrives with a lower seq than one already counted', async () => {
+    const prompts = [
+      [started(12, 't1'), done(13, 'completed')],
+      [started(9, 't2'), done(14, 'completed')],
+    ];
+    const { conversation } = await open({ sendPrompt: () => entries(...(prompts.shift() ?? [])) });
+
+    await sent(conversation);
+    await sent(conversation);
+
+    expect(conversation.background).toEqual({ tasks: 2, agents: 0, services: 0 });
   });
 
   it('counts a task as ended when the next prompt is told it completed', async () => {

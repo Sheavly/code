@@ -1,6 +1,6 @@
 import { Text, useAnimation } from 'ink';
 import { now } from '@sheavly/core/clock/clock.helper';
-import { runningToolsText, statusLabel } from '../tui/view.utils.js';
+import { backgroundText, runningToolsText, statusLabel } from '../tui/view.utils.js';
 import type { ActivityProps } from './react-screen.types.js';
 import { usageText } from '../usage/usage.utils.js';
 import { plainTerminalText } from '../render/terminal-text.utils.js';
@@ -49,7 +49,9 @@ export function Activity(props: ActivityProps) {
         {workingBranch ? ` · ⎇ ${plainTerminalText(workingBranch)}` : ''} · mode:{' '}
       </Text>
       <Text {...(mode === 'allow_all' ? { color: colors.status.error } : {})}>{mode}</Text>
-      {tasks > 0 && <Text color={secondary}> · {tasks} background</Text>}
+      <Text color={secondary}>
+        {backgroundText({ tasks, agents: props.agents ?? 0, services: props.services ?? 0 })}
+      </Text>
       <Text color={secondary}>
         {' '}
         · {usageText({ context: props.contextUsage, usage: props.usage })}

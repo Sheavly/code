@@ -34,15 +34,15 @@ describe('run_command prompt output equivalence', () => {
 
   it.each([
     [
-      'task',
+      true,
       'This finite task keeps this prompt alive until its result is delivered automatically. Finish independent work, then end your turn without tool calls to wait. Do not poll task_status or repeat the command. Use cancel_task to stop it.',
     ],
     [
-      'service',
+      false,
       'This service does not keep this prompt alive. Use task_status only to inspect readiness or diagnose a problem, not to wait for exit. Stop it with cancel_task when finished.',
     ],
-  ] as const)('preserves the %s launch instructions verbatim', (backgroundKind, guidance) => {
-    expect(backgroundStartedPrompt({ taskId: 't7', command: 'echo "hello"', backgroundKind })).toBe(
+  ] as const)('preserves the launch instructions verbatim (finite: %s)', (finite, guidance) => {
+    expect(backgroundStartedPrompt({ taskId: 't7', command: 'echo "hello"', finite })).toBe(
       `Started background task t7: $ echo "hello"\n${guidance}`,
     );
   });

@@ -29,10 +29,7 @@ function rendered(params: { content: string; artifacts?: ToolArtifact[] }): stri
     ...(artifacts && { artifacts }),
   };
 
-  new Renderer(
-    (text) => (out += text),
-    () => 0,
-  ).event(event);
+  new Renderer((text) => (out += text)).event(event);
 
   return out;
 }
@@ -42,12 +39,10 @@ describe('Renderer: entries', () => {
     'does not write or end the reply at an output cutoff with %j',
     (look) => {
       const calls: string[] = [];
-      const renderer = new Renderer(
-        (text) => calls.push(`write ${text}`),
-        () => 0,
-        look,
-        { write: (text) => calls.push(`reply ${text}`), end: () => calls.push('end') },
-      );
+      const renderer = new Renderer((text) => calls.push(`write ${text}`), look, {
+        write: (text) => calls.push(`reply ${text}`),
+        end: () => calls.push('end'),
+      });
       const notice = { kind: 'output-continuation' as const, attempt: 3 };
 
       renderer.event({ seq: 0, type: 'text_delta', text: 'First ' });
@@ -62,10 +57,7 @@ describe('Renderer: entries', () => {
 
   it('can ignore structured harness notices without printing telemetry as conversation text', () => {
     let output = '';
-    const renderer = new Renderer(
-      (text) => (output += text),
-      () => 0,
-    );
+    const renderer = new Renderer((text) => (output += text));
     const event: EntryEvent = {
       seq: 0,
       type: 'harness_notice',
@@ -84,11 +76,7 @@ describe('Renderer: entries', () => {
 
   it('escapes controls before reply and tool-start rendering, without changing source events', () => {
     let output = '';
-    const renderer = new Renderer(
-      (text) => (output += text),
-      () => 0,
-      chatLook,
-    );
+    const renderer = new Renderer((text) => (output += text), chatLook);
     const command = 'printf hi\u001b]52;c;tool\u0007';
     const call = { id: callId, name: 'run_command', input: { command } };
     const text = 'reply\u001b]';
@@ -119,25 +107,70 @@ describe('Renderer: entries', () => {
 
   it('prints the main session’s events, not a sub-agent’s', () => {
     let out = '';
-    const renderer = new Renderer(
-      (written) => (out += written),
-      () => 0,
-    );
+    const renderer = new Renderer((written) => (out += written));
 
     renderer.entry(text('main', 0), main);
     renderer.entry(text('child', 1), main);
     expect(out).toBe('from main');
   });
 
-  it('says how many background tasks a finished turn still waits for', () => {
-    let out = '';
-    const renderer = new Renderer(
-      (written) => (out += written),
-      () => 2,
-    );
+  describe.each([
+    { name: 'log', look: logLook },
+    { name: 'chat', look: chatLook },
+  ])('the waiting footer ($name look)', ({ look }) => {
+    const footer = (events: EntryEvent[]): string => {
+      let out = '';
+      const renderer = new Renderer((written) => (out += written), look);
 
-    renderer.event({ seq: 0, type: 'turn_end', turn: 1, stopReason: 'end_turn' });
-    expect(out).toContain('waiting for 2 background task(s)');
+      for (const event of events) renderer.event(event);
+
+      return stripVTControlCharacters(out);
+    };
+    const turnEnd: EntryEvent = { seq: 0, type: 'turn_end', turn: 1, stopReason: 'end_turn' };
+
+    it('is not printed for a turn that ends with only a service or ungrouped work running', () => {
+      expect(footer([turnEnd])).not.toContain('waiting for');
+      expect(
+        footer([turnEnd, { seq: 1, type: 'run_state', state: 'working', groupedTasks: 0 }]),
+      ).not.toContain('waiting for');
+      expect(
+        footer([{ seq: 1, type: 'run_state', state: 'waiting', groupedTasks: 0 }]),
+      ).not.toContain('waiting for');
+    });
+
+    it('counts the grouped tasks a run held on await_tasks still waits for', () => {
+      expect(
+        footer([turnEnd, { seq: 1, type: 'run_state', state: 'waiting', groupedTasks: 2 }]),
+      ).toContain('waiting for 2 background task(s) · Ctrl+C to stop');
+    });
+
+    it('is printed again when the number of grouped tasks changes', () => {
+      const out = footer([
+        { seq: 1, type: 'run_state', state: 'waiting', groupedTasks: 2 },
+        { seq: 2, type: 'run_state', state: 'waiting', groupedTasks: 1 },
+      ]);
+
+      expect(out).toContain('waiting for 2 background task(s)');
+      expect(out).toContain('waiting for 1 background task(s)');
+    });
+
+    it('is not printed for a sub-agent’s run_state', () => {
+      let out = '';
+      const renderer = new Renderer((written) => (out += written), look);
+
+      renderer.entry(
+        {
+          seq: 0,
+          at: 0,
+          sessionId: sessionIdSchema.parse('child'),
+          kind: 'event',
+          event: { seq: 0, type: 'run_state', state: 'waiting', groupedTasks: 3 },
+        },
+        main,
+      );
+
+      expect(out).toBe('');
+    });
   });
 });
 
@@ -145,11 +178,7 @@ describe('Renderer: chat look', () => {
   /** What a person sees for these events, without colour. */
   function chatted(events: EntryEvent[]): string {
     let out = '';
-    const renderer = new Renderer(
-      (text) => (out += text),
-      () => 0,
-      chatLook,
-    );
+    const renderer = new Renderer((text) => (out += text), chatLook);
 
     for (const event of events) renderer.event(event);
 
@@ -234,7 +263,6 @@ describe('Renderer: chat look', () => {
     const calls: string[] = [];
     const renderer = new Renderer(
       (text) => calls.push(`write ${JSON.stringify(stripVTControlCharacters(text))}`),
-      () => 0,
       chatLook,
       {
         write: (text) => calls.push(`reply ${JSON.stringify(text)}`),
@@ -278,11 +306,7 @@ describe('Renderer: themes', () => {
   function written(params: { look: ReturnType<typeof createChatLook>; event: EntryEvent }) {
     let out = '';
 
-    new Renderer(
-      (text) => (out += text),
-      () => 0,
-      params.look,
-    ).event(params.event);
+    new Renderer((text) => (out += text), params.look).event(params.event);
 
     return out;
   }
@@ -320,11 +344,7 @@ describe('Renderer: file changes', () => {
     renderer: Renderer;
   } {
     let out = '';
-    const renderer = new Renderer(
-      (text) => (out += text),
-      () => 0,
-      chatLook,
-    );
+    const renderer = new Renderer((text) => (out += text), chatLook);
 
     renderer.event({
       seq: 0,
@@ -402,11 +422,7 @@ describe('Renderer: failed steps', () => {
 
   function chatted(events: EntryEvent[]): { out: string; renderer: Renderer } {
     let out = '';
-    const renderer = new Renderer(
-      (text) => (out += text),
-      () => 0,
-      chatLook,
-    );
+    const renderer = new Renderer((text) => (out += text), chatLook);
 
     for (const event of events) renderer.event(event);
 
@@ -445,10 +461,7 @@ describe('Renderer: failed steps', () => {
   it('keeps the plain log free of failure lines', () => {
     let out = '';
 
-    new Renderer(
-      (text) => (out += text),
-      () => 0,
-    ).event(failed('one\ntwo'));
+    new Renderer((text) => (out += text)).event(failed('one\ntwo'));
     expect(out).toBe('    ✗ one · 0.3s\n');
   });
 });
@@ -475,11 +488,7 @@ describe('Renderer: running tools', () => {
     reason: 'completed',
     session: { id: main, rootId: main, depth: 1 },
   };
-  const renderer = () =>
-    new Renderer(
-      () => undefined,
-      () => 0,
-    );
+  const renderer = () => new Renderer(() => undefined);
 
   afterEach(() => vi.useRealTimers());
 

@@ -10,7 +10,6 @@ function chatWithUnansweredYield() {
   const ends: TurnOutcome[] = [];
   const reached: string[] = [];
   const conversation = {
-    runningTasks: 0,
     yieldPrompt: () => new Promise<boolean>(() => undefined),
     skills: () => Promise.resolve([]),
     async *send(params: { text: string }) {

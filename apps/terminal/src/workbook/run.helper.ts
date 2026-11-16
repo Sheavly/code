@@ -144,7 +144,7 @@ async function recordConversation(
 
   if (checkContext) await verifyWorkspace();
 
-  const renderer = new Renderer(write, () => conversation.runningTasks);
+  const renderer = new Renderer(write);
 
   recorder.recordSessions(await conversation.rawStream(stopStream.signal), stopStream);
   await recorder.start({

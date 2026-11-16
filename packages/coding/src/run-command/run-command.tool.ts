@@ -59,7 +59,7 @@ export function createRunCommandTool({
         return backgroundStartedPrompt({
           taskId: task.id,
           command,
-          backgroundKind: 'task',
+          finite: true,
           outputLines: startedOutputLines({ capture, log: task.outputLog }),
         });
       }

@@ -295,11 +295,30 @@ describe('statusText', () => {
 
   it('counts background tasks only when some run', () => {
     expect(plain(statusOf({ state: 'ready', model: 'Fast', mode: 'ask', tasks: 2 }))).toContain(
-      '2 running in background',
+      '2 tasks running in background',
     );
     expect(plain(statusOf({ state: 'ready', model: 'Fast', mode: 'ask', tasks: 0 }))).not.toContain(
       'background',
     );
+  });
+
+  it('says what runs in the background: tasks, agents and services, each only when some run', () => {
+    const base = { state: 'ready', model: 'Fast', mode: 'ask' } as const;
+
+    expect(plain(statusOf({ ...base, tasks: 2, agents: 1, services: 1 }))).toContain(
+      '2 tasks, 1 agent and 1 service running in background',
+    );
+    expect(plain(statusOf({ ...base, tasks: 0, agents: 3, services: 0 }))).toContain(
+      '3 agents running in background',
+    );
+    expect(plain(statusOf({ ...base, tasks: 1, services: 2 }))).toContain(
+      '1 task and 2 services running in background',
+    );
+    expect(plain(statusOf({ ...base, tasks: 0, services: 1 }))).toContain(
+      '1 service running in background',
+    );
+    expect(plain(statusOf({ ...base, tasks: 0, services: 1 }))).not.toContain('task');
+    expect(plain(statusOf({ ...base, tasks: 0, services: 0 }))).not.toContain('background');
   });
 
   it('shows allow all in a colour of its own, since it asks about nothing', () => {

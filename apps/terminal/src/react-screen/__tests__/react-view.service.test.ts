@@ -6,6 +6,8 @@ import { fakeTerminal } from '../../testing/terminal.fake.js';
 import { createPalette } from '../../theme/palette.utils.js';
 import { THEMES } from '../../theme/theme.constants.js';
 import { ChatScreen } from '../../tui/chat-screen.service.js';
+import type { StatusInfo } from '../../tui/tui.types.js';
+import { statusText } from '../../tui/view.utils.js';
 import { approvalIdSchema } from '@sheavly/protocol/approval/approval.validator';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { createElement } from 'react';
@@ -356,13 +358,21 @@ describe('ReactView', () => {
     }
   });
 
-  it('shows the count of grouped tasks a held run waits on, with no stop hint', async () => {
+  /** A started view showing `status`, and what it has drawn so far without styling. */
+  function showingStatus(status: StatusInfo) {
     const { view, stdout } = open(24, true, 120, true);
     let output = '';
 
     stdout.setEncoding('utf8');
     stdout.on('data', (chunk: string) => (output += chunk));
-    view.setStatus({
+    view.setStatus(status);
+    view.start();
+
+    return { view, drawn: () => stripVTControlCharacters(output) };
+  }
+
+  it('shows the count of grouped tasks a held run waits on, with no stop hint', async () => {
+    const { view, drawn } = showingStatus({
       state: 'awaiting_tasks',
       awaitedTasks: 2,
       model: 'Fast',
@@ -371,15 +381,47 @@ describe('ReactView', () => {
     });
 
     try {
-      view.start();
-      await vi.waitFor(() =>
-        expect(stripVTControlCharacters(output)).toContain('waiting on 2 tasks'),
-      );
-      expect(stripVTControlCharacters(output)).not.toContain('Ctrl+C to stop');
+      await vi.waitFor(() => expect(drawn()).toContain('waiting on 2 tasks'));
+      expect(drawn()).not.toContain('Ctrl+C to stop');
     } finally {
       view.stop();
     }
   });
+
+  it('says what runs in the background, services included', async () => {
+    const base = { state: 'ready', model: 'Fast', mode: 'ask' } as const;
+    const { view, drawn } = showingStatus({ ...base, tasks: 0, services: 1 });
+
+    try {
+      await vi.waitFor(() => expect(drawn()).toContain('1 service running in background'));
+      view.setStatus({ ...base, tasks: 2, services: 1 });
+      await vi.waitFor(() =>
+        expect(drawn()).toContain('2 tasks and 1 service running in background'),
+      );
+    } finally {
+      view.stop();
+    }
+  });
+
+  it.each([
+    { tasks: 1, agents: 0, services: 0, said: '1 task running in background' },
+    { tasks: 0, agents: 2, services: 0, said: '2 agents running in background' },
+    { tasks: 2, agents: 1, services: 1, said: '2 tasks, 1 agent and 1 service running' },
+  ])(
+    'says the same about background work as the classic status line: $said',
+    async ({ said, ...counts }) => {
+      const info: StatusInfo = { state: 'ready', model: 'Fast', mode: 'ask', ...counts };
+      const classic = stripVTControlCharacters(statusText({ info }));
+      const { view, drawn } = showingStatus(info);
+
+      try {
+        await vi.waitFor(() => expect(drawn()).toContain(said));
+        expect(classic).toContain(said);
+      } finally {
+        view.stop();
+      }
+    },
+  );
 
   it('removes ANSI styling when NO_COLOR is set, including an empty value', () => {
     vi.stubEnv('NO_COLOR', '');

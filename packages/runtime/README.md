@@ -5,8 +5,9 @@ inboxes, background tasks, and approvals. `createHarness` (`@sheavly/host`) make
 run; tools and the loop share them.
 
 Background work starts through `startWork({ tasks, work })` with a `WorkDefinition` built by a
-kind's factory (`finiteWork`, `serviceWork`, or a tool's own such as `subAgentWork`), which fixes the
-policy so a caller names a kind and never passes it. `startWork` is the only source file that may
+kind's factory (`finiteWork`, `agentWork`, `serviceWork`, or a tool's own such as `subAgentWork`),
+which fixes the policy so a caller names a kind and never passes it. `agentWork` is finite work named
+apart (`TaskInfo.kind` is `agent`), so a UI can count sub-agents, commands and services separately. `startWork` is the only source file that may
 call `TaskRegistry.start` (`harness/no-direct-task-start`); `start` itself still defaults to
 `backgroundKind: 'task'`: finite work. `backgroundKind: 'service'` is never
 awaited; its eventual completion still produces a delivery. `TaskRegistry.hasPendingTasks(sessionId?)`

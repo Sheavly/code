@@ -1,7 +1,7 @@
 import type { OutputWriter } from '@sheavly/core/output/output.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskId, TaskInfo, TaskUpdate } from '@sheavly/protocol/task/task.types';
+import type { TaskId, TaskInfo, TaskKind, TaskUpdate } from '@sheavly/protocol/task/task.types';
 
 /** What to run in the background. */
 export type StartTask = {
@@ -16,8 +16,11 @@ export type StartTask = {
    * task ends, so the output of a failed or cancelled task stays readable.
    */
   capture?: OutputWriter | undefined;
-  /** Finite work keeps its run alive until delivered; services do not. Defaults to task. */
-  backgroundKind?: 'task' | 'service';
+  /**
+   * Finite work (`task`, `agent`) keeps its run alive until delivered; a `service` does not.
+   * Defaults to task.
+   */
+  backgroundKind?: TaskKind;
   /**
    * Does the work. Must stop when `signal` aborts; reports output as it arrives. `output` is a
    * bounded preview. A task whose result is a document (a sub-agent's report) returns it as
@@ -39,7 +42,7 @@ export type Entry = {
   settled: Promise<void>;
   silent: boolean;
   sessionId?: SessionId | undefined;
-  backgroundKind: 'task' | 'service';
+  backgroundKind: TaskKind;
   /** Membership survives delivery until this entry is released. */
   group?: Delivery;
   /** The notice of an ungrouped task, set when it settles unsilenced and dropped when grouped. */

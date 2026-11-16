@@ -89,7 +89,7 @@ function keyName(params) {
  * `TaskRegistry`. Found from the registry's own folder, so a same-named file anywhere else, or a
  * vendored copy of the path, is not exempt.
  */
-function isStarterFile(filename) {
+export function isStarterFile(filename) {
   return (
     path.basename(filename) === STARTER_NAME &&
     existsSync(path.join(path.dirname(filename), REGISTRY_NAME))

@@ -2,9 +2,12 @@ import type { z } from 'zod';
 import type {
   taskIdSchema,
   taskInfoSchema,
+  taskKindSchema,
   taskStatusSchema,
   taskUpdateSchema,
 } from './task.validator.js';
+
+export type TaskKind = z.infer<typeof taskKindSchema>;
 
 export type TaskId = z.infer<typeof taskIdSchema>;
 

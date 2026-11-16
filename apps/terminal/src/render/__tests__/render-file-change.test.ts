@@ -22,10 +22,7 @@ function rendered(content: string): string {
     artifacts: [change],
   };
 
-  new Renderer(
-    (text) => (out += text),
-    () => 0,
-  ).event(event);
+  new Renderer((text) => (out += text)).event(event);
 
   return out;
 }
