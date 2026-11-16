@@ -10,7 +10,7 @@
     "serve": "tsx --conditions=@sheavly/source src/serve.ts"
   },
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "sheavly": {
     "domain": "coding"
   },

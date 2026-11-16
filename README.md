@@ -311,3 +311,7 @@ revert`; the scope is a package or `src/` folder, or left out for root tooling; 
 - **Repo settings** (once, by a person; `.agents/skills/git/setup.md`): squash merging only,
   defaulting to the PR title; branch protection on `main` requiring the `Git format` and `Check`
   checks.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE).

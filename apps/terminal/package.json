@@ -11,7 +11,7 @@
     "start": "npm run build && node dist/chat.js"
   },
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "sheavly": {
     "domain": "coding"
   },

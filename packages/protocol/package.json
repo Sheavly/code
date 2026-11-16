@@ -12,7 +12,7 @@
   },
   "type": "module",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "dependencies": {
     "zod": "^4.6.7"
   },

@@ -10,7 +10,7 @@
     "prepack": "npm run build"
   },
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "dependencies": {
     "@sheavly/core": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
