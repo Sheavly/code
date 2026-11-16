@@ -89,6 +89,100 @@ describe('ProviderSwitch', () => {
     expect(() => providers.use('x')).toThrow('Unknown provider: x (available: none)');
   });
 
+  describe('remove', () => {
+    it('falls back to the first remaining provider when the active one goes', async () => {
+      const providers = new ProviderSwitch()
+        .add('a', named('a'))
+        .add('b', named('b'))
+        .add('c', named('c'));
+
+      providers.use('b');
+      providers.remove('b');
+
+      expect(providers.active).toBe('a');
+      expect(providers.names()).toEqual(['a', 'c']);
+      expect(text(await collect(providers.stream(request)))).toBe('a');
+    });
+
+    it('leaves the active provider when another is removed', () => {
+      const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
+
+      providers.remove('b');
+
+      expect(providers.active).toBe('a');
+    });
+
+    it('ends with no active provider when the last one goes, and the next add becomes active', () => {
+      const providers = new ProviderSwitch().add('a', named('a'));
+
+      providers.remove('a');
+
+      expect(providers.active).toBeUndefined();
+      expect(() => providers.stream(request)).toThrow('No active provider');
+
+      providers.add('b', named('b'));
+
+      expect(providers.active).toBe('b');
+    });
+
+    it('refuses a name that was never added, naming what is available', () => {
+      const providers = new ProviderSwitch().add('a', named('a'));
+
+      expect(() => providers.remove('x')).toThrow('Unknown provider: x (available: a)');
+    });
+
+    it('forgets the removed provider mode, so a provider added again under its name starts unset', () => {
+      const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
+
+      providers.setMode({ name: 'a', mode: 'high' });
+      providers.remove('a');
+      providers.add('a', named('a'));
+      providers.use('a');
+
+      expect(providers.activeMode).toBeUndefined();
+    });
+
+    it('changes neither a pinned provider nor a stream already started', async () => {
+      const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
+      const pinned = providers.pinned('a');
+      const started = providers.stream(request);
+
+      providers.remove('a');
+
+      expect(text(await collect(pinned.stream(request)))).toBe('a');
+      expect(text(await collect(started))).toBe('a');
+      expect(() => providers.pinned('a')).toThrow('Unknown provider: a');
+    });
+  });
+
+  describe('state table', () => {
+    it('add keeps the active provider, and a repeated name replaces its provider', async () => {
+      const providers = new ProviderSwitch().add('a', named('first'));
+
+      providers.add('a', named('second'));
+
+      expect(providers.active).toBe('a');
+      expect(text(await collect(providers.stream(request)))).toBe('second');
+    });
+
+    it('setMode refuses a provider that was removed', () => {
+      const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
+
+      providers.remove('b');
+
+      expect(() => providers.setMode({ name: 'b', mode: 'low' })).toThrow('Unknown provider: b');
+    });
+
+    it('use refuses a removed name and keeps the active provider', () => {
+      const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
+
+      providers.remove('b');
+
+      expect(() => providers.use('b')).toThrow('Unknown provider: b');
+      expect(providers.active).toBe('a');
+    });
+  });
+
   it('captures effort for in-flight streams and pinned providers, while later calls use the new effort', async () => {
     const seen: (string | undefined)[] = [];
     const provider: Provider = {
