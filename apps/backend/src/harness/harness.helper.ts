@@ -101,7 +101,7 @@ export async function createBackendHarness(
     createEditFileTool({ workspace, workingRoots, fileLocks, fileReads }),
     createDeleteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
     createSetWorkingRootTool({ workingRoots }),
-    createReadSkillTool(skillRoots),
+    createReadSkillTool({ roots: skillRoots, fileReads }),
   ];
   const webTools = [
     ...(webFetch === false ? [] : [createWebFetchTool(webFetch)]),

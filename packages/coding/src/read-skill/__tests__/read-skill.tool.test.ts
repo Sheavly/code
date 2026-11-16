@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
+import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { createReadSkillTool } from '../read-skill.tool.js';
 
@@ -42,9 +43,11 @@ afterAll(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+const fileReads = useFileReads();
+
 const read = (input: { name: string; file?: string }) =>
   runTool({
-    tools: [createReadSkillTool({ root, home })],
+    tools: [createReadSkillTool({ roots: { root, home }, fileReads: fileReads.current })],
     call: {
       id: callIdSchema.parse('1'),
       name: 'read_skill',
@@ -76,6 +79,23 @@ describe('read_skill', () => {
         content: longChecklist,
       });
     }
+  });
+
+  it('records what it returned as read, so edit_file can change a skill the agent read', async () => {
+    const skillFile = await realpath(path.join(root, '.agents', 'skills', 'review', 'SKILL.md'));
+    // A tool run with no session is the only agent there is, as `read_file` treats it.
+    const agentId = agentIdFor('no-session');
+
+    expect(fileReads.current.hasReadWhole({ agentId, file: skillFile })).toBe(false);
+
+    await read({ name: 'review' });
+    expect(fileReads.current.hasReadWhole({ agentId, file: skillFile })).toBe(true);
+
+    // A refused read records nothing.
+    const secret = await realpath(path.join(root, '.agents', 'skills', 'review', '.env'));
+
+    await read({ name: 'review', file: '.env' });
+    expect(fileReads.current.hasRead({ agentId, file: secret })).toBe(false);
   });
 
   it('refuses an unknown skill, files outside its folder, and .env files', async () => {
