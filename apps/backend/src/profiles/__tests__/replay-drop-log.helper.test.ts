@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_TOLD_DROPS } from '../profiles.constants.js';
 import { createReplayDropLog } from '../replay-drop-log.helper.js';
 
 describe('createReplayDropLog', () => {
@@ -26,6 +27,23 @@ describe('createReplayDropLog', () => {
     heard({ reason: 'replay_off' });
 
     expect(lines).toHaveLength(4);
+  });
+
+  it('remembers a bounded number of kinds, forgetting the oldest past the cap', () => {
+    const lines: string[] = [];
+    const heard = createReplayDropLog((text) => lines.push(text));
+    const drop = (n: number) =>
+      ({ reason: 'prefix_changed', source: `chat:https://a${n}.test#m` }) as const;
+
+    for (let n = 0; n <= MAX_TOLD_DROPS; n++) heard(drop(n));
+
+    expect(lines).toHaveLength(MAX_TOLD_DROPS + 1);
+
+    // The newest is still remembered; the first was forgotten and is reported once more.
+    heard(drop(MAX_TOLD_DROPS));
+    expect(lines).toHaveLength(MAX_TOLD_DROPS + 1);
+    heard(drop(0));
+    expect(lines).toHaveLength(MAX_TOLD_DROPS + 2);
   });
 
   it('keeps each handler apart, so a new backend reports again', () => {
