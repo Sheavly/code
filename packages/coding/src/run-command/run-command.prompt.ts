@@ -39,23 +39,24 @@ export function runCommandPrompts(params: {
 export function backgroundStartedPrompt(params: {
   taskId: string;
   command: string;
-  backgroundKind: 'task' | 'service';
+  /** Whether the work keeps the prompt alive (`isFiniteKind` of its kind); a service does not. */
+  finite: boolean;
   outputLines?: readonly string[];
 }): string {
-  const { taskId, command, backgroundKind, outputLines = [] } = params;
+  const { taskId, command, finite, outputLines = [] } = params;
   const started = [`Started background task ${taskId}: $ ${command}`, ...outputLines, ''].join(
     '\n',
   );
 
-  if (backgroundKind === 'service') {
+  if (finite) {
     return (
       started +
-      'This service does not keep this prompt alive. Use task_status only to inspect readiness or diagnose a problem, not to wait for exit. Stop it with cancel_task when finished.'
+      'This finite task keeps this prompt alive until its result is delivered automatically. Finish independent work, then end your turn without tool calls to wait. Do not poll task_status or repeat the command. Use cancel_task to stop it.'
     );
   }
 
   return (
     started +
-    'This finite task keeps this prompt alive until its result is delivered automatically. Finish independent work, then end your turn without tool calls to wait. Do not poll task_status or repeat the command. Use cancel_task to stop it.'
+    'This service does not keep this prompt alive. Use task_status only to inspect readiness or diagnose a problem, not to wait for exit. Stop it with cancel_task when finished.'
   );
 }
