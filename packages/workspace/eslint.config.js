@@ -29,6 +29,17 @@ export default defineConfig([
     files: ['src/skills/skills.helper.ts'],
     rules: { 'harness/no-raw-fs-in-instruction-source': 'off' },
   },
+  // A command's deadline is `withDeadline`'s: the process folder sets no timer of its own.
+  {
+    files: ['src/process/**/*.ts'],
+    ignores: ['src/process/**/__tests__/**'],
+    rules: { 'harness/no-adhoc-command-deadline': 'error' },
+  },
+  // The one place the deadline is made.
+  {
+    files: ['src/process/deadline.helper.ts'],
+    rules: { 'harness/no-adhoc-command-deadline': 'off' },
+  },
   // Looks through the messages a `beforeTurn` hook is handed (a model view) for the context it
   // added earlier, matched by its text; it is not looking for the request in stored history.
   {

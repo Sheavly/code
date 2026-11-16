@@ -1,5 +1,6 @@
 import { PassThrough } from 'node:stream';
 import { MAX_OUTPUT_CHARS } from './process.constants.js';
+import { withDeadline } from './deadline.helper.js';
 import { OutputBuffer } from '@sheavly/runtime/output/output.service';
 import type {
   Connector,
@@ -117,8 +118,7 @@ export async function runScript(params: {
 }): Promise<ProcessResult> {
   const { run, script } = params;
   const { steps, timeoutMs, onOutput, ...rest } = script;
-  const deadline = timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs);
-  const signal = deadline ? AbortSignal.any([rest.signal, deadline]) : rest.signal;
+  const { signal, timedOut } = withDeadline({ signal: rest.signal, timeoutMs });
   const output = new OutputBuffer({ maxChars: MAX_OUTPUT_CHARS });
   let exitCode: number | null = null;
   let connector: ListConnector = ';';
@@ -133,7 +133,8 @@ export async function runScript(params: {
   };
 
   for (const { stages, next } of splitPipelines(steps)) {
-    if (deadline?.aborted) break;
+    // A caller's abort is not a stop here: `run` throws for it, as it always has.
+    if (timedOut()) break;
 
     if (shouldRun({ connector, exitCode })) {
       exitCode = await runPipeline({ stages, run, options, caller: rest.signal });
@@ -142,9 +143,5 @@ export async function runScript(params: {
     connector = next;
   }
 
-  return {
-    exitCode,
-    output: output.text,
-    timedOut: Boolean(deadline?.aborted && !rest.signal.aborted),
-  };
+  return { exitCode, output: output.text, timedOut: timedOut() };
 }

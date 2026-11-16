@@ -32,6 +32,17 @@ export type ProcessResult = {
   timedOut: boolean;
 };
 
+/** A caller's signal with an optional deadline, and whether the deadline is what stopped it. */
+export type Deadline = {
+  /** Aborts when the caller's signal does, or when the time runs out. */
+  signal: AbortSignal;
+  /**
+   * True once the time ran out without the caller having aborted: a cancel is not a timeout. A
+   * caller that cancels after the deadline fired but before the command ended makes this false.
+   */
+  timedOut: () => boolean;
+};
+
 /** How one command of a script is joined to the next: a pipe, `&&`, `||` or `;`. */
 export type Connector = '|' | '&&' | '||' | ';';
 

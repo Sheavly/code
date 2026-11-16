@@ -13,7 +13,7 @@ import type {
   TrustState,
   TrustStoreData,
 } from './trust.types.js';
-import { fingerprintOf, olderFormatHint } from './trust.utils.js';
+import { compareFingerprints, decideTrust, fingerprintOf, olderFormatHint } from './trust.utils.js';
 import { trustStoreSchema } from './trust.validator.js';
 import { isInside } from '../workspace/workspace.utils.js';
 
@@ -42,9 +42,10 @@ export class TrustStore {
 
     const entry = this.#parse(await this.#guarded(() => this.#persistence.load())).workspaces[root];
 
-    if (!entry) return 'untrusted';
-
-    return entry.fingerprint === (await fingerprintWorkspace({ root })) ? 'trusted' : 'changed';
+    return decideTrust({
+      trustedFingerprint: entry?.fingerprint,
+      currentFingerprint: () => fingerprintWorkspace({ root }),
+    });
   }
 
   /** Trusts `root` as its `.sheavly/` is now; a later change makes it `changed` again. */
@@ -125,7 +126,10 @@ export class TrustStore {
       return 'gone';
     }
 
-    return fingerprint === (await fingerprintWorkspace({ root })) ? 'trusted' : 'changed';
+    return compareFingerprints({
+      trustedFingerprint: fingerprint,
+      currentFingerprint: await fingerprintWorkspace({ root }),
+    });
   }
 
   /**

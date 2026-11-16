@@ -5,6 +5,7 @@ import { MAX_OUTPUT_CHARS, SECRET_ENV } from './process.constants.js';
 import { OutputBuffer } from '@sheavly/runtime/output/output.service';
 import { connectStreams } from './process-streams.helper.js';
 import { runScript } from './script.helper.js';
+import { withDeadline } from './deadline.helper.js';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { ProcessParams, ProcessResult, ScriptParams } from './process.types.js';
 
@@ -82,7 +83,10 @@ export class ProcessRunner {
     const { file, args, input, stdoutTo, ...options } = params;
 
     return new Promise((resolve, reject) => {
-      if (options.signal.aborted) {
+      // Inside the executor: an invalid `timeoutMs` makes this throw, and that must reject.
+      const deadline = withDeadline({ signal: options.signal, timeoutMs: options.timeoutMs });
+
+      if (deadline.signal.aborted) {
         reject(new ProcessInterruptedError());
 
         return;
@@ -99,7 +103,6 @@ export class ProcessRunner {
       if (child.pid) this.#track(child.pid);
 
       const output = new OutputBuffer({ maxChars: MAX_OUTPUT_CHARS });
-      let timedOut = false;
       const append = (text: string) => {
         output.push(text);
         options.onOutput?.(text);
@@ -111,7 +114,6 @@ export class ProcessRunner {
         // The command may still be running: fail it now rather than wait for a close that may
         // never come. Its group stays tracked, so exit tries again.
         if (!failed) return;
-        clearTimeout(timer);
         reject(failed);
       };
 
@@ -122,20 +124,12 @@ export class ProcessRunner {
         onChunk: append,
         onReaderGone: kill,
       });
-      let timer: NodeJS.Timeout | undefined;
 
-      if (options.timeoutMs !== undefined) {
-        timer = setTimeout(() => {
-          timedOut = true;
-          kill();
-        }, options.timeoutMs);
-      }
-
-      options.signal.addEventListener('abort', kill, { once: true });
+      // The deadline's signal also fires on a timeout, so one listener covers cancel and timeout.
+      deadline.signal.addEventListener('abort', kill, { once: true });
 
       const cleanup = () => {
-        clearTimeout(timer);
-        options.signal.removeEventListener('abort', kill);
+        deadline.signal.removeEventListener('abort', kill);
         streams.disconnect();
         if (child.pid) this.#untrack(child.pid);
       };
@@ -146,7 +140,7 @@ export class ProcessRunner {
       });
       child.on('close', (exitCode) => {
         cleanup();
-        resolve({ exitCode, output: output.text, timedOut });
+        resolve({ exitCode, output: output.text, timedOut: deadline.timedOut() });
       });
     });
   }
