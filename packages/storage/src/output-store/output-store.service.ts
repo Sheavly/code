@@ -19,7 +19,11 @@ import {
   OUTPUT_CLOSE_TIMEOUT_MS,
 } from '@sheavly/protocol/output/output.constants';
 import type { OutputLog, OutputRef } from '@sheavly/protocol/output/output.types';
-import { outputRefSchema, outputStatusSchema } from '@sheavly/protocol/output/output.validator';
+import {
+  outputLogSchema,
+  outputRefSchema,
+  outputStatusSchema,
+} from '@sheavly/protocol/output/output.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { PRIVATE_FILE_MODE, PRIVATE_FOLDER_MODE } from '../json-file/json-file.constants.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
@@ -105,8 +109,11 @@ export class FileOutputStore implements OutputStore {
 
     const size = await this.#size(ref);
     const meta = await this.#readRecord(ref);
+    // The record is held to the same rule as any log (a reason exactly when incomplete): one that
+    // breaks it is as good as none, so a reader never gets a log the contract would reject.
+    const stored = meta && outputLogSchema.safeParse({ ref, bytes: size, ...meta });
 
-    if (!meta) {
+    if (!stored?.success) {
       return {
         ref,
         bytes: size,
@@ -115,7 +122,7 @@ export class FileOutputStore implements OutputStore {
       };
     }
 
-    return { ref, bytes: size, ...meta };
+    return stored.data;
   }
 
   async read(params: { ref: OutputRef; offset: number; maxBytes: number }): Promise<OutputRange> {

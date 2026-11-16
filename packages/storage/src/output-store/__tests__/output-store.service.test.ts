@@ -184,6 +184,21 @@ describe('FileOutputStore', () => {
     expect(await make().log(ref)).toMatchObject({ status: 'incomplete', bytes: 7 });
   });
 
+  it.each([
+    { status: 'incomplete' },
+    { status: 'complete', reason: 'a reason a complete log cannot have' },
+  ])('treats a stored record that breaks the reason rule (%j) as no record', async (record) => {
+    const store = make();
+    const { ref } = await (await store.create()).close();
+
+    await writeFile(path.join(temp.path(), 'outputs', `${ref}.json`), JSON.stringify(record));
+
+    expect(await make().log(ref)).toMatchObject({
+      status: 'incomplete',
+      reason: expect.stringContaining('without a final record') as string,
+    });
+  });
+
   it('answers not_found for a reference this conversation does not have', async () => {
     const store = make();
     const ref = outputRefSchema.parse('22222222-2222-4222-8222-222222222222');
