@@ -39,6 +39,34 @@ a sub-agent asked. The id is always there; whether and how to show `agent` is th
 `followApprovals` does the same over any stream of entries. A replay also re-sends approvals
 already answered, each followed by its answer, so key a UI by the approval's id.
 
+## Reconnecting
+
+The backend resumes a stream after the `Last-Event-ID` it is given, so a dropped connection loses
+nothing. `reconnectingEntries` (`client/`) does it for a UI: it takes an `open` that opens the
+stream after a `lastEventId`, yields each entry once and in order (an entry at or before the last
+one seen is skipped), and on a drop waits (250 ms, doubling to 5 s) and opens again. A stream
+that ends cleanly ends it (unless it is `endless`, a conversation's whole stream, which only the
+client leaves: its end is a cut by the backend, a slow consumer, and so a drop), and so does the
+`signal`. After six attempts in a row, with no entry arriving and no connection staying up for 30
+s between them, it throws `StreamLostError`, with the `lastEventId` it reached and the `cause`, so
+a UI can show that it lost the stream instead of guessing. A refusal (4xx) or an entry off the
+contract is not retried. `watchApprovals` uses it. While the stream is down nobody listens for
+approvals, so a request made then is refused, not held.
+
+A live stream (no `replay`, no `Last-Event-ID`) opens with a head frame, an `id` and nothing else:
+the `seq` of the last entry made before it opened. `readFrames` gives it (`readEntries` skips it),
+and `reconnectingEntries` resumes after it when no entry had arrived yet, so a drop before the
+first entry misses nothing made meanwhile, once the head has arrived (a drop before even that
+reopens with no id). A conversation with no entry yet sends none, which a started conversation
+never is (it has its `session_started`).
+
+What it does not cover: a prompt's response (`sendPrompt`) is not `endless`, so one the backend cut
+for a slow consumer ends without its `done` (the terminal reports that as a failed run). The
+prompt itself keeps running: read the rest from the conversation's stream with `Last-Event-ID`.
+
+`answerWhileWaiting` (`approvals/`) wraps a call to `answerApproval` and treats `unknown_approval`
+(answered elsewhere, or its call was interrupted) as done: the one place that rule lives.
+
 ## Testing a UI
 
 `fakeServer(handlers)` (`testing/`) is a `fetch` that answers the API's routes as a test says:

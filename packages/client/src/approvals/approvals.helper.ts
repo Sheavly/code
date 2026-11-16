@@ -2,7 +2,8 @@ import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { createClient } from '../client/client.helper.js';
-import { readEntries } from '../client/entries.helper.js';
+import { RefusedError } from '../errors/client.errors.js';
+import { reconnectingEntries } from '../client/reconnect.helper.js';
 import type { AgentSession, HeardApproval } from './approvals.types.js';
 
 /**
@@ -45,11 +46,30 @@ export async function followApprovals(params: {
 }
 
 /**
+ * Runs `answer` (a call to `answerApproval`), and treats an approval that is no longer waiting
+ * (`unknown_approval`: someone answered first, or its call was interrupted) as done, not a failure.
+ * Every other error is thrown. The one place a UI's answer gets that rule, so none re-implements it.
+ */
+export async function answerWhileWaiting(answer: () => Promise<void>): Promise<void> {
+  try {
+    await answer();
+  } catch (caughtError) {
+    if (caughtError instanceof RefusedError && caughtError.code === 'unknown_approval') return;
+
+    throw caughtError;
+  }
+}
+
+/**
  * Starts answering a conversation's approvals: opens its stream as one that answers them (so a
  * command waits for the user instead of being refused) and replays it from the start, so the
  * sub-agents that already run are known by name. Resolves once the backend has accepted the
  * stream, which is when it counts: send the first prompt after this. `ended` is `followApprovals`.
  * An approval still waiting is replayed too: a UI keyed by `update`'s id shows it once.
+ *
+ * A dropped stream is reopened after the last entry heard (`reconnectingEntries`), so each entry
+ * reaches `onApproval` once. `ended` rejects with `StreamLostError` when it gives up. While it is
+ * down nobody listens for approvals, so a request made then is refused rather than waiting.
  */
 export async function watchApprovals(params: {
   client: ReturnType<typeof createClient>;
@@ -59,15 +79,31 @@ export async function watchApprovals(params: {
   signal: AbortSignal;
 }): Promise<{ ended: Promise<void> }> {
   const { client, id, signal, ...handlers } = params;
-  const body = await client.open('streamConversation', {
-    id,
-    body: { approvals: true, replay: true },
+  const open = (lastEventId?: number) =>
+    client.open('streamConversation', {
+      id,
+      body: { approvals: true, replay: true },
+      signal,
+      ...(lastEventId !== undefined && { lastEventId }),
+    });
+  // Opened here so the caller knows the backend accepted it; a reconnect opens its own.
+  let first: ReadableStream<Uint8Array> | undefined = await open();
+  const entries = reconnectingEntries({
     signal,
+    endless: true,
+    ...client.reconnect,
+    open: ({ lastEventId }) => {
+      if (first) {
+        const body = first;
+
+        first = undefined;
+
+        return Promise.resolve(body);
+      }
+
+      return open(lastEventId);
+    },
   });
 
-  return { ended: followApprovals({ entries: entriesOf(body), signal, ...handlers }) };
-}
-
-async function* entriesOf(body: ReadableStream<Uint8Array>): AsyncGenerator<StreamEntry> {
-  for await (const { entry } of readEntries(body)) yield entry;
+  return { ended: followApprovals({ entries, signal, ...handlers }) };
 }
