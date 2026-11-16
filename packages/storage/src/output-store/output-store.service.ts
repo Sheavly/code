@@ -113,7 +113,9 @@ export class FileOutputStore implements OutputStore {
     // breaks it is as good as none, so a reader never gets a log the contract would reject.
     const stored = meta && outputLogSchema.safeParse({ ref, bytes: size, ...meta });
 
-    if (!stored?.success) {
+    // `capturing` is what a live writer reports; a final record never says it, so with no writer
+    // left such a record is not a final one.
+    if (!stored?.success || stored.data.status === 'capturing') {
       return {
         ref,
         bytes: size,

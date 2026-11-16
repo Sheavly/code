@@ -187,7 +187,8 @@ describe('FileOutputStore', () => {
   it.each([
     { status: 'incomplete' },
     { status: 'complete', reason: 'a reason a complete log cannot have' },
-  ])('treats a stored record that breaks the reason rule (%j) as no record', async (record) => {
+    { status: 'capturing' },
+  ])('treats a stored record that is not a final one (%j) as no record', async (record) => {
     const store = make();
     const { ref } = await (await store.create()).close();
 
