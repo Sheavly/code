@@ -1,3 +1,5 @@
+import type { ReconnectPolicy } from '@sheavly/client/client/client.types';
+
 /** How the terminal reaches a backend: its settings, the CLI arguments it passes on, its output. */
 export type BackendOptions = {
   /** This run's environment: `BACKEND_URL`/`BACKEND_TOKEN`, or the settings a started one reads. */
@@ -17,4 +19,6 @@ export type Backend = {
   token: string;
   stop: () => Promise<void>;
   fetch?: typeof fetch;
+  /** How its streams reconnect after a drop: the client's defaults unless a test says otherwise. */
+  reconnect?: ReconnectPolicy;
 };

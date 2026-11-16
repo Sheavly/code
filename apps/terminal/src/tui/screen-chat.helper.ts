@@ -1,5 +1,5 @@
 import { TuiMainScreen } from '@earendil-works/pi-tui';
-import { RefusedError } from '@sheavly/client/errors/client.errors';
+import { answerWhileWaiting } from '@sheavly/client/approvals/approvals.helper';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import type { ConversationDetails } from '@sheavly/protocol/server/server.types';
 import { ChatSession } from '../chat/chat-session.service.js';
@@ -246,9 +246,10 @@ async function answerApproval(params: {
   const { conversation, screen, answer } = params;
 
   try {
-    await conversation.answerApproval({ approval: answer.id, response: answer.response });
+    await answerWhileWaiting(() =>
+      conversation.answerApproval({ approval: answer.id, response: answer.response }),
+    );
   } catch (caughtError) {
-    if (caughtError instanceof RefusedError && caughtError.code === 'unknown_approval') return;
     screen.notice(`✗ could not send your answer: ${String(caughtError)}`);
   }
 }

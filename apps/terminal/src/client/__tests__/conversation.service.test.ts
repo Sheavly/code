@@ -89,6 +89,8 @@ async function open(handlers: FakeHandlers) {
       token: 't',
       stop: async () => undefined,
       fetch: server.fetch,
+      // A stream that drops is lost at once: a test's fake stream ends on purpose.
+      reconnect: { attempts: 0 },
     },
   });
 
@@ -417,10 +419,14 @@ describe('RemoteConversation', () => {
       };
       const { conversation } = await open({ streamConversation: () => entries(usage) });
       const heard: StreamEntry[] = [];
+      const stop = new AbortController();
       const { ended } = await conversation.watchApprovals({
         onApproval: () => undefined,
-        onUsage: (entry) => heard.push(entry),
-        signal: new AbortController().signal,
+        onUsage: (entry) => {
+          heard.push(entry);
+          stop.abort();
+        },
+        signal: stop.signal,
       });
 
       await ended;
@@ -457,9 +463,13 @@ describe('RemoteConversation', () => {
           }),
       });
       const heard: string[] = [];
+      const stop = new AbortController();
       const { ended } = await conversation.watchApprovals({
-        onApproval: ({ update }) => heard.push(update.type),
-        signal: new AbortController().signal,
+        onApproval: ({ update }) => {
+          heard.push(update.type);
+          if (heard.length === 2) stop.abort();
+        },
+        signal: stop.signal,
       });
 
       await ended;
@@ -474,10 +484,13 @@ describe('RemoteConversation', () => {
 
     it('is connected by the time it resolves, so the first prompt is not refused', async () => {
       const order: string[] = [];
+      const stop = new AbortController();
       const { conversation } = await open({
         async *streamConversation() {
           order.push('stream open');
           yield asked(0, 'a1');
+          // Like the backend's, this stream has no end of its own: it stays until the client leaves.
+          await new Promise((resolve) => stop.signal.addEventListener('abort', resolve));
         },
         sendPrompt: () => {
           order.push('prompt sent');
@@ -488,10 +501,11 @@ describe('RemoteConversation', () => {
 
       const { ended } = await conversation.watchApprovals({
         onApproval: () => undefined,
-        signal: new AbortController().signal,
+        signal: stop.signal,
       });
 
       await sent(conversation);
+      stop.abort();
       await ended;
 
       expect(order).toEqual(['stream open', 'prompt sent']);

@@ -1,4 +1,4 @@
-import { RefusedError } from '@sheavly/client/errors/client.errors';
+import { answerWhileWaiting } from '@sheavly/client/approvals/approvals.helper';
 import type { HeardApproval } from '@sheavly/client/approvals/approvals.types';
 import type { RemoteConversation } from '../client/conversation.service.js';
 import { WorkbookCheckError } from './check.errors.js';
@@ -104,11 +104,10 @@ export class CheckApprovals {
     if (this.#seen.has(update.request.id) || this.#settled.has(update.request.id)) return;
     this.#seen.add(update.request.id);
 
-    const answer = this.#sendAnswer(update.request).catch((caughtError: unknown) => {
-      // The call may be interrupted or answered elsewhere while workspace verification runs.
-      if (caughtError instanceof RefusedError && caughtError.code === 'unknown_approval') return;
-      this.#failed(caughtError);
-    });
+    // The call may be interrupted or answered elsewhere while workspace verification runs.
+    const answer = answerWhileWaiting(() => this.#sendAnswer(update.request)).catch(
+      (caughtError: unknown) => this.#failed(caughtError),
+    );
 
     this.#answers.add(answer);
     void answer.then(() => this.#answers.delete(answer));
