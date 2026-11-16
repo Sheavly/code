@@ -240,6 +240,13 @@ point (only `result.json` is then missing, which marks the run unfinished):
 | `messages.json`     | The final conversation, which `continue` starts from                         |
 | `result.json`       | Outcome (or error), duration, and counts of events, calls, sessions          |
 
+Ctrl+C once stops the run cleanly and still saves its result (`outcome: interrupted`). Pressed
+again while it stops, it force-quits: the backend is stopped and the run's files are closed first,
+so what was buffered is on disk, then the process exits 130. Such a run has no `result.json`, and
+`show` and `step` read what it has. "The last run" is the latest run that finished, so a run cut
+short is never what `show` or `continue` default to; name it by id to open it. `check` exits 130
+when Ctrl+C stopped it.
+
 A `done` in `events.jsonl` doesn't carry the conversation (the stream never does);
 `messages.json` has it, and `show`, `diff` and the checks read the final answer from there. Runs
 saved before the stream, whose `done` still has its messages, read the same.
