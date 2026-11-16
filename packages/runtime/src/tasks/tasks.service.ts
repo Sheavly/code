@@ -20,6 +20,7 @@ import { abortableWait } from '../wait/abortable-wait.helper.js';
 import { closeTaskCapture } from './capture.helper.js';
 import { groupMemberError, unknownTaskError } from './group-member.helper.js';
 import { isIssued, newEntry, runningInfo, runningTaskOf, settledStatus } from './tasks.utils.js';
+import { isFiniteKind } from './work.utils.js';
 
 export class TaskRegistry {
   #tasks = new Map<TaskId, Entry>();
@@ -34,14 +35,14 @@ export class TaskRegistry {
     description,
     callId,
     sessionId,
-    backgroundKind = 'task',
+    backgroundKind: kind = 'task',
     capture,
     run,
   }: StartTask): TaskInfo {
     const id = taskIdSchema.parse(`t${this.#nextId++}`);
     const controller = new AbortController();
-    const info = runningInfo({ id, callId, command, description, startedAt: now() });
-    const entry = newEntry({ info, controller, sessionId, backgroundKind });
+    const info = runningInfo({ id, callId, command, description, kind, startedAt: now() });
+    const entry = newEntry({ info, controller, sessionId, backgroundKind: kind });
     const output = new OutputBuffer({ maxChars: MAX_TASK_OUTPUT_CHARS });
     const onOutput = (chunk: string) => {
       output.push(chunk);
@@ -209,7 +210,7 @@ export class TaskRegistry {
       [...this.#tasks.values()].some(
         (entry) =>
           this.#owns({ entry, sessionId }) &&
-          entry.backgroundKind === 'task' &&
+          isFiniteKind(entry.backgroundKind) &&
           (entry.info.status === 'running' ||
             (entry.group !== undefined &&
               !entry.group.delivered &&
@@ -245,7 +246,7 @@ export class TaskRegistry {
     return this.#ready.some(
       (delivery) =>
         this.#ownsDelivery({ delivery, sessionId }) &&
-        delivery.ids.some((id) => this.#entry(id).backgroundKind === 'task'),
+        delivery.ids.some((id) => isFiniteKind(this.#entry(id).backgroundKind)),
     );
   }
 
@@ -368,7 +369,7 @@ export class TaskRegistry {
       id,
       duplicate: seen.has(id),
       grouped: entry.group !== undefined,
-      service: entry.backgroundKind === 'service',
+      service: !isFiniteKind(entry.backgroundKind),
       owned: this.#owns({ entry, sessionId }),
       delivered: entry.delivery?.delivered === true,
     });

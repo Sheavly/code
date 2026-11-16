@@ -1,4 +1,4 @@
-import type { TaskInfo } from '@sheavly/protocol/task/task.types';
+import type { TaskInfo, TaskKind } from '@sheavly/protocol/task/task.types';
 import type { TaskRegistry } from './tasks.service.js';
 import type { WorkDefinition, WorkInput } from './work.types.js';
 
@@ -7,9 +7,25 @@ export function finiteWork(input: WorkInput): WorkDefinition {
   return { ...input, backgroundKind: 'task' };
 }
 
+/**
+ * A sub-agent: finite work in every policy (held open for, grouped, awaited), named apart so a UI
+ * can tell it from a command.
+ */
+export function agentWork(input: WorkInput): WorkDefinition {
+  return { ...input, backgroundKind: 'agent' };
+}
+
 /** A service: never held open for, never awaited, may outlive the run. */
 export function serviceWork(input: WorkInput): WorkDefinition {
   return { ...input, backgroundKind: 'service' };
+}
+
+/**
+ * Whether a kind is finite work: held open for, grouped, awaited and waking an idle session. Every
+ * kind but `service` is, so a new kind joins the finite machine unless it says otherwise here.
+ */
+export function isFiniteKind(kind: TaskKind): boolean {
+  return kind !== 'service';
 }
 
 /**
