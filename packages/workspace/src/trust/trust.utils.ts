@@ -1,6 +1,35 @@
 import { createHash } from 'node:crypto';
 import { FINGERPRINT_ALGORITHM, TRUST_STORE_VERSION } from './trust.constants.js';
-import type { FingerprintEntry } from './trust.types.js';
+import type { FingerprintEntry, TrustState } from './trust.types.js';
+
+/** A trusted workspace is `trusted` while `.sheavly/` still hashes to its stored fingerprint, `changed` after. */
+export function compareFingerprints(params: {
+  trustedFingerprint: string;
+  currentFingerprint: string;
+}): 'trusted' | 'changed' {
+  return params.trustedFingerprint === params.currentFingerprint ? 'trusted' : 'changed';
+}
+
+/**
+ * The decision of the trust state machine: a workspace with no stored fingerprint is
+ * `untrusted`; with one, `compareFingerprints` says. `TrustStore` derives every state here.
+ * `currentFingerprint` hashes `.sheavly/` and is called only when there is a stored fingerprint
+ * to compare, so an untrusted workspace's folder is never read. Nothing stops another caller
+ * comparing fingerprints itself, so review keeps it that way.
+ */
+export async function decideTrust(params: {
+  trustedFingerprint: string | undefined;
+  currentFingerprint: () => Promise<string>;
+}): Promise<TrustState> {
+  const { trustedFingerprint, currentFingerprint } = params;
+
+  if (trustedFingerprint === undefined) return 'untrusted';
+
+  return compareFingerprints({
+    trustedFingerprint,
+    currentFingerprint: await currentFingerprint(),
+  });
+}
 
 /**
  * What to add to a refusal when the store on disk is of the previous format: `json` is what was

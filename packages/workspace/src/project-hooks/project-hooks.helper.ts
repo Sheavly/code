@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Hook } from '@sheavly/core/hook/hook.types';
@@ -33,15 +33,25 @@ export async function loadProjectHooks(params: {
 }): Promise<ProjectHooks> {
   const { root, trust, grant = false } = params;
   const dir = path.join(root, SHEAVLY_DIR);
-  const text = await readManifestText(path.join(dir, HOOKS_MANIFEST));
+  const manifestFile = path.join(dir, HOOKS_MANIFEST);
 
-  if (text === undefined) return { hooks: [], trust: 'no_hooks' };
+  // Only whether it is there: an untrusted repo's manifest is not read before the trust check.
+  if (!(await manifestExists(manifestFile))) return { hooks: [], trust: 'no_hooks' };
   if (grant) await trust.trust({ root });
 
   const state = await trust.check({ root });
 
   // An untrusted manifest isn't even parsed: a broken one can't stop the host, it's just skipped.
   if (state !== 'trusted') return { hooks: [], trust: state };
+
+  // Read after the check, so the text parsed is the one the fingerprint covered, not an earlier one.
+  const text = await readManifestText(manifestFile);
+
+  if (text === undefined) {
+    throw new ProjectHooksError(
+      `${label(HOOKS_MANIFEST)} disappeared while the hooks were loading`,
+    );
+  }
 
   const manifest = parseManifest(text);
 
@@ -54,6 +64,7 @@ export async function loadProjectHooks(params: {
 
   for (const entry of manifest.hooks) {
     if (!entry.enabled) continue;
+    await assertStillTrusted({ trust, root });
     const hook = await loadHookFile({ folder, file: entry.path });
 
     if (hooks.some((loaded) => loaded.name === hook.name)) {
@@ -65,7 +76,38 @@ export async function loadProjectHooks(params: {
     hooks.push(hook);
   }
 
+  // The last import is covered too: a change made while it ran must not come back as `trusted`.
+  await assertStillTrusted({ trust, root });
+
   return { hooks, trust: 'trusted' };
+}
+
+/**
+ * Re-checks trust right before each hook file is imported, and once after the last, so a change
+ * to `.sheavly/` after the first check stops the load. It narrows the gap to the `import()`
+ * itself but cannot close it: Node reads the file after this returns, a file's own imports and a
+ * handler's lazy `import()` run later still, and earlier hooks' top-level code has already run
+ * when a later check fails. Each check hashes all of `.sheavly/`, so a hook whose top-level code
+ * writes there fails the load.
+ */
+async function assertStillTrusted(params: { trust: TrustStore; root: string }): Promise<void> {
+  if ((await params.trust.check({ root: params.root })) === 'trusted') return;
+
+  throw new ProjectHooksError(
+    '.sheavly/ changed after the trust check, so the hooks were not used. Trust the workspace again.',
+  );
+}
+
+/** Whether the manifest is there. It reads nothing, so a directory, a FIFO or a huge file costs nothing. */
+async function manifestExists(file: string): Promise<boolean> {
+  try {
+    await stat(file);
+
+    return true;
+  } catch (caughtError) {
+    if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw caughtError;
+  }
 }
 
 /** The manifest's text, or undefined when there is none (no project hooks). */

@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TrustStore } from '../../trust/trust.service.js';
 import { memoryTrust } from '../../testing/trust.fake.js';
 import { loadProjectHooks } from '../project-hooks.helper.js';
@@ -74,8 +74,58 @@ describe('loadProjectHooks and workspace trust', () => {
     expect((await loadProjectHooks({ root, trust, grant: true })).trust).toBe('trusted');
   });
 
+  it('stops when .sheavly/ changes between the trust check and the import, importing nothing', async () => {
+    await trust.trust({ root });
+
+    const check = trust.check.bind(trust);
+    let checks = 0;
+
+    vi.spyOn(trust, 'check').mockImplementation(async (params) => {
+      const state = await check(params);
+
+      checks += 1;
+
+      // The first check passes; the file is edited right after it, before the import.
+      if (checks === 1) {
+        await writeFile(
+          path.join(root, '.sheavly', 'hooks', 'marker.js'),
+          `${MARKING_HOOK(mark)}// swapped in\n`,
+        );
+      }
+
+      return state;
+    });
+
+    await expect(loadProjectHooks({ root, trust })).rejects.toThrow(
+      'changed after the trust check',
+    );
+    expect(await imported()).toBe(false);
+  });
+
+  it('does not report trusted when .sheavly/ changes while the last hook is imported', async () => {
+    const touched = path.join(root, '.sheavly', 'touched.txt');
+
+    await writeFile(
+      path.join(root, '.sheavly', 'hooks', 'marker.js'),
+      `import { writeFileSync } from 'node:fs';\n` +
+        `writeFileSync(${JSON.stringify(touched)}, 'edited during import');\n` +
+        `export default { name: 'marker', beforeTurn: async () => {} };\n`,
+    );
+
+    await expect(loadProjectHooks({ root, trust, grant: true })).rejects.toThrow(
+      'changed after the trust check, so the hooks were not used',
+    );
+  });
+
   it('skips a broken manifest in an untrusted workspace instead of stopping startup', async () => {
     await writeFile(path.join(root, '.sheavly', 'hooks.json'), '{ not json');
+
+    expect(await loadProjectHooks({ root, trust })).toEqual({ hooks: [], trust: 'untrusted' });
+  });
+
+  it('does not read the manifest of an untrusted workspace: one that is a folder is skipped', async () => {
+    await rm(path.join(root, '.sheavly', 'hooks.json'));
+    await mkdir(path.join(root, '.sheavly', 'hooks.json'));
 
     expect(await loadProjectHooks({ root, trust })).toEqual({ hooks: [], trust: 'untrusted' });
   });

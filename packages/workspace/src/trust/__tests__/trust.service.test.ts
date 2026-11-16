@@ -1,14 +1,14 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TrustStoreError } from '../../errors/trust.errors.js';
 import { memoryTrust } from '../../testing/trust.fake.js';
 import type { MemoryTrust } from '../../testing/testing.types.js';
 import { TRUST_STORE_VERSION } from '../trust.constants.js';
 import { useFixedClock } from '@sheavly/testing/clock/fixed-clock.fake';
 import { fingerprintWorkspace, TrustStore } from '../trust.service.js';
-import { fingerprintOf } from '../trust.utils.js';
+import { decideTrust, fingerprintOf } from '../trust.utils.js';
 
 const clock = useFixedClock();
 
@@ -258,6 +258,33 @@ describe('TrustStore', () => {
 
   it('accepts a store beside the workspace, which is not inside it', async () => {
     await expect(storeAt(path.join(base, 'trusted.json')).trust({ root })).resolves.toBeUndefined();
+  });
+});
+
+describe('decideTrust', () => {
+  it.each([
+    ['nothing stored', undefined, 'sha256:a', 'untrusted'],
+    ['nothing stored, empty .sheavly/', undefined, fingerprintOf([]), 'untrusted'],
+    ['a stored fingerprint that still matches', 'sha256:a', 'sha256:a', 'trusted'],
+    ['a stored fingerprint that no longer matches', 'sha256:a', 'sha256:b', 'changed'],
+  ] as const)(
+    'with %s the state is %s',
+    async (_when, trustedFingerprint, currentFingerprint, state) => {
+      expect(
+        await decideTrust({
+          trustedFingerprint,
+          currentFingerprint: () => Promise.resolve(currentFingerprint),
+        }),
+      ).toBe(state);
+    },
+  );
+
+  it('does not hash .sheavly/ for a workspace that was never trusted', async () => {
+    const hashed = vi.fn(() => Promise.resolve('sha256:a'));
+
+    await decideTrust({ trustedFingerprint: undefined, currentFingerprint: hashed });
+
+    expect(hashed).not.toHaveBeenCalled();
   });
 });
 
