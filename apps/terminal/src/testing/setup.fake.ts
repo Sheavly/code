@@ -59,7 +59,6 @@ export function fakeSetupBackend(
     setTerminalSettings: ({ body }) => {
       state.terminal = terminalSettingsSchema.parse(body);
     },
-    migrateTerminalSettings: () => state.terminal ?? {},
     listAdapters: () => ({ adapters: options.adapters ?? [setupAdapter()] }),
     listModelCatalog: () => ({ models: options.catalog ?? [] }),
     getProfile: ({ params }) => profileOf(params.profile),

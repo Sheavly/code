@@ -95,10 +95,10 @@ its models and keys are its own, and a conversation sees only its profile's.
 family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept outside adapter
   fields on disk and on reads. Known catalogue models reject incompatible adapters and mismatched
   native model IDs; Azure deployment names remain configurable. This is chosen identity, not a
-  verified cloud inventory. Legacy models without it remain valid, with no migration.
+  verified cloud inventory. A model's identity is optional.
 - **Usage is reported, and cost is estimated.** `GET /conversations/:id` includes cumulative
   `usage` across all sessions, restored from the full saved stream on reopen. Each model call
-  produces a `usage` event. Null token counts, unpriced calls and legacy history are explicit.
+  produces a `usage` event. Null token counts and unpriced calls are explicit.
   The model API also accepts optional `pricing` metadata: `input`, `output`, `cacheRead` and
   `cacheWrite`, all in USD per million tokens. It is not sent to the adapter. A conversation
   captures configured prices when its providers are built; saved cost estimates are never
@@ -125,11 +125,10 @@ family? }` alongside `name`, `adapter`, `definition` and `pricing`. It is kept o
 - **Deleting a profile deletes its conversations.** There is no undo, so a UI should ask first.
 - **Terminal preferences are global to the user.** `GET /setup` returns `terminal` when stored
   in `config.json`. `PUT /terminal-settings`, `{ reducedMotion?, bell? }`, replaces those preferences
-  and answers `204`. `POST /terminal-settings/migrate` returns the preferences after migrating
-  readable legacy profiles, preserving any existing global choice. Both changes require the
-  usual bearer token; neither grants access or changes a model or credential. Reads never
-  migrate or write. The terminal calls migration when opening an interactive chat or its
-  settings menu, and applies the value to all profiles, including resumed conversations.
+  and answers `204`. It requires the usual bearer token and neither grants access nor changes a
+  model or credential. Reads never write. The terminal reads the value from `GET /setup` when
+  opening an interactive chat or its settings menu, and applies it to all profiles, including
+  resumed conversations.
   Both fields are optional booleans; the bell is off by default.
 - **A folder is named by its path**, in the body (a UI knows the path; the config keeps a hash of
   its real path, so a symlink or a trailing slash is the same folder). It is checked as a

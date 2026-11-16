@@ -70,35 +70,6 @@ describe('GET /setup and GET /adapters', () => {
     });
   });
 
-  it('migrates legacy preferences explicitly, preserving models and the saved global choice', async () => {
-    const a = api();
-
-    await withModel(a);
-    await writeFile(
-      path.join(home, 'profiles', WORK, 'profile.json'),
-      JSON.stringify({
-        id: WORK,
-        name: 'Work',
-        terminal: { reducedMotion: true },
-      }),
-    );
-    expect(await json(await a.request('/setup'))).not.toHaveProperty('terminal');
-    expect(await json(await a.request('/terminal-settings/migrate', { method: 'POST' }))).toEqual({
-      reducedMotion: true,
-    });
-    expect(await json(await a.request(`/profiles/${WORK}`))).not.toHaveProperty('terminal');
-    expect(await json(await a.request(`/profiles/${WORK}/models/${ASTRA}`))).toMatchObject({
-      name: 'Astra',
-    });
-    await put(a, '/terminal-settings', { reducedMotion: false });
-    expect(await json(await a.request('/terminal-settings/migrate', { method: 'POST' }))).toEqual({
-      reducedMotion: false,
-    });
-    expect(await json(await api().request('/setup'))).toMatchObject({
-      terminal: { reducedMotion: false },
-    });
-  });
-
   it('reports a first run: where the data is, and no profile, no default', async () => {
     const a = api();
     const response = await a.request('/setup');

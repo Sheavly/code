@@ -15,7 +15,7 @@ Look up `messageId` as a user message's `id` in history, or find the event by `s
 The modern UI reports run errors with that message ID too. Run diagnostics include selected error
 details, a bounded stack and cause chain. Tool and hook failures name their tool call or hook.
 Prompts, tool inputs and successful outputs are not copied. Common credential forms are redacted,
-but error text and paths can still be private: review logs before sharing. Old records may lack IDs.
+but error text and paths can still be private: review logs before sharing.
 
 ## Model-first setup
 
@@ -88,9 +88,7 @@ you` keeps its own words.
   changes and `Ctrl+C to stop` remain visible. **Animated** restores the spinner (the default).
   The setting is `terminal.reducedMotion` in `~/.sheavly/config.json`, saved through the backend
   API, not an environment variable. It applies to all profiles when a chat opens, including
-  `--resume`. Legacy profile preferences migrate automatically: an existing global choice wins;
-  otherwise reduced motion stays enabled if any readable profile enabled it. The global value
-  is saved before old profile fields are removed, so migration can be retried after a failure.
+  `--resume`; the terminal reads it from `GET /setup`.
   Classic and plain chat are already static; streamed replies still arrive normally.
   The real terminal adapter suppresses erase-scrollback controls from the classic renderer,
   including sequences split across writes. A viewport redraw never clears earlier scrollback.
@@ -252,9 +250,7 @@ you` keeps its own words.
   package versions or distinguishing check/fix modes. `find *`, `sed *` and `node *` include
   editing and execution options. No separate path, secret-file or package-verification approval
   follows a command grant. Built-in approvals have the same behavior; `always_ask` always asks.
-- **Older grants now follow command-only semantics too.** A saved sed line range grants `sed *`;
-  a saved Node script grants `node *`; an old ESLint check scope grants `npx eslint *`. The
-  stored file is not rewritten, but the UI shows the effective base-command scope. Different
+- **Grants are command-only.** The UI shows the base-command scope a grant gives. Different
   programs, Git/GitHub CLI subcommands and npm scripts still need their own approval.
 - **You can type while it works; messages wait their turn.** Input never reaches the running
   agent: it stays in a first-in, first-out queue shown as `⏳ N queued`, outside the history and

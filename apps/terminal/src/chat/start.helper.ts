@@ -39,7 +39,7 @@ export async function runTerminalChat(): Promise<void> {
         name,
         description,
       }));
-      const terminal = await createClient(backend).call('migrateTerminalSettings', {});
+      const { terminal = {} } = await createClient(backend).call('getSetup', {});
       const chat = await startScreenChat({
         conversation,
         details,

@@ -36,7 +36,7 @@ async function configureTerminalSettings(params: {
   ui: SetupUi;
 }): Promise<void> {
   const { client, ui } = params;
-  const current = await client.call('migrateTerminalSettings', { signal: ui.signal });
+  const { terminal: current = {} } = await client.call('getSetup', { signal: ui.signal });
   const motion = await ui.choose({
     title: 'Terminal motion',
     initial: current.reducedMotion ? 'reduced' : 'animated',

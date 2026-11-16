@@ -21,7 +21,7 @@ replace a key. Setup uses the backend API; a connection check is an explicit cho
 The backend supplies the model catalogue: Sol, Astra, Luna, Opus, Sonnet and DeepSeek Flash,
 with only implemented compatible hosting routes. **Custom model** accepts another model identity
 and any registered adapter. Azure asks for a deployment name separately; native model IDs are
-already chosen. Existing models and keys need no migration. See [model setup](docs/chat.md#model-first-setup).
+already chosen. See [model setup](docs/chat.md#model-first-setup).
 
 To extend the picker, update the [backend's model catalogue](../backend/src/profiles/model-catalog.constants.ts)
 and its compatible hosting policy, not a second list in this UI. The setup API supplies the choices.
@@ -79,8 +79,7 @@ colours that tell success from failure for ones that stay apart in red-green col
 ([links and turn markers](docs/chat.md)).
 Reduced motion is global: in `--setup`, choose **Terminal settings** in the profile menu.
 It replaces the spinner with a static marker while elapsed times update once per second.
-The preference is stored in `~/.sheavly/config.json`, shared by every profile. Legacy profile
-preferences migrate automatically when an interactive chat opens.
+The preference is stored in `~/.sheavly/config.json`, shared by every profile.
 The same menu has **Terminal bell**, off by default. When enabled, it rings for completed replies,
 new approvals and tools that reach five seconds. Both interactive renderers support it; plain
 and piped output stay silent.
@@ -99,7 +98,7 @@ finish, so the terminal does not add duplicate cards for individual or grouped c
 Typed completion context remains available in history and events for UIs that want to present it:
 the reason, start time (epoch milliseconds), duration, number of user messages since the task started,
 and optional originating call ID. Grouped notices retain their wait reason and each member's optional
-context; task snapshots can also carry a reason. Older notices without this context remain valid.
+context; task snapshots can also carry a reason.
 The current terminal deliberately omits this timing, reason and conversation context from its output
 and does not let these notices change progress indicators.
 

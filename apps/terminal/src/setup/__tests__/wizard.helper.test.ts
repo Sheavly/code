@@ -62,7 +62,6 @@ describe('terminal setup over the API', () => {
 
     expect(initialChoices).toEqual(['reduced', 'off', 'animated', 'on']);
     expect(backend.state.terminal).toEqual({ reducedMotion: true, bell: false });
-    expect(backend.profileOf(profile).terminal).toBeUndefined();
     expect(
       backend.calls.filter(({ name }) => name.startsWith('put')).map(({ name }) => name),
     ).toEqual([]);

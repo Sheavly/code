@@ -43,7 +43,6 @@ export function setupHandlers(setup: ProfileSetup): Pick<ApiHandlers, SetupRoute
 
       return done(c);
     },
-    migrateTerminalSettings: async ({ c }) => c.json(await setup.migrateTerminalSettings()),
     listAdapters: ({ c }) => c.json({ adapters: setup.adapters() }),
     listModelCatalog: ({ c }) => c.json({ models: setup.modelCatalog() }),
     getProfile: async ({ c }) => c.json(await setup.profile(profileOf(c))),
