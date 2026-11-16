@@ -184,11 +184,13 @@ async function recordConversation(
 
   try {
     // The prompt's stream and the live feed both carry some entries, so each is shown once by seq.
-    let shownSeq = -1;
+    // A set, not the highest seq seen: the two streams are not ordered against each other, so an
+    // earlier entry can arrive after a later one and must still be shown.
+    const shown = new Set<number>();
     const show = (entry: StreamEntry) => {
-      if (entry.seq <= shownSeq) return;
+      if (shown.has(entry.seq)) return;
 
-      shownSeq = entry.seq;
+      shown.add(entry.seq);
       sessions.add(entry.sessionId);
       if (entry.kind === 'event') recorder.event(entry.event);
       renderer.entry(entry, details.session);

@@ -46,12 +46,12 @@ const taskEntry = (params: { seq: number; ended: boolean }): StreamEntry => ({
     : { type: 'task_started', task: taskInfoSchema.parse(task) },
 });
 
-const textEntry = (seq: number): StreamEntry => ({
+const textEntry = (seq: number, text = 'WOKEN_REPLY'): StreamEntry => ({
   seq,
   at: 0,
   sessionId: main,
   kind: 'event',
-  event: { seq, type: 'text_delta', text: 'WOKEN_REPLY' },
+  event: { seq, type: 'text_delta', text },
 });
 
 const done = (seq: number): StreamEntry => ({
@@ -72,7 +72,7 @@ const done = (seq: number): StreamEntry => ({
  * stops without `await_tasks`. The run it then starts to deliver the finished command reaches a UI
  * only through the live feed, which is the one that does not carry the prompt.
  */
-async function backendThatWakes() {
+async function backendThatWakes(options: { outOfOrder?: boolean } = {}) {
   const root = await mkdtemp(path.join(tmpdir(), 'workbook-background-'));
 
   environment.keep(root);
@@ -84,15 +84,28 @@ async function backendThatWakes() {
     getConversation: () => fakeConversationDetails(store.runWorkspaceDir(request.name)),
     async *sendPrompt() {
       yield taskEntry({ seq: 1, ended: false });
+
+      if (options.outOfOrder) {
+        // The two streams are not ordered against each other: this earlier entry reaches the run
+        // after the live feed has already delivered a later one.
+        await sleep(150);
+        yield textEntry(2, 'EARLIER_ENTRY');
+        yield done(3);
+
+        return;
+      }
+
       yield done(2);
     },
     async *streamConversation({ body }) {
       if (!(body as { replay?: boolean }).replay) {
+        if (options.outOfOrder) yield textEntry(4, 'LATER_ENTRY_FIRST');
+
         // The command finishes after the prompt ended, and the backend starts a run to deliver it.
         await sleep(300);
-        yield taskEntry({ seq: 3, ended: true });
-        yield textEntry(4);
-        yield done(5);
+        yield taskEntry({ seq: 5, ended: true });
+        yield textEntry(6);
+        yield done(7);
       }
 
       await liveEnded.promise;
@@ -127,7 +140,17 @@ describe('a run whose prompt ends while background work still runs', () => {
     // `done` came later, on the live feed: without following it they are never recorded.
     expect(result.outcome).toBe('completed');
     expect(result.events).toBe(3);
-    expect(result.lastEvent).toBe('#5 done');
+    expect(result.lastEvent).toBe('#7 done');
+  });
+
+  it('shows an earlier entry that arrives after a later one from the other stream', async () => {
+    const { store } = await backendThatWakes({ outOfOrder: true });
+    const result = await runWorkbook({ store, request });
+    const transcript = await readFile(store.paths(result.id).transcript, 'utf8');
+
+    // A high-water mark on seq would drop EARLIER_ENTRY: the live feed had already shown seq 4.
+    expect(transcript).toContain('LATER_ENTRY_FIRST');
+    expect(transcript).toContain('EARLIER_ENTRY');
   });
 
   it('shows each entry once although the prompt and the live feed can both carry it', async () => {
