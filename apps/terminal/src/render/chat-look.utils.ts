@@ -54,6 +54,8 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
     runFailed: (error) => paint.status.error(`✗ Model run failed: ${error}\n`),
     hookFailed: ({ hook, handler, error }) =>
       paint.status.error(`✗ hook ${hook} failed in ${handler}: ${error}\n`),
+    storageFailed: (error) =>
+      paint.status.error(`✗ This chat could not be saved: ${error}\n  The next prompt retries.\n`),
     turnEnd: ({ stopReason, waiting }) => {
       if (stopReason !== 'end_turn' || waiting === 0) return '';
 

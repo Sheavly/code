@@ -200,6 +200,10 @@ export class Renderer {
           }),
         );
         break;
+      case 'storage_failed':
+        // Not the end of a run: the prompt carries on, and only the next one is refused.
+        this.#activity(this.look.storageFailed(plainTerminalText(event.error)));
+        break;
       case 'turn_end':
         this.#activity(
           this.look.turnEnd({ stopReason: event.stopReason, waiting: this.runningTasks() }),

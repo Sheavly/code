@@ -12,16 +12,23 @@ const reasoning = { seq: 0, type: 'reasoning', items: [] } as unknown as EntryEv
 const failed: EntryEvent = { seq: 1, type: 'run_failed', error: 'boom', session };
 const done = (seq: number): EntryEvent => ({ seq, type: 'done', reason: 'completed', session });
 
+/** A chat-look renderer, what it printed, and how often its reply was ended. */
+function chatRenderer() {
+  const out: string[] = [];
+  const end = vi.fn();
+  const renderer = new Renderer(
+    (chunk) => out.push(chunk),
+    () => 0,
+    createChatLook(),
+    { write: (chunk) => out.push(chunk), end },
+  );
+
+  return { out, end, renderer };
+}
+
 describe('Renderer: per-prompt state', () => {
   it('starts the next prompt fresh after a run that ends without done', () => {
-    const out: string[] = [];
-    const end = vi.fn();
-    const renderer = new Renderer(
-      (chunk) => out.push(chunk),
-      () => 0,
-      createChatLook(),
-      { write: (chunk) => out.push(chunk), end },
-    );
+    const { out, end, renderer } = chatRenderer();
 
     renderer.event(text('partial'));
     renderer.event(failed);
@@ -33,6 +40,18 @@ describe('Renderer: per-prompt state', () => {
 
     // No gap before it, as after a `done`.
     expect(out.slice(before).join('')).toBe('next');
+  });
+
+  it('draws storage_failed without ending the prompt: the reply carries on', () => {
+    const { out, end, renderer } = chatRenderer();
+
+    renderer.event(text('partial '));
+    renderer.event({ seq: 1, type: 'storage_failed', error: 'Could not store entry 3' });
+    renderer.event(text('rest'));
+
+    expect(out.join('')).toContain('could not be saved');
+    expect(out.join('')).toContain('Could not store entry 3');
+    expect(end).not.toHaveBeenCalled();
   });
 
   it.each([
