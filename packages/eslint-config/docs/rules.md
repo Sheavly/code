@@ -197,6 +197,14 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `AbortSignal['timeout']` and a `timeout` option handed to a child process are not caught. It
   covers the process folder only: other command timeouts (the `timeout:` of the checkout and
   worktree helpers) are review too.
+- **Ctrl+C** (`harness/no-adhoc-ctrl-c`, the terminal app's source, enabled in
+  `apps/terminal/eslint.config.js`): no `.on('SIGINT', …)`, `.once`, `.addListener` or
+  `.prependListener`. A press is `interruptOnCtrlC`'s
+  (`apps/terminal/src/interrupt/interrupt.helper.ts`): the same-keypress window, one force-quit
+  policy that runs the caller's cleanup before the process exits 130, and the `stop` that says what
+  the press found. `interrupt.helper.ts` is the one `files:` exception; `no-adhoc-ctrl-c.test.js`
+  pins where the rule is on and off. It matches a literal `'SIGINT'` only, so a signal name held in
+  a variable, and the screen's raw `ctrl+c` key (which is not a signal), are left to review.
 - **Is inside** (`harness/no-dotdot-prefix`, every file): no `relative.startsWith('..')`, which
   also matches a folder named `..x/`. Use `isInside` (`@sheavly/workspace`'s
   `workspace/workspace.utils`), or compare `relative === '..' || relative.startsWith(`..${path.sep}`)`.

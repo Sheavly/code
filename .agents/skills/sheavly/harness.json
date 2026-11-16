@@ -72,7 +72,9 @@
       "packages/host/src/**",
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",
-      "packages/coding/src/run-command/**"
+      "packages/coding/src/run-command/**",
+      "apps/terminal/src/interrupt/**",
+      "apps/terminal/src/client/**"
     ],
     "sessions-and-background-work.md": [
       "packages/runtime/src/tasks/**",
@@ -101,6 +103,7 @@
     "harness/guard-search-root",
     "harness/guard-working-root",
     "harness/no-adhoc-command-deadline",
+    "harness/no-adhoc-ctrl-c",
     "harness/no-adhoc-latest-request",
     "harness/no-adhoc-main-session",
     "harness/no-adhoc-notice-entry",
@@ -144,6 +147,7 @@
     "harness/guard-search-root": "principles.md",
     "harness/guard-working-root": "principles.md",
     "harness/no-adhoc-command-deadline": "state-machines.md",
+    "harness/no-adhoc-ctrl-c": "state-machines.md",
     "harness/no-adhoc-latest-request": "principles.md",
     "harness/no-adhoc-main-session": "state-machines.md",
     "harness/no-adhoc-notice-entry": "state-machines.md",

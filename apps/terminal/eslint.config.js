@@ -8,6 +8,17 @@ export default defineConfig([
     // The CLI entry points: files without a kind.
     entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
   }),
+  // Ctrl+C is `interruptOnCtrlC`'s: no entry point or helper listens for SIGINT itself.
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/**/__tests__/**'],
+    rules: { 'harness/no-adhoc-ctrl-c': 'error' },
+  },
+  // The one place the listener is installed.
+  {
+    files: ['src/interrupt/interrupt.helper.ts'],
+    rules: { 'harness/no-adhoc-ctrl-c': 'off' },
+  },
   // The workbook is a developer tool: it records each run (events, transcript, results) and
   // prepares a scratch workspace in its own folder, and `saveRawStream` logs the SSE stream to a
   // file for the demo and the recorder. None of it is the user's data, which is
