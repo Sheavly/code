@@ -69,6 +69,11 @@ export class EntryLog {
     return this.#failure;
   }
 
+  /** The `seq` the next entry will get: every entry so far, replayed or not, is below it. */
+  get next(): number {
+    return this.#tailStart + this.#tail.length;
+  }
+
   /** How many entries are in memory: at most `ENTRY_TAIL_SIZE`, unless a store write failed. */
   get retained(): number {
     return this.#tail.length;

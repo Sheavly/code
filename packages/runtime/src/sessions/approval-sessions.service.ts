@@ -22,4 +22,16 @@ export class ApprovalSessions {
 
     return id;
   }
+
+  /** Drops what is kept for `sessionId`, when it is released with its approvals still open. */
+  forget(sessionId: SessionId): void {
+    for (const [approval, id] of this.#sessions) {
+      if (id === sessionId) this.#sessions.delete(approval);
+    }
+  }
+
+  /** How many approvals are kept under a session. */
+  get kept(): number {
+    return this.#sessions.size;
+  }
 }
