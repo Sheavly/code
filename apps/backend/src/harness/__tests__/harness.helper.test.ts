@@ -126,6 +126,15 @@ describe('createBackendHarness: what a backend run includes', () => {
     expect(harness.hooks.map((hook) => hook.name)).toEqual(['agents-md', 'skills', 'working-root']);
   });
 
+  it('stops the run when a .sheavly/ hook is named like a host hook', async () => {
+    await writeFile(
+      path.join(root, '.sheavly/hooks/marker.js'),
+      `export default { name: 'skills', sessionStart: async () => {} };\n`,
+    );
+
+    await expect(open(true)).rejects.toThrow('hook name "skills" is already used by a host hook');
+  });
+
   it('runs the AGENTS.md and skills hooks first, then a trusted workspace’s .sheavly/ hooks', async () => {
     const requests: ProviderRequest[] = [];
     const harness = await open(true, (request) => requests.push(request));

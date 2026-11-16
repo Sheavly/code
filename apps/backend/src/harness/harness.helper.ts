@@ -72,13 +72,6 @@ export async function createBackendHarness(
     store: shell,
     ...(onFileReadsProblem && { onProblem: onFileReadsProblem }),
   });
-  // A broken `.sheavly` hook stops the run here, with the file and the reason. An untrusted
-  // workspace loads none: `projectTrust` says why, for a UI to show.
-  const projectHooks = await loadProjectHooks({
-    root: workspace.root,
-    trust: trustStore,
-    grant: trustWorkspace,
-  });
   const skillRoots = { root: workspace.root, home };
   // Their order is each source's declared `order`, not their place here. The working root is read
   // per turn, so AGENTS.md follows a worktree chosen mid-run. The scratch source is given the
@@ -91,6 +84,14 @@ export async function createBackendHarness(
       : []),
     createInstructionHook(workingRootSource({ workingRoots })),
   ]);
+  // A broken `.sheavly` hook, or one named like a host hook, stops the run here, with the file and
+  // the reason. An untrusted workspace loads none: `projectTrust` says why, for a UI to show.
+  const projectHooks = await loadProjectHooks({
+    root: workspace.root,
+    trust: trustStore,
+    grant: trustWorkspace,
+    hostHooks: instructionHooks,
+  });
   const hooks = [...instructionHooks, ...projectHooks.hooks];
 
   const fileTools = [
