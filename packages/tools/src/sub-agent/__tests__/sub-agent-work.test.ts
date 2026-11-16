@@ -3,7 +3,7 @@ import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { subAgentWork } from '../sub-agent-work.utils.js';
 
 describe('the sub-agent work kind', () => {
-  it('is finite work, stated by the kind and not defaulted by the registry', () => {
+  it('is the agent kind (finite work named apart), stated and not defaulted by the registry', () => {
     const work = subAgentWork({
       command: 'sub-agent: x',
       description: 'x',
@@ -11,6 +11,6 @@ describe('the sub-agent work kind', () => {
       run: async () => ({ exitCode: 0 }),
     });
 
-    expect(work.backgroundKind).toBe('task');
+    expect(work.backgroundKind).toBe('agent');
   });
 });
