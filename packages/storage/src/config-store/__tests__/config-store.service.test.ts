@@ -42,14 +42,6 @@ describe('ConfigStore', () => {
     expect(await store.read()).toEqual({ terminal: { reducedMotion: true }, workspaces: {} });
   });
 
-  it('never lets migration overwrite a queued explicit global choice', async () => {
-    await Promise.all([
-      store.setTerminalSettings({ reducedMotion: false }),
-      store.initializeTerminalSettings({ reducedMotion: true }),
-    ]);
-    expect((await store.read()).terminal).toEqual({ reducedMotion: false });
-  });
-
   it('starts with no default profile and no bindings, and resolves nothing', async () => {
     expect(await store.read()).toEqual({ workspaces: {} });
     expect(await store.profileFor(app)).toBeUndefined();

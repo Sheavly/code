@@ -115,7 +115,7 @@ export class Conversations {
       // profile, whatever it would pick for a new one now.
       workspace: stored.workspace,
       profile: stored.profile,
-      modelSelection: { modelId: stored.modelId, mode: stored.mode ?? 'medium' },
+      modelSelection: { modelId: stored.modelId, mode: stored.mode },
       ...(storage && { storage: { ...storage, resume } }),
     });
 

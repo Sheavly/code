@@ -32,7 +32,7 @@ describe('checkpoint coverage', () => {
 
     expect(second.incorporated).toBe(5);
     expect(second.covered).toBe(8);
-    expect(second.covered).toBeGreaterThan(first.covered ?? 0);
+    expect(second.covered).toBeGreaterThan(first.covered);
     expect(() => assertValidStoredHistory([...history, second])).not.toThrow();
   });
 });
@@ -63,14 +63,5 @@ describe('a stored history’s coverage', () => {
     expect(() => assertValidStoredHistory([...history, { ...second, incorporated: 1 }])).toThrow(
       'skipped or taken twice',
     );
-  });
-
-  it('does not hold a legacy checkpoint, which records no coverage, to any of it', () => {
-    const legacy = { ...first };
-
-    delete legacy.covered;
-    delete legacy.incorporated;
-
-    expect(() => assertValidStoredHistory([...base, legacy])).not.toThrow();
   });
 });

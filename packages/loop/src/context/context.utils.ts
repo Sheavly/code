@@ -1,5 +1,5 @@
 import type { ContextState } from '@sheavly/core/hook/hook.types';
-import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
+import type { TransientNotice } from '@sheavly/protocol/notice/notice.types';
 import { contextWindowSchema } from '@sheavly/protocol/model/model.validator';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 
@@ -27,7 +27,7 @@ export function contextState(params: {
  * Transient context telemetry for the provider to format, or undefined when nothing is known.
  * The snapshot has already been validated by `contextState`; no model-facing wording lives here.
  */
-export function contextNotice(state: ContextState): HarnessNotice | undefined {
+export function contextNotice(state: ContextState): TransientNotice | undefined {
   const { window, used } = state;
 
   if (window !== undefined) return { kind: 'context-usage', context: { window, used } };

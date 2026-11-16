@@ -29,7 +29,7 @@ export const messagesReplaySchema = z.object({
   /**
    * The notice blocks that rode the request this reply answered. Its signature covers them, so
    * they are sent again in the same place for the thinking to stay valid. Absent for a reply
-   * that had none, and for state stored before this field.
+   * that had none.
    */
   notices: z.array(z.object({ type: z.literal('text'), text: z.string() })).optional(),
 });

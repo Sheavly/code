@@ -14,6 +14,7 @@ const taskFinished = {
     id: 't1',
     command: 'npm test',
     description: 'tests',
+    kind: 'task',
     status: 'completed',
     exitCode: 0,
     startedAt: 1,
@@ -31,7 +32,9 @@ const agentReport = {
     startedByCall: callId,
     title: 'Audit',
     startedAt: 5,
+    endedAt: 6,
     state: 'completed',
+    lastOutcome: 'completed',
   },
   taskId: 't2',
   outcome: 'completed',
@@ -59,23 +62,14 @@ const enrichedAgent = {
   },
 };
 const cases = [
-  { name: 'legacy task-finished', notice: taskFinished },
-  { name: 'legacy agent-report', notice: agentReport },
+  { name: 'task-finished', notice: enrichedTask },
+  { name: 'agent-report without a context callId', notice: enrichedAgent },
   {
-    name: 'legacy tasks-finished',
+    name: 'tasks-finished with context on each member',
     notice: {
       kind: 'tasks-finished',
       reason: 'Collect the results',
-      notices: [taskFinished, agentReport],
-    },
-  },
-  { name: 'enriched task-finished', notice: enrichedTask },
-  { name: 'enriched agent-report without a context callId', notice: enrichedAgent },
-  {
-    name: 'enriched tasks-finished with context on each member',
-    notice: {
-      kind: 'tasks-finished',
-      reason: 'Collect the results',
+      context,
       notices: [enrichedTask, enrichedAgent],
     },
   },

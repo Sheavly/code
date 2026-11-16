@@ -12,15 +12,10 @@ describe('base-command approval hints', () => {
   });
 
   it.each([
-    ['read:find *', 'find *'],
-    ['read:sed *', 'sed *'],
-    ['tool:npx eslint check *', 'npx eslint *'],
-    ['script:node tmp/probe.mjs *', 'node *'],
-    ['exact:["cat",".env"]', 'cat *'],
     ['ls -la src', 'ls *'],
     ['npx vitest run *', 'npx vitest *'],
-  ])('does not claim legacy option/path restrictions remain: %s', (legacy, base) => {
-    expect(keepsHint({ keeps: [legacy] })).toBe(
+  ])('labels an entry by its base command, without options or paths: %s', (entry, base) => {
+    expect(keepsHint({ keeps: [entry] })).toBe(
       `keeps \`${base}\` allowed in this folder, for every agent`,
     );
   });

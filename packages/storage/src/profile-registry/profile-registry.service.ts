@@ -21,7 +21,7 @@ export class ProfileRegistry {
   readonly #profiles: ProfileStore;
   readonly #config: ConfigStore;
   readonly #open = new Map<ProfileId, OpenProfile>();
-  /** Profile writes and deletion go one at a time, so migration cannot recreate a deleted profile. */
+  /** Profile writes and deletion go one at a time, so a write cannot recreate a deleted profile. */
   readonly #profileWrites = new SerialQueue();
 
   /** `root` is the user's folder (`~/.sheavly`), which an app passes in. */
@@ -40,10 +40,7 @@ export class ProfileRegistry {
     return this.#profiles.get(id);
   }
 
-  /**
-   * Makes or renames a profile, preserving remembered model choices and legacy preferences
-   * that have not been migrated yet.
-   */
+  /** Makes or renames a profile, preserving its remembered model choices. */
   async put(params: { id: ProfileId; name: string }): Promise<void> {
     await this.#profileWrites.run(async () => {
       const existing = await this.#profiles.get(params.id);
@@ -121,27 +118,6 @@ export class ProfileRegistry {
 
   async setTerminalSettings(terminal: TerminalSettings): Promise<void> {
     await this.#config.setTerminalSettings(terminal);
-  }
-
-  /** Saves global preferences before removing legacy ones, so an interrupted migration is retryable. */
-  async migrateTerminalSettings(): Promise<TerminalSettings> {
-    return this.#profileWrites.run(async () => {
-      const { profiles } = await this.#profiles.list();
-      const legacy = profiles.filter(({ terminal }) => terminal !== undefined);
-
-      if (legacy.length === 0) return (await this.#config.read()).terminal ?? {};
-
-      // Any enabled legacy preference wins unless the user has already made a global choice.
-      const terminal = await this.#config.initializeTerminalSettings({
-        reducedMotion: legacy.some((profile) => profile.terminal?.reducedMotion === true),
-      });
-
-      for (const { terminal: _legacy, ...profile } of legacy) {
-        await this.#profiles.put(profile);
-      }
-
-      return terminal;
-    });
   }
 
   /** Makes profile `id` the default for workspaces not bound to one; it must exist. */

@@ -3,6 +3,10 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { RunOutcome, SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
 
+import { noticeEntries } from './notice-publish.helper.js';
+import { RESTORED_REPORT_REASON } from './stream-agent.constants.js';
+import { taskCompletionContext } from './task-context.utils.js';
+
 type SubAgent = Extract<SessionInfo, { parentId: SessionId }>;
 
 /**
@@ -46,11 +50,13 @@ export function storedOutcome(agent: SubAgent): RunOutcome {
 export function restoredReportNotices(params: {
   agents: readonly SubAgent[];
   reports: ReadonlyMap<SessionId, string>;
+  /** The conversation's history, for the completion context each report carries. */
+  history: readonly HistoryMessage[];
   at: number;
 }): HistoryMessage[] {
-  const { agents, reports, at } = params;
+  const { agents, reports, history, at } = params;
 
-  return agents.map((agent) => {
+  return agents.flatMap((agent) => {
     const read = reports.get(agent.id);
     const stored = storedOutcome(agent);
     // A completed sub-agent is only reported as one when its report was read back.
@@ -58,18 +64,24 @@ export function restoredReportNotices(params: {
       stored === 'completed' && read !== undefined
         ? { outcome: stored, report: read }
         : { outcome: stored === 'completed' ? 'interrupted' : stored, report: '' };
-
-    return {
-      role: 'notice',
-      notice: {
-        kind: 'agent-report',
-        // The card says how the sub-agent ended, not that it was open when the process did.
-        agent: { ...agent, state: outcome, lastOutcome: outcome },
-        outcome,
-        report,
-      },
-      at,
+    // One still open when the process ended has no end time: it ended at its start, as far as is known.
+    const endedAt = agent.endedAt ?? agent.startedAt;
+    const notice: HarnessNotice = {
+      kind: 'agent-report',
+      // The card says how the sub-agent ended, not that it was open when the process did.
+      agent: { ...agent, state: outcome, lastOutcome: outcome, endedAt },
+      outcome,
+      report,
+      context: taskCompletionContext({
+        reason: RESTORED_REPORT_REASON,
+        startedAt: agent.startedAt,
+        endedAt,
+        history,
+        callId: agent.startedByCall,
+      }),
     };
+
+    return noticeEntries({ notice, at });
   });
 }
 
@@ -96,13 +108,13 @@ function noteDelivered(params: { notice: HarnessNotice; delivered: Delivered }):
 
   if (notice.kind === 'agent-report') {
     delivered.sessions.add(notice.agent.id);
-    addCall({ delivered, callId: notice.context?.callId });
+    addCall({ delivered, callId: notice.context.callId });
 
     return;
   }
 
   if (notice.kind === 'task-finished') {
-    addCall({ delivered, callId: notice.task.callId ?? notice.context?.callId });
+    addCall({ delivered, callId: notice.task.callId ?? notice.context.callId });
   }
 }
 

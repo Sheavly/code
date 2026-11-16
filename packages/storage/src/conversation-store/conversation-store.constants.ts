@@ -10,9 +10,6 @@ export const STREAM_FILE = 'stream.jsonl';
 /** A searchable, private projection of run, hook and tool failures from the stream. */
 export const ERRORS_FILE = 'errors.jsonl';
 
-/** The conversation's own history, the main session's. */
-export const HISTORY_FILE = 'history.json';
-
 /** The main session's durable history log, one record per line, in `seq` order. */
 export const HISTORY_LOG_FILE = 'history.jsonl';
 
@@ -30,6 +27,3 @@ export const QUEUE_FILE = 'queue.json';
 
 /** The folder in a conversation's folder that holds each sub-agent's history. */
 export const AGENTS_FOLDER = 'agents';
-
-/** A sub-agent's history is `agents/<session-id>.history.json`. */
-export const AGENT_HISTORY_SUFFIX = '.history.json';

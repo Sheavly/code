@@ -16,10 +16,16 @@ export const outputRefSchema = lowercaseUuidSchema.brand<'OutputRef'>();
 export const outputStatusSchema = z.enum(['capturing', 'complete', 'incomplete']);
 
 /** What is known about one log: its reference, the bytes stored so far and its completeness. */
-export const outputLogSchema = z.object({
-  ref: outputRefSchema,
-  /** Bytes of captured stdout and stderr stored so far (UTF-8). */
-  bytes: z.number().int().nonnegative(),
-  status: outputStatusSchema,
-  reason: z.string().exactOptional(),
-});
+export const outputLogSchema = z
+  .object({
+    ref: outputRefSchema,
+    /** Bytes of captured stdout and stderr stored so far (UTF-8). */
+    bytes: z.number().int().nonnegative(),
+    status: outputStatusSchema,
+    /** Present exactly when `status` is `incomplete`: what was lost. */
+    reason: z.string().exactOptional(),
+  })
+  .refine((log) => (log.status === 'incomplete') === (log.reason !== undefined), {
+    message: 'reason must be given exactly when status is incomplete',
+    path: ['reason'],
+  });

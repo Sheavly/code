@@ -10,6 +10,7 @@ import { runningTasksNotice } from './running-tasks-notice.helper.js';
 import { INTERRUPTED_BY_USER, STOPPED_BY_FAILURE } from './stream-agent.constants.js';
 import type { RunningCall, SampleContext, SampleFailure, ToolStart } from './stream-agent.types.js';
 import type { DescribedCall } from '@sheavly/protocol/event/event.types';
+import type { TransientNotice } from '@sheavly/protocol/notice/notice.types';
 import type { ModelUsage } from '@sheavly/protocol/usage/usage.types';
 import type {
   Message,
@@ -31,7 +32,9 @@ export async function sample(context: SampleContext) {
   const { window } = state;
   const notice = contextNotice(state);
   const taskNotice = runningTasksNotice({ tasks: context.tasks, sessionId: context.session.id });
-  const notices = [
+  // Typed transient: sent beside the call, never stored. A persistent kind goes through
+  // `publishNotice`, so it cannot be added here and streamed without being kept.
+  const notices: TransientNotice[] = [
     ...(notice ? [notice] : []),
     ...(context.continuation ? [context.continuation] : []),
     ...(taskNotice ? [taskNotice] : []),

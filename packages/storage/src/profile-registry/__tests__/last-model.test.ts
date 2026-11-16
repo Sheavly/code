@@ -88,17 +88,14 @@ describe('the model a profile last used', () => {
     });
   });
 
-  it('migrates lastModelId on read and writes the new structure on the next change', async () => {
+  it('keeps only what the schema knows: a lastModelId key selects nothing', async () => {
     const registry = temp.registry();
 
     await registry.put({ id: WORK, name: 'Work' });
     const file = path.join(temp.root(), 'profiles', WORK, 'profile.json');
 
     await writeFile(file, JSON.stringify({ id: WORK, name: 'Work', lastModelId: ASTRA }));
-    expect((await registry.get(WORK))?.lastModelSelection).toEqual({
-      modelId: ASTRA,
-      mode: 'medium',
-    });
+    expect(await registry.get(WORK)).toEqual({ id: WORK, name: 'Work' });
     await registry.put({ id: WORK, name: 'Renamed' });
     expect(await readFile(file, 'utf8')).not.toContain('lastModelId');
   });

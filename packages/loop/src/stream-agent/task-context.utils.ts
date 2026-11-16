@@ -3,7 +3,7 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { TaskCompletionContext } from '@sheavly/protocol/notice/notice.types';
 import { viewOf } from '../summary/summary.utils.js';
 
-/** Counts stored user messages, not checkpoint text or rendered notices; untimed legacy entries are unknown. */
+/** Counts stored user messages, not checkpoint text or rendered notices; an untimed entry is not counted. */
 export function taskCompletionContext(params: {
   reason: string;
   startedAt: number;

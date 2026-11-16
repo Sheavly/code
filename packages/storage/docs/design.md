@@ -34,12 +34,8 @@ appends go one at a time through a queue. An append at any other `seq` is refuse
 (`out_of_order`) and a file with a gap is refused when read, rather than hidden. A new
 append-only file is an `AppendLog` with its schema, not a copy of this logic.
 
-A history stored whole before logs existed (`history.json`, `agents/<session-id>.history.json`) is
-imported the first time its log is used and the log has no file yet. The log is written in one
-atomic step, so a crash leaves either no log (imported again next time) or the complete one. The
-old file is removed once the log is written (a crash between the two leaves both, and the log
-wins next time), so no second copy is left to drift. The old whole-file `readMessages`/`writeMessages` methods are gone from the contract; only the
-import reads the legacy shape, and nothing writes it.
+A whole-file `history.json` or `agents/<session-id>.history.json` beside the logs is not read,
+written or removed.
 
 ## Concurrency and crashes
 
@@ -113,9 +109,6 @@ replaced is decided once.
         agents/<session-id>.history.jsonl     # a sub-agent's history log
 ```
 
-A `history.json` and `agents/<session-id>.history.json` from before history logs are legacy: the
-log imports them once, removes them, and nothing writes them any more (see History logs).
-
 Everything on disk is named by an id, never by what a person typed (`<profile-id>` and
 `<model-id>` are lowercase UUIDs; `<workspace-key>` is a hash of the workspace's real path). A
 person's names (`work`, `Astra 6`) are inside the files, as labels.
@@ -124,22 +117,15 @@ person's names (`work`, `Astra 6`) are inside the files, as labels.
 each model in `modelModes`. `ProfileRegistry.rememberModel` writes both together, using the
 profile write queue and atomic file replacement. Omitting a mode restores that model's previous
 mode, or medium for a new model. Renames preserve both preferences, and profiles remain separate.
-Legacy `lastModelId` is read as a medium-mode selection; the next profile write saves the new
-structure. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
-take another conversation's latest preferences. A legacy index without a mode resumes on medium.
+A key `profile.json` does not define, such as an old `lastModelId`, is dropped on read and not
+written back. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
+take another conversation's latest preferences.
 
 Terminal preferences live in `config.json` under `terminal`: `reducedMotion` and `bell` are
 optional booleans. Missing preferences mean animated activity and no terminal bell.
 `ConfigStore.setTerminalSettings` replaces them through the same write queue as profile bindings.
 Renaming, switching or deleting a profile does not change them. Missing preferences keep the
 animated default.
-
-`ProfileRegistry.migrateTerminalSettings` moves legacy profile preferences to this global setting.
-An existing global value wins, including `false` and an empty preferences object; otherwise any
-readable profile with reduced motion enabled makes the global value true. It saves the config
-before removing legacy fields, preserving model choices. A failed cleanup can be retried without
-overwriting a global choice made since. Profiles that cannot be read remain untouched and are
-reported by the normal listing. A fresh install with no legacy settings writes nothing.
 
 - **A missing file is "nothing stored"; anything else wrong with a file is an error** that names
   it (`StorageFileError`). A store never starts from empty over a file it can't read: that would

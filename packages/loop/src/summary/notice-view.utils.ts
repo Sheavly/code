@@ -23,39 +23,31 @@ export function noticeForView(params: {
     case 'task-finished':
       return completionForView({ notice, callIds });
 
-    case 'tasks-finished': {
-      const context = contextForView({ context: notice.context, callIds });
-
+    case 'tasks-finished':
       return {
         ...notice,
-        ...(context !== undefined && { context }),
+        context: contextForView({ context: notice.context, callIds }),
         notices: notice.notices.map((member) => completionForView({ notice: member, callIds })),
       };
-    }
 
     default:
       return notice;
   }
 }
 
-function completionForView(params: {
-  notice: Extract<HarnessNotice, { kind: 'agent-report' | 'task-finished' }>;
-  callIds: ReadonlySet<CallId>;
-}) {
+function completionForView<
+  Notice extends Extract<HarnessNotice, { kind: 'agent-report' | 'task-finished' }>,
+>(params: { notice: Notice; callIds: ReadonlySet<CallId> }): Notice {
   const { notice, callIds } = params;
-  const context = contextForView({ context: notice.context, callIds });
 
-  return { ...notice, ...(context !== undefined && { context }) };
+  return { ...notice, context: contextForView({ context: notice.context, callIds }) };
 }
 
 function contextForView(params: {
-  context: TaskCompletionContext | undefined;
+  context: TaskCompletionContext;
   callIds: ReadonlySet<CallId>;
-}): TaskCompletionContext | undefined {
+}): TaskCompletionContext {
   const { context, callIds } = params;
-
-  if (!context) return undefined;
-
   const { callId, ...retained } = context;
 
   if (callId === undefined || callIds.has(callId)) return context;

@@ -17,7 +17,7 @@ type Block = Record<string, unknown>;
  * wants roles to alternate and a turn's tool results together. Empty text is left out (the API
  * rejects an empty text block), and so is a message left with nothing in it.
  *
- * Replays completed replies in their original order. Legacy thinking without prefix provenance,
+ * Replays completed replies in their original order. Thinking whose source tag does not match,
  * or thinking whose instructions, tools or preceding messages changed, is not replayed.
  */
 export function toMessagesApiMessages(params: {

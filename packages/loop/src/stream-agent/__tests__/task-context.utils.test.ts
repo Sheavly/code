@@ -23,6 +23,7 @@ const checkpoint = historyMessageSchema.parse({
   sections: [{ id: 'goal', title: 'Goal', body: 'Continue investigating.' }],
   kept: 1,
   summarized: 3,
+  covered: 3,
   summarizer: 'test',
   at: 30,
 });
@@ -70,8 +71,10 @@ describe('taskCompletionContext', () => {
       at: 21,
       notice: {
         kind: 'task-finished',
+        context: { reason: 'Compare', startedAt: 10, durationMs: 10, userMessagesSinceStart: 1 },
         task: {
           id: 'previous',
+          kind: 'task',
           command: 'probe',
           description: 'prior work',
           status: 'completed',

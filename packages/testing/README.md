@@ -20,6 +20,7 @@ const provider = routedProvider({ hi: [say('hello')] });
 | `files/`    | `filesHolding` (the files under a folder that hold some text), `useTempFolders`    |
 | `store/`    | `MemoryConversationStore`, a conversation store in memory that can be made to fail |
 | `clock/`    | `useFixedClock`, which freezes the time `now()` reads for each test                |
+| `notice/`   | `NOTICE_SAMPLES`: one valid notice of every kind, for suites that run all kinds    |
 
 It depends on `@sheavly/core` and `@sheavly/protocol`, so core's own tests can't use it; a
 package's own fakes stay in its `src/testing/`.

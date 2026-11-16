@@ -110,6 +110,12 @@ export function baseConfig(params) {
       ignores: testFiles,
       rules: { 'harness/no-handwritten-notice': 'error' },
     },
+    // --- A notice enters history through `publishNotice`, by its kind's lifetime ---
+    {
+      files: SOURCE_FILES,
+      ignores: testFiles,
+      rules: { 'harness/no-adhoc-notice-entry': 'error' },
+    },
     // --- The latest request in stored history is found through the core helpers, not by hand ---
     {
       files: SOURCE_FILES,

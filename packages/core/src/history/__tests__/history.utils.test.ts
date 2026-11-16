@@ -20,11 +20,13 @@ const notice = historyMessageSchema.parse({
       status: 'completed',
       id: 't9',
       description: 'running the suite',
+      kind: 'task',
       command: 'npm test',
       exitCode: 0,
       endedAt: 40,
       startedAt: 30,
     },
+    context: { reason: 'tests', startedAt: 30, durationMs: 10, userMessagesSinceStart: 0 },
   },
 });
 const reply: HistoryMessage = { role: 'assistant', content: 'ok', toolCalls: [] };

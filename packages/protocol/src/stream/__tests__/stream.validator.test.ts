@@ -108,7 +108,13 @@ describe('streamEntrySchema', () => {
   });
 
   it('carries a background task starting and ending, under the session that started it', () => {
-    const task = { id: 't1', command: 'npm run dev', description: 'Dev server', startedAt: 1 };
+    const task = {
+      id: 't1',
+      kind: 'service',
+      command: 'npm run dev',
+      description: 'Dev server',
+      startedAt: 1,
+    };
     const started = {
       seq: 6,
       at: 8,

@@ -75,14 +75,12 @@ needs its own grant. One question covers all unapproved commands, and skipping i
 if saving fails, the command does not run. With no listening UI, an unapproved command fails
 immediately rather than running unattended.
 
-### Existing permission files
+### Entry forms
 
-Legacy exact/path-specific entries and `read:`, `tool:` or `script:` entries are interpreted
-as base-command grants too. `sed -n 1,200p src/a.ts` and `read:sed *` both approve `sed *`;
-`tool:npx eslint check *` approves `npx eslint *`; `script:node tmp/probe.mjs *` approves `node *`.
-`exact:` JSON arrays preserve old stored data and command names containing spaces, but no
-longer require exact argument matching. The file is not rewritten automatically. The UI
-describes the effective command scope rather than claiming old restrictions remain.
+An entry grants its base command: `sed -n 1,200p src/a.ts` approves `sed *`. An `exact:` JSON
+array names a command whose words contain spaces (an npm script name with a space); it does not
+require exact argument matching. Any other entry is read as plain command words, so a string
+like `read:sed *` names a command `read:sed` and matches nothing real.
 
 ## Execution protections and limits
 

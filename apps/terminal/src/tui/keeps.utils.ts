@@ -12,7 +12,7 @@ function grantLabel(entry: string): string {
   return `\`${command} *\``;
 }
 
-/** Labels describe effective base-command grants, not legacy path/option restrictions. */
+/** Labels describe effective base-command grants, not path or option restrictions. */
 export function keepsHint(params: {
   keeps: readonly string[];
   scope?: 'session' | 'workspace';

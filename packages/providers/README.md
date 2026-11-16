@@ -54,8 +54,8 @@ Messages replies preserve their original content-block order and request-prefix 
 An explicit `max_tokens` termination with an open block retains streamed text and completed tool
 calls, but discards unfinished tools and thinking so the loop can request continuation. Other open
 block endings fail with the stop reason and block types, never their content.
-Signed thinking is replayed only while that prefix still matches; incompatible legacy thinking
-is omitted without losing text or tool calls. A reply keeps the transient notice blocks its request
+Signed thinking is replayed only while that prefix still matches; thinking whose source tag
+does not match the current endpoint and model is omitted without losing text or tool calls. A reply keeps the transient notice blocks its request
 carried and the next request sends them again in the same place, so a changing notice no longer
 costs the thinking; the model therefore reads earlier notices. See
 [the replay tradeoff](docs/prompt-caching.md#signed-thinking-replay-and-transient-notices) and

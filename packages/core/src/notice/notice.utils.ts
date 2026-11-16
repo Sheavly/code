@@ -146,18 +146,14 @@ function formatTasksFinished(notice: Extract<HarnessNotice, { kind: 'tasks-finis
 }
 
 /** Keep the calling agent's reason fenced separately from trusted completion measurements. */
-function formatCompletionContext(context: TaskCompletionContext | undefined): string[] {
-  if (!context) return [];
-
+function formatCompletionContext(context: TaskCompletionContext): string[] {
   const reason = escapeTags(context.reason);
   const fence = fenceDashes(reason);
 
   return renderCompletionContext({ metrics: formatCompletionMetrics(context), reason, fence });
 }
 
-function formatCompletionMetrics(context: TaskCompletionContext | undefined): string[] {
-  if (!context) return [];
-
+function formatCompletionMetrics(context: TaskCompletionContext): string[] {
   return renderCompletionMetrics({
     startedAt: String(context.startedAt),
     durationMs: String(context.durationMs),

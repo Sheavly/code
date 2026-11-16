@@ -129,11 +129,6 @@ export class ProfileSetup {
     await this.#registry.setTerminalSettings(terminal);
   }
 
-  /** Explicit change, not a side effect of GET /setup. Existing global choices always win. */
-  async migrateTerminalSettings(): Promise<TerminalSettings> {
-    return this.#registry.migrateTerminalSettings();
-  }
-
   /** Deletes a profile with its models, keys and conversations; none is fine. */
   async deleteProfile(id: ProfileId): Promise<void> {
     await this.#registry.delete(id);

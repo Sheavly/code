@@ -92,7 +92,7 @@ export class RemoteConversation {
 
   /**
    * The background work the entries read so far say still runs: sub-agents, services, and
-   * everything else (a snapshot with no kind, from an older backend, is a task).
+   * everything else (a plain task).
    */
   get background(): Background {
     const kinds = [...this.#running.values()].map(({ kind }) => kind);

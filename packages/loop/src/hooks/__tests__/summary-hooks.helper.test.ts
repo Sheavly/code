@@ -18,6 +18,7 @@ const checkpoint: SummaryMessage = {
   sections: [section('goal', 'g')],
   kept: 1,
   summarized: 1,
+  covered: 1,
   summarizer: 'test',
   at: 5,
 };

@@ -21,6 +21,7 @@ const CHILD = {
 const task = (extra: Record<string, unknown> = {}) =>
   taskInfoSchema.parse({
     id: 't1',
+    kind: 'task',
     command: 'ls',
     description: 'list',
     status: 'completed',

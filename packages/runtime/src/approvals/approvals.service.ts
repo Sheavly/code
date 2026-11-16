@@ -19,6 +19,7 @@ import type {
 } from '@sheavly/protocol/approval/approval.types';
 import {
   approvalIdSchema,
+  approvalResponseOfferedBy,
   approvalResponseSchema,
 } from '@sheavly/protocol/approval/approval.validator';
 import type { CallId } from '@sheavly/protocol/message/message.types';
@@ -229,7 +230,8 @@ export class ApprovalRegistry {
     // cannot make the model read the user's words as a hook's.
     const response = withoutSource(approvalResponseSchema.parse(params.response));
 
-    if (!pending.request.options.includes(response.decision)) {
+    // One rule for "offered": the schema a client or server can validate against too.
+    if (!approvalResponseOfferedBy(pending.request.options).safeParse(response).success) {
       throw new ApprovalRequestError({
         reason: 'not_offered',
         message: `${response.decision} is not one of the options offered for approval ${id}: ${pending.request.options.join(', ')}`,

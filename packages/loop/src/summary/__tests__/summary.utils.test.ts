@@ -56,11 +56,13 @@ const result = (call: string): HistoryMessage => ({
   isError: false,
   at: 3,
 });
-const checkpoint = (params: { kept: number; body?: string }): HistoryMessage => ({
+/** `index` is where the checkpoint sits in the history; its coverage ends where its tail begins. */
+const checkpoint = (params: { index: number; kept: number; body?: string }): HistoryMessage => ({
   role: 'summary',
   sections: [{ id: summarySectionIdSchema.parse('goal'), title: 'Goal', body: params.body ?? 's' }],
   kept: params.kept,
   summarized: 1,
+  covered: params.index - params.kept,
   summarizer: 'test',
   at: 4,
 });
@@ -179,7 +181,7 @@ describe('chooseCut', () => {
     const history = [
       user(),
       assistant(),
-      checkpoint({ kept: 2 }),
+      checkpoint({ index: 2, kept: 2 }),
       assistant('c2'),
       big,
       assistant('c3'),
@@ -209,7 +211,14 @@ describe('chooseCut', () => {
   });
 
   it('looks only at what the model still sees after an earlier checkpoint', () => {
-    const history = [user(), assistant(), checkpoint({ kept: 2 }), user(), assistant(), user()];
+    const history = [
+      user(),
+      assistant(),
+      checkpoint({ index: 2, kept: 2 }),
+      user(),
+      assistant(),
+      user(),
+    ];
 
     // The first two messages were already replaced; the cut is within [2..].
     expect(chooseCut({ history, keepTokens: 15 })).toBeGreaterThanOrEqual(2);
@@ -224,7 +233,13 @@ describe('viewOf', () => {
   });
 
   it('puts the checkpoint, as text, in front of the messages it kept and what followed', () => {
-    const history = [user('m0'), user('m1'), user('m2'), checkpoint({ kept: 2 }), user('m4')];
+    const history = [
+      user('m0'),
+      user('m1'),
+      user('m2'),
+      checkpoint({ index: 3, kept: 2 }),
+      user('m4'),
+    ];
     const view = viewOf(history);
 
     expect(view).toHaveLength(4);
@@ -236,7 +251,7 @@ describe('viewOf', () => {
   it('pins the latest prompt word for word after the checkpoint when the tail starts later', () => {
     const prompt = user('the request');
     const history = [prompt, assistant('c1'), result('c1'), assistant('c2'), result('c2')];
-    const withCheckpoint = [...history, checkpoint({ kept: 2 })];
+    const withCheckpoint = [...history, checkpoint({ index: history.length, kept: 2 })];
     const view = viewOf(withCheckpoint);
 
     expect(view[0]?.role === 'user' && view[0].content).toContain('<earlier-work-summary>');
@@ -252,22 +267,22 @@ describe('viewOf', () => {
     };
     const notice = user('Background task finished');
     const history = [typed, assistant('c1'), result('c1'), notice, assistant('c2'), result('c2')];
-    const view = viewOf([...history, checkpoint({ kept: 2 })]);
+    const view = viewOf([...history, checkpoint({ index: history.length, kept: 2 })]);
 
     // Both the person's prompt and the later notice stay: the model answers the last user
     // message, and the request it is working on is not lost behind a notice.
     expect(view.slice(1)).toEqual([typed, notice, history[4], history[5]]);
-    expect(viewOf([typed, checkpoint({ kept: 1 })]).slice(1)).toEqual([typed]);
+    expect(viewOf([typed, checkpoint({ index: 1, kept: 1 })]).slice(1)).toEqual([typed]);
   });
 
   it('shows only the newest of two checkpoints, folded over the first', () => {
     const history = [
       user('m0'),
       user('m1'),
-      checkpoint({ kept: 1, body: 'first' }),
+      checkpoint({ index: 2, kept: 1, body: 'first' }),
       user('m3'),
       user('m4'),
-      checkpoint({ kept: 2, body: 'second' }),
+      checkpoint({ index: 5, kept: 2, body: 'second' }),
     ];
     const view = viewOf(history);
     const text = view[0]?.role === 'user' ? view[0].content : '';
@@ -278,7 +293,7 @@ describe('viewOf', () => {
   });
 
   it('leaves the stored history as it was and never shows a summary role', () => {
-    const history = [user('m0'), user('m1'), checkpoint({ kept: 1 })];
+    const history = [user('m0'), user('m1'), checkpoint({ index: 2, kept: 1 })];
     const before = structuredClone(history);
 
     const roles: string[] = viewOf(history).map((message) => message.role);
@@ -295,7 +310,7 @@ describe('a second checkpoint in a run of one prompt', () => {
 
     for (let n = 0; n < 4; n++) history.push(assistant(`a${String(n)}`), result(`a${String(n)}`));
 
-    history.push(checkpoint({ kept: 2, body: 'first' }));
+    history.push(checkpoint({ index: history.length, kept: 2, body: 'first' }));
 
     for (let n = 0; n < 4; n++) history.push(assistant(`b${String(n)}`), result(`b${String(n)}`));
 
@@ -311,7 +326,11 @@ describe('a second checkpoint in a run of one prompt', () => {
 
     const view = viewOf([
       ...history,
-      checkpoint({ kept: history.length - (cut ?? 0), body: 'second' }),
+      checkpoint({
+        index: history.length,
+        kept: history.length - (cut ?? 0),
+        body: 'second',
+      }),
     ]);
 
     expect(view.slice(1, 2)).toEqual([prompt]);
@@ -329,7 +348,13 @@ describe('spanToSummarize', () => {
   });
 
   it('merges into the newest checkpoint: its sections, and the messages since its tail began', () => {
-    const history = [user('m0'), user('m1'), checkpoint({ kept: 1 }), user('m3'), user('m4')];
+    const history = [
+      user('m0'),
+      user('m1'),
+      checkpoint({ index: 2, kept: 1 }),
+      user('m3'),
+      user('m4'),
+    ];
     const { previous, messages } = spanToSummarize({ history, cut: 4 });
 
     expect(previous?.sections[0]?.body).toBe('s');
@@ -339,7 +364,12 @@ describe('spanToSummarize', () => {
 
 describe('latestCheckpoint', () => {
   it('finds the newest one and where it is', () => {
-    const history = [user(), checkpoint({ kept: 1 }), user(), checkpoint({ kept: 1 })];
+    const history = [
+      user(),
+      checkpoint({ index: 1, kept: 1 }),
+      user(),
+      checkpoint({ index: 3, kept: 1 }),
+    ];
 
     expect(latestCheckpoint(history)?.index).toBe(3);
     expect(latestCheckpoint([user()])).toBeUndefined();

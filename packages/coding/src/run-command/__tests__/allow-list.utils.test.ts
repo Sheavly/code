@@ -119,7 +119,7 @@ describe('parseCommand', () => {
 });
 
 describe('matchesEntry', () => {
-  it('normalizes legacy serialized invocation grants to the base command', () => {
+  it('an exact: array names a base command whose words contain spaces', () => {
     const entry = 'exact:["echo","a b","*"]';
 
     expect(matchesEntry({ argv: ['echo', 'a b', '*'], entry })).toBe(true);
@@ -129,7 +129,15 @@ describe('matchesEntry', () => {
     expect(matchesEntry({ argv: ['printf', 'a b'], entry })).toBe(false);
     expect(matchesEntry({ argv: ['echo'], entry: 'exact:broken' })).toBe(false);
   });
-  it('ordinary legacy entries also match the base command with different arguments', () => {
+  it('prefixed scope strings are ordinary entries and match no command', () => {
+    expect(matchesEntry({ argv: ['sed', '-n'], entry: 'read:sed *' })).toBe(false);
+    expect(matchesEntry({ argv: ['npx', 'eslint'], entry: 'tool:npx eslint check *' })).toBe(false);
+    expect(matchesEntry({ argv: ['node', 'a.mjs'], entry: 'script:node tmp/probe.mjs *' })).toBe(
+      false,
+    );
+  });
+
+  it('an entry also matches its base command with different arguments', () => {
     expect(matchesEntry({ argv: ['git', 'status'], entry: 'git status' })).toBe(true);
     expect(matchesEntry({ argv: ['git', 'status', '--short'], entry: 'git status' })).toBe(true);
     expect(matchesEntry({ argv: ['git'], entry: 'git status' })).toBe(false);

@@ -8,6 +8,7 @@ const checkpoint = (sections: { id: string; title: string; body: string }[]) =>
     sections,
     kept: 3,
     summarized: 9,
+    covered: 1,
     summarizer: 'm',
   });
 

@@ -20,6 +20,7 @@ const result = historyMessageSchema.parse({
 });
 const task = {
   id: 't1',
+  kind: 'agent',
   command: 'review',
   description: 'Review changes',
   status: 'completed',
@@ -45,6 +46,7 @@ const agent = {
   state: 'completed',
   startedAt: 10,
   endedAt: 20,
+  lastOutcome: 'completed',
 };
 const taskNotice = { kind: 'task-finished', task, context };
 const agentNotice = {
@@ -70,6 +72,7 @@ const checkpoint = historyMessageSchema.parse({
   role: 'summary',
   kept: 2,
   summarized: 2,
+  covered: 2,
   sections: [{ id: 'goal', title: 'Goal', body: 'Continue reviewing.' }],
   summarizer: 'test',
   at: 40,

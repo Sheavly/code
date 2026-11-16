@@ -42,6 +42,17 @@ export const modelPricingSchema = z.object({
 export const contextWindowSchema = z.number().int().positive().max(MAX_CONTEXT_WINDOW);
 
 /**
+ * The optional metadata a model carries beside its id, name and adapter, defined once for the
+ * file and the API's model. `RESERVED_MODEL_FIELDS` names the same fields; a test keeps them equal.
+ */
+const modelMetadataShape = {
+  pricing: modelPricingSchema.exactOptional(),
+  identity: modelIdentitySchema.exactOptional(),
+  /** What the agent is told its window is. Left out, `DEFAULT_CONTEXT_WINDOW` applies. */
+  contextWindow: contextWindowSchema.exactOptional(),
+};
+
+/**
  * A model as its file holds it: everything about it but its secret, in the file itself, so the
  * file says what it is whatever it is called. Its `id` is its file's stem, its `name` is for
  * people only, `adapter` is what serves it, and the rest is that adapter's own fields, passed on
@@ -53,10 +64,7 @@ export const modelFileSchema = z.looseObject({
   id: modelIdSchema,
   name: modelNameSchema,
   adapter: adapterKindSchema,
-  pricing: modelPricingSchema.exactOptional(),
-  identity: modelIdentitySchema.exactOptional(),
-  /** What the agent is told its window is. Left out, `DEFAULT_CONTEXT_WINDOW` applies. */
-  contextWindow: contextWindowSchema.exactOptional(),
+  ...modelMetadataShape,
 });
 
 /** A model as the API lists it: its file read once. */
@@ -64,9 +72,7 @@ export const modelSchema = z.object({
   id: modelIdSchema,
   name: modelNameSchema,
   adapter: adapterKindSchema,
-  pricing: modelPricingSchema.exactOptional(),
-  identity: modelIdentitySchema.exactOptional(),
-  contextWindow: contextWindowSchema.exactOptional(),
+  ...modelMetadataShape,
   /** The adapter's own fields, as the file holds them. */
   definition: z.record(z.string(), z.unknown()),
 });

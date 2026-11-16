@@ -133,7 +133,7 @@ describe('model-first setup catalogue', () => {
     expect(() => assertModelHosting({ adapters, model })).toThrow('does not support');
   });
 
-  it('accepts custom deployments for known models and leaves legacy/custom models supported', () => {
+  it('accepts custom deployments for known models and leaves models without an identity supported', () => {
     expect(() =>
       assertModelHosting({
         adapters,
@@ -148,7 +148,7 @@ describe('model-first setup catalogue', () => {
     expect(() =>
       assertModelHosting({
         adapters,
-        model: { name: 'Legacy', adapter: 'openai', definition: { model: 'legacy' } },
+        model: { name: 'No identity', adapter: 'openai', definition: { model: 'plain' } },
       }),
     ).not.toThrow();
     expect(() =>

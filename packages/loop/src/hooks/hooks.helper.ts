@@ -8,7 +8,7 @@ import type {
   ToolResult,
 } from '@sheavly/core/hook/hook.types';
 import type { SummarySection } from '@sheavly/core/summary/summary.types';
-import type { Tool, ToolRunResult } from '@sheavly/core/tool/tool.types';
+import type { Tool, ToolArtifacts, ToolRunResult } from '@sheavly/core/tool/tool.types';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { describeCall } from '@sheavly/core/tool/tool.validator';
 import { assertValidHistory, countChanges } from '../history/history.utils.js';
@@ -19,7 +19,6 @@ import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { guarded, withTimeout } from './guarded.helper.js';
 import { SESSION_END_TIMEOUT_MS } from './hooks.constants.js';
 import type { OnHookError } from './hooks.types.js';
-import type { ToolArtifact } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type {
   Message,
@@ -380,7 +379,7 @@ export async function runToolCall(params: {
   session?: SessionRef | undefined;
   /** Told about a hook that failed; the call is still blocked with an error result. */
   onHookError: OnHookError;
-}): Promise<{ message: ToolMessage; artifacts?: readonly ToolArtifact[] | undefined }> {
+}): Promise<{ message: ToolMessage } & ToolArtifacts> {
   const { hooks, tools, call, signal, session, onHookError } = params;
   const handlers = hooks.filter((hook) => hook.aroundToolCall);
   const description = describeCall(call);

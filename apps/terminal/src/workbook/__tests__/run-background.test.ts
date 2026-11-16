@@ -29,6 +29,7 @@ const task = {
   id: 't1',
   command: 'sleep 1',
   description: 'a background check',
+  kind: 'task',
   status: 'running',
   startedAt: 0,
   output: '',

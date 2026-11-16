@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { outputRefSchema } from '@sheavly/protocol/output/output.validator';
+import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { formatHarnessNotice } from '../notice.utils.js';
 
@@ -51,33 +52,31 @@ describe('formatHarnessNotice', () => {
       id: taskIdSchema.parse('t1'),
       command: 'npm test',
       description: 'tests',
+      kind: 'task' as const,
       status: 'failed' as const,
       startedAt: 1,
       endedAt: 2,
       exitCode: 1,
       output: 'tail only',
     };
-    const text = formatHarnessNotice({
-      kind: 'task-finished',
-      task: { ...task, outputLog: { ref, bytes: 90_000, status: 'complete' } },
-    });
+    const context = { reason: 'tests', startedAt: 1, durationMs: 1, userMessagesSinceStart: 0 };
+    const finished = (shown: TaskInfo) =>
+      formatHarnessNotice({ kind: 'task-finished', task: shown, context });
+    const text = finished({ ...task, outputLog: { ref, bytes: 90_000, status: 'complete' } });
 
     expect(text).toContain(`Full output: output_ref=${ref} (90000 bytes stored, complete)`);
     expect(text).toContain('shortened preview');
     expect(text).toContain('read_output');
+    expect(finished({ ...task, outputLog: { ref, bytes: 9, status: 'complete' } })).not.toContain(
+      'shortened preview',
+    );
     expect(
-      formatHarnessNotice({
-        kind: 'task-finished',
-        task: { ...task, outputLog: { ref, bytes: 9, status: 'complete' } },
-      }),
-    ).not.toContain('shortened preview');
-    expect(
-      formatHarnessNotice({
-        kind: 'task-finished',
-        task: { ...task, outputLog: { ref, bytes: 9, status: 'incomplete', reason: 'disk full' } },
+      finished({
+        ...task,
+        outputLog: { ref, bytes: 9, status: 'incomplete', reason: 'disk full' },
       }),
     ).toContain('INCOMPLETE: disk full');
-    expect(formatHarnessNotice({ kind: 'task-finished', task })).not.toContain('output_ref');
+    expect(finished(task)).not.toContain('output_ref');
   });
 
   it('labels context telemetry and tells the model when it may mention it', () => {

@@ -4,11 +4,14 @@ import type { ToolMessage } from '@sheavly/protocol/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
+/** What a tool returns for a UI beside its text; never kept in history, never sent to the model. */
+export type ToolArtifacts = { artifacts?: readonly ToolArtifact[] | undefined };
+
 /** What `execute` returns: text for the model, plus any artifacts for the UI. */
-export type ToolOutput = string | { content: string; artifacts?: readonly ToolArtifact[] };
+export type ToolOutput = string | ({ content: string } & ToolArtifacts);
 
 /** What `runTool` returns: the history message, plus the tool's artifacts (not kept in history). */
-export type ToolRunResult = ToolMessage & { artifacts?: readonly ToolArtifact[] };
+export type ToolRunResult = ToolMessage & ToolArtifacts;
 
 /** About the call being executed; most tools don't need it. */
 export type ToolContext = {

@@ -9,8 +9,10 @@ const notice = historyMessageSchema.parse({
   at: 7,
   notice: {
     kind: 'task-finished',
+    context: { reason: 'Compare', startedAt: 10, durationMs: 10, userMessagesSinceStart: 1 },
     task: {
       id: 't1',
+      kind: 'task',
       command: 'ls',
       description: 'listing',
       status: 'completed',

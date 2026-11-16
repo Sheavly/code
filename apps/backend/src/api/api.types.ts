@@ -47,7 +47,6 @@ export type ApiHandlers = {
 export type SetupRouteName =
   | 'getSetup'
   | 'setTerminalSettings'
-  | 'migrateTerminalSettings'
   | 'listAdapters'
   | 'listModelCatalog'
   | 'getProfile'

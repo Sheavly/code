@@ -60,9 +60,8 @@ the group context has no call ID. Each member retains its own context, including
 reason and any supplied call ID. Bodies appear in member order, with no nested trusted envelopes.
 Reports remain whole, and task output remains the bounded preview supplied by the protocol.
 
-Historical notices without context keep their previous formatting, including the group wait
-reason fence. The field is optional for history compatibility, not a request to synthesize it
-at formatting time.
+The context is required on all three kinds, so the formatter always renders it; it does not
+synthesize one.
 
 ## Trust boundary
 
@@ -72,7 +71,7 @@ closing fence cannot end a block early. `escapeTags` neutralizes opening angle b
 lookalikes in all agent-authored text; `oneLine` additionally prevents IDs and other header fields
 from adding lines. Report headings remain report content rather than being rewritten.
 
-Regression tests in `src/notice/__tests__/` cover completion contexts, legacy formatting, omitted
-call IDs, forged tags and colliding fences. The formatter is a model-facing trust boundary, not a
+Regression tests in `src/notice/__tests__/` cover completion contexts, omitted call IDs, forged
+tags and colliding fences. The formatter is a model-facing trust boundary, not a
 replacement for protocol validation or for checking a sub-agent's findings against user requests
 and verifiable facts.

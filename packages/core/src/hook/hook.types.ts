@@ -1,6 +1,6 @@
 import type { HANDLER_NAMES } from './hook.constants.js';
 import type { ApprovalRequest, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
-import type { AgentEventBody, DoneReason, ToolArtifact } from '@sheavly/protocol/event/event.types';
+import type { AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import type {
@@ -11,11 +11,10 @@ import type {
   TurnStopReason,
 } from '@sheavly/protocol/message/message.types';
 import type { SummarySection } from '../summary/summary.types.js';
+import type { ToolArtifacts } from '../tool/tool.types.js';
 
 /** What a tool call produced: the text for history, and any artifacts (for the UI). */
-export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
-  artifacts?: readonly ToolArtifact[] | undefined;
-};
+export type ToolResult = Pick<ToolMessage, 'content' | 'isError'> & ToolArtifacts;
 
 /** For handlers that add context: the history so far (a snapshot) and a way to add to it. */
 type ContextAccess = {

@@ -9,4 +9,10 @@ export default [
     files: ['src/history/history.utils.ts', 'src/hooks/hooks.helper.ts'],
     rules: { 'harness/no-adhoc-latest-request': 'off' },
   },
+  // `noticeEntries` is where a kind's lifetime becomes a history entry; every other writer of a
+  // notice (delivery, hook failures, restored reports) goes through it.
+  {
+    files: ['src/stream-agent/notice-publish.helper.ts'],
+    rules: { 'harness/no-adhoc-notice-entry': 'off' },
+  },
 ];

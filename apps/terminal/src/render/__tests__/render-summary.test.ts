@@ -33,11 +33,14 @@ const done: EntryEvent = {
   summarizer: 'model',
   sections: [],
 };
-const failedWith = (error: string, kind?: 'cancellation'): EntryEvent => ({
+const failedWith = (
+  error: string,
+  kind: 'generation' | 'cancellation' = 'generation',
+): EntryEvent => ({
   seq: 7,
   type: 'summary_failed',
   reason: 'overflow',
-  ...(kind && { kind }),
+  kind,
   error,
   retriesLeft: 2,
 });

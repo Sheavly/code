@@ -4,7 +4,7 @@ import { timestampSchema } from '../time/time.validator.js';
 import { skillNameSchema } from '../skill/skill.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 
-/** A persisted user message's stable identity, never sent to the model. Legacy history may omit it. */
+/** A persisted user message's stable identity, never sent to the model. Only a prompt a person typed has one. */
 export const messageIdSchema = lowercaseUuidSchema.brand<'MessageId'>();
 
 /**
@@ -14,9 +14,9 @@ export const messageIdSchema = lowercaseUuidSchema.brand<'MessageId'>();
 export const callIdSchema = z.string().brand<'CallId'>();
 
 /**
- * When a message was created. Optional on the wire, so a history saved before messages were
- * timed, or one a caller writes by hand, still reads; the harness stamps every message it makes.
- * Never sent to a model.
+ * When a message was created. Optional on the wire because a caller writes messages by hand (a
+ * client seeding history, a hook's context); the harness stamps every message it makes. Never
+ * sent to a model.
  */
 export const messageTimeSchema = timestampSchema.exactOptional();
 
@@ -118,13 +118,12 @@ export const summaryMessageSchema = z.object({
   /**
    * Where coverage ends: the entries before this position in history are incorporated (pinned
    * requests aside, which the view still shows). Equals this checkpoint's own position minus
-   * `kept`, and never goes back past the previous checkpoint's. Optional only so a checkpoint
-   * stored before coverage was recorded still reads.
+   * `kept`, and never goes back past the previous checkpoint's.
    */
-  covered: z.number().int().positive().exactOptional(),
+  covered: z.number().int().positive(),
   /**
    * The position of the earlier checkpoint this one folded in, so a summary is never taken from
-   * scratch and none is skipped. Absent for the first checkpoint (and for legacy ones).
+   * scratch and none is skipped. Absent for the first checkpoint.
    */
   incorporated: z.number().int().nonnegative().exactOptional(),
   /** The name of what wrote it. */

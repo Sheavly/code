@@ -74,11 +74,10 @@ function previousCheckpoint(history: readonly HistoryMessage[]): { incorporated?
 /**
  * Throws an `InvalidHistoryError` when the coverage a checkpoint records contradicts the history:
  * it must end where its own tail begins, fold in exactly the checkpoint before it, and never
- * cover less than that one did, so nothing is skipped or taken twice. Legacy checkpoints that
- * record none are not held to it.
+ * cover less than that one did, so nothing is skipped or taken twice.
  */
 function assertCoverageConsistent(history: readonly HistoryMessage[]): void {
-  let previous: { index: number; covered: number | undefined } | undefined;
+  let previous: { index: number; covered: number } | undefined;
 
   history.forEach((entry, index) => {
     if (entry.role !== 'summary') return;
@@ -94,11 +93,9 @@ function assertCoverageConsistent(history: readonly HistoryMessage[]): void {
 function coverageProblem(params: {
   entry: SummaryMessage;
   index: number;
-  previous: { index: number; covered: number | undefined } | undefined;
+  previous: { index: number; covered: number } | undefined;
 }): string | undefined {
   const { entry, index, previous } = params;
-
-  if (entry.covered === undefined) return undefined;
 
   if (entry.covered !== index - entry.kept) {
     return `a checkpoint covers ${entry.covered} entries but its tail begins at ${index - entry.kept}`;
@@ -108,7 +105,7 @@ function coverageProblem(params: {
     return 'a checkpoint does not fold in the checkpoint before it, so a summary was skipped or taken twice';
   }
 
-  if (previous?.covered !== undefined && entry.covered < previous.covered) {
+  if (previous && entry.covered < previous.covered) {
     return 'a checkpoint covers less than the one it folds in';
   }
 

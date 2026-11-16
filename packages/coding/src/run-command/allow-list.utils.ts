@@ -234,7 +234,7 @@ export function parseCommand(line: string): ParseResult {
   return read.ok ? buildSteps(read.tokens) : read;
 }
 
-/** Grants match only command identity, including legacy entries. Options and operands are ignored. */
+/** Grants match only command identity. Options and operands are ignored. */
 export function matchesEntry(params: { argv: readonly string[]; entry: string }): boolean {
   const { argv, entry } = params;
   const approved = allowEntryBase(entry);

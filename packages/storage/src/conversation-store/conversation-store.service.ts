@@ -20,26 +20,19 @@ import { assertSafeRoot, removeFolder } from '../safe-path/safe-path.helper.js';
 import { FileOutputStore } from '../output-store/output-store.service.js';
 import {
   CONVERSATIONS_FOLDER,
-  HISTORY_FILE,
   INDEX_FILE,
   OUTPUTS_FOLDER,
   QUEUE_FILE,
   SHELL_FILE,
 } from './conversation-store.constants.js';
-import {
-  agentHistoryFile,
-  asStoreError,
-  conversationFolder,
-  historyLogFile,
-} from './conversation-store.utils.js';
+import { asStoreError, conversationFolder, historyLogFile } from './conversation-store.utils.js';
 import { documentStoreOf } from './document-store.helper.js';
 import { EntryFile } from './entry-file.service.js';
 import { HistoryFile } from './history-file.service.js';
 
 /**
  * A workspace's conversations on disk: `<workspace folder>/conversations/<conversation-id>/`, one
- * folder each, holding `index.json`, `stream.jsonl`, `history.jsonl` and `agents/<session-id>.history.jsonl`
- * (a legacy `history.json` from before logs is imported into the log once, never written).
+ * folder each, holding `index.json`, `stream.jsonl`, `history.jsonl` and `agents/<session-id>.history.jsonl`.
  * Everything is named by an id, so no title or path from a person reaches a file name, and
  * deleting a conversation deletes its folder and nothing else.
  *
@@ -88,13 +81,7 @@ export class FileConversationStore implements ConversationStore {
     if (known) return known;
 
     const folder = this.#folderOf(id);
-    const log = new HistoryFile({
-      file: historyLogFile({ folder, session }),
-      legacyFile:
-        session === undefined
-          ? path.join(folder, HISTORY_FILE)
-          : agentHistoryFile({ folder, session }),
-    });
+    const log = new HistoryFile({ file: historyLogFile({ folder, session }) });
 
     this.#logs.set(key, log);
 

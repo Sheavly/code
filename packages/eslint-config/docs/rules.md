@@ -121,6 +121,15 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   widened to `string` or `any` first, a lookup (`Set.has`, `includes`, a record indexed by the
   kind), a type of one literal only, a union that mixes in another literal, and a comparison in a
   test are left to review.
+- **A notice entry in history** (`harness/no-adhoc-notice-entry`, source files): no
+  `{ role: 'notice' }` object written by hand. Whether a notice is kept in history is its kind's
+  lifetime in `NOTICE_LIFETIMES` (`@sheavly/protocol/notice/notice.constants`), applied once by
+  `publishNotice` (`packages/loop/src/stream-agent/notice-publish.helper.ts`), which sends the event
+  and keeps the entry for a persistent kind; a writer that sends no event (restoring a reopened
+  conversation's reports) uses `noticeEntries` from the same file. That helper is the one `files:`
+  exception, in packages/loop/eslint.config.js. It sees an object literal with a literal role
+  (plain, quoted key, `as const` or `satisfies`), so an entry built from a variable role, a
+  computed key or a spread is left to review.
 - **The latest request** (`harness/no-adhoc-latest-request`, source files): no
   `findLast`/`findLastIndex` looking for the last `user` entry by hand. What a request is in stored
   history is decided once, by `latestRequest`, `latestRequestIndex` and `latestPromptIndex`

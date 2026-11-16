@@ -113,12 +113,9 @@ function liveStart(history: readonly HistoryMessage[]): number {
  * and a stored notice becomes a user-role message holding its formatted text. It carries no `id`,
  * so it is never taken for a prompt a person typed (see `pinnedBefore`).
  */
-function withoutCheckpoints(params: {
-  messages: readonly HistoryMessage[];
-  hideCallReferences?: boolean;
-}): Message[] {
-  const { messages, hideCallReferences } = params;
-  const callIds = hideCallReferences ? new Set<never>() : visibleCallIds(messages);
+function withoutCheckpoints(params: { messages: readonly HistoryMessage[] }): Message[] {
+  const { messages } = params;
+  const callIds = visibleCallIds(messages);
 
   return messages.flatMap((message): Message[] => {
     if (message.role === 'summary') return [];
@@ -173,22 +170,9 @@ function pinnedIndices(params: { history: readonly HistoryMessage[]; start: numb
  * history. Stored history is not changed.
  */
 export function viewOf(history: readonly HistoryMessage[]): Message[] {
-  return projectHistory({ history });
-}
-
-/** Hooks receive no provisional call pointers; the final model input resolves them after hooks. */
-export function viewWithoutCallReferences(history: readonly HistoryMessage[]): Message[] {
-  return projectHistory({ history, hideCallReferences: true });
-}
-
-function projectHistory(params: {
-  history: readonly HistoryMessage[];
-  hideCallReferences?: boolean;
-}): Message[] {
-  const { history, hideCallReferences = false } = params;
   const latest = latestCheckpoint(history);
 
-  if (!latest) return withoutCheckpoints({ messages: history, hideCallReferences });
+  if (!latest) return withoutCheckpoints({ messages: history });
 
   const { checkpoint } = latest;
   const start = liveStart(history);
@@ -201,7 +185,7 @@ function projectHistory(params: {
   return [
     text,
     ...pinnedBefore({ history, start }),
-    ...withoutCheckpoints({ messages: history.slice(start), hideCallReferences }),
+    ...withoutCheckpoints({ messages: history.slice(start) }),
   ];
 }
 

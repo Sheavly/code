@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { RESERVED_MODEL_FIELDS } from '../model.constants.js';
 import {
   adapterDescriptionSchema,
   keyCheckSchema,
@@ -8,6 +9,16 @@ import {
 } from '../model.validator.js';
 
 const ID = '0b6c2f1e-3a4d-4c8e-9f10-7a2b5d6e8c01';
+
+describe('the model envelope fields', () => {
+  it('are the same in the file, the API model and the reserved list', () => {
+    const fileFields = Object.keys(modelFileSchema.shape).sort();
+    const modelFields = Object.keys(modelSchema.shape).filter((key) => key !== 'definition');
+
+    expect(modelFields.sort()).toEqual(fileFields);
+    expect([...RESERVED_MODEL_FIELDS].sort()).toEqual(fileFields);
+  });
+});
 
 describe('modelIdSchema', () => {
   it('takes a lowercase UUID, which is safe to be a file name', () => {

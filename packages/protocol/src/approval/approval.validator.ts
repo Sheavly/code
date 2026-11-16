@@ -45,6 +45,19 @@ export const approvalOptionSchema = z.enum([
 ]);
 
 /**
+ * An answer to a request that offered only `options`: `approvalResponseSchema` that also rejects a
+ * decision outside them, so a client or server can validate the answer against its own request.
+ */
+export function approvalResponseOfferedBy(
+  options: readonly z.infer<typeof approvalOptionSchema>[],
+) {
+  return approvalResponseSchema.refine((response) => options.includes(response.decision), {
+    message: `decision must be one of the offered options: ${options.join(', ')}`,
+    path: ['decision'],
+  });
+}
+
+/**
  * A tool is waiting for the user: "the agent wants to run this; approve it?". A UI renders it its
  * own way and answers with `ApprovalRegistry.respond`.
  */

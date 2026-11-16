@@ -18,17 +18,26 @@ const agent = {
   startedAt: 10,
   endedAt: 20,
 };
+const context = {
+  reason: 'Use the results',
+  startedAt: 10,
+  durationMs: 10,
+  userMessagesSinceStart: 0,
+};
 const report = {
   kind: 'agent-report',
   agent,
   taskId: 't1',
   outcome: 'completed',
   report: 'REPORT-BEGIN\n'.concat('Finding: x\n'.repeat(900), 'REPORT-END'),
+  context,
 };
 const finished = {
   kind: 'task-finished',
+  context,
   task: {
     id: 't2',
+    kind: 'task',
     command: 'npm test',
     description: 'running tests',
     status: 'completed',
@@ -88,6 +97,7 @@ describe('a completion group', () => {
     kind: 'tasks-finished',
     reason: 'Compare the findings and tests',
     notices: [report, finished],
+    context,
   };
 
   it('preserves the reason and individual notices, including the whole report', () => {
