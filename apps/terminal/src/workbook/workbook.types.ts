@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import type { ModelMode } from '@sheavly/protocol/model/model.types';
 import type { RUN_FILES } from './workbook.constants.js';
 import type {
   promptFileSchema,
@@ -32,6 +33,8 @@ export type Command =
       showModelCalls: boolean;
       trust: boolean;
       model?: string | undefined;
+      /** The raw `--mode` word; checked by `workbookMode`. */
+      mode?: string | undefined;
     }
   | {
       name: 'ask';
@@ -39,6 +42,8 @@ export type Command =
       showModelCalls: boolean;
       trust: boolean;
       model?: string | undefined;
+      /** The raw `--mode` word; checked by `workbookMode`. */
+      mode?: string | undefined;
     }
   | {
       name: 'continue';
@@ -47,6 +52,8 @@ export type Command =
       showModelCalls: boolean;
       trust: boolean;
       model?: string | undefined;
+      /** The raw `--mode` word; checked by `workbookMode`. */
+      mode?: string | undefined;
     }
   | {
       name: 'check';
@@ -54,6 +61,8 @@ export type Command =
       all: boolean;
       approvedCommands: string[];
       model?: string | undefined;
+      /** The raw `--mode` word; checked by `workbookMode`. */
+      mode?: string | undefined;
     }
   | { name: 'list' }
   | { name: 'show'; run?: string | undefined }
@@ -85,4 +94,9 @@ export type RunRequest = {
    * choice. For this run only; it never changes the model the profile remembers.
    */
   model?: string | undefined;
+  /**
+   * The reasoning effort to run on: `--mode`, else `WORKBOOK_MODE`, else the one the profile
+   * remembers for the model. For this run only; it is never remembered.
+   */
+  mode?: ModelMode | undefined;
 };

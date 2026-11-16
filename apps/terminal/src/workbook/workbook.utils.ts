@@ -1,10 +1,13 @@
 import path from 'node:path';
 import { latestRequestIndex } from '@sheavly/core/history/history.utils';
+import { WorkbookOptionError } from '../errors/workbook.errors.js';
 import { parseCheckApprovalOptions } from './check-approval.validator.js';
 import { firstLine, oneLine, shortId } from '../render/render.utils.js';
 import { RUN_FILES, USAGE } from './workbook.constants.js';
 import type { Command, RunId, RunPaths, RunResult } from './workbook.types.js';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
+import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 
 /** A prompt or fixture name is one file name in its folder (`write-and-edit`), never a path. */
@@ -53,7 +56,34 @@ export function workbookModel(params: {
   return [flag, env.WORKBOOK_MODEL].find((value) => value !== undefined && value.trim() !== '');
 }
 
-const VALUE_FLAGS = new Set(['--continue', '--from', '--model']);
+/**
+ * The reasoning effort a workbook run starts on: `--mode`, else `WORKBOOK_MODE` from the
+ * environment, else none, and the backend uses the one the profile remembers for the model. An
+ * empty value means none. Throws when the value is not one of the modes, so a typo never runs on
+ * another effort without a word.
+ */
+export function workbookMode(params: {
+  flag: string | undefined;
+  env: Record<string, string | undefined>;
+}): ModelMode | undefined {
+  const { flag, env } = params;
+  const value = [flag, env.WORKBOOK_MODE].find((word) => word !== undefined && word.trim() !== '');
+
+  if (value === undefined) return undefined;
+
+  const parsed = modelModeSchema.safeParse(value.trim());
+
+  if (!parsed.success) {
+    throw new WorkbookOptionError({
+      value,
+      message: `The mode "${value}" is not one of ${modelModeSchema.options.join(', ')} (--mode or WORKBOOK_MODE).`,
+    });
+  }
+
+  return parsed.data;
+}
+
+const VALUE_FLAGS = new Set(['--continue', '--from', '--model', '--mode']);
 
 /**
  * The words of the command line: not the flags, and not the one word after a flag that takes a
@@ -67,13 +97,16 @@ function wordsOf(argv: string[]): string[] {
 }
 
 /**
- * Whether `--model` is absent or has a value of its own. None, another flag in its place, or the
- * `--model=x` form would otherwise run on the profile's model without a word, so they are refused.
+ * Whether `flag` (`--model` or `--mode`) is absent or has a value of its own. None, another flag in
+ * its place, or the `--flag=x` form would otherwise run on the profile's own choice without a
+ * word, so they are refused.
  */
-function hasUsableModelFlag(argv: string[]): boolean {
-  if (argv.some((arg) => arg.startsWith('--model='))) return false;
+function hasUsableValueFlag(params: { argv: string[]; flag: '--model' | '--mode' }): boolean {
+  const { argv, flag } = params;
 
-  const at = argv.indexOf('--model');
+  if (argv.some((arg) => arg.startsWith(`${flag}=`))) return false;
+
+  const at = argv.indexOf(flag);
   const value = argv[at + 1];
 
   return at === -1 || (value !== undefined && !value.startsWith('--'));
@@ -89,9 +122,12 @@ export function parseCommand(input: string[]): Command {
     return index === -1 ? undefined : argv[index + 1];
   };
   const model = valueOf('--model');
+  const mode = valueOf('--mode');
   const words = wordsOf(argv);
 
-  if (!hasUsableModelFlag(argv)) return { name: 'help' };
+  if (!(['--model', '--mode'] as const).every((flag) => hasUsableValueFlag({ argv, flag }))) {
+    return { name: 'help' };
+  }
 
   const [name, ...rest] = words;
   const showModelCalls = flags.has('--model-calls');
@@ -108,18 +144,19 @@ export function parseCommand(input: string[]): Command {
             showModelCalls,
             trust,
             model,
+            mode,
           }
         : { name: 'help' };
     case 'ask':
       return rest.length > 0
-        ? { name: 'ask', text: rest.join(' '), showModelCalls, trust, model }
+        ? { name: 'ask', text: rest.join(' '), showModelCalls, trust, model, mode }
         : { name: 'help' };
     case 'continue':
       // `continue "text"` (the last run) or `continue <run> "text"`.
       if (rest.length === 0) return { name: 'help' };
 
       return rest.length === 1
-        ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust, model }
+        ? { name: 'continue', text: rest[0] ?? '', showModelCalls, trust, model, mode }
         : {
             name: 'continue',
             run: rest[0],
@@ -127,6 +164,7 @@ export function parseCommand(input: string[]): Command {
             showModelCalls,
             trust,
             model,
+            mode,
           };
     case 'check':
       return {
@@ -135,6 +173,7 @@ export function parseCommand(input: string[]): Command {
         all: flags.has('--all'),
         approvedCommands,
         model,
+        mode,
       };
     case 'list':
       return { name: 'list' };

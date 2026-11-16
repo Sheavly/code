@@ -87,6 +87,9 @@ export const USAGE = `Usage: npm run workbook -- <command>
   --model <id|name>        run on this one of your profile's models, for this run only (never
                            remembered). Default: WORKBOOK_MODEL from the environment, else the
                            profile's own choice. A name only needs to be unique, e.g. "deepseek".
+  --mode <low|medium|high|extreme>
+                           reasoning effort for this run only (never remembered). Default:
+                           WORKBOOK_MODE from the environment, else the profile's mode for the model.
   --trust                  trust the workspace's .sheavly/ hooks (a fresh fixture copy already is)
 
 Runs are saved in workbook/runs/<id>/ as they happen; "last" means the most recent run.`;

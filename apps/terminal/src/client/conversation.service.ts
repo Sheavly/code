@@ -57,14 +57,17 @@ export class RemoteConversation {
     workspace?: string;
     /** The model to start on, by id or name; the profile's own choice when omitted. */
     model?: string | undefined;
+    /** The reasoning effort to start on, for this conversation only; the profile's own when omitted. */
+    mode?: ModelMode | undefined;
   }): Promise<RemoteConversation> {
-    const { backend, messages, workspace, model } = params;
+    const { backend, messages, workspace, model, mode } = params;
     const client = clientFor(backend);
     const { id } = await client.call('startConversation', {
       body: {
         ...(messages && { messages }),
         ...(workspace && { workspace }),
         ...(model && { model }),
+        ...(mode && { mode }),
       },
     });
 

@@ -54,7 +54,9 @@ export function parseCheckApprovalOptions(argv: string[]): {
 
   if (
     argv[0] === 'check' &&
-    remaining.some((word) => word.startsWith('--') && word !== '--all' && word !== '--model')
+    remaining.some(
+      (word) => word.startsWith('--') && !['--all', '--model', '--mode'].includes(word),
+    )
   ) {
     throw new WorkbookCheckError({ message: 'Unknown workbook check flag.' });
   }
