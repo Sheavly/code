@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isTestOrFake } from '../test-paths.utils.js';
 import { createPromptFlow, memberName, unwrapPrompt, walkPrompt } from './prompt-flow.utils.js';
 import {
   hasPromptProperties,
@@ -75,7 +76,7 @@ export const promptLocation = {
     },
   },
   create(context) {
-    if (/\.(prompt|test|fake)\.tsx?$|[/\\](__tests__|testing)[/\\]/.test(context.filename)) {
+    if (/\.(prompt|fake)\.tsx?$/.test(context.filename) || isTestOrFake(context.filename)) {
       return {};
     }
 

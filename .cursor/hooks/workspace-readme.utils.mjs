@@ -4,6 +4,7 @@
 // chat, so the context arrives when work there starts and never again.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { workspaceOfRelative } from '../../packages/eslint-config/src/layout.utils.js';
 import { getChatState, PROJECT_ROOT, updateChatState } from './hooks.utils.mjs';
 import { readWorkspaces } from './layout.utils.mjs';
 
@@ -11,10 +12,7 @@ import { readWorkspaces } from './layout.utils.mjs';
 export function workspaceOf(params) {
   const { root, relative } = params;
 
-  return readWorkspaces(root)
-    .filter((workspace) => workspace.relative !== '.')
-    .filter((workspace) => relative.startsWith(`${workspace.relative}/`))
-    .sort((a, b) => b.relative.length - a.relative.length)[0];
+  return workspaceOfRelative({ workspaces: readWorkspaces(root), file: relative });
 }
 
 /** The note that shows `workspace`'s README, or null when it has none (the layout check says so). */

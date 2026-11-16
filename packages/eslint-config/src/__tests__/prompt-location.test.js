@@ -96,6 +96,8 @@ tester.run('prompt-location', promptLocation, {
     },
     { code: tool("'Fixture'"), filename: filename.replace('.tool.ts', '.tool.test.ts') },
     { code: tool("'Fixture'"), filename: path.join(root, 'packages/new/src/testing/tool.fake.ts') },
+    // A workspace of fakes (`packages/testing`) has no `testing/` folder below its `src/`.
+    { code: tool("'Fixture'"), filename: path.join(root, 'packages/new/src/tool/tool.fake.ts') },
     {
       code: "export const text = 'Instructions';",
       filename: filename.replace('.tool.ts', '.prompt.ts'),

@@ -7,7 +7,11 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
-import { listWorkspaces, readLayout } from '../../packages/eslint-config/src/layout.utils.js';
+import {
+  listWorkspaces,
+  readLayout,
+  workspaceOfRelative,
+} from '../../packages/eslint-config/src/layout.utils.js';
 import { GENERATED_DOCS } from '../../scripts/graph.mjs';
 
 /** The workspaces `names` reach as importers, transitively, themselves included. */
@@ -31,14 +35,6 @@ function withDependents(params) {
   return found;
 }
 
-function workspaceOf(params) {
-  const { workspaces, file } = params;
-
-  return workspaces
-    .filter(({ relative }) => file.startsWith(`${relative}/`))
-    .sort((a, b) => b.relative.length - a.relative.length)[0];
-}
-
 /**
  * This chat's scope in the checkout at `root`: `files` (project-relative, what it edited), the
  * workspaces to check (`names`), whether the root's own files are in it (`root`), and the
@@ -48,7 +44,7 @@ function workspaceOf(params) {
 export function gateScope(params) {
   const { root, files, dirty, othersEdited } = params;
   const workspaces = listWorkspaces(root);
-  const owned = (file) => workspaceOf({ workspaces, file });
+  const owned = (file) => workspaceOfRelative({ workspaces, file });
   const edited = new Set(
     files
       .map(owned)
