@@ -21,7 +21,9 @@
     "domain": "generic"
   },
   "devDependencies": {
-    "@sheavly/testing": "^0.0.0"
+    "@sheavly/testing": "^0.0.0",
+    "@types/luxon": "^3.7.6",
+    "luxon": "^3.7.2"
   },
   "exports": {
     "./*.helper": {
