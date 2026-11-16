@@ -7,7 +7,7 @@ Every run is a **session** with an id. The main session is the one the UI starts
 Before a new user prompt, the host calls `sessions.setMessage({ sessionId, messageId })`.
 Subsequent stream entries carry that ID. A child inherits its parent's current ID when it starts;
 later parent prompts do not reassign existing children. Restoring the stream rebuilds associations
-from every entry, not only its retained tail. Legacy entries without IDs remain valid. The identity
+from every entry, not only its retained tail. An entry may carry no ID, because only a typed prompt has one. The identity
 is diagnostic metadata, never model input.
 
 ## Sessions
