@@ -16,6 +16,12 @@ export default defineConfig([
     files: ['src/harness/model-calls.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // The API's error mapping is where an approval that is not waiting becomes `unknown_approval`:
+  // it produces the code the clients forgive with `answerWhileWaiting`.
+  {
+    files: ['src/api/api.utils.ts'],
+    rules: { 'harness/no-adhoc-unknown-approval': 'off' },
+  },
   // The model-call log shows the last `user` message of the request a model is sent, a model view
   // where notices are `user` messages too, so it is not a lookup of the stored request.
   {

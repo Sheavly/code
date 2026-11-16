@@ -147,6 +147,27 @@ ruleTester.run('no-adhoc-main-session', harnessPlugin.rules['no-adhoc-main-sessi
   ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
 });
 
+ruleTester.run('no-adhoc-unknown-approval', harnessPlugin.rules['no-adhoc-unknown-approval'], {
+  valid: [
+    // The shared handling: the call is wrapped, the code is not matched.
+    "import { answerWhileWaiting } from '@sheavly/client/approvals/approvals.helper'; await answerWhileWaiting(() => conversation.answerApproval(answer));",
+    // Other codes are another rule's business.
+    "if (error.code === 'not_found') return;",
+    "const code = 'unknown_model';",
+    // Only the whole code: a sentence that mentions it is not a match on it.
+    "const note = 'unknown_approval is handled elsewhere';",
+    'const text = `${prefix} unknown_approval`;',
+  ],
+  invalid: [
+    "if (caughtError instanceof RefusedError && caughtError.code === 'unknown_approval') return;",
+    "if (error.code !== 'unknown_approval') throw error;",
+    "const gone = ['unknown_approval'].includes(error.code);",
+    "switch (error.code) { case 'unknown_approval': return; }",
+    // The same code spelled as a template literal.
+    'if (error.code === `unknown_approval`) return;',
+  ].map((code) => ({ code, errors: [{ messageId: 'm0' }] })),
+});
+
 ruleTester.run(
   'no-direct-instruction-context',
   harnessPlugin.rules['no-direct-instruction-context'],
