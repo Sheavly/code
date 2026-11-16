@@ -1,7 +1,7 @@
 import { fileTrail } from '@sheavly/coding/trail/trail.utils';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { modelSummarizer } from '@sheavly/summary/model/model.helper';
 import { outputRefsSection } from '@sheavly/summary/sections/output-refs.utils';
 import { trailSection } from '@sheavly/summary/sections/trail.utils';

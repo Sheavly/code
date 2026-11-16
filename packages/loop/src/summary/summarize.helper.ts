@@ -1,5 +1,5 @@
 import { now } from '@sheavly/core/clock/clock.helper';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { SummaryReason } from '@sheavly/core/hook/hook.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';

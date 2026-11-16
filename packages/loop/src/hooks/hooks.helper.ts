@@ -15,7 +15,7 @@ import { assertValidHistory, countChanges } from '../history/history.utils.js';
 import { parseSentMessages } from '../history/history.validator.js';
 import { mergeSections, viewOf } from '../summary/summary.utils.js';
 import { parseSummaryChange } from './summary-change.validator.js';
-import { redactDiagnosticText } from '@sheavly/runtime/errors/diagnostic-text.utils';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { guarded, withTimeout } from './guarded.helper.js';
 import { SESSION_END_TIMEOUT_MS } from './hooks.constants.js';
 import type { OnHookError } from './hooks.types.js';

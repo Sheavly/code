@@ -5,7 +5,7 @@
  * and the waiting tool carries on. The harness renders nothing.
  */
 import { ApprovalListenerError, ApprovalRequestError } from '../errors/approvals.errors.js';
-import { redactDiagnosticText } from '../errors/diagnostic-text.utils.js';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { errorMessage } from '../errors/errors.utils.js';
 import { DEFAULT_OPTIONS, HOOK_DECISIONS } from './approvals.constants.js';
 import type { Screener } from './approvals.types.js';

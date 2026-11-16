@@ -1,6 +1,6 @@
 import type { ErrorDetails } from '@sheavly/protocol/event/event.types';
 import { errorCode } from './errors.utils.js';
-import { redactDiagnosticText } from './diagnostic-text.utils.js';
+import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 
 function metadata(error: Error) {
   const code = errorCode(error);
