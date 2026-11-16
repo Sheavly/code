@@ -29,6 +29,15 @@ describe('taskInfoSchema', () => {
     expect(taskInfoSchema.safeParse({ ...TASK, reason }).success).toBe(false);
   });
 
+  it('keeps a task or service kind, leaves a legacy snapshot without one, and rejects others', () => {
+    expect(taskInfoSchema.parse({ ...TASK, kind: 'service' }).kind).toBe('service');
+    expect(taskInfoSchema.parse({ ...TASK, kind: 'task' }).kind).toBe('task');
+    expect(taskInfoSchema.parse({ ...TASK, kind: 'agent' }).kind).toBe('agent');
+    expect(taskInfoSchema.parse(TASK)).not.toHaveProperty('kind');
+    expect(taskInfoSchema.safeParse({ ...TASK, kind: 'daemon' }).success).toBe(false);
+    expect(taskInfoSchema.safeParse({ ...TASK, kind: undefined }).success).toBe(false);
+  });
+
   it('rejects an unknown status', () => {
     expect(taskInfoSchema.safeParse({ ...TASK, status: 'paused' }).success).toBe(false);
   });
