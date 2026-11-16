@@ -47,8 +47,8 @@ appended after all history, as before. Stored history is not changed: the notice
 in the opaque replay state. Cache breakpoints stay on the last history block, so the current
 notice never ends a cached prefix.
 
-A reply whose hash still fails (instructions, tools or an earlier message changed, or state stored
-before `notices` existed) keeps its text and tool calls and loses its thinking, reported as
+A reply whose hash still fails (instructions, tools or an earlier message changed, or its thinking carries a source tag that
+does not match the current endpoint and model) keeps its text and tool calls and loses its thinking, reported as
 `prefix_changed`. Removing a thinking block changes the prefix of later replies, so those fail
 too. Earlier replies that still match remain replayable.
 
@@ -100,7 +100,7 @@ hits, billing or model quality.
 - Upstream DeepSeek's disk cache is automatic, enabled by default and best effort. It matches a request's start against persisted prefix units (the end of the user input, the end of the output, detected common prefixes and fixed token intervals). A request must fully match a unit to hit, so retained history must stay byte-identical. Construction takes seconds; reuse is not guaranteed.
 - Chat sends no artificial `cache_control`, cache key or cache breakpoints. Stable instructions, tools and retained history precede transient notices. Changing a notice changes the end of the request, not that retained prefix. Fake multi-tool and subsequent-user-turn tests verify those serialized bytes and history isolation; they do not prove the server persisted a reusable unit before the notice.
 - Usage: `prompt_cache_hit_tokens` is cache reads; `prompt_cache_miss_tokens` is uncached input, **not cache writes**. The optional `prompt_tokens_details.cached_tokens` is an alternative or duplicate read count, and wins when both appear; reads are counted once as a subset of `prompt_tokens`. All reported counts must be nonnegative integers. A reported read or miss count cannot exceed `prompt_tokens`. Beyond that bound, a provider whose own counts disagree keeps its reply and misses are derived here as input minus reads, so inconsistent telemetry never costs an answer that already streamed.
-- Final usage retains total input and output, maps reads, and reports zero cache writes: misses do not measure cache creation. Missing cache fields, a null read or miss count, empty or null optional token details and absent or null usage retain legacy behavior; a null count is unreported, not a measured zero. A default read count of zero is not evidence that caching was measured or unavailable; absent usage stays absent.
+- Final usage retains total input and output, maps reads, and reports zero cache writes: misses do not measure cache creation. Missing cache fields, a null read or miss count, empty or null optional token details and absent or null usage leave usage unreported; a null count is unreported, not a measured zero. A default read count of zero is not evidence that caching was measured or unavailable; absent usage stays absent.
 - The shared protocol needs no miss field: uncached input is total input minus reads, and no write measurement is available. `cacheKey` is ignored.
 - These are upstream DeepSeek semantics and offline adapter accounting checks, not a claim that every Foundry deployment returns those fields, uses the same cache persistence rules, or charges upstream rates. One paid check on `DeepSeek-V4.1-Flash-1017` (eight capped requests, at most 512 output tokens each) saw cache reads on repeated and extended prefixes with zero writes; it did not measure billing, other deployments, or the upstream cache's persistence rules.
 

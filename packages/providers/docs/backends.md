@@ -213,9 +213,9 @@ Anthropic Messages API receives adaptive thinking and `output_config.effort` (lo
 or max for extreme), with no fixed thinking budget. Completed Messages replies are kept as opaque
 replay state, with their original text, thinking and tool-block order and a hash of the request
 prefix. Signed thinking is replayed only when system instructions, tools and preceding messages
-still match. Legacy thinking without that provenance, or thinking after an edited prefix, is
-left out while text and tool calls remain. This also permits recovery from older saved chats
-without replaying invalid signatures. The AGENTS.md and skills hooks append updates to history
+still match. Thinking whose source tag does not match the current endpoint and model, or thinking
+after an edited prefix, is left out (and reported) while text and tool calls remain, so invalid
+signatures are never replayed. The AGENTS.md and skills hooks append updates to history
 rather than rewriting the system prompt. See
 [preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking).
 This requires a deployment supporting those native effort levels; an unsupported
