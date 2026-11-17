@@ -14,7 +14,7 @@ import { createStartServiceTool } from '../start-service.tool.js';
 import type { ApprovalResponse, ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testPermissions } from '../../testing/permissions.fake.js';
 

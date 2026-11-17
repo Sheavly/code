@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@sheavly/client": "^0.0.0",
+    "@sheavly/process": "^0.0.0",
     "@sheavly/testing": "^0.0.0"
   }
 }

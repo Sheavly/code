@@ -2,7 +2,7 @@
 
 Coding as an extension (see [the extensions guide](../../.agents/skills/sheavly/extensions.md)):
 the coding tools and the services a coding run shares. `createCodingHarness` opens the workspace
-and makes one set of file locks and one process runner on top of `createHarness`; the tools are
+and makes one set of file locks and one process runner (`@sheavly/process`) on top of `createHarness`; the tools are
 built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
 the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
 shares them with sub-agents through `@sheavly/agents`. A coding UI composes it in an

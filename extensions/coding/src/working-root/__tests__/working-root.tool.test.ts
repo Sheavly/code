@@ -7,7 +7,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { useTempRepo, openWithWorktrees } from '@sheavly/workspace/testing/git-repo.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import {
   memoryWorkingRootStore,
   testWorkingRoots,

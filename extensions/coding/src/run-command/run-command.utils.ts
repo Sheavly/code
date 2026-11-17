@@ -1,9 +1,9 @@
-import { MAX_OUTPUT_CHARS } from '@sheavly/workspace/process/process.constants';
+import { MAX_OUTPUT_CHARS } from '@sheavly/process/process/process.constants';
 import type {
   ProcessResult,
   ScriptParams,
   ScriptStep,
-} from '@sheavly/workspace/process/process.types';
+} from '@sheavly/process/process/process.types';
 import {
   DIFF_SUBCOMMANDS,
   NO_DIFF_PROGRAM_FLAGS,

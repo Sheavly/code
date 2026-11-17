@@ -1,6 +1,6 @@
 import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
-import { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import { ProcessRunner } from '@sheavly/process/process/process.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
 import { composeInstructions } from '@sheavly/host/instructions/instructions.helper';

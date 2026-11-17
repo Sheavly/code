@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import type { ProcessResult } from '@sheavly/workspace/process/process.types';
+import type { ProcessResult } from '@sheavly/process/process/process.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
@@ -8,7 +8,7 @@ import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';

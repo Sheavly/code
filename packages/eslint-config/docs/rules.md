@@ -187,10 +187,10 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `replay.utils.ts` (compares the source) are the two `files:` exceptions; `no-handrolled-provider-policy.test.js` pins where
   the rule is on and off. It matches these spellings only: a status compared as a number
   (`=== 429`), or a header name held in a variable, is left to review.
-- **Command deadlines** (`harness/no-adhoc-command-deadline`, the workspace package's
-  `src/process/`, enabled in `packages/workspace/eslint.config.js`): no `AbortSignal.timeout`, no
+- **Command deadlines** (`harness/no-adhoc-command-deadline`, the process package's
+  `packages/process/src/process/`, enabled in `packages/process/eslint.config.js`): no `AbortSignal.timeout`, no
   `setTimeout` and no `setInterval`. "Timed out" for a command or a script is `withDeadline`'s
-  (`packages/workspace/src/process/deadline.helper.ts`): the deadline aborted and the caller did
+  (`packages/process/src/process/deadline.helper.ts`): the deadline aborted and the caller did
   not. `deadline.helper.ts` is the one `files:` exception; `no-adhoc-command-deadline.test.js`
   pins where the rule is on and off, and the gaps it leaves to review: it matches the plain
   spellings only, so a renamed import (`setTimeout as sleep`), `globalThis.setTimeout`,

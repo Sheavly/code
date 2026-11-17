@@ -1,7 +1,7 @@
 import type { OutputStore, OutputWriter } from '@sheavly/core/output/output.types';
 import type { AllowEntry, Permissions } from '@sheavly/protocol/permission/permission.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';

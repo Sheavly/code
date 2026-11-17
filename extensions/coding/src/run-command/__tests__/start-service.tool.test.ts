@@ -4,7 +4,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';

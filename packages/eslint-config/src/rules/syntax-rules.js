@@ -283,21 +283,21 @@ export const SYNTAX_RULES = {
     },
   ],
   // "Timed out" for a command or a script is decided once, in `withDeadline`
-  // (`packages/workspace/src/process/deadline.helper.ts`): the deadline aborted and the caller did
+  // (`packages/process/src/process/deadline.helper.ts`): the deadline aborted and the caller did
   // not. A timer of its own beside it is a second definition, which is how `ProcessRunner.run` and
   // `runScript` once disagreed about a cancel after the deadline. Enabled for the process folder
-  // in the workspace's eslint.config.js, with a `files:` override for the helper itself. Not
+  // in the process package's eslint.config.js, with a `files:` override for the helper itself. Not
   // covered: a timer made another way (`timers/promises`, `AbortSignal.any` with your own signal).
   'no-adhoc-command-deadline': [
     {
       selector: "CallExpression[callee.object.name='AbortSignal'][callee.property.name='timeout']",
       message:
-        'Do not set a command timeout with `AbortSignal.timeout` yourself. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: the deadline aborted and the caller did not. Use its `signal` to stop the command and its `timedOut()` for the result.',
+        'Do not set a command timeout with `AbortSignal.timeout` yourself. `withDeadline` (`packages/process/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: the deadline aborted and the caller did not. Use its `signal` to stop the command and its `timedOut()` for the result.',
     },
     {
       selector: 'CallExpression[callee.name=/^(setTimeout|setInterval)$/]',
       message:
-        'Do not run a timer for a command by hand. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
+        'Do not run a timer for a command by hand. `withDeadline` (`packages/process/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
     },
   ],
   // Ctrl+C in the terminal app is `interruptOnCtrlC`'s: the same-keypress window, one force-quit

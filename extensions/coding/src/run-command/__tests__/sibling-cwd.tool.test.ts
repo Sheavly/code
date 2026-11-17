@@ -8,7 +8,7 @@ import {
   openWithWorktrees,
   useTempRepo,
 } from '@sheavly/workspace/testing/git-repo.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 

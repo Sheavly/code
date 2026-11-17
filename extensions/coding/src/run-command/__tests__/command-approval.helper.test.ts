@@ -5,7 +5,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { answeringUi } from '@sheavly/runtime/testing/approvals.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';

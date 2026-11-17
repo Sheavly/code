@@ -10,7 +10,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 /**

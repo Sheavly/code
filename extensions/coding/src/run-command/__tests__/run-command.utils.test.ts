@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { safeSteps } from '../run-command.utils.js';
-import type { ScriptParams } from '@sheavly/workspace/process/process.types';
+import type { ScriptParams } from '@sheavly/process/process/process.types';
 
 describe('command arguments after approval', () => {
   it('does not change grep paths, filters or unknown options and preserves connectors', () => {

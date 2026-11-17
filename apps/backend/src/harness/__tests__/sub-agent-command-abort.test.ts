@@ -15,7 +15,7 @@ import {
 } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
-import { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import { ProcessRunner } from '@sheavly/process/process/process.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 
 const temp = useTempWorkspace({ prefix: 'sub-agent-command-abort-' });

@@ -1,10 +1,8 @@
 # @sheavly/workspace
 
-A project on disk, for coding UIs: path confinement to the workspace root, the process runner,
-per-file locks, workspace trust, the project's `.sheavly/` hooks and the AGENTS.md hook. Only
-coding packages and coding UIs depend on it.
-Process results retain bounded first/last output lines, with shortened oversized lines and a
-30,000-character limit. Original output still reaches pipeline readers and output callbacks.
+A project on disk, for coding UIs: path confinement to the workspace root, per-file locks,
+workspace trust, the project's `.sheavly/` hooks and the AGENTS.md hook. Only coding packages and
+coding UIs depend on it. The process runner lives in `@sheavly/process` ([README](../process/README.md)).
 
 ```ts
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
@@ -66,7 +64,6 @@ folder.
 | `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)            |
 | `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                     |
 | `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in `shell.json`; `anchorToRoot`, `showFromRoot` |
-| `process/`             | `ProcessRunner`: one process group per command, or a `\|`, `&&`, `\|\|`, `;` line, no shell                        |
 | `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                    |
 | `file-reads/`          | `FileReads`: which files each agent has seen, by hash; kept in `shell.json` and restored on reopen                 |
 | `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                 |
@@ -74,8 +71,8 @@ folder.
 | `agents-md/`           | `agentsMdSource`: AGENTS.md files as append-only instruction context                                               |
 | `instruction-context/` | `createInstructionHook`: the one factory for instruction sources; `appendInstructionContext` dedups from history   |
 | `skills/`              | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                                      |
-| `errors/`              | `WorkspaceError`, `PathCheckError`, the process, trust and hook errors                                             |
-| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`, `testProcesses`                                               |
+| `errors/`              | `WorkspaceError`, `PathCheckError`, the trust and hook errors                                                      |
+| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`                                                                |
 
 ## Instruction rendering
 

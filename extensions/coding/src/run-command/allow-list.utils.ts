@@ -5,7 +5,7 @@
  * parser can't carry out faithfully is refused, not guessed at. The entry format is described in
  * `allow-list.constants.ts`.
  */
-import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
+import type { Connector, ScriptStep } from '@sheavly/process/process/process.types';
 import type { ParseResult, Token, TokenResult } from './allow-list.types.js';
 import { NOT_SUPPORTED, REFUSED } from './allow-list.constants.js';
 import { allowEntryBase, commandBase } from './command-base.utils.js';

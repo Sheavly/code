@@ -1,4 +1,4 @@
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 

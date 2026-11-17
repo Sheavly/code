@@ -11,7 +11,7 @@ import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { createStartServiceTool } from '../start-service.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 

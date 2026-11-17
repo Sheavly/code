@@ -5,7 +5,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { agentIdFor } from '@sheavly/workspace/testing/file-reads.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createRunCommandTool } from '../run-command.tool.js';
 import { testPermissions } from '../../testing/permissions.fake.js';

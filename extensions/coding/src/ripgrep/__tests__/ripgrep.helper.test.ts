@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { MAX_GREP_RAW_CHARS } from '../ripgrep.constants.js';
 import { assertRanToTheEnd, runRipgrep } from '../ripgrep.helper.js';
 import type { RipgrepRun } from '../ripgrep.types.js';

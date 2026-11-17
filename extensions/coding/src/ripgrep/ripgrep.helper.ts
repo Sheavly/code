@@ -2,7 +2,7 @@ import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { Writable } from 'node:stream';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { anchorToRoot } from '@sheavly/workspace/working-root/working-root.utils';

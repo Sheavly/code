@@ -88,6 +88,7 @@
     "state-machines.md": [
       "packages/loop/src/**",
       "packages/runtime/src/**",
+      "packages/process/src/**",
       "packages/host/src/**",
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",

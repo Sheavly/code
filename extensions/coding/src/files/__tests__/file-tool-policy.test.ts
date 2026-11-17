@@ -5,7 +5,7 @@ import { readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';

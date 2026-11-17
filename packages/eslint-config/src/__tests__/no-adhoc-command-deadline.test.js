@@ -25,11 +25,11 @@ deadlineTester.run(RULE_NAME, harnessPlugin.rules[RULE_NAME], {
   ],
 });
 
-const WORKSPACE = 'packages/workspace';
-const on = (file) => ruleIsErrorOn({ rule: `harness/${RULE_NAME}`, folder: WORKSPACE, file });
+const PROCESS_PACKAGE = 'packages/process';
+const on = (file) => ruleIsErrorOn({ rule: `harness/${RULE_NAME}`, folder: PROCESS_PACKAGE, file });
 
 // The one exception is pinned: a renamed helper or a widened override changes these answers.
-describe('no-adhoc-command-deadline in the workspace package', () => {
+describe('no-adhoc-command-deadline in the process package', () => {
   it('is on for the runner and the script helper, so each reads its deadline from withDeadline', async () => {
     for (const file of ['src/process/process.service.ts', 'src/process/script.helper.ts']) {
       expect(await on(file), file).toBe(true);
@@ -41,7 +41,7 @@ describe('no-adhoc-command-deadline in the workspace package', () => {
   });
 
   it('is off in tests, which wait on real time, and outside the process folder', async () => {
-    for (const file of ['src/process/__tests__/x.test.ts', 'src/trust/trust.service.ts']) {
+    for (const file of ['src/process/__tests__/x.test.ts', 'src/errors/process.errors.ts']) {
       expect(await on(file), file).toBe(false);
     }
   });

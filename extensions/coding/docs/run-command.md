@@ -1,6 +1,7 @@
 # run_command
 
-Commands run without a shell through the workspace's `ProcessRunner`. The approval registry
+Commands run without a shell through the harness's `ProcessRunner`
+([@sheavly/process](../../../packages/process/docs/design.md)). The approval registry
 ([@sheavly/runtime](../../../packages/runtime/docs/approvals.md)) asks only about base commands, never options
 or file operands.
 

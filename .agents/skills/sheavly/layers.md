@@ -11,7 +11,8 @@ What each workspace may import is [the graph](../../../docs/overview.md#layers),
 | `packages/extension` | `@sheavly/extension`: the `Extension` contract, `defineExtension`/`defineService`, and `ExtensionHost`, which activates extensions (depends on core only) |
 | `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                                                                         |
 | `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                                                                      |
-| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md                                                |
+| `packages/process`   | `@sheavly/process`: the process runner (spawn without a shell, scrubbed env, deadlines, stop on exit)                                                     |
+| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, trust, file locks, `.sheavly/`, AGENTS.md                                                           |
 | `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                                                                 |
 | `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                                                                  |
 | `packages/host`      | `@sheavly/host`: `createHarness`, the registries a run shares around the provider a UI picked. No tools, settings or UI                                   |

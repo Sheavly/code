@@ -1,7 +1,7 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
+import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
 

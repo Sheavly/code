@@ -1,8 +1,8 @@
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
-import type { ProcessRunner } from '@sheavly/workspace/process/process.service';
-import type { ScriptParams } from '@sheavly/workspace/process/process.types';
+import type { ProcessRunner } from '@sheavly/process/process/process.service';
+import type { ScriptParams } from '@sheavly/process/process/process.types';
 import { closeCapture, startCapture } from './capture.helper.js';
 import type { Capture } from './run-command.types.js';
 import { formatResult } from './run-command.utils.js';

@@ -3,7 +3,7 @@ import { utimes } from 'node:fs/promises';
 import { describe, expect, it, beforeAll } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { MAX_GLOB_SCANNED } from '../glob.constants.js';
 import { createGlobTool } from '../glob.tool.js';

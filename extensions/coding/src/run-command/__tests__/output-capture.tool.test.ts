@@ -8,7 +8,7 @@ import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { toolRunner } from '@sheavly/testing/tool/tool-runner.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createOutputTools } from '@sheavly/tools/output/output.tool';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import { runForeground } from '../foreground.helper.js';

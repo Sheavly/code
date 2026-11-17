@@ -7,7 +7,7 @@ import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { AllowEntry, PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
-import type { ScriptStep } from '@sheavly/workspace/process/process.types';
+import type { ScriptStep } from '@sheavly/process/process/process.types';
 import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
 import { isAllowed } from './allow-list.utils.js';

@@ -1,4 +1,4 @@
-import type { Connector, ScriptStep } from '@sheavly/workspace/process/process.types';
+import type { Connector, ScriptStep } from '@sheavly/process/process/process.types';
 
 /** A command line split into its commands, or why it can't be. */
 export type ParseResult =

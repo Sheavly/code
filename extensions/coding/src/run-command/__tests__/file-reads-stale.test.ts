@@ -6,7 +6,7 @@ import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
-import { testProcesses } from '@sheavly/workspace/testing/process-runner.fake';
+import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { createDeleteFileTool } from '../../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createReadFileTool } from '../../read-file/read-file.tool.js';
