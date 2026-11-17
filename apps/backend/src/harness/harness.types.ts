@@ -1,3 +1,9 @@
+import type {
+  Extension,
+  SettingValue,
+  WorkKindContribution,
+} from '@sheavly/extension/extension/extension.types';
+import type { SettingInfo, SkippedExtension } from '@sheavly/extension/host/extension-host.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
@@ -88,6 +94,21 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */
   fileLocks?: FileLocks | undefined;
+  /**
+   * Hears of an extension's `deactivate` that threw, at the end of the session or when another
+   * extension failed to activate. The run goes on, so a failure is told, never thrown.
+   */
+  onExtensionProblem?: ((caughtError: unknown) => void) | undefined;
+  /**
+   * Extensions an embedding app adds after the built-in ones (`web`, `agents`, `coding`). They may
+   * depend on those by name. A name that collides with a built-in contribution fails the run.
+   */
+  extensions?: readonly Extension[] | undefined;
+  /**
+   * The user's values for the settings extensions declare (`defineSetting`), by setting name.
+   * A name no extension declares, or a value of another type than the default's, fails the run.
+   */
+  extensionSettings?: Readonly<Record<string, SettingValue>> | undefined;
 };
 
 /** A run on the backend: the coding services, and the tools and hooks it includes. */
@@ -96,6 +117,12 @@ export type BackendHarness = CodingHarness & {
   workingRoots: WorkingRoots;
   tools: Tool[];
   hooks: Hook[];
+  /** The kinds of background work the run's extensions declare. */
+  workKinds: WorkKindContribution[];
+  /** The settings the run's extensions declare, with their defaults and the value in effect. */
+  settings: SettingInfo[];
+  /** Extensions left out of the run (an untrusted `project` extension, or one whose dependency failed). */
+  skippedExtensions: SkippedExtension[];
   /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */
   skills: SkillRoots;
   /** The project's `.sheavly` hooks; `hooks` has the AGENTS.md and skills hooks first, then these. */

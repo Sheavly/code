@@ -1,44 +1,35 @@
-import { createDeleteFileTool } from '@sheavly/coding/delete-file/delete-file.tool';
-import { createEditFileTool } from '@sheavly/coding/edit-file/edit-file.tool';
-import { createGlobTool } from '@sheavly/coding/glob/glob.tool';
-import { createGrepTool } from '@sheavly/coding/grep/grep.tool';
+import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
+import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
+import { CODING_RUN } from '@sheavly/coding/extension/coding-extension.utils';
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
-import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
-import { createReadSkillTool } from '@sheavly/coding/read-skill/read-skill.tool';
-import { createRunCommandTool } from '@sheavly/coding/run-command/run-command.tool';
-import { createStartServiceTool } from '@sheavly/coding/run-command/start-service.tool';
-import { createSetWorkingRootTool } from '@sheavly/coding/working-root/set-working-root.tool';
-import { workingRootSource } from '@sheavly/coding/working-root/working-root-hook.helper';
-import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
-import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
-import { createWriteFileTool } from '@sheavly/coding/write-file/write-file.tool';
-import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { createHistoryTools } from '@sheavly/tools/history/history.tool';
-import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
-import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
-import { createOutputTools } from '@sheavly/tools/output/output.tool';
-import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
-import { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
-import { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
+import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
+import { runServices } from '@sheavly/host/run-services/run-services.utils';
+import { createWebExtension } from '@sheavly/web/web/web.helper';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
-import { agentsMdSource } from '@sheavly/workspace/agents-md/agents-md.helper';
-import {
-  createInstructionHook,
-  registerInstructionHooks,
-} from '@sheavly/workspace/instruction-context/instruction-source.helper';
-import { scratchSource } from '@sheavly/workspace/scratch/scratch-hook.helper';
-import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
-import { skillsSource } from '@sheavly/workspace/skills/skills.helper';
-import { keepReadsWithConversation } from './file-reads.helper.js';
+import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
+import { safeProblemReporter } from './extension-problems.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
 /**
- * What a backend run includes, chosen here and nowhere else: the file tools, read_skill, optional web tools and
- * run_command, the task tools, sub-agents (with the file tools, read_skill, run_command on their own
- * tasks, the same hooks as the main run and enabled web tools) and message_agent; the AGENTS.md hook,
- * the skills hook (the project's skills, and the user's when `home` is set), then the workspace's
- * `.sheavly/` hooks if it is trusted. The packages provide the pieces and the shared services,
- * never the choice. Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
+ * What a backend run includes, chosen here and nowhere else: three extensions, composed by an
+ * `ExtensionHost`. `web` adds `web_fetch` and `web_search` (if enabled);
+ * `agents` adds the task tools, `read_output`/`search_output` (with `outputs`), `start_agent` with
+ * `message_agent` and the history tools (with `logOf`); `coding` adds the file tools,
+ * `read_skill`, `run_command`, the AGENTS.md, skills, scratch and working-root hooks, then the
+ * workspace's `.sheavly/` hooks if it is trusted. `coding` and `web` share their tools (and
+ * `coding` its hooks) with sub-agents through `agents`. The packages provide the pieces and the
+ * shared services, never the choice. Skills are instructions, like AGENTS.md, so workspace trust
+ * doesn't gate them.
+ *
+ * An embedding app adds its own with `extensions`, after these, without editing any of them. Every
+ * extension, built-in or not, reads the run's provider, instructions, sessions, main session,
+ * tasks, approvals (to request only) and outputs from the run services (`runServices`); the user's values for
+ * the settings extensions declare are `extensionSettings`.
+ *
+ * An extension that fails to activate stops the run here with its own error (a broken `.sheavly`
+ * hook names its file and the reason), after the ones that activated before it are deactivated.
+ * The extensions are deactivated when the main session ends. An untrusted `project` extension is
+ * left out and named in `skippedExtensions`; this backend declares no trust for them yet.
  */
 export async function createBackendHarness(
   options: BackendHarnessOptions,
@@ -57,105 +48,88 @@ export async function createBackendHarness(
     shell = memoryShellStore(),
     outputs,
     onFileReadsProblem,
+    onExtensionProblem,
+    extensions = [],
+    extensionSettings,
     ...coding
   } = options;
   const harness = await createCodingHarness(coding);
-  const { workspace, fileLocks, fileReads, processes, tasks, approvals, sessions, provider } =
-    harness;
-  // One per conversation, over its `shell.json`: the main session and every sub-agent share it.
-  const workingRoots = new WorkingRoots({ store: shell, workspace, env: options.env });
-
-  await keepReadsWithConversation({
-    fileReads,
-    sessions,
-    agentId: harness.mainSession.id,
-    store: shell,
-    ...(onFileReadsProblem && { onProblem: onFileReadsProblem }),
+  const { sessions } = harness;
+  const host = new ExtensionHost({
+    extensions: [
+      createWebExtension({ webFetch, webSearch }),
+      createAgentsExtension({ subAgentProvider, summarizeWith, keepAgentHistory, logOf }),
+      createCodingExtension({
+        harness,
+        env: options.env,
+        permissions,
+        home,
+        trustStore,
+        trustWorkspace,
+        shell,
+        onFileReadsProblem,
+      }),
+      ...extensions,
+    ],
+    services: runServices({ harness, outputs }),
+    settings: extensionSettings,
   });
-  const skillRoots = { root: workspace.root, home };
-  // Their order is each source's declared `order`, not their place here. The working root is read
-  // per turn, so AGENTS.md follows a worktree chosen mid-run. The scratch source is given the
-  // main session's id, so sub-agents running this same hook share their root agent's folder.
-  const instructionHooks = registerInstructionHooks([
-    createInstructionHook(agentsMdSource({ root: workspace.root, workingRoots })),
-    createInstructionHook(skillsSource(skillRoots)),
-    ...(workspace.scratchRoot
-      ? [createInstructionHook(scratchSource({ workspace, agentId: harness.mainSession.id }))]
-      : []),
-    createInstructionHook(workingRootSource({ workingRoots })),
-  ]);
-  // A broken `.sheavly` hook, or one named like a host hook, stops the run here, with the file and
-  // the reason. An untrusted workspace loads none: `projectTrust` says why, for a UI to show.
-  const projectHooks = await loadProjectHooks({
-    root: workspace.root,
-    trust: trustStore,
-    grant: trustWorkspace,
-    hostHooks: instructionHooks,
+  const lifetime = new AbortController();
+  // The run goes on without what a problem concerns, so a UI hears of it, never the run.
+  const onProblem = safeProblemReporter(onExtensionProblem);
+
+  // Before activating: a session that ends while the extensions activate closes them too.
+  sessions.subscribe((update) => {
+    if (update.type !== 'session_ended' || update.session.id !== harness.mainSession.id) return;
+
+    lifetime.abort();
+    closeExtensions({ host, onProblem }).catch(onProblem);
   });
-  const hooks = [...instructionHooks, ...projectHooks.hooks];
 
-  const fileTools = [
-    createReadFileTool({ workspace, workingRoots, fileLocks, fileReads }),
-    createGlobTool({ workspace, workingRoots, processes }),
-    createGrepTool({ workspace, workingRoots, processes }),
-    createWriteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
-    createEditFileTool({ workspace, workingRoots, fileLocks, fileReads }),
-    createDeleteFileTool({ workspace, workingRoots, fileLocks, fileReads }),
-    createSetWorkingRootTool({ workingRoots }),
-    createReadSkillTool({ roots: skillRoots, fileReads }),
-  ];
-  const webTools = [
-    ...(webFetch === false ? [] : [createWebFetchTool(webFetch)]),
-    ...(webSearch === false ? [] : [createWebSearchTool(webSearch)]),
-  ];
+  const { contributions, settings, failed, skipped, lateDeactivationErrors } = await host
+    .activate({ signal: lifetime.signal })
+    .catch(async (caughtError: unknown) => {
+      // The host stopped what had activated; its deactivate errors are told, the cause is thrown.
+      lifetime.abort(caughtError);
+      await closeExtensions({ host, onProblem });
+      throw caughtError;
+    });
 
-  const outputTools = outputs ? createOutputTools(outputs) : [];
-  // The tools that start commands, for the registry of the session that owns them.
-  const commandTools = (commandTasks: typeof tasks) => {
-    const options = {
-      workspace,
-      workingRoots,
-      permissions,
-      tasks: commandTasks,
-      approvals,
-      processes,
-      outputs,
-    };
+  for (const lateError of lateDeactivationErrors) onProblem(lateError);
 
-    return [createRunCommandTool(options), createStartServiceTool(options)];
-  };
+  if (failed[0]) {
+    // What activated before the failure is stopped now: nothing else will, the run never starts.
+    lifetime.abort(failed[0]);
+    await closeExtensions({ host, onProblem });
+
+    // Any further failure is told; the first is the run's own error, not a wrapper around it:
+    // what failed is what the user must fix.
+    for (const further of failed.slice(1)) onProblem(further);
+    throw failed[0].cause;
+  }
+
+  const { workingRoots, skills, projectHooks, projectTrust } = host.service(CODING_RUN);
 
   return {
     ...harness,
     workingRoots,
-    tools: [
-      ...fileTools,
-      ...webTools,
-      ...commandTools(tasks),
-      ...outputTools,
-      ...createTaskTools(tasks),
-      createSubAgentTool({
-        sessions,
-        tasks,
-        provider,
-        baseInstructions: harness.instructions,
-        ...(subAgentProvider && { selectProvider: subAgentProvider }),
-        ...(summarizeWith && { summarizeWith }),
-        ...(keepAgentHistory && { keepHistory: keepAgentHistory }),
-        runAgent: runSession,
-        tools: [...fileTools, ...webTools, ...outputTools],
-        tasksTools: commandTools,
-        // The same hook objects as the main run, each sub-agent running its own `sessionStart`:
-        // a hook must keep no state of its own across sessions.
-        hooks,
-      }),
-      createMessageAgentTool({ sessions }),
-      // Only a kept conversation has logs to search.
-      ...(logOf ? createHistoryTools({ sessions, logOf }) : []),
-    ],
-    hooks,
-    skills: skillRoots,
-    projectHooks: projectHooks.hooks,
-    projectTrust: projectHooks.trust,
+    tools: [...contributions.tools],
+    hooks: [...contributions.hooks],
+    workKinds: [...contributions.workKinds],
+    settings: [...settings],
+    skippedExtensions: [...skipped],
+    skills,
+    projectHooks: [...projectHooks],
+    projectTrust,
   };
+}
+
+/** Deactivates the run's extensions (once) and tells `onProblem` of each `deactivate` that threw. */
+async function closeExtensions(params: {
+  host: ExtensionHost;
+  onProblem: (caughtError: unknown) => void;
+}): Promise<void> {
+  const { host, onProblem } = params;
+
+  for (const caughtError of await host.deactivate()) onProblem(caughtError);
 }

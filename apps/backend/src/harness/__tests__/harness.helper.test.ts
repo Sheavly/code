@@ -93,11 +93,19 @@ async function runPrompt(
 }
 
 describe('createBackendHarness: what a backend run includes', () => {
-  it('opens the workspace with the file tools, run_command, task and sub-agent tools', async () => {
+  it('opens the workspace with the task and sub-agent, web, file and command tools, one extension after another', async () => {
     const harness = await open(false);
 
     expect(harness.workspace.root).toBe(realpathSync(root));
+    // Extension order: agents (which web and coding depend on to share with sub-agents), web, coding.
     expect(harness.tools.map((tool) => tool.name)).toEqual([
+      'task_status',
+      'cancel_task',
+      'await_tasks',
+      'start_agent',
+      'message_agent',
+      'web_fetch',
+      'web_search',
       'read_file',
       'glob',
       'grep',
@@ -106,15 +114,8 @@ describe('createBackendHarness: what a backend run includes', () => {
       'delete_file',
       'set_working_root',
       'read_skill',
-      'web_fetch',
-      'web_search',
       'run_command',
       'start_service',
-      'task_status',
-      'cancel_task',
-      'await_tasks',
-      'start_agent',
-      'message_agent',
     ]);
   });
 

@@ -52,6 +52,33 @@ own search backend or a Tavily backend constructed with an injected API key. Cre
 not model input, and packages never discover them from the environment. See
 [web search](../../../packages/tools/docs/web-search.md) for the contract, bounds and artifacts.
 
+**Extensions.** The run is built by an `ExtensionHost` from three built-in extensions (`web`,
+`agents`, `coding`, in that order) and the ones an embedding app passes as `extensions`, after
+them. A third-party extension needs no edit of our source: it can depend on a built-in by name, and
+its tools, hooks and work kinds join the run (a name that collides fails it). The app supplies the
+host with run services (`runServices`, `@sheavly/host/run-services/run-services.utils`), which
+every extension reads without a `dependsOn`:
+
+| Key                                   | What it is                                                     |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `PROVIDER`, `INSTRUCTIONS`            | The main session's provider and the composed base instructions |
+| `SESSIONS`, `MAIN_SESSION`            | The session registry and the run's main session                |
+| `TASKS`                               | The one task registry: start background work with `startWork`  |
+| `APPROVALS`                           | Where a tool asks the user for approval (`request` only)       |
+| `OUTPUTS` (only with an output store) | The conversation's complete command output store (`find` it)   |
+
+These are full trust, not a sandbox (see
+[run services](../../../packages/host/docs/harness.md#run-services-for-extensions)); an extension
+gets its configuration from `extensionSettings`, not from the environment.
+
+`extensionSettings` holds the user's values for the settings extensions declare (`defineSetting`),
+by setting name, and `settings` on the returned run lists each with its value in effect; a name no
+extension declares, or a value of the wrong type, fails the run. An extension can place a hook
+before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.
+`src/harness/__tests__/third-party-capabilities.test.ts` shows each of these from an extension that
+uses only public exports. The built-ins read the same services, with one exception: `coding` takes
+its workspace, locks and process runner from the coding harness it is given.
+
 **Summaries.** Unless `SUMMARY=false`, the main run and every sub-agent summarize their history
 when the context nears the window (`backendSummary`, `harness/summary.helper.ts`). The model the
 conversation is on writes the sections it is asked for (`modelSummarizer`, `@sheavly/summary`),
