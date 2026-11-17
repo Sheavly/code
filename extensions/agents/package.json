@@ -1,0 +1,46 @@
+{
+  "name": "@sheavly/agents",
+  "version": "0.0.0",
+  "description": "Sub-agents, the background task tools, command output reading and history search, as one extension that other extensions share their tools with.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
+  },
+  "type": "module",
+  "license": "Apache-2.0",
+  "sheavly": {
+    "domain": "generic"
+  },
+  "private": true,
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "dependencies": {
+    "@sheavly/core": "^0.0.0",
+    "@sheavly/extension": "^0.0.0",
+    "@sheavly/host": "^0.0.0",
+    "@sheavly/loop": "^0.0.0",
+    "@sheavly/tools": "^0.0.0"
+  },
+  "devDependencies": {
+    "@sheavly/testing": "^0.0.0"
+  }
+}
