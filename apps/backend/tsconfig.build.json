@@ -12,7 +12,13 @@
   },
   "references": [
     {
-      "path": "../../packages/coding/tsconfig.build.json"
+      "path": "../../extensions/agents/tsconfig.build.json"
+    },
+    {
+      "path": "../../extensions/coding/tsconfig.build.json"
+    },
+    {
+      "path": "../../extensions/web/tsconfig.build.json"
     },
     {
       "path": "../../packages/core/tsconfig.build.json"

@@ -5,10 +5,10 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/write-file',
-        'packages/coding/src/edit-file',
-        'packages/coding/src/delete-file',
-        'packages/coding/src/files',
+        'extensions/coding/src/write-file',
+        'extensions/coding/src/edit-file',
+        'extensions/coding/src/delete-file',
+        'extensions/coding/src/files',
         'packages/workspace/src/file-locks',
         'packages/workspace/src/file-reads',
         'packages/workspace/src/workspace',

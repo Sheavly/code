@@ -5,7 +5,7 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
         'apps/backend/src/harness/conversation-permissions.service.ts',
         'apps/backend/src/harness/permissions.helper.ts',
       ],

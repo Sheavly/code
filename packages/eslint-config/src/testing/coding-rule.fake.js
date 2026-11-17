@@ -8,7 +8,7 @@ const REPO = path.resolve(import.meta.dirname, '../../../..');
  * of another workspace named by `folder` (e.g. `apps/backend`).
  */
 export async function ruleIsErrorOn(params) {
-  const { rule, file, folder = 'packages/coding' } = params;
+  const { rule, file, folder = 'extensions/coding' } = params;
   const cwd = path.join(REPO, folder);
   const config = await new ESLint({ cwd }).calculateConfigForFile(path.join(cwd, file));
   const entry = config?.rules[rule];

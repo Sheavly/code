@@ -1,7 +1,7 @@
 # run_command
 
 Commands run without a shell through the workspace's `ProcessRunner`. The approval registry
-([@sheavly/runtime](../../runtime/docs/approvals.md)) asks only about base commands, never options
+([@sheavly/runtime](../../../packages/runtime/docs/approvals.md)) asks only about base commands, never options
 or file operands.
 
 The adjacent `run-command.prompt.ts` holds the tool description, input guidance and background-launch

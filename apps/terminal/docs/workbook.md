@@ -171,7 +171,7 @@ does is done. The `/git` review step asks for it, and the stop hook nudges once 
 workspace: basic
 check:
   {
-    'areas': ['packages/workspace/src/trust', 'packages/coding/src/preset'],
+    'areas': ['packages/workspace/src/trust', 'extensions/coding/src/preset'],
     'expect': { 'reply': ['[AGENTS.md OK]', '/Sheavly\W*$/'], 'tools': ['read_file'] },
     'forbid': { 'transcript': ['hooks not loaded'] },
   }

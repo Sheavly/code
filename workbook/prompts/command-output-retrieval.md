@@ -9,7 +9,7 @@ check:
         'packages/core/src/output',
         'packages/tools/src/output',
         'packages/storage/src/output-store',
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
         'packages/runtime/src/tasks',
         'apps/backend/src/harness/harness.helper.ts',
       ],

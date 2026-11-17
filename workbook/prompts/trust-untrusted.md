@@ -2,7 +2,7 @@
 description: workspace trust: a workspace nobody trusted loads none of its .sheavly hooks
 workspace: basic
 check: {
-    "areas": ["packages/workspace/src/trust", "packages/workspace/src/project-hooks", "packages/host/src", "packages/coding/src/preset", "apps/backend/src/harness", "apps/terminal/src/workbook/run.helper.ts", "apps/terminal/src/workbook/check.helper.ts", "apps/terminal/src/workbook/check.utils.ts", "apps/terminal/src/workbook/check.validator.ts"],
+    "areas": ["packages/workspace/src/trust", "packages/workspace/src/project-hooks", "packages/host/src", "extensions/coding/src/preset", "apps/backend/src/harness", "apps/terminal/src/workbook/run.helper.ts", "apps/terminal/src/workbook/check.helper.ts", "apps/terminal/src/workbook/check.utils.ts", "apps/terminal/src/workbook/check.validator.ts"],
     "steps": [
       { "run": {},
         "expect": { "transcript": ["house-rules added context"], "contextHooks": ["house-rules"], "outcome": "completed" } },

@@ -22,7 +22,7 @@
 // reaches the file system through another module; `Workspace` confinement and review carry those.
 
 const MESSAGE =
-  'A file tool does not call `resolveRead`, `resolveWrite` or `resolveDelete` itself. Ask the guard in `packages/coding/src/files/files.helper.ts` for the intent: `resolveReadable`, `resolveWritable` or `resolveDeletable` (`resolveSearchRoot` for a search), so `.env`, `.git`, symlinks and the working root are decided in one place. See "File tools" in the file-tools guide.';
+  'A file tool does not call `resolveRead`, `resolveWrite` or `resolveDelete` itself. Ask the guard in `extensions/coding/src/files/files.helper.ts` for the intent: `resolveReadable`, `resolveWritable` or `resolveDeletable` (`resolveSearchRoot` for a search), so `.env`, `.git`, symlinks and the working root are decided in one place. See "File tools" in the file-tools guide.';
 
 const RESOLVERS = new Set(['resolveRead', 'resolveWrite', 'resolveDelete']);
 
@@ -43,7 +43,7 @@ function keyName(params) {
 const FS_MODULES = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
 
 const FS_MESSAGE =
-  'A file tool does not import the file system itself. Its reads, writes and deletes go through `packages/coding/src/files/file-effects.helper.ts` (`openRegularFile`, `readForChange`, `writeText`, `removeFile`, ...), after the guard has resolved the path.';
+  'A file tool does not import the file system itself. Its reads, writes and deletes go through `extensions/coding/src/files/file-effects.helper.ts` (`openRegularFile`, `readForChange`, `writeText`, `removeFile`, ...), after the guard has resolved the path.';
 
 const ALIAS_MESSAGE =
   'Import `resolveReadable`, `resolveWritable`, `resolveDeletable` and `runFileTool` under their own names: the rule finds them by name, so an alias hides a guard or the wrapper from it.';
@@ -58,7 +58,7 @@ function specifierName(node) {
 }
 
 const UNWRAPPED_MESSAGE =
-  'A file tool that asks the guard for a path runs its body through `runFileTool` (`packages/coding/src/files/file-tool.helper.ts`), so an aborted call fails before it touches the disk and a missing or refused path reaches the model as a tool error, not a raw `ENOENT`. See `read_file`.';
+  'A file tool that asks the guard for a path runs its body through `runFileTool` (`extensions/coding/src/files/file-tool.helper.ts`), so an aborted call fails before it touches the disk and a missing or refused path reaches the model as a tool error, not a raw `ENOENT`. See `read_file`.';
 
 const GUARDS = new Set(['resolveReadable', 'resolveWritable', 'resolveDeletable']);
 

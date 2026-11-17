@@ -4,7 +4,7 @@ workspace: staging-review
 maxTurns: 8
 check:
   {
-    'areas': ['packages/host/src/instructions', 'packages/coding/src/instructions'],
+    'areas': ['packages/host/src/instructions', 'extensions/coding/src/instructions'],
     'expect':
       {
         'tools': ['read_file'],

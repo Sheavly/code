@@ -45,7 +45,7 @@ packages/host/src/instructions/
   instructions.helper.ts
   __tests__/instructions.helper.test.ts
 
-packages/coding/src/instructions/
+extensions/coding/src/instructions/
   coding-instructions.prompt.ts
 
 packages/tools/src/sub-agent/
@@ -197,7 +197,7 @@ and existing permission/file guards remain independent of this wording.
 
 ### Coding extension
 
-[`CODING_INSTRUCTIONS`](../../packages/coding/src/instructions/coding-instructions.prompt.ts)
+[`CODING_INSTRUCTIONS`](../../extensions/coding/src/instructions/coding-instructions.prompt.ts)
 
 ### Child role
 

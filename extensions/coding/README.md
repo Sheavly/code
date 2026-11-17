@@ -1,15 +1,19 @@
 # @sheavly/coding
 
-The coding tools and the services a coding run shares. `createCodingHarness` opens the workspace
+Coding as an extension (see [the extensions guide](../../.agents/skills/sheavly/extensions.md)):
+the coding tools and the services a coding run shares. `createCodingHarness` opens the workspace
 and makes one set of file locks and one process runner on top of `createHarness`; the tools are
-built on those. It adds no tools or hooks to a run itself: a coding UI picks which ones a run gets.
+built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
+the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
+shares them with sub-agents through `@sheavly/agents`. A coding UI composes it in an
+`ExtensionHost` (`@sheavly/host`) with the other extensions it wants.
 
 ```ts
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
-import { createReadFileTool } from '@sheavly/coding/read-file/read-file.tool';
+import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
 
 const harness = await createCodingHarness({ provider, title, workspaceRoot, env: process.env });
-const tools = [createReadFileTool({ workspace: harness.workspace })];
+const coding = createCodingExtension({ harness, permissions, trustStore, shell, env: process.env });
 ```
 
 Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) to let the file
@@ -19,6 +23,8 @@ tools also use a shared scratch folder outside the repo; see
 | Module          | What it holds                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------- |
 | `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
+| `extension/`    | `createCodingExtension`, `CODING_RUN`: coding as an extension of a run                            |
+| `file-reads/`   | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
 | `instructions/` | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
 | `read-file/`    | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
 | `grep/`         | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
@@ -55,7 +61,7 @@ incomplete, never complete. Without `outputs` only the preview exists, as before
 The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
 this text by default; direct loop callers pass it explicitly. See
-[instruction composition](../host/docs/harness.md#instruction-composition).
+[instruction composition](../../packages/host/docs/harness.md#instruction-composition).
 Coding guidance excludes routine investigation of secret-bearing files and forbids probing or
 bypassing protected-file rules. Tool guards still enforce those rules independently.
 The coding section is a short reminder to inspect first, fit the surrounding code, preserve
@@ -68,7 +74,7 @@ typed alias, preserving both its value and literal type without duplicating the 
 
 - [File tools](docs/file-tools.md): confinement, the four tools, the artifacts they return, and
   the [working root](docs/file-tools.md#the-working-root) an agent can set for a worktree.
-- [Skills](../workspace/docs/skills.md): `read_skill` returns complete skill files without line or
+- [Skills](../../packages/workspace/docs/skills.md): `read_skill` returns complete skill files without line or
   character caps, while preserving path confinement and `.env` protection. Ordinary `read_file`
   limits are unchanged.
 - [run_command](docs/run-command.md): how a command is checked before it runs.

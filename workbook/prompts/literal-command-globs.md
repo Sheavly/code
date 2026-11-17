@@ -3,7 +3,7 @@ description: literal file globs do not produce false secret concerns; wc require
 workspace: basic
 check:
   {
-    'areas': ['packages/coding/src/run-command'],
+    'areas': ['extensions/coding/src/run-command'],
     'expect': { 'tools': ['run_command'], 'reply': ['LITERAL_GLOB_OK'], 'outcome': 'completed' },
     'forbid': { 'transcript': ['can name a .env file'] },
   }

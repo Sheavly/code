@@ -38,7 +38,7 @@ describe('branded-ids is enabled for types', () => {
   it.each([
     ['src/file-reads/file-reads.service.ts', 'packages/workspace'],
     ['src/file-reads/file-reads.types.ts', 'packages/workspace'],
-    ['src/files/files.utils.ts', 'packages/coding'],
+    ['src/files/files.utils.ts', 'extensions/coding'],
     ['src/harness/file-reads.helper.ts', 'apps/backend'],
   ])('for %s in %s', async (file, folder) => {
     expect(await ruleOn(file, folder)).toBe(true);
@@ -52,7 +52,7 @@ describe('branded-ids is enabled for types', () => {
   });
 
   it('checks no types in a prompt file, whose members are the text it prints', async () => {
-    const cwd = path.join(REPO, 'packages/coding');
+    const cwd = path.join(REPO, 'extensions/coding');
     const config = await new ESLint({ cwd }).calculateConfigForFile(
       path.join(cwd, 'src/run-command/run-command.prompt.ts'),
     );
@@ -72,6 +72,6 @@ describe('branded-ids is enabled for types', () => {
 
   it('still checks the schemas of a validator and a tool in every workspace', async () => {
     expect(await ruleOn('src/session/session.validator.ts', 'packages/protocol')).toBe(true);
-    expect(await ruleOn('src/read-file/read-file.tool.ts', 'packages/coding')).toBe(true);
+    expect(await ruleOn('src/read-file/read-file.tool.ts', 'extensions/coding')).toBe(true);
   });
 });

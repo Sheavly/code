@@ -16,6 +16,7 @@
   },
   "private": true,
   "dependencies": {
+    "@sheavly/agents": "^0.0.0",
     "@sheavly/core": "^0.0.0",
     "@sheavly/host": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",

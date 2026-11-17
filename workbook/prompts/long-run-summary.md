@@ -11,7 +11,7 @@ check:
         'packages/core/src/summary',
         'packages/loop/src/stream-agent/turn.helper.ts',
         'packages/summary/src',
-        'packages/coding/src/trail',
+        'extensions/coding/src/trail',
         'apps/backend/src/harness/summary.helper.ts',
         'apps/backend/src/harness/settings.validator.ts',
         'apps/backend/src/usage/context-window.helper.ts',

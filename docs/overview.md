@@ -47,18 +47,26 @@ flowchart BT
     tools["@sheavly/tools"]
   end
   subgraph group_coding ["coding packages"]
-    coding["@sheavly/coding"]
     workspace["@sheavly/workspace"]
+  end
+  subgraph group_extensions ["extensions"]
+    agents["@sheavly/agents"]
+    coding["@sheavly/coding"]
+    web["@sheavly/web"]
   end
   subgraph group_apps ["apps"]
     backend["@sheavly/backend"]
     terminal["@sheavly/terminal"]
   end
+  agents --> loop
+  agents --> tools
   backend --> coding
   backend --> providers
   backend --> storage
   backend --> summary
+  backend --> web
   client --> protocol
+  coding --> agents
   coding --> host
   coding --> workspace
   core --> protocol
@@ -73,6 +81,7 @@ flowchart BT
   terminal --> coding
   terminal --> storage
   tools --> runtime
+  web --> agents
   workspace --> runtime
 ```
 
@@ -91,7 +100,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the `shea
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                           |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                           |
 | `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                     |
-| `packages/coding/src/`    | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)                          |
+| `extensions/coding/src/`  | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); `CommandRefusedError` (`errors/`)                          |
 | `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createBackendHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                      |
 | `apps/terminal/`          | `@sheavly/terminal`, the terminal front end on a backend it starts: the chat, the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and their `Renderer`   |
 | `apps/vscode/`            | A README for the VS Code extension, not yet a workspace                                                                                                                                                                                                                                |
@@ -277,13 +286,13 @@ What `Workspace` (`@sheavly/workspace/workspace/`) and the tools enforce is **pa
 - The file tools resolve every path inside the workspace root and refuse anything that ends up
   outside it (`../`, absolute paths, symlinks out). `.env` files are refused by name, and changes
   (writes and deletes) inside `.git` are refused
-  ([file tools](../packages/coding/docs/file-tools.md)). The one exception is the optional shared
+  ([file tools](../extensions/coding/docs/file-tools.md)). The one exception is the optional shared
   scratch folder (`<tmpdir>/sheavly` in the backend).
 - `run_command` runs commands without a shell (a line may chain them with `|`, `&&`, `||` and
   `;`), asks the user before any command they have not allowed, checks the arguments of every
   command with the same path rules, asks for approval when one reaches outside or can name a
   `.env` file, and sets git config that blocks most ways a repo can make git run programs
-  ([run_command](../packages/coding/docs/run-command.md)).
+  ([run_command](../extensions/coding/docs/run-command.md)).
 - Commands get the harness's env without the variables whose names look like secrets (`KEY`,
   `SECRET`, `TOKEN`, `PASSWORD`, `CREDENTIAL`). This is a filter on names, not complete scrubbing:
   a secret in a value under another name (`DATABASE_URL`), `SSH_AUTH_SOCK` and credential files
@@ -328,7 +337,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 | `packages/providers/src/errors/` | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                  |
 | `packages/runtime/src/errors/`   | `SessionError`, `ApprovalRequestError`, `ApprovalListenerError`; `errors.utils.ts`      |
 | `packages/workspace/src/errors/` | The project on disk: workspace, processes, trust, project hooks, AGENTS.md (below)      |
-| `packages/coding/src/errors/`    | `CommandRefusedError`                                                                   |
+| `extensions/coding/src/errors/`  | `CommandRefusedError`                                                                   |
 | `apps/terminal/src/errors/`      | The workbook's (below)                                                                  |
 | `.cursor/hooks/hooks.errors.mjs` | `HookStateError`, `ProjectReadError`, `GuardCrashError`                                 |
 
@@ -361,7 +370,7 @@ Each area keeps its own classes, since the layers can't all import one another:
 - A model backend: `packages/providers/src/<name>/<name>.adapter.ts`, with `defineResponsesAdapter`
   for a Responses API backend; another protocol gets its own folder next to `responses/` (see
   [the package README](../packages/providers/README.md)).
-- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `packages/coding/src/<name>/` (see [writing a tool](../packages/core/docs/tools.md)).
+- A tool: a generic one in `packages/tools/src/<name>/`, one that touches files or runs commands in `extensions/coding/src/<name>/` (see [writing a tool](../packages/core/docs/tools.md)).
 - A new hook point: an optional handler on `Hook` (see [hooks](../packages/core/docs/hooks.md)).
 - Something a UI must show: a new event in `agentEventBodySchema`
   (`packages/protocol/src/event/event.validator.ts`).

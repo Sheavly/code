@@ -9,7 +9,7 @@ check:
         'packages/workspace/src/agents-md',
         'packages/workspace/src/trust',
         'packages/host/src',
-        'packages/coding/src/preset',
+        'extensions/coding/src/preset',
         'apps/backend/src/harness',
         'apps/terminal/src/workbook',
       ],

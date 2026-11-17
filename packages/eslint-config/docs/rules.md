@@ -282,9 +282,9 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   - `harness/guard-file-tool-resolve` (coding `*.tool.ts` files): a tool never touches the
     workspace's `resolveRead`, `resolveWrite` or `resolveDelete` (a call, an alias, `.call`, a
     destructured property, an import or a re-export of one); it asks the guard in
-    `packages/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
+    `extensions/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
     `resolveSearchRoot`. A tool file that calls one of those guards must also call `runFileTool`
-    (`packages/coding/src/files/file-tool.helper.ts`), the shared abort and error mapping; it
+    (`extensions/coding/src/files/file-tool.helper.ts`), the shared abort and error mapping; it
     cannot see that the call wraps the right body. It cannot see a computed key that is not a literal or a resolver reached
     through a helper that is not the guard; `harness/guard-working-root` and review carry those.
   - `harness/guard-search-root`: a `runRipgrep` call has `resolveSearchRoot` earlier in the same
@@ -295,7 +295,7 @@ is split by responsibility only when it does several jobs, not to fit a number. 
     rejects `cwd: workspace.root` and a literal `root: undefined`. It cannot see
     `this.workspace.root`, a `cwd` copied into a variable first, a spread or `root: void 0`; the
     list of what review and tests carry is in the rule's file header, and the design is in
-    `packages/coding/docs/file-tools.md`.
+    `extensions/coding/docs/file-tools.md`.
 
 ## Prompt extraction
 
@@ -403,7 +403,7 @@ source snapshot, not a violation-suppression baseline: every detected drift fail
 readability rules: cognitive complexity, max depth/nesting, early returns, no nested ternaries, blank
 lines between steps (auto-fixed with `npm run lint:fix`).
 
-- **Tests live in `__tests__/`** next to the code they test (`packages/coding/src/read-file/__tests__/read-file.tool.test.ts`).
+- **Tests live in `__tests__/`** next to the code they test (`extensions/coding/src/read-file/__tests__/read-file.tool.test.ts`).
   ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.
 - **No inline escape hatches.** `eslint-disable` comments are rejected
   (`noInlineConfig`). An exception goes in a `files:` override in the config, with a reason.

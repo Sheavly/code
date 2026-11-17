@@ -243,7 +243,7 @@ you` keeps its own words.
   as `touch *`, `git diff *`, `npm run test *` or `npx eslint *`, including every entry for a chain.
   All options, paths and other arguments of that command are allowed. If a backend omits the
   entries, the choice keeps its generic hint. See the
-  [entry rules](../../../packages/coding/docs/run-command.md#who-decides).
+  [entry rules](../../../extensions/coding/docs/run-command.md#who-decides).
 - **Command-prefix grants can last for this session or this workspace.** When offered, the
   session choice shows the same proposed prefixes as Always allow but explicitly says they are
   not saved. npm scripts keep `npm run <script> *`; npx keeps `npx <command> *`, without pinning

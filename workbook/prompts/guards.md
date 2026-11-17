@@ -5,10 +5,10 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/files',
-        'packages/coding/src/read-file',
-        'packages/coding/src/write-file',
-        'packages/coding/src/run-command',
+        'extensions/coding/src/files',
+        'extensions/coding/src/read-file',
+        'extensions/coding/src/write-file',
+        'extensions/coding/src/run-command',
         'packages/workspace/src/workspace',
         'packages/runtime/src/approvals',
       ],
