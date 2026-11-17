@@ -83,7 +83,7 @@ export const importsRule = {
     const checkAppOnlyModule = (params) => {
       const { node, target, subpath } = params;
 
-      if (isTestCode || entry.testOnly || entry.kind !== 'package' || isTypeOnly(node)) {
+      if (isTestCode || entry.testOnly || entry.kind === 'app' || isTypeOnly(node)) {
         return false;
       }
 
@@ -142,7 +142,7 @@ export const importsRule = {
       const { node, specifier, target } = params;
       const subpath = specifier.slice(target.length + 1);
 
-      if (!subpath || layout[target].kind !== 'package') return;
+      if (!subpath || layout[target].kind === 'app') return;
 
       if (!isExported({ exports: layout[target].exports, subpath })) {
         context.report({ node, messageId: 'notExported', data: { specifier, target, subpath } });

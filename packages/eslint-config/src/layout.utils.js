@@ -39,9 +39,14 @@ export function listWorkspaces(root) {
   });
 }
 
-/** `packages/*` is a package; `apps/*` (and a root with source) is an app. */
+/**
+ * `packages/*` is a package, `extensions/*` an extension (a library of what a run includes, built
+ * on packages), `apps/*` (and a root with source) an app.
+ */
 function kindOf(relative) {
-  return relative.startsWith('packages/') ? 'package' : 'app';
+  if (relative.startsWith('packages/')) return 'package';
+
+  return relative.startsWith('extensions/') ? 'extension' : 'app';
 }
 
 function workspaceDeps(params) {
@@ -164,6 +169,10 @@ export function edgeProblem(params) {
 
   if (target.transport && entry.kind !== 'app') {
     return `${name} depends on ${dependency}, a transport: only an app starts one, so the library runs without it. Depend on what it serves (\`@sheavly/host\`) instead`;
+  }
+
+  if (target.kind === 'extension' && entry.kind === 'package') {
+    return `${name} depends on ${dependency}, an extension: extensions are built on packages, never the other way round. An app composes extensions`;
   }
 
   if (entry.domain === 'generic' && target.domain === 'coding') {
