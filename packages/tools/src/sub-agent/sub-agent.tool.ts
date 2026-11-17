@@ -124,10 +124,9 @@ async function runChild(params: {
       provider,
       tools: [
         ...tools,
-        ...(options.tasksTools?.(tasks) ?? []),
         createReportStatusTool({ sessions }),
         // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
-        ...(canNest || options.tasksTools ? createTaskTools(tasks) : []),
+        ...(canNest || options.withTaskTools ? createTaskTools(tasks) : []),
         ...(canNest ? [createSubAgentTool(options), createMessageAgentTool({ sessions })] : []),
       ],
       hooks,

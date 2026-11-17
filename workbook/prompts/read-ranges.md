@@ -3,7 +3,7 @@ description: read_file's 1000-line cap, a line range, and paging on
 workspace: basic
 check:
   {
-    'areas': ['packages/coding/src/read-file'],
+    'areas': ['extensions/coding/src/read-file'],
     'expect':
       {
         'reply': ['42', '1500'],

@@ -1,0 +1,74 @@
+{
+  "name": "@sheavly/coding",
+  "version": "0.0.0",
+  "description": "The coding tools (file tools, run_command) and createCodingHarness: the workspace, file locks and process runner a coding run shares.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
+  },
+  "type": "module",
+  "license": "Apache-2.0",
+  "sheavly": {
+    "domain": "coding"
+  },
+  "private": true,
+  "dependencies": {
+    "@sheavly/agents": "^0.0.0",
+    "@sheavly/core": "^0.0.0",
+    "@sheavly/extension": "^0.0.0",
+    "@sheavly/host": "^0.0.0",
+    "@sheavly/process": "^0.0.0",
+    "@sheavly/protocol": "^0.0.0",
+    "@sheavly/runtime": "^0.0.0",
+    "@sheavly/workspace": "^0.0.0",
+    "@vscode/ripgrep": "^1.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@sheavly/loop": "^0.0.0",
+    "@sheavly/testing": "^0.0.0",
+    "@sheavly/tools": "^0.0.0"
+  },
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.tool": {
+      "@sheavly/source": "./src/*.tool.ts",
+      "default": "./dist/*.tool.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
+    },
+    "./*.errors": {
+      "@sheavly/source": "./src/*.errors.ts",
+      "default": "./dist/*.errors.js"
+    },
+    "./*.constants": {
+      "@sheavly/source": "./src/*.constants.ts",
+      "default": "./dist/*.constants.js"
+    },
+    "./ripgrep/*": null,
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "docs",
+    "skills"
+  ]
+}

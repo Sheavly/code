@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/host",
   "version": "0.0.0",
-  "description": "The services one run shares: the session, task and approval registries around the provider a UI picked. No tools, hooks, settings or UI.",
+  "description": "The services one run shares: the session, task and approval registries around the provider a UI picked, and the run-service keys extensions read (runServices). No tools, hooks, settings or UI.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
@@ -17,6 +17,7 @@
   "private": true,
   "dependencies": {
     "@sheavly/core": "^0.0.0",
+    "@sheavly/extension": "^0.0.0",
     "@sheavly/loop": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
     "@sheavly/runtime": "^0.0.0",
@@ -46,6 +47,10 @@
     },
     "./testing/*": {
       "@sheavly/source": "./src/testing/*.ts"
+    },
+    "./*.utils": {
+      "@sheavly/source": "./src/*.utils.ts",
+      "default": "./dist/*.utils.js"
     }
   },
   "files": [

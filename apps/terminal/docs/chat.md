@@ -243,7 +243,7 @@ you` keeps its own words.
   as `touch *`, `git diff *`, `npm run test *` or `npx eslint *`, including every entry for a chain.
   All options, paths and other arguments of that command are allowed. If a backend omits the
   entries, the choice keeps its generic hint. See the
-  [entry rules](../../../packages/coding/docs/run-command.md#who-decides).
+  [entry rules](../../../extensions/coding/docs/run-command.md#who-decides).
 - **Command-prefix grants can last for this session or this workspace.** When offered, the
   session choice shows the same proposed prefixes as Always allow but explicitly says they are
   not saved. npm scripts keep `npm run <script> *`; npx keeps `npx <command> *`, without pinning
@@ -277,7 +277,7 @@ you` keeps its own words.
   one, from the next model call on, keeping the history
   ([models and keys](../../backend/docs/harness.md#models-and-keys)). The switch is made by
   id; a name only finds the model, and one that two models share is refused.
-- `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
+- `/<skill>` anywhere in a message runs that [skill](../../../extensions/coding/docs/skills.md)
   with the message, at the start (`/git submit`), in the middle or at the end
   (`review this, then /git`), including `disable-model-invocation` skills. A message that starts
   with a `/name` no skill has is reported as an unknown command and not sent. Skills that didn't

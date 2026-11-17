@@ -15,19 +15,19 @@ conversation it serves, for whichever UI, is built on it, by `servedConversation
 `createBackendHarness` opens the coding services (`createCodingHarness`: the workspace, file
 locks and process runner), then composes:
 
-| What                                                  | From                 | Why                                                                                                                                                                   |
-| ----------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding`    | A coding agent works on files; all four share the run's `FileLocks` and `FileReads` (an edit needs a read first)                                                      |
-| `glob`, `grep`                                        | `@sheavly/coding`    | Discover workspace files and search their contents with dedicated, confined tools rather than shell discovery                                                         |
-| `read_skill`                                          | `@sheavly/coding`    | Reads a listed skill, from the project's or the user's skill folders                                                                                                  |
-| `web_fetch`                                           | `@sheavly/tools`     | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`                                                      |
-| `web_search`                                          | `@sheavly/tools`     | Bounded titles, URLs and snippets, with UI artifacts; a fallback chain of keyless backends (Tavily first) unless another is injected, omitted with `WEB_SEARCH=false` |
-| `run_command`                                         | `@sheavly/coding`    | Commands, piped and chained without a shell; the user is asked before any they have not allowed                                                                       |
-| `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`     | Inspect or cancel background work, or group its completions with a reason                                                                                             |
-| `start_agent`, `message_agent`                        | `@sheavly/tools`     | Sub-agents get file tools, `read_skill`, the run's task registry (scoped to their session) and `run_command`, plus the shared hooks                                   |
-| The AGENTS.md hook                                    | `@sheavly/workspace` | First, so the project's rules apply from the first call                                                                                                               |
-| The skills hook                                       | `@sheavly/workspace` | Lists the [skills](../../../packages/workspace/docs/skills.md), the user's too (`~`)                                                                                  |
-| The `.sheavly/` hooks                                 | `@sheavly/workspace` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                                                  |
+| What                                                  | From              | Why                                                                                                                                                                   |
+| ----------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_file`, `write_file`, `edit_file`, `delete_file` | `@sheavly/coding` | A coding agent works on files; all four share the run's `KeyedLocks` and `FileReads` (an edit needs a read first)                                                     |
+| `glob`, `grep`                                        | `@sheavly/coding` | Discover workspace files and search their contents with dedicated, confined tools rather than shell discovery                                                         |
+| `read_skill`                                          | `@sheavly/coding` | Reads a listed skill, from the project's or the user's skill folders                                                                                                  |
+| `web_fetch`                                           | `@sheavly/tools`  | Public HTTP(S) pages as readable text, with bounded downloads and no credentials; omitted with `WEB_FETCH=false`                                                      |
+| `web_search`                                          | `@sheavly/tools`  | Bounded titles, URLs and snippets, with UI artifacts; a fallback chain of keyless backends (Tavily first) unless another is injected, omitted with `WEB_SEARCH=false` |
+| `run_command`                                         | `@sheavly/coding` | Commands, piped and chained without a shell; the user is asked before any they have not allowed                                                                       |
+| `task_status`, `cancel_task`, `await_tasks`           | `@sheavly/tools`  | Inspect or cancel background work, or group its completions with a reason                                                                                             |
+| `start_agent`, `message_agent`                        | `@sheavly/tools`  | Sub-agents get file tools, `read_skill`, the run's task registry (scoped to their session) and `run_command`, plus the shared hooks                                   |
+| The AGENTS.md hook                                    | `@sheavly/coding` | First, so the project's rules apply from the first call                                                                                                               |
+| The skills hook                                       | `@sheavly/coding` | Lists the [skills](../../../extensions/coding/docs/skills.md), the user's too (`~`)                                                                                   |
+| The `.sheavly/` hooks                                 | `@sheavly/coding` | Only in a trusted workspace (`--trust`); `projectTrust` says why not                                                                                                  |
 
 Sub-agents receive the same file tools, including `glob`, `grep` and `delete_file`, and enabled web
 tools as the main agent. Their `task_status`, `cancel_task` and `await_tasks` operate on their own
@@ -51,6 +51,33 @@ An embedding app can instead pass `webSearch: { backend }` to `createBackendHarn
 own search backend or a Tavily backend constructed with an injected API key. Credentials are
 not model input, and packages never discover them from the environment. See
 [web search](../../../packages/tools/docs/web-search.md) for the contract, bounds and artifacts.
+
+**Extensions.** The run is built by an `ExtensionHost` from three built-in extensions (`web`,
+`agents`, `coding`, in that order) and the ones an embedding app passes as `extensions`, after
+them. A third-party extension needs no edit of our source: it can depend on a built-in by name, and
+its tools, hooks and work kinds join the run (a name that collides fails it). The app supplies the
+host with run services (`runServices`, `@sheavly/host/run-services/run-services.utils`), which
+every extension reads without a `dependsOn`:
+
+| Key                                   | What it is                                                     |
+| ------------------------------------- | -------------------------------------------------------------- |
+| `PROVIDER`, `INSTRUCTIONS`            | The main session's provider and the composed base instructions |
+| `SESSIONS`, `MAIN_SESSION`            | The session registry and the run's main session                |
+| `TASKS`                               | The one task registry: start background work with `startWork`  |
+| `APPROVALS`                           | Where a tool asks the user for approval (`request` only)       |
+| `OUTPUTS` (only with an output store) | The conversation's complete command output store (`find` it)   |
+
+These are full trust, not a sandbox (see
+[run services](../../../packages/host/docs/harness.md#run-services-for-extensions)); an extension
+gets its configuration from `extensionSettings`, not from the environment.
+
+`extensionSettings` holds the user's values for the settings extensions declare (`defineSetting`),
+by setting name, and `settings` on the returned run lists each with its value in effect; a name no
+extension declares, or a value of the wrong type, fails the run. An extension can place a hook
+before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.
+`src/harness/__tests__/third-party-capabilities.test.ts` shows each of these from an extension that
+uses only public exports. The built-ins read the same services, with one exception: `coding` takes
+its workspace, locks and process runner from the coding harness it is given.
 
 **Summaries.** Unless `SUMMARY=false`, the main run and every sub-agent summarize their history
 when the context nears the window (`backendSummary`, `harness/summary.helper.ts`). The model the

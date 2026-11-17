@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "composite": true,
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.build.tsbuildinfo",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "customConditions": []
+  },
+  "references": [
+    {
+      "path": "../../packages/extension/tsconfig.build.json"
+    },
+    {
+      "path": "../../packages/tools/tsconfig.build.json"
+    },
+    {
+      "path": "../agents/tsconfig.build.json"
+    }
+  ],
+  "exclude": ["src/**/__tests__", "src/testing"]
+}

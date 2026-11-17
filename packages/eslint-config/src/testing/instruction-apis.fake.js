@@ -102,7 +102,7 @@ function exportedFunctions(ast) {
  */
 function sourceFiles(root) {
   return Object.values(readLayout({ root }))
-    .filter((entry) => entry.kind === 'package' && entry.exports)
+    .filter((entry) => entry.kind !== 'app' && entry.exports)
     .flatMap((entry) =>
       entry.modules.flatMap(({ name, files }) =>
         files.map((file) => ({

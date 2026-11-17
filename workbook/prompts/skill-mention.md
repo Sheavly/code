@@ -3,7 +3,7 @@ description: A user-only skill mentioned in the middle of the prompt runs with i
 workspace: skills
 check:
   {
-    'areas': ['packages/workspace/src/skills', 'apps/terminal/src/workbook'],
+    'areas': ['extensions/coding/src/skills', 'apps/terminal/src/workbook'],
     'expect': { 'reply': ['[TEAM GREETING] Hello, crew!'], 'outcome': 'completed' },
   }
 ---

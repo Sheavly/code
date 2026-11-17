@@ -1,11 +1,12 @@
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Environment } from '@sheavly/core/environment/environment.types';
+import type { DocumentStore } from '@sheavly/core/store/store.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { WorkspaceError } from '../errors/workspace.errors.js';
 import type { Workspace } from '../workspace/workspace.service.js';
 import { assertWorkTree, checkedOutBranch } from './checkout.helper.js';
-import type { WorkingRootInfo, WorkingRootState, WorkingRootStore } from './working-root.types.js';
+import type { WorkingRootInfo, WorkingRootState } from './working-root.types.js';
 import { parseShellState } from './working-root.validator.js';
 
 /**
@@ -20,11 +21,16 @@ import { parseShellState } from './working-root.validator.js';
  * must never quietly start somewhere else, such as the main checkout.
  */
 export class WorkingRoots {
-  readonly #store: WorkingRootStore;
+  readonly #store: DocumentStore;
   readonly #workspace: Workspace;
   readonly #env: Environment;
 
-  constructor(params: { store: WorkingRootStore; workspace: Workspace; env: Environment }) {
+  /**
+   * `store` holds the conversation's working root (`shell.json`). `@sheavly/storage`'s
+   * `DocumentFile` fits: `load` gives what is stored (`undefined` when nothing is), `update`
+   * replaces it one change at a time.
+   */
+  constructor(params: { store: DocumentStore; workspace: Workspace; env: Environment }) {
     this.#store = params.store;
     this.#workspace = params.workspace;
     this.#env = params.env;

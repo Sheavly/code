@@ -1,6 +1,6 @@
 # Approvals
 
-How a tool asks the user to approve something, and how a UI answers. `run_command` is the tool that asks ([@sheavly/coding](../../coding/docs/run-command.md)).
+How a tool asks the user to approve something, and how a UI answers. `run_command` is the tool that asks ([@sheavly/coding](../../../extensions/coding/docs/run-command.md)).
 
 ## One state machine
 

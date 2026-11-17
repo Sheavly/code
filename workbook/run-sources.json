@@ -12,7 +12,7 @@
     "packages/host/src/",
     "packages/client/src/",
     "packages/workspace/src/",
-    "packages/coding/src/"
+    "extensions/coding/src/"
   ],
   "exclude": ["__tests__/", "/testing/", ".test.", ".fake.ts"]
 }

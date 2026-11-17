@@ -1,13 +1,13 @@
 # Writing a tool
 
-The `Tool` contract (`@sheavly/core/tool/`) every tool is written against, and the artifacts a tool hands a UI. The built-in tools are documented where they live: the file tools and `run_command` in [@sheavly/coding](../../coding/docs/), the task and sub-agent tools in [@sheavly/tools](../../tools/docs/).
+The `Tool` contract (`@sheavly/core/tool/`) every tool is written against, and the artifacts a tool hands a UI. The built-in tools are documented where they live: the file tools and `run_command` in [@sheavly/coding](../../../extensions/coding/docs/), the task and sub-agent tools in [@sheavly/tools](../../tools/docs/).
 
 ## The contract
 
 A tool is a folder with a `<name>.tool.ts` that returns
 `defineTool({ name, description, inputSchema, execute })` (from `@sheavly/core/tool/tool.utils`): in
 `@sheavly/tools` (`packages/tools/src/<name>/`) for a generic tool, in `@sheavly/coding`
-(`packages/coding/src/<name>/`) for one that touches files or runs commands.
+(`extensions/coding/src/<name>/`) for one that touches files or runs commands.
 
 - `inputSchema` is a `z.object`. Don't add a `description` field: the harness adds one for the
   model's plain-language note ("reading index.ts") and strips it before `execute`.

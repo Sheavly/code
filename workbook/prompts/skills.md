@@ -5,9 +5,9 @@ check:
   {
     'areas':
       [
-        'packages/workspace/src/skills',
-        'packages/workspace/skills',
-        'packages/coding/src/read-skill',
+        'extensions/coding/src/skills',
+        'extensions/coding/skills',
+        'extensions/coding/src/read-skill',
         'apps/backend/src/harness',
       ],
     'expect': { 'reply': ['Codename: Bluefin'], 'tools': ['read_skill'], 'outcome': 'completed' },

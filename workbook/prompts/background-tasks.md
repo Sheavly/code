@@ -7,8 +7,8 @@ check:
       [
         'packages/runtime/src/tasks',
         'packages/tools/src/tasks',
-        'packages/coding/src/run-command',
-        'packages/workspace/src/process',
+        'extensions/coding/src/run-command',
+        'packages/process/src/process',
       ],
     'expect':
       {

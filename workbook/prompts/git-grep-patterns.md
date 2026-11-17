@@ -3,7 +3,7 @@ description: Git grep regex patterns are not mistaken for secret-file pathspecs
 workspace: basic
 check:
   {
-    'areas': ['packages/coding/src/run-command'],
+    'areas': ['extensions/coding/src/run-command'],
     'expect':
       { 'tools': ['run_command'], 'reply': ['GIT_GREP_PATTERN_OK'], 'outcome': 'completed' },
     'forbid': { 'transcript': ['foo.*: can name a .env file'] },

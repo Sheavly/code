@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Skill } from '@sheavly/workspace/skills/skills.types';
+import type { Skill } from '@sheavly/coding/skills/skills.types';
 import { skillsNotice } from '../notices.utils.js';
 
 describe('skillsNotice', () => {

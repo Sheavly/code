@@ -6,8 +6,8 @@ import { Conversations } from '@sheavly/host/conversations/conversations.service
 import { twoModelRun } from '@sheavly/host/testing/run.fake';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import { harnessConversation, workspaceSkills } from '../conversation.helper.js';
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';

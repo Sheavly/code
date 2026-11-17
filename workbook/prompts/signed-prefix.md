@@ -8,9 +8,10 @@ check:
         'packages/core/src/provider',
         'packages/loop/src/stream-agent/sample.helper.ts',
         'packages/providers/src/anthropic-messages',
-        'packages/workspace/src/agents-md',
+        'extensions/coding/src/agents-md',
+        'packages/core/src/instruction-context',
         'packages/workspace/src/instruction-context',
-        'packages/workspace/src/skills',
+        'extensions/coding/src/skills',
         'packages/host/src/conversation',
       ],
     'expect':

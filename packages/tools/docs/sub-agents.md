@@ -25,13 +25,13 @@ sub-agent on one task, `{ title, task }`.
   are skipped, and sections are joined with one blank line. The same
   composition is passed to descendants. Neither option implicitly copies parent history or
   conversation overrides. The backend supplies its shared generic and coding text explicitly.
-- **Tools that start background tasks.** `options.tasksTools(tasks)` builds tools (for example
-  `run_command`) for each sub-agent on the run's one `TaskRegistry`, shared by every session, so
-  task ids are unique across them. What a sub-agent starts is owned by its session: `task_status`,
-  `await_tasks` and `cancel_task` see only that, a foreign id reads as unknown, and its background
-  commands stop when it ends (`cancelSession`), leaving its parent's and siblings' running. A sub-agent with
-  `tasksTools` also gets `task_status`, `await_tasks` and `cancel_task` at the depth cap. Tools in
-  `options.tools` are shared and must not start tasks of their own.
+- **Tools that start background tasks.** A tool such as `run_command` goes in `options.tools`
+  like any other, built on the run's one `TaskRegistry`, shared by every session, so task ids are
+  unique across them; set `options.withTaskTools` so sub-agents get the task tools at the depth
+  cap too. What a sub-agent starts is owned by its session: `task_status`, `await_tasks` and
+  `cancel_task` see only that, a foreign id reads as unknown, and its background commands stop
+  when it ends (`cancelSession`), leaving its parent's and siblings' running. A sub-agent
+  below the cap has the task tools anyway; `withTaskTools` is read when each sub-agent starts.
 - **Approvals.** A sub-agent's tools ask the user through the same approval registry as the main
   session; the request carries the sub-agent's `sessionId`. A UI names the asker from the
   session updates: see `watchApprovals` in [@sheavly/client](../../client/docs/design.md).

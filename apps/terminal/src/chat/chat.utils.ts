@@ -1,4 +1,4 @@
-import { completeSkillMention } from '@sheavly/workspace/skills/skills.utils';
+import { completeSkillMention } from '@sheavly/coding/skills/skills.utils';
 import { CHAT_COMMANDS, EXIT_COMMANDS } from './chat.constants.js';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelId } from '@sheavly/protocol/model/model.types';

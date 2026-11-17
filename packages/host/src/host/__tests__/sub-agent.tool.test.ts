@@ -344,10 +344,9 @@ describe('start_agent', () => {
     expect(sessions.children(main.id)[0]).toMatchObject({ state: 'interrupted' });
   });
 
-  it('gives every sub-agent the tools built on the run task registry, even at the depth cap', async () => {
+  it('gives every sub-agent the task tools when the run says its tools start work, even at the depth cap', async () => {
     const sessions = new SessionRegistry();
     const tasks = new TaskRegistry();
-    const built: TaskRegistry[] = [];
     const seenTools: string[][] = [];
     const root = sessions.startMain({ title: 'Main' });
     const main = sessions.startChild({ parentId: root.id, startedByCall: callId, title: 'L2' });
@@ -363,19 +362,15 @@ describe('start_agent', () => {
       tasks,
       provider,
       runAgent: runSession,
-      tools: [],
-      tasksTools: (childTasks) => {
-        built.push(childTasks);
-
-        return [
-          defineTool({
-            name: 'shell',
-            description: 's',
-            inputSchema: z.object({}),
-            execute: async () => '',
-          }),
-        ];
-      },
+      tools: [
+        defineTool({
+          name: 'shell',
+          description: 's',
+          inputSchema: z.object({}),
+          execute: async () => '',
+        }),
+      ],
+      withTaskTools: true,
     });
 
     await tool.execute({
@@ -385,8 +380,6 @@ describe('start_agent', () => {
     });
     await tasks.nextSettled();
 
-    expect(built).toHaveLength(1);
-    expect(built[0]).toBe(tasks);
     expect(seenTools[0]).toEqual([
       'await_tasks',
       'cancel_task',
@@ -396,11 +389,10 @@ describe('start_agent', () => {
     ]);
   });
 
-  it('cancels a command the sub-agent started through tasksTools when the sub-agent is cancelled', async () => {
+  it('cancels a command the sub-agent started with a tool that starts work when the sub-agent is cancelled', async () => {
     const sessions = new SessionRegistry();
     const tasks = new TaskRegistry();
     const main = sessions.startMain({ title: 'Main' });
-    let childTasks: TaskRegistry | undefined;
     let turn = 0;
     const provider: Provider = {
       async *stream(request) {
@@ -430,32 +422,28 @@ describe('start_agent', () => {
       tasks,
       provider,
       runAgent: runSession,
-      tools: [],
-      tasksTools: (registry) => {
-        childTasks = registry;
+      tools: [
+        defineTool({
+          name: 'bg',
+          description: 'Starts a background command that runs until cancelled',
+          inputSchema: z.object({}),
+          execute: async () => {
+            tasks.start({
+              command: 'sleep',
+              description: 'sleeps',
+              run: ({ signal }) =>
+                new Promise((resolve) =>
+                  signal.addEventListener('abort', () => resolve({ exitCode: 1 }), {
+                    once: true,
+                  }),
+                ),
+            });
 
-        return [
-          defineTool({
-            name: 'bg',
-            description: 'Starts a background command that runs until cancelled',
-            inputSchema: z.object({}),
-            execute: async () => {
-              registry.start({
-                command: 'sleep',
-                description: 'sleeps',
-                run: ({ signal }) =>
-                  new Promise((resolve) =>
-                    signal.addEventListener('abort', () => resolve({ exitCode: 1 }), {
-                      once: true,
-                    }),
-                  ),
-              });
-
-              return 'started';
-            },
-          }),
-        ];
-      },
+            return 'started';
+          },
+        }),
+      ],
+      withTaskTools: true,
     });
 
     await tool.execute({
@@ -463,7 +451,7 @@ describe('start_agent', () => {
       signal: new AbortController().signal,
       context: { callId, description: 'd', session: main },
     });
-    await until(() => childTasks?.list().length === 1);
+    await until(() => tasks.list().length === 1);
 
     const [parentTask] = tasks.list();
 
@@ -471,7 +459,7 @@ describe('start_agent', () => {
     await tasks.cancel(parentTask.id);
 
     // Its command belonged to the sub-agent, not to the parent: it ends with the sub-agent.
-    expect(childTasks?.list().map((task) => task.status)).toEqual(['cancelled']);
+    expect(tasks.list().map((task) => task.status)).toEqual(['cancelled']);
     expect(tasks.list()).toHaveLength(1);
   });
 

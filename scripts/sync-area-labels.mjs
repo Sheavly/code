@@ -34,8 +34,9 @@ function describeArea(params) {
 
   const scope = label.slice(AREA_PREFIX.length);
   const folder =
-    ['packages', 'apps'].find((parent) => existsSync(path.join(repoRoot, parent, scope))) ??
-    'packages';
+    ['packages', 'extensions', 'apps'].find((parent) =>
+      existsSync(path.join(repoRoot, parent, scope)),
+    ) ?? 'packages';
 
   return `Commit scope ${scope}: ${folder}/${scope}`;
 }

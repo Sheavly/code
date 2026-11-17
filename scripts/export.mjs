@@ -15,8 +15,10 @@ export function exportCommand(params) {
   const { root, dir, kind } = params;
   const workspace = listWorkspaces(root).find(({ relative }) => relative === dir);
 
-  if (!workspace || !dir.startsWith('packages/')) {
-    return { problem: `${dir} is no package: use packages/<name>.` };
+  if (!workspace || !/^(packages|extensions)\//.test(dir)) {
+    return {
+      problem: `${dir} is no package or extension: use packages/<name> or extensions/<name>.`,
+    };
   }
 
   if (!FILE_KINDS.includes(kind) || kind === 'test' || kind === 'fake') {

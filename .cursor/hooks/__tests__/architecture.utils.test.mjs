@@ -64,6 +64,8 @@ describe('the architecture rule', () => {
     ['packages/host/src/host/host.service.ts', true],
     ['apps/terminal/src/workbook/run.helper.ts', true],
     ['packages/core/src/tool/tool.types.ts', true],
+    ['extensions/coding/src/extension/coding-extension.helper.ts', true],
+    ['extensions/coding/src/run-command/__tests__/arguments.service.test.ts', false],
     ['packages/coding/src/run-command/__tests__/arguments.service.test.ts', false],
     ['src/loop/turn.helper.ts', false],
     ['docs/tools.md', false],

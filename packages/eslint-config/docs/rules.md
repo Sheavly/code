@@ -60,6 +60,19 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   Type-only imports are allowed. The check includes package subpaths (including self-imports),
   relative imports, re-exports and literal dynamic imports; layout validates the metadata against
   actual direct `src/` module folders.
+- `harness/extension-definition` (source files of `extensions/*` workspaces, not tests): every
+  `defineExtension({ … })` says what its workspace says. `name` is a string literal equal to the
+  folder (`extensions/web` → `'web'`), and `dependsOn` (absent means none) is an array of string
+  literals that, as a set, equals the folders of the other extension workspaces in its
+  `dependencies` (dev dependencies don't count). An extension has no domain or category, so none
+  is checked. A missing name, an extra one and a duplicate are each reported with what to change.
+  Without it a `dependsOn` that omits a real dependency leaves activation order to luck; the host
+  only throws for a name that doesn't exist.
+  It reads the layout from disk (`readLayout`), so a new extension is covered with no edit, and
+  takes the `root`/`layout` options of the other layout rules. It cannot see a value that isn't a
+  literal (it reports that, and asks for a literal), an extension built by a helper rather than a
+  direct `defineExtension` call with an object literal, or a service read without a declared
+  dependency (that throws at activation).
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or
@@ -152,16 +165,17 @@ is split by responsibility only when it does several jobs, not to fit a number. 
 - **Instruction context** (`harness/no-direct-instruction-context`, source files): no import of
   `instruction-context.helper` (`appendInstructionContext`). An instruction source is an
   `InstructionSource` built with `createInstructionHook`, which resolves the working root each turn
-  and owns the dedup; its own file is the one `files:` exception, in the workspace's
-  eslint.config.js. It matches the import, so a copy of the helper's text written by hand is left
+  and owns the dedup; its own file
+  (`packages/core/src/instruction-context/instruction-source.helper.ts`) is the one `files:`
+  exception, in core's eslint.config.js. It matches the import, so a copy of the helper's text written by hand is left
   to review.
 - **Instruction source reads** (`harness/no-raw-fs-in-instruction-source`, source files): a file
   that imports the instruction factory or its types (`instruction-source.helper`/`.types`) does not
   import `node:fs` or `node:fs/promises`. An instruction source's folder can be the agent's choice
   (a working root), so its reads go through `readConfinedFile`
   (`packages/workspace/src/instruction-context/confined-read.helper.ts`): real path inside the boundary, never `.env*`,
-  no link swapped after the check. The skills source is the one `files:` exception, since it reads
-  folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
+  no link swapped after the check. The skills source (`@sheavly/coding`) is the one `files:`
+  exception, in the coding extension's eslint.config.js, since it reads folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
   `harness/no-direct-instruction-context` are on and off. A source that reads through a helper
   that itself uses `node:fs` is not seen: the rule looks at the source file's own imports.
 - **Locked changes** (`harness/no-raw-serial-queue`, source files): no `new SerialQueue()`. A store
@@ -187,10 +201,10 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `replay.utils.ts` (compares the source) are the two `files:` exceptions; `no-handrolled-provider-policy.test.js` pins where
   the rule is on and off. It matches these spellings only: a status compared as a number
   (`=== 429`), or a header name held in a variable, is left to review.
-- **Command deadlines** (`harness/no-adhoc-command-deadline`, the workspace package's
-  `src/process/`, enabled in `packages/workspace/eslint.config.js`): no `AbortSignal.timeout`, no
+- **Command deadlines** (`harness/no-adhoc-command-deadline`, the process package's
+  `packages/process/src/process/`, enabled in `packages/process/eslint.config.js`): no `AbortSignal.timeout`, no
   `setTimeout` and no `setInterval`. "Timed out" for a command or a script is `withDeadline`'s
-  (`packages/workspace/src/process/deadline.helper.ts`): the deadline aborted and the caller did
+  (`packages/process/src/process/deadline.helper.ts`): the deadline aborted and the caller did
   not. `deadline.helper.ts` is the one `files:` exception; `no-adhoc-command-deadline.test.js`
   pins where the rule is on and off, and the gaps it leaves to review: it matches the plain
   spellings only, so a renamed import (`setTimeout as sleep`), `globalThis.setTimeout`,
@@ -282,9 +296,9 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   - `harness/guard-file-tool-resolve` (coding `*.tool.ts` files): a tool never touches the
     workspace's `resolveRead`, `resolveWrite` or `resolveDelete` (a call, an alias, `.call`, a
     destructured property, an import or a re-export of one); it asks the guard in
-    `packages/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
+    `extensions/coding/src/files/files.helper.ts` (`resolveReadable`, `resolveWritable`, `resolveDeletable`) or
     `resolveSearchRoot`. A tool file that calls one of those guards must also call `runFileTool`
-    (`packages/coding/src/files/file-tool.helper.ts`), the shared abort and error mapping; it
+    (`extensions/coding/src/files/file-tool.helper.ts`), the shared abort and error mapping; it
     cannot see that the call wraps the right body. It cannot see a computed key that is not a literal or a resolver reached
     through a helper that is not the guard; `harness/guard-working-root` and review carry those.
   - `harness/guard-search-root`: a `runRipgrep` call has `resolveSearchRoot` earlier in the same
@@ -295,7 +309,7 @@ is split by responsibility only when it does several jobs, not to fit a number. 
     rejects `cwd: workspace.root` and a literal `root: undefined`. It cannot see
     `this.workspace.root`, a `cwd` copied into a variable first, a spread or `root: void 0`; the
     list of what review and tests carry is in the rule's file header, and the design is in
-    `packages/coding/docs/file-tools.md`.
+    `extensions/coding/docs/file-tools.md`.
 
 ## Prompt extraction
 
@@ -403,7 +417,7 @@ source snapshot, not a violation-suppression baseline: every detected drift fail
 readability rules: cognitive complexity, max depth/nesting, early returns, no nested ternaries, blank
 lines between steps (auto-fixed with `npm run lint:fix`).
 
-- **Tests live in `__tests__/`** next to the code they test (`packages/coding/src/read-file/__tests__/read-file.tool.test.ts`).
+- **Tests live in `__tests__/`** next to the code they test (`extensions/coding/src/read-file/__tests__/read-file.tool.test.ts`).
   ESLint rejects a `*.test.ts` anywhere else, and Vitest only runs `src/**/__tests__/**/*.test.ts`.
 - **No inline escape hatches.** `eslint-disable` comments are rejected
   (`noInlineConfig`). An exception goes in a `files:` override in the config, with a reason.

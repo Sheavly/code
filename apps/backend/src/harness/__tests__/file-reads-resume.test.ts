@@ -7,9 +7,9 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { FileConversationStore } from '@sheavly/storage/conversation-store/conversation-store.service';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 

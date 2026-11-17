@@ -128,7 +128,7 @@ tester.run('prompt-location', promptLocation, {
       ),
     ),
     invalid(
-      "import { appendInstructionContext as append } from '@sheavly/workspace/instruction-context/instruction-context.helper'; const text = 'Apply policy'; append({ context, name: 'metadata', instructions: text });",
+      "import { appendInstructionContext as append } from '@sheavly/core/instruction-context/instruction-context.helper'; const text = 'Apply policy'; append({ context, name: 'metadata', instructions: text });",
     ),
     invalid(
       instructions('build()').replace(

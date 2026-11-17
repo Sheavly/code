@@ -1,6 +1,6 @@
+import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';
-import type { InstructionSource } from '../instruction-context/instruction-source.types.js';
 import type { Workspace } from '../workspace/workspace.service.js';
 import { renderScratchInstructions } from './scratch.prompt.js';
 

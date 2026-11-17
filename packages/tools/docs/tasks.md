@@ -2,7 +2,7 @@
 
 `createTaskTools(tasks)` (`@sheavly/tools/tasks/`) returns three tools on a run's `TaskRegistry`
 (`@sheavly/runtime/tasks/`), for background work: commands started with
-`run_command`'s `background: true` ([@sheavly/coding](../../coding/docs/run-command.md)) and
+`run_command`'s `background: true` ([@sheavly/coding](../../../extensions/coding/docs/run-command.md)) and
 sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
 
 | Tool          | Input             | What it does                                                                                                     |

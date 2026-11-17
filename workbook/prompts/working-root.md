@@ -6,9 +6,9 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/working-root',
-        'packages/coding/src/files',
-        'packages/coding/src/ripgrep',
+        'extensions/coding/src/working-root',
+        'extensions/coding/src/files',
+        'extensions/coding/src/ripgrep',
         'packages/workspace/src/working-root',
         'packages/host/src/instructions',
         'apps/backend/src/harness/harness.helper.ts',

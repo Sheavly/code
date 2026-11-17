@@ -5,9 +5,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { Script } from '@sheavly/testing/provider/provider.types';
@@ -93,11 +93,19 @@ async function runPrompt(
 }
 
 describe('createBackendHarness: what a backend run includes', () => {
-  it('opens the workspace with the file tools, run_command, task and sub-agent tools', async () => {
+  it('opens the workspace with the task and sub-agent, web, file and command tools, one extension after another', async () => {
     const harness = await open(false);
 
     expect(harness.workspace.root).toBe(realpathSync(root));
+    // Extension order: agents (which web and coding depend on to share with sub-agents), web, coding.
     expect(harness.tools.map((tool) => tool.name)).toEqual([
+      'task_status',
+      'cancel_task',
+      'await_tasks',
+      'start_agent',
+      'message_agent',
+      'web_fetch',
+      'web_search',
       'read_file',
       'glob',
       'grep',
@@ -106,15 +114,8 @@ describe('createBackendHarness: what a backend run includes', () => {
       'delete_file',
       'set_working_root',
       'read_skill',
-      'web_fetch',
-      'web_search',
       'run_command',
       'start_service',
-      'task_status',
-      'cancel_task',
-      'await_tasks',
-      'start_agent',
-      'message_agent',
     ]);
   });
 
@@ -263,7 +264,7 @@ describe('createBackendHarness: what a backend run includes', () => {
     });
 
     it('are the set it is given, so runs that share one take turns on a file', async () => {
-      const shared = new FileLocks();
+      const shared = new KeyedLocks();
       const make = () =>
         createBackendHarness({
           provider: routedProvider({ hi: [say('hello')] }),

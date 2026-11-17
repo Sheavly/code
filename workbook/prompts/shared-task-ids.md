@@ -11,7 +11,7 @@ check:
         'packages/tools/src/tasks',
         'packages/loop/src/stream-agent',
         'packages/host/src/host',
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
       ],
     'expect':
       {

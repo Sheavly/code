@@ -163,7 +163,7 @@ const SOURCE_FILE = /^(\.\/)?src(\/|$)/;
 function publishProblems(params) {
   const { name, entry } = params;
 
-  if (entry.kind !== 'package' || entry.domain === 'tooling' || entry.testOnly) return [];
+  if (entry.kind === 'app' || entry.domain === 'tooling' || entry.testOnly) return [];
 
   const files = Array.isArray(entry.files) ? entry.files : [];
   const missing = PUBLISHED_FILES.filter((file) => !files.includes(file));

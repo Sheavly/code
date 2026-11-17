@@ -12,7 +12,7 @@ import { Profiles } from './profiles/profiles.service.js';
 import { createReplayDropLog } from './profiles/replay-drop-log.helper.js';
 import type { ProfileSetup } from './profiles/setup.service.js';
 import type { WorkspaceSetup } from './profiles/workspace-setup.service.js';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 
 /**
  * The backend's two halves, built on one set of profiles so a change made through `setup` shows in
@@ -57,7 +57,7 @@ export function createBackend(params: {
   });
   // One set for every conversation of this backend: they key by real path, so two conversations
   // editing one file take turns, whichever profile each runs on.
-  const fileLocks = new FileLocks();
+  const fileLocks = new KeyedLocks();
   // Likewise for search: one chain per backend order, so a rate limit is remembered by all.
   const searchChains = new SearchChains();
 

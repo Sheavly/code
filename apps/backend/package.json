@@ -18,8 +18,10 @@
   "dependencies": {
     "@hono/node-server": "^2.1.6",
     "@hono/zod-validator": "^0.9.1",
+    "@sheavly/agents": "^0.0.0",
     "@sheavly/coding": "^0.0.0",
     "@sheavly/core": "^0.0.0",
+    "@sheavly/extension": "^0.0.0",
     "@sheavly/host": "^0.0.0",
     "@sheavly/loop": "^0.0.0",
     "@sheavly/protocol": "^0.0.0",
@@ -28,12 +30,14 @@
     "@sheavly/storage": "^0.0.0",
     "@sheavly/summary": "^0.0.0",
     "@sheavly/tools": "^0.0.0",
+    "@sheavly/web": "^0.0.0",
     "@sheavly/workspace": "^0.0.0",
     "hono": "^4.13.16",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@sheavly/client": "^0.0.0",
+    "@sheavly/process": "^0.0.0",
     "@sheavly/testing": "^0.0.0"
   }
 }

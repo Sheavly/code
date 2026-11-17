@@ -3,7 +3,7 @@
 Each workspace holds one folder per module; everything about a module lives in it. Every file is `<name>.<kind>.ts` in kebab-case (`harness/file-kind`):
 
 ```
-packages/coding/src/run-command/
+extensions/coding/src/run-command/
   run-command.tool.ts        the tool (code only)
   run-command.types.ts       exported types only
   run-command.constants.ts   exported literal constants only

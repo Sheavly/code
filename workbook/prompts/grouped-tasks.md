@@ -11,7 +11,7 @@ check:
         'packages/loop/src/stream-agent',
         'packages/core/src/notice',
         'packages/protocol/src/notice',
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
       ],
     'expect':
       {

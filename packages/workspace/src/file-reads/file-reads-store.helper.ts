@@ -1,5 +1,5 @@
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { WorkingRootStore } from '../working-root/working-root.types.js';
+import type { DocumentStore } from '@sheavly/core/store/store.types';
 import { FILE_READS_KEY } from './file-reads.constants.js';
 import type { FileReads } from './file-reads.service.js';
 import { parseFileViews } from './file-reads.validator.js';
@@ -13,7 +13,7 @@ import { parseFileViews } from './file-reads.validator.js';
 export async function restoreFileReads(params: {
   fileReads: FileReads;
   agentId: SessionId;
-  store: WorkingRootStore;
+  store: DocumentStore;
 }): Promise<void> {
   const { fileReads, agentId, store } = params;
   const document = await store.load();
@@ -33,7 +33,7 @@ export async function restoreFileReads(params: {
 export function createFileReadsKeeper(params: {
   fileReads: FileReads;
   agentId: SessionId;
-  store: WorkingRootStore;
+  store: DocumentStore;
 }): { keep: () => Promise<void>; remember: () => void } {
   const { fileReads, agentId, store } = params;
   let last = JSON.stringify({});

@@ -16,6 +16,7 @@ const harness = createHarness({ provider, title: prompt });
 | ---------------- | ---------------------------------------------------------------------------- |
 | `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types                |
 | `instructions/`  | `composeInstructions`: generic defaults or explicit replacement, then extras |
+| `run-services/`  | `runServices` and the keys (`SESSIONS`, `TASKS`, …) any extension reads      |
 | `conversation/`  | `createConversation`: one conversation across prompts, in one session        |
 | `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones  |
 | `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed   |

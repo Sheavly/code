@@ -7,11 +7,11 @@ check:
     'areas':
       [
         'apps/backend/src/harness/harness.helper.ts',
-        'packages/coding/src/glob',
-        'packages/coding/src/grep',
-        'packages/coding/src/read-file',
-        'packages/coding/src/write-file',
-        'packages/coding/src/delete-file',
+        'extensions/coding/src/glob',
+        'extensions/coding/src/grep',
+        'extensions/coding/src/read-file',
+        'extensions/coding/src/write-file',
+        'extensions/coding/src/delete-file',
         'packages/core/src/tool',
         'packages/host/src/instructions',
       ],

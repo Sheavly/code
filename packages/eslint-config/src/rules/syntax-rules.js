@@ -20,7 +20,7 @@ const FS_MODULES = '/^(node:)?fs(\\u002Fpromises)?$/';
 const FS_MUTATORS =
   '/^(writeFile|appendFile|rename|rm|rmdir|unlink|mkdir|mkdtemp|cp|copyFile|createWriteStream|truncate|ftruncate|symlink|link|chmod|chown|utimes|open|write|writev)(Sync)?$/';
 const FILE_WRITES_MESSAGE =
-  "Do not write, move or delete files by hand. The user's data goes through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, the stores): atomic, private, retried on Windows, and the path is checked. The agent's file tools change a project's files through `packages/coding/src/files/files.helper.ts` (`resolveWritable`, `resolveDeletable`, `createParentFolder`, `writeText`, `removeFile`), which resolve through `Workspace`, its file locks and the `.env`/`.git` guards. A justified exception is a `files:` override with a reason, in this workspace's eslint.config.js.";
+  "Do not write, move or delete files by hand. The user's data goes through `@sheavly/storage` (`writeJsonFile`, `appendJsonLine`, `DocumentFile`, the stores): atomic, private, retried on Windows, and the path is checked. The agent's file tools change a project's files through `extensions/coding/src/files/files.helper.ts` (`resolveWritable`, `resolveDeletable`, `createParentFolder`, `writeText`, `removeFile`), which resolve through `Workspace`, its file locks and the `.env`/`.git` guards. A justified exception is a `files:` override with a reason, in this workspace's eslint.config.js.";
 
 /**
  * The credentials file as the last part of a path, in any case (macOS and Windows file systems
@@ -216,12 +216,12 @@ export const SYNTAX_RULES = {
   // Instruction context reaches the history through `createInstructionHook`, which resolves the
   // working root each turn and owns the dedup. A hook that calls `appendInstructionContext`
   // itself is a fifth hand-rolled wrapper with its own idea of what it already sent. Only the
-  // factory's file (a `files:` override in the workspace's eslint.config.js) imports the helper.
+  // factory's file (a `files:` override in packages/core/eslint.config.js) imports the helper.
   'no-direct-instruction-context': [
     {
       selector: `:matches(ImportDeclaration, ImportExpression, ExportNamedDeclaration, ExportAllDeclaration)[source.value=${INSTRUCTION_CONTEXT_MODULE}]`,
       message:
-        'Do not import or re-export `appendInstructionContext`. Add an instruction source: write `<name>Source(): InstructionSource` and build its hook with `createInstructionHook` (`@sheavly/workspace/instruction-context/instruction-source.helper`), registered with `registerInstructionHooks`. The factory resolves the working root per turn and owns the dedup, so a source keeps no state. See "An instruction source" in extending.md.',
+        'Do not import or re-export `appendInstructionContext`. Add an instruction source: write `<name>Source(): InstructionSource` and build its hook with `createInstructionHook` (`@sheavly/core/instruction-context/instruction-source.helper`), registered with `registerInstructionHooks`. The factory resolves the working root per turn and owns the dedup, so a source keeps no state. See "An instruction source" in extending.md.',
     },
   ],
   // An instruction source reads files whose folder the agent can choose (a working root), so a
@@ -283,21 +283,21 @@ export const SYNTAX_RULES = {
     },
   ],
   // "Timed out" for a command or a script is decided once, in `withDeadline`
-  // (`packages/workspace/src/process/deadline.helper.ts`): the deadline aborted and the caller did
+  // (`packages/process/src/process/deadline.helper.ts`): the deadline aborted and the caller did
   // not. A timer of its own beside it is a second definition, which is how `ProcessRunner.run` and
   // `runScript` once disagreed about a cancel after the deadline. Enabled for the process folder
-  // in the workspace's eslint.config.js, with a `files:` override for the helper itself. Not
+  // in the process package's eslint.config.js, with a `files:` override for the helper itself. Not
   // covered: a timer made another way (`timers/promises`, `AbortSignal.any` with your own signal).
   'no-adhoc-command-deadline': [
     {
       selector: "CallExpression[callee.object.name='AbortSignal'][callee.property.name='timeout']",
       message:
-        'Do not set a command timeout with `AbortSignal.timeout` yourself. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: the deadline aborted and the caller did not. Use its `signal` to stop the command and its `timedOut()` for the result.',
+        'Do not set a command timeout with `AbortSignal.timeout` yourself. `withDeadline` (`packages/process/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: the deadline aborted and the caller did not. Use its `signal` to stop the command and its `timedOut()` for the result.',
     },
     {
       selector: 'CallExpression[callee.name=/^(setTimeout|setInterval)$/]',
       message:
-        'Do not run a timer for a command by hand. `withDeadline` (`packages/workspace/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
+        'Do not run a timer for a command by hand. `withDeadline` (`packages/process/src/process/deadline.helper.ts`) is the one definition of "timed out" for a command or a script: use its `signal` to stop the command and its `timedOut()` for the result.',
     },
   ],
   // Ctrl+C in the terminal app is `interruptOnCtrlC`'s: the same-keypress window, one force-quit

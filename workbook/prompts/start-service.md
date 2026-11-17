@@ -6,7 +6,7 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
         'packages/tools/src/tasks',
         'packages/loop/src/stream-agent',
         'apps/backend/src/harness',

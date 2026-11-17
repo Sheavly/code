@@ -2,8 +2,8 @@
 
 `createWebFetchTool` from `@sheavly/tools/web-fetch/web-fetch.tool` needs no workspace. A host
 includes it in its tool list, and must explicitly pass it in `createSubAgentTool`'s `tools` for
-children to get it (tools that start background tasks go in `tasksTools` instead, see
-[sub-agents](sub-agents.md)). Nothing in a generic harness adds it automatically.
+children to get it (see [sub-agents](sub-agents.md), including `withTaskTools` for tools that
+start background tasks). Nothing in a generic harness adds it automatically.
 
 ```ts
 const web = createWebFetchTool({

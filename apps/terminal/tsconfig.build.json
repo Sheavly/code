@@ -15,7 +15,7 @@
       "path": "../../packages/client/tsconfig.build.json"
     },
     {
-      "path": "../../packages/coding/tsconfig.build.json"
+      "path": "../../extensions/coding/tsconfig.build.json"
     },
     {
       "path": "../../packages/core/tsconfig.build.json"

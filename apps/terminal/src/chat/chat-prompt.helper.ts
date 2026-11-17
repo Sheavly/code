@@ -1,4 +1,4 @@
-import { findSkillMentions } from '@sheavly/workspace/skills/skills.utils';
+import { findSkillMentions } from '@sheavly/coding/skills/skills.utils';
 import { unknownCommand } from './chat.utils.js';
 import type { ChatConversation } from './chat.types.js';
 

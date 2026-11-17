@@ -3,7 +3,7 @@ description: approved commands run regardless of outside paths or secret filenam
 workspace: basic
 check:
   {
-    'areas': ['packages/coding/src/run-command'],
+    'areas': ['extensions/coding/src/run-command'],
     'expect':
       {
         'tools': ['run_command'],

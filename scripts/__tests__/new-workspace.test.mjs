@@ -90,7 +90,7 @@ describe('planning a workspace', () => {
     expect(
       plan(root, { kind: 'lib', name: 'Kit', domain: 'misc', description: ' ' }).problems,
     ).toEqual([
-      'the kind is `package` or `app`, not `lib`',
+      'the kind is `package`, `extension` or `app`, not `lib`',
       'the name is kebab-case (`road-segments`), not `Kit`',
       '--domain is one of generic, coding, tooling',
       '--description says what the workspace is for, in one line',
@@ -156,6 +156,37 @@ describe('creating a workspace', () => {
       ]);
     },
   );
+
+  it('plans an extension in extensions/, built on packages, and creates it with a public API like a package', async () => {
+    const root = repo({ workspaces: ['packages/*', 'apps/*'] });
+    const planned = plan(root, { kind: 'extension', name: 'notes', dependsOn: ['core'] });
+
+    expect(planned.problems).toEqual([]);
+    expect(planned.dir).toBe('extensions/notes');
+    expect(installCommands(planned)).toEqual([
+      'npm install @sheavly/core@0.0.0 -w extensions/notes',
+    ]);
+
+    await createWorkspace({ root, plan: planned });
+
+    const read = (file) => JSON.parse(readFileSync(path.join(root, file), 'utf8'));
+
+    expect(read('package.json').workspaces).toEqual(['packages/*', 'apps/*', 'extensions/*']);
+    expect(read('extensions/notes/package.json')).toMatchObject({
+      name: '@sheavly/notes',
+      // The repo's own license, so a scaffolded workspace is not the one UNLICENSED package.
+      license: 'Apache-2.0',
+      exports: {},
+      files: ['dist', 'docs'],
+      scripts: { prepack: 'npm run build' },
+    });
+  });
+
+  it('refuses an extension that depends on an app, as a package would', () => {
+    expect(plan(repo(), { kind: 'extension', name: 'notes', dependsOn: ['web'] }).problems).toEqual(
+      ['@sheavly/notes depends on @sheavly/web, an app: nothing imports an app'],
+    );
+  });
 
   it('adds apps/* to the root workspaces the first time, through npm', async () => {
     const root = repo({ workspaces: ['packages/*'] });

@@ -4,7 +4,7 @@ workspace: basic
 maxTurns: 8
 check:
   {
-    'areas': ['packages/host/src/instructions', 'packages/coding/src/instructions'],
+    'areas': ['packages/host/src/instructions', 'extensions/coding/src/instructions'],
     'steps':
       [
         {

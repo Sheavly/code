@@ -15,15 +15,15 @@ The packages provide the pieces and the services a run shares; a UI decides whic
 uses and which tools and hooks it includes, and composes them. No package picks a backend, a model,
 a tool or a hook for it.
 
-| Services                                  | For                                                                  | What it makes                                                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file      |
-| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `FileLocks` and one `ProcessRunner` built from the env the UI passes in |
+| Services                                  | For                                                                  | What it makes                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file       |
+| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `KeyedLocks` and one `ProcessRunner` built from the env the UI passes in |
 
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `agentsMdSource` (built with
-`createInstructionHook`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend does it in
+`createInstructionHook` from `@sheavly/core`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend does it in
 one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from env.
 
 ```ts
@@ -44,6 +44,41 @@ for await (const event of streamAgent({
 Pass `tasks` or `approvals` in when a tool needs the registry before the harness exists. Either
 way, `createHarness` puts their updates in the sessions' combined stream (`kind: 'approval'` and
 `kind: 'task'`), so a UI following the stream sees them without asking.
+
+## Run services for extensions
+
+A UI that composes its run from extensions (`@sheavly/extension`) hands the harness's state to all
+of them the same way: `runServices({ harness, outputs })` (`run-services/`) returns it as
+`hostService` entries for `ExtensionHostOptions.services`. Every extension then reads it in
+`activate` without a `dependsOn`, a built-in one no differently from a third-party one.
+
+| Key (`run-services.utils`) | Value                                                                |
+| -------------------------- | -------------------------------------------------------------------- |
+| `PROVIDER`                 | `harness.provider`                                                   |
+| `INSTRUCTIONS`             | `harness.instructions`, the composed base instructions               |
+| `SESSIONS`, `MAIN_SESSION` | `harness.sessions` and `harness.mainSession`                         |
+| `TASKS`                    | `harness.tasks`                                                      |
+| `APPROVALS`                | A request-only view of `harness.approvals` (`ApprovalRequester`)     |
+| `OUTPUTS`                  | The app's `OutputStore`; left out when the app has none (use `find`) |
+
+The values are the harness's own objects, not copies, so work an extension starts through `TASKS`
+is the run's work; `APPROVALS` is the exception: an object with only `request`, so an extension
+can ask the user (in its own words) but cannot answer an approval. It does not hide approvals:
+they still appear in the sessions' stream that `SESSIONS` exposes. There is no environment
+service: an extension's configuration comes through its settings (`defineSetting`,
+`ExtensionHostOptions.settings`).
+
+**Run services are not a sandbox.** An extension is code that can already do whatever Node can;
+the services add the run's authority. `TASKS` lets it list, read the output of, cancel and release
+the run's other tasks (it starts only work it executes itself, never a process for you);
+`OUTPUTS` reads and searches the complete output of every command, which can hold secrets;
+`PROVIDER` makes model calls with the app's credentials; `SESSIONS` reads every session's events
+and approvals, sends messages into a session as if from the user, ends sessions and publishes
+entries into the combined stream. The app decides which services it supplies (`runServices`
+returns a list it can filter) and which extensions it loads; the host's only policy is the
+`origin: 'project'` trust gate (anything that is not `builtin` goes through it). `origin` is
+declared by whatever loads the extension, not by the extension: a loader for repo code (#332)
+must set `origin: 'project'` itself and should supply narrowed services.
 
 ## Instruction composition
 
@@ -133,7 +168,7 @@ Keeping a conversation across process restarts (saving `messages`) is the UI's t
 Generic code never needs a project on disk or a coding tool.
 The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the generic tools
 (`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
-(`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
+(`workspace`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
 (`read-file`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
 a coding UI reaches them, which is why each lives in a package of its own and the generic ones
 never depend on the coding ones.

@@ -10,7 +10,7 @@ import { StorageFileError } from '@sheavly/storage/errors/storage.errors';
 import type { FileConversationStore } from '@sheavly/storage/conversation-store/conversation-store.service';
 import type { FileProblem } from '@sheavly/storage/listing/listing.types';
 import { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';
-import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { SetupError } from '../errors/setup.errors.js';
 import type { Placement, RequestSettings } from './profiles.types.js';
 import { sheavlyHome } from './home.helper.js';

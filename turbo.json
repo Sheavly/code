@@ -40,12 +40,14 @@
     // Repo-wide: every file counts. The root's `$TURBO_DEFAULT$` leaves the workspaces out, and
     // an explicit glob ignores .gitignore, so a workspace's tracked files are named: its top-level
     // files and `src/` (not its node_modules, dist or .turbo, which runs and builds write), for
-    // packages/* and apps/* alike.
+    // packages/*, extensions/* and apps/* alike.
     "//#format:check": {
       "inputs": [
         "$TURBO_DEFAULT$",
         "packages/*/*",
         "packages/*/src/**",
+        "extensions/*/*",
+        "extensions/*/src/**",
         "apps/*/*",
         "apps/*/src/**"
       ],
@@ -56,6 +58,8 @@
         "$TURBO_DEFAULT$",
         "packages/*/*",
         "packages/*/src/**",
+        "extensions/*/*",
+        "extensions/*/src/**",
         "apps/*/*",
         "apps/*/src/**"
       ],
@@ -66,6 +70,8 @@
         "$TURBO_DEFAULT$",
         "packages/*/*",
         "packages/*/src/**",
+        "extensions/*/*",
+        "extensions/*/src/**",
         "apps/*/*",
         "apps/*/src/**"
       ],
@@ -76,6 +82,8 @@
         "$TURBO_DEFAULT$",
         "packages/*/*",
         "packages/*/src/**",
+        "extensions/*/*",
+        "extensions/*/src/**",
         "apps/*/*",
         "apps/*/src/**"
       ],

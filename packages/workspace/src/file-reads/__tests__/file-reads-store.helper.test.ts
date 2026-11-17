@@ -61,7 +61,7 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
     let writes = 0;
     const inner = memoryShellStore();
     const store = {
-      load: inner.load,
+      load: () => inner.load(),
       update: (change: Parameters<typeof inner.update>[0]) => {
         writes += 1;
 
@@ -101,7 +101,7 @@ describe('keeping and restoring an agent’s reads in shell.json', () => {
     let fail = true;
     const inner = memoryShellStore();
     const store = {
-      load: inner.load,
+      load: () => inner.load(),
       update: async (change: Parameters<typeof inner.update>[0]) => {
         order.push('start');
         await new Promise((resolve) => setTimeout(resolve, 5));

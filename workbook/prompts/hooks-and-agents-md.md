@@ -5,11 +5,11 @@ check:
   {
     'areas':
       [
-        'packages/workspace/src/project-hooks',
-        'packages/workspace/src/agents-md',
-        'packages/workspace/src/trust',
+        'extensions/coding/src/project-hooks',
+        'extensions/coding/src/agents-md',
+        'extensions/coding/src/trust',
         'packages/host/src',
-        'packages/coding/src/preset',
+        'extensions/coding/src/preset',
         'apps/backend/src/harness',
         'apps/terminal/src/workbook',
       ],

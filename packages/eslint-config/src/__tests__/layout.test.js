@@ -15,13 +15,13 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 /** A monorepo whose workspaces are `packages` (folder → manifest fields). */
 function repo(packages) {
   return tempWorkspace({
-    'package.json': { name: 'monorepo', workspaces: ['packages/*', 'apps/*'] },
+    'package.json': { name: 'monorepo', workspaces: ['packages/*', 'extensions/*', 'apps/*'] },
     ...Object.fromEntries(
       Object.entries(packages).map(([dir, fields]) => [
         `${dir}/package.json`,
         {
           name: `@sheavly/${path.basename(dir)}`,
-          ...(dir.startsWith('packages/') && {
+          ...(!dir.startsWith('apps/') && {
             exports: {},
             files: ['dist', 'docs'],
             scripts: { prepack: 'npm run build' },
@@ -66,6 +66,20 @@ describe('readLayout', () => {
     expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
     // The root holds no source, so it is the monorepo around the workspaces, not one of them.
     expect(layout.monorepo).toBeUndefined();
+  });
+
+  it('reads extensions/* as a library of its own kind, between packages and apps', () => {
+    const withExtension = repo({
+      'packages/base': generic,
+      'extensions/notes': { ...generic, dependencies: { '@sheavly/base': '0' } },
+    });
+
+    expect(readLayout({ root: withExtension })['@sheavly/notes']).toMatchObject({
+      dir: 'extensions/notes',
+      kind: 'extension',
+      dependsOn: ['@sheavly/base'],
+    });
+    expect(layoutProblems(readLayout({ root: withExtension }))).toEqual([]);
   });
 
   it('picks up a workspace added after the rule was written, with no edit anywhere else', () => {
@@ -199,6 +213,40 @@ describe('layoutProblems', () => {
     expect(layoutProblems(layout)).toEqual([
       '@sheavly/lib depends on @sheavly/server, a transport: only an app starts one, so the library runs without it. Depend on what it serves (`@sheavly/host`) instead',
       '@sheavly/libtest has @sheavly/server as a dev dependency, a transport: test what it serves in-process instead',
+    ]);
+  });
+
+  it('lets an extension depend on packages and on other extensions, never a package on an extension', () => {
+    const extension = (fields) => ({
+      ...pkg(fields),
+      dir: `extensions/${fields.name}`,
+      kind: 'extension',
+    });
+    const layout = {
+      '@sheavly/base': pkg({ name: 'base' }),
+      '@sheavly/agents': extension({ name: 'agents', dependsOn: ['@sheavly/base'] }),
+      '@sheavly/web': extension({ name: 'web', dependsOn: ['@sheavly/base', '@sheavly/agents'] }),
+      '@sheavly/lib': pkg({ name: 'lib', dependsOn: ['@sheavly/agents'] }),
+    };
+
+    expect(layoutProblems(layout)).toEqual([
+      '@sheavly/lib depends on @sheavly/agents, an extension: extensions are built on packages, never the other way round. An app composes extensions',
+    ]);
+  });
+
+  it('keeps the domain rule for extensions: generic never depends on coding', () => {
+    const extension = (fields) => ({
+      ...pkg(fields),
+      dir: `extensions/${fields.name}`,
+      kind: 'extension',
+    });
+    const layout = {
+      '@sheavly/files': extension({ name: 'files', domain: 'coding' }),
+      '@sheavly/notes': extension({ name: 'notes', dependsOn: ['@sheavly/files'] }),
+    };
+
+    expect(layoutProblems(layout)).toEqual([
+      '@sheavly/notes is generic but depends on @sheavly/files, a coding workspace',
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
-import type { Skill } from '@sheavly/workspace/skills/skills.types';
+import type { Skill } from '@sheavly/coding/skills/skills.types';
 import {
   completeChatLine,
   listModels,

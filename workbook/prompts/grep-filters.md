@@ -5,10 +5,10 @@ check:
   {
     'areas':
       [
-        'packages/coding/src/run-command/command-base.utils.ts',
-        'packages/coding/src/run-command/command-approval.helper.ts',
-        'packages/coding/src/run-command/allow-entry.utils.ts',
-        'packages/coding/src/run-command/run-command.utils.ts',
+        'extensions/coding/src/run-command/command-base.utils.ts',
+        'extensions/coding/src/run-command/command-approval.helper.ts',
+        'extensions/coding/src/run-command/allow-entry.utils.ts',
+        'extensions/coding/src/run-command/run-command.utils.ts',
       ],
     'expect': { 'tools': ['run_command'], 'reply': ['GREP_FILTERS_OK'], 'outcome': 'completed' },
     'forbid': { 'reply': ['GREP_FILTERS_FAILED'] },

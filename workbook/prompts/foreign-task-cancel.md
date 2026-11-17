@@ -10,7 +10,7 @@ check:
         'packages/tools/src/tasks',
         'packages/tools/src/sub-agent',
         'packages/loop/src/stream-agent',
-        'packages/coding/src/run-command',
+        'extensions/coding/src/run-command',
       ],
     'expect':
       {
