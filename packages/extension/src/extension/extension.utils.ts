@@ -1,41 +1,110 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
+import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { ExtensionDefinitionError } from '../errors/extension.errors.js';
-import { EXTENSION_NAME_PATTERN, SETTING_NAME_PATTERN } from './extension.constants.js';
+import type { ExtensionManifest, SettingType } from '../manifest/manifest.types.js';
+import { UNNAMED_EXTENSION } from './extension.constants.js';
+import { extensionManifestSchema } from '../manifest/manifest.validator.js';
 import type {
   Extension,
+  ExtensionDefinition,
   HostService,
   PlacedHook,
   ServiceKey,
   SettingKey,
-  SettingValue,
+  SettingTypes,
 } from './extension.types.js';
 
+/** `value` and everything below it frozen. Only for plain data (a parsed manifest). */
+function deepFreeze<TValue>(value: TValue): TValue {
+  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
+
+  Object.freeze(value);
+
+  for (const inner of Object.values(value)) deepFreeze(inner);
+
+  return value;
+}
+
+/** The name an unvalidated manifest gives itself, or a placeholder, for the message about it. */
+function writtenNameOf(manifest: unknown): string {
+  if (typeof manifest !== 'object' || manifest === null) return UNNAMED_EXTENSION;
+
+  const written = 'name' in manifest ? manifest.name : undefined;
+
+  return typeof written === 'string' ? written : UNNAMED_EXTENSION;
+}
+
 /**
- * Identity helper for writing an extension; rejects a name that is not kebab-case, a dependency
- * on itself and the same dependency twice. Thrown when it is defined, so it fails at startup.
+ * A validated, deep-frozen copy of `input`: nothing the caller keeps a reference to can change it
+ * later. Throws an `ExtensionDefinitionError` for anything the schema rejects, including a value
+ * that is no object at all.
  */
-export function defineExtension(extension: Extension): Extension {
-  const { name, dependsOn = [] } = extension;
+function frozenManifestOf(input: unknown): ExtensionManifest {
+  return deepFreeze(
+    parseOrThrow({
+      schema: extensionManifestSchema,
+      input,
+      onInvalid: ({ details, error }) =>
+        new ExtensionDefinitionError({
+          extension: writtenNameOf(input),
+          problem: `its manifest is invalid:\n${details}`,
+          cause: error,
+        }),
+    }),
+  );
+}
 
-  if (!EXTENSION_NAME_PATTERN.test(name)) {
-    throw new ExtensionDefinitionError({
-      extension: name,
-      problem: 'the name must be lowercase words joined by hyphens',
-    });
-  }
+/** The extension that `manifest` and the code describe; the name, dependencies and settings are the manifest's. */
+function extensionFrom(params: {
+  manifest: ExtensionManifest;
+  code: Pick<ExtensionDefinition, 'origin' | 'activate' | 'deactivate'>;
+}): Extension {
+  const { manifest, code } = params;
 
-  if (dependsOn.includes(name)) {
-    throw new ExtensionDefinitionError({ extension: name, problem: 'it cannot depend on itself' });
-  }
+  return {
+    manifest,
+    name: manifest.name,
+    dependsOn: manifest.dependsOn,
+    settings: deepFreeze(
+      manifest.settings.map(({ name, description, default: value }) => ({
+        name,
+        description,
+        default: value,
+      })),
+    ),
+    origin: code.origin,
+    activate: code.activate,
+    deactivate: code.deactivate,
+  };
+}
 
-  if (new Set(dependsOn).size !== dependsOn.length) {
-    throw new ExtensionDefinitionError({
-      extension: name,
-      problem: 'dependsOn names the same extension twice',
-    });
-  }
+/**
+ * Makes an extension from its manifest and its code. The name, `dependsOn` and settings come from
+ * the manifest alone. The manifest is checked again here, so one built in memory is held to the
+ * same rules as a `sheavly.json`: it throws an `ExtensionDefinitionError` for a bad name, a
+ * dependency on itself, a repeated name, a manifest that is no object or any other shape the
+ * schema rejects, at startup. The extension holds a deep-frozen copy: changing the object passed
+ * in afterwards changes nothing.
+ */
+export function defineExtension(definition: ExtensionDefinition): Extension {
+  return extensionFrom({ manifest: frozenManifestOf(definition.manifest), code: definition });
+}
 
-  return extension;
+/**
+ * The extension as the host holds it: `manifest` read once and validated into a deep-frozen copy,
+ * with the name, dependencies and settings derived from that copy alone, whatever a hand-built
+ * extension says in those fields. The code is read once too. Throws an `ExtensionDefinitionError`
+ * for a manifest the schema rejects.
+ */
+export function sealExtension(extension: Extension): Extension {
+  return extensionFrom({
+    manifest: frozenManifestOf(extension.manifest),
+    code: {
+      origin: extension.origin,
+      activate: extension.activate.bind(extension),
+      deactivate: extension.deactivate?.bind(extension),
+    },
+  });
 }
 
 /** A typed key for a service: `const FILE_LOCKS = defineService<FileLocks>('file-locks')`. */
@@ -55,26 +124,40 @@ export function hostService<TService>(params: {
 }
 
 /**
- * A typed setting declaration for `Extension.settings`:
- * `defineSetting({ name: 'notes.max-lines', description: '…', default: 50 })`. Throws an
- * `ExtensionDefinitionError` unless the name is `<extension>.<setting>`, each part lowercase
- * words joined by hyphens.
+ * A typed key for a setting the manifest declares:
+ * `settingKey({ manifest, name: 'notes.max-lines', type: 'number' })` is a `SettingKey<number>`
+ * whose default and description are the manifest's. `type` is the runtime tag that gives the key
+ * its TypeScript type, checked against the declared one. Throws an `ExtensionDefinitionError`
+ * when the manifest does not declare `name` or declares it as another type.
  */
-export function defineSetting<TValue extends SettingValue>(params: {
+export function settingKey<TType extends SettingType>(params: {
+  manifest: ExtensionManifest;
   name: string;
-  description: string;
-  default: TValue;
-}): SettingKey<TValue> {
-  const { name, description } = params;
+  type: TType;
+}): SettingKey<SettingTypes[TType]> {
+  const { manifest, name, type } = params;
+  const declared = manifest.settings.find((setting) => setting.name === name);
 
-  if (!SETTING_NAME_PATTERN.test(name)) {
+  if (declared === undefined) {
     throw new ExtensionDefinitionError({
-      extension: name,
-      problem: 'a setting name must be <extension>.<setting>, lowercase words joined by hyphens',
+      extension: manifest.name,
+      problem: `its sheavly.json does not declare the setting "${name}"`,
     });
   }
 
-  return { name, description, default: params.default };
+  if (declared.type !== type) {
+    throw new ExtensionDefinitionError({
+      extension: manifest.name,
+      problem: `its sheavly.json declares the setting "${name}" as a ${declared.type}, not a ${type}`,
+    });
+  }
+
+  // The schema made the default the type `declared.type` names, which is `type`.
+  return {
+    name,
+    description: declared.description,
+    default: declared.default as SettingTypes[TType],
+  };
 }
 
 /**

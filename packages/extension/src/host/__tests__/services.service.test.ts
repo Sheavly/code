@@ -1,41 +1,63 @@
 import { describe, expect, it } from 'vitest';
 import { ContributionCollisionError, MissingServiceError } from '../../errors/extension.errors.js';
+import { ExtensionUndeclaredError } from '../../errors/manifest.errors.js';
 import { defineService, hostService } from '../../extension/extension.utils.js';
+import type { ExtensionManifest } from '../../manifest/manifest.types.js';
 import { ServiceRegistry } from '../services.service.js';
 
 const GREETING = defineService<string>('greeting');
+
+type Declared = ExtensionManifest['services'];
+
+/** A declaration that lists the greeting service as read and provided, unless `declared` says else. */
+function viewOf(params: {
+  registry: ServiceRegistry;
+  extension: string;
+  readable: string[];
+  declared?: Declared;
+}) {
+  const { registry, extension, readable, declared } = params;
+
+  return registry.viewFor({
+    extension,
+    readable: new Set(readable),
+    declared: declared ?? {
+      requires: [GREETING.name],
+      optional: [],
+      provides: [GREETING.name],
+    },
+  });
+}
 
 describe('ServiceRegistry', () => {
   it('gives a reader the service of an extension it may read', () => {
     const registry = new ServiceRegistry();
 
-    registry.viewFor({ extension: 'a', readable: new Set(['a']) }).provide(GREETING, 'hi');
+    viewOf({ registry, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
 
-    expect(registry.viewFor({ extension: 'b', readable: new Set(['a', 'b']) }).get(GREETING)).toBe(
-      'hi',
-    );
+    expect(viewOf({ registry, extension: 'b', readable: ['a', 'b'] }).get(GREETING)).toBe('hi');
   });
 
   it('refuses a second provider of one service, naming both', () => {
     const registry = new ServiceRegistry();
 
-    registry.viewFor({ extension: 'a', readable: new Set(['a']) }).provide(GREETING, 'hi');
+    viewOf({ registry, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
 
-    const second = registry.viewFor({ extension: 'b', readable: new Set(['b']) });
+    const second = viewOf({ registry, extension: 'b', readable: ['b'] });
 
     expect(() => second.provide(GREETING, 'yo')).toThrow(ContributionCollisionError);
     expect(() => second.provide(GREETING, 'yo')).toThrow(/both a and b/);
   });
 
   it('refuses a read of a service nobody provided', () => {
-    const view = new ServiceRegistry().viewFor({ extension: 'a', readable: new Set(['a']) });
+    const view = viewOf({ registry: new ServiceRegistry(), extension: 'a', readable: ['a'] });
 
     expect(() => view.get(GREETING)).toThrow(MissingServiceError);
   });
 
   it('lets every extension read a service the host supplies, with no dependency', () => {
     const registry = new ServiceRegistry([hostService({ key: GREETING, value: 'from host' })]);
-    const view = registry.viewFor({ extension: 'b', readable: new Set(['b']) });
+    const view = viewOf({ registry, extension: 'b', readable: ['b'] });
 
     expect(view.get(GREETING)).toBe('from host');
     expect(view.find(GREETING)).toBe('from host');
@@ -44,7 +66,7 @@ describe('ServiceRegistry', () => {
 
   it('refuses an extension that provides a key the host supplies, naming the host', () => {
     const registry = new ServiceRegistry([hostService({ key: GREETING, value: 'from host' })]);
-    const view = registry.viewFor({ extension: 'a', readable: new Set(['a']) });
+    const view = viewOf({ registry, extension: 'a', readable: ['a'] });
 
     expect(() => view.provide(GREETING, 'mine')).toThrow(ContributionCollisionError);
     expect(() => view.provide(GREETING, 'mine')).toThrow(/both the host and a/);
@@ -62,7 +84,7 @@ describe('ServiceRegistry', () => {
 
   it('finds undefined when nobody provides the service, and the service when one does', () => {
     const registry = new ServiceRegistry();
-    const view = registry.viewFor({ extension: 'a', readable: new Set(['a']) });
+    const view = viewOf({ registry, extension: 'a', readable: ['a'] });
 
     expect(view.find(GREETING)).toBeUndefined();
 
@@ -75,12 +97,72 @@ describe('ServiceRegistry', () => {
     (read) => {
       const registry = new ServiceRegistry();
 
-      registry.viewFor({ extension: 'a', readable: new Set(['a']) }).provide(GREETING, 'hi');
+      viewOf({ registry, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
 
-      const reader = registry.viewFor({ extension: 'b', readable: new Set(['b']) });
+      const reader = viewOf({ registry, extension: 'b', readable: ['b'] });
 
       expect(() => reader[read](GREETING)).toThrow(MissingServiceError);
       expect(() => reader[read](GREETING)).toThrow(/add it to dependsOn/);
     },
   );
+});
+
+describe('ServiceRegistry declarations', () => {
+  const nothing: Declared = { requires: [], optional: [], provides: [] };
+  const registry = () => new ServiceRegistry([hostService({ key: GREETING, value: 'hi' })]);
+
+  it.each(['get', 'find'] as const)(
+    'refuses a %s of a service the manifest lists neither as required nor optional',
+    (read) => {
+      const view = viewOf({
+        registry: registry(),
+        extension: 'a',
+        readable: ['a'],
+        declared: nothing,
+      });
+
+      expect(() => view[read](GREETING)).toThrow(ExtensionUndeclaredError);
+      expect(() => view[read](GREETING)).toThrow(
+        /Extension a uses service (get|find) "greeting", which its sheavly.json does not declare/,
+      );
+    },
+  );
+
+  it('lets find and get read what is listed as optional or required', () => {
+    const view = viewOf({
+      registry: registry(),
+      extension: 'a',
+      readable: ['a'],
+      declared: { requires: [], optional: [GREETING.name], provides: [] },
+    });
+
+    expect(view.find(GREETING)).toBe('hi');
+    expect(view.get(GREETING)).toBe('hi');
+  });
+
+  it('refuses to provide a service the manifest does not list in provides', () => {
+    const view = viewOf({
+      registry: new ServiceRegistry(),
+      extension: 'a',
+      readable: ['a'],
+      declared: { requires: [GREETING.name], optional: [], provides: [] },
+    });
+
+    expect(() => view.provide(GREETING, 'mine')).toThrow(/uses service provide "greeting"/);
+  });
+
+  it('names the services a reader cannot read: nobody provided them, or a non-dependency did', () => {
+    const shared = new ServiceRegistry();
+    const other = defineService<string>('other');
+
+    viewOf({ registry: shared, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
+
+    expect(
+      shared.unreadable({ required: ['greeting', 'other'], readable: new Set(['b']) }),
+    ).toEqual(['greeting', 'other']);
+    expect(
+      shared.unreadable({ required: ['greeting', other.name], readable: new Set(['a']) }),
+    ).toEqual(['other']);
+    expect(registry().unreadable({ required: ['greeting'], readable: new Set() })).toEqual([]);
+  });
 });

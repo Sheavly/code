@@ -9,7 +9,87 @@ the contract, or touching `extensions/`.
 An `Extension` (`@sheavly/extension/extension/extension.types`) has a unique kebab-case `name`, an
 optional `origin` (`builtin`, or `project` for code from the user's repo), `dependsOn` (extension
 names), optional static `settings` and `activate(context)`, which returns its contributions.
-`deactivate()` runs once when the session ends. Write one with `defineExtension`.
+`deactivate()` runs once when the session ends. Write one with
+`defineExtension({ manifest, origin?, activate, deactivate? })`: the `name`, `dependsOn` and
+settings come from its manifest, never from the call.
+
+## The manifest: `sheavly.json`
+
+Every extension ships a strict-JSON `sheavly.json` at its workspace root
+(`extensions/<name>/sheavly.json`): the single source for its `name`, `dependsOn` and settings,
+and a declaration of the services, tools, hooks and work kinds it uses. It is data, so an
+installer can read what an extension asks for before running its code. The full field list, the
+errors and the JSON Schema are in `packages/extension/docs/manifest.md`; the shape is:
+
+```json
+{
+  "$schema": "../../packages/extension/sheavly.schema.json",
+  "name": "notes",
+  "dependsOn": ["files"],
+  "services": { "requires": ["sessions"], "optional": ["outputs"], "provides": ["notes-store"] },
+  "settings": [{ "name": "notes.max-notes", "type": "number", "default": 50, "description": "…" }],
+  "tools": ["add_note"],
+  "hooks": ["notes-instructions"],
+  "workKinds": ["notes.sync"]
+}
+```
+
+- Only `name` is required; unknown keys are rejected at every level, so a typo fails. The file
+  is strict JSON (`JSON.parse`, no comments).
+- An extension reads its own from its helper, two levels below the workspace root in `src/` and
+  in `dist/`, and builds itself from it:
+
+  ```ts
+  const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
+
+  export const notes = defineExtension({ manifest, activate });
+  ```
+
+  `readManifest` is `@sheavly/extension/manifest/manifest.helper`; it throws an
+  `ExtensionManifestError` naming the file and every problem.
+
+- A typed setting key refers to a manifest entry:
+  `settingKey({ manifest, name: 'notes.max-notes', type: 'number' })` carries the manifest's
+  default and description, and throws when the manifest does not declare that name and type.
+- **A name not known in advance** (a workspace's own hook files) is a wildcard entry in `tools`,
+  `hooks` or `workKinds`: a trailing `*` once, as the last character (`"project-hooks.*"`); a bare
+  `"*"` is for `hooks` only. Prefer a prefix.
+- `emits` and `serves` are reserved: validated, not enforced, because events, model-facing
+  notices and actions don't exist yet.
+
+### What the host does with it
+
+The host holds an extension to its manifest and fails loudly, naming the extension and the name:
+
+- **Before activating**, each `services.requires` name must be readable (supplied by the host or
+  provided by a dependency). If not, the extension is `skipped` with the reason `service` and the
+  `missing` names, and what depends on it is skipped for `dependency`.
+- **During `activate`**, `services.get` of a name not in `requires`/`optional`, `services.find`
+  of one not in `optional`/`requires`, and `services.provide` of one not in `provides` throw.
+  Services the host supplies (`sessions`, `outputs`) must be declared too.
+- **After `activate`**, a contributed tool, hook or work kind not declared in `tools`, `hooks` or
+  `workKinds` (exactly, or by a wildcard) fails the activation: the extension is deactivated and
+  its dependents skipped. A declared name may go unused (some tools exist only under options).
+  The host reads each name once, merges by the recorded names and re-verifies lists and names
+  right before the merge: one that changed after the check fails the extension too
+  (`ExtensionContributionChangedError`). Item objects are not frozen, so what a getter does
+  after the merge is the extension's own responsibility (see "What the manifest is not" in
+  `packages/extension/docs/manifest.md`).
+
+Both land in `result.failed` as an `ExtensionActivationError` whose `cause` is the
+`ExtensionUndeclaredError` (or the changed-contribution one). The host's own checks cannot be
+switched off: a test that contributes something declares it (`fakeExtension` builds the manifest
+from what the test says). The host works from one deep-frozen copy of each manifest.
+
+**What the manifest is not** (the full list is in `packages/extension/docs/manifest.md`): an
+extension is Node code and can use `fs`, `child_process`, `fetch` and `process.env` without
+declaring them; the manifest declares only what the host mediates (services, merged
+contributions, settings), a wildcard (coding's bare `*` for hooks) makes a declared set
+open-ended, a service matches by name and not identity, and a required service from an extension
+it does not `dependsOn` skips the extension. Declaring the `sub-agents` service (the agents
+extension provides it) in `requires` grants the right to share tools and hooks with sub-agents
+without those names appearing in the extension's own `tools` or `hooks` (`share` is a service
+call, not a contribution): an installer should treat it as that grant.
 
 A contribution adds to the loop and never owns it. It can be:
 
@@ -27,9 +107,9 @@ so `dependsOn` what you `find`. The
 app can also supply run-level services (`hostService`, `ExtensionHostOptions.services`) that every
 extension reads without a dependency.
 
-Settings are declared, not contributed: `defineSetting({ name, description, default })` makes a
-typed key listed in `Extension.settings`, and `context.settings.get(KEY)` returns the user's value
-or the default.
+Settings are declared, not contributed: they are listed in the manifest's `settings`,
+`settingKey({ manifest, name, type })` makes the typed key, and `context.settings.get(KEY)`
+returns the user's value or the default.
 
 ## Rules
 
@@ -66,10 +146,10 @@ or the default.
   given (built on `createHarness`, so it also carries the run state), and takes its own `env`
   option (working roots and home); it reads `OUTPUTS` from the services like anyone. A new built-in that needs
   something only the app's code can inject is a missing run service: add the key, not an option.
-- **Settings are declared and read through the context.** `Extension.settings` lists
-  `defineSetting` keys, `context.settings.get(KEY)` reads them, and the host validates the user's
-  values at construction: a name nobody declares, a value of the wrong type or a name two
-  extensions declare throws.
+- **Settings are declared in the manifest and read through the context.** `Extension.settings` is
+  derived from the manifest's `settings`, `context.settings.get(KEY)` reads them (the key from
+  `settingKey`), and the host validates the user's values at construction: a name nobody
+  declares, a value of the wrong type or a name two extensions declare throws.
 - **Hook position is declared with before/after.** `placeHook` names other hooks by `hook.name`;
   the host orders with a stable topological sort, ignores a name not in the run and throws a
   `HookOrderError` for a cycle. Hooks shared with sub-agents through `SUB_AGENTS.share` stay a
@@ -109,15 +189,20 @@ is repo layout policy for the workspace graph, not part of the extension contrac
 ## Adding one
 
 1. `npm run new -- extension <name> --domain <generic|coding> --description "…" [--depends-on core,host]`
-   creates `extensions/<name>/` through npm; it refuses a dependency the graph doesn't allow.
-2. Write `src/extension/<name>.helper.ts`: a `create<Name>Extension(options)` returning
-   `defineExtension({ name, dependsOn, activate })` (see `extensions/coding`). Build
-   tools and hooks in `activate` from the services it reads.
-3. Give it a test that activates it through an `ExtensionHost` with a fake `Extension` beside it
+   creates `extensions/<name>/` through npm, with a minimal `sheavly.json` (listed in `files`); it
+   refuses a dependency the graph doesn't allow.
+2. Declare it in `sheavly.json`: the services it requires, reads optionally and provides, its
+   settings, and the tools, hooks and work kinds it contributes. When the package depends on
+   another extension (`npm install`), list it in `dependsOn`; the layout check says so.
+3. Write `src/extension/<name>.helper.ts`: a `create<Name>Extension(options)` returning
+   `defineExtension({ manifest, activate })` with `manifest` from
+   `readManifest(new URL('../../sheavly.json', import.meta.url))` (see `extensions/coding`).
+   Build tools and hooks in `activate` from the services it reads.
+4. Give it a test that activates it through an `ExtensionHost` with a fake `Extension` beside it
    (`@sheavly/extension/testing/extension.fake`).
-4. Include it where the run is built: the app (`createBackendHarness`) lists the extensions.
+5. Include it where the run is built: the app (`createBackendHarness`) lists the extensions.
    No package adds an extension to a run.
-5. Update its README and `docs/`, then `npm run graph` for the generated tables.
+6. Update its README and `docs/`, then `npm run graph` for the generated tables.
 
 ## Writing an extension without editing our source
 
@@ -128,17 +213,25 @@ so it shows what is reachable from the monorepo through public exports; publishi
 and installing an extension (a loader) are #332. It is the test to keep green when the contract
 changes.
 
+- Ship a `sheavly.json` at the extension's root (and in its package's `files`): its `name`,
+  `dependsOn`, settings and every service, tool, hook and work kind it uses. Read it with
+  `readManifest` and pass it to `defineExtension({ manifest, activate })`; the host rejects
+  anything undeclared.
 - Import only public subpaths: `@sheavly/extension/extension/extension.utils`
-  (`defineExtension`, `defineService`, `defineSetting`, `placeHook`),
+  (`defineExtension`, `defineService`, `settingKey`, `placeHook`),
+  `@sheavly/extension/manifest/manifest.helper` (`readManifest`),
   `@sheavly/host/run-services/run-services.utils` (the keys), `@sheavly/runtime/tasks/work.utils`
   (background work) and `@sheavly/core/tool/tool.utils`. Never import `coding` or `agents`
   internals.
-- A setting: declare it with `defineSetting` in `Extension.settings` and read it with
-  `context.settings.get`; the user's value is `extensionSettings`.
+- A setting: list it in the manifest's `settings`, make the key with `settingKey` and read it
+  with `context.settings.get`; the user's value is `extensionSettings`.
 - A hook position: `placeHook({ hook, before: ['agents-md'] })` or `after`, by `hook.name`.
-- A service of your own: `services.provide(KEY, value)`, and `dependsOn` the provider to read it.
-- Background work: declare a `workKinds` entry and start it from a tool with `startWork` and
-  `finiteWork` on `services.get(TASKS)`, owned by `context.session`.
+- A service of your own: list it in `services.provides`, `services.provide(KEY, value)`, and
+  list the provider in `dependsOn` (and the service in `services.requires` or `optional`) to
+  read it.
+- Background work: declare a `workKinds` entry in the manifest and start it from a tool with
+  `startWork` and `finiteWork` on `services.get(TASKS)` (declared in `requires`), owned by
+  `context.session`.
 - Asking the user: `services.get(APPROVALS).request(...)`; the UI answers, an extension cannot.
 - The run's own state: `SESSIONS`, `MAIN_SESSION`, `PROVIDER`, `INSTRUCTIONS` and
   `services.find(OUTPUTS)` (absent without an output store). There is no environment service:
@@ -148,13 +241,29 @@ changes.
 
 Enforced: the workspace layout (`extensions/*` kind, packages never depend on extensions,
 generic workspaces never on coding ones), the extension's public API, the host's collision,
-order, settings, hook-order and trust tests, and `harness/extension-definition`: a
-`defineExtension({ … })` call in an extension's source has a `name` equal to its folder and a
-`dependsOn` equal to the other extension workspaces in its `dependencies`, both written as
-literals so they can be checked (an extension has no domain, so none is checked). Review only: that `activate`
-does no work the session did not ask for, that a service key is not a way around an import
-boundary, a service read from an extension that is not a dependency (it throws at activation),
-and an extension built by a helper instead of a direct `defineExtension` object literal.
+order, settings, hook-order and trust tests, and the host's manifest verification at run time
+(an undeclared service, tool, hook or work kind fails loudly; a missing required service skips the
+extension). In lint, `harness/extension-definition` checks the call in an extension workspace's
+non-test source: `defineExtension({ … })` is an object literal that passes `manifest`, and does
+not pass `name`, `dependsOn` or `settings`; `manifest` is
+`readManifest(new URL('<path>', import.meta.url))` (written in the call or in a module-level
+`const`; `readManifest` is the import from `@sheavly/extension/manifest/manifest.helper`, a local
+function of that name is refused) and the path, resolved from the file, is exactly the workspace's `sheavly.json`; an
+in-memory manifest object is refused there. The layout check (`npm run layout`, and
+`harness/layout` in lint) checks the file: every `extensions/*` workspace has a `sheavly.json`
+that parses, whose `name` is the folder and whose `dependsOn` equals, as a set, the other
+extension workspaces in the package's `dependencies`, and the package's `files` lists it; no
+other workspace has one. Its schema (field types, settings, wildcards) is checked by
+`readManifest` when it is read, not by lint.
 
-Out of scope, as in #102: hand-written manifests for code, lazy activation, a `when` language,
-per-package trust and a marketplace. A CLI to install and manage extensions is #332.
+None of this confines extension code (see "What the manifest is not" above). Review only: that
+`activate` does no work the session did not ask for, that a service key is not
+a way around an import boundary, that what the manifest declares matches what the code needs (the
+host catches an undeclared use at run time, not a declaration nothing uses), an extension built by
+a helper instead of a direct `defineExtension` object literal, and a manifest read through
+another function than the plain `readManifest` call. `emits` and `serves` are reserved: nothing
+enforces them yet.
+
+Out of scope, as in #102: lazy activation, a `when` language, per-package trust and a
+marketplace. A CLI to install and manage extensions, which reads manifests before running any
+code, is #332.

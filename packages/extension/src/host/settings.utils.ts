@@ -1,4 +1,4 @@
-import { ContributionCollisionError, ExtensionSettingError } from '../errors/extension.errors.js';
+import { ExtensionSettingError } from '../errors/extension.errors.js';
 import type {
   Extension,
   SettingKey,
@@ -22,25 +22,17 @@ function valueOf(params: {
     : setting.default;
 }
 
-/** Every declared setting with its owner, in extension order; throws when two share a name. */
+/**
+ * Every declared setting with its owner. A name is `<extension>.<setting>` and the extension
+ * names are unique (the graph is checked first), so no two extensions can declare one.
+ */
 function declaredSettings(
   extensions: readonly Extension[],
 ): Map<string, { extension: string; setting: SettingKey<SettingValue> }> {
   const declared = new Map<string, { extension: string; setting: SettingKey<SettingValue> }>();
 
   for (const extension of extensions) {
-    for (const setting of extension.settings ?? []) {
-      const first = declared.get(setting.name);
-
-      if (first !== undefined) {
-        throw new ContributionCollisionError({
-          contribution: 'setting',
-          contributionName: setting.name,
-          first: first.extension,
-          second: extension.name,
-        });
-      }
-
+    for (const setting of extension.settings) {
       declared.set(setting.name, { extension: extension.name, setting });
     }
   }
@@ -49,10 +41,9 @@ function declaredSettings(
 }
 
 /**
- * Checks the user's settings against what the extensions declared, before anything activates:
- * two extensions declaring one name throw a `ContributionCollisionError`; a value whose name no
- * extension declares (a typo) or whose type differs from the default's throws an
- * `ExtensionSettingError`.
+ * Checks the user's settings against what the extensions declared in their manifests, before
+ * anything activates: a value whose name no extension declares (a typo) or whose type differs
+ * from the default's throws an `ExtensionSettingError`.
  */
 export function assertSettings(params: {
   extensions: readonly Extension[];
@@ -79,23 +70,29 @@ export function assertSettings(params: {
   }
 }
 
-/** The settings `extension` declared, as it reads them; any other key throws. */
+/**
+ * The settings `extension` declared, as it reads them; any other key throws. Only the key's name
+ * is used: the default and the type are the manifest's, so a key built by hand with another
+ * default (or another extension's name) reads nothing it should not.
+ */
 export function settingsFor(params: { extension: Extension; values: SettingValues }): Settings {
   const { extension, values } = params;
-  const declared = new Set((extension.settings ?? []).map((setting) => setting.name));
+  const declared = new Map(extension.settings.map((setting) => [setting.name, setting]));
 
   return {
     get: <TValue extends SettingValue>(key: SettingKey<TValue>): TValue => {
-      if (!declared.has(key.name)) {
+      const setting = declared.get(key.name);
+
+      if (setting === undefined) {
         throw new ExtensionSettingError({
           setting: key.name,
           extension: extension.name,
-          problem: 'the extension did not declare it in `settings`',
+          problem: 'the extension did not declare it in `settings` of its sheavly.json',
         });
       }
 
-      // `assertSettings` made the user's value the type of the default, which `TValue` is.
-      return valueOf({ setting: key, values }) as TValue;
+      // `assertSettings` made the user's value the type of the declared default, which `TValue` is.
+      return valueOf({ setting, values }) as TValue;
     },
   };
 }
@@ -106,7 +103,7 @@ export function settingInfos(params: {
   values: SettingValues;
 }): SettingInfo[] {
   return params.extensions.flatMap((extension) =>
-    (extension.settings ?? []).map((setting) => ({
+    extension.settings.map((setting) => ({
       extension: extension.name,
       name: setting.name,
       description: setting.description,

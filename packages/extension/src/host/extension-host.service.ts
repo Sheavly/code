@@ -5,12 +5,15 @@ import type {
   ServiceKey,
   SettingValue,
 } from '../extension/extension.types.js';
+import { sealExtension } from '../extension/extension.utils.js';
+import { changedExtensions, snapshotContributions } from './contribution-snapshot.utils.js';
 import { mergeContributions } from './contributions.utils.js';
-import { orderExtensions, readableServices } from './extension-order.utils.js';
+import { orderExtensions, readableServices, withDependents } from './extension-order.utils.js';
 import { assertSettings, settingInfos, settingsFor } from './settings.utils.js';
 import type {
   ActivationResult,
   ContributedBy,
+  ContributionSnapshot,
   ExtensionHostOptions,
   SkippedExtension,
 } from './extension-host.types.js';
@@ -19,9 +22,9 @@ import { ServiceRegistry } from './services.service.js';
 /** How one extension's activation went. */
 type ActivationStep =
   | { kind: 'closed' }
-  | { kind: 'skipped'; reason: SkippedExtension['reason'] }
+  | { kind: 'skipped'; skipped: SkippedExtension }
   | { kind: 'failed'; error: ExtensionActivationError }
-  | { kind: 'activated'; contributions: Contributions };
+  | { kind: 'activated'; snapshot: ContributionSnapshot };
 
 /** What one `activate` call has recorded so far. */
 type Progress = {
@@ -41,9 +44,11 @@ type Progress = {
  *
  * Setup mistakes (a repeated name, a missing or cyclic dependency, a setting value no extension
  * declares or of the wrong type, two extensions declaring one setting, two contributions with one
- * name, hooks placed in a cycle) throw. A single extension whose `activate` throws, or that is not
- * trusted (or whose trust check throws), is reported and skipped, along with the extensions that
- * depend on it, and the rest activate. The services of an extension that failed are dropped.
+ * name, hooks placed in a cycle) throw. A single extension whose `activate` throws, that is not
+ * trusted (or whose trust check throws), that lacks a service its manifest requires, or that uses
+ * or contributes what its manifest does not declare, is reported and skipped, along with the
+ * extensions that depend on it, and the rest activate. The services of an extension that failed
+ * are dropped.
  *
  * A host lives one session: it activates once (a second `activate` throws) and closes once. An
  * extension whose `activate` threw is not deactivated, so `activate` must clean up after itself
@@ -58,9 +63,12 @@ export class ExtensionHost {
   #state: 'idle' | 'activating' | 'active' | 'closed' = 'idle';
 
   constructor(options: ExtensionHostOptions) {
-    this.#ordered = orderExtensions(options.extensions);
-    this.#settings = options.settings ?? {};
-    assertSettings({ extensions: options.extensions, values: this.#settings });
+    // Every later read of an extension goes through this one frozen copy, never the caller's object.
+    const sealed = options.extensions.map((extension) => sealExtension(extension));
+
+    this.#ordered = orderExtensions(sealed);
+    this.#settings = Object.freeze({ ...options.settings });
+    assertSettings({ extensions: sealed, values: this.#settings });
     this.#services = new ServiceRegistry(options.services);
     this.#options = options;
   }
@@ -96,7 +104,7 @@ export class ExtensionHost {
 
         const step = await this.#activateOne({
           extension,
-          unavailable: progress.unavailable,
+          progress,
           readable,
           signal: params.signal,
         });
@@ -107,7 +115,7 @@ export class ExtensionHost {
       // An abort during the last `activate` stops the run too, like one between two of them.
       params.signal.throwIfAborted();
 
-      return this.#result(progress);
+      return await this.#result(progress);
     } catch (caughtError) {
       // A collision or an abort during activation: don't leave activated extensions running.
       await this.deactivate();
@@ -121,21 +129,27 @@ export class ExtensionHost {
   }
 
   /**
-   * Whether one extension is skipped, fails or activates. Its trust check and its `activate` are
-   * isolated here: a throw from either is that extension's failure and drops what it provided.
+   * Whether one extension is skipped, fails or activates. Its trust check, its `activate` and the
+   * check of what it contributed against its manifest are isolated here: a throw from any is that
+   * extension's failure and drops what it provided.
    */
   async #activateOne(params: {
     extension: Extension;
-    unavailable: ReadonlySet<string>;
+    progress: Progress;
     readable: ReadonlyMap<string, ReadonlySet<string>>;
     signal: AbortSignal;
   }): Promise<ActivationStep> {
-    const { extension, unavailable, readable, signal } = params;
+    const { extension, progress, readable, signal } = params;
+    const readableNames = readable.get(extension.name) ?? new Set<string>();
 
     try {
-      const reason = await this.#skipReason({ extension, unavailable });
+      const skipped = await this.#skipped({
+        extension,
+        unavailable: progress.unavailable,
+        readable: readableNames,
+      });
 
-      if (reason) return { kind: 'skipped', reason };
+      if (skipped) return { kind: 'skipped', skipped };
 
       // The trust check awaited: `deactivate` may have closed the host meanwhile.
       if (this.#isClosed()) return { kind: 'closed' };
@@ -144,13 +158,20 @@ export class ExtensionHost {
         extension: extension.name,
         services: this.#services.viewFor({
           extension: extension.name,
-          readable: readable.get(extension.name) ?? new Set(),
+          readable: readableNames,
+          declared: extension.manifest.services,
         }),
         settings: settingsFor({ extension, values: this.#settings }),
         signal,
       });
 
-      return { kind: 'activated', contributions };
+      const snapshot = await this.#holdToManifest({
+        extension,
+        contributions,
+        errors: progress.lateDeactivationErrors,
+      });
+
+      return { kind: 'activated', snapshot };
     } catch (caughtError) {
       this.#services.forget(extension.name);
 
@@ -183,7 +204,7 @@ export class ExtensionHost {
       }
 
       this.#activated.push(extension);
-      progress.contributed.push({ extension: extension.name, contributions: step.contributions });
+      progress.contributed.push({ extension: extension.name, snapshot: step.snapshot });
 
       return true;
     }
@@ -191,7 +212,7 @@ export class ExtensionHost {
     progress.unavailable.add(extension.name);
 
     if (step.kind === 'skipped') {
-      progress.skipped.push({ extension: extension.name, reason: step.reason });
+      progress.skipped.push(step.skipped);
     } else {
       progress.failed.push(step.error);
     }
@@ -199,9 +220,51 @@ export class ExtensionHost {
     return true;
   }
 
-  /** The result of an `activate` that ran to its end: nothing is reported running if the host closed meanwhile. */
-  #result(progress: Progress): ActivationResult {
+  /**
+   * An extension keeps its references to what it returned, and others activated since the check.
+   * Before merging, an extension whose contributions changed meanwhile is failed like any other
+   * verification failure: deactivated, its services dropped, and what depends on it deactivated
+   * and skipped, so nothing unchecked is merged.
+   */
+  async #rollBackChanged(params: {
+    changed: ReadonlyMap<string, unknown>;
+    progress: Progress;
+  }): Promise<void> {
+    const { changed, progress } = params;
+    const doomed = withDependents({ ordered: this.#activated, roots: new Set(changed.keys()) });
+    const names = new Set(doomed.map((extension) => extension.name));
+
+    // Taken out before the first `await`: a `deactivate()` meanwhile must not stop them a second time.
+    this.#activated = this.#activated.filter((extension) => !names.has(extension.name));
+    progress.contributed = progress.contributed.filter(({ extension }) => !names.has(extension));
+
+    for (const extension of doomed.toReversed()) {
+      await this.#stopLate({ extension, errors: progress.lateDeactivationErrors });
+      this.#services.forget(extension.name);
+
+      const cause = changed.get(extension.name);
+
+      if (cause === undefined) {
+        progress.skipped.push({ extension: extension.name, reason: 'dependency' });
+      } else {
+        progress.failed.push(new ExtensionActivationError({ extension: extension.name, cause }));
+      }
+    }
+  }
+
+  /**
+   * The result of an `activate` that ran to its end: nothing is reported running if the host closed
+   * meanwhile. Roll-backs await (their `deactivate` calls can change what a survivor holds), so
+   * the last check of every survivor and the merge run together with no `await` between them.
+   */
+  async #result(progress: Progress): Promise<ActivationResult> {
     const { failed, skipped, lateDeactivationErrors } = progress;
+    let changed = changedExtensions(progress.contributed);
+
+    while (changed.size > 0 && !this.#isClosed()) {
+      await this.#rollBackChanged({ changed, progress });
+      changed = changedExtensions(progress.contributed);
+    }
 
     if (this.#isClosed()) {
       return {
@@ -226,7 +289,28 @@ export class ExtensionHost {
     };
   }
 
-  /** Deactivates an extension that finished activating after the host closed; an error is kept, never thrown. */
+  /**
+   * The snapshot of `contributions`, which is all the host merges from here on. Throws an
+   * `ExtensionUndeclaredError` when they hold a tool, hook or work kind the manifest does not
+   * declare. `activate` had finished, so the extension may hold resources: it is deactivated
+   * first (its error kept in `errors`), unlike one whose `activate` threw.
+   */
+  async #holdToManifest(params: {
+    extension: Extension;
+    contributions: Contributions;
+    errors: unknown[];
+  }): Promise<ContributionSnapshot> {
+    const { extension, contributions, errors } = params;
+
+    try {
+      return snapshotContributions({ manifest: extension.manifest, contributions });
+    } catch (caughtError) {
+      await this.#stopLate({ extension, errors });
+      throw caughtError;
+    }
+  }
+
+  /** Deactivates an extension the host stopped without `deactivate()` knowing it; an error is kept, never thrown. */
   async #stopLate(params: { extension: Extension; errors: unknown[] }): Promise<void> {
     try {
       await params.extension.deactivate?.();
@@ -267,17 +351,36 @@ export class ExtensionHost {
     return errors;
   }
 
-  async #skipReason(params: {
+  /**
+   * Why an extension does not activate, if it does not: a dependency that did not, code that is
+   * not trusted, or a required service nobody offers it.
+   */
+  async #skipped(params: {
     extension: Extension;
     unavailable: ReadonlySet<string>;
-  }): Promise<SkippedExtension['reason'] | undefined> {
-    const { extension, unavailable } = params;
+    readable: ReadonlySet<string>;
+  }): Promise<SkippedExtension | undefined> {
+    const { extension, unavailable, readable } = params;
+    const skip = { extension: extension.name } as const;
 
-    if ((extension.dependsOn ?? []).some((name) => unavailable.has(name))) return 'dependency';
+    if (extension.dependsOn.some((name) => unavailable.has(name))) {
+      return { ...skip, reason: 'dependency' };
+    }
 
+    if (!(await this.#isTrustedToRun(extension))) return { ...skip, reason: 'untrusted' };
+
+    const missing = this.#services.unreadable({
+      required: extension.manifest.services.requires,
+      readable,
+    });
+
+    return missing.length === 0 ? undefined : { ...skip, reason: 'service', missing };
+  }
+
+  async #isTrustedToRun(extension: Extension): Promise<boolean> {
     // Only a declared builtin skips the gate: any other origin value is code to trust first.
-    if (extension.origin === undefined || extension.origin === 'builtin') return undefined;
+    if (extension.origin === undefined || extension.origin === 'builtin') return true;
 
-    return (await this.#options.isTrusted?.(extension)) === true ? undefined : 'untrusted';
+    return (await this.#options.isTrusted?.(extension)) === true;
   }
 }

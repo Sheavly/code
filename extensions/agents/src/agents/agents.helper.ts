@@ -1,5 +1,6 @@
 import type { Extension } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
+import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import {
   INSTRUCTIONS,
   OUTPUTS,
@@ -15,6 +16,9 @@ import { createOutputTools } from '@sheavly/tools/output/output.tool';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import type { AgentsExtensionOptions } from './agents.types.js';
 import { createSubAgentScope, SUB_AGENTS } from './agents.utils.js';
+
+// src/agents/ and dist/agents/ are both two levels below the workspace root.
+const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
 
 /**
  * The extension for sub-agents and the background work around them: the task tools, `read_output`
@@ -32,7 +36,7 @@ export function createAgentsExtension(options: AgentsExtensionOptions = {}): Ext
   const { logOf } = options;
 
   return defineExtension({
-    name: 'agents',
+    manifest,
     activate: ({ services }) => {
       const sessions = services.get(SESSIONS);
       const tasks = services.get(TASKS);

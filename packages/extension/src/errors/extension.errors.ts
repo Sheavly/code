@@ -1,16 +1,16 @@
 import type { ContributionKind } from '../extension/extension.types.js';
 
 /**
- * An extension is defined wrong (`defineExtension`): a bad name, a dependency on itself.
- * Thrown when the extension is defined, so it fails at startup.
+ * An extension is defined wrong (`defineExtension`, `settingKey`): an invalid manifest, a setting
+ * it does not declare. Thrown when the extension is defined, so it fails at startup.
  */
 export class ExtensionDefinitionError extends Error {
   override name = 'ExtensionDefinitionError';
   /** The extension's name as written. */
   readonly extension: string;
 
-  constructor(params: { extension: string; problem: string }) {
-    super(`Extension ${params.extension}: ${params.problem}`);
+  constructor(params: { extension: string; problem: string; cause?: unknown }) {
+    super(`Extension ${params.extension}: ${params.problem}`, { cause: params.cause });
     this.extension = params.extension;
   }
 }
@@ -111,6 +111,28 @@ export class ExtensionHostStateError extends Error {
     );
     this.attempted = params.attempted;
     this.state = params.state;
+  }
+}
+
+/**
+ * What an extension's `activate` returned changed after the host checked it against the manifest
+ * (a list that grew, an entry replaced, a name that reads differently). The host merges the names
+ * it recorded and re-verifies them first, so it fails the extension instead of merging something
+ * it did not verify.
+ */
+export class ExtensionContributionChangedError extends Error {
+  override name = 'ExtensionContributionChangedError';
+  readonly extension: string;
+  readonly contribution: ContributionKind;
+
+  constructor(params: { extension: string; contribution: ContributionKind; problem: string }) {
+    const { extension, contribution, problem } = params;
+
+    super(
+      `Extension ${extension}: what it returned as a ${contribution} contribution changed after the host checked them against its sheavly.json: ${problem}.`,
+    );
+    this.extension = extension;
+    this.contribution = contribution;
   }
 }
 

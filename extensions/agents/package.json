@@ -31,7 +31,8 @@
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "sheavly.json"
   ],
   "dependencies": {
     "@sheavly/core": "^0.0.0",

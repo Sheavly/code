@@ -1,0 +1,7 @@
+{
+  "$schema": "../../packages/extension/sheavly.schema.json",
+  "name": "web",
+  "dependsOn": ["agents"],
+  "services": { "requires": ["sub-agents"] },
+  "tools": ["web_fetch", "web_search"]
+}

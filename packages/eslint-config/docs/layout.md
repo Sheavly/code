@@ -32,7 +32,10 @@ no coding one (its tests neither), and on tooling or test-only ones only as dev 
 (tests may use any workspace below, to drive the real code with); each has an
 `eslint.config.js` calling `baseConfig` and a `tsconfig.json` extending `tsconfig.base.json` with
 `rootDir: "src"`. TypeScript outside a workspace's `src/` fails, apart from what `NOT_SOURCE`
-lists with a reason. knip finds the workspaces itself, so `knip.json` lists only the root's
+lists with a reason. Each `extensions/*` workspace has a `sheavly.json` that names its folder,
+lists the extension workspaces in its `dependencies` as `dependsOn` (only `dependencies` count,
+not `devDependencies`, `peerDependencies` or `optionalDependencies`) and is in `files`; no other
+workspace has one (`extension-manifest.utils.js`, see [rules.md](rules.md)). knip finds the workspaces itself, so `knip.json` lists only the root's
 settings. The imports themselves are `harness/imports`.
 
 ## Public API

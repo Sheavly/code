@@ -6,6 +6,7 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
+import { manifestOf } from '../../testing/manifest.fake.js';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';
 import { sendPromptAndSettle } from '../../testing/send-prompt.fake.js';
 
@@ -21,7 +22,12 @@ const jot = defineTool({
  * added through `extensions`, with no core file edited.
  */
 const notes = defineExtension({
-  name: 'notes',
+  manifest: manifestOf({
+    name: 'notes',
+    tools: ['jot'],
+    hooks: ['notes-hint'],
+    workKinds: ['notes.sync'],
+  }),
   activate: () => ({
     tools: [jot],
     hooks: [
@@ -67,7 +73,7 @@ describe('a third-party extension on the backend run', () => {
 
   it('fails loudly, naming both extensions, when it brings a tool a built-in one has', async () => {
     const clash = defineExtension({
-      name: 'clash',
+      manifest: manifestOf({ name: 'clash', tools: ['read_file'] }),
       activate: () => ({
         tools: [defineTool({ ...jot, name: 'read_file' })],
       }),
@@ -81,12 +87,12 @@ describe('a third-party extension on the backend run', () => {
   it('stops the run with the failing extension’s own error and deactivates what activated before it', async () => {
     const log: string[] = [];
     const opened = defineExtension({
-      name: 'opened',
+      manifest: manifestOf({ name: 'opened' }),
       activate: () => ({}),
       deactivate: () => void log.push('opened deactivated'),
     });
     const broken = defineExtension({
-      name: 'broken',
+      manifest: manifestOf({ name: 'broken' }),
       activate: () => {
         throw new Error('hook file is broken');
       },
@@ -99,14 +105,14 @@ describe('a third-party extension on the backend run', () => {
   it('tells onExtensionProblem when an extension’s deactivate throws while the run is closed', async () => {
     const problems: unknown[] = [];
     const stuck = defineExtension({
-      name: 'stuck',
+      manifest: manifestOf({ name: 'stuck' }),
       activate: () => ({}),
       deactivate: () => {
         throw new Error('cannot close');
       },
     });
     const broken = defineExtension({
-      name: 'broken',
+      manifest: manifestOf({ name: 'broken' }),
       activate: () => {
         throw new Error('boom');
       },
@@ -127,7 +133,7 @@ describe('a third-party extension on the backend run', () => {
     });
     const failing = (name: string) =>
       defineExtension({
-        name,
+        manifest: manifestOf({ name }),
         activate: () => {
           throw new Error(`${name} failed`);
         },
@@ -155,7 +161,7 @@ describe('a third-party extension on the backend run', () => {
 
   it('leaves out a project extension this backend does not trust, and names it', async () => {
     const fromRepo = defineExtension({
-      name: 'from-repo',
+      manifest: manifestOf({ name: 'from-repo', tools: ['repo_tool'] }),
       origin: 'project',
       activate: () => ({ tools: [defineTool({ ...jot, name: 'repo_tool' })] }),
     });

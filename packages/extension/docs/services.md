@@ -14,6 +14,12 @@ In `activate`, `context.services.provide(KEY, value)` makes the value available 
 `context.services.get(KEY)` reads one. Each extension gets its own view of the registry
 (`ServiceRegistry.viewFor`):
 
+- It declares every service in its manifest ([manifest](manifest.md)): `services.requires` for
+  what it reads with `get` (it is not activated without them: the host skips it with the reason
+  `service`), `services.optional` for what it reads with `find`, `services.provides` for what it
+  provides. `get` or `find` of a name in neither `requires` nor `optional`, or `provide` of one
+  not in `provides`, throws an `ExtensionUndeclaredError`. Services the host supplies are held to
+  the same declaration.
 - It may read only services of itself and of the extensions it depends on, directly or not
   (`readableServices`). Reading one from an extension it does not depend on throws a
   `MissingServiceError` telling it to add the dependency, so activation order, not luck, decides

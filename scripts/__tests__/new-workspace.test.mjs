@@ -1,6 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { ESLint } from 'eslint';
 import { afterEach, describe, expect, it } from 'vitest';
+import { harnessPlugin } from '../../packages/eslint-config/src/plugin.js';
 import { findLayoutProblems } from '../check-layout.mjs';
 import { createWorkspace, installCommands, planWorkspace } from '../new-workspace.mjs';
 import { createTempRepo, removeTempRepos } from './temp-repo.utils.mjs';
@@ -177,9 +179,60 @@ describe('creating a workspace', () => {
       // The repo's own license, so a scaffolded workspace is not the one UNLICENSED package.
       license: 'Apache-2.0',
       exports: {},
-      files: ['dist', 'docs'],
+      files: ['dist', 'docs', 'sheavly.json'],
       scripts: { prepack: 'npm run build' },
     });
+    expect(read('extensions/notes/sheavly.json')).toEqual({
+      $schema: '../../packages/extension/sheavly.schema.json',
+      name: 'notes',
+      dependsOn: [],
+    });
+  });
+
+  it('creates an extension that passes the layout check and the extension-definition rule', async () => {
+    const root = repo({ workspaces: ['packages/*', 'apps/*'] });
+    // Plain JavaScript, so the default parser reads it: the rule looks at the call, not the syntax.
+    const helper = 'extensions/notes/src/notes/notes.helper.js';
+
+    await createWorkspace({
+      root,
+      plan: plan(root, { kind: 'extension', name: 'notes' }),
+    });
+    mkdirSync(path.join(root, path.dirname(helper)), { recursive: true });
+    writeFileSync(
+      path.join(root, helper),
+      "import { readManifest } from '@sheavly/extension/manifest/manifest.helper';\ndefineExtension({ manifest: readManifest(new URL('../../sheavly.json', import.meta.url)), activate });\n",
+      { flag: 'wx' },
+    );
+
+    const files = [
+      'package.json',
+      ...['core', 'coding', 'web'].flatMap((folder) => repoFiles(folder)),
+      helper,
+      ...[
+        'package.json',
+        'sheavly.json',
+        'eslint.config.js',
+        'tsconfig.json',
+        'tsconfig.build.json',
+      ]
+        .concat(['README.md', 'docs/design.md'])
+        .map((file) => `extensions/notes/${file}`),
+    ];
+    const [result] = await new ESLint({
+      cwd: root,
+      overrideConfigFile: true,
+      overrideConfig: [
+        {
+          files: ['**/*.js'],
+          plugins: { harness: harnessPlugin },
+          rules: { 'harness/extension-definition': ['error', { root }] },
+        },
+      ],
+    }).lintFiles([helper]);
+
+    expect(result?.messages).toEqual([]);
+    expect(findLayoutProblems({ root, files })).toEqual([]);
   });
 
   it('refuses an extension that depends on an app, as a package would', () => {

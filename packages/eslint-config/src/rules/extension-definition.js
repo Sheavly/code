@@ -1,8 +1,13 @@
-// An extension's `defineExtension({ name, dependsOn, activate })` says again what its workspace
-// already says: the folder and the dependencies on other extension workspaces. Read from the
-// layout on disk, so the declaration can't drift from the workspace: a `dependsOn` that omits a
-// real dependency leaves activation order to luck. An extension has no domain or category. A
-// value that isn't a literal can't be checked and is reported.
+// An extension builds itself with `defineExtension({ manifest, activate })`, where `manifest` is
+// `readManifest(new URL('../../sheavly.json', import.meta.url))`: its workspace's own
+// `sheavly.json`, which is the one place that says its `name`, `dependsOn` and settings. The call
+// must not repeat them (they would drift), and must read this workspace's file, not another's
+// or one at the wrong depth. The file itself (it exists, parses, names the folder, lists the
+// extensions in `dependencies`, ships) is the layout check's (`extension-manifest.utils.js`).
+// The manifest is the call written in place or a module-level `const` initialised with it. An
+// extension built by a helper rather than a direct object literal can't be followed: review covers
+// it. `readManifest` must be the import from '@sheavly/extension/manifest/manifest.helper' (under
+// any local name); a local function of that name is reported.
 import path from 'node:path';
 import {
   LAYOUT_RULE_OPTIONS,
@@ -13,20 +18,12 @@ import {
 import { isTestOrFake } from '../test-paths.utils.js';
 import { findRoot } from './workspace-types.js';
 
-const folderOf = (entry) => path.posix.basename(entry.dir);
-const isString = (node) => node.type === 'Literal' && typeof node.value === 'string';
-
-/** What the workspace says the declaration must be. */
-function expectedOf(params) {
-  const { entry, layout } = params;
-
-  return {
-    folder: folderOf(entry),
-    dependencies: entry.dependsOn
-      .filter((dependency) => layout[dependency]?.kind === 'extension')
-      .map((dependency) => ({ package: dependency, folder: folderOf(layout[dependency]) })),
-  };
-}
+/** What the manifest provides, so the call must not say it again. */
+const DERIVED = ['name', 'dependsOn', 'settings'];
+const MANIFEST_FILE = 'sheavly.json';
+const READ_MANIFEST_MODULE = '@sheavly/extension/manifest/manifest.helper';
+const isString = (node) => node?.type === 'Literal' && typeof node.value === 'string';
+const toPosix = (file) => file.split(path.sep).join('/');
 
 function propertyNamed(params) {
   const { object, name } = params;
@@ -39,86 +36,137 @@ function propertyNamed(params) {
   );
 }
 
-function reportNotLiteral(params) {
-  const { context, node, property, shape } = params;
-
-  context.report({ node, messageId: 'notLiteral', data: { property, shape } });
+function isImportMetaUrl(node) {
+  return (
+    node?.type === 'MemberExpression' &&
+    !node.computed &&
+    node.property.name === 'url' &&
+    node.object.type === 'MetaProperty' &&
+    node.object.meta.name === 'import' &&
+    node.object.property.name === 'meta'
+  );
 }
 
-function checkString(params) {
-  const { context, object, property, expected } = params;
-  const found = propertyNamed({ object, name: property });
+function findVariable(params) {
+  const { scope, name } = params;
 
-  if (!found || !isString(found.value)) {
-    reportNotLiteral({
-      context,
-      node: found?.value ?? object,
-      property,
-      shape: 'string literal',
-    });
+  for (let current = scope; current; current = current.upper) {
+    const variable = current.set.get(name);
+
+    if (variable) return variable;
+  }
+
+  return undefined;
+}
+
+/**
+ * Whether the callee of `call` is the `readManifest` imported from the manifest helper, under
+ * whatever local name: a local function of that name, or an import of something else, is not it.
+ */
+function callsImportedReadManifest(params) {
+  const { context, call } = params;
+
+  if (call.callee.type !== 'Identifier') return false;
+
+  const variable = findVariable({
+    scope: context.sourceCode.getScope(call),
+    name: call.callee.name,
+  });
+  const [definition] = variable?.defs ?? [];
+
+  return (
+    variable?.defs.length === 1 &&
+    definition.type === 'ImportBinding' &&
+    definition.node.type === 'ImportSpecifier' &&
+    definition.node.imported.name === 'readManifest' &&
+    definition.parent.source.value === READ_MANIFEST_MODULE
+  );
+}
+
+/** The path of `readManifest(new URL('<path>', import.meta.url))`; undefined for any other shape. */
+function readManifestPath(params) {
+  const { context, call } = params;
+
+  if (call?.type !== 'CallExpression') return undefined;
+
+  if (!callsImportedReadManifest({ context, call })) return undefined;
+
+  const [url] = call.arguments;
+
+  if (call.arguments.length !== 1 || url?.type !== 'NewExpression') return undefined;
+
+  if (url.callee.name !== 'URL' || url.arguments.length !== 2) return undefined;
+
+  const [target, base] = url.arguments;
+
+  return isString(target) && isImportMetaUrl(base) ? target.value : undefined;
+}
+
+/**
+ * The expression a `manifest` value stands for: itself, or the initialiser of the one `const` it
+ * names. Undefined for a parameter, an import, a `let` or anything reassignable.
+ */
+function manifestExpression(params) {
+  const { context, node, value } = params;
+
+  if (value.type !== 'Identifier') return value;
+
+  const variable = findVariable({ scope: context.sourceCode.getScope(node), name: value.name });
+  const [definition] = variable?.defs ?? [];
+
+  if (variable?.defs.length !== 1 || definition.type !== 'Variable') return undefined;
+
+  return definition.parent.kind === 'const' ? definition.node.init : undefined;
+}
+
+/** The path that reaches the workspace's `sheavly.json` from the file, as `new URL` writes it. */
+function expectedPath(params) {
+  const { workspace, file } = params;
+  const relative = toPosix(
+    path.relative(path.dirname(file), path.join(workspace.dir, MANIFEST_FILE)),
+  );
+
+  return relative.startsWith('.') ? relative : `./${relative}`;
+}
+
+function checkManifest(params) {
+  const { context, node, object, workspace, root } = params;
+  const found = propertyNamed({ object, name: 'manifest' });
+  const expected = expectedPath({ workspace, file: context.filename });
+
+  if (!found) {
+    context.report({ node, messageId: 'noManifest', data: { expected } });
 
     return;
   }
 
-  if (found.value.value !== expected) {
+  const expression = manifestExpression({ context, node, value: found.value });
+  const written = readManifestPath({ context, call: expression });
+
+  if (written === undefined) {
+    context.report({ node: found.value, messageId: 'notReadManifest', data: { expected } });
+
+    return;
+  }
+
+  const target = path.resolve(path.dirname(context.filename), written);
+
+  if (target !== path.join(workspace.dir, MANIFEST_FILE)) {
     context.report({
-      node: found.value,
-      messageId: property,
-      data: { actual: found.value.value, expected: String(expected) },
+      node: expression,
+      messageId: 'wrongManifest',
+      data: { actual: written, found: toPosix(path.relative(root, target)), expected },
     });
   }
 }
 
-/** The names `dependsOn` lists, or null after reporting that they can't be read as literals. */
-function listedNames(params) {
+function checkNotRepeated(params) {
   const { context, object } = params;
-  const found = propertyNamed({ object, name: 'dependsOn' });
-  const shape = 'array literal of string literals';
 
-  if (!found) return { node: object, elements: [] };
+  for (const property of DERIVED) {
+    const found = propertyNamed({ object, name: property });
 
-  if (found.value.type !== 'ArrayExpression') {
-    reportNotLiteral({ context, node: found.value, property: 'dependsOn', shape });
-
-    return null;
-  }
-
-  const unreadable = found.value.elements.filter((element) => !element || !isString(element));
-
-  for (const element of unreadable) {
-    reportNotLiteral({ context, node: element ?? found.value, property: 'dependsOn', shape });
-  }
-
-  return unreadable.length > 0 ? null : { node: found.value, elements: found.value.elements };
-}
-
-function checkDependsOn(params) {
-  const { context, object, expected } = params;
-  const listed = listedNames({ context, object });
-
-  if (!listed) return;
-
-  const folders = new Set(expected.dependencies.map(({ folder }) => folder));
-  const seen = new Set();
-
-  for (const element of listed.elements) {
-    const name = element.value;
-
-    if (seen.has(name)) {
-      context.report({ node: element, messageId: 'duplicate', data: { name } });
-    } else if (!folders.has(name)) {
-      context.report({ node: element, messageId: 'extra', data: { name } });
-    }
-
-    seen.add(name);
-  }
-
-  for (const dependency of expected.dependencies.filter(({ folder }) => !seen.has(folder))) {
-    context.report({
-      node: listed.node,
-      messageId: 'missing',
-      data: { package: dependency.package, name: dependency.folder },
-    });
+    if (found) context.report({ node: found, messageId: 'repeated', data: { property } });
   }
 }
 
@@ -128,15 +176,15 @@ export const extensionDefinition = {
     schema: [LAYOUT_RULE_OPTIONS],
     messages: {
       notObject:
-        'defineExtension must be called with an object literal, so its name and dependsOn can be checked against the workspace. Write `defineExtension({ name, dependsOn, activate })` in place.',
-      notLiteral:
-        '`{{property}}` must be written in the call as a {{shape}}, so it can be checked against the workspace.',
-      name: "name must be the workspace folder name: change '{{actual}}' to '{{expected}}'.",
-      missing:
-        "dependsOn must name every extension this workspace depends on ({{package}}): add '{{name}}'.",
-      extra:
-        "dependsOn names '{{name}}', which is not an extension in this workspace's package.json `dependencies`: remove it, or add that extension there if it is a real dependency (devDependencies don't count).",
-      duplicate: "dependsOn lists '{{name}}' twice: remove the duplicate.",
+        'defineExtension must be called with an object literal without a spread, so its manifest can be checked. Write `defineExtension({ manifest, activate })` in place.',
+      repeated:
+        "`{{property}}` comes from the manifest (sheavly.json): remove it from the call, so it can't drift from the file.",
+      noManifest:
+        "defineExtension must be given the workspace's manifest: add `manifest: readManifest(new URL('{{expected}}', import.meta.url))`.",
+      notReadManifest:
+        "`manifest` must be `readManifest(new URL('{{expected}}', import.meta.url))`, written in the call or in a module-level `const`: `readManifest` imported from '@sheavly/extension/manifest/manifest.helper', a string-literal path and `import.meta.url`, so it can be checked against this workspace. An object literal or another reader isn't accepted in an extension's source.",
+      wrongManifest:
+        "manifest reads '{{actual}}', which is {{found}}, not this workspace's sheavly.json: use '{{expected}}'.",
       noRoot:
         'harness/extension-definition could not find the workspace root (a package.json with `workspaces`) above {{cwd}}. Pass `root`; it fails rather than skip, so no extension goes unchecked.',
     },
@@ -163,22 +211,22 @@ export const extensionDefinition = {
         if (!workspace || isTestOrFake(path.relative(workspace.dir, context.filename))) return;
 
         const layout = options.layout ?? readLayout({ root });
-        const entry = layout[workspace.name];
 
-        if (entry?.kind !== 'extension') return;
+        if (layout[workspace.name]?.kind !== 'extension') return;
 
         const object = node.arguments[0];
 
-        if (object?.type !== 'ObjectExpression') {
+        if (
+          object?.type !== 'ObjectExpression' ||
+          object.properties.some(({ type }) => type === 'SpreadElement')
+        ) {
           context.report({ node, messageId: 'notObject' });
 
           return;
         }
 
-        const expected = expectedOf({ entry, layout });
-
-        checkString({ context, object, property: 'name', expected: expected.folder });
-        checkDependsOn({ context, object, expected });
+        checkNotRepeated({ context, object });
+        checkManifest({ context, node, object, workspace, root });
       },
     };
   },

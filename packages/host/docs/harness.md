@@ -65,7 +65,7 @@ The values are the harness's own objects, not copies, so work an extension start
 is the run's work; `APPROVALS` is the exception: an object with only `request`, so an extension
 can ask the user (in its own words) but cannot answer an approval. It does not hide approvals:
 they still appear in the sessions' stream that `SESSIONS` exposes. There is no environment
-service: an extension's configuration comes through its settings (`defineSetting`,
+service: an extension's configuration comes through its settings (declared in its manifest,
 `ExtensionHostOptions.settings`).
 
 **Run services are not a sandbox.** An extension is code that can already do whatever Node can;

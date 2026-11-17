@@ -4,7 +4,8 @@ Public web reading and search tools (web_fetch, web_search), shared with sub-age
 
 `createWebExtension({ webFetch, webSearch })` contributes each tool unless its option is `false`.
 Search has no default backend: the app selects one (`@sheavly/tools`'s `web-search-backends/`) and
-passes it in. The extension depends on `agents` to share its tools with sub-agents.
+passes it in. The extension depends on `agents` to share its tools with sub-agents. Its
+`sheavly.json` names it, that dependency, the `sub-agents` service it requires and the two tools.
 
 ```ts
 import { createWebExtension } from '@sheavly/web/web/web.helper';

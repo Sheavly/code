@@ -6,6 +6,7 @@
     "packages/*/tsconfig*.json",
     "extensions/*/src/**",
     "extensions/*/package.json",
+    "extensions/*/sheavly.json",
     "extensions/*/eslint.config.js",
     "extensions/*/tsconfig*.json",
     "apps/*/src/**",
@@ -35,7 +36,11 @@
       "apps/*/package.json"
     ],
     "file-kinds.md": ["packages/*/src/**", "extensions/*/src/**", "apps/*/src/**"],
-    "extensions.md": ["extensions/*/src/**", "packages/extension/src/**"],
+    "extensions.md": [
+      "extensions/*/src/**",
+      "extensions/*/sheavly.json",
+      "packages/extension/src/**"
+    ],
     "extending.md": [
       "packages/tools/src/**",
       "extensions/coding/src/**",

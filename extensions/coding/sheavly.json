@@ -1,0 +1,23 @@
+{
+  "$schema": "../../packages/extension/sheavly.schema.json",
+  "name": "coding",
+  "dependsOn": ["agents"],
+  "services": {
+    "requires": ["sub-agents"],
+    "optional": ["outputs"],
+    "provides": ["coding-run"]
+  },
+  "tools": [
+    "read_file",
+    "glob",
+    "grep",
+    "write_file",
+    "edit_file",
+    "delete_file",
+    "set_working_root",
+    "read_skill",
+    "run_command",
+    "start_service"
+  ],
+  "hooks": ["agents-md", "skills", "scratch", "working-root", "*"]
+}

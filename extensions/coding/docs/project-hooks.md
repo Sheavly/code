@@ -34,6 +34,12 @@ export default {
 - Node runs TypeScript by removing the types: no `enum`, `namespace` or parameter properties.
 - `.js` / `.ts` follow your package.json `"type"`. A hook in the other module format fails with
   a message to rename it to `.cjs` / `.cts` or `.mjs` / `.mts`, which load the same everywhere.
+- A hook's `name` is yours to choose, with no required prefix, so the coding extension's
+  `sheavly.json` declares its hooks with the bare wildcard `"*"`: any name you pick is allowed
+  and an installer shows it as hooks whose names are not known in advance. Only a name another
+  hook already uses is refused. The bare `"*"` makes the host's hook-name check a no-op for the
+  coding extension, and the four names listed beside it in the manifest (`agents-md`, `skills`,
+  `scratch`, `working-root`) are documentation, not a limit.
 - `loadProjectHooks({ root, trust })` loads them once at startup; pass them after your own hooks
   (`hooks: [...hostHooks, ...projectHooks.hooks]`), so yours wrap the project's.
 - **Only in a trusted workspace.** Hook files are code from the repo, so the harness loads none

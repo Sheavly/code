@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Extension } from '@sheavly/extension/extension/extension.types';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
+import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import { fakeExtension, fakeHook, fakeTool } from '@sheavly/extension/testing/extension.fake';
 import { createHarness } from '@sheavly/host/host/host.helper';
 import { runServices } from '@sheavly/host/run-services/run-services.utils';
@@ -62,6 +63,7 @@ describe('the agents extension', () => {
     const sharer = fakeExtension({
       name: 'sharer',
       dependsOn: ['agents'],
+      requires: [SUB_AGENTS.name],
       activate: ({ services }) => {
         services.get(SUB_AGENTS).share({ tools: [fakeTool('shared_tool')] });
 
@@ -82,6 +84,7 @@ describe('the agents extension', () => {
     const sharer = fakeExtension({
       name: 'sharer',
       dependsOn: ['agents'],
+      requires: [SUB_AGENTS.name],
       activate: ({ services }) => {
         services
           .get(SUB_AGENTS)
@@ -97,10 +100,32 @@ describe('the agents extension', () => {
     expect(scope.taskTools.map((tool) => tool.name)).toEqual(['start_job']);
   });
 
-  it('fails to activate when the host supplies no run services', async () => {
+  it('is skipped, naming the services, when the host supplies no run services', async () => {
     const host = new ExtensionHost({ extensions: [createAgentsExtension()] });
-    const { failed } = await host.activate({ signal: new AbortController().signal });
+    const { failed, skipped } = await host.activate({ signal: new AbortController().signal });
 
-    expect(failed).toHaveLength(1);
+    expect(failed).toEqual([]);
+    expect(skipped).toEqual([
+      {
+        extension: 'agents',
+        reason: 'service',
+        missing: ['sessions', 'tasks', 'provider', 'instructions'],
+      },
+    ]);
+  });
+
+  it('declares in its manifest exactly the tools it contributes under every option, in order', async () => {
+    const log = {
+      append: async () => undefined,
+      async *read() {
+        yield* [];
+      },
+    };
+    const { names } = await activate({
+      options: { logOf: () => log },
+      outputs: new MemoryOutputStore(),
+    });
+
+    expect(names).toEqual(readManifest(new URL('../../../sheavly.json', import.meta.url)).tools);
   });
 });

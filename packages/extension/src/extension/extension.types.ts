@@ -1,5 +1,6 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import type { ExtensionManifest } from '../manifest/manifest.types.js';
 
 /** What an extension can contribute or provide, as named in collision messages. */
 export type ContributionKind = 'tool' | 'hook' | 'work kind' | 'setting' | 'service';
@@ -60,9 +61,12 @@ export type WorkKindContribution = {
 /** The values a setting can have. */
 export type SettingValue = string | number | boolean;
 
+/** The value type each setting `type` of a manifest stands for. */
+export type SettingTypes = { string: string; number: number; boolean: boolean };
+
 /**
- * A typed, static declaration of a setting, made with `defineSetting`. The type parameter is the
- * type of its value, taken from the default.
+ * A typed key for a setting the manifest declares, made with `settingKey`. Its name, default and
+ * description are the manifest's; the type parameter is the type of its value.
  */
 export type SettingKey<TValue extends SettingValue> = {
   /** Unique across all extensions, `<extension>.<setting>`. */
@@ -71,6 +75,10 @@ export type SettingKey<TValue extends SettingValue> = {
   /** The value when the user sets none; its type is the type the user's value must have. */
   readonly default: TValue;
 };
+
+/** What an extension did that its manifest must declare, as named in `ExtensionUndeclaredError`. */
+export type UndeclaredUse =
+  'service get' | 'service find' | 'service provide' | 'tool' | 'hook' | 'work kind';
 
 /** The settings an extension declared, as it reads them. */
 export type Settings = {
@@ -116,23 +124,33 @@ export type ExtensionContext = {
 };
 
 /**
+ * What an author gives `defineExtension`: the manifest (`sheavly.json`, read with
+ * `readManifest`) that declares what the extension needs and contributes, and the code. The name,
+ * dependencies and settings are the manifest's alone, never repeated here.
+ */
+export type ExtensionDefinition = {
+  manifest: ExtensionManifest;
+  /** Default `builtin`. A `project` extension is skipped unless the workspace is trusted. */
+  origin?: ExtensionOrigin | undefined;
+  activate: (context: ExtensionContext) => Contributions | Promise<Contributions>;
+  deactivate?: (() => void | Promise<void>) | undefined;
+};
+
+/**
  * One unit of what a run includes. The framework puts no category or policy on it: what an
  * extension can and cannot do is its own to define. The host activates extensions in dependency
  * order, merges their contributions and fails on two with the same name. `activate` runs once per
- * session; `deactivate` runs once when the session ends, in reverse order.
+ * session; `deactivate` runs once when the session ends, in reverse order. The host also holds
+ * the extension to its manifest: reading, providing or contributing what it does not declare
+ * fails its activation.
  */
-export type Extension = {
+export type Extension = Omit<ExtensionDefinition, 'manifest'> & {
+  /** What it declares; the fields below are derived from it. */
+  manifest: ExtensionManifest;
   /** Unique, kebab-case. Others name it in `dependsOn`. */
   name: string;
-  /**
-   * The settings it reads, declared statically with `defineSetting` so the host can validate the
-   * user's values before anything activates.
-   */
-  settings?: readonly SettingKey<SettingValue>[] | undefined;
-  /** Default `builtin`. A `project` extension is skipped unless the workspace is trusted. */
-  origin?: ExtensionOrigin | undefined;
   /** Extensions that must activate first, by name. Their services become readable. */
-  dependsOn?: readonly string[] | undefined;
-  activate: (context: ExtensionContext) => Contributions | Promise<Contributions>;
-  deactivate?: (() => void | Promise<void>) | undefined;
+  dependsOn: readonly string[];
+  /** The settings it declares, so the host can validate the user's values before it activates. */
+  settings: readonly SettingKey<SettingValue>[];
 };

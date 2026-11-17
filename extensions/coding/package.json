@@ -69,6 +69,7 @@
   "files": [
     "dist",
     "docs",
-    "skills"
+    "skills",
+    "sheavly.json"
   ]
 }

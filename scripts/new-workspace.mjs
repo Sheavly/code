@@ -8,7 +8,10 @@
 //   package   packages/<name>, imported by the file kinds its `exports` makes public
 //             (`@sheavly/<name>/<module>/<module>.<kind>`, added with `npm run export`)
 //   extension extensions/<name>, a library of what a run includes (tools, hooks), built on
-//             packages and composed by an app; its API is declared like a package's
+//             packages and composed by an app; its API is declared like a package's, and it
+//             declares itself in a `sheavly.json` (listed in `files`) that its first
+//             `defineExtension({ manifest: readManifest(new URL('../../sheavly.json', import.meta.url)), … })`
+//             reads. The scaffold writes the file; the first module is the author's.
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
@@ -151,6 +154,23 @@ to what it is for, its public API and an example; what goes deeper goes here, on
 each linked from the README.
 `;
 
+/** What a published workspace ships: its build and docs, and an extension its manifest too. */
+function publishedFiles(kind) {
+  return kind === 'extension' ? ['dist', 'docs', 'sheavly.json'] : ['dist', 'docs'];
+}
+
+/**
+ * An extension's manifest, as small as it can be: its name and no dependencies. The layout check
+ * asks for `dependsOn` once the package depends on another extension, and `readManifest` reads
+ * the rest (services, settings, tools) as the extension grows.
+ */
+function extensionManifest(params) {
+  const { dir, name } = params;
+  const schema = path.posix.relative(dir, 'packages/extension/sheavly.schema.json');
+
+  return `${JSON.stringify({ $schema: schema, name: name.slice(SCOPE.length), dependsOn: [] }, null, 2)}\n`;
+}
+
 /** Every step that creates the workspace, in order: commands for npm, files for the rest. */
 function steps(params) {
   const { plan, root } = params;
@@ -190,7 +210,16 @@ function steps(params) {
     ...(entry.kind === 'app' || entry.domain === 'tooling'
       ? []
       : [
-          { npm: ['pkg', 'set', 'files=["dist","docs"]', '--json', '-w', dir] },
+          {
+            npm: [
+              'pkg',
+              'set',
+              `files=${JSON.stringify(publishedFiles(entry.kind))}`,
+              '--json',
+              '-w',
+              dir,
+            ],
+          },
           { npm: ['pkg', 'set', 'scripts.prepack=npm run build', '-w', dir] },
         ]),
     // `npm init -w` registered it under its folder name; `npm pkg` renamed it without touching the
@@ -199,6 +228,9 @@ function steps(params) {
     { file: `${dir}/eslint.config.js`, content: ESLINT_CONFIG },
     { file: `${dir}/tsconfig.json`, content: TSCONFIG },
     { file: `${dir}/tsconfig.build.json`, content: tsconfigBuild({ layout: plan.layout, entry }) },
+    ...(entry.kind === 'extension'
+      ? [{ file: `${dir}/sheavly.json`, content: extensionManifest({ dir, name: fullName }) }]
+      : []),
     { file: `${dir}/README.md`, content: readme({ fullName, description }) },
     { file: `${dir}/docs/design.md`, content: DESIGN_DOC },
   ];

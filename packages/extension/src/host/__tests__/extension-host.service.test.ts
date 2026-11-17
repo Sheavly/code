@@ -15,9 +15,9 @@ const signal = new AbortController().signal;
 const COUNTER = defineService<number>('counter');
 
 /** Two extensions that contribute the same thing, so activating both collides. */
-const colliding = (contribution: () => Contributions): [Extension, Extension] => [
-  fakeExtension({ name: 'first', activate: contribution }),
-  fakeExtension({ name: 'second', activate: contribution }),
+const colliding = (contributes: Contributions): [Extension, Extension] => [
+  fakeExtension({ name: 'first', contributes }),
+  fakeExtension({ name: 'second', contributes }),
 ];
 
 describe('ExtensionHost activation', () => {
@@ -44,14 +44,14 @@ describe('ExtensionHost activation', () => {
   it('merges every extension’s tools, hooks and work kinds in activation order', async () => {
     const host = new ExtensionHost({
       extensions: [
-        fakeExtension({ name: 'a', activate: () => ({ tools: [fakeTool('one')] }) }),
+        fakeExtension({ name: 'a', contributes: { tools: [fakeTool('one')] } }),
         fakeExtension({
           name: 'b',
-          activate: () => ({
+          contributes: {
             tools: [fakeTool('two')],
             hooks: [fakeHook('watch')],
             workKinds: [{ name: 'b.job', description: 'A job', completion: 'finite' }],
-          }),
+          },
         }),
       ],
     });
@@ -68,10 +68,13 @@ describe('ExtensionHost activation', () => {
         fakeExtension({
           name: 'user',
           dependsOn: ['provider'],
+          requires: [COUNTER.name],
+          tools: ['count-7'],
           activate: ({ services }) => ({ tools: [fakeTool(`count-${services.get(COUNTER)}`)] }),
         }),
         fakeExtension({
           name: 'provider',
+          provides: [COUNTER.name],
           activate: ({ services }) => {
             services.provide(COUNTER, 7);
 
@@ -95,7 +98,7 @@ describe('ExtensionHost activation', () => {
           },
         }),
         fakeExtension({ name: 'child', dependsOn: ['broken'] }),
-        fakeExtension({ name: 'fine', activate: () => ({ tools: [fakeTool('still-here')] }) }),
+        fakeExtension({ name: 'fine', contributes: { tools: [fakeTool('still-here')] } }),
       ],
     });
     const result = await host.activate({ signal });
@@ -109,8 +112,8 @@ describe('ExtensionHost activation', () => {
   });
 
   it.each([
-    ['tool', () => ({ tools: [fakeTool('same')] })],
-    ['hook', () => ({ hooks: [fakeHook('same')] })],
+    ['tool', { tools: [fakeTool('same')] }],
+    ['hook', { hooks: [fakeHook('same')] }],
   ])(
     'fails loudly, naming both extensions, when two contribute a %s with one name',
     async (_kind, contribution) => {
@@ -125,7 +128,7 @@ describe('ExtensionHost activation', () => {
 
   it('deactivates what it activated when a collision stops the activation', async () => {
     const log: string[] = [];
-    const [first, second] = colliding(() => ({ tools: [fakeTool('same')] }));
+    const [first, second] = colliding({ tools: [fakeTool('same')] });
     const host = new ExtensionHost({
       extensions: [{ ...first, deactivate: () => void log.push('first') }, second],
     });
@@ -160,6 +163,8 @@ describe('ExtensionHost services the host supplies', () => {
       extensions: [
         fakeExtension({
           name: 'reader',
+          requires: [COUNTER.name],
+          tools: ['count-42'],
           activate: ({ services }) => ({ tools: [fakeTool(`count-${services.get(COUNTER)}`)] }),
         }),
       ],
@@ -176,6 +181,7 @@ describe('ExtensionHost services the host supplies', () => {
       extensions: [
         fakeExtension({
           name: 'rival',
+          provides: [COUNTER.name],
           activate: ({ services }) => {
             services.provide(COUNTER, 1);
 
@@ -197,6 +203,7 @@ describe('ExtensionHost services the host supplies', () => {
       extensions: [
         fakeExtension({
           name: 'reader',
+          optional: [COUNTER.name],
           activate: ({ services }) => {
             found = services.find(COUNTER);
 
@@ -215,7 +222,7 @@ describe('ExtensionHost trust', () => {
   const project = fakeExtension({
     name: 'from-repo',
     origin: 'project',
-    activate: () => ({ tools: [fakeTool('repo-tool')] }),
+    contributes: { tools: [fakeTool('repo-tool')] },
   });
 
   it('skips a project extension unless the workspace is trusted', async () => {
@@ -325,12 +332,13 @@ describe('ExtensionHost lifecycle', () => {
         extensions: [
           fakeExtension({
             name: 'fast',
-            activate: () => ({ tools: [fakeTool('fast-tool')] }),
+            contributes: { tools: [fakeTool('fast-tool')] },
             deactivate: () => void log.push('fast deactivated'),
           }),
           fakeExtension({
             name: 'slow',
             dependsOn: ['fast'],
+            tools: ['slow-tool'],
             activate: async () => {
               log.push('slow starts');
               started.resolve(undefined);
@@ -445,7 +453,7 @@ describe('ExtensionHost lifecycle', () => {
   it('counts a throwing trust check as that extension failing, not the whole activation', async () => {
     const host = new ExtensionHost({
       extensions: [
-        fakeExtension({ name: 'builtin', activate: () => ({ tools: [fakeTool('kept')] }) }),
+        fakeExtension({ name: 'builtin', contributes: { tools: [fakeTool('kept')] } }),
         fakeExtension({ name: 'from-repo', origin: 'project' }),
       ],
       isTrusted: () => {
@@ -463,6 +471,7 @@ describe('ExtensionHost lifecycle', () => {
       extensions: [
         fakeExtension({
           name: 'half',
+          provides: [COUNTER.name],
           activate: ({ services }) => {
             services.provide(COUNTER, 1);
 

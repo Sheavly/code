@@ -1,6 +1,8 @@
 import { ContributionCollisionError, MissingServiceError } from '../errors/extension.errors.js';
 import { HOST_PROVIDER } from '../extension/extension.constants.js';
 import type { HostService, ServiceKey, Services } from '../extension/extension.types.js';
+import type { ExtensionManifest } from '../manifest/manifest.types.js';
+import { assertDeclared } from './declaration.utils.js';
 
 /** How a provider reads in a collision message. */
 function describeProvider(provider: string): string {
@@ -22,15 +24,72 @@ export class ServiceRegistry {
     }
   }
 
-  /** The registry as `extension` sees it; `readable` are the extension names it may read from. */
-  viewFor(params: { extension: string; readable: ReadonlySet<string> }): Services {
-    const { extension, readable } = params;
+  /**
+   * The registry as `extension` sees it; `readable` are the extension names it may read from.
+   * `declared` is the services its manifest lists: `get` and `find` throw an
+   * `ExtensionUndeclaredError` for a name not in `requires` or `optional`, and `provide` for one
+   * not in `provides`. The host supplies run services too, and they are held to the same list.
+   */
+  viewFor(params: {
+    extension: string;
+    readable: ReadonlySet<string>;
+    declared: ExtensionManifest['services'];
+  }): Services {
+    const { extension, readable, declared } = params;
+    const readableNames = [...declared.requires, ...declared.optional];
 
     return {
-      provide: (key, value) => this.#provide({ extension, key, value }),
-      get: (key) => this.#get({ extension, readable, key }),
-      find: (key) => this.#find({ extension, readable, key })?.value,
+      provide: (key, value) => {
+        assertDeclared({
+          extension,
+          use: 'service provide',
+          name: key.name,
+          allowed: declared.provides,
+          declareIn: 'services.provides',
+        });
+        this.#provide({ extension, key, value });
+      },
+      get: (key) => {
+        assertDeclared({
+          extension,
+          use: 'service get',
+          name: key.name,
+          allowed: readableNames,
+          declareIn: 'services.requires',
+        });
+
+        return this.#get({ extension, readable, key });
+      },
+      find: (key) => {
+        assertDeclared({
+          extension,
+          use: 'service find',
+          name: key.name,
+          allowed: readableNames,
+          declareIn: 'services.optional',
+        });
+
+        return this.#find({ extension, readable, key })?.value;
+      },
     };
+  }
+
+  /**
+   * The names in `required` that an extension could not read now: nobody has provided them, or an
+   * extension it does not depend on did (`readable` are the extension names it may read from).
+   * The host supplies its services before anything activates and the dependencies have
+   * activated, so what is missing now stays missing.
+   */
+  unreadable(params: { required: readonly string[]; readable: ReadonlySet<string> }): string[] {
+    const { required, readable } = params;
+
+    return required.filter((name) => {
+      const entry = this.#entries.get(name);
+
+      return (
+        entry === undefined || (entry.provider !== HOST_PROVIDER && !readable.has(entry.provider))
+      );
+    });
   }
 
   /**

@@ -1,9 +1,10 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { HookOrderError } from '../errors/extension.errors.js';
 import type { HookContribution, PlacedHook } from '../extension/extension.types.js';
+import type { RecordedHook } from './extension-host.types.js';
 
 /** A bare hook has no `hook` field; a placed one wraps its hook in `hook`. */
-function isPlaced(contribution: HookContribution): contribution is PlacedHook {
+export function isPlaced(contribution: HookContribution): contribution is PlacedHook {
   return 'hook' in contribution;
 }
 
@@ -13,22 +14,18 @@ export function hookOf(contribution: HookContribution): Hook {
 }
 
 /** For each hook name, the names that must run before it, among the hooks in the run. */
-function predecessorsOf(contributions: readonly HookContribution[]): Map<string, Set<string>> {
-  const present = new Set(contributions.map((contribution) => hookOf(contribution).name));
+function predecessorsOf(recorded: readonly RecordedHook[]): Map<string, Set<string>> {
+  const present = new Set(recorded.map(({ name }) => name));
   const predecessors = new Map<string, Set<string>>();
 
   for (const name of present) predecessors.set(name, new Set());
 
-  for (const contribution of contributions) {
-    if (!isPlaced(contribution)) continue;
-
-    const name = contribution.hook.name;
-
-    for (const other of contribution.after ?? []) {
+  for (const { name, before, after } of recorded) {
+    for (const other of after ?? []) {
       if (present.has(other)) predecessors.get(name)?.add(other);
     }
 
-    for (const other of contribution.before ?? []) {
+    for (const other of before ?? []) {
       if (present.has(other)) predecessors.get(other)?.add(name);
     }
   }
@@ -52,17 +49,15 @@ function stuckNames(params: { names: readonly string[]; placed: ReadonlySet<stri
  */
 function urgencies(params: {
   names: readonly string[];
-  contributions: readonly HookContribution[];
+  recorded: readonly RecordedHook[];
 }): Map<string, number> {
-  const { names, contributions } = params;
+  const { names, recorded } = params;
   const successors = new Map<string, readonly string[]>();
 
-  for (const contribution of contributions) {
-    if (!isPlaced(contribution)) continue;
-
+  for (const { name, before } of recorded) {
     successors.set(
-      contribution.hook.name,
-      (contribution.before ?? []).filter((other) => names.includes(other)),
+      name,
+      (before ?? []).filter((other) => names.includes(other)),
     );
   }
 
@@ -96,13 +91,13 @@ function urgencies(params: {
  * Puts hooks in their final order: activation order, changed only as far as the `before`/`after`
  * constraints need. It is a topological sort that takes, among the hooks free to go, the one
  * needed earliest (see `urgencies`), so only a placed hook moves, to just before or after what it
- * names. A constraint naming a hook that is not in the run is ignored. Throws `HookOrderError`
+ * names. Only the recorded names are used, never `hook.name`. A constraint naming a hook that is not in the run is ignored. Throws `HookOrderError`
  * for a hook placed against itself or a cycle.
  */
-export function orderHooks(contributions: readonly HookContribution[]): Hook[] {
-  const names = contributions.map((contribution) => hookOf(contribution).name);
-  const predecessors = predecessorsOf(contributions);
-  const urgency = urgencies({ names, contributions });
+export function orderHooks(recorded: readonly RecordedHook[]): Hook[] {
+  const names = recorded.map(({ name }) => name);
+  const predecessors = predecessorsOf(recorded);
+  const urgency = urgencies({ names, recorded });
 
   for (const [name, before] of predecessors) {
     if (before.has(name)) {
@@ -116,7 +111,7 @@ export function orderHooks(contributions: readonly HookContribution[]): Hook[] {
   const placed = new Set<string>();
   const ordered: Hook[] = [];
 
-  while (ordered.length < contributions.length) {
+  while (ordered.length < recorded.length) {
     const free = names.filter(
       (name) =>
         !placed.has(name) && [...(predecessors.get(name) ?? [])].every((one) => placed.has(one)),
@@ -125,7 +120,7 @@ export function orderHooks(contributions: readonly HookContribution[]): Hook[] {
       (a, b) =>
         (urgency.get(a) ?? 0) - (urgency.get(b) ?? 0) || names.indexOf(a) - names.indexOf(b),
     );
-    const next = first === undefined ? undefined : contributions[names.indexOf(first)];
+    const next = first === undefined ? undefined : recorded[names.indexOf(first)];
 
     if (next === undefined) {
       const stuck = stuckNames({ names, placed });
@@ -136,10 +131,8 @@ export function orderHooks(contributions: readonly HookContribution[]): Hook[] {
       });
     }
 
-    const hook = hookOf(next);
-
-    placed.add(hook.name);
-    ordered.push(hook);
+    placed.add(next.name);
+    ordered.push(next.hook);
   }
 
   return ordered;

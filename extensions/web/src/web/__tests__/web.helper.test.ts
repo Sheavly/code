@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
 import { SUB_AGENTS } from '@sheavly/agents/agents/agents.utils';
+import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
 import { createHarness } from '@sheavly/host/host/host.helper';
 import { runServices } from '@sheavly/host/run-services/run-services.utils';
@@ -36,6 +37,14 @@ describe('the web extension', () => {
 
     expect(contributed).toEqual(['web_fetch', 'web_search']);
     expect(shared).toEqual(['web_fetch', 'web_search']);
+  });
+
+  it('declares in its manifest exactly the tools it contributes with both enabled', async () => {
+    const { contributed } = await activate({});
+
+    expect(contributed).toEqual(
+      readManifest(new URL('../../../sheavly.json', import.meta.url)).tools,
+    );
   });
 
   it('leaves out a tool that is disabled, for the main run and sub-agents alike', async () => {
