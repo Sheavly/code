@@ -20,7 +20,7 @@ function indexByName(extensions: readonly Extension[]): Map<string, Extension> {
 
 function assertDependenciesExist(byName: ReadonlyMap<string, Extension>): void {
   for (const extension of byName.values()) {
-    const missing = (extension.dependsOn ?? []).find((name) => !byName.has(name));
+    const missing = extension.dependsOn.find((name) => !byName.has(name));
 
     if (missing === undefined) continue;
 
@@ -57,7 +57,7 @@ export function orderExtensions(extensions: readonly Extension[]): Extension[] {
     }
 
     // Every name is in `byName`: `assertDependenciesExist` ran first.
-    for (const name of extension.dependsOn ?? []) {
+    for (const name of extension.dependsOn) {
       const dependency = byName.get(name);
 
       if (dependency) visit(dependency, [...path, extension.name]);
@@ -73,6 +73,25 @@ export function orderExtensions(extensions: readonly Extension[]): Extension[] {
 }
 
 /**
+ * The extensions of `ordered` named in `roots`, and every one that depends on one of them,
+ * directly or not, in the order given. `ordered` must come from `orderExtensions`, so a dependency
+ * is listed before what depends on it.
+ */
+export function withDependents(params: {
+  ordered: readonly Extension[];
+  roots: ReadonlySet<string>;
+}): Extension[] {
+  const { ordered, roots } = params;
+  const hit = new Set(roots);
+
+  return ordered.filter((extension) => {
+    if (extension.dependsOn.some((name) => hit.has(name))) hit.add(extension.name);
+
+    return hit.has(extension.name);
+  });
+}
+
+/**
  * For each extension, the names whose services it may read: itself and everything it depends on,
  * directly or not. `ordered` must come from `orderExtensions`, so dependencies are listed first.
  */
@@ -82,7 +101,7 @@ export function readableServices(ordered: readonly Extension[]): Map<string, Rea
   for (const extension of ordered) {
     const names = new Set([extension.name]);
 
-    for (const dependency of extension.dependsOn ?? []) {
+    for (const dependency of extension.dependsOn) {
       for (const name of readable.get(dependency) ?? []) names.add(name);
     }
 

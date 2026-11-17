@@ -11,7 +11,7 @@ const signal = new AbortController().signal;
 async function merged(...hooks: Contributions['hooks'][]): Promise<string[]> {
   const host = new ExtensionHost({
     extensions: hooks.map((contributed, index) =>
-      fakeExtension({ name: `ext-${index}`, activate: () => ({ hooks: contributed }) }),
+      fakeExtension({ name: `ext-${index}`, contributes: { hooks: contributed } }),
     ),
   });
   const { contributions } = await host.activate({ signal });

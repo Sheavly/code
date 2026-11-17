@@ -8,31 +8,51 @@ are in the `sheavly` skill's `extensions.md`; this page is how the package is bu
 
 ## Two halves
 
-- **The contract** (`extension/`, `errors/`): `Extension`, `Contributions`, `Services`,
-  `Settings`, `ServiceKey` and `SettingKey` (types), `defineExtension`, `defineService`,
-  `hostService`, `defineSetting` and `placeHook` (utils) and the typed errors. `defineExtension`
-  is an identity helper that rejects a bad name, a self-dependency and a repeated dependency when
-  the extension is defined, so a mistake fails at startup.
+- **The contract** (`extension/`, `manifest/`, `errors/`): `Extension`, `ExtensionDefinition`,
+  `Contributions`, `Services`, `Settings`, `ServiceKey` and `SettingKey` (types),
+  `defineExtension`, `defineService`, `hostService`, `settingKey` and `placeHook` (utils) and the
+  typed errors. `defineExtension` takes the extension's manifest and its code, derives the `name`,
+  `dependsOn` and settings from the manifest and validates the manifest again, so a bad name, a
+  self-dependency or a repeated name fails when the extension is defined, at startup. The manifest
+  itself (`manifest/`) is a zod schema (`manifest.validator.ts`, the one place those rules live),
+  the types inferred from it and `readManifest`, the only file system access in the package (see
+  [manifest](manifest.md)).
 - **The host** (`host/`): `ExtensionHost` is a service that owns one session's state. Its helpers
   are pure: `orderExtensions` (the graph), `readableServices` (who may read what),
-  `mergeContributions` (collision-checked merge), `orderHooks` (hook placement) and
-  `assertSettings` (the user's setting values); `ServiceRegistry` holds the shared services.
+  `mergeContributions` (collision-checked merge), `orderHooks` (hook placement),
+  `assertSettings` (the user's setting values) and `snapshotContributions` (what an extension
+  contributed against its manifest, recording the names that were checked so the merge uses only
+  those and re-verifies them);
+  `sealExtension` (`extension/`) gives the host one deep-frozen copy of each manifest; `ServiceRegistry` holds the shared services and
+  holds each extension's reads and provides to its manifest.
 
 ## No category, no policy
 
 The framework imposes nothing on what an extension is: it has no kind or domain, and the host
 does not decide which extensions suit a run. An extension defines what it can and cannot do
 itself, through what it depends on, declares and checks in its own `activate`. Others build
-extensions without changing this source.
+extensions without changing this source. What the host does ask is that an extension says what it
+needs and does in its manifest, and does no more: that is how something can read an extension
+without running it.
 
 ## Why a contribution never owns the loop
 
 An extension adds tools, hooks and work kinds; it never replaces a core module. The host
 adds nothing of its own to the loop: it returns the merged lists and the app passes them on.
 Two contributions of one kind with one name throw a `ContributionCollisionError` naming both
-extensions, so nothing shadows anything. Settings are not contributions but static declarations,
-so the host can validate the user's values before anything activates (see
+extensions, so nothing shadows anything. Settings are not contributions but static declarations
+in the manifest, so the host can validate the user's values before anything activates (see
 [contributions](contributions.md)).
+
+## What the host does not guarantee
+
+Item objects (tools, work kinds, hooks) are kept as the extension returned them and are not
+frozen. The host records and merges the names it checked and re-verifies them, with the lists,
+synchronously right before the merge; a getter that changes what an object does or says after the
+merge is the extension's own responsibility, since an extension is Node code. Likewise
+`readManifest` stats a file and then reads it: a path swapped for a FIFO between the two can
+block the read, which needs write access to the extension's own directory (see
+[manifest](manifest.md#what-the-manifest-is-not)).
 
 ## Extending
 
@@ -40,8 +60,12 @@ so the host can validate the user's values before anything activates (see
   `mergeContributions`, plus a `ContributionKind` for its messages.
 - A new failure the host should report instead of throw: add a step kind in
   `extension-host.service.ts` and a field on `ActivationResult`.
-- Tests use `fakeExtension`, `fakeHook` and `fakeTool` (`testing/`); they are not public API of
-  the built package, only of the workspaces' tests.
+- A new field of the manifest: add it to the schema in `manifest.validator.ts`, rerun
+  `npm run schema -w @sheavly/extension`, and enforce it in the host or say in
+  [manifest](manifest.md) that it is reserved.
+- Tests use `fakeExtension`, `fakeHook`, `fakeTool` and `fakeSetting` (`testing/`); `fakeExtension`
+  builds an in-memory manifest from what the test declares. They are not public API of the built
+  package, only of the workspaces' tests.
 
-See [lifecycle](lifecycle.md) for the order of events, [services](services.md) for sharing and
+See [manifest](manifest.md) for the file, [lifecycle](lifecycle.md) for the order of events, [services](services.md) for sharing and
 [contributions](contributions.md) for settings and hook order.

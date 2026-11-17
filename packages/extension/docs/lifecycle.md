@@ -8,16 +8,20 @@ wrong.
 `new ExtensionHost({ extensions, services, settings, isTrusted })` validates the setup and throws
 on a mistake: a repeated name, a dependency that is not loaded or a cycle (named in full) is an
 `ExtensionGraphError`; a setting value no extension declares or of another type than its default
-is an `ExtensionSettingError`; two extensions declaring one setting, or two host services with one
-name, is a `ContributionCollisionError`. The extensions are put in dependency order: each after
-what it depends on, otherwise in the order given. The host puts no category on an extension, so
-nothing else about an extension can fail construction.
+is an `ExtensionSettingError`; two host services with one name is a `ContributionCollisionError`.
+(Two extensions cannot declare one setting: a setting name starts with its extension's name, and
+extension names are unique.) The extensions are put in dependency order: each after what it
+depends on, otherwise in the order given. The host puts no category on an extension, so nothing
+else about an extension can fail construction.
 
 ## Activation
 
 `activate({ signal })` runs once per session; a second call throws an `ExtensionHostStateError`.
-Each extension's `activate(context)` is awaited in order and returns its contributions. The
-result holds the merged `contributions` (hooks already placed), the `settings` of the extensions
+Before an extension's `activate`, the host checks that it is not skipped (below) and that every
+service in its manifest's `services.requires` is readable by it: supplied by the host or provided
+by one of its dependencies. Each extension's `activate(context)` is then awaited in order and
+returns its contributions, which the host checks against the manifest's `tools`, `hooks` and
+`workKinds` (see [manifest](manifest.md)). The result holds the merged `contributions` (hooks already placed), the `settings` of the extensions
 that activated, the `active` names, `failed` and `skipped`. An aborted `signal` stops the rest:
 what activated is deactivated and the abort reason is thrown, and so is a contribution collision
 or a `HookOrderError`.
@@ -28,9 +32,18 @@ One extension failing never stops the others.
 
 - An `activate` that throws, or an `isTrusted` check that throws, is reported in `failed` as an
   `ExtensionActivationError` and the services it provided are dropped.
+- An extension that reads a service, or provides one, its manifest does not list throws an
+  `ExtensionUndeclaredError` at that call, inside its `activate`, which is a failure like any
+  other `activate` that throws. One that contributes a tool, hook or work kind its manifest does
+  not list (exactly, or through a `*` wildcard entry) fails after `activate` returned: it is deactivated (it had activated; an error from
+  that `deactivate` lands in `lateDeactivationErrors`), its services are dropped and nothing it
+  contributed is merged. Both are reported in `failed`, with the `ExtensionUndeclaredError` as the
+  `cause`.
+- An extension whose manifest requires a service nobody offers it is not activated: it is
+  `skipped` with the reason `service` and the `missing` names.
 - What depends on a failed or skipped extension is `skipped` with the reason `dependency`.
 - The caller decides whether that is fatal. The backend deactivates what activated and throws.
-- An extension whose `activate` threw is not deactivated, so `activate` cleans up after itself
+- An extension whose `activate` threw (an undeclared service use included) is not deactivated, so `activate` cleans up after itself
   before it throws. Share with another extension's scope as the last step of `activate`: what is
   shared is not taken back.
 
@@ -46,4 +59,5 @@ reason `untrusted` unless `isTrusted` says its code is trusted; builtin extensio
 `deactivate` throwing never stops the others; the errors are returned for the caller to report.
 Called while `activate` is still running, it stops the rest from starting. An extension that
 finishes activating afterwards is deactivated at once and its error, if any, lands in
-`lateDeactivationErrors`, with `active` and `contributions` empty.
+`lateDeactivationErrors`, with `active` and `contributions` empty. That list also holds the
+`deactivate` errors of an extension stopped for contributing what its manifest does not declare.

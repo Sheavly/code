@@ -1,24 +1,32 @@
 # Settings and hook order
 
 Two things an extension says about itself that the host acts on: which settings it reads, and where
-its hooks go among the run's other hooks.
+its hooks go among the run's other hooks. The tools, hooks and work kinds an extension contributes
+must also be named in its manifest's `tools`, `hooks` and `workKinds`, or its activation fails
+(see [manifest](manifest.md)), exactly or by a wildcard entry such as `project-hooks.*` for names
+only known at run time; a placed hook is named by its inner hook.
 
 ## Settings
 
-A setting is a static declaration, like `name` and `dependsOn`, so the host can check the user's
-values before anything activates.
+A setting is a static declaration in the extension's manifest, like `name` and `dependsOn`, so the
+host can check the user's values before anything activates.
 
-- `defineSetting({ name, description, default })` makes a `SettingKey<T>`; `T` is the type of the
-  default (`string`, `number` or `boolean`). The name is `<extension>.<setting>`, each part
-  lowercase words joined by hyphens, or an `ExtensionDefinitionError` is thrown.
-- The extension lists its keys in `Extension.settings` and reads them in `activate` with
-  `context.settings.get(KEY)`: the user's value if the host was given one, otherwise the default.
-  Reading a key the extension did not declare throws an `ExtensionSettingError`.
+- The manifest's `settings` lists `{ name, type, default, description }`. The name is
+  `<extension>.<setting>`, each part lowercase words joined by hyphens, and its prefix is the
+  manifest's `name`; `type` is `string`, `number` or `boolean` and `default` has that type
+  (see [manifest](manifest.md)).
+- `settingKey({ manifest, name, type })` makes the typed `SettingKey<T>` for a declared setting;
+  its default and description are the manifest's and `type` is checked against the declared one,
+  or an `ExtensionDefinitionError` is thrown. `defineExtension` derives `Extension.settings` from
+  the manifest.
+- The extension reads its keys in `activate` with `context.settings.get(KEY)`: the user's value if
+  the host was given one, otherwise the default. Reading a key the extension did not declare
+  throws an `ExtensionSettingError`.
 - The app passes the user's values by setting name in `ExtensionHostOptions.settings`. At
   construction (`assertSettings`) the host throws when a value's name is declared by no extension
-  (a typo must not pass silently), when its type differs from the declared default's
-  (`ExtensionSettingError`), or when two extensions declare one name (a
-  `ContributionCollisionError` with the contribution `setting`).
+  (a typo must not pass silently) or when its type differs from the declared one
+  (`ExtensionSettingError`). Two extensions cannot declare one name: a setting name starts with
+  its extension's name, and extension names are unique.
 - `ActivationResult.settings` lists a `SettingInfo` (extension, name, description, default, value)
   for each setting of the extensions that activated, for a UI to show.
 
