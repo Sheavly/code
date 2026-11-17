@@ -20,7 +20,7 @@ const TEXT = /\.(md|[cm]?[jt]s|json)$/;
 const SKIPPED =
   /^(package-lock\.json|workbook\/(runs|workspaces)\/)|^scripts\/(__tests__\/)?stale-references\./;
 const TEST_CODE = /(^|\/)__tests__\//;
-const WORKSPACE_SOURCE = /^(packages|apps)\/[^/]+\/src\//;
+const WORKSPACE_SOURCE = /^(packages|extensions|apps)\/[^/]+\/src\//;
 const ISSUE = /(?<![\w&])#\d+\b/;
 const OLD_PATH = /(?<![\w./@-])src\/([a-z][\w-]*)(\/[\w./-]*|\.ts)?/g;
 const PROMISE = /\b(until|once|after|when|as) #\d+\b|\bmoves? (with|into) [^.\n]*\(#\d+\)/i;

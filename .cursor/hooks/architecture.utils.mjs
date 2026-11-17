@@ -12,8 +12,8 @@ const BACKEND_ONLY = '## Backend only: typed events, no UI';
 
 export const WHERE_CODE_GOES = '## Where code goes';
 
-/** TypeScript source of a workspace (app or package), tests aside: where the rule applies. */
-const HARNESS_SOURCE = /^(packages|apps)\/[^/]+\/src\/(?!.*__tests__\/).*\.ts$/;
+/** TypeScript source of a workspace (app, extension or package), tests aside: where the rule applies. */
+const HARNESS_SOURCE = /^(packages|extensions|apps)\/[^/]+\/src\/(?!.*__tests__\/).*\.ts$/;
 
 /** True if `relative` (a `/`-separated path from the root) is harness source the rule covers. */
 export function coveredByRule(relative) {

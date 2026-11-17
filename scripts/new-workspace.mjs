@@ -1,4 +1,4 @@
-// The workspace scaffold: `npm run new -- <package|app> <name> --domain <d> --description "…"
+// The workspace scaffold: `npm run new -- <package|extension|app> <name> --domain <d> --description "…"
 // [--depends-on a,b]` creates a workspace the layout accepts as it is (see the README's
 // "Workspace layout"). Nothing central is edited: the workspace is created, and the layout reads
 // it. The graph is checked first, against the workspaces on disk, so a dependency it doesn't allow
@@ -7,6 +7,8 @@
 //
 //   package   packages/<name>, imported by the file kinds its `exports` makes public
 //             (`@sheavly/<name>/<module>/<module>.<kind>`, added with `npm run export`)
+//   extension extensions/<name>, a library of what a run includes (tools, hooks), built on
+//             packages and composed by an app; its API is declared like a package's
 //   app       apps/<name>, a front end or host; nothing imports it
 //
 // package.json is only ever written through npm (`npm init -w`, `npm pkg set`, `npm install`).
@@ -26,7 +28,7 @@ import {
 } from '../packages/eslint-config/src/layout.utils.js';
 
 const SCOPE = '@sheavly/';
-const FOLDERS = { package: 'packages', app: 'apps' };
+const FOLDERS = { package: 'packages', extension: 'extensions', app: 'apps' };
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** What would be created, or the problems that stop it. Reads the repo; changes nothing. */
@@ -34,7 +36,9 @@ export function planWorkspace(params) {
   const { root, kind, name, domain, description, dependsOn = [] } = params;
   const problems = [];
 
-  if (!(kind in FOLDERS)) problems.push(`the kind is \`package\` or \`app\`, not \`${kind}\``);
+  if (!(kind in FOLDERS)) {
+    problems.push(`the kind is \`package\`, \`extension\` or \`app\`, not \`${kind}\``);
+  }
 
   if (!KEBAB.test(name ?? '')) {
     problems.push(`the name is kebab-case (\`road-segments\`), not \`${name}\``);
@@ -173,7 +177,7 @@ function steps(params) {
         'version=0.0.0',
         `description=${description}`,
         'type=module',
-        'license=UNLICENSED',
+        'license=Apache-2.0',
         `sheavly.domain=${entry.domain}`,
         ...scripts,
       ),
@@ -181,16 +185,14 @@ function steps(params) {
     { npm: ['pkg', 'set', 'private=true', '--json', '-w', dir] },
     // A package's public API starts empty: each file kind other workspaces import is made public
     // with `npm run export`, so nothing is public by accident. An app exports nothing.
-    ...(entry.kind === 'package'
-      ? [{ npm: ['pkg', 'set', 'exports={}', '--json', '-w', dir] }]
-      : []),
-    // A package is published: it ships its build and docs, never its source, built first.
-    ...(entry.kind === 'package' && entry.domain !== 'tooling'
-      ? [
+    ...(entry.kind === 'app' ? [] : [{ npm: ['pkg', 'set', 'exports={}', '--json', '-w', dir] }]),
+    // A package or extension is published: it ships its build and docs, never its source, built first.
+    ...(entry.kind === 'app' || entry.domain === 'tooling'
+      ? []
+      : [
           { npm: ['pkg', 'set', 'files=["dist","docs"]', '--json', '-w', dir] },
           { npm: ['pkg', 'set', 'scripts.prepack=npm run build', '-w', dir] },
-        ]
-      : []),
+        ]),
     // `npm init -w` registered it under its folder name; `npm pkg` renamed it without touching the
     // lockfile or the node_modules link. Reify once, so both know it as `@sheavly/<name>`.
     { npm: ['install', '--no-audit', '--no-fund'] },
@@ -265,7 +267,7 @@ if (path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
   if (plan.problems.length > 0) {
     console.error(`Not created:\n${plan.problems.map((problem) => `- ${problem}`).join('\n')}`);
     console.error(
-      '\nUsage: npm run new -- <package|app> <name> --domain <generic|coding|tooling> --description "…" [--depends-on a,b]',
+      '\nUsage: npm run new -- <package|extension|app> <name> --domain <generic|coding|tooling> --description "…" [--depends-on a,b]',
     );
     process.exit(1);
   }

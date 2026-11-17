@@ -15,7 +15,7 @@
     "jscpd": "node scripts/jscpd.mjs",
     "workbook": "tsx --conditions=@sheavly/source apps/terminal/src/workbook/workbook.ts",
     "demo": "tsx --conditions=@sheavly/source apps/terminal/src/demo.ts",
-    "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'apps/'",
+    "lint:root": "eslint . --ignore-pattern 'packages/' --ignore-pattern 'extensions/' --ignore-pattern 'apps/'",
     "test:root": "vitest run",
     "check:affected": "turbo run typecheck lint lint:root test test:root --affected && npm run check:repo",
     "check:typecheck": "turbo run typecheck",
@@ -54,7 +54,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "extensions/*"
   ],
   "packageManager": "npm@12.2.1"
 }

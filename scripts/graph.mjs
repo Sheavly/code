@@ -26,12 +26,17 @@ const ROUTER = markers('packages');
 const { start: START, end: END } = GRAPH;
 const SCOPE = '@sheavly/';
 const GROUPS = [
-  { id: 'generic', title: 'generic packages', match: (entry) => entry.domain === 'generic' },
+  {
+    id: 'generic',
+    title: 'generic packages',
+    match: (entry) => entry.kind !== 'extension' && entry.domain === 'generic',
+  },
   {
     id: 'coding',
     title: 'coding packages',
     match: (entry) => entry.kind === 'package' && entry.domain === 'coding',
   },
+  { id: 'extensions', title: 'extensions', match: (entry) => entry.kind === 'extension' },
   { id: 'apps', title: 'apps', match: (entry) => entry.kind === 'app' },
 ];
 
@@ -164,7 +169,7 @@ function table(rows) {
 function roleOf(entry) {
   if (entry.testOnly) return 'test-only';
 
-  return entry.kind === 'app' ? `app, ${entry.domain}` : entry.domain;
+  return entry.kind === 'package' ? entry.domain : `${entry.kind}, ${entry.domain}`;
 }
 
 /**

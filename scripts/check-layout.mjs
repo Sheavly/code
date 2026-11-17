@@ -152,7 +152,7 @@ function providerProblems(params) {
   );
 
   return Object.entries(layout)
-    .filter(([, entry]) => entry.kind === 'package')
+    .filter(([, entry]) => entry.kind !== 'app')
     .flatMap(([name, entry]) =>
       entry.dependsOn
         .filter((dependency) => backends.has(dependency))
