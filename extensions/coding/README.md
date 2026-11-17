@@ -5,7 +5,10 @@ the coding tools and the services a coding run shares. `createCodingHarness` ope
 and makes one set of file locks and one process runner (`@sheavly/process`) on top of `createHarness`; the tools are
 built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
 the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
-shares them with sub-agents through `@sheavly/agents`. A coding UI composes it in an
+shares them with sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools and
+hooks, the `sub-agents` service it requires, `outputs` it may read and `coding-run` it provides.
+The user chooses the names of a workspace's own `.sheavly/` hooks, so the manifest declares hooks
+with the bare wildcard `*` (the `@sheavly/extension` manifest doc explains wildcards). A coding UI composes it in an
 `ExtensionHost` (`@sheavly/extension`) with the other extensions it wants.
 
 ```ts

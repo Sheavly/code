@@ -5,6 +5,7 @@ import type {
   Services,
 } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
+import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import { OUTPUTS } from '@sheavly/host/run-services/run-services.utils';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { keepReadsWithConversation } from '../file-reads/file-reads.helper.js';
@@ -13,6 +14,9 @@ import { createInstructionHooks, loadWorkspaceHooks } from './coding-hooks.helpe
 import { createCommandTools, createFileTools } from './coding-tools.helper.js';
 import type { CodingExtensionOptions } from './coding-extension.types.js';
 import { CODING_RUN } from './coding-extension.utils.js';
+
+// src/extension/ and dist/extension/ are both two levels below the workspace root.
+const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
 
 /**
  * Coding as an extension: the file tools, `read_skill`, `run_command` and `start_service`, the
@@ -33,8 +37,7 @@ export function createCodingExtension(options: CodingExtensionOptions): Extensio
   let stopKeepingReads: () => void = () => undefined;
 
   return defineExtension({
-    name: 'coding',
-    dependsOn: ['agents'],
+    manifest,
     activate: async ({ services }) => {
       const { workspace, fileReads, sessions, mainSession } = harness;
       // One per conversation, over its `shell.json`: the main session and every sub-agent share it.
