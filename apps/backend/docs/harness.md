@@ -54,8 +54,18 @@ not model input, and packages never discover them from the environment. See
 
 **Extensions.** The run is built by an `ExtensionHost` from three built-in extensions (`web`,
 `agents`, `coding`, in that order) and the ones an embedding app passes as `extensions`, after
-them. A third-party extension needs no edit of our source: it can depend on a built-in by name, and
-its tools, hooks and work kinds join the run (a name that collides fails it). The app supplies the
+them. A third-party extension needs no edit of our source: it ships a `sheavly.json` manifest
+(`readManifest`, `@sheavly/extension/manifest/manifest.helper`) naming it, its dependencies, the
+services it reads and provides and the tools, hooks and work kinds it contributes, and passes it
+to `defineExtension({ manifest, activate })`. It can depend on a built-in by name, and its tools,
+hooks and work kinds join the run (a name that collides fails it). The host holds it to the
+manifest: a service read, or a tool, hook or work kind contributed, that the manifest does not
+declare fails that extension like any activation failure (the run stops with an
+`ExtensionUndeclaredError`, and the extensions that had activated are deactivated), and one whose `services.requires` the run cannot offer is
+left out and listed in `skippedExtensions` with `reason: 'service'` and the `missing` names (an
+untrusted or dependent one has `untrusted` or `dependency`). A name ending in `*` in the manifest
+declares names only known at run time, as `coding` does for the `.sheavly/` hooks of a workspace.
+The app supplies the
 host with run services (`runServices`, `@sheavly/host/run-services/run-services.utils`), which
 every extension reads without a `dependsOn`:
 
@@ -71,7 +81,7 @@ These are full trust, not a sandbox (see
 [run services](../../../packages/host/docs/harness.md#run-services-for-extensions)); an extension
 gets its configuration from `extensionSettings`, not from the environment.
 
-`extensionSettings` holds the user's values for the settings extensions declare (`defineSetting`),
+`extensionSettings` holds the user's values for the settings extensions declare in their manifests,
 by setting name, and `settings` on the returned run lists each with its value in effect; a name no
 extension declares, or a value of the wrong type, fails the run. An extension can place a hook
 before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.

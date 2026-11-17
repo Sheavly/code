@@ -105,7 +105,7 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
    */
   extensions?: readonly Extension[] | undefined;
   /**
-   * The user's values for the settings extensions declare (`defineSetting`), by setting name.
+   * The user's values for the settings extensions declare in their manifests, by setting name.
    * A name no extension declares, or a value of another type than the default's, fails the run.
    */
   extensionSettings?: Readonly<Record<string, SettingValue>> | undefined;
@@ -121,7 +121,11 @@ export type BackendHarness = CodingHarness & {
   workKinds: WorkKindContribution[];
   /** The settings the run's extensions declare, with their defaults and the value in effect. */
   settings: SettingInfo[];
-  /** Extensions left out of the run (an untrusted `project` extension, or one whose dependency failed). */
+  /**
+   * Extensions left out of the run, and why: an untrusted `project` extension, one whose
+   * dependency did not activate, or one whose manifest requires services the run lacks
+   * (`reason: 'service'`, with the `missing` names).
+   */
   skippedExtensions: SkippedExtension[];
   /** Where the run's skills are found, for `/<skill>` and for reporting skills that didn't load. */
   skills: SkillRoots;

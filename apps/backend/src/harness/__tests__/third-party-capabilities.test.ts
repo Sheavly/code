@@ -14,8 +14,8 @@ import type { Services } from '@sheavly/extension/extension/extension.types';
 import {
   defineExtension,
   defineService,
-  defineSetting,
   placeHook,
+  settingKey,
 } from '@sheavly/extension/extension/extension.utils';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import {
@@ -33,8 +33,17 @@ import type { Script } from '@sheavly/testing/provider/provider.types';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';
+import { manifestOf } from '../../testing/manifest.fake.js';
 
 const open = useBackendRuns();
+
+/** A `notes` manifest that declares the setting `notes.max-lines`, default 50. */
+function notesManifest() {
+  return manifestOf({
+    name: 'notes',
+    settings: [{ name: 'notes.max-lines', type: 'number', default: 50, description: 'Lines' }],
+  });
+}
 
 type OpenedRun = Awaited<ReturnType<typeof open>>;
 
@@ -65,11 +74,11 @@ const callsTool = (name: string): Script[] => [
 
 describe('a third party extends the program without editing our source', () => {
   it('(a) reads a setting it declared: the default, or the user’s value from extensionSettings', async () => {
-    const MAX_LINES = defineSetting({ name: 'notes.max-lines', description: 'Lines', default: 50 });
+    const manifest = notesManifest();
+    const MAX_LINES = settingKey({ manifest, name: 'notes.max-lines', type: 'number' });
     const seen: number[] = [];
     const notes = defineExtension({
-      name: 'notes',
-      settings: [MAX_LINES],
+      manifest,
       activate: ({ settings }) => {
         seen.push(settings.get(MAX_LINES));
 
@@ -89,7 +98,7 @@ describe('a third party extends the program without editing our source', () => {
   it('(b) places its hooks before and after a built-in hook', async () => {
     const named = (name: string) => defineHook({ name, sessionStart: async () => undefined });
     const placing = defineExtension({
-      name: 'placing',
+      manifest: manifestOf({ name: 'placing', hooks: ['late-hint', 'early-hint'] }),
       activate: () => ({
         hooks: [
           placeHook({ hook: named('late-hint'), after: ['agents-md'] }),
@@ -107,7 +116,7 @@ describe('a third party extends the program without editing our source', () => {
     const GREETING = defineService<string>('greeting');
     const read: string[] = [];
     const greeter = defineExtension({
-      name: 'greeter',
+      manifest: manifestOf({ name: 'greeter', services: { provides: [GREETING.name] } }),
       activate: ({ services }) => {
         services.provide(GREETING, 'hello');
 
@@ -115,8 +124,11 @@ describe('a third party extends the program without editing our source', () => {
       },
     });
     const listener = defineExtension({
-      name: 'listener',
-      dependsOn: ['greeter'],
+      manifest: manifestOf({
+        name: 'listener',
+        dependsOn: ['greeter'],
+        services: { requires: [GREETING.name] },
+      }),
       activate: ({ services }) => {
         read.push(services.get(GREETING));
 
@@ -154,7 +166,12 @@ describe('a third party extends the program without editing our source', () => {
         },
       });
     const jobs = defineExtension({
-      name: 'jobs',
+      manifest: manifestOf({
+        name: 'jobs',
+        services: { requires: [TASKS.name] },
+        tools: ['start_index'],
+        workKinds: ['jobs.index'],
+      }),
       activate: ({ services }) => ({
         tools: [startIndex(services)],
         workKinds: [{ name: 'jobs.index', description: 'Indexes notes', completion: 'finite' }],
@@ -181,7 +198,11 @@ describe('a third party extends the program without editing our source', () => {
 
   describe('(e) asks the user for approval through APPROVALS', () => {
     const purge = defineExtension({
-      name: 'purge',
+      manifest: manifestOf({
+        name: 'purge',
+        services: { requires: [APPROVALS.name] },
+        tools: ['purge'],
+      }),
       activate: ({ services }) => ({
         tools: [
           defineTool({
@@ -234,7 +255,7 @@ describe('a third party extends the program without editing our source', () => {
     it('cannot answer, listen to or read the requests: APPROVALS only requests', async () => {
       const held: object[] = [];
       const snoop = defineExtension({
-        name: 'snoop',
+        manifest: manifestOf({ name: 'snoop', services: { requires: [APPROVALS.name] } }),
         activate: ({ services }) => {
           held.push(services.get(APPROVALS));
 
@@ -256,7 +277,7 @@ describe('a third party extends the program without editing our source', () => {
   it('(g) finds OUTPUTS only when the app has an output store', async () => {
     const found: unknown[] = [];
     const reader = defineExtension({
-      name: 'reader',
+      manifest: manifestOf({ name: 'reader', services: { optional: [OUTPUTS.name] } }),
       activate: ({ services }) => {
         found.push(services.find(OUTPUTS));
 
@@ -272,8 +293,7 @@ describe('a third party extends the program without editing our source', () => {
   });
 
   it('(h) rejects a bad extensionSettings value: the wrong type, or a name nobody declares', async () => {
-    const MAX_LINES = defineSetting({ name: 'notes.max-lines', description: 'Lines', default: 50 });
-    const notes = defineExtension({ name: 'notes', settings: [MAX_LINES], activate: () => ({}) });
+    const notes = defineExtension({ manifest: notesManifest(), activate: () => ({}) });
 
     await expect(
       open({ extensions: [notes], extensionSettings: { 'notes.max-lines': 'many' } }),
@@ -286,7 +306,10 @@ describe('a third party extends the program without editing our source', () => {
   it('(f) reads SESSIONS, MAIN_SESSION and PROVIDER as the run’s own objects in activate', async () => {
     const seen: unknown[] = [];
     const observer = defineExtension({
-      name: 'observer',
+      manifest: manifestOf({
+        name: 'observer',
+        services: { requires: [SESSIONS.name, MAIN_SESSION.name, PROVIDER.name] },
+      }),
       activate: ({ services }) => {
         seen.push(services.get(SESSIONS), services.get(MAIN_SESSION), services.get(PROVIDER));
 
@@ -303,7 +326,7 @@ describe('a third party extends the program without editing our source', () => {
   it('keeps a service another extension provides out of reach without a dependency', async () => {
     const SECRET = defineService<string>('secret');
     const keeper = defineExtension({
-      name: 'keeper',
+      manifest: manifestOf({ name: 'keeper', services: { provides: [SECRET.name] } }),
       activate: ({ services }) => {
         services.provide(SECRET, 'x');
 
@@ -311,7 +334,8 @@ describe('a third party extends the program without editing our source', () => {
       },
     });
     const nosy = defineExtension({
-      name: 'nosy',
+      // It declares the service, so the host's own dependency check is what refuses the read.
+      manifest: manifestOf({ name: 'nosy', services: { optional: [SECRET.name] } }),
       activate: ({ services }) => {
         services.get(SECRET);
 

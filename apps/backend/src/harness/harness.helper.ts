@@ -29,7 +29,10 @@ import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
  * An extension that fails to activate stops the run here with its own error (a broken `.sheavly`
  * hook names its file and the reason), after the ones that activated before it are deactivated.
  * The extensions are deactivated when the main session ends. An untrusted `project` extension is
- * left out and named in `skippedExtensions`; this backend declares no trust for them yet.
+ * left out and named in `skippedExtensions`, as is one whose manifest requires a service the run
+ * lacks (with the missing names); this backend declares no trust for `project` extensions yet.
+ * An extension is held to its `sheavly.json`: a service it reads, or a tool, hook or work kind
+ * it contributes, that the manifest does not declare fails that extension and not the others.
  */
 export async function createBackendHarness(
   options: BackendHarnessOptions,
