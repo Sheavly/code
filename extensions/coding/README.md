@@ -6,15 +6,25 @@ and makes one set of file locks and one process runner on top of `createHarness`
 built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
 the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
 shares them with sub-agents through `@sheavly/agents`. A coding UI composes it in an
-`ExtensionHost` (`@sheavly/host`) with the other extensions it wants.
+`ExtensionHost` (`@sheavly/extension`) with the other extensions it wants.
 
 ```ts
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
 
 const harness = await createCodingHarness({ provider, title, workspaceRoot, env: process.env });
-const coding = createCodingExtension({ harness, permissions, trustStore, shell, env: process.env });
+const coding = createCodingExtension({ harness, env: process.env, permissions, trustStore, shell });
 ```
+
+The extension reads `OUTPUTS`, when supplied, from the run services
+(`@sheavly/host/run-services/run-services.utils`) like any extension; the host that activates it
+supplies them with `runServices`. The one exception to "no more access than a third party" is
+`harness`: coding's workspace, file locks and process runner come from the `CodingHarness` it is
+given, which also carries the run state (sessions, tasks, approvals) because `createCodingHarness`
+is built on `createHarness`. Its other options are the app's choices: `env` (its own, for working
+root and home resolution; the run services carry no environment), `permissions`, `home`,
+`trustStore`, `trustWorkspace`, `shell` and `onFileReadsProblem`. `createCodingHarness` takes its
+own `env` too.
 
 Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) to let the file
 tools also use a shared scratch folder outside the repo; see
@@ -47,7 +57,7 @@ instead, which has the same checks and approval. The agent can finish independen
 The generic `await_tasks({ ids, reason })` tool can group results for delivery together; its reason
 preserves the dependent decision or next step for the agent after a summary.
 
-With `outputs` (the conversation's `OutputStore`), `run_command` keeps every command's complete
+With an output store (the conversation's `OutputStore`, supplied to the run as `OUTPUTS`), `run_command` keeps every command's complete
 captured stdout and stderr, foreground or background, independent of the bounded preview. Output
 printed before a failure, timeout or cancellation stays readable, and a running service's log can be
 read as it grows. The result carries `output_ref=<id>`, the bytes stored and whether the log is
@@ -56,7 +66,7 @@ tells the model to use `read_output` or `search_output` instead of rerunning the
 stdin gets the original bytes; stdout routed into a pipe is not duplicated in the log, only what the
 last stage and every stderr print. If storage cannot start a capture the command still runs and the
 result says the full output is not being stored; a storage failure mid-capture marks the log
-incomplete, never complete. Without `outputs` only the preview exists, as before.
+incomplete, never complete. Without it only the preview exists, as before.
 
 The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
