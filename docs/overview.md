@@ -60,9 +60,7 @@ flowchart BT
     backend["@sheavly/backend"]
     terminal["@sheavly/terminal"]
   end
-  agents --> extension
-  agents --> loop
-  agents --> tools
+  agents --> host
   backend --> coding
   backend --> providers
   backend --> storage
@@ -70,11 +68,11 @@ flowchart BT
   backend --> web
   client --> protocol
   coding --> agents
-  coding --> host
   coding --> process
   coding --> workspace
   core --> protocol
   extension --> core
+  host --> extension
   host --> loop
   host --> tools
   loop --> runtime
@@ -100,14 +98,14 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the `shea
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                                                                                                                                                                                                |
 | `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                                                                                                                 |
-| `packages/extension/src/` | `@sheavly/extension`, the extension lifecycle: `extension/` (the `Extension` contract, `defineExtension`, `defineService`), `host/` (`ExtensionHost`, the service registry), `errors/`; depends on core only                                                                                                                                                         |
+| `packages/extension/src/` | `@sheavly/extension`, the extension lifecycle: `extension/` (the `Extension` contract, `defineExtension`, `defineService`), `host/` (`ExtensionHost`), their errors (`errors/`), the fakes (`testing/`)                                                                                                                                                              |
 | `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`: Azure OpenAI and Claude on Azure), adapter registry, `ProviderSwitch`                                                                                                                                           |
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, `locks/` (`KeyedLocks`, serialized changes per key), and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                                                           |
 | `packages/process/src/`   | `@sheavly/process`, the process runner: `process/` (`ProcessRunner`, `runScript`, deadlines, secret-scrubbed env), `ProcessKillError` and `ProcessInterruptedError` (`errors/`), the `testProcesses` fake (`testing/`)                                                                                                                                               |
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `working-root/`, `file-reads/`, `scratch/`, their errors, and the fake `useTempWorkspace` (`testing/`)                                                                                                                                                                          |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                                                                                                         |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                                                                                                         |
-| `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                                                                                                   |
+| `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked, and `runServices` (`run-services/`), which hands them to every extension. No tools, hooks or settings of its own, and no UI                                                                                                                                         |
 | `extensions/coding/src/`  | `@sheavly/coding` (coding): the coding tools (`files/`, `read-file/`, `write-file/`, `edit-file/`, `run-command/`) and `createCodingHarness` (`preset/`: the workspace, file locks and process runner a coding run shares); the coding policy: `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, `skills/`; their errors and `CommandRefusedError` (`errors/`) |
 | `apps/backend/`           | `@sheavly/backend`, the harness backend: what each run includes (`createBackendHarness`), its settings from env, and `npm run serve -w @sheavly/backend`, its conversations over HTTP to every UI                                                                                                                                                                    |
 | `apps/terminal/`          | `@sheavly/terminal`, the terminal front end on a backend it starts: the chat, the demo (`npm run demo`: one prompt, printed as it happens), the workbook (`npm run workbook`: stored prompts, saved runs, continue, step and diff; its data is in `workbook/`), and their `Renderer`                                                                                 |

@@ -107,6 +107,7 @@
   "lintRules": [
     "harness/imports",
     "harness/layout",
+    "harness/extension-definition",
     "harness/file-kind",
     "harness/kind-contents",
     "harness/single-definition",
@@ -152,6 +153,7 @@
   "ruleFiles": {
     "harness/imports": "layers.md",
     "harness/layout": "packages.md",
+    "harness/extension-definition": "extensions.md",
     "harness/file-kind": "file-kinds.md",
     "harness/kind-contents": "file-kinds.md",
     "harness/single-definition": "principles.md",

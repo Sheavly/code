@@ -60,6 +60,19 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   Type-only imports are allowed. The check includes package subpaths (including self-imports),
   relative imports, re-exports and literal dynamic imports; layout validates the metadata against
   actual direct `src/` module folders.
+- `harness/extension-definition` (source files of `extensions/*` workspaces, not tests): every
+  `defineExtension({ … })` says what its workspace says. `name` is a string literal equal to the
+  folder (`extensions/web` → `'web'`), and `dependsOn` (absent means none) is an array of string
+  literals that, as a set, equals the folders of the other extension workspaces in its
+  `dependencies` (dev dependencies don't count). An extension has no domain or category, so none
+  is checked. A missing name, an extra one and a duplicate are each reported with what to change.
+  Without it a `dependsOn` that omits a real dependency leaves activation order to luck; the host
+  only throws for a name that doesn't exist.
+  It reads the layout from disk (`readLayout`), so a new extension is covered with no edit, and
+  takes the `root`/`layout` options of the other layout rules. It cannot see a value that isn't a
+  literal (it reports that, and asks for a literal), an extension built by a helper rather than a
+  direct `defineExtension` call with an object literal, or a service read without a declared
+  dependency (that throws at activation).
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

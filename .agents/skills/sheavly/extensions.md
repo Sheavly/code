@@ -148,8 +148,13 @@ changes.
 
 Enforced: the workspace layout (`extensions/*` kind, packages never depend on extensions,
 generic workspaces never on coding ones), the extension's public API, the host's collision,
-order, settings, hook-order and trust tests. Review only: that `activate` does no work the
-session did not ask for, and that a service key is not a way around an import boundary.
+order, settings, hook-order and trust tests, and `harness/extension-definition`: a
+`defineExtension({ … })` call in an extension's source has a `name` equal to its folder and a
+`dependsOn` equal to the other extension workspaces in its `dependencies`, both written as
+literals so they can be checked (an extension has no domain, so none is checked). Review only: that `activate`
+does no work the session did not ask for, that a service key is not a way around an import
+boundary, a service read from an extension that is not a dependency (it throws at activation),
+and an extension built by a helper instead of a direct `defineExtension` object literal.
 
 Out of scope, as in #102: hand-written manifests for code, lazy activation, a `when` language,
 per-package trust and a marketplace. A CLI to install and manage extensions is #332.

@@ -72,6 +72,7 @@ export function baseConfig(params) {
   const testFiles = testFilesOf(tsconfigRootDir);
   const isApp = path.basename(path.dirname(tsconfigRootDir)) === 'apps';
   const frontEndFiles = isApp ? SOURCE_FILES : [];
+  const isExtension = path.basename(path.dirname(tsconfigRootDir)) === 'extensions';
 
   return defineConfig([
     globalIgnores(['dist/', 'coverage/', 'node_modules/']),
@@ -153,6 +154,16 @@ export function baseConfig(params) {
             rules: { 'harness/no-adhoc-task-kind': 'error' },
           },
         ]),
+    // --- An extension's declaration matches its workspace: folder and dependencies ---
+    ...(isExtension
+      ? [
+          {
+            files: SOURCE_FILES,
+            ignores: testFiles,
+            rules: { 'harness/extension-definition': 'error' },
+          },
+        ]
+      : []),
     // --- Instruction context is appended by the instruction-hook factory only ---
     {
       files: SOURCE_FILES,
