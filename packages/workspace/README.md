@@ -1,7 +1,6 @@
 # @sheavly/workspace
 
-A project on disk, for coding UIs: path confinement to the workspace root, per-file locks,
-workspace trust, the project's `.sheavly/` hooks and the AGENTS.md hook. Only coding packages and
+A project on disk, for coding UIs: path confinement to the workspace root, workspace trust, the project's `.sheavly/` hooks and the AGENTS.md hook. Only coding packages and
 coding UIs depend on it. The process runner lives in `@sheavly/process` ([README](../process/README.md)).
 
 ```ts
@@ -59,29 +58,30 @@ same verification, and returns `root` itself when it is in no repo, its link doe
 folder is missing from the main worktree, or the main worktree holds it as a symlink to another
 folder.
 
-| Module                 | What it holds                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)            |
-| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                     |
-| `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in `shell.json`; `anchorToRoot`, `showFromRoot` |
-| `file-locks/`          | `FileLocks`: per-file locks so writes to one file never overlap                                                    |
-| `file-reads/`          | `FileReads`: which files each agent has seen, by hash; kept in `shell.json` and restored on reopen                 |
-| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                 |
-| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                             |
-| `agents-md/`           | `agentsMdSource`: AGENTS.md files as append-only instruction context                                               |
-| `instruction-context/` | `createInstructionHook`: the one factory for instruction sources; `appendInstructionContext` dedups from history   |
-| `skills/`              | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                                      |
-| `errors/`              | `WorkspaceError`, `PathCheckError`, the trust and hook errors                                                      |
-| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileLocks`                                                                |
+| Module                 | What it holds                                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace/`           | `Workspace`: `resolveRead` / `resolveWrite` / `resolveDelete`, confined to the root (not an OS sandbox)                                                          |
+| `scratch/`             | The scratch root and folders (owner-checked), `pruneScratch`, the scratch hook                                                                                   |
+| `working-root/`        | `WorkingRoots`: the folder a conversation's agents work from, kept in a core `DocumentStore` (`shell.json`); `anchorToRoot`, `showFromRoot`, `usableWorkingRoot` |
+| `file-reads/`          | `FileReads`: which files each agent has seen, by hash; kept in `shell.json` and restored on reopen                                                               |
+| `trust/`               | `TrustStore`: which workspaces the user trusts, outside every repo                                                                                               |
+| `project-hooks/`       | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                                                                                           |
+| `agents-md/`           | `agentsMdSource`: AGENTS.md files as append-only instruction context                                                                                             |
+| `instruction-context/` | What names the coding sources: `INSTRUCTION_ORDER`, the size cap, and `readConfinedFile`. The factory is core's                                                  |
+| `skills/`              | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                                                                                    |
+| `errors/`              | `WorkspaceError`, `PathCheckError`, the trust and hook errors                                                                                                    |
+| `testing/`             | Fakes for tests: `useTempWorkspace`, `useFileReads`                                                                                                              |
 
 ## Instruction rendering
 
 Authored model guidance lives in adjacent internal `*.prompt.ts` renderers for `agents-md/`,
-`skills/`, `scratch/` and `instruction-context/`. The existing public formatter and hook
-entrypoints keep their signatures and output: utilities prepare file/skill data, while helpers
-retain file access, history lookup/deduplication and hook execution. Prompt renderers perform no
-I/O or state changes; file contents, skill descriptions/bodies and user text remain runtime data.
-The instruction-context opening prefix has one pure definition shared by rendering and lookup.
+`skills/` and `scratch/`. The existing public formatter and hook entrypoints keep their
+signatures and output: utilities prepare file/skill data, while helpers retain file access and
+source construction. Prompt renderers perform no I/O or state changes; file contents, skill
+descriptions/bodies and user text remain runtime data. The hook factory, the history
+lookup/deduplication and the `<instruction-context>` renderer are `@sheavly/core`'s
+(`instruction-context/`); `agentsMdSource` hands it `usableWorkingRoot(workingRoots)`, so a working
+root that went bad reads as none instead of failing the turn.
 
 ## Docs
 

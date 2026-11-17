@@ -15,15 +15,15 @@ The packages provide the pieces and the services a run shares; a UI decides whic
 uses and which tools and hooks it includes, and composes them. No package picks a backend, a model,
 a tool or a hook for it.
 
-| Services                                  | For                                                                  | What it makes                                                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file      |
-| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `FileLocks` and one `ProcessRunner` built from the env the UI passes in |
+| Services                                  | For                                                                  | What it makes                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file       |
+| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `KeyedLocks` and one `ProcessRunner` built from the env the UI passes in |
 
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `agentsMdSource` (built with
-`createInstructionHook`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend does it in
+`createInstructionHook` from `@sheavly/core`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend does it in
 one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from env.
 
 ```ts
@@ -168,7 +168,7 @@ Keeping a conversation across process restarts (saving `messages`) is the UI's t
 Generic code never needs a project on disk or a coding tool.
 The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the generic tools
 (`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
-(`workspace`, `file-locks`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
+(`workspace`, `process`, `trust`, `project-hooks`, `agents-md`) or the coding tools
 (`read-file`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
 a coding UI reaches them, which is why each lives in a package of its own and the generic ones
 never depend on the coding ones.

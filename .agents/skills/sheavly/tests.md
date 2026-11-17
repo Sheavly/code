@@ -9,7 +9,7 @@
 
 Fakes live in `@sheavly/testing`, by what they fake: `provider/` (`scriptedProvider`, `callOnceProvider`, `routedProvider`), `fetch/` (`fakeFetch`, `collect`, `requestSentBy`), `tool/` (`toolRunner`) and `wait/` (`until`). It is test-only (`sheavly.testOnly`): a dev dependency, imported only from tests and fakes (`harness/imports`), and lint treats all its source as test code.
 
-A package's own fakes stay in its `src/testing/`: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`), `@sheavly/workspace/testing/` (`useTempWorkspace`, `useFileLocks`), `packages/providers/src/testing/`; core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. `packages/eslint-config/src/testing/` holds the throwaway workspaces and skill repos the lint tests build. No mock data in dev or prod code. A generic test that needs a background task uses `startTaskTool`.
+A package's own fakes stay in its `src/testing/`: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`, `useKeyedLocks`), `@sheavly/workspace/testing/` (`useTempWorkspace`), `packages/providers/src/testing/`; core keeps its echo tool in `packages/core/src/testing/`, since core can't depend on the testing package built on it. `packages/eslint-config/src/testing/` holds the throwaway workspaces and skill repos the lint tests build. No mock data in dev or prod code. A generic test that needs a background task uses `startTaskTool`.
 
 ## Behaviour, not just units
 

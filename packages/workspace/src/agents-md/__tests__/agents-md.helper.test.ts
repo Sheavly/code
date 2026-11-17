@@ -2,11 +2,11 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createInstructionHook } from '@sheavly/core/instruction-context/instruction-source.helper';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import { scriptedProvider } from '@sheavly/testing/provider/scripted-provider.fake';
-import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
 import { agentsMdSource, findAgentsFiles } from '../agents-md.helper.js';
 import { agentsDirs, formatAgentsInstructions } from '../agents-md.utils.js';
 

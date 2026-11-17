@@ -58,8 +58,8 @@ host does when storage fails.
 ## Not here
 
 A package's fakes for its own services stay in its `src/testing/`, exported as `./testing/*`
-from source only: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`),
-`@sheavly/workspace/testing/` (`useTempWorkspace`, `useFileLocks`),
+from source only: `@sheavly/runtime/testing/` (sessions, approvals, `startTaskTool`, `useKeyedLocks`),
+`@sheavly/workspace/testing/` (`useTempWorkspace`),
 `@sheavly/process/testing/` (`testProcesses`),
 `@sheavly/providers/testing/` (Responses items) and core's echo tool, since core can't depend on
 this package.

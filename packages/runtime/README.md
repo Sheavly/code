@@ -79,10 +79,11 @@ import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 | `sessions/`  | `SessionRegistry`: the session tree, inboxes, the SSE `stream`, and one ordered stream of every session (`publish`, `subscribeEntries`), kept in memory or written to a store |
 | `tasks/`     | `TaskRegistry`: background tasks a run waits for, checks on and cancels                                                                                                       |
 | `approvals/` | `ApprovalRegistry`: requests a UI answers with `respond`                                                                                                                      |
+| `locks/`     | `KeyedLocks`: serializes changes per string key, so two changes to one key never overlap; it knows nothing about what a key names                                             |
 | `usage/`     | `UsageLedger`: cumulative usage across sessions, deduplicated by stream sequence                                                                                              |
 | `output/`    | `OutputBuffer`: bounded first/last lines and shortened long lines for process and task previews                                                                               |
 | `errors/`    | `SessionError`, `TaskError`, the approval errors, and `errorMessage` / `isMissingPath`                                                                                        |
-| `testing/`   | Fakes for tests: sessions, approvals, `startTaskTool`                                                                                                                         |
+| `testing/`   | Fakes for tests: sessions, approvals, `startTaskTool`, `useKeyedLocks`                                                                                                        |
 
 ## Docs
 

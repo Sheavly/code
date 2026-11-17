@@ -1,10 +1,11 @@
 import path from 'node:path';
+import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';
 import { agentsDirs, agentsScope, formatAgentsInstructions } from './agents-md.utils.js';
 import { readConfinedFile, realPathOrSelf } from '../instruction-context/confined-read.helper.js';
 import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';
-import type { InstructionSource } from '../instruction-context/instruction-source.types.js';
+import { usableWorkingRoot } from '../working-root/usable-working-root.helper.js';
 
 /**
  * Finds the AGENTS.md files that apply at `cwd`: one per folder from `root` down to `cwd`,
@@ -41,7 +42,7 @@ export function agentsMdSource(options: AgentsMdHookOptions): InstructionSource 
   return {
     name: 'agents-md',
     order: INSTRUCTION_ORDER.agentsMd,
-    ...(workingRoots && { workingRoots }),
+    ...(workingRoots && { workingRoots: usableWorkingRoot(workingRoots) }),
     resolve: async ({ signal, workingRoot }) => {
       // The working root is a real path, so the project root and cwd are compared as real paths:
       // a root reached through a symlink must not make its own cwd look outside it.

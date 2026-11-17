@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
@@ -264,7 +264,7 @@ describe('createBackendHarness: what a backend run includes', () => {
     });
 
     it('are the set it is given, so runs that share one take turns on a file', async () => {
-      const shared = new FileLocks();
+      const shared = new KeyedLocks();
       const make = () =>
         createBackendHarness({
           provider: routedProvider({ hi: [say('hello')] }),

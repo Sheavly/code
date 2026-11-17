@@ -152,8 +152,9 @@ is split by responsibility only when it does several jobs, not to fit a number. 
 - **Instruction context** (`harness/no-direct-instruction-context`, source files): no import of
   `instruction-context.helper` (`appendInstructionContext`). An instruction source is an
   `InstructionSource` built with `createInstructionHook`, which resolves the working root each turn
-  and owns the dedup; its own file is the one `files:` exception, in the workspace's
-  eslint.config.js. It matches the import, so a copy of the helper's text written by hand is left
+  and owns the dedup; its own file
+  (`packages/core/src/instruction-context/instruction-source.helper.ts`) is the one `files:`
+  exception, in core's eslint.config.js. It matches the import, so a copy of the helper's text written by hand is left
   to review.
 - **Instruction source reads** (`harness/no-raw-fs-in-instruction-source`, source files): a file
   that imports the instruction factory or its types (`instruction-source.helper`/`.types`) does not

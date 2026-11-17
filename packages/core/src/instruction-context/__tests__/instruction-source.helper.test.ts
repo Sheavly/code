@@ -1,16 +1,9 @@
-import { writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import { agentsMdSource } from '../../agents-md/agents-md.helper.js';
 import { InstructionSourceError } from '../../errors/instruction-source.errors.js';
-import { fakeBeforeTurn } from '../../testing/before-turn.fake.js';
-import { openWithWorktrees, useTempRepo } from '../../testing/git-repo.fake.js';
-import { testWorkingRoots } from '../../testing/working-root-store.fake.js';
+import type { BeforeTurnContext } from '../../hook/hook.types.js';
 import { createInstructionHook, registerInstructionHooks } from '../instruction-source.helper.js';
 import type { InstructionSource } from '../instruction-source.types.js';
-
-const repo = useTempRepo({ prefix: 'instruction-source-', perTest: true });
 
 function source(name: string, order: number, text = name): InstructionSource {
   return { name, order, resolve: () => text };
@@ -19,46 +12,48 @@ function source(name: string, order: number, text = name): InstructionSource {
 /** Runs one turn of a hook over `messages`, as the loop does with the history it holds. */
 async function turnOver(params: { source: InstructionSource; messages: Message[] }) {
   const { messages } = params;
-  const { context } = fakeBeforeTurn();
-
-  await createInstructionHook(params.source).hook.beforeTurn?.({
-    ...context,
+  const context = {
+    turn: 1,
+    context: {},
+    signal: new AbortController().signal,
     messages,
     addContext: (content: string) => messages.push({ role: 'user', content }),
-  });
+    addInstructions: () => undefined,
+  } as unknown as BeforeTurnContext;
+
+  await createInstructionHook(params.source).hook.beforeTurn?.(context);
 }
 
-describe('createInstructionHook with a worktree working root', () => {
-  it('reads AGENTS.md from the worktree, not the main checkout', async () => {
-    await writeFile(path.join(repo.main, 'AGENTS.md'), 'Main rules');
-    await writeFile(path.join(repo.worktree, 'AGENTS.md'), 'Worktree rules');
-
-    const workingRoots = testWorkingRoots({ workspace: await openWithWorktrees(repo.main) });
+describe('createInstructionHook working root', () => {
+  it('hands the source the folder its working roots name this turn', async () => {
     const messages: Message[] = [];
-    const agents = agentsMdSource({ root: repo.main, workingRoots });
+    let folder: string | undefined = '/one';
+    const rules: InstructionSource = {
+      name: 'rules',
+      order: 1,
+      workingRoots: { root: () => Promise.resolve(folder) },
+      resolve: ({ workingRoot }) => `at ${workingRoot ?? 'nowhere'}`,
+    };
 
-    await turnOver({ source: agents, messages });
-    await workingRoots.set(repo.worktree);
-    await turnOver({ source: agents, messages });
+    await turnOver({ source: rules, messages });
+    folder = undefined;
+    await turnOver({ source: rules, messages });
 
-    expect(messages).toHaveLength(2);
-    expect(messages[0]?.content).toContain('Main rules');
-    expect(messages[1]?.content).toContain('Worktree rules');
-    expect(messages[1]?.content).not.toContain('Main rules');
+    expect(messages.map((m) => m.content)).toEqual([
+      '<instruction-context name="rules">\nat /one\n</instruction-context>',
+      '<instruction-context name="rules">\nat nowhere\n</instruction-context>',
+    ]);
   });
 
-  it('narrows to a folder inside the project root', async () => {
-    await writeFile(path.join(repo.main, 'AGENTS.md'), 'Main rules');
-    await writeFile(path.join(repo.main, 'src', 'AGENTS.md'), 'Src rules');
+  it('fails the turn when the working roots throw: its owner decides what unusable means', async () => {
+    const rules: InstructionSource = {
+      name: 'rules',
+      order: 1,
+      workingRoots: { root: () => Promise.reject(new Error('gone')) },
+      resolve: () => 'never',
+    };
 
-    const workingRoots = testWorkingRoots({ workspace: await openWithWorktrees(repo.main) });
-    const messages: Message[] = [];
-
-    await workingRoots.set(path.join(repo.main, 'src'));
-    await turnOver({ source: agentsMdSource({ root: repo.main, workingRoots }), messages });
-
-    expect(messages[0]?.content).toContain('Main rules');
-    expect(messages[0]?.content).toContain('Src rules');
+    await expect(turnOver({ source: rules, messages: [] })).rejects.toThrow('gone');
   });
 });
 

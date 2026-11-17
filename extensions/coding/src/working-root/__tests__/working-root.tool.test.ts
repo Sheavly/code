@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { useTempRepo, openWithWorktrees } from '@sheavly/workspace/testing/git-repo.fake';
 import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
@@ -28,7 +28,7 @@ async function setup() {
   const workspace = await openWithWorktrees(repo.main);
   const workingRoots = testWorkingRoots({ workspace });
   const fileReads = new FileReads();
-  const services = { workspace, workingRoots, fileLocks: new FileLocks(), fileReads };
+  const services = { workspace, workingRoots, fileLocks: new KeyedLocks(), fileReads };
 
   return { workspace, workingRoots, fileReads, services };
 }

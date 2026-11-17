@@ -102,9 +102,9 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the `shea
 | `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                                 |
 | `packages/extension/src/` | `@sheavly/extension`, the extension lifecycle: `extension/` (the `Extension` contract, `defineExtension`, `defineService`), `host/` (`ExtensionHost`, the service registry), `errors/`; depends on core only                                                                         |
 | `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`: Azure OpenAI and Claude on Azure), adapter registry, `ProviderSwitch`                                                           |
-| `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                                |
+| `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, `locks/` (`KeyedLocks`, serialized changes per key), and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                           |
 | `packages/process/src/`   | `@sheavly/process`, the process runner: `process/` (`ProcessRunner`, `runScript`, deadlines, secret-scrubbed env), `ProcessKillError` and `ProcessInterruptedError` (`errors/`), the `testProcesses` fake (`testing/`)                                                               |
-| `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, `skills/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`)                                |
+| `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, `skills/`, their errors, and the fake `useTempWorkspace` (`testing/`)                                                                   |
 | `packages/tools/src/`     | `@sheavly/tools`, the generic tools: `sub-agent/` (`start_agent`, `message_agent`, `report_status`), `tasks/` (`task_status`, `cancel_task`)                                                                                                                                         |
 | `packages/loop/src/`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, the ordered queue, abort helpers, hooks; `HookError` and `StreamEndedError` (`errors/`)                                                                                                                                         |
 | `packages/host/src/`      | `@sheavly/host`: `createHarness`, the registries one run shares around the provider a UI picked. No tools, hooks or settings of its own, and no UI                                                                                                                                   |
@@ -124,15 +124,15 @@ The packages provide the pieces and the services a run shares; a UI decides whic
 uses and which tools and hooks it includes, and composes them. No package picks a backend, a model,
 a tool or a hook for it.
 
-| Services                                  | For                                                                  | What it makes                                                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file      |
-| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `FileLocks` and one `ProcessRunner` built from the env the UI passes in |
+| Services                                  | For                                                                  | What it makes                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file       |
+| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `KeyedLocks` and one `ProcessRunner` built from the env the UI passes in |
 
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
 `createRunCommandTool({ processes, … })` and the rest (`@sheavly/coding`); `agentsMdSource` (built with
-`createInstructionHook`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
+`createInstructionHook` from `@sheavly/core`) and, if it trusts the workspace, `loadProjectHooks` (`@sheavly/workspace`). The backend app does
 it in one place, `createBackendHarness` (`apps/backend/src/harness/`), with its settings from
 env; the terminal and every other UI reach its conversations over HTTP.
 
@@ -156,7 +156,7 @@ Pass `tasks` or `approvals` in when a tool needs the registry before the harness
 The rule (from [#74](https://github.com/Sheavly/code/issues/74)): generic code never needs a project on disk or a coding tool.
 The loop, the generic runtime services (`sessions`, `tasks`, `approvals`), the generic tools
 (`sub-agent`, `tasks`) and `createHarness` import none of the workspace-bound services
-(`workspace`, `file-locks`, `trust`, `project-hooks`, `agents-md`, `skills`) or the process runner (`@sheavly/process`, generic but only a coding run starts commands) or the coding tools
+(`workspace`, `trust`, `project-hooks`, `agents-md`, `skills`) or the process runner (`@sheavly/process`, generic but only a coding run starts commands) or the coding tools
 (`read-file`, `read-skill`, `write-file`, `edit-file`, `files`, `run-command`), and neither do their tests. Only
 a coding UI reaches them, which is why each lives in a package of its own and the generic ones
 never depend on the coding ones.

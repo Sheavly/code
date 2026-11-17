@@ -5,12 +5,12 @@ import { WorkspaceError } from '../../errors/workspace.errors.js';
 import { brokenGitEnv, git, openWithWorktrees, useTempRepo } from '../../testing/git-repo.fake.js';
 import { WorkingRoots } from '../working-roots.service.js';
 import { memoryWorkingRootStore, testWorkingRoots } from '../../testing/working-root-store.fake.js';
-import type { WorkingRootStore } from '../working-root.types.js';
+import type { DocumentStore } from '@sheavly/core/store/store.types';
 
 const repo = useTempRepo({ prefix: 'working-roots-', perTest: true });
 
 /** A conversation's roots over `store`, in a workspace that reaches the repo's worktrees. */
-async function rootsOver(store: WorkingRootStore = memoryWorkingRootStore()) {
+async function rootsOver(store: DocumentStore = memoryWorkingRootStore()) {
   return testWorkingRoots({ workspace: await openWithWorktrees(repo.main), store });
 }
 

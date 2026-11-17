@@ -51,7 +51,7 @@ async function readFileTool(params: {
   // before any edit queued behind it can run: a later record of an older hash would undo it. One
   // pass: only the lines to show are kept, however big the file is.
   const { content, note, lines } = await fileLocks.run({
-    file: real,
+    key: real,
     signal,
     change: async () => {
       await assertSameReadable({ workspace, requested, expected: real, root });

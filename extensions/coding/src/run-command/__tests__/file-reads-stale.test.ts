@@ -5,7 +5,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
-import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { useKeyedLocks } from '@sheavly/runtime/testing/keyed-locks.fake';
 import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { createDeleteFileTool } from '../../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
@@ -22,7 +22,7 @@ const temp = useTempWorkspace({
   perTest: true,
   files: { 'app.ts': 'const a = 1;\nconst b = 2;\n', 'next.ts': NEXT },
 });
-const fileLocks = useFileLocks();
+const fileLocks = useKeyedLocks();
 const fileReads = useFileReads();
 const signal = new AbortController().signal;
 

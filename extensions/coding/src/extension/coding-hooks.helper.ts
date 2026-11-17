@@ -1,9 +1,9 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import { agentsMdSource } from '@sheavly/workspace/agents-md/agents-md.helper';
 import {
   createInstructionHook,
   registerInstructionHooks,
-} from '@sheavly/workspace/instruction-context/instruction-source.helper';
+} from '@sheavly/core/instruction-context/instruction-source.helper';
+import { agentsMdSource } from '@sheavly/workspace/agents-md/agents-md.helper';
 import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
 import type { ProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import { scratchSource } from '@sheavly/workspace/scratch/scratch-hook.helper';

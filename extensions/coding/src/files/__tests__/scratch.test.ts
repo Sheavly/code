@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { useKeyedLocks } from '@sheavly/runtime/testing/keyed-locks.fake';
 import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
@@ -12,7 +12,7 @@ import { createReadFileTool } from '../../read-file/read-file.tool.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
 
 const signal = new AbortController().signal;
-const fileLocks = useFileLocks();
+const fileLocks = useKeyedLocks();
 const fileReads = useFileReads();
 let base: string;
 let workspace: Workspace;

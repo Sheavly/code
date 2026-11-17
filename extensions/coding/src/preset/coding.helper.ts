@@ -1,4 +1,4 @@
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { ProcessRunner } from '@sheavly/process/process/process.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
@@ -18,7 +18,7 @@ export async function createCodingHarness(options: CodingHarnessOptions): Promis
     workspaceRoot,
     scratchRoot,
     env,
-    fileLocks = new FileLocks(),
+    fileLocks = new KeyedLocks(),
     ...harnessOptions
   } = options;
   const workspace = await Workspace.open(workspaceRoot, { scratchRoot, env });

@@ -9,6 +9,7 @@ check:
         'packages/loop/src/stream-agent/sample.helper.ts',
         'packages/providers/src/anthropic-messages',
         'packages/workspace/src/agents-md',
+        'packages/core/src/instruction-context',
         'packages/workspace/src/instruction-context',
         'packages/workspace/src/skills',
         'packages/host/src/conversation',

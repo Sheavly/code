@@ -55,7 +55,7 @@ async function writeFile(params: {
   const real = await resolveWritable({ workspace, requested, root });
 
   return fileLocks.run({
-    file: real,
+    key: real,
     signal,
     change: async () => {
       await assertSameWritable({ workspace, requested, expected: real, root });

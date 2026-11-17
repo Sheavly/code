@@ -17,7 +17,7 @@ import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
-import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
@@ -93,7 +93,7 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
   /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */
-  fileLocks?: FileLocks | undefined;
+  fileLocks?: KeyedLocks | undefined;
   /**
    * Hears of an extension's `deactivate` that threw, at the end of the session or when another
    * extension failed to activate. The run goes on, so a failure is told, never thrown.

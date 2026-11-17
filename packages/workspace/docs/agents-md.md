@@ -5,8 +5,9 @@
 ## The source
 
 `agentsMdSource({ root, cwd?, workingRoots? })` (`@sheavly/workspace/agents-md/`) is an
-`InstructionSource`: `createInstructionHook` makes a `beforeTurn` hook of it that reads AGENTS.md
-files and appends changed instructions to history.
+`InstructionSource`: `createInstructionHook` (`@sheavly/core`) makes a `beforeTurn` hook of it that
+reads AGENTS.md files and appends changed instructions to history. The source hands the factory
+its working roots through `usableWorkingRoot`, so a root that went bad is none.
 
 - It looks in every folder from `root` down to `cwd` (default: `root`), like git walks up from
   the working directory, and never above `root`. Files go root first, each under its path, so
@@ -35,7 +36,7 @@ files and appends changed instructions to history.
 - **After a summary:** instruction state is not cleared. The hook compares with the last
   `<instruction-context>` entry still in the history it is given, so when a summary or masking
   drops that entry the next turn announces the instructions again. This costs one repeat and can
-  never leave the model without them; pinned in `instruction-source.helper.test.ts`.
+  never leave the model without them; pinned in core's `instruction-source.helper.test.ts`.
 - **Glob and grep:** they read no AGENTS.md and apply no AGENTS.md scope. They search from the
   working root through the workspace, so the two only agree about where the agent is, not about
   which instructions apply.

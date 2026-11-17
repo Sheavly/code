@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { BeforeTurnContext } from '@sheavly/core/hook/hook.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import type { BeforeTurnContext } from '../../hook/hook.types.js';
 import { appendInstructionContext } from '../instruction-context.helper.js';
 
 function historyContext(messages: Message[]): BeforeTurnContext {

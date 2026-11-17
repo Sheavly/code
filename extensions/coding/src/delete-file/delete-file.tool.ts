@@ -57,7 +57,7 @@ async function deleteFile(params: {
   const real = await resolveDeletable({ workspace, requested, root });
 
   return fileLocks.run({
-    file: real,
+    key: real,
     signal,
     change: async () => {
       // Resolved before the lock to queue on the file, then again under it: a path swapped

@@ -1,4 +1,4 @@
-import type { BeforeTurnContext } from '@sheavly/core/hook/hook.types';
+import type { BeforeTurnContext } from '../hook/hook.types.js';
 import {
   instructionContextOpening,
   renderInstructionContext,

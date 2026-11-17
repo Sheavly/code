@@ -1,4 +1,4 @@
-import type { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
@@ -8,7 +8,7 @@ export type FileToolServices = {
   workspace: Workspace;
   /** Where relative paths start, when the agent chose a working root. Default: the workspace root. */
   workingRoots?: WorkingRoots | undefined;
-  fileLocks: FileLocks;
+  fileLocks: KeyedLocks;
   fileReads: FileReads;
 };
 

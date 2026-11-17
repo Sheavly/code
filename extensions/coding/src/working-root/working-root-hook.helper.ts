@@ -1,5 +1,5 @@
+import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
-import type { InstructionSource } from '@sheavly/workspace/instruction-context/instruction-source.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { WORKING_ROOT_CONTEXT_NAME } from './working-root.constants.js';
 import { renderWorkingRootNote } from './working-root.prompt.js';

@@ -16,33 +16,28 @@ function waitTurn(params: { previous: Promise<void>; signal: AbortSignal }): Pro
 }
 
 /**
- * Per-file locks for the tools that change files. Tool calls run in parallel, so without them
- * two edits to one file both read the old content and the second write loses the first. One
- * instance is shared by every writer that must not overlap (`createCodingHarness` makes one per
- * harness and gives it to write_file, edit_file, delete_file and the sub-agents' copies); a test
- * makes its own.
+ * Locks that serialize changes per key. Calls run in parallel, so without them two changes to one
+ * thing both read the old state and the second write loses the first. The key is whatever
+ * identifies that thing (the coding tools key it by real path). One instance is shared by every
+ * caller that must not overlap; a test makes its own.
  */
-export class FileLocks {
-  /** The last change queued on each file, by real path. */
+export class KeyedLocks {
+  /** The last change queued on each key. */
   readonly #queues = new Map<string, Promise<void>>();
 
   /**
-   * Runs `change` (read, change, write) once every change queued earlier on the same real path
-   * has finished, so concurrent changes to one file apply one after the other. Changes to
-   * different files don't wait for each other. A call aborted while waiting gives up its place
+   * Runs `change` (read, change, write) once every change queued earlier on the same `key`
+   * has finished, so concurrent changes to one key apply one after the other. Changes to
+   * different keys don't wait for each other. A call aborted while waiting gives up its place
    * without letting later calls skip ahead of the one still running.
    */
-  async run<T>(params: {
-    file: string;
-    signal: AbortSignal;
-    change: () => Promise<T>;
-  }): Promise<T> {
-    const { file, signal, change } = params;
-    const previous = this.#queues.get(file) ?? Promise.resolve();
+  async run<T>(params: { key: string; signal: AbortSignal; change: () => Promise<T> }): Promise<T> {
+    const { key, signal, change } = params;
+    const previous = this.#queues.get(key) ?? Promise.resolve();
     const { promise: done, resolve: release } = Promise.withResolvers<undefined>();
     const queued = previous.then(() => done);
 
-    this.#queues.set(file, queued);
+    this.#queues.set(key, queued);
 
     try {
       await waitTurn({ previous, signal });
@@ -53,12 +48,12 @@ export class FileLocks {
       // Only once every change ahead has finished too: an aborted call gets here while the one
       // ahead may still be running, and dropping the entry then would let the next call skip it.
       void queued.then(() => {
-        if (this.#queues.get(file) === queued) this.#queues.delete(file);
+        if (this.#queues.get(key) === queued) this.#queues.delete(key);
       });
     }
   }
 
-  /** Files with a change running or queued: empty once every change has settled. */
+  /** Keys with a change running or queued: empty once every change has settled. */
   get busy(): number {
     return this.#queues.size;
   }

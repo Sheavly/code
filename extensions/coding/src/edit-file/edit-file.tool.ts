@@ -61,7 +61,7 @@ async function editFile(params: {
   const agentId = agentOf(context);
 
   return fileLocks.run({
-    file: real,
+    key: real,
     signal,
     change: async () => {
       // Resolved before the lock to queue on the file, then again under it: a path swapped while

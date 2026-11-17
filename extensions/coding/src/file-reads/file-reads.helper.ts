@@ -1,3 +1,4 @@
+import type { DocumentStore } from '@sheavly/core/store/store.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
@@ -5,7 +6,6 @@ import {
   createFileReadsKeeper,
   restoreFileReads,
 } from '@sheavly/workspace/file-reads/file-reads-store.helper';
-import type { WorkingRootStore } from '@sheavly/workspace/working-root/working-root.types';
 
 /**
  * Restores what the main agent had read when this conversation was last open, and keeps it again
@@ -19,7 +19,7 @@ export async function keepReadsWithConversation(params: {
   fileReads: FileReads;
   sessions: SessionRegistry;
   agentId: SessionId;
-  store: WorkingRootStore;
+  store: DocumentStore;
   onProblem?: (caughtError: unknown) => void;
 }): Promise<() => void> {
   const { fileReads, sessions, agentId, store, onProblem = () => undefined } = params;

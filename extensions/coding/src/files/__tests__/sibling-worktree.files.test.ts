@@ -2,7 +2,7 @@ import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { createReadFileTool } from '../../read-file/read-file.tool.js';
@@ -58,7 +58,7 @@ describe('read_file in a sibling worktree', () => {
   const read = (requested: string) =>
     runTool({
       tools: [
-        createReadFileTool({ workspace, fileLocks: new FileLocks(), fileReads: new FileReads() }),
+        createReadFileTool({ workspace, fileLocks: new KeyedLocks(), fileReads: new FileReads() }),
       ],
       call: {
         id: callIdSchema.parse('1'),
@@ -87,7 +87,7 @@ describe('read_file in a sibling worktree', () => {
       tools: [
         createReadFileTool({
           workspace: linked,
-          fileLocks: new FileLocks(),
+          fileLocks: new KeyedLocks(),
           fileReads: new FileReads(),
         }),
       ],

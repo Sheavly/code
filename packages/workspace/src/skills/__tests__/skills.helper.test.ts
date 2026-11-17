@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { findSkills, skillsSource } from '../skills.helper.js';
-import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
+import { createInstructionHook } from '@sheavly/core/instruction-context/instruction-source.helper';
 import { skillFile, useSkillFolders } from '../../testing/skills.fake.js';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';

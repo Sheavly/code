@@ -1,13 +1,15 @@
-import type { Hook } from '@sheavly/core/hook/hook.types';
-import type { WorkingRoots } from '../working-root/working-roots.service.js';
+import type { Hook } from '../hook/hook.types.js';
 
-/** What the conversation's working root can tell a source: only its folder, read per turn. */
-export type WorkingRootSource = Pick<WorkingRoots, 'root'>;
+/**
+ * The folder this turn applies to, or `undefined`. The source's owner makes it return `undefined`
+ * instead of throwing when the folder is unusable.
+ */
+export type SourceWorkingRoots = { root: () => Promise<string | undefined> };
 
 /** What a source sees on each turn. */
 export type InstructionSourceInput = {
   signal: AbortSignal;
-  /** The conversation's working root this turn, or `undefined` when none is set or usable. */
+  /** The folder this turn applies to, or `undefined` when none is set or usable. */
   workingRoot: string | undefined;
 };
 
@@ -17,8 +19,8 @@ export type InstructionSource = {
   name: string;
   /** Lower runs first among the registered sources. */
   order: number;
-  /** Read per turn when set, so a working root chosen mid-run applies on the next model call. */
-  workingRoots?: WorkingRootSource;
+  /** Read per turn when set, so a folder chosen mid-run applies on the next model call. */
+  workingRoots?: SourceWorkingRoots;
   /** The instructions that apply now, or `undefined` when none do. */
   resolve: (input: InstructionSourceInput) => Promise<string | undefined> | string | undefined;
 };

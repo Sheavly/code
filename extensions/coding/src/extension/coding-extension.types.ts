@@ -1,9 +1,9 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
+import type { DocumentStore } from '@sheavly/core/store/store.types';
 import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
-import type { WorkingRootStore } from '@sheavly/workspace/working-root/working-root.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { CodingHarness } from '../preset/coding.types.js';
 import type { CommandPermissions } from '../run-command/run-command.types.js';
@@ -26,7 +26,7 @@ export type CodingExtensionOptions = {
   /** Trust this workspace now (`--trust`), so its `.sheavly/` hooks load. */
   trustWorkspace?: boolean | undefined;
   /** Where the conversation's working root and file reads are kept, shared by its agents. */
-  shell: WorkingRootStore;
+  shell: DocumentStore;
   /** Hears of a failure to restore or keep the conversation's file reads; the run goes on. */
   onFileReadsProblem?: ((caughtError: unknown) => void) | undefined;
 };

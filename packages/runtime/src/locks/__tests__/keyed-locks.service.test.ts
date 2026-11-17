@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FileLocks } from '../file-locks.service.js';
+import { KeyedLocks } from '../keyed-locks.service.js';
 
 /** A fresh set of locks per test, so no queue leaks from one test into the next. */
-let locks: FileLocks;
+let locks: KeyedLocks;
 
 beforeEach(() => {
-  locks = new FileLocks();
+  locks = new KeyedLocks();
 });
 
 const signal = new AbortController().signal;
@@ -18,7 +18,7 @@ const queue = (params: {
   abortWith?: AbortSignal;
 }) =>
   locks.run({
-    file: 'same',
+    key: 'same',
     signal: params.abortWith ?? signal,
     change: async () => {
       await params.gate;
@@ -28,11 +28,11 @@ const queue = (params: {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 
-describe('FileLocks', () => {
-  it('lets changes to different files run at the same time', async () => {
+describe('KeyedLocks', () => {
+  it('lets changes to different keys run at the same time', async () => {
     const other = Promise.withResolvers<undefined>();
     const first = locks.run({
-      file: 'a',
+      key: 'a',
       signal,
       change: async () => {
         await other.promise; // only the change on 'b' resolves this
@@ -41,7 +41,7 @@ describe('FileLocks', () => {
       },
     });
     const second = locks.run({
-      file: 'b',
+      key: 'b',
       signal,
       change: () => {
         other.resolve(undefined);
@@ -53,7 +53,7 @@ describe('FileLocks', () => {
     expect(await Promise.all([first, second])).toEqual(['a', 'b']);
   });
 
-  it('starts a change only after the earlier one on the same file finished', async () => {
+  it('starts a change only after the earlier one on the same key finished', async () => {
     const order: string[] = [];
     const gate = Promise.withResolvers<undefined>();
     const first = queue({ name: 'first', order, gate: gate.promise });
@@ -68,13 +68,13 @@ describe('FileLocks', () => {
     expect(order).toEqual(['first', 'second']);
   });
 
-  it('releases the file when a change throws', async () => {
+  it('releases the key when a change throws', async () => {
     const failed = locks.run({
-      file: 'same',
+      key: 'same',
       signal,
       change: () => Promise.reject(new Error('boom')),
     });
-    const next = locks.run({ file: 'same', signal, change: () => Promise.resolve('next') });
+    const next = locks.run({ key: 'same', signal, change: () => Promise.resolve('next') });
 
     await expect(failed).rejects.toThrow('boom');
     expect(await next).toBe('next');
@@ -102,7 +102,7 @@ describe('FileLocks', () => {
     expect(order).toEqual(['running', 'before abort', 'after abort']);
   });
 
-  it('keeps the file locked when the last waiter aborts', async () => {
+  it('keeps the key locked when the last waiter aborts', async () => {
     const order: string[] = [];
     const gate = Promise.withResolvers<undefined>();
     const running = queue({ name: 'running', order, gate: gate.promise });
@@ -125,26 +125,26 @@ describe('FileLocks', () => {
     const change = () => Promise.resolve('ran');
 
     await expect(
-      locks.run({ file: 'same', signal: AbortSignal.abort(new Error('gone')), change }),
+      locks.run({ key: 'same', signal: AbortSignal.abort(new Error('gone')), change }),
     ).rejects.toThrow('gone');
   });
 
   it('keeps each instance separate: another set of locks never waits on this one', async () => {
     const gate = Promise.withResolvers<undefined>();
-    const held = locks.run({ file: 'same', signal, change: () => gate.promise });
-    const other = new FileLocks();
+    const held = locks.run({ key: 'same', signal, change: () => gate.promise });
+    const other = new KeyedLocks();
 
     await expect(
-      other.run({ file: 'same', signal, change: () => Promise.resolve('free') }),
+      other.run({ key: 'same', signal, change: () => Promise.resolve('free') }),
     ).resolves.toBe('free');
 
     gate.resolve(undefined);
     await held;
   });
 
-  it('forgets a file once every change on it has settled', async () => {
+  it('forgets a key once every change on it has settled', async () => {
     const gate = Promise.withResolvers<undefined>();
-    const running = locks.run({ file: 'same', signal, change: () => gate.promise });
+    const running = locks.run({ key: 'same', signal, change: () => gate.promise });
 
     expect(locks.busy).toBe(1);
 

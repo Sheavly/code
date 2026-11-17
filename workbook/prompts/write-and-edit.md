@@ -9,7 +9,7 @@ check:
         'extensions/coding/src/edit-file',
         'extensions/coding/src/delete-file',
         'extensions/coding/src/files',
-        'packages/workspace/src/file-locks',
+        'packages/runtime/src/locks',
         'packages/workspace/src/file-reads',
         'packages/workspace/src/workspace',
         'packages/loop/src/stream-agent',

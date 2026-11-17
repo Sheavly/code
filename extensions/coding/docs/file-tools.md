@@ -87,7 +87,7 @@ kept: a running one comes back interrupted. Stored reads that are not valid are 
 ignored, and the run starts with nothing read; a failed save is reported and the run goes on.
 
 Tool calls in a turn run in parallel, so `read_file`, `write_file`, `edit_file` and `delete_file` share a
-per-file lock (a `FileLocks` from `@sheavly/workspace/file-locks/`, one per harness), keyed by the
+per-file lock (a `KeyedLocks` from `@sheavly/runtime/locks/`, one per harness), keyed by the
 file's real path (a symlink and its
 target share one). Each holds it from reading the file to writing it back, so changes to one file
 apply one after the other, each starting from what the previous one wrote; changes to different

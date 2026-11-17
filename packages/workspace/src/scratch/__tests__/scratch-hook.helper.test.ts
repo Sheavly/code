@@ -5,7 +5,7 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import { agentIdFor } from '../../testing/file-reads.fake.js';
 import { useTempWorkspace } from '../../testing/temp-workspace.fake.js';
 import { Workspace } from '../../workspace/workspace.service.js';
-import { createInstructionHook } from '../../instruction-context/instruction-source.helper.js';
+import { createInstructionHook } from '@sheavly/core/instruction-context/instruction-source.helper';
 import { scratchSource } from '../scratch-hook.helper.js';
 
 const temp = useTempWorkspace({ prefix: 'scratch-hook-test-', perTest: true });

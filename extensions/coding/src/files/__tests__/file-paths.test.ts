@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { useKeyedLocks } from '@sheavly/runtime/testing/keyed-locks.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
@@ -18,7 +18,7 @@ const temp = useTempWorkspace({
   files: { 'app.ts': 'const a = 1;\n', 'dir/inner.ts': 'x\n' },
   outside: { 'outside.txt': 'outside\n' },
 });
-const fileLocks = useFileLocks();
+const fileLocks = useKeyedLocks();
 const fileReads = useFileReads();
 
 /** Runs a file tool as the agent does, on the test's workspace, locks and reads. */

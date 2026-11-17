@@ -216,12 +216,12 @@ export const SYNTAX_RULES = {
   // Instruction context reaches the history through `createInstructionHook`, which resolves the
   // working root each turn and owns the dedup. A hook that calls `appendInstructionContext`
   // itself is a fifth hand-rolled wrapper with its own idea of what it already sent. Only the
-  // factory's file (a `files:` override in the workspace's eslint.config.js) imports the helper.
+  // factory's file (a `files:` override in packages/core/eslint.config.js) imports the helper.
   'no-direct-instruction-context': [
     {
       selector: `:matches(ImportDeclaration, ImportExpression, ExportNamedDeclaration, ExportAllDeclaration)[source.value=${INSTRUCTION_CONTEXT_MODULE}]`,
       message:
-        'Do not import or re-export `appendInstructionContext`. Add an instruction source: write `<name>Source(): InstructionSource` and build its hook with `createInstructionHook` (`@sheavly/workspace/instruction-context/instruction-source.helper`), registered with `registerInstructionHooks`. The factory resolves the working root per turn and owns the dedup, so a source keeps no state. See "An instruction source" in extending.md.',
+        'Do not import or re-export `appendInstructionContext`. Add an instruction source: write `<name>Source(): InstructionSource` and build its hook with `createInstructionHook` (`@sheavly/core/instruction-context/instruction-source.helper`), registered with `registerInstructionHooks`. The factory resolves the working root per turn and owns the dedup, so a source keeps no state. See "An instruction source" in extending.md.',
     },
   ],
   // An instruction source reads files whose folder the agent can choose (a working root), so a

@@ -4,10 +4,10 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
-import { FileLocks } from '@sheavly/workspace/file-locks/file-locks.service';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
+import { useKeyedLocks } from '@sheavly/runtime/testing/keyed-locks.fake';
 import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
-import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
 import { agentIdFor, useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
 import { createWriteFileTool } from '../../write-file/write-file.tool.js';
@@ -16,7 +16,7 @@ import { MAX_DELETE_BYTES } from '../delete-file.constants.js';
 import { createDeleteFileTool } from '../delete-file.tool.js';
 
 /** A lock set that swaps the file for a symlink just before the delete takes its turn. */
-class SwappingLocks extends FileLocks {
+class SwappingLocks extends KeyedLocks {
   readonly #swap: () => Promise<void>;
 
   constructor(swap: () => Promise<void>) {
@@ -25,7 +25,7 @@ class SwappingLocks extends FileLocks {
   }
 
   override async run<T>(params: {
-    file: string;
+    key: string;
     signal: AbortSignal;
     change: () => Promise<T>;
   }): Promise<T> {
@@ -42,7 +42,7 @@ const temp = useTempWorkspace({
   files: { 'existing.ts': 'old\ntext\n', 'dir/inner.ts': 'x\n' },
   outside: { 'outside.txt': 'outside\n' },
 });
-const fileLocks = useFileLocks();
+const fileLocks = useKeyedLocks();
 const fileReads = useFileReads();
 /** The services `createHarness` wires together, as the backend gives them to every file tool. */
 const shared = () => ({

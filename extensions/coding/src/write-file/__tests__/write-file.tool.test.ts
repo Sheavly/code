@@ -3,7 +3,7 @@ import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
-import { useFileLocks } from '@sheavly/workspace/testing/file-locks.fake';
+import { useKeyedLocks } from '@sheavly/runtime/testing/keyed-locks.fake';
 import { useFileReads } from '@sheavly/workspace/testing/file-reads.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { createEditFileTool } from '../../edit-file/edit-file.tool.js';
@@ -19,7 +19,7 @@ const temp = useTempWorkspace({
   outside: { 'outside.txt': 'outside\n' },
 });
 
-const fileLocks = useFileLocks();
+const fileLocks = useKeyedLocks();
 const fileReads = useFileReads();
 
 const write = (filePath: string, content: string) =>
