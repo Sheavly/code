@@ -14,7 +14,8 @@ export function createSubAgentScope(): SubAgentScope {
     taskTools: [],
     hooks: [],
     share: ({ tools = [], taskTools = [], hooks = [] }) => {
-      scope.tools.push(...tools);
+      // Task-starting tools are tools sub-agents get like any other; their list only records that some exist.
+      scope.tools.push(...tools, ...taskTools);
       scope.taskTools.push(...taskTools);
       scope.hooks.push(...hooks);
     },

@@ -62,7 +62,10 @@ export function createAgentsExtension(options: AgentsExtensionOptions = {}): Ext
             ...(options.keepAgentHistory && { keepHistory: options.keepAgentHistory }),
             runAgent: runSession,
             tools: scope.tools,
-            tasksTools: () => scope.taskTools,
+            // Read per sub-agent: an extension that activates later still adds its commands.
+            get withTaskTools() {
+              return scope.taskTools.length > 0;
+            },
             hooks: scope.hooks,
           }),
           createMessageAgentTool({ sessions }),

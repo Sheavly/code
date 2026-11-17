@@ -29,13 +29,7 @@ function instrumentChild(params: {
   const { options, create } = params;
   const tool = create(options);
 
-  return {
-    tasks: options.tasks,
-    start: vi.spyOn(options.tasks, 'start'),
-    cleanup: vi.spyOn(options.tasks, 'cancelSession'),
-    execute: vi.spyOn(tool, 'execute'),
-    tool,
-  };
+  return { execute: vi.spyOn(tool, 'execute'), tool };
 }
 
 function expectPairedHistory(messages: HistoryMessage[], callId: string, isError: boolean) {
@@ -75,7 +69,10 @@ describe('sub-agent command permissions resolving after parent interruption', ()
       const tasks = new TaskRegistry();
       const main = sessions.startMain({ title: 'Parent' });
       const controller = new AbortController();
-      const childBuilt = Promise.withResolvers<ReturnType<typeof instrumentChild>>();
+      const child = instrumentChild({
+        create,
+        options: { workspace: temp.workspace, permissions, processes, tasks },
+      });
       const runChild = vi.fn(runSession);
       const provider = routedProvider({
         Parent: [
@@ -104,22 +101,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         tasks,
         provider,
         runAgent: runChild,
-        tools: [],
-        tasksTools: (childTasks) => {
-          const child = instrumentChild({
-            create,
-            options: {
-              workspace: temp.workspace,
-              permissions,
-              processes,
-              tasks: childTasks,
-            },
-          });
-
-          childBuilt.resolve(child);
-
-          return [child.tool];
-        },
+        tools: [child.tool],
+        withTaskTools: true,
       });
       const running = runSession({
         provider,
@@ -129,11 +112,14 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         signal: controller.signal,
         session: { registry: sessions, ref: main },
       });
-      const child = await childBuilt.promise;
 
       try {
         await until(() => permissions.read.mock.calls.length === 1);
-        expect(child.tasks).toBe(tasks);
+
+        // After the parent started the sub-agent, so its own task is not counted as a launch.
+        const start = vi.spyOn(tasks, 'start');
+        const cleanup = vi.spyOn(tasks, 'cancelSession');
+
         expect(child.execute).toHaveBeenCalledOnce();
         expect(child.execute.mock.calls[0]?.[0].signal.aborted).toBe(false);
         // Only the sub-agent's own task: the command has not been registered.
@@ -163,7 +149,7 @@ describe('sub-agent command permissions resolving after parent interruption', ()
           startedByCall: 'start-child',
         });
         expect(tasks.list()).toMatchObject([{ status: 'cancelled', callId: 'start-child' }]);
-        expect(child.cleanup).toHaveBeenCalledWith(sessions.children(main.id)[0]?.id);
+        expect(cleanup).toHaveBeenCalledWith(sessions.children(main.id)[0]?.id);
         expect(child.execute.mock.calls[0]?.[0].signal.aborted).toBe(true);
         expectPairedHistory(parentResult.messages, 'start-child', false);
         expectPairedHistory(childResult.messages, 'delayed-command', true);
@@ -174,7 +160,7 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         await expect(child.execute.mock.results[0]!.value).rejects.toMatchObject({
           name: 'AbortError',
         });
-        expect(child.start).not.toHaveBeenCalled();
+        expect(start).not.toHaveBeenCalled();
         expect(launch).not.toHaveBeenCalled();
         expect(tasks.list()).toMatchObject([{ status: 'cancelled', callId: 'start-child' }]);
         expect(tasks.runningCount).toBe(0);

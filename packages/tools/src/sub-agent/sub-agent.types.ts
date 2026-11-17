@@ -42,11 +42,13 @@ export type SubAgentOptions = {
   /** The tools sub-agents get. `report_status` (and `start_agent`, below the depth cap) are added. */
   tools: Tool[];
   /**
-   * Tools that start background tasks (e.g. `run_command`), built for each sub-agent on the run's
-   * shared task registry; what a sub-agent starts is owned by its session, so it waits for and
-   * cancels only that.
+   * Whether `tools` start background work (a command), so a sub-agent also gets the task tools
+   * where it could not start sub-agents of its own (at the depth cap) and can inspect and cancel
+   * what it starts. What it starts is owned by its session, so it cancels only that. Below the cap
+   * it has the task tools anyway. Read when each sub-agent starts, so a list or a flag that fills
+   * in after this is built still applies.
    */
-  tasksTools?: (tasks: TaskRegistry) => Tool[];
+  withTaskTools?: boolean;
   /** The hooks sub-agents get; the parent's own hooks are not inherited unless listed here. */
   hooks?: Hook[];
   /** Shared guidance before the child role. The host chooses it; parent history is not copied. */
