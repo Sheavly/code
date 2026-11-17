@@ -1,5 +1,5 @@
 import { defineConfig } from 'eslint/config';
-import { baseConfig } from '@sheavly/eslint-config';
+import { baseConfig, replayConfinement } from '@sheavly/eslint-config';
 
 export default defineConfig([
   // An app: baseConfig lets its source read env, print and use the terminal (it is in apps/).
@@ -32,4 +32,7 @@ export default defineConfig([
     ],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // Replay reads a stored stream and nothing else: no network, process, backend or model. Last,
+  // so no block above or after can weaken it.
+  replayConfinement,
 ]);
