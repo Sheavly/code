@@ -61,18 +61,32 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   relative imports, re-exports and literal dynamic imports; layout validates the metadata against
   actual direct `src/` module folders.
 - `harness/extension-definition` (source files of `extensions/*` workspaces, not tests): every
-  `defineExtension({ … })` says what its workspace says. `name` is a string literal equal to the
-  folder (`extensions/web` → `'web'`), and `dependsOn` (absent means none) is an array of string
-  literals that, as a set, equals the folders of the other extension workspaces in its
-  `dependencies` (dev dependencies don't count). An extension has no domain or category, so none
-  is checked. A missing name, an extra one and a duplicate are each reported with what to change.
-  Without it a `dependsOn` that omits a real dependency leaves activation order to luck; the host
-  only throws for a name that doesn't exist.
+  `defineExtension({ … })` is built from its workspace's `sheavly.json`: the argument is an object
+  literal (no spread) that passes `manifest` and does not pass `name`, `dependsOn` or `settings`,
+  which come from the manifest and would drift if repeated. `manifest` is
+  `readManifest(new URL('<path>', import.meta.url))`, where `readManifest` is the import from
+  `@sheavly/extension/manifest/manifest.helper` (under any local name; a local function of that
+  name, or an import from elsewhere, is reported), with a string-literal path, written in the
+  call or in the module-level `const` it names, and the path, resolved from the file's own
+  location, is exactly the workspace's `sheavly.json` (`'../../sheavly.json'` from
+  `src/<folder>/`). A wrong depth, another extension's file, an object literal (allowed in tests
+  and for third parties, never in an extension's own source), a non-literal path, a parameter,
+  `let` or import standing for the manifest, and a missing `manifest` are each reported with the
+  path to write.
   It reads the layout from disk (`readLayout`), so a new extension is covered with no edit, and
-  takes the `root`/`layout` options of the other layout rules. It cannot see a value that isn't a
-  literal (it reports that, and asks for a literal), an extension built by a helper rather than a
-  direct `defineExtension` call with an object literal, or a service read without a declared
-  dependency (that throws at activation).
+  takes the `root`/`layout` options of the other layout rules. Review covers an extension built by
+  a helper rather than a direct `defineExtension` object literal, a manifest read through another
+  function that returns it, and what the manifest declares against what the code does (the
+  host's activation check throws for that). The file itself is the layout check's, below.
+- **An extension's `sheavly.json`** (`harness/layout` and the layout check, one implementation in
+  `extension-manifest.utils.js`, read with `JSON.parse` only): every `extensions/*` workspace has
+  one; it can be read (a directory named `sheavly.json`, or no permission, is reported, not
+  thrown), is valid JSON and an object; its `name` is the folder name; its `dependsOn` equals, as a
+  set, the other extension workspaces in the package's `dependencies` (dev dependencies don't
+  count); and the package's `files` lists `sheavly.json`, so it ships. A workspace outside
+  `extensions/` has none. The rest of the schema (types, settings, wildcards) is validated by
+  `readManifest` when the extension loads, not here: this package depends on neither
+  `@sheavly/extension` nor zod. Each message says what to change.
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

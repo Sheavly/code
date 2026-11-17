@@ -62,6 +62,7 @@ describe('readLayout', () => {
       documented: null,
       files: ['dist', 'docs'],
       prepack: 'npm run build',
+      sheavlyJson: { exists: false },
     });
     expect(layout['@sheavly/cli']).toMatchObject({ dir: 'apps/cli', kind: 'app' });
     // The root holds no source, so it is the monorepo around the workspaces, not one of them.
@@ -71,7 +72,16 @@ describe('readLayout', () => {
   it('reads extensions/* as a library of its own kind, between packages and apps', () => {
     const withExtension = repo({
       'packages/base': generic,
-      'extensions/notes': { ...generic, dependencies: { '@sheavly/base': '0' } },
+      'extensions/notes': {
+        ...generic,
+        files: ['dist', 'docs', 'sheavly.json'],
+        dependencies: { '@sheavly/base': '0' },
+      },
+    });
+
+    writeFiles({
+      root: withExtension,
+      files: { 'extensions/notes/sheavly.json': { name: 'notes' } },
     });
 
     expect(readLayout({ root: withExtension })['@sheavly/notes']).toMatchObject({
@@ -161,6 +171,22 @@ describe('layoutProblems', () => {
     }),
     ...fields,
   });
+  // An extension that ships a sheavly.json naming its folder and its extension dependencies.
+  const extension = (fields) => ({
+    ...pkg(fields),
+    dir: `extensions/${fields.name}`,
+    kind: 'extension',
+    files: ['dist', 'docs', 'sheavly.json'],
+    sheavlyJson: {
+      exists: true,
+      data: {
+        name: fields.name,
+        dependsOn: (fields.dependsOn ?? [])
+          .map((dependency) => dependency.replace('@sheavly/', ''))
+          .filter((dependency) => dependency !== 'base'),
+      },
+    },
+  });
 
   it('says what to run for a missing domain, and names a workspace after its folder', () => {
     expect(layoutProblems({ '@sheavly/p': pkg({ domain: undefined }) })).toEqual([
@@ -217,11 +243,6 @@ describe('layoutProblems', () => {
   });
 
   it('lets an extension depend on packages and on other extensions, never a package on an extension', () => {
-    const extension = (fields) => ({
-      ...pkg(fields),
-      dir: `extensions/${fields.name}`,
-      kind: 'extension',
-    });
     const layout = {
       '@sheavly/base': pkg({ name: 'base' }),
       '@sheavly/agents': extension({ name: 'agents', dependsOn: ['@sheavly/base'] }),
@@ -235,11 +256,6 @@ describe('layoutProblems', () => {
   });
 
   it('keeps the domain rule for extensions: generic never depends on coding', () => {
-    const extension = (fields) => ({
-      ...pkg(fields),
-      dir: `extensions/${fields.name}`,
-      kind: 'extension',
-    });
     const layout = {
       '@sheavly/files': extension({ name: 'files', domain: 'coding' }),
       '@sheavly/notes': extension({ name: 'notes', dependsOn: ['@sheavly/files'] }),

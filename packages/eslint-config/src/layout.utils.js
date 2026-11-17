@@ -5,6 +5,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { exportsProblems } from './exports.utils.js';
+import { manifestProblems, readSheavlyJson } from './extension-manifest.utils.js';
 import { NOT_SOURCE } from './layout.js';
 import { workspaceDirs } from './rules/workspace-types.js';
 
@@ -87,6 +88,8 @@ export function readLayout(params) {
         // What a publish ships, and what builds it first.
         files: manifest.files,
         prepack: manifest.scripts?.prepack,
+        // The extension manifest on disk, for the checks that tie it to the workspace.
+        sheavlyJson: readSheavlyJson(path.join(root, relative)),
         documented: documentedModules(path.join(root, relative)),
       },
     ]),
@@ -232,7 +235,7 @@ function appOnlyModuleProblems(params) {
   });
 }
 
-/** What is wrong with one workspace's entry: its domain, its name and its edges. */
+/** What is wrong with one workspace's entry: its domain, its name, its edges and its manifest. */
 export function entryProblems(params) {
   const { name, entry, layout } = params;
   // A test may use any workspace below it (a real tool to drive the loop with), but never an
@@ -265,6 +268,7 @@ export function entryProblems(params) {
     ...entry.dependsOn.map((dependency) => edgeProblem({ name, entry, dependency, layout })),
     ...devProblems,
     ...exportsProblems({ name, entry }),
+    ...manifestProblems({ name, entry, layout }),
   ].filter(Boolean);
 }
 
