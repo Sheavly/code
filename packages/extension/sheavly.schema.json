@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string", "maxLength": 1000 },
+    "name": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "dependsOn": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+    },
+    "services": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "requires": {
+          "default": [],
+          "maxItems": 1000,
+          "type": "array",
+          "items": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        },
+        "optional": {
+          "default": [],
+          "maxItems": 1000,
+          "type": "array",
+          "items": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        },
+        "provides": {
+          "default": [],
+          "maxItems": 1000,
+          "type": "array",
+          "items": { "type": "string", "maxLength": 128, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "settings": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "type": { "type": "string", "const": "string" },
+              "default": { "type": "string", "maxLength": 1000 }
+            },
+            "required": ["name", "description", "type", "default"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "type": { "type": "string", "const": "number" },
+              "default": { "type": "number" }
+            },
+            "required": ["name", "description", "type", "default"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 128,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+              "type": { "type": "string", "const": "boolean" },
+              "default": { "type": "boolean" }
+            },
+            "required": ["name", "description", "type", "default"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "tools": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "hooks": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "workKinds": {
+      "default": [],
+      "maxItems": 1000,
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+    },
+    "emits": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "events": {
+          "default": [],
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "modelFacingNotices": { "default": false, "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "serves": {
+      "default": {},
+      "type": "object",
+      "properties": {
+        "actions": {
+          "default": [],
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["name"],
+  "additionalProperties": false
+}

@@ -7,7 +7,8 @@
     "build": "tsc -b tsconfig.build.json",
     "lint": "eslint .",
     "test": "vitest run --config ../../vitest.config.ts",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "schema": "tsx --conditions=@sheavly/source write-schema.mjs"
   },
   "type": "module",
   "license": "Apache-2.0",
@@ -38,11 +39,16 @@
     },
     "./testing/*": {
       "@sheavly/source": "./src/testing/*.ts"
+    },
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
     }
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "sheavly.schema.json"
   ],
   "dependencies": {
     "@sheavly/core": "^0.0.0"
