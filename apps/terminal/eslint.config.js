@@ -1,12 +1,12 @@
 import { defineConfig } from 'eslint/config';
-import { baseConfig } from '@sheavly/eslint-config';
+import { baseConfig, replayConfinement } from '@sheavly/eslint-config';
 
 export default defineConfig([
   // An app: baseConfig lets its source read env, print and use the terminal (it is in apps/).
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
     // The CLI entry points: files without a kind.
-    entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
+    entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/replay.ts', 'src/workbook/workbook.ts'],
   }),
   // Ctrl+C is `interruptOnCtrlC`'s: no entry point or helper listens for SIGINT itself.
   {
@@ -32,4 +32,7 @@ export default defineConfig([
     ],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // Replay reads a stored stream and nothing else: no network, process, backend or model. Last,
+  // so no block above or after can weaken it.
+  replayConfinement,
 ]);

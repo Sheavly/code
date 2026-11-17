@@ -10,6 +10,7 @@ npm run dev:terminal -- --setup                                    # add or upda
 npm run dev:terminal -- --resume <conversation-id>                  # reopen a saved conversation
 npm run demo -- "Read package.json and tell me the project name"   # one prompt, printed as it happens
 npm run workbook -- list                                           # stored prompts and saved runs
+npm run replay -- last --summary                                   # a stored run or conversation, no model call
 ```
 
 The chat guides an unconfigured workspace through setup before opening its first conversation:
@@ -59,10 +60,12 @@ by default and validated by the backend; when connecting to an existing backend,
 | `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)                                                                               |
 | `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                                                                                      |
 | `setup/`        | Guided profile, provider, model and credential setup through the backend's API                                                                                               |
+| `replay/`       | A stored conversation or workbook run, replayed through the `Renderer` or summarized (`npm run replay`), with no backend or model                                            |
 | `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                                                                                                |
 | `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion                                                                                   |
 | `chat.ts`       | The chat CLI: one conversation across prompts                                                                                                                                |
 | `demo.ts`       | The demo CLI                                                                                                                                                                 |
+| `replay.ts`     | The replay CLI: a stored conversation or run, rendered or summarized                                                                                                         |
 
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.
