@@ -4,6 +4,10 @@
     "packages/*/package.json",
     "packages/*/eslint.config.js",
     "packages/*/tsconfig*.json",
+    "extensions/*/src/**",
+    "extensions/*/package.json",
+    "extensions/*/eslint.config.js",
+    "extensions/*/tsconfig*.json",
     "apps/*/src/**",
     "apps/*/package.json",
     "apps/*/eslint.config.js",
@@ -16,20 +20,25 @@
     "docs/**",
     "packages/*/README.md",
     "packages/*/docs/**",
+    "extensions/*/README.md",
+    "extensions/*/docs/**",
     "apps/*/README.md",
     "apps/*/docs/**"
   ],
   "guides": {
     "layers.md": [
       "packages/*/src/**",
+      "extensions/*/src/**",
       "apps/*/src/**",
       "packages/*/package.json",
+      "extensions/*/package.json",
       "apps/*/package.json"
     ],
-    "file-kinds.md": ["packages/*/src/**", "apps/*/src/**"],
+    "file-kinds.md": ["packages/*/src/**", "extensions/*/src/**", "apps/*/src/**"],
+    "extensions.md": ["extensions/*/src/**", "packages/extension/src/**"],
     "extending.md": [
       "packages/tools/src/**",
-      "packages/coding/src/**",
+      "extensions/coding/src/**",
       "packages/providers/src/**",
       "packages/loop/src/**",
       "packages/core/src/hook/**",
@@ -38,11 +47,19 @@
       "packages/protocol/src/api/**",
       "apps/backend/src/api/**"
     ],
-    "principles.md": ["packages/eslint-config/**", "packages/*/src/**", "apps/*/src/**"],
+    "principles.md": [
+      "packages/eslint-config/**",
+      "packages/*/src/**",
+      "extensions/*/src/**",
+      "apps/*/src/**"
+    ],
     "packages.md": [
       "packages/*/package.json",
       "packages/*/README.md",
       "packages/*/docs/**",
+      "extensions/*/package.json",
+      "extensions/*/README.md",
+      "extensions/*/docs/**",
       "apps/*/package.json",
       "apps/*/README.md",
       "apps/*/docs/**",
@@ -50,8 +67,10 @@
     ],
     "tests.md": [
       "packages/*/src/**/__tests__/**",
+      "extensions/*/src/**/__tests__/**",
       "apps/*/src/**/__tests__/**",
       "packages/*/src/testing/**",
+      "extensions/*/src/testing/**",
       "apps/*/src/testing/**"
     ],
     "quality-gate.md": [
@@ -72,7 +91,7 @@
       "packages/host/src/**",
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",
-      "packages/coding/src/run-command/**",
+      "extensions/coding/src/run-command/**",
       "apps/terminal/src/interrupt/**",
       "apps/terminal/src/client/**"
     ],
@@ -80,7 +99,7 @@
       "packages/runtime/src/tasks/**",
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",
-      "packages/coding/src/run-command/**"
+      "extensions/coding/src/run-command/**"
     ]
   },
   "nudge": ["extending.md", "state-machines.md"],

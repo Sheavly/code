@@ -4,7 +4,7 @@ Each section is the canonical path for one kind of addition. If your change does
 
 ## A tool
 
-Create `packages/tools/src/<name>/` (generic) or `packages/coding/src/<name>/` (files or commands), copying the shape of `@sheavly/coding`'s `read-file/`. `defineTool` and the `Tool` types come from `@sheavly/core/tool/tool.utils` / `tool/tool.types` (`runTool` from `tool/tool.helper`).
+Create `packages/tools/src/<name>/` (generic) or `extensions/coding/src/<name>/` (files or commands), copying the shape of `@sheavly/coding`'s `read-file/`. `defineTool` and the `Tool` types come from `@sheavly/core/tool/tool.utils` / `tool/tool.types` (`runTool` from `tool/tool.helper`).
 
 - `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.

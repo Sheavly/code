@@ -14,7 +14,7 @@ skill; which workspace holds what is the `sheavly-packages` skill.
 
 The harness must be extendable the way VS Code is: contributions add to the loop and never own
 it; names are namespaced and a collision fails; content without code needs no trust, code from a
-repo stays behind workspace trust; `sheavly.domain` is a contribution's extension kind. Today
+repo stays behind workspace trust; the framework imposes no category on an extension. Today
 `coding` is a preset assembled by hand in the backend, and the aim is that it is one extension
 among others. So:
 
@@ -34,6 +34,7 @@ among others. So:
 | deciding where code goes, adding an import, or touching what a UI may do           | [layers.md](layers.md)                                             |
 | creating or naming files, a prompt, a schema, a type or a constant                 | [file-kinds.md](file-kinds.md)                                     |
 | adding a tool, sub-agent, provider, loop event, route, hook or project hook        | [extending.md](extending.md)                                       |
+| writing an extension, its dependencies or contributions, or touching `extensions/` | [extensions.md](extensions.md)                                     |
 | writing style, errors, time, validation, naming, or deciding what a rule should do | [principles.md](principles.md)                                     |
 | adding a workspace, or changing a package's README, docs or `exports`              | [packages.md](packages.md)                                         |
 | writing or fixing tests and fakes                                                  | [tests.md](tests.md)                                               |

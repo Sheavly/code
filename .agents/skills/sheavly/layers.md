@@ -4,20 +4,22 @@
 
 What each workspace may import is [the graph](../../../docs/overview.md#layers), generated from the workspaces' `package.json` (`npm run graph`; the layout check fails when it is stale). Never draw a copy of it: a doc links to it.
 
-| Layer                | Holds                                                                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                                                    |
-| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                                            |
-| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                                                   |
-| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                                                |
-| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md                          |
-| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                                           |
-| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                                            |
-| `packages/host`      | `@sheavly/host`: `createHarness`, the registries a run shares around the provider a UI picked. No tools, settings or UI             |
-| `packages/coding`    | `@sheavly/coding` (coding): the file tools, `run_command`, `createCodingHarness` (the workspace, file locks and process runner)     |
-| `apps/*`             | The front ends: `apps/terminal` (the demo, the workbook and the `Renderer` they share); `apps/vscode` is a README until it is built |
+| Layer                | Holds                                                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/protocol`  | `@sheavly/protocol`: the wire contract (events, updates, answers) as zod schemas                                                                          |
+| `packages/core`      | `@sheavly/core`: code contracts, `defineTool`/`runTool`, `defineAdapter`                                                                                  |
+| `packages/extension` | `@sheavly/extension`: the `Extension` contract, `defineExtension`/`defineService`, and `ExtensionHost`, which activates extensions (depends on core only) |
+| `packages/providers` | `@sheavly/providers`: protocol layers, backends, registry, switch                                                                                         |
+| `packages/runtime`   | `@sheavly/runtime`: the generic services, sessions, tasks, approvals                                                                                      |
+| `packages/workspace` | `@sheavly/workspace` (coding): workspace confinement, processes, trust, file locks, `.sheavly/`, AGENTS.md                                                |
+| `packages/tools`     | `@sheavly/tools`: the generic tools, sub-agents and tasks                                                                                                 |
+| `packages/loop`      | `@sheavly/loop`: `streamAgent` / `runAgent`, events, queue, abort, hooks                                                                                  |
+| `packages/host`      | `@sheavly/host`: `createHarness`, the registries a run shares around the provider a UI picked. No tools, settings or UI                                   |
+| `extensions/coding`  | `@sheavly/coding` (coding extension): the file tools, `run_command`, `createCodingExtension` and `createCodingHarness`                                    |
+| `extensions/*`       | Libraries of what a run includes, built on packages and composed by an app; they may depend on each other ([extensions.md](extensions.md))                |
+| `apps/*`             | The front ends: `apps/terminal` (the demo, the workbook and the `Renderer` they share); `apps/vscode` is a README until it is built                       |
 
-ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only `NOT_SOURCE` is written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
+ESLint enforces this (`harness/imports`). The layout is read from the workspaces: kind from the folder (`packages/*`, `extensions/*`, `apps/*`), the graph from each `package.json`'s dependencies, the domain from its `sheavly.domain`; only `NOT_SOURCE` is written by hand, in `packages/eslint-config/src/layout.js`. A workspace without a domain fails `harness/layout`. If an import is rejected, pass the dependency in as an option instead of moving the rule.
 
 ## Where code goes
 

@@ -37,6 +37,7 @@ flowchart BT
   subgraph group_generic ["generic packages"]
     client["@sheavly/client"]
     core["@sheavly/core"]
+    extension["@sheavly/extension"]
     host["@sheavly/host"]
     loop["@sheavly/loop"]
     protocol["@sheavly/protocol"]
@@ -58,6 +59,7 @@ flowchart BT
     backend["@sheavly/backend"]
     terminal["@sheavly/terminal"]
   end
+  agents --> extension
   agents --> loop
   agents --> tools
   backend --> coding
@@ -70,6 +72,7 @@ flowchart BT
   coding --> host
   coding --> workspace
   core --> protocol
+  extension --> core
   host --> loop
   host --> tools
   loop --> runtime
@@ -94,6 +97,7 @@ A new workspace comes from `npm run new` (README, "Workspace layout"); the `shea
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/protocol/src/`  | `@sheavly/protocol`, the wire contract a UI talks to, as zod schemas: `message/`, `session/`, `task/`, `approval/`, `event/`; its JSON Schema (`contract/`). zod only                                                                                                                  |
 | `packages/core/src/`      | Code contracts only: `message/` (what a provider streams), `provider/`, `tool/`, `adapter/`, `hook/`                                                                                                                                                                                   |
+| `packages/extension/src/` | `@sheavly/extension`, the extension lifecycle: `extension/` (the `Extension` contract, `defineExtension`, `defineService`), `host/` (`ExtensionHost`, the service registry), `errors/`; depends on core only                                                                           |
 | `packages/providers/src/` | `@sheavly/providers`, model backends: protocol layers (`responses/`, `anthropic-messages/`, sharing `http/`), backends on them (`openai/`, `azure/`: Azure OpenAI and Claude on Azure), adapter registry, `ProviderSwitch`                                                             |
 | `packages/runtime/src/`   | `@sheavly/runtime`, the generic services a run uses: `sessions/`, `tasks/` (background tasks), `approvals/`, and their errors; `errors/errors.utils.ts`; fakes for them in `testing/`                                                                                                  |
 | `packages/workspace/src/` | `@sheavly/workspace` (coding): the project on disk. `workspace/` (path confinement), `file-locks/`, `process/` (the process runner), `trust/`, `project-hooks/` (`.sheavly/`), `agents-md/`, `skills/`, their errors, and the fakes `useTempWorkspace` and `useFileLocks` (`testing/`) |

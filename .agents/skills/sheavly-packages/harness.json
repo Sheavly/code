@@ -2,6 +2,8 @@
   "governs": [
     "packages/*/package.json",
     "packages/*/README.md",
+    "extensions/*/package.json",
+    "extensions/*/README.md",
     "apps/*/package.json",
     "apps/*/README.md"
   ]
