@@ -19,7 +19,7 @@ import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
 import { SUB_AGENTS } from '@sheavly/agents/agents/agents.utils';
 
 const agents = createAgentsExtension({ subAgentProvider, logOf });
-// In another extension that declares dependsOn: ['agents']:
+// In another extension whose sheavly.json lists "agents" in dependsOn:
 //   services.get(SUB_AGENTS).share({ tools, taskTools, hooks });
 ```
 
