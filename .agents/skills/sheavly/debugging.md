@@ -34,16 +34,25 @@ Elsewhere: `workbook/runs/<id>/` (a workbook run: its prompt, events, `transcrip
 
 Each line of `stream.jsonl` is `{ seq, sessionId, kind, at }` plus `event` (for `kind: 'event'`, an `AgentEvent` with a `type`) or `update` (a session, task or approval update). `seq` is contiguous; a gap or a missing `done` is the first thing to look for. `history.jsonl` lines are `{ seq, entry }`. `errors.jsonl` lines carry `type` (`tool_failed`, `run_failed`, `hook_failed`), `error`, `toolName` and `toolCallId`.
 
+`npm run replay` reads the stream and nothing else: no backend, no model, no network, never `credentials.json`. It takes a conversation folder (the one holding `stream.jsonl`) or a workbook run (its id, its number, `last`, or its folder holding `sessions.sse`):
+
 ```bash
 C=~/.sheavly/profiles/<profile>/workspaces/<key>/conversations/<id>
-jq -c '{seq, sessionId, kind, type: (.event.type // .update.type)}' $C/stream.jsonl | head -50
-jq -c 'select(.kind=="event" and .event.type=="done") | .event' $C/stream.jsonl
-jq -c 'select(.kind=="event" and .event.type=="run_failed")' $C/stream.jsonl
+npm run replay -- $C --summary             # counts per kind, sessions and their end states, tasks, and what is wrong
+npm run replay -- $C                       # the stream through the same Renderer the demo prints with
+npm run replay -- $C --from 40             # from that seq on
+npm run replay -- $C --session <id>        # one session's entries, that session as the main one
+npm run replay -- last --json              # one entry per line, to pipe into jq
+```
+
+`--summary` is where to start: it flags a missing `done` of the main session, a `seq` gap, a cut-off last line and lines that are not entries, which replaces looking for them by hand. A replay of a run without `done` ends by saying how many tool calls were still running, so the state the live renderer was left in is visible. The recipes below cover what replay does not, the other files:
+
+```bash
 jq -c '{type, toolName, error}' $C/errors.jsonl
 jq -c '.queued' $C/queue.json
 ```
 
-Stored streams, histories and `outputs/` hold whatever the model and the tools saw, which can include secrets: project the fields you need with `jq` as above, and never paste whole entries into a chat or issue.
+Stored streams, histories and `outputs/` hold whatever the model and the tools saw, which can include secrets, and `replay` prints them as the live run did. Read what you need (`--summary`, a `--from` range, or `jq` projections of `--json`), and never paste whole entries into a chat or issue.
 
 The field names under `.event` and `.update` are those of the protocol schemas (`packages/protocol/src/event/event.validator.ts`, `packages/protocol/src/session/`, `packages/protocol/src/task/`); read the schema before relying on a field. These recipes use only the keys listed above.
 
@@ -65,7 +74,7 @@ The field names under `.event` and `.update` are those of the protocol schemas (
 - `npm run serve -w @sheavly/backend` starts the backend. It prints the token if `SERVER_TOKEN` is unset (a secret: never paste it into a chat or issue; set `SERVER_TOKEN` yourself to avoid printing one) and `→ listening on <url>` last. Its settings are env vars: `SERVER_HOST`, `SERVER_PORT`, `SERVER_TOKEN`, `WORKSPACE_ROOT`, `MAX_TURNS`, `SUMMARY`, `CONTEXT_WINDOW`, `MODEL_CALLS_FILE`, `SHOW_MODEL_CALLS` (prints prompts to the terminal), `MODEL_RESPONSE_TIMEOUT_MS`, `MODEL_RETRIES`, `MODEL_RETRY_DELAY_MS`, `SHEAVLY_HOME`, `SHEAVLY_TRUST_FILE`.
 - The API is documented in `apps/backend/docs/api.md` and its schema in `packages/protocol/openapi.json`; call it with the bearer token. The backend keeps no log of its own: API errors go to stderr, and a run's failures land in `errors.jsonl`.
 - The terminal app connects with `BACKEND_URL` and `BACKEND_TOKEN`, or starts its own backend. `SESSIONS_SSE_LOG` writes the raw stream it received.
-- `npm run workbook -- list|show|step|diff` reads stored workbook runs without a model call. `npm run demo` and `npm run workbook -- check` call a paid model: run them only on purpose.
+- `npm run workbook -- list|show|step|diff` reads stored workbook runs without a model call, and `npm run replay` renders or summarizes a run's (or a conversation's) stored stream, as above. `npm run demo` and `npm run workbook -- check` call a paid model: run them only on purpose.
 
 ## Debugging the dev tooling
 
