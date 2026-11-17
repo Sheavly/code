@@ -1,7 +1,7 @@
 import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
-import { WORKING_ROOT_CONTEXT_NAME } from './working-root.constants.js';
+import { CODING_HOOK_NAMES } from '../extension/coding-hook-names.constants.js';
 import { renderWorkingRootNote } from './working-root.prompt.js';
 
 /**
@@ -17,7 +17,7 @@ export function workingRootSource({
   workingRoots: WorkingRoots;
 }): InstructionSource {
   return {
-    name: WORKING_ROOT_CONTEXT_NAME,
+    name: CODING_HOOK_NAMES.workingRoot,
     order: INSTRUCTION_ORDER.workingRoot,
     resolve: async () => renderWorkingRootNote(await workingRoots.state()),
   };

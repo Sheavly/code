@@ -5,6 +5,7 @@ import {
   realPathOrSelf,
 } from '@sheavly/workspace/instruction-context/confined-read.helper';
 import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
+import { CODING_HOOK_NAMES } from '../extension/coding-hook-names.constants.js';
 import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';
 import { agentsDirs, agentsScope, formatAgentsInstructions } from './agents-md.utils.js';
@@ -43,7 +44,7 @@ export function agentsMdSource(options: AgentsMdHookOptions): InstructionSource 
   const { root, cwd = root, workingRoots } = options;
 
   return {
-    name: 'agents-md',
+    name: CODING_HOOK_NAMES.agentsMd,
     order: INSTRUCTION_ORDER.agentsMd,
     ...(workingRoots && { workingRoots: usableWorkingRoot(workingRoots) }),
     resolve: async ({ signal, workingRoot }) => {

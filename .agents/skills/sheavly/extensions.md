@@ -225,7 +225,8 @@ changes.
   internals.
 - A setting: list it in the manifest's `settings`, make the key with `settingKey` and read it
   with `context.settings.get`; the user's value is `extensionSettings`.
-- A hook position: `placeHook({ hook, before: ['agents-md'] })` or `after`, by `hook.name`.
+- A hook position: `placeHook({ hook, before: [CODING_HOOK_NAMES.agentsMd] })` or `after`, by
+  `hook.name` (`CODING_HOOK_NAMES` is public API: see "Built-in hook names" below).
 - A service of your own: list it in `services.provides`, `services.provide(KEY, value)`, and
   list the provider in `dependsOn` (and the service in `services.requires` or `optional`) to
   read it.
@@ -236,6 +237,24 @@ changes.
 - The run's own state: `SESSIONS`, `MAIN_SESSION`, `PROVIDER`, `INSTRUCTIONS` and
   `services.find(OUTPUTS)` (absent without an output store). There is no environment service:
   read configuration through a setting.
+
+### Built-in hook names
+
+The coding extension's instruction hooks are named `agents-md`, `skills`, `scratch` and
+`working-root`, in that order among the ones present (`scratch` is only registered when the
+workspace has a scratch root). They are a stable contract: third parties place hooks before or
+after them, so renaming one is a breaking change. The names are `CODING_HOOK_NAMES` in
+`@sheavly/coding/extension/coding-hook-names.constants`. Project hooks from `.sheavly/` come after
+them, under their own names. `scratch` stays a literal in `@sheavly/workspace` (a package cannot
+import an extension), and `extensions/coding/src/extension/__tests__/coding-hook-names.test.ts`
+pins all four.
+
+`extensions/coding/sheavly.json` lists the same four names (a JSON file cannot import the
+constant) next to a bare `*` for the project hooks, so the host never notices a fifth name added
+to the constant but not to the file: the test in
+`extensions/coding/src/extension/__tests__/coding-extension.helper.test.ts` compares the two. And
+placing a hook before or after a built-in one is ordering, not isolation: any loaded extension's
+hooks can see and change what a built-in hook added.
 
 ## What is enforced, and what is not
 
