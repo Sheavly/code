@@ -1,4 +1,5 @@
 import type { RunOutcome, SessionId, SessionState } from '@sheavly/protocol/session/session.types';
+import type { Write } from '../render/render.types.js';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 
@@ -17,6 +18,28 @@ export type StoredStream = {
   /** The last line (or frame) was cut off, as a crash leaves it; it is not in `entries`. */
   truncatedLastLine: boolean;
   invalidLines: number[];
+};
+
+/** Where replay writes: `write`, and the error that stopped the output (not a reader leaving). */
+export type ReplayOutput = {
+  write: Write;
+  /**
+   * The first error of the output that is not its reader having gone, or `undefined`, once what
+   * was written has reached the output.
+   */
+  failure: () => Promise<Error | undefined>;
+};
+
+/** What the replay command line asks for. */
+export type ReplayOptions = {
+  /** A folder, or a workbook run by id, number or `last`. */
+  target: string;
+  /** The first `seq` to replay. */
+  from: number;
+  /** Only this session's entries, and the one the renderer takes as the main session. */
+  session?: SessionId;
+  json: boolean;
+  summary: boolean;
 };
 
 /** A jump in `seq`: the entry after `after` was `next`, not `after + 1`. */

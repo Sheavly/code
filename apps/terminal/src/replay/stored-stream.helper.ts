@@ -2,9 +2,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { ReplayNotFoundError } from '../errors/replay.errors.js';
-import { CONVERSATION_STREAM_FILE, RUN_STREAM_FILE } from './replay.constants.js';
+import { RUN_FILES } from '../workbook/workbook.constants.js';
+import { CONVERSATION_STREAM_FILE } from './replay.constants.js';
 import type { StoredStream, StreamSource } from './replay.types.js';
 import { parseStreamText } from './stream-text.utils.js';
+
+/** A workbook run's capture of the server-sent event stream: the workbook names the file. */
+const RUN_STREAM_FILE = RUN_FILES.sessions;
 
 /**
  * A conversation's or a run's stored stream, read from its folder: `stream.jsonl` for a

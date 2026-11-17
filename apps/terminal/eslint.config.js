@@ -6,7 +6,7 @@ export default defineConfig([
   ...baseConfig({
     tsconfigRootDir: import.meta.dirname,
     // The CLI entry points: files without a kind.
-    entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/workbook/workbook.ts'],
+    entryFiles: ['src/chat.ts', 'src/demo.ts', 'src/replay.ts', 'src/workbook/workbook.ts'],
   }),
   // Ctrl+C is `interruptOnCtrlC`'s: no entry point or helper listens for SIGINT itself.
   {
