@@ -1,8 +1,8 @@
 import { rm } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
-import { WorkspaceError } from '../../errors/workspace.errors.js';
-import { openWithWorktrees, useTempRepo } from '../../testing/git-repo.fake.js';
-import { testWorkingRoots } from '../../testing/working-root-store.fake.js';
+import { WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
+import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
+import { testWorkingRoots } from '@sheavly/workspace/testing/working-root-store.fake';
 import { usableWorkingRoot } from '../usable-working-root.helper.js';
 
 const repo = useTempRepo({ prefix: 'usable-working-root-', perTest: true });

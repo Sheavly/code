@@ -7,7 +7,7 @@ import type { ModelMode } from '@sheavly/protocol/model/model.types';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { resolveWritable } from '@sheavly/coding/files/files.helper';
 import type {
   Check,

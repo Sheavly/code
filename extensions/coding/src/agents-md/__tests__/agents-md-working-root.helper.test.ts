@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { createInstructionHook } from '@sheavly/core/instruction-context/instruction-source.helper';
 import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
+import { openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
+import { testWorkingRoots } from '@sheavly/workspace/testing/working-root-store.fake';
 import { fakeBeforeTurn } from '../../testing/before-turn.fake.js';
-import { openWithWorktrees, useTempRepo } from '../../testing/git-repo.fake.js';
-import { testWorkingRoots } from '../../testing/working-root-store.fake.js';
 import { agentsMdSource } from '../agents-md.helper.js';
 
 const repo = useTempRepo({ prefix: 'agents-md-working-root-', perTest: true });

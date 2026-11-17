@@ -42,7 +42,6 @@
       "packages/providers/src/**",
       "packages/loop/src/**",
       "packages/core/src/hook/**",
-      "packages/workspace/src/project-hooks/**",
       "packages/protocol/src/event/**",
       "packages/protocol/src/api/**",
       "apps/backend/src/api/**"
@@ -93,6 +92,7 @@
       "packages/tools/src/sub-agent/**",
       "packages/tools/src/tasks/**",
       "extensions/coding/src/run-command/**",
+      "extensions/coding/src/trust/**",
       "apps/terminal/src/interrupt/**",
       "apps/terminal/src/client/**"
     ],

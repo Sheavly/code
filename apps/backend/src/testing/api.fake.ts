@@ -22,8 +22,8 @@ import { PermissionSetup } from '../profiles/permission-setup.service.js';
 import { Profiles } from '../profiles/profiles.service.js';
 import type { ProfileSetup } from '../profiles/setup.service.js';
 import type { WorkspaceSetup } from '../profiles/workspace-setup.service.js';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { TEST_TOKEN } from './testing.constants.js';
 import type { TestRequest } from './testing.types.js';
 

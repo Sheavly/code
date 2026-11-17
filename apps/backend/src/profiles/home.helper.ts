@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
 import { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { TRUSTED_WORKSPACES_FILE } from './profiles.constants.js';
 
 /**

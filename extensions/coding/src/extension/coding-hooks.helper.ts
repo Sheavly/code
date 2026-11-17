@@ -3,14 +3,14 @@ import {
   createInstructionHook,
   registerInstructionHooks,
 } from '@sheavly/core/instruction-context/instruction-source.helper';
-import { agentsMdSource } from '@sheavly/workspace/agents-md/agents-md.helper';
-import { loadProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.helper';
-import type { ProjectHooks } from '@sheavly/workspace/project-hooks/project-hooks.types';
 import { scratchSource } from '@sheavly/workspace/scratch/scratch-hook.helper';
-import { skillsSource } from '@sheavly/workspace/skills/skills.helper';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
+import { agentsMdSource } from '../agents-md/agents-md.helper.js';
+import { loadProjectHooks } from '../project-hooks/project-hooks.helper.js';
+import type { ProjectHooks } from '../project-hooks/project-hooks.types.js';
 import type { CodingHarness } from '../preset/coding.types.js';
+import { skillsSource } from '../skills/skills.helper.js';
+import type { SkillRoots } from '../skills/skills.types.js';
 import { workingRootSource } from '../working-root/working-root-hook.helper.js';
 import type { CodingExtensionOptions } from './coding-extension.types.js';
 

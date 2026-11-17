@@ -48,15 +48,15 @@ One entry in `API_ROUTES` (`packages/protocol/src/api/api.constants.ts`), named 
 
 ## An instruction source
 
-AGENTS.md, skills, scratch and the working root are instances of one factory, `createInstructionHook` (`@sheavly/core/instruction-context/instruction-source.helper`; the generic mechanism lives in core, the coding sources in `@sheavly/workspace`). A new source is one instance:
+AGENTS.md, skills, scratch and the working root are instances of one factory, `createInstructionHook` (`@sheavly/core/instruction-context/instruction-source.helper`; the generic mechanism lives in core, the coding sources in `@sheavly/coding`, the scratch one in `@sheavly/workspace`). A new source is one instance:
 
-1. Write `<name>Source(options): InstructionSource` with a unique `name`, an `order` (add it to `INSTRUCTION_ORDER` in `packages/workspace/src/instruction-context/instruction-source.constants.ts`) and `resolve({ signal, workingRoot })`, which returns the text that applies now or `undefined`. Pass `workingRoots` when it depends on the working root: the factory reads it every turn, and its owner makes it return `undefined` instead of throwing when the folder is unusable (`usableWorkingRoot(workingRoots)` in `@sheavly/workspace/working-root/usable-working-root.helper` does that for `WorkingRoots`), so a worktree chosen mid-run applies on the next model call.
+1. Write `<name>Source(options): InstructionSource` with a unique `name`, an `order` (add it to `INSTRUCTION_ORDER` in `packages/workspace/src/instruction-context/instruction-source.constants.ts`) and `resolve({ signal, workingRoot })`, which returns the text that applies now or `undefined`. Pass `workingRoots` when it depends on the working root: the factory reads it every turn, and its owner makes it return `undefined` instead of throwing when the folder is unusable (`usableWorkingRoot(workingRoots)` in `@sheavly/coding/working-root/usable-working-root.helper` does that for `WorkingRoots`), so a worktree chosen mid-run applies on the next model call.
 2. Register `createInstructionHook(source)` with `registerInstructionHooks([...])` in the app (`createBackendHarness`). Hook order comes from each `order`, never from array position; a repeated name throws `InstructionSourceError`.
 3. Dedup is the factory's, so a source keeps no state: the last `<instruction-context name="…">` user message in the history the hook is given is compared with the new text, and only a change (or withdrawal) is appended. A summary or masking that drops the entry makes the next turn announce it again; sub-agents announce on their own history. Never replace system instructions: it invalidates Claude's signed thinking prefix.
 
 ## A project hook (`.sheavly/`)
 
-Listed in `.sheavly/hooks.json`, loaded by `@sheavly/workspace/project-hooks/` with a native `import()`, its default export validated with zod. A new handler is accepted here with no edit: `hookExportSchema` reads its keys from the handler list. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).
+Listed in `.sheavly/hooks.json`, loaded by `@sheavly/coding/project-hooks/` with a native `import()`, its default export validated with zod. A new handler is accepted here with no edit: `hookExportSchema` reads its keys from the handler list. Tests write real temp projects; `vitest.config.ts` keeps Vite away from `.sheavly` files so Node's own ESM/CommonJS/TypeScript rules apply. Code from a repo runs only in a trusted workspace (`TrustStore`).
 
 ## A notice
 

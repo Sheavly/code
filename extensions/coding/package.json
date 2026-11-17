@@ -57,10 +57,18 @@
       "@sheavly/source": "./src/*.constants.ts",
       "default": "./dist/*.constants.js"
     },
-    "./ripgrep/*": null
+    "./ripgrep/*": null,
+    "./*.service": {
+      "@sheavly/source": "./src/*.service.ts",
+      "default": "./dist/*.service.js"
+    },
+    "./testing/*": {
+      "@sheavly/source": "./src/testing/*.ts"
+    }
   },
   "files": [
     "dist",
-    "docs"
+    "docs",
+    "skills"
   ]
 }

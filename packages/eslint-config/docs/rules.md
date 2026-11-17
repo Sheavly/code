@@ -161,8 +161,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   import `node:fs` or `node:fs/promises`. An instruction source's folder can be the agent's choice
   (a working root), so its reads go through `readConfinedFile`
   (`packages/workspace/src/instruction-context/confined-read.helper.ts`): real path inside the boundary, never `.env*`,
-  no link swapped after the check. The skills source is the one `files:` exception, since it reads
-  folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
+  no link swapped after the check. The skills source (`@sheavly/coding`) is the one `files:`
+  exception, in the coding extension's eslint.config.js, since it reads folders fixed at build time. `instruction-source-rules.test.js` pins where the rule and
   `harness/no-direct-instruction-context` are on and off. A source that reads through a helper
   that itself uses `node:fs` is not seen: the rule looks at the source file's own imports.
 - **Locked changes** (`harness/no-raw-serial-queue`, source files): no `new SerialQueue()`. A store

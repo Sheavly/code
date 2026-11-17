@@ -1,12 +1,12 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { DocumentStore } from '@sheavly/core/store/store.types';
-import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
-import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
+import type { ProjectTrust } from '../project-hooks/project-hooks.types.js';
 import type { CodingHarness } from '../preset/coding.types.js';
 import type { CommandPermissions } from '../run-command/run-command.types.js';
+import type { SkillRoots } from '../skills/skills.types.js';
+import type { TrustStore } from '../trust/trust.service.js';
 
 /**
  * What the run decides about its coding tools; the extension builds everything else. The output

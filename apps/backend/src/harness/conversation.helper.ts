@@ -10,10 +10,10 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { redactDiagnosticText } from '@sheavly/core/text/diagnostic-text.utils';
 import { errorMessage } from '@sheavly/runtime/errors/errors.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
-import { UnknownSkillError } from '@sheavly/workspace/errors/skills.errors';
-import { skillRequest } from '@sheavly/workspace/skills/skill-files.helper';
-import { findSkills } from '@sheavly/workspace/skills/skills.helper';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
+import { UnknownSkillError } from '@sheavly/coding/errors/skills.errors';
+import { skillRequest } from '@sheavly/coding/skills/skill-files.helper';
+import { findSkills } from '@sheavly/coding/skills/skills.helper';
+import type { SkillRoots } from '@sheavly/coding/skills/skills.types';
 import type { BackendHarness } from './harness.types.js';
 
 /**

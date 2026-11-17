@@ -6,9 +6,9 @@ import type {
 } from '@sheavly/host/conversations/conversations.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
-import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { TrustStore } from '@sheavly/coding/trust/trust.service';
 import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
-import { findSkills } from '@sheavly/workspace/skills/skills.helper';
+import { findSkills } from '@sheavly/coding/skills/skills.helper';
 import { harnessConversation } from './conversation.helper.js';
 import { createBackendHarness } from './harness.helper.js';
 import type { SearchChains } from './search-chains.service.js';

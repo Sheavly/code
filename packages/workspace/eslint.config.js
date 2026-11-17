@@ -17,11 +17,4 @@ export default defineConfig([
     files: ['src/instruction-context/confined-read.helper.ts'],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
-  // The skills source reads folders fixed when the harness is built (the project's and the user's
-  // skills folders), never one the agent chooses, and each SKILL.md is resolved through its own
-  // folder as a `Workspace`, which refuses a link out of it.
-  {
-    files: ['src/skills/skills.helper.ts'],
-    rules: { 'harness/no-raw-fs-in-instruction-source': 'off' },
-  },
 ]);

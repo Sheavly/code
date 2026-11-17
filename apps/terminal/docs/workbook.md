@@ -171,7 +171,7 @@ does is done. The `/git` review step asks for it, and the stop hook nudges once 
 workspace: basic
 check:
   {
-    'areas': ['packages/workspace/src/trust', 'extensions/coding/src/preset'],
+    'areas': ['extensions/coding/src/trust', 'extensions/coding/src/preset'],
     'expect': { 'reply': ['[AGENTS.md OK]', '/Sheavly\W*$/'], 'tools': ['read_file'] },
     'forbid': { 'transcript': ['hooks not loaded'] },
   }
@@ -180,7 +180,7 @@ check:
 
 - **`check`** is JSON, or the YAML flow style Prettier rewrites it to (single quotes, trailing
   commas). It may go on over indented lines. No YAML library is needed.
-- **`areas`**: source paths (`packages/workspace/src/trust`, a file or a folder) whose changes make the check
+- **`areas`**: source paths (`extensions/coding/src/trust`, a file or a folder) whose changes make the check
   relevant. `check` with no names runs only these, and lists changed source no check covers.
 - **`expect` / `forbid`**: `transcript` (what was printed) and `reply` (the final answer) take
   substrings, or regexes written `/…/flags`. `events` (types such as `context_added`) and `tools`
@@ -263,7 +263,7 @@ A fresh copy of a committed fixture is trusted, so its `.sheavly/` hooks run: it
 own code. A kept (`--keep`) or continued workspace isn't trusted automatically, since the agent
 may have edited its hooks. Add `--trust` to run them anyway (`run <prompt> --keep --trust`,
 `continue --trust "<text>"`). A run whose hooks were skipped says so at the top of its
-transcript. See [workspace trust](../../../packages/workspace/docs/project-hooks.md#workspace-trust).
+transcript. See [workspace trust](../../../extensions/coding/docs/project-hooks.md#workspace-trust).
 
 - Every run gets the next number (`0001-…`, `0002-…`), so `list` and `diff` read in order.
   Run ids can be shortened to their number: `show 7`, `diff 3 7`.

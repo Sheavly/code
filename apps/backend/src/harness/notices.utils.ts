@@ -1,4 +1,4 @@
-import type { FoundSkills } from '@sheavly/workspace/skills/skills.types';
+import type { FoundSkills } from '@sheavly/coding/skills/skills.types';
 
 /**
  * What the backend prints about skills as it opens a conversation: each one that didn't load (its

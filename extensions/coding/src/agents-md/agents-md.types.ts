@@ -1,4 +1,4 @@
-import type { WorkingRoots } from '../working-root/working-roots.service.js';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 
 /** One AGENTS.md that was found: where it is (relative to the root) and what it says. */
 export type AgentsFile = {

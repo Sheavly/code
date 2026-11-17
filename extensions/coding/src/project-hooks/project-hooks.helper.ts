@@ -2,7 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Hook } from '@sheavly/core/hook/hook.types';
-import { Workspace } from '../workspace/workspace.service.js';
+import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { confineImports } from './confine.helper.js';
 import type { TrustStore } from '../trust/trust.service.js';
 import { HOOKS_MANIFEST, SHEAVLY_DIR } from './project-hooks.constants.js';

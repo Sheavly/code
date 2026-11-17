@@ -6,9 +6,9 @@ import type {
 } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import { OUTPUTS } from '@sheavly/host/run-services/run-services.utils';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { keepReadsWithConversation } from '../file-reads/file-reads.helper.js';
+import type { SkillRoots } from '../skills/skills.types.js';
 import { createInstructionHooks, loadWorkspaceHooks } from './coding-hooks.helper.js';
 import { createCommandTools, createFileTools } from './coding-tools.helper.js';
 import type { CodingExtensionOptions } from './coding-extension.types.js';

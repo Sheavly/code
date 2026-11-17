@@ -11,9 +11,9 @@ import {
   toolCall,
 } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 import { untilSettled } from '../../testing/settled.fake.js';
 import { createBackendHarness } from '../harness.helper.js';

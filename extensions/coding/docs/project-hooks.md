@@ -95,7 +95,7 @@ runs the Cursor script as a process through `hooks/cursor-bridge.mjs` instead of
   hooks/            hook files: .js .mjs .cjs .ts .mts .cts, ESM or CommonJS
 ```
 
-- `loadProjectHooks({ root, trust, grant? })` (`@sheavly/workspace/project-hooks/`) loads them once at
+- `loadProjectHooks({ root, trust, grant? })` (`@sheavly/coding/project-hooks/`) loads them once at
   startup, in manifest order (`"enabled": false` skips one), and returns `{ hooks, trust }`.
   Anything broken stops startup with the file name and the reason.
 - Each file's default export is the hook (`export default` or `module.exports`). It's validated
@@ -120,7 +120,7 @@ once loaded ([trust model](../../../docs/overview.md#trust-model)). So
 ([#3](https://github.com/Sheavly/code/issues/3)); otherwise none of their files is
 even imported.
 
-- `TrustStore` (`@sheavly/workspace/trust/`) keeps the trusted workspaces in one document outside
+- `TrustStore` (`@sheavly/coding/trust/`) keeps the trusted workspaces in one document outside
   every repo, so a repo can't trust itself. It decides what is trusted and not where the document
   lives: the host passes a `TrustPersistence` (`load`, `update`, and the `file` it is in), and the
   store refuses one whose `file` is inside the workspace. The backend gives it a `DocumentFile`

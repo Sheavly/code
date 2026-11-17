@@ -277,7 +277,7 @@ you` keeps its own words.
   one, from the next model call on, keeping the history
   ([models and keys](../../backend/docs/harness.md#models-and-keys)). The switch is made by
   id; a name only finds the model, and one that two models share is refused.
-- `/<skill>` anywhere in a message runs that [skill](../../../packages/workspace/docs/skills.md)
+- `/<skill>` anywhere in a message runs that [skill](../../../extensions/coding/docs/skills.md)
   with the message, at the start (`/git submit`), in the middle or at the end
   (`review this, then /git`), including `disable-model-invocation` skills. A message that starts
   with a `/name` no skill has is reported as an unknown command and not sent. Skills that didn't

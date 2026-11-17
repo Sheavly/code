@@ -11,7 +11,7 @@ check:
         'packages/loop/src/history',
         'packages/loop/src/errors/loop.errors.ts',
         'packages/loop/src/stream-agent/turn.helper.ts',
-        'packages/workspace/src/project-hooks',
+        'extensions/coding/src/project-hooks',
         'apps/terminal/src/render',
       ],
     'expect':

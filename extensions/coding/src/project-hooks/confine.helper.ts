@@ -1,8 +1,8 @@
 import { realpathSync } from 'node:fs';
 import { builtinModules, registerHooks } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { ProjectHooksError } from '../errors/project-hooks.errors.js';
-import { isInside } from '../workspace/workspace.utils.js';
 
 /**
  * Module-level on purpose. Node's module hooks (`registerHooks`) apply to every import in the

@@ -6,8 +6,8 @@ import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import type { SearchBackend } from '@sheavly/tools/web-search/web-search.types';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
-import { memoryTrust } from '@sheavly/workspace/testing/trust.fake';
-import { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
+import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { createBackendHarness } from '../harness.helper.js';
 import { askingPermissions } from '../../testing/permissions.fake.js';
 

@@ -16,10 +16,10 @@ import type { CommandPermissions } from '@sheavly/coding/run-command/run-command
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
-import type { ProjectTrust } from '@sheavly/workspace/project-hooks/project-hooks.types';
+import type { ProjectTrust } from '@sheavly/coding/project-hooks/project-hooks.types';
 import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
-import type { TrustStore } from '@sheavly/workspace/trust/trust.service';
+import type { SkillRoots } from '@sheavly/coding/skills/skills.types';
+import type { TrustStore } from '@sheavly/coding/trust/trust.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import type { parseCliSettings, parseRunEnv } from './settings.validator.js';
 import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';

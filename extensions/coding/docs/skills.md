@@ -33,7 +33,7 @@ frontmatter is the YAML that skills use: `key: value` lines, `>-` / `|` text acr
 | `<project>/.sheavly/skills/` | project  |
 | `<project>/.agents/skills/`  | project  |
 | `~/.sheavly/skills/`         | user     |
-| `packages/workspace/skills/` | built-in |
+| `extensions/coding/skills/`  | built-in |
 | `~/.agents/skills/`          | user     |
 
 When two skills have the same name, the first one in this table wins, and the chat says at start
@@ -45,7 +45,7 @@ replace a built-in one on purpose.
 
 ## Built-in skills
 
-The harness ships its skills in `packages/workspace/skills/`, and
+The harness ships its skills in `extensions/coding/skills/`, and
 every UI gets them:
 
 | Skill          | What it does                                                                        |
@@ -64,7 +64,7 @@ Skills are instructions, not code, so workspace trust doesn't gate them, just as
 
 ## The hook and read_skill
 
-`skillsSource({ root, home? })` (`@sheavly/workspace/skills/`) is an instruction source; `createInstructionHook` makes a `beforeTurn` hook of it. Before every model call it re-reads each skill's name and description, appending the list to instruction context only when it changes. Earlier messages and the system prompt stay unchanged, preserving signed thinking. Bodies are never in the list. All eligible skills are listed without a character cap; manual-only skills remain excluded. Leave out `home` to read only the project's skills.
+`skillsSource({ root, home? })` (`@sheavly/coding/skills/`) is an instruction source; `createInstructionHook` makes a `beforeTurn` hook of it. Before every model call it re-reads each skill's name and description, appending the list to instruction context only when it changes. Earlier messages and the system prompt stay unchanged, preserving signed thinking. Bodies are never in the list. All eligible skills are listed without a character cap; manual-only skills remain excluded. Leave out `home` to read only the project's skills.
 
 The model reads a skill with `read_skill` (`@sheavly/coding/read-skill/`): its `SKILL.md` by default, or `file`, a path relative to the skill's folder. User skills live outside the workspace, so `read_skill` reads outside it, but only inside the skill's own folder (symlinks are followed, as in a workspace), and never a `.env` file. It returns the complete file without line or character caps or pagination. What it returns counts as read, as `read_file`'s does (it records the file's hash in the harness's `FileReads`), so `edit_file` can change a project skill the agent read with it. The recorded text is kept with the conversation like any other read (`FileReads` export, capped at 200 files and 2,000,000 characters), so a user skill read with `read_skill` is stored in the conversation's `shell.json` too; the model already received it, and `edit_file` still refuses a path outside the workspace. Ordinary `read_file` limits are unchanged. The model's context-window limit still applies.
 
@@ -110,7 +110,7 @@ same thing and what is highlighted is what runs. The UI only draws it:
 
 `completeSkillMention` offers every skill for a bare `/`, names starting with what was typed
 first, then names containing it. It offers user-only skills too, since the user runs them. It
-takes any list of things with a `name` (the workspace's `Skill`s, or a server's `SkillInfo`), so a
+takes any list of things with a `name` (the coding extension's `Skill`s, or a server's `SkillInfo`), so a
 UI that lists skills over HTTP completes them the same way. A UI with commands of its own (the
 terminal's `/model`) lists them next to the skills. Tab in the terminal chat completes skill
 names this way, from the backend's `QUERY /skills` (whose `search` narrows by name or description).

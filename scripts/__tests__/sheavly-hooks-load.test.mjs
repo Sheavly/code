@@ -5,9 +5,9 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadProjectHooks } from '../../packages/workspace/src/project-hooks/project-hooks.helper.ts';
-import { memoryTrust } from '../../packages/workspace/src/testing/trust.fake.ts';
-import { TrustStore } from '../../packages/workspace/src/trust/trust.service.ts';
+import { loadProjectHooks } from '../../extensions/coding/src/project-hooks/project-hooks.helper.ts';
+import { memoryTrust } from '../../extensions/coding/src/testing/trust.fake.ts';
+import { TrustStore } from '../../extensions/coding/src/trust/trust.service.ts';
 import { REPO_ROOT } from './temp-repo.utils.mjs';
 
 let project = '';

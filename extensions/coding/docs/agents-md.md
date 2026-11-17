@@ -4,10 +4,10 @@
 
 ## The source
 
-`agentsMdSource({ root, cwd?, workingRoots? })` (`@sheavly/workspace/agents-md/`) is an
+`agentsMdSource({ root, cwd?, workingRoots? })` (`@sheavly/coding/agents-md/`) is an
 `InstructionSource`: `createInstructionHook` (`@sheavly/core`) makes a `beforeTurn` hook of it that
 reads AGENTS.md files and appends changed instructions to history. The source hands the factory
-its working roots through `usableWorkingRoot`, so a root that went bad is none.
+its working roots through `usableWorkingRoot` (`working-root/`), so a root that went bad is none.
 
 - It looks in every folder from `root` down to `cwd` (default: `root`), like git walks up from
   the working directory, and never above `root`. Files go root first, each under its path, so
@@ -23,7 +23,8 @@ its working roots through `usableWorkingRoot`, so a root that went bad is none.
 - Each file is read through its real path. An AGENTS.md that resolves outside `root`, or to a
   `.env*` file, is skipped, because the working root is chosen by the agent and a symlink there
   would put a foreign file or a secret in the model's context. A symlink that stays inside `root`
-  is followed. The read is `readConfinedFile` (`instruction-context/confined-read.helper.ts`): it
+  is followed. The read is `readConfinedFile` (`@sheavly/workspace`'s
+  `instruction-context/confined-read.helper.ts`): it
   opens the checked real path without following a final link and without blocking (a FIFO is
   skipped), reads only a regular file, then resolves the real path again and drops the text unless
   it is unchanged. A swap between the check and the read is therefore refused, not read. It does

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
+import { isInside } from '@sheavly/workspace/workspace/workspace.utils';
 import { TrustStoreError } from '../errors/trust.errors.js';
 import { SHEAVLY_DIR } from '../project-hooks/project-hooks.constants.js';
 import { TRUST_STORE_VERSION } from './trust.constants.js';
@@ -15,7 +16,6 @@ import type {
 } from './trust.types.js';
 import { compareFingerprints, decideTrust, fingerprintOf, olderFormatHint } from './trust.utils.js';
 import { trustStoreSchema } from './trust.validator.js';
-import { isInside } from '../workspace/workspace.utils.js';
 
 /**
  * Which workspaces the user trusts to run their `.sheavly/` hooks. Kept in one JSON file

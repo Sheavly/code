@@ -3,9 +3,9 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { hashText } from '@sheavly/workspace/file-reads/file-reads.utils';
-import { readSkillFile } from '@sheavly/workspace/skills/skill-files.helper';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import { agentOf, assertNotEnvFile } from '../files/files.utils.js';
+import { readSkillFile } from '../skills/skill-files.helper.js';
+import type { SkillRoots } from '../skills/skills.types.js';
 import { READ_SKILL_PROMPTS } from './read-skill.prompt.js';
 
 /**

@@ -6,23 +6,27 @@ import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
 const REPO = path.resolve(import.meta.dirname, '../../../..');
 
 const WORKSPACE = 'packages/workspace';
+const CODING = 'extensions/coding';
 const CORE = 'packages/core';
 const FACTORY = 'src/instruction-context/instruction-source.helper.ts';
 
-const on = (params) => ruleIsErrorOn({ folder: WORKSPACE, ...params });
+const on = (params) => ruleIsErrorOn({ folder: CODING, ...params });
+const onWorkspace = (params) => ruleIsErrorOn({ folder: WORKSPACE, ...params });
 
 // The two rules hold only where they are meant to: the factory file (in core) is the one exception
 // to the import ban, and the skills source the one to the `node:fs` ban. A renamed file or a
 // widened override changes these answers, so the exceptions are pinned, not just configured.
 describe('no-direct-instruction-context', () => {
   it('is on for the instruction sources', async () => {
+    for (const file of ['src/agents-md/agents-md.helper.ts', 'src/skills/skills.helper.ts']) {
+      expect(await on({ rule: 'harness/no-direct-instruction-context', file })).toBe(true);
+    }
+
     for (const file of [
-      'src/agents-md/agents-md.helper.ts',
-      'src/skills/skills.helper.ts',
       'src/scratch/scratch-hook.helper.ts',
       'src/instruction-context/confined-read.helper.ts',
     ]) {
-      expect(await on({ rule: 'harness/no-direct-instruction-context', file })).toBe(true);
+      expect(await onWorkspace({ rule: 'harness/no-direct-instruction-context', file })).toBe(true);
     }
   });
 
@@ -45,7 +49,9 @@ describe('no-direct-instruction-context', () => {
         file: 'src/instruction-context/instruction-context.prompt.ts',
       }),
     ).toBe(true);
-    expect(await on({ rule: 'harness/no-direct-instruction-context', file: FACTORY })).toBe(true);
+    expect(
+      await onWorkspace({ rule: 'harness/no-direct-instruction-context', file: FACTORY }),
+    ).toBe(true);
   });
 
   it('is on in another workspace, so a hook there cannot append by hand', async () => {

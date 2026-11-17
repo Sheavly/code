@@ -4,12 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
+import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
+import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
 import type { FoundSkills, HiddenSkill, Skill, SkillProblem, SkillRoots } from './skills.types.js';
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
 import { skillFrontmatterSchema } from './skills.validator.js';
-import { Workspace } from '../workspace/workspace.service.js';
-import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';
 
 /**
  * A skill file or folder that couldn't be read (no permission, a SKILL.md that is a folder or

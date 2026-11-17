@@ -5,8 +5,8 @@ check:
   {
     'areas':
       [
-        'packages/workspace/src/skills',
-        'packages/workspace/skills',
+        'extensions/coding/src/skills',
+        'extensions/coding/skills',
         'extensions/coding/src/read-skill',
         'apps/backend/src/harness',
       ],

@@ -109,7 +109,7 @@ switching between them and adding a backend are in [@sheavly/providers](packages
 
 A project customizes a run with hooks in `.sheavly/` (`hooks.json` and the hook files), loaded only
 in a workspace you trust: run the demo once with `--trust`. Writing them, loading them and the
-trust model are in [@sheavly/workspace](packages/workspace/docs/project-hooks.md).
+trust model are in [@sheavly/coding](extensions/coding/docs/project-hooks.md).
 
 ## Project layout
 

@@ -2,7 +2,7 @@
 description: workspace trust: a fresh fixture loads its .sheavly hooks; changed since trusted, they're skipped
 workspace: basic
 check: {
-    "areas": ["packages/workspace/src/trust", "packages/workspace/src/project-hooks", "packages/host/src", "extensions/coding/src/preset", "apps/backend/src/harness", "apps/terminal/src/workbook/run.helper.ts", "apps/terminal/src/workbook/check.helper.ts", "apps/terminal/src/workbook/check.utils.ts", "apps/terminal/src/workbook/check.validator.ts"],
+    "areas": ["extensions/coding/src/trust", "extensions/coding/src/project-hooks", "packages/host/src", "extensions/coding/src/preset", "apps/backend/src/harness", "apps/terminal/src/workbook/run.helper.ts", "apps/terminal/src/workbook/check.helper.ts", "apps/terminal/src/workbook/check.utils.ts", "apps/terminal/src/workbook/check.validator.ts"],
     "steps": [
       { "run": {},
         "expect": { "transcript": ["house-rules added context"], "reply": ["/Sheavly\\W*$/"], "contextHooks": ["house-rules"], "outcome": "completed" },

@@ -36,7 +36,7 @@ Workspaces:
 | [`@sheavly/summary`](../packages/summary/README.md)             | Built-in summarizers: rules-only sections and a model-based writer, written against the core Summarizer contract                                                                                      |
 | [`@sheavly/testing`](../packages/testing/README.md)             | Test fakes every workspace's tests share: scripted and routed providers, fake fetch, a tool runner. Tests and fakes only.                                                                             |
 | [`@sheavly/tools`](../packages/tools/README.md)                 | The generic tools a UI can include: sub-agents (start_agent, message_agent, report_status) and the background task tools. No files, no commands.                                                      |
-| [`@sheavly/workspace`](../packages/workspace/README.md)         | A project on disk, for coding UIs: path confinement, file locks, the process runner, workspace trust, .sheavly/ project hooks and the AGENTS.md hook.                                                 |
+| [`@sheavly/workspace`](../packages/workspace/README.md)         | A project on disk, for coding UIs: path confinement to the workspace root, working roots, file reads and the shared scratch folder.                                                                   |
 
 <!-- workspaces:end -->
 

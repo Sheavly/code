@@ -30,24 +30,29 @@ Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) t
 tools also use a shared scratch folder outside the repo; see
 [file tools](docs/file-tools.md) and `@sheavly/workspace`.
 
-| Module          | What it holds                                                                                     |
-| --------------- | ------------------------------------------------------------------------------------------------- |
-| `preset/`       | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
-| `extension/`    | `createCodingExtension`, `CODING_RUN`: coding as an extension of a run                            |
-| `file-reads/`   | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
-| `instructions/` | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
-| `read-file/`    | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
-| `grep/`         | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
-| `glob/`         | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard      |
-| `read-skill/`   | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's        |
-| `write-file/`   | `write_file`                                                                                      |
-| `edit-file/`    | `edit_file`                                                                                       |
-| `delete-file/`  | `delete_file`: removes one file, through the workspace and the file lock                          |
-| `run-command/`  | `run_command`: base-command permissions, safe git config, approvals                               |
-| `trail/`        | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail            |
-| `working-root/` | `set_working_root` and the hook that tells the agent its root each turn                           |
-| `files/`        | What the file tools share: `resolveWritable` / `resolveDeletable`, the `.env` guard, `FileChange` |
-| `errors/`       | `CommandRefusedError`: a command needed approval nobody gave, or the user skipped it              |
+| Module           | What it holds                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| `preset/`        | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
+| `extension/`     | `createCodingExtension`, `CODING_RUN`: coding as an extension of a run                            |
+| `file-reads/`    | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
+| `instructions/`  | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
+| `read-file/`     | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
+| `grep/`          | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
+| `glob/`          | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard      |
+| `read-skill/`    | `read_skill`: a skill's SKILL.md or a file in its folder, from the project's or the user's        |
+| `write-file/`    | `write_file`                                                                                      |
+| `edit-file/`     | `edit_file`                                                                                       |
+| `delete-file/`   | `delete_file`: removes one file, through the workspace and the file lock                          |
+| `run-command/`   | `run_command`: base-command permissions, safe git config, approvals                               |
+| `trail/`         | `fileTrail`: one short line per file-tool or `run_command` call, for a summary's trail            |
+| `working-root/`  | `set_working_root` and the hook that tells the agent its root each turn                           |
+| `files/`         | What the file tools share: `resolveWritable` / `resolveDeletable`, the `.env` guard, `FileChange` |
+| `trust/`         | `TrustStore`: which workspaces the user trusts to run their `.sheavly/` hooks, outside every repo |
+| `project-hooks/` | `loadProjectHooks`: the `.sheavly/` hooks, only in a trusted workspace                            |
+| `agents-md/`     | `agentsMdSource`: AGENTS.md files as append-only instruction context                              |
+| `skills/`        | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                     |
+| `errors/`        | `CommandRefusedError`, and the trust, project-hook, AGENTS.md and skill errors                    |
+| `testing/`       | Fakes for tests: `memoryTrust`, `useSkillFolders`, `fakeBeforeTurn`                               |
 
 ## Docs
 
@@ -84,7 +89,10 @@ typed alias, preserving both its value and literal type without duplicating the 
 
 - [File tools](docs/file-tools.md): confinement, the four tools, the artifacts they return, and
   the [working root](docs/file-tools.md#the-working-root) an agent can set for a worktree.
-- [Skills](../../packages/workspace/docs/skills.md): `read_skill` returns complete skill files without line or
-  character caps, while preserving path confinement and `.env` protection. Ordinary `read_file`
-  limits are unchanged.
+- [Skills](docs/skills.md): the skill format, where skills are found, and which one wins;
+  `read_skill` returns complete skill files without line or character caps, while preserving path
+  confinement and `.env` protection. Ordinary `read_file` limits are unchanged.
+- [AGENTS.md](docs/agents-md.md): which files the hook reads, and when.
+- [Project hooks](docs/project-hooks.md): writing `.sheavly/` hooks, loading them, and workspace
+  trust.
 - [run_command](docs/run-command.md): how a command is checked before it runs.

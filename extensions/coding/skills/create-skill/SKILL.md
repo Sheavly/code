@@ -111,7 +111,7 @@ A skill does only what its description says, never anything the user wouldn't ex
 - The frontmatter opens and closes with `---`, and `name` matches the folder.
 - `SKILL.md` is well under 500 lines, every file it links to exists and is linked from `SKILL.md`
   itself, and the same thing has the same name throughout.
-- Never write into `packages/workspace/skills/`: that folder holds the skills the harness ships.
+- Never write into `extensions/coding/skills/`: that folder holds the skills the harness ships.
 - Read the description as if it were all you knew. Would you pick this skill for two or three
   realistic requests, and skip it for a near miss? Rewrite it until the answer is yes.
 - If the user wants it tested, run a realistic request in a sub-agent (`start_agent`, which

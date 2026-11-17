@@ -1,9 +1,9 @@
 import { rm } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { createInstructionHook } from '@sheavly/core/instruction-context/instruction-source.helper';
-import { fakeBeforeTurn } from '@sheavly/workspace/testing/before-turn.fake';
 import { git, openWithWorktrees, useTempRepo } from '@sheavly/workspace/testing/git-repo.fake';
 import { testWorkingRoots } from '@sheavly/workspace/testing/working-root-store.fake';
+import { fakeBeforeTurn } from '../../testing/before-turn.fake.js';
 import { workingRootSource } from '../working-root-hook.helper.js';
 
 const repo = useTempRepo({ prefix: 'working-root-hook-', perTest: true });

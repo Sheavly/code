@@ -1,5 +1,4 @@
 import type { OutputStore } from '@sheavly/core/output/output.types';
-import type { SkillRoots } from '@sheavly/workspace/skills/skills.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createDeleteFileTool } from '../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../edit-file/edit-file.tool.js';
@@ -11,6 +10,7 @@ import { createReadSkillTool } from '../read-skill/read-skill.tool.js';
 import { createRunCommandTool } from '../run-command/run-command.tool.js';
 import { createStartServiceTool } from '../run-command/start-service.tool.js';
 import type { CommandPermissions } from '../run-command/run-command.types.js';
+import type { SkillRoots } from '../skills/skills.types.js';
 import { createSetWorkingRootTool } from '../working-root/set-working-root.tool.js';
 import { createWriteFileTool } from '../write-file/write-file.tool.js';
 

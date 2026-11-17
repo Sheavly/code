@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/workspace",
   "version": "0.0.0",
-  "description": "A project on disk, for coding UIs: path confinement, file locks, the process runner, workspace trust, .sheavly/ project hooks and the AGENTS.md hook.",
+  "description": "A project on disk, for coding UIs: path confinement to the workspace root, working roots, file reads and the shared scratch folder.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",
@@ -20,10 +20,6 @@
     "@sheavly/protocol": "^0.0.0",
     "@sheavly/runtime": "^0.0.0",
     "zod": "^4.6.7"
-  },
-  "devDependencies": {
-    "@sheavly/loop": "^0.0.0",
-    "@sheavly/testing": "^0.0.0"
   },
   "exports": {
     "./*.constants": {
@@ -56,7 +52,6 @@
   },
   "files": [
     "dist",
-    "docs",
-    "skills"
+    "docs"
   ]
 }

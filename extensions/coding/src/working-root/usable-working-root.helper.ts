@@ -1,6 +1,6 @@
 import type { SourceWorkingRoots } from '@sheavly/core/instruction-context/instruction-source.types';
-import { WorkspaceError } from '../errors/workspace.errors.js';
-import type { WorkingRoots } from './working-roots.service.js';
+import { WorkspaceError } from '@sheavly/workspace/errors/workspace.errors';
+import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 
 /**
  * The working roots an instruction source reads each turn. A root that went bad (a

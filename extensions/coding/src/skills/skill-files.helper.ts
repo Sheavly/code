@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import type { SendPromptRequest } from '@sheavly/protocol/server/server.types';
+import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { SKILL_FILE } from './skills.constants.js';
 import { findSkills } from './skills.helper.js';
 import type { Skill, SkillFile, SkillRequest, SkillRoots } from './skills.types.js';
@@ -11,8 +13,6 @@ import {
   textOf,
 } from './skills.utils.js';
 import { UnknownSkillError } from '../errors/skills.errors.js';
-import { Workspace } from '../workspace/workspace.service.js';
-import type { SendPromptRequest } from '@sheavly/protocol/server/server.types';
 
 /** A file in `skill`'s folder, which must be inside it (symlinks followed); missing is ENOENT. */
 async function readFromSkill(params: {

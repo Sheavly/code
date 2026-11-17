@@ -1,10 +1,13 @@
 import path from 'node:path';
 import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
+import {
+  readConfinedFile,
+  realPathOrSelf,
+} from '@sheavly/workspace/instruction-context/confined-read.helper';
+import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
 import { AGENTS_FILE } from './agents-md.constants.js';
 import type { AgentsFile, AgentsMdHookOptions } from './agents-md.types.js';
 import { agentsDirs, agentsScope, formatAgentsInstructions } from './agents-md.utils.js';
-import { readConfinedFile, realPathOrSelf } from '../instruction-context/confined-read.helper.js';
-import { INSTRUCTION_ORDER } from '../instruction-context/instruction-source.constants.js';
 import { usableWorkingRoot } from '../working-root/usable-working-root.helper.js';
 
 /**
