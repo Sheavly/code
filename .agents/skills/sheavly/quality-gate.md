@@ -36,6 +36,11 @@ They run automatically:
   subagent links, the edited files, the shell snapshots, what the chat was shown once), and a write of
   a field it lacks, or of the wrong type, throws. A new field is a line in that schema. It is plain
   functions, not zod: the guards run before `npm ci`.
+- `harness/no-adhoc-chat-state` fails a hook (other than that module and the tests) that names
+  `SHEAVLY_HOOK_STATE_DIR` or the `sheavly-harness` state folder, in a string, a template or a longer
+  path, so no hook finds the files itself. It cannot see a name split across pieces, and it does not
+  check that a read-modify-write of one field goes through `changeChatState` or that a hook asks
+  `isTestOrFake` instead of writing its own test-path regex: those two are review.
 - A file records its format (`CHAT_STATE_VERSION`). One from before versions is read as version 1 if
   it passes the schema, and any other version is rejected with the field or version named.
 - Hooks write the same chat at once, so a write takes a lock (a file beside the state file, holding

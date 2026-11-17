@@ -328,6 +328,20 @@ export const SYNTAX_RULES = {
         "Do not match `unknown_approval` yourself. Wrap the `answerApproval` call in `answerWhileWaiting` (`@sheavly/client/approvals/approvals.helper`): an approval that is no longer waiting (answered elsewhere, or its call interrupted) is a normal end for a UI's answer, and that is the one place that rule lives. The code that defines or produces the error code is a `files:` override with its reason in this workspace's eslint.config.js.",
     },
   ],
+  // Per-chat hook state is read and written in one module, `chat-state.utils.mjs`: its schema, its
+  // version, its lock and its expiry. A hook that finds the state folder itself (its env override
+  // or its default path) writes files none of that guards. Enabled for `.cursor/hooks` in the
+  // root eslint.config.js, with the module itself and the tests exempt. A string or template piece
+  // holding either name fails, whole or inside a longer path. Not covered: a name split across
+  // pieces, or a state folder read through a variable.
+  'no-adhoc-chat-state': [
+    {
+      selector:
+        ":matches(Literal[value=/SHEAVLY_HOOK_STATE_DIR|sheavly-harness/], TemplateElement[value.cooked=/SHEAVLY_HOOK_STATE_DIR|sheavly-harness/], Identifier[name='SHEAVLY_HOOK_STATE_DIR'])",
+      message:
+        "Do not locate the hooks' chat state yourself. `chat-state.utils.mjs` is its only reader and writer (`getChatState`, `updateChatState`, `changeChatState`, `keepShownInChat`): a schema for every field, a version, a lock, an atomic write and expiry. A new field is a line in its `SCHEMA`; a read-modify-write of one field is a `changeChatState`.",
+    },
+  ],
   // `relative.startsWith('..')` also matches a folder named `..x/`, so an "is inside" check built
   // on it lets that folder count as outside (or refuses it as inside).
   'no-dotdot-prefix': [

@@ -267,6 +267,13 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   only by `formatHarnessNotice` (`@sheavly/core/notice/notice.utils`), which frames the text as
   harness data and escapes what is inserted. It cannot see a tag split inside a word or built from
   a variable, so the formatter's escaping and its tests carry the rest.
+- **Chat state** (`harness/no-adhoc-chat-state`, `.cursor/hooks` except `chat-state.utils.mjs` and
+  the tests, enabled in the root `eslint.config.js`): a string or template piece holding
+  `SHEAVLY_HOOK_STATE_DIR` or `sheavly-harness`, whole or inside a longer path, or the first name as
+  an identifier, fails, because the hooks' per-chat state is located, validated, locked and
+  expired in `chat-state.utils.mjs` alone. It cannot see a name split across pieces or a variable,
+  and it does not check that a hook uses `changeChatState` for a read-modify-write of one field or
+  that it asks `isTestOrFake` rather than writing its own test-path regex: those are review.
 - **File-tool guards** (coding source; each is checked structurally, and what it cannot see is
   left to review and the tests named in its file header):
   - `harness/guard-env-read`: a `resolveRead(requested)` call has `assertNotEnvFile` on the
