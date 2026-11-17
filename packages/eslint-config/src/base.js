@@ -154,13 +154,17 @@ export function baseConfig(params) {
             rules: { 'harness/no-adhoc-task-kind': 'error' },
           },
         ]),
-    // --- An extension's declaration matches its workspace: folder and dependencies ---
+    // --- An extension's declaration matches its workspace: folder and dependencies; its options are
+    // choices, not run state the services already carry ---
     ...(isExtension
       ? [
           {
             files: SOURCE_FILES,
             ignores: testFiles,
-            rules: { 'harness/extension-definition': 'error' },
+            rules: {
+              'harness/extension-definition': 'error',
+              'harness/extension-options-use-services': 'error',
+            },
           },
         ]
       : []),

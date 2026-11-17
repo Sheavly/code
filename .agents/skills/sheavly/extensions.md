@@ -141,7 +141,9 @@ returns the user's value or the default.
   supply narrowed services.
 - **Built-in extensions get no more access than a third party.** `agents` and `web` take nothing
   from the app that another extension could not read from the same services; options are only
-  the embedding app's choices (a provider selector, a summarizer). The one stated exception:
+  the embedding app's choices (a provider selector, a summarizer), and
+  `harness/extension-options-use-services` fails an `*ExtensionOptions` member whose declared type
+  names one a run service carries. The one stated exception:
   `coding` reads its workspace, file locks and process runner from the `CodingHarness` it is
   given (built on `createHarness`, so it also carries the run state), and takes its own `env`
   option (working roots and home); it reads `OUTPUTS` from the services like anyone. A new built-in that needs
@@ -273,15 +275,30 @@ in-memory manifest object is refused there. The layout check (`npm run layout`, 
 that parses, whose `name` is the folder and whose `dependsOn` equals, as a set, the other
 extension workspaces in the package's `dependencies`, and the package's `files` lists it; no
 other workspace has one. Its schema (field types, settings, wildcards) is checked by
-`readManifest` when it is read, not by lint.
+`readManifest` when it is read, not by lint. And `harness/extension-options-use-services`: no
+member (a property, a method, an index, call or construct signature, an alias body, an `extends`
+entry, a generic constraint or default) of an `*ExtensionOptions` type has a declared type that
+NAMES a type the host's run services carry (read from the `defineService` calls of its
+run-services file, not listed; function-typed options count, and the rule reports loudly if it
+cannot read that file), so a built-in is flagged when it takes a registry from the app that a third party could not
+read. Matching is by type name.
 
-None of this confines extension code (see "What the manifest is not" above). Review only: that
+None of this confines extension code (see "What the manifest is not" above), and the two lint
+rules are development guardrails that catch honest mistakes: an extension that wants a registry
+can still get one. Review only: that
 `activate` does no work the session did not ask for, that a service key is not
 a way around an import boundary, that what the manifest declares matches what the code needs (the
 host catches an undeclared use at run time, not a declaration nothing uses), an extension built by
 a helper instead of a direct `defineExtension` object literal, and a manifest read through
-another function than the plain `readManifest` call. `emits` and `serves` are reserved: nothing
-enforces them yet.
+another function than the plain `readManifest` call; for the options rule, an aliased or
+re-exported type name (`import type { X as S }`), a `typeof` query of a value and utility or
+conditional types that only resolve to a registry, an option typed `unknown`, `any` or a generic
+parameter and then cast, a factory parameter outside the `*ExtensionOptions` type, an options type
+composed from another type that holds a service type (`Base & { … }`, or a local or imported alias
+used as a member's type), an options `class`, an options type not named `*ExtensionOptions`, a
+differently named but identical type, and the `harness` option of `coding` (`CodingHarness`, the
+stated exception until coding is split). `emits` and `serves` are reserved: nothing enforces them
+yet.
 
 Out of scope, as in #102: lazy activation, a `when` language, per-package trust and a
 marketplace. A CLI to install and manage extensions, which reads manifests before running any
