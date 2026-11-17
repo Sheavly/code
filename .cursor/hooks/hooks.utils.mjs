@@ -1,12 +1,10 @@
 // Shared helpers for the Cursor hooks in this folder. Hooks talk JSON over stdin/stdout:
 // Cursor writes the event payload to stdin and reads our response from stdout.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 import { performance } from 'node:perf_hooks';
-import { GuardCrashError, HookStateError, isMissingPath } from './hooks.errors.mjs';
+import { GuardCrashError } from './hooks.errors.mjs';
 
 /** Project hooks run from the project root. */
 export const PROJECT_ROOT = process.cwd();
@@ -75,74 +73,6 @@ export function currentBranch(cwd = PROJECT_ROOT) {
   const branch = result.status === 0 ? result.stdout.trim() : '';
 
   return branch || null;
-}
-
-// Per-chat state (the chat's issue, its approvals), outside the repo so it is never committed.
-// SHEAVLY_HOOK_STATE_DIR points tests at a temp dir.
-const STATE_DIR =
-  process.env.SHEAVLY_HOOK_STATE_DIR ??
-  path.join(os.homedir(), '.cache', 'sheavly-harness', 'chats');
-
-function chatStateFile(conversationId) {
-  return path.join(STATE_DIR, `${String(conversationId).replace(/[^\w-]/g, '_')}.json`);
-}
-
-/** What earlier hooks recorded for this chat, or null when nothing was recorded yet. */
-export function getChatState(conversationId) {
-  if (!conversationId) return null;
-
-  const file = chatStateFile(conversationId);
-
-  try {
-    return JSON.parse(readFileSync(file, 'utf8'));
-  } catch (caughtError) {
-    if (isMissingPath(caughtError)) return null; // a new chat: nothing recorded yet
-    throw new HookStateError({ file, cause: caughtError });
-  }
-}
-
-/** Merges `fields` into this chat's recorded state. */
-export function updateChatState(params) {
-  const { conversationId, ...fields } = params;
-
-  if (!conversationId) return;
-  mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(
-    chatStateFile(conversationId),
-    JSON.stringify({ ...getChatState(conversationId), ...fields }),
-  );
-}
-
-/**
- * Every chat's recorded state as `{ id, state }`, `id` its state file's name. A state that can't
- * be read is left out, never thrown: it is that chat's to report, and leaving it out only means
- * its edits and links are not seen (as if it had recorded none).
- */
-export function listChatStates() {
-  let names;
-
-  try {
-    names = readdirSync(STATE_DIR).filter((name) => name.endsWith('.json'));
-  } catch (caughtError) {
-    if (isMissingPath(caughtError)) return []; // no chat has recorded anything yet
-    throw caughtError;
-  }
-
-  return names.flatMap((name) => {
-    try {
-      const state = JSON.parse(readFileSync(path.join(STATE_DIR, name), 'utf8'));
-
-      return [{ id: name.slice(0, -'.json'.length), state }];
-    } catch (caughtError) {
-      if (isMissingPath(caughtError) || caughtError instanceof SyntaxError) return [];
-      throw caughtError;
-    }
-  });
-}
-
-/** The id `conversationId`'s state is stored under, as `listChatStates` names it. */
-export function chatStateId(conversationId) {
-  return path.basename(chatStateFile(conversationId), '.json');
 }
 
 function runFile(file, args) {

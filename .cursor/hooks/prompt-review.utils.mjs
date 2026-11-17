@@ -1,3 +1,5 @@
+import { isTestOrFake } from '../../packages/eslint-config/src/test-paths.utils.js';
+
 /** Tool contracts span workspaces; their review failures name the prompt, not the edited tool. */
 export function promptReviewFailure(params) {
   const { scope, run } = params;
@@ -12,7 +14,7 @@ export function promptReviewFailure(params) {
 function needsPromptReview(file) {
   const normalized = file.split('\\').join('/');
 
-  if (/(^|\/)(__tests__|testing)\//.test(normalized)) return false;
+  if (isTestOrFake(normalized)) return false;
 
   return (
     /\.(tool|constants|prompt)\.ts$/.test(normalized) ||

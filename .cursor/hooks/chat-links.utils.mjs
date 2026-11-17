@@ -4,14 +4,9 @@
 // links to that call (every hook of a subagent names it as `parent_tool_call_id`), and these
 // readers walk the links at read time, so nested subagents work and nothing goes stale.
 import { chatEditedFiles } from './chat-files.utils.mjs';
+import { chatStateId, getChatState, listChatStates, updateChatState } from './chat-state.utils.mjs';
 import { ChatLinkError } from './hooks.errors.mjs';
-import {
-  chatStateId,
-  getChatState,
-  hookNow,
-  listChatStates,
-  updateChatState,
-} from './hooks.utils.mjs';
+import { hookNow } from './hooks.utils.mjs';
 import { endToolCall } from './subagents.utils.mjs';
 
 export function linkSubagent(params) {

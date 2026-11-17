@@ -14,4 +14,11 @@ export default defineConfig([
   ...baseConfig({ tsconfigRootDir: import.meta.dirname }),
   // CLIs: they report to the terminal.
   { files: ['.cursor/hooks/**/*.mjs', 'scripts/**/*.mjs'], rules: { 'no-console': 'off' } },
+  // The hooks' per-chat state is read and written by `chat-state.utils.mjs` alone; tests point it
+  // at a temp folder through the env variable the rule bans elsewhere.
+  {
+    files: ['.cursor/hooks/**/*.mjs'],
+    ignores: ['.cursor/hooks/chat-state.utils.mjs', '.cursor/hooks/__tests__/**'],
+    rules: { 'harness/no-adhoc-chat-state': 'error' },
+  },
 ]);

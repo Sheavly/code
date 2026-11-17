@@ -5,7 +5,8 @@
 // conversation, to the call that chat last ran under. Without either, the subagent counts as
 // running only until its idle timeout, after which the parent's checks run and name it once.
 import path from 'node:path';
-import { getChatState, hookNow, readHookInput, respond, updateChatState } from './hooks.utils.mjs';
+import { getChatState, updateChatState } from './chat-state.utils.mjs';
+import { hookNow, readHookInput, respond } from './hooks.utils.mjs';
 import { endToolCall } from './subagents.utils.mjs';
 
 function toolCallOfTranscript(transcriptPath) {

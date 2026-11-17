@@ -6,10 +6,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import tseslint from 'typescript-eslint';
+import { isTestOrFake } from '../test-paths.utils.js';
 
 const TYPES_FILE = /\.types\.ts$/;
-/** Test code and fakes aren't contracts: their types never ship. */
-const NOT_CONTRACT = /(^|\/)(__tests__|testing)\//;
 
 /** What was read per workspace root, with the file signature it was read at. */
 const cache = new Map();
@@ -69,7 +68,7 @@ function workspaces(root) {
 function typesFiles(workspace) {
   return readdirSync(workspace.src, { recursive: true })
     .map((entry) => entry.split(path.sep).join('/'))
-    .filter((entry) => TYPES_FILE.test(entry) && !NOT_CONTRACT.test(entry))
+    .filter((entry) => TYPES_FILE.test(entry) && !isTestOrFake(entry))
     .sort()
     .map((entry) => path.join(workspace.src, entry));
 }

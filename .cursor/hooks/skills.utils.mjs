@@ -3,7 +3,8 @@
 // new skill is wired in by its own `harness.json`, never by a list here.
 import path from 'node:path';
 import { findGoverningGuides } from '../../packages/eslint-config/src/skills.js';
-import { getChatState, PROJECT_ROOT, updateChatState } from './hooks.utils.mjs';
+import { keepShownInChat, shownInChat } from './chat-state.utils.mjs';
+import { PROJECT_ROOT } from './hooks.utils.mjs';
 
 // What a chat has been shown is keyed by the skill (`git`) or by one of its guides
 // (`sheavly/loop.md`), so a broad router shown once never hides a narrower guide.
@@ -25,17 +26,14 @@ function hintLine(params) {
  */
 export function hintGoverningSkills(params) {
   const { conversationId, relative, root = PROJECT_ROOT } = params;
-  const shown = new Set(getChatState(conversationId)?.skillHintsShown ?? []);
+  const shown = shownInChat({ conversationId, field: 'skillHintsShown' });
   const entries = findGoverningGuides({ root, relative }).filter(
     (entry) => !shown.has(shownKey(entry)),
   );
 
   if (entries.length === 0) return [];
 
-  updateChatState({
-    conversationId,
-    skillHintsShown: [...shown, ...entries.map(shownKey)],
-  });
+  keepShownInChat({ conversationId, field: 'skillHintsShown', values: entries.map(shownKey) });
 
   return entries.map(({ skill, guide }) => hintLine({ relative, skill, guide }));
 }

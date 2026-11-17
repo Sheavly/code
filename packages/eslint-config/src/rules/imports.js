@@ -20,9 +20,8 @@ import {
   workspaceFlag,
   workspaceOfFile,
 } from '../layout.utils.js';
+import { isTestOrFake } from '../test-paths.utils.js';
 import { findRoot } from './workspace-types.js';
-
-const TEST_CODE = /(^|\/)(__tests__|testing)\//;
 
 function toPosix(file) {
   return file.split(path.sep).join('/');
@@ -67,7 +66,7 @@ export const importsRule = {
 
     if (!entry) return {}; // a file outside every workspace: the layout check reports it
 
-    const isTestCode = TEST_CODE.test(toPosix(path.relative(from.dir, file)));
+    const isTestCode = isTestOrFake(toPosix(path.relative(from.dir, file)));
 
     const whyNot = (target) => {
       const targetEntry = layout[target];

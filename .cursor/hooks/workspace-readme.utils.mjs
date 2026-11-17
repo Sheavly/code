@@ -4,17 +4,16 @@
 // chat, so the context arrives when work there starts and never again.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { getChatState, PROJECT_ROOT, updateChatState } from './hooks.utils.mjs';
+import { workspaceOfRelative } from '../../packages/eslint-config/src/layout.utils.js';
+import { keepShownInChat, shownInChat } from './chat-state.utils.mjs';
+import { PROJECT_ROOT } from './hooks.utils.mjs';
 import { readWorkspaces } from './layout.utils.mjs';
 
 /** The workspace (`{ name, relative }`) that holds `relative`, a `/`-separated path; or undefined. */
 export function workspaceOf(params) {
   const { root, relative } = params;
 
-  return readWorkspaces(root)
-    .filter((workspace) => workspace.relative !== '.')
-    .filter((workspace) => relative.startsWith(`${workspace.relative}/`))
-    .sort((a, b) => b.relative.length - a.relative.length)[0];
+  return workspaceOfRelative({ workspaces: readWorkspaces(root), file: relative });
 }
 
 /** The note that shows `workspace`'s README, or null when it has none (the layout check says so). */
@@ -35,15 +34,15 @@ export function hintWorkspaceReadme(params) {
 
   if (!workspace) return [];
 
-  const shown = new Set(getChatState(conversationId)?.workspaceReadmesShown ?? []);
+  const field = 'workspaceReadmesShown';
 
-  if (shown.has(workspace.name)) return [];
+  if (shownInChat({ conversationId, field }).has(workspace.name)) return [];
 
   const note = readmeNote({ root, workspace });
 
   if (!note) return [];
 
-  updateChatState({ conversationId, workspaceReadmesShown: [...shown, workspace.name] });
+  keepShownInChat({ conversationId, field, values: [workspace.name] });
 
   return [note];
 }

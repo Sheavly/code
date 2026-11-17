@@ -7,19 +7,16 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { listWorkspaces } from '../../packages/eslint-config/src/layout.utils.js';
 import { listSkills } from '../../packages/eslint-config/src/skills.js';
+import { isTestOrFake } from '../../packages/eslint-config/src/test-paths.utils.js';
 import { isMissingPath, ProjectReadError } from './hooks.errors.mjs';
 import { PROJECT_ROOT } from './hooks.utils.mjs';
 
-const IS_TEST = /(^|\/)(__tests__|testing)\/|\.test\.[cm]?[jt]s$/;
-
 /**
- * Whether `file` is a test or fake: judged below its `src/`, so a workspace whose folder is
- * called `testing` (`packages/testing/src/…`) is not mistaken for tests.
+ * `file` below its `src/`, so a workspace whose folder is called `testing`
+ * (`packages/testing/src/…`) is not mistaken for tests.
  */
-function isTestSource(file) {
-  const below = file.includes('/src/') ? file.slice(file.indexOf('/src/') + '/src/'.length) : file;
-
-  return IS_TEST.test(below);
+function belowSrc(file) {
+  return file.includes('/src/') ? file.slice(file.indexOf('/src/') + '/src/'.length) : file;
 }
 
 /** The workspace folders (`packages/core`), relative and `/`-separated, deepest first. */
@@ -36,7 +33,7 @@ function docsFor(params) {
   const dir = dirs.find((candidate) => file.startsWith(`${candidate}/src/`));
 
   // Only below src/: the workspace folder itself may be called testing (`packages/testing`).
-  if (!dir || IS_TEST.test(file.slice(`${dir}/src/`.length))) return undefined;
+  if (!dir || isTestOrFake(file.slice(`${dir}/src/`.length))) return undefined;
 
   return { doc: `${dir}/README.md`, docs: `${dir}/docs/` };
 }
@@ -77,7 +74,7 @@ export function staleGuides(changed, root = PROJECT_ROOT) {
       const globs = skill.guides[guide];
       const files = changed.filter(
         (file) =>
-          !isTestSource(file) &&
+          !isTestOrFake(belowSrc(file)) &&
           file !== doc &&
           globs.some((glob) => path.posix.matchesGlob(file, glob)),
       );

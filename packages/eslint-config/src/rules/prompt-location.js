@@ -1,4 +1,6 @@
 import path from 'node:path';
+import { isTestOrFake } from '../test-paths.utils.js';
+import { OPTION_APIS } from './prompt-apis.utils.js';
 import { createPromptFlow, memberName, unwrapPrompt, walkPrompt } from './prompt-flow.utils.js';
 import {
   hasPromptProperties,
@@ -8,18 +10,6 @@ import {
   promptObjectType,
   typedPromptCall,
 } from './prompt-sinks.utils.js';
-
-// These are API bindings, not prose keywords or names of prompt variables. Relative and
-// namespace aliases resolve to the same imported binding; typed contracts cover routed options.
-const OPTION_APIS = new Set([
-  'createHarness',
-  'createCodingHarness',
-  'runAgent',
-  'streamAgent',
-  'composeInstructions',
-  'appendInstructionContext',
-  'createConversation',
-]);
 
 function isHarnessAPI(binding) {
   return binding && /(?:^@sheavly\/|\.(?:helper|utils)(?:\.js)?$)/.test(binding.source);
@@ -75,7 +65,7 @@ export const promptLocation = {
     },
   },
   create(context) {
-    if (/\.(prompt|test|fake)\.tsx?$|[/\\](__tests__|testing)[/\\]/.test(context.filename)) {
+    if (/\.(prompt|fake)\.tsx?$/.test(context.filename) || isTestOrFake(context.filename)) {
       return {};
     }
 

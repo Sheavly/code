@@ -96,6 +96,8 @@ tester.run('prompt-location', promptLocation, {
     },
     { code: tool("'Fixture'"), filename: filename.replace('.tool.ts', '.tool.test.ts') },
     { code: tool("'Fixture'"), filename: path.join(root, 'packages/new/src/testing/tool.fake.ts') },
+    // A workspace of fakes (`packages/testing`) has no `testing/` folder below its `src/`.
+    { code: tool("'Fixture'"), filename: path.join(root, 'packages/new/src/tool/tool.fake.ts') },
     {
       code: "export const text = 'Instructions';",
       filename: filename.replace('.tool.ts', '.prompt.ts'),
@@ -190,6 +192,10 @@ tester.run('prompt-location', promptLocation, {
       ),
     ),
     invalid(instructions("'Apply the policy.'")),
+    // Found by the derived list (prompt-apis.test.js), which the hand-written one had missed.
+    invalid(
+      "import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool'; createSubAgentTool({ baseInstructions: 'Be careful.' });",
+    ),
     invalid(
       `${harnessImport} function pick({ instructions, ...rest }) { return instructions; } create({ instructions: pick({ instructions: 'Apply policy', title: callerTitle }) });`,
     ),

@@ -7,9 +7,12 @@
 // Exempt, by path: tests and fakes (`__tests__/`, `testing/`, `*.fake.ts`), whose errors are
 // test values, and root `scripts/`, one-off tooling whose errors only ever reach a terminal.
 
+import { isTestOrFake } from '../test-paths.utils.js';
 import { relativePath } from './relative-path.utils.js';
 
-const EXEMPT = /(^|\/)(__tests__|testing|scripts)\/|\.fake\.ts$/;
+// Beyond tests: root `scripts/`, and fakes by name, since `packages/testing` is a workspace of
+// them whose files are not below a `testing/` folder of their own `src/`.
+const SCRIPTS_OR_FAKE = /(^|\/)scripts\/|\.fake\.ts$/;
 
 const MESSAGE =
   "No raw `Error` in source: throw a typed error class from this workspace's `src/errors/` (or the hooks' `hooks.errors.mjs`), with the fields to act on and the original as `cause`. Add a class if none fits. Only scripts, tests and fakes may use `Error`.";
@@ -34,7 +37,9 @@ export const noRawError = {
     messages: { raw: MESSAGE },
   },
   create(context) {
-    if (EXEMPT.test(relativePath(context))) return {};
+    const file = relativePath(context);
+
+    if (isTestOrFake(file) || SCRIPTS_OR_FAKE.test(file)) return {};
 
     const { sourceCode } = context;
     const check = (node) => {

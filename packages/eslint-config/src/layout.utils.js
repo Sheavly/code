@@ -129,6 +129,18 @@ export function workspaceOfFile(params) {
     .sort((a, b) => b.dir.length - a.dir.length)[0];
 }
 
+/**
+ * The workspace a repo-relative, `/`-separated `file` belongs to: the deepest workspace folder
+ * that holds it. The root (`.`) holds no file this way; a file outside every workspace is undefined.
+ */
+export function workspaceOfRelative(params) {
+  const { workspaces, file } = params;
+
+  return workspaces
+    .filter(({ relative }) => file.startsWith(`${relative}/`))
+    .sort((a, b) => b.relative.length - a.relative.length)[0];
+}
+
 /** npm's flag for the workspace at `dir`; none for the root, which isn't one of its workspaces. */
 export function workspaceFlag(dir) {
   return dir === '.' ? '' : ` -w ${dir}`;

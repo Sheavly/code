@@ -4,8 +4,9 @@
 // for SUBAGENT_IDLE_TIMEOUT_MS; then the checks run anyway and name it once, so a stop the hooks
 // never saw (a crash, a lost event) can't hold them back forever.
 import { chatFamily } from './chat-links.utils.mjs';
+import { getChatState, listChatStates, updateChatState } from './chat-state.utils.mjs';
 import { ChatLinkError } from './hooks.errors.mjs';
-import { getChatState, hookNow, listChatStates, updateChatState } from './hooks.utils.mjs';
+import { hookNow } from './hooks.utils.mjs';
 
 const SUBAGENT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 

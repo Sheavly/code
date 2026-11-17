@@ -3,19 +3,14 @@
 // on an issue branch (`123-road-segment-export`) names it too. A later prompt naming more issues
 // adds them, so one chat can work a stack of PRs across issues. NO-ISSUE opts out explicitly; Ask
 // mode can't change anything. Also records "allow cherry-pick" for the git guard.
+import { getChatState, updateChatState } from './chat-state.utils.mjs';
 import {
   findIssues,
   getBranchIssue,
   isCherryPickApproval,
   isNoIssuePrompt,
 } from './git-workflow.utils.mjs';
-import {
-  currentBranch,
-  getChatState,
-  readHookInput,
-  runGuard,
-  updateChatState,
-} from './hooks.utils.mjs';
+import { currentBranch, readHookInput, runGuard } from './hooks.utils.mjs';
 
 /** The hook's decision: continue, or stop and ask for the chat's issue. */
 async function decide() {
