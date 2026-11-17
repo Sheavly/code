@@ -15,6 +15,9 @@
       "path": "../core/tsconfig.build.json"
     },
     {
+      "path": "../extension/tsconfig.build.json"
+    },
+    {
       "path": "../loop/tsconfig.build.json"
     },
     {
