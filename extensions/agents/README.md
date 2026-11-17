@@ -10,6 +10,9 @@ services (`@sheavly/host/run-services/run-services.utils`) in `activate`, as any
 the host must supply them (`runServices`). Its options are the embedding app's choices only:
 `subAgentProvider`, `summarizeWith`, `keepAgentHistory` and `logOf`. It provides `SUB_AGENTS`: an
 extension that depends on `agents` shares the tools and hooks its sub-agents get with `share`.
+Its `sheavly.json` declares the services it requires (`sessions`, `tasks`, `provider`,
+`instructions`), reads optionally (`outputs`) and provides (`sub-agents`), and every tool it can
+contribute under any option; the host holds it to that.
 
 ```ts
 import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';

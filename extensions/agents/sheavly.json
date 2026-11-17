@@ -1,0 +1,20 @@
+{
+  "$schema": "../../packages/extension/sheavly.schema.json",
+  "name": "agents",
+  "services": {
+    "requires": ["sessions", "tasks", "provider", "instructions"],
+    "optional": ["outputs"],
+    "provides": ["sub-agents"]
+  },
+  "tools": [
+    "read_output",
+    "search_output",
+    "task_status",
+    "cancel_task",
+    "await_tasks",
+    "start_agent",
+    "message_agent",
+    "search_history",
+    "read_history_entry"
+  ]
+}
