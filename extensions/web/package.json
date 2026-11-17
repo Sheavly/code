@@ -1,0 +1,41 @@
+{
+  "name": "@sheavly/web",
+  "version": "0.0.0",
+  "description": "Public web reading and search tools (web_fetch, web_search), shared with sub-agents.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -b tsconfig.build.json",
+    "lint": "eslint .",
+    "test": "vitest run --config ../../vitest.config.ts",
+    "prepack": "npm run build"
+  },
+  "type": "module",
+  "license": "Apache-2.0",
+  "sheavly": {
+    "domain": "generic"
+  },
+  "private": true,
+  "exports": {
+    "./*.helper": {
+      "@sheavly/source": "./src/*.helper.ts",
+      "default": "./dist/*.helper.js"
+    },
+    "./*.types": {
+      "@sheavly/source": "./src/*.types.ts",
+      "default": "./dist/*.types.js"
+    }
+  },
+  "files": [
+    "dist",
+    "docs"
+  ],
+  "dependencies": {
+    "@sheavly/agents": "^0.0.0",
+    "@sheavly/extension": "^0.0.0",
+    "@sheavly/tools": "^0.0.0"
+  },
+  "devDependencies": {
+    "@sheavly/host": "^0.0.0",
+    "@sheavly/testing": "^0.0.0"
+  }
+}
