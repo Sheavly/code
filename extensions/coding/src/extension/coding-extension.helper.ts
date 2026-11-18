@@ -6,7 +6,7 @@ import type {
 } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { OUTPUTS } from '@sheavly/host/run-services/run-services.utils';
+import { OUTPUT_CAPTURE } from '@sheavly/host/run-services/run-services.utils';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { keepReadsWithConversation } from '../file-reads/file-reads.helper.js';
 import type { SkillRoots } from '../skills/skills.types.js';
@@ -24,7 +24,8 @@ const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
  * is trusted). Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
  *
  * It depends on `agents` to share its tools and hooks with sub-agents, and provides `CODING_RUN`.
- * It reads `OUTPUTS`, when the host supplies it, from the run services like any extension. Its
+ * It reads `OUTPUT_CAPTURE` (`output:capture`), when the host supplies it, from the run services
+ * like any extension; the logs it fills are read back through `read_output`. Its
  * one exception is the `harness`: coding's workspace, locks and processes (and the registries,
  * since `createCodingHarness` is built on `createHarness`) come from the harness it is given, and
  * the `env` option is its own (working-root and home resolution). It does not provide the
@@ -73,7 +74,7 @@ async function contribute(params: {
 }): Promise<Contributions> {
   const { options, services, workingRoots, skillRoots } = params;
   const { harness, permissions } = options;
-  const outputs = services.find(OUTPUTS);
+  const outputs = services.find(OUTPUT_CAPTURE);
   const instructionHooks = createInstructionHooks({ harness, workingRoots, skillRoots });
   const projectHooks = await loadWorkspaceHooks({ harness, instructionHooks, options });
   const hooks = [...instructionHooks, ...projectHooks.hooks];

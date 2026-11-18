@@ -1,7 +1,7 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
-import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/core/output/output.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { WorkDefinition, WorkInput } from '@sheavly/runtime/tasks/work.types';
@@ -97,7 +97,7 @@ export async function startCommandWork(params: {
   toWork: (input: WorkInput) => WorkDefinition;
   command: string;
   script: Omit<ScriptParams, 'signal'>;
-  outputs: OutputStore | undefined;
+  outputs: OutputCapture | undefined;
   processes: ProcessRunner;
   signal: AbortSignal;
   context: ToolContext;

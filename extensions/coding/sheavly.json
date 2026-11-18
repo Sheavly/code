@@ -4,9 +4,10 @@
   "dependsOn": ["agents"],
   "services": {
     "requires": ["sub-agents"],
-    "optional": ["outputs"],
+    "optional": ["output-capture"],
     "provides": ["coding-run"]
   },
+  "grants": ["output:capture"],
   "tools": [
     "read_file",
     "glob",
