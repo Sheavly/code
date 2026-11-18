@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { extensionDefinition } from './rules/extension-definition.js';
+import { extensionOptionsUseServices } from './rules/extension-options-use-services.js';
 import { fileKind } from './rules/file-kind.js';
 import { brandedIds } from './rules/branded-ids.js';
 import { guardEnvRead } from './rules/guard-env-read.js';
@@ -41,6 +42,7 @@ if (!existsSync(path.join(REPO_ROOT, SKILLS_DIR))) {
 const RULES = {
   'branded-ids': brandedIds,
   'extension-definition': extensionDefinition,
+  'extension-options-use-services': extensionOptionsUseServices,
   'file-kind': fileKind,
   'guard-env-read': guardEnvRead,
   'guard-env-write': guardEnvWrite,

@@ -87,6 +87,37 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `extensions/` has none. The rest of the schema (types, settings, wildcards) is validated by
   `readManifest` when the extension loads, not here: this package depends on neither
   `@sheavly/extension` nor zod. Each message says what to change.
+- `harness/extension-options-use-services` (source files of `extensions/*` workspaces, not tests):
+  a type alias or interface named `*ExtensionOptions` carries the embedding app's choices, never
+  run state. Each member (a property, a method, an index, call or construct signature) whose declared
+  type NAMES a type a run service carries (a union, an array, a generic argument such as
+  `Readonly<…>` or `Promise<…>`, an optional member, an inline literal, `import('x').Type` or a
+  qualified `Ns.Type` all count) is reported once, by its name, with the service key to read instead
+  (`services.get(SESSIONS)` in `activate`). A function-typed option counts: a method signature
+  `run(s: SessionRegistry): void` and a property `run: (s: SessionRegistry) => void` are both
+  reported. So is an alias whose whole body is a reference or wrapper
+  (`Partial<SessionRegistry>`, reported under the alias name), an `extends` entry of an interface,
+  and a generic parameter's constraint or default. Otherwise a built-in extension would again get
+  from the app what a third party cannot. The service types are read at lint time from the
+  `defineService<Type>('name')` calls of the host's
+  `packages/host/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
+  type name are joined with `or`), so a new service is covered with no edit; primitives are
+  ignored. Matching is by type name only: a name the file declares itself (a local type, interface,
+  enum, class or generic parameter) is not reported, and a differently named but structurally
+  identical type is a miss. It takes the `root`/`layout` options of the other layout rules. When
+  the file isn't under the root (or is not a regular file), or has a syntax error, it does
+  nothing without crashing; when the
+  file exists but yields no `defineService<Type>` key (a renamed or wrapped `defineService`) it
+  reports one error on the checked file saying so, instead of going silent. Review-only: an aliased
+  or re-exported type name (`import type { X as S }`), a `typeof` query of a value and
+  utility or conditional types that only resolve to a registry (`ReturnType` of one), an option typed
+  `unknown`, `any` or a generic parameter and then cast, a factory parameter outside the
+  `*ExtensionOptions` type, an options type composed from another type that holds a service type
+  (`Base & { … }` or `type S = SessionRegistry` used as `s: S`, local or imported: only the
+  `*ExtensionOptions` declaration itself is read), an options `class` (only a type alias and an
+  interface are visited), an options type not named `*ExtensionOptions`, and the `harness` option
+  of `coding` (`CodingHarness` is not a service type, and the registries it carries are a stated
+  exception that splitting coding removes).
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

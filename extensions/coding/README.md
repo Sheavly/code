@@ -36,7 +36,7 @@ tools also use a shared scratch folder outside the repo; see
 | Module           | What it holds                                                                                     |
 | ---------------- | ------------------------------------------------------------------------------------------------- |
 | `preset/`        | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
-| `extension/`     | `createCodingExtension`, `CODING_RUN`: coding as an extension of a run                            |
+| `extension/`     | `createCodingExtension`, `CODING_RUN`, `CODING_HOOK_NAMES`: coding as an extension of a run       |
 | `file-reads/`    | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
 | `instructions/`  | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
 | `read-file/`     | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
@@ -56,6 +56,20 @@ tools also use a shared scratch folder outside the repo; see
 | `skills/`        | `findSkills`, `skillsSource`, `skillRequest`; mentions and completion for UIs                     |
 | `errors/`        | `CommandRefusedError`, and the trust, project-hook, AGENTS.md and skill errors                    |
 | `testing/`       | Fakes for tests: `memoryTrust`, `useSkillFolders`, `fakeBeforeTurn`                               |
+
+## Built-in hook names
+
+The instruction hooks are named `agents-md`, `skills`, `scratch` and `working-root`, in that
+order among the ones present (`scratch` is only registered when the workspace has a scratch
+root). The names are a stable contract: a third-party extension positions its hooks against them
+with `placeHook({ hook, before: [CODING_HOOK_NAMES.agentsMd] })`, so renaming one is a breaking
+change. Import `CODING_HOOK_NAMES` from `@sheavly/coding/extension/coding-hook-names.constants`.
+The `.sheavly/` project hooks come after them, under their own names. The `scratch` literal lives
+in `@sheavly/workspace`, which cannot import an extension;
+`src/extension/__tests__/coding-hook-names.test.ts` pins all four against the hooks the extension
+builds. `sheavly.json` lists the same four names next to a bare `*` for the project hooks, so the
+host would not notice a fifth name added to the constant but not to the file; the test in
+`src/extension/__tests__/coding-extension.helper.test.ts` compares the two.
 
 ## Docs
 

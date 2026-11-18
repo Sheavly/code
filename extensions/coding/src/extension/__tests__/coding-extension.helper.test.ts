@@ -13,9 +13,11 @@ import { testPermissions } from '../../testing/permissions.fake.js';
 import { memoryTrust } from '../../testing/trust.fake.js';
 import { TrustStore } from '../../trust/trust.service.js';
 import { createCodingExtension } from '../coding-extension.helper.js';
+import { CODING_HOOK_NAMES } from '../coding-hook-names.constants.js';
 
 const manifest = readManifest(new URL('../../../sheavly.json', import.meta.url));
-const INSTRUCTION_HOOKS = ['agents-md', 'skills', 'scratch', 'working-root'];
+// The manifest is JSON and cannot import the constant: the assertions below keep them in step.
+const INSTRUCTION_HOOKS = Object.values(CODING_HOOK_NAMES);
 
 let base: string;
 let project: string;

@@ -6,6 +6,7 @@ import type { InstructionSource } from '@sheavly/core/instruction-context/instru
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { CODING_HOOK_NAMES } from '../extension/coding-hook-names.constants.js';
 import { SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
 import type { FoundSkills, HiddenSkill, Skill, SkillProblem, SkillRoots } from './skills.types.js';
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
@@ -181,7 +182,7 @@ export function skillsSource(options: SkillRoots): InstructionSource {
   const { root, home } = options;
 
   return {
-    name: 'skills',
+    name: CODING_HOOK_NAMES.skills,
     order: INSTRUCTION_ORDER.skills,
     resolve: async ({ signal }) => {
       const { skills } = await findSkills({ root, home, signal });
