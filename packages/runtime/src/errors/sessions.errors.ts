@@ -8,11 +8,14 @@ type SessionFailure =
   | 'too_deep'
   | 'session_ended'
   | 'session_running'
-  | 'not_an_ancestor';
+  | 'not_an_ancestor'
+  | 'outbox_full'
+  | 'invalid_notice';
 
 /**
  * A session operation was refused: an unknown or released session, a parent or target that has
- * ended, a sub-agent nested too deep, or a message from a session that didn't start its target.
+ * ended, a sub-agent nested too deep, a message from a session that didn't start its target, an
+ * extension notice that is malformed, or one queued while the session's outbox is full.
  */
 export class SessionError extends Error {
   override name = 'SessionError';

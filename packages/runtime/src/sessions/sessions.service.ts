@@ -14,7 +14,7 @@ import { Inboxes } from './inboxes.service.js';
 import { LastTokens } from './last-tokens.service.js';
 import { MessageContexts } from './message-contexts.service.js';
 import { ApprovalSessions } from './approval-sessions.service.js';
-import { assertCanSend } from './send-check.helper.js';
+import { assertCanSend, assertOpen } from './send-check.helper.js';
 import { notifyAll } from './listeners.helper.js';
 import { updateStream } from './update-stream.helper.js';
 import { announceStorageFailure } from './storage-failure.helper.js';
@@ -37,7 +37,7 @@ import type { ApprovalUpdate } from '@sheavly/protocol/approval/approval.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TaskUpdate } from '@sheavly/protocol/task/task.types';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
-import type { EntryFilter, SessionMessage, StoredLog } from './sessions.types.js';
+import type { EntryFilter, QueuedNotice, SessionMessage, StoredLog } from './sessions.types.js';
 
 type Listener = (update: SessionUpdate) => void;
 
@@ -162,13 +162,7 @@ export class SessionRegistry {
     const { id, modelId, mode } = params;
     const session = this.#require(id);
 
-    if (!isOpen(session.state)) {
-      throw new SessionError({
-        reason: 'session_ended',
-        sessionId: id,
-        message: `Session ${id} has ended (${session.state}); its model is the one it ran on`,
-      });
-    }
+    assertOpen({ session, consequence: 'its model is the one it ran on' });
 
     if (session.modelId === modelId && session.mode === mode) return;
 
@@ -246,6 +240,23 @@ export class SessionRegistry {
 
     this.#emit({ type: 'session_message', session, message });
     this.#inboxes.add({ id, message });
+  }
+
+  /**
+   * Queues an extension's notice, already checked by its host, for a running or idle session; its
+   * loop publishes it, in order, at the next turn (an idle session's, at its next prompt). Throws
+   * `session_ended` for a session that has ended, never drops it silently: the extension that
+   * emitted it learns its notice went nowhere. Throws for an unknown or released session too,
+   * `invalid_notice` for a notice the protocol's schema refuses (checked whatever the caller did,
+   * since history reads it back) and `outbox_full` past `MAX_QUEUED_NOTICES`.
+   */
+  queueNotice(params: { id: SessionId; notice: QueuedNotice }): void {
+    this.#inboxes.addNotice({ session: this.#require(params.id), notice: params.notice });
+  }
+
+  /** Removes and returns the session's queued extension notices, oldest first. */
+  takeNotices(id: SessionId): QueuedNotice[] {
+    return this.#inboxes.takeNotices(id);
   }
 
   /**

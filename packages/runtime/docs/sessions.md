@@ -99,6 +99,30 @@ For the user steering a sub-agent through the main session: the user messages th
 which decides whether to pass it on with `message_agent`. That keeps the main session in charge
 of its sub-agents. A host could also call `sessions.send` with `from: 'user'` directly.
 
+## Extension notices and events
+
+An extension (through `@sheavly/extension`'s `emit`, whose sink the app wires) can tell the
+session's model something, or show a UI something.
+
+- **A notice** goes into the session's **outbox**, which lives beside its inbox:
+  `sessions.queueNotice({ id, notice })` takes an `extension-notice` the extension host already
+  checked, and the loop drains it with `sessions.takeNotices(id)` at the next turn, through its
+  `extension-notices` delivery contribution, so the stream event and the history entry carry the
+  same payload in order. Unlike the inbox it wakes no waiting run: a notice is not a reason to
+  run. An idle session keeps it for its next prompt. `queueNotice` **throws** `session_ended` for
+  an ended session (and for an unknown or released one) rather than dropping it silently, so the
+  extension that emitted it learns it went nowhere. A released session's outbox is dropped.
+  The outbox holds at most `MAX_QUEUED_NOTICES` (100) notices per session: it is drained only at
+  the next turn, and an idle session keeps its notices for its next prompt, so past the cap
+  `queueNotice` throws an `outbox_full` `SessionError` (the emitting extension's `emit.notice`
+  call then fails loudly) instead of growing without bound. `queueNotice` also validates the
+  notice with the protocol's extension-notice schema, the one history reads back, and throws
+  `invalid_notice` (issue paths and codes only) for a malformed one, whoever calls it.
+- **An event** is not queued: it is published at once with `sessions.publish`, as an
+  `extension_event` with `seq: 0`, the way `storage_failed` is: it belongs to no run, so it has no
+  place in a run's order, and the registry numbers its entry in the combined stream. It is not
+  stored in history; a stored conversation replays it from the entry log.
+
 ## Streaming to a UI: server-sent events
 
 Status lines are small and live, so they're pushed, not polled. `sessions.stream({ signal })`
