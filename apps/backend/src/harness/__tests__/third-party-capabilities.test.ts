@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
-import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
+import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { Services } from '@sheavly/extension/extension/extension.types';
 import {
@@ -20,13 +20,15 @@ import {
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import {
   APPROVALS,
+  BACKGROUND_TASKS,
   MAIN_SESSION,
-  OUTPUTS,
-  PROVIDER,
-  SESSIONS,
-  TASKS,
+  MODEL,
+  OUTPUT_READER,
+  SESSION_INFO,
 } from '@sheavly/host/run-services/run-services.utils';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
+import type { SessionInfoView } from '@sheavly/runtime/sessions/session-scope.types';
 import { finiteWork, startWork } from '@sheavly/runtime/tasks/work.utils';
 import { calls, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
@@ -141,7 +143,7 @@ describe('a third party extends the program without editing our source', () => {
     expect(read).toEqual(['hello']);
   });
 
-  it('(d) starts background work of its own kind through TASKS and awaits its completion', async () => {
+  it('(d) starts background work of its own kind through BACKGROUND_TASKS and awaits its completion', async () => {
     const startIndex = (services: Services) =>
       defineTool({
         name: 'start_index',
@@ -153,7 +155,7 @@ describe('a third party extends the program without editing our source', () => {
           if (!sessionId) throw new Error('called outside a session');
 
           startWork({
-            tasks: services.get(TASKS),
+            tasks: services.get(BACKGROUND_TASKS),
             work: finiteWork({
               command: 'jobs.index',
               description: 'Indexes the notes',
@@ -168,7 +170,8 @@ describe('a third party extends the program without editing our source', () => {
     const jobs = defineExtension({
       manifest: manifestOf({
         name: 'jobs',
-        services: { requires: [TASKS.name] },
+        services: { requires: [BACKGROUND_TASKS.name] },
+        grants: ['task:start'],
         tools: ['start_index'],
         workKinds: ['jobs.index'],
       }),
@@ -201,6 +204,7 @@ describe('a third party extends the program without editing our source', () => {
       manifest: manifestOf({
         name: 'purge',
         services: { requires: [APPROVALS.name] },
+        grants: ['approval:request'],
         tools: ['purge'],
       }),
       activate: ({ services }) => ({
@@ -274,12 +278,12 @@ describe('a third party extends the program without editing our source', () => {
     });
   });
 
-  it('(g) finds OUTPUTS only when the app has an output store', async () => {
+  it('(g) finds OUTPUT_READER only when the app has an output store, and only to read', async () => {
     const found: unknown[] = [];
     const reader = defineExtension({
-      manifest: manifestOf({ name: 'reader', services: { optional: [OUTPUTS.name] } }),
+      manifest: manifestOf({ name: 'reader', services: { optional: [OUTPUT_READER.name] } }),
       activate: ({ services }) => {
-        found.push(services.find(OUTPUTS));
+        found.push(services.find(OUTPUT_READER));
 
         return {};
       },
@@ -289,7 +293,9 @@ describe('a third party extends the program without editing our source', () => {
     await open({ extensions: [reader] });
     await open({ extensions: [reader], outputs: store });
 
-    expect(found).toEqual([undefined, store]);
+    expect(found[0]).toBeUndefined();
+    expect(found[1]).not.toBe(store);
+    expect(Object.keys(found[1] ?? {}).sort()).toEqual(['log', 'read', 'search']);
   });
 
   it('(h) rejects a bad extensionSettings value: the wrong type, or a name nobody declares', async () => {
@@ -303,24 +309,35 @@ describe('a third party extends the program without editing our source', () => {
     ).rejects.toThrow(/nobody\.declares/);
   });
 
-  it('(f) reads SESSIONS, MAIN_SESSION and PROVIDER as the run’s own objects in activate', async () => {
-    const seen: unknown[] = [];
+  it('(f) reads MAIN_SESSION as the run’s own object and SESSION_INFO and MODEL as scoped views, never the registry or the provider', async () => {
+    const held: { info?: SessionInfoView; main?: SessionRef; model?: Provider } = {};
     const observer = defineExtension({
       manifest: manifestOf({
         name: 'observer',
-        services: { requires: [SESSIONS.name, MAIN_SESSION.name, PROVIDER.name] },
+        services: { requires: [SESSION_INFO.name, MAIN_SESSION.name, MODEL.name] },
+        grants: ['session:read', 'model:call'],
       }),
       activate: ({ services }) => {
-        seen.push(services.get(SESSIONS), services.get(MAIN_SESSION), services.get(PROVIDER));
+        held.info = services.get(SESSION_INFO);
+        held.main = services.get(MAIN_SESSION);
+        held.model = services.get(MODEL);
 
         return {};
       },
     });
     const harness = await open({ extensions: [observer] });
+    const { info, main, model } = held;
 
-    expect(seen[0]).toBe(harness.sessions);
-    expect(seen[1]).toBe(harness.mainSession);
-    expect(seen[2]).toBe(harness.provider);
+    expect(main).toBe(harness.mainSession);
+    expect(info).not.toBe(harness.sessions);
+    expect(info?.get(harness.mainSession.id)?.id).toBe(harness.mainSession.id);
+
+    for (const name of ['publish', 'end', 'send', 'subscribeEntries', 'stream', 'queueNotice']) {
+      expect(name in (info ?? {})).toBe(false);
+    }
+
+    expect(model).not.toBe(harness.provider);
+    expect(typeof model?.stream).toBe('function');
   });
 
   it('keeps a service another extension provides out of reach without a dependency', async () => {
