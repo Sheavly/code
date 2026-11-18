@@ -84,7 +84,8 @@ not by the extension: a loader for repo code (#332) must set `origin: 'project'`
 `createHarness` returns stable `instructions` assembled by `composeInstructions`:
 generic core from `instructions/instructions.prompt.ts`, then host extras. Set `baseInstructions` to replace just the generic core;
 omission uses the default and an empty string omits it. Blank sections are skipped, outer
-whitespace is trimmed, and sections are joined with one blank line.
+whitespace is trimmed, and sections are joined with one blank line (`joinInstructions`, from
+`@sheavly/extension/instructions/instructions.utils`, which extensions use for the same join).
 
 `createCodingHarness` inserts coding guidance between the core and host extras, even when the
 core is replaced. Generic hosts receive no coding section and require no workspace.
