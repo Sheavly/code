@@ -14,10 +14,10 @@ import {
   ScopeArgumentError,
 } from '@sheavly/host/errors/scopes.errors';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
-import type { ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { callIdSchema, messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
+import { listenAndAnswer } from '../../testing/approval-ui.fake.js';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';
 import { manifestOf } from '../../testing/manifest.fake.js';
 import { scopeProbe } from '../../testing/scope-probe.fake.js';
@@ -108,19 +108,6 @@ describe.each(PROBE_KINDS)('$label extension with every grant', ({ origin }) => 
   });
 
   describe('approval requests, with approval:as-tool and approval:keep held', () => {
-    /** A UI that approves what it hears, and the requests it heard. */
-    const approveWhatIsHeard = (harness: Awaited<ReturnType<typeof openProbe>>['harness']) => {
-      const heard: ApprovalRequest[] = [];
-
-      harness.approvals.subscribe((update) => {
-        if (update.type !== 'approval_requested') return;
-
-        heard.push(update.request);
-        harness.approvals.respond({ id: update.request.id, response: { decision: 'approve' } });
-      });
-
-      return heard;
-    };
     const asking = (main: { id: SessionId }) => ({
       callId: call('ask'),
       sessionId: main.id,
@@ -131,7 +118,7 @@ describe.each(PROBE_KINDS)('$label extension with every grant', ({ origin }) => 
 
     it('asks as the extension, once, when it names no tool and offers nothing to keep', async () => {
       const { probe, harness, main } = await openProbe();
-      const heard = approveWhatIsHeard(harness);
+      const heard = listenAndAnswer(harness);
 
       await probe.scopes().approvals.request(asking(main));
 
@@ -144,7 +131,7 @@ describe.each(PROBE_KINDS)('$label extension with every grant', ({ origin }) => 
 
     it('refuses a tool it does not contribute, so the grant names no one else', async () => {
       const { probe, harness, main } = await openProbe();
-      const heard = approveWhatIsHeard(harness);
+      const heard = listenAndAnswer(harness);
 
       await expect(
         probe.scopes().approvals.request({ ...asking(main), tool: 'run_command' }),
@@ -154,7 +141,7 @@ describe.each(PROBE_KINDS)('$label extension with every grant', ({ origin }) => 
 
     it('offers to keep an answer only with something to keep', async () => {
       const { probe, harness, main } = await openProbe();
-      const heard = approveWhatIsHeard(harness);
+      const heard = listenAndAnswer(harness);
       const { approvals } = probe.scopes();
 
       await expect(
