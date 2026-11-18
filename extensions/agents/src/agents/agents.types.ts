@@ -30,13 +30,23 @@ export type SubAgentShare = {
 };
 
 /**
- * What sub-agents are given, filled in by `share` while the extensions that depend on `agents`
- * activate. The sub-agent tool reads these lists when it starts a sub-agent, not when it is
- * created, so what was shared after it was built still reaches the child.
+ * The `sub-agents` service every extension that requires it holds: write-only. `share` copies
+ * what it is given into lists only this extension's sub-agent tool reads, so a reader of the
+ * service cannot call the shared tools (which close over grant-holding services) or change what
+ * others shared.
  */
 export type SubAgentScope = {
   share: (contribution: SubAgentShare) => void;
-  tools: Tool[];
-  taskTools: Tool[];
-  hooks: Hook[];
+};
+
+/**
+ * What sub-agents are given, filled in by `share` while the extensions that depend on `agents`
+ * activate. The sub-agent tool reads these lists when it starts a sub-agent, not when it is
+ * created, so what was shared after it was built still reaches the child. Never provided as a
+ * service.
+ */
+export type SubAgentShared = {
+  readonly tools: Tool[];
+  readonly taskTools: Tool[];
+  readonly hooks: Hook[];
 };

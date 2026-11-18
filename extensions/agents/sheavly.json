@@ -2,10 +2,31 @@
   "$schema": "../../packages/extension/sheavly.schema.json",
   "name": "agents",
   "services": {
-    "requires": ["sessions", "tasks", "provider", "instructions"],
-    "optional": ["outputs"],
+    "requires": [
+      "session-info",
+      "child-sessions",
+      "background-tasks",
+      "task-control",
+      "model",
+      "instructions"
+    ],
+    "optional": ["output-reader"],
     "provides": ["sub-agents"]
   },
+  "grants": [
+    "session:read",
+    "sub-agent:create",
+    "sub-agent:message",
+    "sub-agent:observe",
+    "sub-agent:report",
+    "task:start",
+    "task:read",
+    "task:cancel",
+    "task:read-any",
+    "task:cancel-any",
+    "model:call",
+    "output:read"
+  ],
   "tools": [
     "read_output",
     "search_output",

@@ -21,9 +21,6 @@
       "path": "../../packages/host/tsconfig.build.json"
     },
     {
-      "path": "../../packages/loop/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/tools/tsconfig.build.json"
     }
   ],
