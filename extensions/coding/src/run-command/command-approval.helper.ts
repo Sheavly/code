@@ -6,7 +6,7 @@ import type {
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { AllowEntry, PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
+import { keepsFit } from '@sheavly/extension/approval/approval-keeps.utils';
 import type { ScriptStep } from '@sheavly/process/process/process.types';
 import { CommandRefusedError } from '../errors/run-command.errors.js';
 import { BUILT_IN_ALLOW } from './allow-list.constants.js';
@@ -19,7 +19,7 @@ import {
   NOT_ALLOWED,
   WORKTREE_CHANGING_SUBCOMMANDS,
 } from './run-command.constants.js';
-import type { CommandPermissions, CommandToolName } from './run-command.types.js';
+import type { CommandApprovals, CommandPermissions, CommandToolName } from './run-command.types.js';
 
 type AskingMode = Exclude<PermissionMode, 'allow_all'>;
 
@@ -125,6 +125,9 @@ function ungrantableConcerns(params: {
  * reaches (`outsideCwd`), and `git worktree add|move|repair`. Both are asked every time,
  * with every command of the line, and their answer is never kept as a grant.
  *
+ * Entries the approvals service would refuse (too many, or one too long) are not offered: the line
+ * is asked about with approve, skip and skip_with_message only, as when there is nothing to keep.
+ *
  * Throws a `CommandRefusedError` when no one can answer, or the user skips (a message they sent
  * instead is put in the error, so the model reads it as the user's direction). On "always allow"
  * the entries are kept (`permissions.allow`) before the line runs; if that fails, the error is
@@ -136,7 +139,7 @@ export async function confirmCommand(params: {
   command: string;
   steps: readonly ScriptStep[];
   permissions: CommandPermissions;
-  approvals: ApprovalRegistry | undefined;
+  approvals: CommandApprovals | undefined;
   call: { callId: CallId; sessionId?: SessionId | undefined };
   signal: AbortSignal;
   /**
@@ -173,7 +176,9 @@ export async function confirmCommand(params: {
     });
   }
 
-  const entries = mode === 'ask' && alwaysAsked.length === 0 ? proposed : undefined;
+  // Entries the scope would refuse are not offered: the line is asked about once, with nothing to keep.
+  const entries =
+    mode === 'ask' && alwaysAsked.length === 0 && keepsFit(proposed) ? proposed : undefined;
   const response = await approvals.request({
     ...call,
     tool,

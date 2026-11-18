@@ -14,7 +14,7 @@ export type HarnessOptions = {
   provider: Provider;
   /** Title of the main session (e.g. the prompt). */
   title: string;
-  /** Host extras after the generic core (and the coding section when using the coding preset). */
+  /** Host extras after the generic core (and the coding section when an app composes it with `composeCodingInstructions`). */
   instructions?: string | undefined;
   /** Replaces only the generic core. Omission uses the default; an empty string omits it. */
   baseInstructions?: string | undefined;

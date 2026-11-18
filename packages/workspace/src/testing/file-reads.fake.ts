@@ -9,7 +9,7 @@ export function agentIdFor(name: string) {
 
 /**
  * Test-only: a fresh `FileReads` for each test, shared by every tool call in it, as
- * `createCodingHarness` shares one. Read `.current` inside a test, never at module load.
+ * the coding extension shares one. Read `.current` inside a test, never at module load.
  */
 export function useFileReads(): { readonly current: FileReads } {
   let reads = new FileReads();

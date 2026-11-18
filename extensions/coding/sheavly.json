@@ -3,11 +3,18 @@
   "name": "coding",
   "dependsOn": ["agents"],
   "services": {
-    "requires": ["sub-agents"],
+    "requires": ["sub-agents", "session-info", "background-tasks", "approvals", "main-session"],
     "optional": ["output-capture"],
     "provides": ["coding-run"]
   },
-  "grants": ["output:capture"],
+  "grants": [
+    "output:capture",
+    "session:read",
+    "task:start",
+    "approval:request",
+    "approval:as-tool",
+    "approval:keep"
+  ],
   "tools": [
     "read_file",
     "glob",

@@ -14,7 +14,7 @@ import { hashText } from './file-reads.utils.js';
  *
  * An agent is a session (the main agent, or one sub-agent): what the parent saw does not count for
  * a child, nor the other way round, since each works from what it was shown. One instance is shared
- * by the file tools of a harness (`createCodingHarness` makes it); a test makes its own. Files are
+ * by the file tools of a run (the coding extension makes it); a test makes its own. Files are
  * named by their real path, as the coding tools key their `KeyedLocks`.
  *
  * Each view carries a hash of the whole file as it was then. A tool that has the file's current

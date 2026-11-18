@@ -6,6 +6,10 @@ import { matchesEntry, parseCommand } from '../allow-list.utils.js';
 
 const confirm = commandConfirmer();
 
+/** A line of `count` distinct unlisted base commands, each proposing its own entry. */
+const lineOfBases = (count: number) =>
+  Array.from({ length: count }, (_unused, index) => `tool${String(index)} arg`).join(' && ');
+
 describe('command-only approvals', () => {
   it.each([
     ['find src -type f', 'find .. -exec node /outside/anything.mjs {} +', 'find *'],
@@ -147,6 +151,44 @@ describe('command-only approvals', () => {
 
     await expect(confirm('npx eslint --fix .env', permissions, ui)).rejects.toThrow();
     expect(ui.asked[0]?.options).toEqual(['approve', 'skip', 'skip_with_message']);
+  });
+
+  describe('entries the approvals service would refuse', () => {
+    const manyBases = lineOfBases(21);
+    const longBase = `${'x'.repeat(600)} arg`;
+
+    it.each([
+      ['more distinct unlisted base commands than may be kept', manyBases],
+      ['an unlisted base command whose entry is too long', longBase],
+    ])('offers nothing to keep for %s, and the command runs on approve', async (_what, command) => {
+      const permissions = testPermissions({}, true);
+      const ui = answeringUi({ decision: 'approve' });
+
+      await expect(confirm(command, permissions, ui)).resolves.toBeUndefined();
+
+      expect(ui.asked).toHaveLength(1);
+      expect(ui.asked[0]).not.toHaveProperty('keeps');
+      expect(ui.asked[0]?.options).toEqual(['approve', 'skip', 'skip_with_message']);
+      expect(permissions.kept).toEqual([]);
+      expect(permissions.sessionKept).toEqual([]);
+    });
+
+    it('still asks about every command of the line', async () => {
+      const ui = answeringUi({ decision: 'approve' });
+
+      await confirm(manyBases, testPermissions(), ui);
+
+      expect(ui.asked[0]?.concerns).toHaveLength(21);
+    });
+
+    it('still offers the entries at exactly the limit', async () => {
+      const ui = answeringUi({ decision: 'approve' });
+
+      await confirm(lineOfBases(20), testPermissions(), ui);
+
+      expect(ui.asked[0]?.keeps).toHaveLength(20);
+      expect(ui.asked[0]?.options).toContain('always_allow');
+    });
   });
 
   it('broad program grants can deliberately approve all wrapper subcommands', () => {

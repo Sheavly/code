@@ -65,7 +65,7 @@ const { events } = await conversations.send({ id, prompt: { text: 'hi' } });
 conversations.yieldPrompt(id);
 ```
 
-A coding UI uses `createCodingHarness` (`@sheavly/coding`), which builds on this.
+A coding UI adds `createCodingExtension` (`@sheavly/coding`) to the run built on this.
 
 The harness composes stable domain-neutral instructions. `instructions` in `HarnessOptions`
 adds host extras; `baseInstructions` replaces only the generic core (an empty string omits it).

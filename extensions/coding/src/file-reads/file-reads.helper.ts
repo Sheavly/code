@@ -1,6 +1,6 @@
 import type { DocumentStore } from '@sheavly/core/store/store.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
+import type { SessionInfoView } from '@sheavly/runtime/sessions/session-scope.types';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import {
   createFileReadsKeeper,
@@ -17,7 +17,7 @@ import {
  */
 export async function keepReadsWithConversation(params: {
   fileReads: FileReads;
-  sessions: SessionRegistry;
+  sessions: Pick<SessionInfoView, 'onLifecycle'>;
   agentId: SessionId;
   store: DocumentStore;
   onProblem?: (caughtError: unknown) => void;
@@ -45,9 +45,25 @@ export async function keepReadsWithConversation(params: {
   // What came back from the store is already there: the first prompt need not write it again.
   keeper.remember();
 
-  return sessions.subscribe((update) => {
+  return sessions.onLifecycle((update) => {
     if (update.type !== 'session_idle' || update.session.id !== agentId) return;
 
     keeper.keep().catch(report);
+  });
+}
+
+/**
+ * Forgets what a session was shown of the files once it is released: a released session is gone
+ * for good, so its reads go with it, for the main agent and every sub-agent. Returns the function
+ * that stops listening.
+ */
+export function forgetReleasedAgents(params: {
+  fileReads: FileReads;
+  sessions: Pick<SessionInfoView, 'onLifecycle'>;
+}): () => void {
+  const { fileReads, sessions } = params;
+
+  return sessions.onLifecycle((update) => {
+    if (update.type === 'session_released') fileReads.forgetAgent({ agentId: update.session.id });
   });
 }

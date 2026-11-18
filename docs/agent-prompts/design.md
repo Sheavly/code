@@ -68,8 +68,9 @@ required by the implementation.
 
 The current dependency direction prevents the tools package from importing host instructions.
 The backend must pass composed shared instructions to the sub-agent factory; the factory adds
-only its child-role section. The coding preset can extend the generic host through options, but
-the generic host cannot reach into coding to discover that extension.
+only its child-role section. A coding app can extend the generic host through options
+(`composeCodingInstructions`), but the generic host cannot reach into coding to discover that
+extension.
 
 ### Why template strings
 
@@ -164,8 +165,8 @@ The approved implementation uses a host extension plus an explicit replacement o
 - New `HarnessOptions.instructions`: host extras appended after the built-in core.
 - New `HarnessOptions.baseInstructions`: optional explicit replacement of the generic core;
   omission uses the default, an empty string explicitly omits it. Host extras still apply.
-- `createCodingHarness` supplies the coding section before caller extras, even when the generic
-  core is replaced. A non-coding host uses `createHarness` directly.
+- `composeCodingInstructions` supplies the coding section before caller extras, even when the
+  generic core is replaced. A non-coding host uses `createHarness` directly.
 - The harness returns the composed instructions for direct runs. A conversation uses those when
   its existing `instructions` option is absent. An explicitly supplied conversation string remains
   a complete run-instruction override for compatibility, including an intentionally empty string.

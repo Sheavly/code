@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/coding",
   "version": "0.0.0",
-  "description": "The coding tools (file tools, run_command) and createCodingHarness: the workspace, file locks and process runner a coding run shares.",
+  "description": "The coding extension: the file tools, run_command and start_service, and the hooks that go with them.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",

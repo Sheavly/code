@@ -26,7 +26,7 @@ function killGroup(pid: number): ProcessKillError | undefined {
 /**
  * Runs commands, each in its own process group, starting from the environment the host passed in
  * with secrets scrubbed, and keeps track of the groups still running. If the harness exits while some are (e.g. a forced second
- * Ctrl+C), they're killed rather than left orphaned. `createCodingHarness` makes one per harness; a
+ * Ctrl+C), they're killed rather than left orphaned. The coding extension makes one per run; a
  * test makes its own, so its groups and exit hook never reach another test.
  */
 export class ProcessRunner {

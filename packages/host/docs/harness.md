@@ -15,10 +15,10 @@ The packages provide the pieces and the services a run shares; a UI decides whic
 uses and which tools and hooks it includes, and composes them. No package picks a backend, a model,
 a tool or a hook for it.
 
-| Services                                  | For                                                                  | What it makes                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `createHarness` (`@sheavly/host`)         | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file       |
-| `createCodingHarness` (`@sheavly/coding`) | A coding agent in a repo                                             | `createHarness`'s services, plus the opened `Workspace`, one `KeyedLocks` and one `ProcessRunner` built from the env the UI passes in |
+| Services                                    | For                                                                  | What it makes                                                                                                                                  |
+| ------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createHarness` (`@sheavly/host`)           | Any LLM project: text parsing and extraction, chat wrappers, no repo | The session, task and approval registries a run shares, around the provider the UI picked. Opens no workspace and reads no file                |
+| `createCodingExtension` (`@sheavly/coding`) | A coding agent in a repo                                             | An extension on a harness's run services: it opens its own `Workspace`, file reads and `ProcessRunner`, and takes the `KeyedLocks` it is given |
 
 The UI builds its tools and hooks on those: `createTaskTools(tasks)`, `createSubAgentTool({ … })`
 and `createMessageAgentTool` (`@sheavly/tools`); a coding UI's `createReadFileTool({ workspace })`,
@@ -87,8 +87,9 @@ omission uses the default and an empty string omits it. Blank sections are skipp
 whitespace is trimmed, and sections are joined with one blank line (`joinInstructions`, from
 `@sheavly/extension/instructions/instructions.utils`, which extensions use for the same join).
 
-`createCodingHarness` inserts coding guidance between the core and host extras, even when the
-core is replaced. Generic hosts receive no coding section and require no workspace.
+A coding app passes `composeCodingInstructions({ instructions })` (`@sheavly/coding`) as the
+`instructions`, which puts coding guidance between the core and host extras, even when the core is
+replaced. Generic hosts receive no coding section and require no workspace.
 `createConversation` uses the harness text unless its own `instructions` is explicitly supplied.
 That existing option is a complete override, not an extension; an empty override remains empty.
 Direct `streamAgent` or `runAgent` callers pass the returned string explicitly.
