@@ -4,6 +4,7 @@ import { ExtensionActivationError, ExtensionHostStateError } from '../errors/ext
 import type {
   Contributions,
   Extension,
+  ServiceConsumer,
   ServiceKey,
   SettingValue,
 } from '../extension/extension.types.js';
@@ -67,6 +68,9 @@ export class ExtensionHost {
   readonly #settings: Readonly<Record<string, SettingValue>>;
   /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
   readonly #emitters = new Map<string, Emitter>();
+  /** The tool names each running extension contributed, recorded once checked against its manifest. */
+  readonly #contributedTools = new Map<string, readonly string[]>();
+  readonly #consumers = new Map<string, ServiceConsumer>();
   #activated: Extension[] = [];
   #state: 'idle' | 'activating' | 'active' | 'closed' = 'idle';
 
@@ -175,7 +179,10 @@ export class ExtensionHost {
 
       const contributions = await extension.activate({
         extension: extension.name,
-        services: this.#services.viewFor({ extension, readable: readableNames }),
+        services: this.#services.viewFor({
+          extension: this.#consumerOf(extension),
+          readable: readableNames,
+        }),
         settings: settingsFor({ extension, values: this.#settings }),
         emit: emitter.emit,
         signal,
@@ -190,6 +197,10 @@ export class ExtensionHost {
       // Armed only from the recorded names and versions of the checked snapshot, never from the
       // live objects the extension still holds.
       emitter.arm(snapshot.emittable);
+      this.#contributedTools.set(
+        extension.name,
+        Object.freeze(snapshot.tools.map((entry) => entry.name)),
+      );
 
       return { kind: 'activated', snapshot };
     } catch (caughtError) {
@@ -337,7 +348,29 @@ export class ExtensionHost {
   /** Ends an extension's emit capability and its per-extension services, for good; one that never started has none. */
   #disarm(extension: string): void {
     this.#emitters.get(extension)?.disarm();
+    this.#contributedTools.delete(extension);
     this.#services.disarm(extension);
+  }
+
+  /**
+   * The extension as a per-extension service sees it: one object per extension, whose
+   * `contributedTools` reads the names recorded after the check and is empty before it and after
+   * the host stops the extension.
+   */
+  #consumerOf(extension: Extension): ServiceConsumer {
+    const known = this.#consumers.get(extension.name);
+
+    if (known) return known;
+
+    const consumer: ServiceConsumer = {
+      name: extension.name,
+      manifest: extension.manifest,
+      contributedTools: () => this.#contributedTools.get(extension.name) ?? [],
+    };
+
+    this.#consumers.set(extension.name, consumer);
+
+    return consumer;
   }
 
   /** Deactivates an extension the host stopped without `deactivate()` knowing it; an error is kept, never thrown. */
@@ -372,6 +405,7 @@ export class ExtensionHost {
     this.#state = 'closed';
     // Before any `deactivate` runs: a stopping extension cannot emit, and neither can one still activating.
     this.#emitters.forEach((emitter) => emitter.disarm());
+    this.#contributedTools.clear();
     this.#services.disarmAll();
 
     const errors: unknown[] = [];
@@ -406,7 +440,7 @@ export class ExtensionHost {
     if (!(await this.#isTrustedToRun(extension))) return { ...skip, reason: 'untrusted' };
 
     const missing = this.#services.unreadable({
-      extension,
+      extension: this.#consumerOf(extension),
       required: extension.manifest.services.requires,
       readable,
     });
