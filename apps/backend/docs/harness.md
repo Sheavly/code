@@ -84,7 +84,7 @@ Each is built per extension and checks the `grants` its `sheavly.json` declares;
 registry. `MAIN_SESSION` is a frozen copy, and what a scope returns or shares is frozen copies.
 `APPROVALS` builds the request itself: attributed to the extension, no `keeps`, no `always_allow`,
 so an answer never becomes an allow rule, unless the manifest declares `approval:as-tool` (the
-request may name one of the extension's own declared tools) or `approval:keep` (it may offer to
+request may name a tool the extension contributes) or `approval:keep` (it may offer to
 keep an answer, shown to the user). `TASK_CONTROL` trusts the `sessionId` it is given, so
 `task:*-any` lets an extension name any session of the run. The `sub-agents` service `agents`
 provides is write-only (`share`). This is least privilege, not a sandbox (see

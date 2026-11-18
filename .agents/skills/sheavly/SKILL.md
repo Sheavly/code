@@ -14,9 +14,9 @@ skill; which workspace holds what is the `sheavly-packages` skill.
 
 The harness must be extendable the way VS Code is: contributions add to the loop and never own
 it; names are namespaced and a collision fails; content without code needs no trust, code from a
-repo stays behind workspace trust; the framework imposes no category on an extension. Today
-`coding` is a preset assembled by hand in the backend, and the aim is that it is one extension
-among others. So:
+repo stays behind workspace trust; the framework imposes no category on an extension. `coding`
+is one extension among others: it reads the run through the same scoped services and grants as a
+third party, and no extension may take a registry. So:
 
 - **Extend, don't modify.** A new behaviour is a new tool, hook, adapter, work kind or
   contribution through the system's canonical path. Editing a core module (the loop's turn, the
