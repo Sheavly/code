@@ -1,12 +1,12 @@
 import type { Dirent } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { InstructionSource } from '@sheavly/core/instruction-context/instruction-source.types';
 import { isMissingPath } from '@sheavly/runtime/errors/errors.utils';
 import { INSTRUCTION_ORDER } from '@sheavly/workspace/instruction-context/instruction-source.constants';
-import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { CODING_HOOK_NAMES } from '../extension/coding-hook-names.constants.js';
+import { readGuardedFile } from '../files/guarded-read.helper.js';
 import { SKILL_FILE, SKILLS_FOLDERS } from './skills.constants.js';
 import type { FoundSkills, HiddenSkill, Skill, SkillProblem, SkillRoots } from './skills.types.js';
 import { formatSkillsInstructions, parseFrontmatter } from './skills.utils.js';
@@ -42,10 +42,8 @@ async function readSkill(params: {
   let text: string;
 
   try {
-    // Through the skill's folder as a Workspace: a SKILL.md that is a symlink out of it is refused.
-    const real = await (await Workspace.open(dir)).resolveRead(SKILL_FILE);
-
-    text = await readFile(real, { encoding: 'utf8', ...(signal && { signal }) });
+    // A SKILL.md that is a symlink out of its folder, or a `.env` file or a link to one, is refused.
+    ({ text } = await readGuardedFile({ dir, file: SKILL_FILE, signal }));
   } catch (caughtError) {
     // A folder without a SKILL.md is not a skill (a shared assets folder, say).
     if (isMissingPath(caughtError)) return undefined;

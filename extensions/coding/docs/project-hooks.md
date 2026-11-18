@@ -152,3 +152,9 @@ a package, a symlink out of `.sheavly/`, a `require` of either) fails to load wi
 `ProjectHooksError`, before its code runs: otherwise a later change to it would run on an old
 "yes". `import type` is fine, since Node removes it. This is a Node resolve hook
 (`confine.helper.ts`), in place for the rest of the process once hooks load.
+
+`hooks.json` and each hook file are resolved through the same guarded read as a skill's files
+(`src/files/guarded-read.helper.ts`). A `.env` file, or a symlink to one, is refused, and so is a
+`hooks.json` that links out of `.sheavly/` (it was followed before); a link to another file inside
+`.sheavly/` still works. Each refusal is a `ProjectHooksError` that names the file and never its
+contents.

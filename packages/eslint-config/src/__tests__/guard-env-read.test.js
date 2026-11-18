@@ -1,8 +1,11 @@
+import path from 'node:path';
+import { ESLint } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { harnessPlugin } from '../plugin.js';
 import { ruleIsErrorOn } from '../testing/coding-rule.fake.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
+const REPO = path.resolve(import.meta.dirname, '../../../..');
 const ruleTester = typescriptRuleTester({ sourceType: 'module' });
 
 const guard = (name) => `assertNotEnvFile({ filePath: ${name}, requested, action: 'Reading' });`;
@@ -65,7 +68,62 @@ describe('guard-env-read is enabled', () => {
     expect(await ruleOn(file)).toBe(true);
   });
 
+  // These read a skill's folder or `.sheavly/` and were once exempt as whole files. A whole-file
+  // override added back would turn the rule off here, so each is pinned.
+  it.each([
+    'src/skills/skills.helper.ts',
+    'src/skills/skill-files.helper.ts',
+    'src/project-hooks/project-hooks.helper.ts',
+    'src/files/guarded-read.helper.ts',
+  ])('for %s, which has no exemption', async (file) => {
+    expect(await ruleOn(file)).toBe(true);
+  });
+
   it('not for a test', async () => {
     expect(await ruleOn('src/grep/__tests__/grep.tool.test.ts')).toBe(false);
+  });
+});
+
+const CODING_DIR = path.join(REPO, 'extensions/coding');
+// Real files, whose text is replaced: the type-aware parser rejects a path the project lacks.
+const SKILLS_FILE = 'src/skills/skills.helper.ts';
+const READ = "import { readFile } from 'node:fs/promises'; export const x = () => readFile('a');\n";
+
+/** The rules of `no-restricted-imports` that the repo config reports for `code` as `file` of coding. */
+async function restrictedImports(params) {
+  const { code, file } = params;
+  const eslint = new ESLint({ cwd: CODING_DIR });
+  const [result] = await eslint.lintText(code, { filePath: path.join(CODING_DIR, file) });
+
+  return result.messages.filter(({ ruleId }) => ruleId === 'no-restricted-imports');
+}
+
+// `guard-env-read` sees only `Workspace#resolveRead`, so a raw content read in these folders would
+// pass it. The reads there go through `files/guarded-read.helper.ts`, which is outside them.
+describe('skills and project hooks read content only through the guarded helper', () => {
+  it.each(['src/skills/skills.helper.ts', 'src/project-hooks/project-hooks.helper.ts'])(
+    'refuses a raw readFile in %s',
+    async (file) => {
+      expect(await restrictedImports({ code: READ, file })).toHaveLength(1);
+    },
+  );
+
+  it.each(['node:fs', 'fs', 'fs/promises'])('refuses open from %s too', async (from) => {
+    const code = `import { open } from '${from}'; export const x = () => open('a');\n`;
+
+    expect(await restrictedImports({ code, file: SKILLS_FILE })).toHaveLength(1);
+  });
+
+  it('allows the guarded helper to read', async () => {
+    expect(
+      await restrictedImports({ code: READ, file: 'src/files/guarded-read.helper.ts' }),
+    ).toHaveLength(0);
+  });
+
+  it('allows readdir and stat, which read no content', async () => {
+    const code =
+      "import { readdir, stat } from 'node:fs/promises'; export const x = () => [readdir, stat];\n";
+
+    expect(await restrictedImports({ code, file: SKILLS_FILE })).toHaveLength(0);
   });
 });

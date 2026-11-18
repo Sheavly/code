@@ -245,6 +245,62 @@ describe('loadProjectHooks', () => {
     expect(await loadError(root)).toMatch(/outside the workspace/);
   });
 
+  it('refuses a hooks.json that links to a .env file, without echoing its content', async () => {
+    const root = await project({ type: 'module' });
+    const marker = 'SECRET_MARKER_FOR_THE_TEST';
+
+    await writeFile(path.join(root, '.sheavly', '.env'), `{ "token": "${marker}" `);
+    await symlink(path.join(root, '.sheavly', '.env'), path.join(root, '.sheavly', 'hooks.json'));
+
+    const failure = await loadError(root);
+
+    expect(failure).toMatch(/^\.sheavly\/hooks\.json: .*\.env/);
+    expect(failure).not.toContain(marker);
+  });
+
+  it('refuses a hooks.json that links out of .sheavly, inside or outside the project', async () => {
+    const manifest = JSON.stringify(manifestOf('hooks/a.js'));
+
+    for (const target of ['elsewhere.json', path.join('..', 'outside.json')]) {
+      const root = await project({ type: 'module', files: { 'hooks/a.js': ESM('a') } });
+      const real = path.join(root, target);
+
+      await writeFile(real, manifest);
+      await symlink(real, path.join(root, '.sheavly', 'hooks.json'));
+
+      expect(await loadError(root)).toMatch(/^\.sheavly\/hooks\.json: .*outside the workspace/);
+    }
+  });
+
+  it('loads a hooks.json that links to another file inside .sheavly', async () => {
+    const root = await project({
+      type: 'module',
+      files: {
+        'manifest.json': JSON.stringify(manifestOf('hooks/a.js')),
+        'hooks/a.js': ESM('a'),
+      },
+    });
+
+    await symlink(
+      path.join(root, '.sheavly', 'manifest.json'),
+      path.join(root, '.sheavly', 'hooks.json'),
+    );
+
+    expect(await contextFrom(await loadTrusted(root))).toEqual(['a']);
+  });
+
+  it('refuses a hook file that links to a .env file', async () => {
+    const root = await project({
+      type: 'module',
+      manifest: manifestOf('hooks/link.js'),
+      files: { '.env': ESM('leaky') },
+    });
+
+    await symlink(path.join(root, '.sheavly', '.env'), path.join(root, '.sheavly/hooks/link.js'));
+
+    expect(await loadError(root)).toMatch(/\.env files is not allowed/);
+  });
+
   it('accepts every handler from a file: sessionStart, afterTurn, onError', async () => {
     const root = await project({
       type: 'module',

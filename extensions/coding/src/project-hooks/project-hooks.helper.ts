@@ -1,9 +1,10 @@
-import { readFile, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { confineImports } from './confine.helper.js';
+import { readGuardedFile, resolveGuardedFile } from '../files/guarded-read.helper.js';
 import type { TrustStore } from '../trust/trust.service.js';
 import { HOOKS_MANIFEST, SHEAVLY_DIR } from './project-hooks.constants.js';
 import { ProjectHooksError } from '../errors/project-hooks.errors.js';
@@ -52,7 +53,7 @@ export async function loadProjectHooks(params: {
   if (state !== 'trusted') return { hooks: [], trust: state };
 
   // Read after the check, so the text parsed is the one the fingerprint covered, not an earlier one.
-  const text = await readManifestText(manifestFile);
+  const text = await readManifestText(dir);
 
   if (text === undefined) {
     throw new ProjectHooksError(
@@ -130,13 +131,19 @@ async function manifestExists(file: string): Promise<boolean> {
   }
 }
 
-/** The manifest's text, or undefined when there is none (no project hooks). */
-async function readManifestText(file: string): Promise<string | undefined> {
+/**
+ * The manifest's text, or undefined when there is none (no project hooks). A `.env` file or a link
+ * to one, or a link out of `.sheavly/`, is refused before anything is parsed, so no error can echo it.
+ */
+async function readManifestText(dir: string): Promise<string | undefined> {
   try {
-    return await readFile(file, 'utf8');
+    return (await readGuardedFile({ dir, file: HOOKS_MANIFEST })).text;
   } catch (caughtError) {
     if ((caughtError as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
-    throw caughtError;
+
+    const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
+
+    throw new ProjectHooksError(`${label(HOOKS_MANIFEST)}: ${reason}`, { cause: caughtError });
   }
 }
 
@@ -161,7 +168,7 @@ function parseManifest(text: string): HooksManifest {
 
 async function loadHookFile(params: { folder: Workspace; file: string }): Promise<Hook> {
   const { folder, file } = params;
-  const resolved = await folder.resolveRead(file).catch((caughtError: unknown) => {
+  const resolved = await resolveGuardedFile({ folder, file }).catch((caughtError: unknown) => {
     const missing = (caughtError as NodeJS.ErrnoException).code === 'ENOENT';
     const reason = caughtError instanceof Error ? caughtError.message : String(caughtError);
 
