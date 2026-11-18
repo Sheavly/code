@@ -4,7 +4,10 @@ Two things an extension says about itself that the host acts on: which settings 
 its hooks go among the run's other hooks. The tools, hooks and work kinds an extension contributes
 must also be named in its manifest's `tools`, `hooks` and `workKinds`, or its activation fails
 (see [manifest](manifest.md)), exactly or by a wildcard entry such as `project-hooks.*` for names
-only known at run time; a placed hook is named by its inner hook.
+only known at run time; a placed hook is named by its inner hook. The `events` (each kind listed
+exactly in `emits.events`) and `notices` (topics in its own namespace, with
+`emits.modelFacingNotices` set) it returns are held to the manifest the same way; with their
+`data` schemas they say what its `context.emit` may send.
 
 ## Settings
 

@@ -74,5 +74,11 @@ export function mergeContributions(contributed: readonly ContributedBy[]): Merge
     workKinds: mergeNamed({ contribution: 'work kind', lists: listsOf((s) => s.workKinds) }).map(
       ({ item }) => item,
     ),
+    events: mergeNamed({ contribution: 'event', lists: listsOf((s) => s.events) }).map(
+      ({ item }) => item,
+    ),
+    notices: mergeNamed({ contribution: 'notice', lists: listsOf((s) => s.notices) }).map(
+      ({ item }) => item,
+    ),
   };
 }

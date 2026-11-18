@@ -37,7 +37,11 @@ without running it.
 
 ## Why a contribution never owns the loop
 
-An extension adds tools, hooks and work kinds; it never replaces a core module. The host
+An extension adds tools, hooks and work kinds, and declares the event kinds and notice topics it
+may emit (`events`, `notices`; it sends them through `context.emit`, built per extension, to a sink
+the app supplies, and the host disarms it when the extension stops; the sink is not a service, but
+the `sessions` service remains a bypass until narrower services, #336); it never replaces a core
+module. The host
 adds nothing of its own to the loop: it returns the merged lists and the app passes them on.
 Two contributions of one kind with one name throw a `ContributionCollisionError` naming both
 extensions, so nothing shadows anything. Settings are not contributions but static declarations
@@ -62,7 +66,7 @@ block the read, which needs write access to the extension's own directory (see
   `extension-host.service.ts` and a field on `ActivationResult`.
 - A new field of the manifest: add it to the schema in `manifest.validator.ts`, rerun
   `npm run schema -w @sheavly/extension`, and enforce it in the host or say in
-  [manifest](manifest.md) that it is reserved.
+  [manifest](manifest.md) that it is reserved (`serves` still is; `emits` is enforced).
 - Tests use `fakeExtension`, `fakeHook`, `fakeTool` and `fakeSetting` (`testing/`); `fakeExtension`
   builds an in-memory manifest from what the test declares. They are not public API of the built
   package, only of the workspaces' tests.

@@ -42,7 +42,7 @@ every other field defaults to empty.
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                   |
 | `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                            |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance). |
-| `emits`, `serves`             | Reserved, see below.                                                                                                                                                                                                                                                                                                              |
+| `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                            |
 
 Every list rejects a repeated name, and the schema reports where: `tools[2]`, `settings[0].default`.
 
@@ -67,14 +67,19 @@ hook-name check is therefore a no-op, and the four names listed beside the `"*"`
 (`agents-md`, `skills`, `scratch`, `working-root`) are documentation of what it contributes, not a
 limit. Its tools are still held to the exact list. The services and settings checks are unaffected.
 
-## Reserved: `emits` and `serves`
+## `emits`, and the reserved `serves`
 
-`emits: { events: string[]; modelFacingNotices: boolean }` and `serves: { actions: string[] }` are
-validated (event kinds and action names are `<extension>.<kind>` with the manifest's name as the
-prefix, kebab parts) but **not enforced by the host**: events, model-facing notices and actions do
-not exist in the harness yet, so there is nothing to check an extension against. They are in the
-schema now so a manifest can declare them without a format change later, and so a typo in them
-already fails.
+`emits: { events: string[]; modelFacingNotices: boolean }` declares what the extension may send
+to a session through `context.emit`. `events` lists exact event kinds, `<extension>.<kind>` with
+the manifest's name as the prefix (kebab parts, no wildcard). `modelFacingNotices: true` allows
+notices to the model; their topics are not listed, but each is `<extension>.<name>` too. The
+code supplies the schema of each: `activate` returns `events: [{ kind, version, schema }]` and
+`notices: [{ topic, version, schema }]`, and the host holds both to the manifest (see
+[what the host enforces](#what-the-host-enforces)).
+
+`serves: { actions: string[] }` is validated (action names are `<extension>.<kind>`) but **not
+enforced by the host**: actions do not exist in the harness yet. It is in the schema so a manifest
+can declare them without a format change later.
 
 ## Reading it
 
@@ -130,7 +135,31 @@ the name (`ExtensionUndeclaredError`).
   services are dropped and its dependents are skipped. The host reads each name once, keeps what
   it checked and merges only that; if the lists or a name changed before the merge (the extension
   keeps its references while others activate), the extension fails the same way, with an
-  `ExtensionContributionChangedError`, and its dependents are rolled back too.
+  `ExtensionContributionChangedError`, and its dependents are rolled back too. The same holds for
+  `events` (each `kind` must be listed exactly in `emits.events`) and `notices` (needs
+  `emits.modelFacingNotices: true`, and each `topic` must start with `<extension>.`), whose lists
+  the re-verification covers, and whose names collide like any other contribution.
+- **At each emit** (`context.emit.event` / `.notice`): before `activate` has returned and passed the
+  check above it throws "not activated yet". It then accepts only a kind or topic the extension
+  contributed (an undeclared one is an `ExtensionUndeclaredError`, a declared one it never
+  contributed an `ExtensionEmitError`), takes the `version` from the contribution, never from the
+  caller, parses `data` against the contributed schema (an `ExtensionEmitError` naming the
+  extension, the kind and the issue paths, never the values; a schema or data that throws, such as
+  a cycle or a throwing getter, is the same error), and then parses the finished envelope with the
+  protocol's own event or notice schema, which holds the name and namespace, the version, `text`
+  (1 to 2000 characters) and the serialized `data` (16384 bytes) to the stream's and history's
+  caps (`invalid-envelope`). The kind or topic in a message is quoted and truncated. Without an
+  emit sink from the app, an emit throws.
+- **Contributions are armed from what was recorded.** Each event kind and notice topic must be
+  `<extension>.<name>` in the extension's namespace and each `version` a positive integer, or the
+  activation fails (`invalid-contribution`), naming the extension. The emitter is armed from the
+  names and versions read once at that check, never from the live objects (a schema is held by
+  reference).
+- **`emit` ends with the extension.** The host disarms it wherever it stops, drops or fails the
+  extension: `deactivate()`, a roll-back for a changed contribution (and its dependents), a late
+  stop, a collision or abort, a failed `activate` or contribution check. Afterwards every emit
+  throws `deactivated`, so a tool or task that kept `context.emit` cannot publish. It is disarmed
+  before the extension's own `deactivate()` runs.
 
 The host works from one deep-frozen copy of each extension's manifest, taken when it receives the
 extensions: `requires`, the service views, the contribution check and the settings all read that
@@ -149,6 +178,16 @@ they do not cover.
   `process.env` without declaring them. The manifest declares only the capabilities the host
   mediates (the run and extension services, the contributions the host merges, settings), and the
   host's checks cover those.
+- **`emits` is a host-checked gate, not a sandbox.** The host checks what passes through
+  `context.emit`; an extension is Node code, so nothing stops it from reaching a session's stream
+  by another route: the `sessions` run service, which an extension may declare and read, is the
+  session registry itself, and `publish` and `queueNotice` are on it. The sink is an option of the
+  host, not a service, so an extension that only holds the emit capability cannot emit under
+  another's name. `sessions` remains a bypass: its holder skips the declaration and can name any
+  extension in the envelope, which is impersonation to the model (the registry refuses a malformed
+  notice and caps the outbox, but does not check who it names). Narrower services (#336) are where
+  that closes. The `session` an emit names can be any session of the run, sub-agents included; it
+  cannot cross conversations, because one registry serves one conversation.
 - **Item objects are not frozen.** Tools, work kinds and hooks are kept as the extension returned
   them. The host records and merges the names it checked and re-verifies them (and the lists)
   right before the merge, but a getter that changes what an object does or says after the merge is

@@ -6,7 +6,8 @@ An extension is one unit of what a run includes. The framework puts no category 
 what an extension can and cannot do is its own to define, so others can build extensions without
 changing this source. It ships a data-only `sheavly.json` manifest that declares its unique
 kebab-case `name`, `dependsOn`, services, settings and the names it contributes, and an `activate`
-that returns its contributions: tools, hooks and work kinds. The host holds it to its manifest
+that returns its contributions: tools, hooks, work kinds, and the event kinds and notice topics it
+may emit through `context.emit` (held to the manifest's `emits`; the app supplies the sink, and the host disarms `emit` when the extension stops; an extension with the `sessions` service can still bypass it, #336). The host holds it to its manifest
 (a name ending in `*` declares names that are not known in advance, such as a workspace's own hooks).
 The manifest is not a sandbox: an extension is Node code, and the host checks only what it mediates
 (see [What the manifest is not](docs/manifest.md#what-the-manifest-is-not)).
@@ -14,7 +15,7 @@ Extensions share typed services with each other through `defineService`, and the
 run-level services any extension can read (`hostService`). An app builds an `ExtensionHost`, which
 activates them in dependency order, reports an extension that fails without stopping the rest,
 skips code that is not trusted and merges what they contribute for the app to hand to the loop.
-Depends on `@sheavly/core` only.
+Depends on `@sheavly/core` and `@sheavly/protocol` (the envelope types and size caps).
 
 ```ts
 import { defineExtension, settingKey } from '@sheavly/extension/extension/extension.utils';
@@ -33,16 +34,17 @@ const notes = defineExtension({
 
 const host = new ExtensionHost({ extensions: [notes], settings: { 'notes.max-notes': 100 } });
 const { contributions, settings, failed, skipped } = await host.activate({ signal });
-// contributions: { tools, hooks, workKinds }, merged in activation order, hooks placed
+// contributions: { tools, hooks, workKinds, events, notices }, merged in activation order, hooks placed
 await host.deactivate();
 ```
 
-| Module       | What it holds                                                                                                                                                                                                                                                                                       |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extension/` | `Extension`, `ExtensionDefinition`, `Contributions`, `Services`, `Settings`, `defineExtension`, `defineService`, `hostService`, `settingKey`, `placeHook`: the contract extensions are written against                                                                                              |
-| `manifest/`  | `readManifest` (helper: reads and validates a `sheavly.json` without running the extension), `ExtensionManifest` and `SettingManifest` (types), `manifestJsonSchema` (utils); the zod schema is internal. The JSON Schema for editors is `sheavly.schema.json`                                      |
-| `host/`      | `ExtensionHost`: activates extensions in dependency order, isolates failures, gates trust, holds each extension to its manifest, merges contributions                                                                                                                                               |
-| `errors/`    | `ExtensionDefinitionError`, `ExtensionManifestError`, `ExtensionUndeclaredError`, `ExtensionContributionChangedError`, `ExtensionGraphError`, `ContributionCollisionError`, `MissingServiceError`, `ExtensionSettingError`, `HookOrderError`, `ExtensionHostStateError`, `ExtensionActivationError` |
+| Module       | What it holds                                                                                                                                                                                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension/` | `Extension`, `ExtensionDefinition`, `Contributions`, `Services`, `Settings`, `defineExtension`, `defineService`, `hostService`, `settingKey`, `placeHook`: the contract extensions are written against                                                                                                                    |
+| `emit/`      | `ExtensionEmit` (what `context.emit` offers), `EventContribution`, `NoticeContribution`, `ExtensionEvent`, `ExtensionNotice`, `ExtensionEmission`, `ExtensionEmitSink` (types): an extension's events and model-facing notices, and the sink the app supplies                                                             |
+| `manifest/`  | `readManifest` (helper: reads and validates a `sheavly.json` without running the extension), `ExtensionManifest` and `SettingManifest` (types), `manifestJsonSchema` (utils); the zod schema is internal. The JSON Schema for editors is `sheavly.schema.json`                                                            |
+| `host/`      | `ExtensionHost`: activates extensions in dependency order, isolates failures, gates trust, holds each extension to its manifest, merges contributions                                                                                                                                                                     |
+| `errors/`    | `ExtensionDefinitionError`, `ExtensionManifestError`, `ExtensionUndeclaredError`, `ExtensionContributionChangedError`, `ExtensionGraphError`, `ContributionCollisionError`, `MissingServiceError`, `ExtensionSettingError`, `HookOrderError`, `ExtensionHostStateError`, `ExtensionActivationError`, `ExtensionEmitError` |
 
 Tests build extensions with `fakeExtension`, `fakeHook` and `fakeTool` from
 `@sheavly/extension/testing/extension.fake`.
