@@ -9,7 +9,7 @@
  * --trust, MAX_TURNS, WEB_FETCH, SUMMARY, CONTEXT_WINDOW, MODEL_CALLS_FILE,
  * SHOW_MODEL_CALLS, MODEL_RESPONSE_TIMEOUT_MS, MODEL_RETRIES, MODEL_RETRY_DELAY_MS. It listens on
  * SERVER_HOST:SERVER_PORT (127.0.0.1:4310 by
- * default; port 0 picks a free one) and needs SERVER_TOKEN on every request, as
+ * default; port 0 picks a free one, from 20000-32000 when the OS has none) and needs SERVER_TOKEN on every request, as
  * `Authorization: Bearer <token>`; without one it makes one and prints it once. Once it listens it
  * prints `→ listening on <url>`, the line a UI that started it waits for. Ctrl+C, SIGTERM, closing
  * the terminal or, with SERVER_EXIT_WITH_PARENT=true, its stdin closing (the UI that started it
@@ -19,11 +19,12 @@
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
 import { pruneScratch } from '@sheavly/workspace/scratch/scratch.helper';
-import { serve } from '@hono/node-server';
+import { createAdaptorServer } from '@hono/node-server';
 import { createApiApp } from './api/api.helper.js';
 import { createBackend } from './backend.helper.js';
 import { sharedScratchRoot } from './harness/scratch.helper.js';
 import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/settings.validator.js';
+import { listenServer } from './listen/listen.helper.js';
 import { sheavlyHome } from './profiles/home.helper.js';
 
 // npm runs a workspace's script inside its folder; work from the folder it was started in
@@ -62,10 +63,11 @@ function printStarted(address: AddressInfo): void {
   console.log(`→ listening on http://${server.host}:${String(address.port)}`);
 }
 
-const listening = serve(
-  { fetch: app.fetch, hostname: server.host, port: server.port },
-  printStarted,
-);
+const listening = createAdaptorServer({ fetch: app.fetch, hostname: server.host });
+
+await listenServer({ server: listening, host: server.host, port: server.port });
+// A TCP listen (host and port) always has an address object, never a pipe path.
+printStarted(listening.address() as AddressInfo);
 
 let stopping = false;
 
