@@ -89,6 +89,29 @@ before or after another by name (`placeHook`), for example before the built-in `
 uses only public exports. The built-ins read the same services, with one exception: `coding` takes
 its workspace, locks and process runner from the coding harness it is given.
 
+**What an extension emits.** An extension tells a UI or the model something through
+`context.emit` (`@sheavly/extension`), never by importing the runtime: it declares `emits` in its
+manifest (event kinds, and `modelFacingNotices` for notices) and returns the kinds and topics with
+the schema of their `data` from `activate`. The backend gives the `ExtensionHost` the sink that
+carries what the host already checked (`harness/extension-emit.helper.ts`): an event is published
+on the target session's stream as an `extension_event` with `seq: 0` (like `storage_failed`), a
+notice is queued in the session's outbox and published by the loop at its next turn as a
+`harness_notice` and a history entry. The target is the session the extension names (a tool passes
+`context.session`), by default the main session, and it can be any session of the run, sub-agents
+included: one registry serves one conversation (`createBackendHarness` makes a registry per
+conversation), so it cannot reach another conversation. The host parses the finished envelope with
+the protocol's own schemas before the sink sees it, and disarms an extension's `emit` wherever it
+stops, drops or fails the extension (it throws `deactivated` afterwards). The sink is a host
+option, not a run service, so an extension that only holds the emit capability cannot emit under
+another's name. That is as far as it goes: an extension holding the `sessions` run service can
+`publish` or `queueNotice` itself, bypassing the declaration and naming any extension in the
+envelope (the registry still refuses a malformed notice), so it can impersonate another extension
+to the model until narrower services close that (#336). A session's outbox holds at most 100
+notices; past that, and for a notice for an ended session, `emit.notice` throws to the extension.
+A reopened conversation replays the stored events and keeps the notices in history.
+`src/harness/__tests__/third-party-emit.test.ts` shows it from an extension that uses only public
+exports.
+
 **Summaries.** Unless `SUMMARY=false`, the main run and every sub-agent summarize their history
 when the context nears the window (`backendSummary`, `harness/summary.helper.ts`). The model the
 conversation is on writes the sections it is asked for (`modelSummarizer`, `@sheavly/summary`),
