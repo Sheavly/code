@@ -85,8 +85,17 @@ describe('guard-working-root is enabled', () => {
     'src/ripgrep/ripgrep.helper.ts',
     'src/files/files.helper.ts',
     'src/run-command/command-cwd.helper.ts',
+    'src/skills/skills.helper.ts',
+    'src/skills/skill-files.helper.ts',
+    'src/project-hooks/project-hooks.helper.ts',
   ])('for %s', async (file) => {
     expect(await ruleOn(file)).toBe(true);
+  });
+
+  // The one file that resolves inside a folder that is a `Workspace` of its own, with no working
+  // root; the skills and project-hooks helpers read through it.
+  it('off only for the guarded folder read', async () => {
+    expect(await ruleOn('src/files/guarded-read.helper.ts')).toBe(false);
   });
 
   it('not for a test', async () => {
