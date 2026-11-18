@@ -1,6 +1,5 @@
-import { readFile } from 'node:fs/promises';
 import type { SendPromptRequest } from '@sheavly/protocol/server/server.types';
-import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
+import { readGuardedFile } from '../files/guarded-read.helper.js';
 import { SKILL_FILE } from './skills.constants.js';
 import { findSkills } from './skills.helper.js';
 import type { Skill, SkillFile, SkillRequest, SkillRoots } from './skills.types.js';
@@ -14,24 +13,26 @@ import {
 } from './skills.utils.js';
 import { UnknownSkillError } from '../errors/skills.errors.js';
 
-/** A file in `skill`'s folder, which must be inside it (symlinks followed); missing is ENOENT. */
+/**
+ * A file in `skill`'s folder, which must be inside it (symlinks followed); missing is ENOENT. A
+ * `.env` file, or a link to one, is refused.
+ */
 async function readFromSkill(params: {
   skill: Skill;
   file: string;
   signal?: AbortSignal | undefined;
 }): Promise<SkillFile> {
   const { skill, file, signal } = params;
-  const folder = await Workspace.open(skill.dir);
-  const real = await folder.resolveRead(file);
-  const text = await readFile(real, { encoding: 'utf8', ...(signal && { signal }) });
+  const found = await readGuardedFile({ dir: skill.dir, file, signal });
 
-  return { skill, path: real, text };
+  return { skill, ...found };
 }
 
 /**
  * A file of the skill called `name` (any skill, `disable-model-invocation` ones too): its SKILL.md,
  * or `file` relative to its folder. Undefined when no skill has that name. The file must be inside
  * the skill's folder, symlinks followed, as files are inside a workspace; a missing one is ENOENT.
+ * A `.env` file, or a link to one, is refused with a `ToolCallError`, as `read_skill` does.
  */
 export async function readSkillFile(
   params: SkillRoots & { name: string; file?: string | undefined; signal?: AbortSignal },

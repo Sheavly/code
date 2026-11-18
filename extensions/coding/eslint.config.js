@@ -38,23 +38,44 @@ export default defineConfig([
     files: ['src/files/files.helper.ts'],
     rules: { 'harness/guard-env-write': 'off', 'harness/guard-env-read': 'off' },
   },
-  // The skills source reads folders fixed when the harness is built (the project's and the user's
-  // skills folders), never one the agent chooses, and each SKILL.md is resolved through its own
-  // folder as a `Workspace`, which refuses a link out of it.
+  // The skills source lists folders fixed when the harness is built (the project's and the user's
+  // skills folders) with `readdir` and `stat`, never one the agent chooses. It reads no file
+  // itself: each SKILL.md goes through `guarded-read.helper.ts`, which refuses `.env` and a link
+  // out of the skill's folder. The rule is per file, so this stays for this one file.
   {
     files: ['src/skills/skills.helper.ts'],
     rules: { 'harness/no-raw-fs-in-instruction-source': 'off' },
   },
-  // These resolve a file of a skill's own folder, or a hook file of `.sheavly/`, through a
-  // `Workspace` opened on that folder, not the agent's working root: there is no requested path to
-  // anchor, and a `.env` name cannot be a skill file's or a hook's (the manifest limits a hook to
-  // its extensions; a skill's own `.env` is refused by `read_skill`'s guard).
+  // What a skill or a project hook names is a path the repo chose, so its content is read only
+  // through `files/guarded-read.helper.ts`, which refuses `.env` and a link out of the folder.
+  // `readdir`, `stat` and `lstat` stay allowed: they read no content. `guard-env-read` sees only
+  // `Workspace#resolveRead` calls, so this import ban keeps the usual named read imports out of
+  // these folders. It is a guard against a slip, not a proof: a default or `promises` import, a
+  // `require` or a dynamic `import()` of `node:fs` still get through, which review has to catch.
+  // `baseConfig` sets no other `no-restricted-imports` for these files, so this block replaces nothing.
   {
-    files: [
-      'src/skills/skills.helper.ts',
-      'src/skills/skill-files.helper.ts',
-      'src/project-hooks/project-hooks.helper.ts',
-    ],
-    rules: { 'harness/guard-env-read': 'off', 'harness/guard-working-root': 'off' },
+    files: ['src/skills/**/*.ts', 'src/project-hooks/**/*.ts'],
+    ignores: ['src/**/__tests__/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['node:fs', 'node:fs/promises', 'fs', 'fs/promises'].map((name) => ({
+            name,
+            importNames: ['readFile', 'readFileSync', 'open', 'createReadStream'],
+            message:
+              'Read a skill or project-hook file through `readGuardedFile` (`src/files/guarded-read.helper.ts`): it refuses `.env` files and a link out of the folder.',
+          })),
+        },
+      ],
+    },
+  },
+  // This one helper resolves a file of a skill's own folder, or of `.sheavly/`, through a
+  // `Workspace` opened on that folder: no working root applies, so there is no requested path to
+  // anchor. It still refuses `.env` on both sides (`harness/guard-env-read` stays on), and the
+  // skills and project-hooks helpers read through it, so their reads are held by that check.
+  {
+    files: ['src/files/guarded-read.helper.ts'],
+    rules: { 'harness/guard-working-root': 'off' },
   },
 ]);
