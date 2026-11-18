@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
+import type { ReportStatusOptions } from './message-agent.types.js';
 import { reportStatusPrompts } from './report-status.prompt.js';
 
 /**
@@ -9,7 +9,7 @@ import { reportStatusPrompts } from './report-status.prompt.js';
  * the sub-agent saying what it does, not the harness watching it. The status goes to the session
  * registry, which streams it to the UI (SSE) and into the parent's task output.
  */
-export function createReportStatusTool({ sessions }: { sessions: SessionRegistry }) {
+export function createReportStatusTool({ children }: ReportStatusOptions) {
   return defineTool({
     name: 'report_status',
     description: reportStatusPrompts.description,
@@ -24,7 +24,7 @@ export function createReportStatusTool({ sessions }: { sessions: SessionRegistry
         });
       }
 
-      sessions.report({ id: context.session.id, status });
+      children.report({ id: context.session.id, status });
 
       return 'Status reported.';
     },

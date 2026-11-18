@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { OutputError } from '@sheavly/core/errors/output.errors';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { OutputReader } from '@sheavly/core/output/output.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { escapeTags, fenceDashes } from '@sheavly/core/text/text.utils';
 import {
@@ -33,7 +33,7 @@ async function asToolCall<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-function createReadOutputTool(outputs: OutputStore) {
+function createReadOutputTool(outputs: Pick<OutputReader, 'read'>) {
   return defineTool({
     name: 'read_output',
     description: readOutputPrompts.description,
@@ -69,7 +69,7 @@ function createReadOutputTool(outputs: OutputStore) {
   });
 }
 
-function createSearchOutputTool(outputs: OutputStore) {
+function createSearchOutputTool(outputs: Pick<OutputReader, 'search'>) {
   return defineTool({
     name: 'search_output',
     description: searchOutputPrompts.description,
@@ -109,9 +109,9 @@ function createSearchOutputTool(outputs: OutputStore) {
 
 /**
  * `read_output` and `search_output` over one conversation's stored command output. Give it that
- * conversation's store only: a reference that is not in it is `not_found`, so a call cannot reach
- * another conversation's logs.
+ * conversation's reader only (the `output:read` side of its store): a reference that is not in it
+ * is `not_found`, so a call cannot reach another conversation's logs.
  */
-export function createOutputTools(outputs: OutputStore) {
+export function createOutputTools(outputs: Pick<OutputReader, 'read' | 'search'>) {
   return [createReadOutputTool(outputs), createSearchOutputTool(outputs)];
 }

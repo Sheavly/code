@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runSession, streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import {
   calls,
   routedProvider,
@@ -40,7 +41,11 @@ function conversationWithSlowSubAgent() {
     },
   };
   const harness = createHarness({ provider, title: 'Review' });
-  const tool = createSubAgentTool({ ...harness, runAgent: runSession, tools: [] });
+  const tool = createSubAgentTool({
+    scopes: registryScopes({ ...harness, runAgent: runSession }),
+    provider: harness.provider,
+    tools: [],
+  });
   const conversation = createConversation({
     harness,
     run: streamAgent,

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import type { MessageAgentOptions } from './message-agent.types.js';
 import { messageAgentPrompts } from './message-agent.prompt.js';
 
 /**
@@ -10,7 +10,7 @@ import { messageAgentPrompts } from './message-agent.prompt.js';
  * sub-agent's inbox and is added to its conversation at its next model call. Only the session
  * that started a sub-agent (or one above it) may message it; the registry refuses others.
  */
-export function createMessageAgentTool({ sessions }: { sessions: SessionRegistry }) {
+export function createMessageAgentTool({ sessions, children }: MessageAgentOptions) {
   return defineTool({
     name: 'message_agent',
     description: messageAgentPrompts.description,
@@ -33,7 +33,7 @@ export function createMessageAgentTool({ sessions }: { sessions: SessionRegistry
         });
       }
 
-      sessions.send({ id, content: message, from: context.session.id });
+      children.send({ id, content: message, from: context.session.id });
       const target = sessions.get(id);
 
       return `Sent to sub-agent "${target?.title ?? id}" (session ${id}). It sees the message at its next step.`;

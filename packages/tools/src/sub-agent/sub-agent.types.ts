@@ -2,43 +2,32 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
-import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import type { RunSession } from '@sheavly/runtime/sessions/sessions.types';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { ChildSessionScope } from '@sheavly/runtime/sessions/session-scope.types';
+import type { TaskControl, TaskStarter } from '@sheavly/runtime/tasks/task-scope.types';
+import type { SessionLookup } from './message-agent.types.js';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelSelection } from '@sheavly/protocol/model/model.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 
 /**
- * Runs one nested agent loop to its end. The host passes the loop's `runSession` here (tools
- * can't import the loop, so it comes in as an option).
+ * What the sub-agent tool starts, runs and steers through, as scopes an extension holds:
+ * `children` starts, runs and observes the sub-agents the extension owns, `tasks` starts their
+ * work, `taskControl` is what their task tools act through, and `sessions` looks sessions up.
  */
-export type RunNestedAgent = (options: {
-  provider: Provider;
-  tools: Tool[];
-  hooks: Hook[];
-  instructions: string;
-  messages: HistoryMessage[];
-  signal: AbortSignal;
-  tasks: TaskRegistry;
-  session: RunSession;
-  summary?: SummaryOptions;
-}) => Promise<{ reason: string; messages: HistoryMessage[] }>;
+export type SubAgentScopes = {
+  sessions: SessionLookup;
+  children: ChildSessionScope;
+  tasks: TaskStarter;
+  taskControl: TaskControl;
+};
 
 /** What a parent decides about the sub-agents it starts (and passes on to theirs). */
 export type SubAgentOptions = {
-  /** The registry the parent's session is in; sub-agents are added to it, linked to the parent. */
-  sessions: SessionRegistry;
-  /**
-   * The run's background tasks, shared by every session: each sub-agent runs as one owned by its
-   * parent, so the parent can wait or cancel, and passes the same registry on to its own.
-   */
-  tasks: TaskRegistry;
+  /** What the sub-agents are started, run and steered through; passed on to theirs. */
+  scopes: SubAgentScopes;
   provider: Provider;
   /** Captures the parent's model and effort when starting; descendants keep that snapshot. */
   selectProvider?: () => { provider: Provider; selection?: ModelSelection };
-  /** Runs a sub-agent's loop: the loop's `runSession`. */
-  runAgent: RunNestedAgent;
   /** The tools sub-agents get. `report_status` (and `start_agent`, below the depth cap) are added. */
   tools: Tool[];
   /**

@@ -9,6 +9,7 @@ import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { runSession, streamAgent } from '../stream-agent.helper.js';
 import { assertValidHistory } from '../../history/history.utils.js';
@@ -469,10 +470,8 @@ describe('grouped task delivery in the loop', () => {
         tools: [
           ...createTaskTools(tasks),
           createSubAgentTool({
-            sessions,
-            tasks,
+            scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
             provider: childProvider,
-            runAgent: runSession,
             tools: [],
           }),
         ],

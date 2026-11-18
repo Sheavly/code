@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
 import {
   calls,
   routedProvider,
   say,
   toolCall,
 } from '@sheavly/testing/provider/routed-provider.fake';
+import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 
 const start = (id: string, title: string, task: string) =>
@@ -27,10 +28,8 @@ function sharedRun(scripts: Parameters<typeof routedProvider>[0]) {
   const provider = routedProvider(scripts);
   const main = sessions.startMain({ title: 'Main' });
   const tool = createSubAgentTool({
-    sessions,
-    tasks,
+    scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
     provider,
-    runAgent: runSession,
     tools: [],
   });
   const run = (content: string) =>

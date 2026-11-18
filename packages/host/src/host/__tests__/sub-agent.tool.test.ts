@@ -9,6 +9,8 @@ import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
+import type { RunWithRegistries } from '@sheavly/tools/testing/registry-scopes.types';
 import {
   calls,
   routedProvider,
@@ -23,6 +25,10 @@ import type { TaskInfo } from '@sheavly/protocol/task/task.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
 const callId = callIdSchema.parse('c');
+
+/** Resolves when `signal` aborts: a model call that hangs until the run is cancelled. */
+const untilAborted = (signal: AbortSignal) =>
+  new Promise<void>((resolve) => signal.addEventListener('abort', () => resolve(), { once: true }));
 
 const call = (id: string, name: string, input: Record<string, unknown>) =>
   toolCall({ id, name, input });
@@ -44,7 +50,7 @@ function lastSeen(updates: SessionUpdate[]): SessionInfo[] {
 function setup(params: {
   scripts: Record<string, Script[]>;
   hooks?: Parameters<typeof createSubAgentTool>[0]['hooks'];
-  runAgent?: Parameters<typeof createSubAgentTool>[0]['runAgent'];
+  runAgent?: RunWithRegistries;
 }) {
   const sessions = new SessionRegistry();
   const tasks = new TaskRegistry();
@@ -62,10 +68,8 @@ function setup(params: {
   const provider = routedProvider(params.scripts);
   const main = sessions.startMain({ title: 'Main' });
   const tool = createSubAgentTool({
-    sessions,
-    tasks,
+    scopes: registryScopes({ sessions, tasks, runAgent: params.runAgent ?? runSession }),
     provider,
-    runAgent: params.runAgent ?? runSession,
     tools: [],
     ...(params.hooks && { hooks: params.hooks }),
   });
@@ -184,10 +188,8 @@ describe('start_agent', () => {
     const tasks = new TaskRegistry();
     const three = startDeepestSession(sessions);
     const tool = createSubAgentTool({
-      sessions,
-      tasks,
+      scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
       provider: routedProvider({}),
-      runAgent: runSession,
       tools: [],
     });
 
@@ -316,17 +318,13 @@ describe('start_agent', () => {
     const main = sessions.startMain({ title: 'Main' });
     const hanging: Provider = {
       async *stream(request) {
-        await new Promise((resolve) =>
-          request.signal.addEventListener('abort', resolve, { once: true }),
-        );
+        await untilAborted(request.signal);
         yield* [];
       },
     };
     const tool = createSubAgentTool({
-      sessions,
-      tasks,
+      scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
       provider: hanging,
-      runAgent: runSession,
       tools: [],
     });
 
@@ -358,10 +356,8 @@ describe('start_agent', () => {
       },
     };
     const tool = createSubAgentTool({
-      sessions,
-      tasks,
+      scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
       provider,
-      runAgent: runSession,
       tools: [
         defineTool({
           name: 'shell',
@@ -411,17 +407,13 @@ describe('start_agent', () => {
         }
 
         // The sub-agent waits for its next turn until it is cancelled.
-        await new Promise((resolve) =>
-          request.signal.addEventListener('abort', resolve, { once: true }),
-        );
+        await untilAborted(request.signal);
         yield* [];
       },
     };
     const tool = createSubAgentTool({
-      sessions,
-      tasks,
+      scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
       provider,
-      runAgent: runSession,
       tools: [
         defineTool({
           name: 'bg',
@@ -496,7 +488,7 @@ describe('report_status', () => {
   it('refuses to run outside a session', async () => {
     const sessions = new SessionRegistry();
     const { createReportStatusTool } = await import('@sheavly/tools/sub-agent/report-status.tool');
-    const tool = createReportStatusTool({ sessions });
+    const tool = createReportStatusTool({ children: sessions });
 
     await expect(
       tool.execute({

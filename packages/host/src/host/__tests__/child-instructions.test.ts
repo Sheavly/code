@@ -3,6 +3,7 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import {
   calls,
   routedProvider,
@@ -52,13 +53,15 @@ describe('shared child instructions', () => {
       });
     const harness = createHarness({ provider: providers, title: 'Parent', instructions: 'HOST' });
     const child = createSubAgentTool({
-      sessions: harness.sessions,
-      tasks: harness.tasks,
+      scopes: registryScopes({
+        sessions: harness.sessions,
+        tasks: harness.tasks,
+        runAgent: runSession,
+      }),
       provider: harness.provider,
       selectProvider: () => ({ provider: providers.pinned('different-family') }),
       baseInstructions: harness.instructions,
       instructions: 'CHILD EXTRAS',
-      runAgent: runSession,
       tools: [],
     });
 

@@ -8,6 +8,7 @@ import { createMessageAgentTool } from '../message-agent.tool.js';
 import { createReportStatusTool } from '../report-status.tool.js';
 import { subAgentDescription } from '../sub-agent.prompt.js';
 import { createTaskTools } from '../../tasks/tasks.tool.js';
+import { registryScopes } from '../../testing/registry-scopes.fake.js';
 import { createWebFetchTool } from '../../web-fetch/web-fetch.tool.js';
 import { createWebSearchTool } from '../../web-search/web-search.tool.js';
 
@@ -17,18 +18,20 @@ function definitions() {
 
   return [
     createSubAgentTool({
-      sessions,
-      tasks,
+      scopes: registryScopes({
+        sessions,
+        tasks,
+        runAgent: async () => ({ reason: 'completed', messages: [] }),
+      }),
       provider: {
         async *stream() {
           yield { type: 'done', stopReason: 'end_turn' };
         },
       },
-      runAgent: async () => ({ reason: 'completed', messages: [] }),
       tools: [],
     }),
-    createMessageAgentTool({ sessions }),
-    createReportStatusTool({ sessions }),
+    createMessageAgentTool({ sessions, children: sessions }),
+    createReportStatusTool({ children: sessions }),
     ...createTaskTools(tasks),
   ].map(toDefinition);
 }

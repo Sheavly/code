@@ -1,7 +1,9 @@
 # @sheavly/tools
 
 The generic tools: nothing about files or commands, so any LLM project can include them. A UI
-picks which ones a run gets and builds them on the run's registries.
+picks which ones a run gets and builds them on the run's scoped services (the structural types of
+`@sheavly/runtime` and `@sheavly/core`: a task control, a child-session scope, an output reader),
+never on a registry the tool could misuse.
 
 `createSubAgentTool` optionally accepts `selectProvider`, called when an agent starts, to capture
 the parent's provider and model/mode selection. The child and its descendants retain that snapshot
@@ -23,7 +25,8 @@ const tools = [
   // The app explicitly selects a backend; the search tool has no default.
   createWebSearchTool({ backend: createTavilySearchBackend() }),
   ...createTaskTools(harness.tasks),
-  createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools: [] }),
+  // `scopes` are the run's session and task scopes (see docs/sub-agents.md), not its registries.
+  createSubAgentTool({ scopes, provider, tools: [] }),
 ];
 ```
 
