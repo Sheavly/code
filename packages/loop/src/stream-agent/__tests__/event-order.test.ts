@@ -10,20 +10,43 @@ import { streamAgent } from '../stream-agent.helper.js';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const wait = defineTool({
-  name: 'wait',
-  description: 'Wait, then reply',
-  inputSchema: z.object({ id: z.string(), ms: z.number() }),
-  execute: async ({ input: { id, ms } }) => {
-    await sleep(ms);
+/** The order the three calls finish in: the reverse of the order they are called in. */
+const FINISH_ORDER = ['fast', 'mid', 'slow'];
 
-    return `done ${id}`;
-  },
-});
+/**
+ * A tool that replies only once `release(id)` is called, so a run finishes its parallel calls in
+ * the order the test chooses, not in the order wall-clock timers happen to fire on a loaded machine.
+ */
+function gatedWait() {
+  const gates = new Map<string, PromiseWithResolvers<undefined>>();
+  // Made by whichever side comes first, so a release before the tool starts waiting is kept.
+  const gate = (id: string) => {
+    const existing = gates.get(id);
 
-const waitCall = (id: string, ms: number): StreamEvent => ({
+    if (existing) return existing;
+    const created = Promise.withResolvers<undefined>();
+
+    gates.set(id, created);
+
+    return created;
+  };
+  const tool = defineTool({
+    name: 'wait',
+    description: 'Wait for the test to release this call, then reply',
+    inputSchema: z.object({ id: z.string() }),
+    execute: async ({ input: { id } }) => {
+      await gate(id).promise;
+
+      return `done ${id}`;
+    },
+  });
+
+  return { tool, release: (id: string) => gate(id).resolve(undefined) };
+}
+
+const waitCall = (id: string): StreamEvent => ({
   type: 'tool_call',
-  call: { id: callIdSchema.parse(id), name: 'wait', input: { description: `task ${id}`, id, ms } },
+  call: { id: callIdSchema.parse(id), name: 'wait', input: { description: `task ${id}`, id } },
 });
 
 /** Turn 1: reasoning, text, three parallel calls (slowest first). Turn 2: final text. */
@@ -31,9 +54,9 @@ const script: StreamEvent[][] = [
   [
     { type: 'reasoning', item: { source: 'test', data: { secret: true } } },
     { type: 'text_delta', text: 'Checking. ' },
-    waitCall('slow', 30),
-    waitCall('mid', 15),
-    waitCall('fast', 1),
+    waitCall('slow'),
+    waitCall('mid'),
+    waitCall('fast'),
     { type: 'done', stopReason: 'tool_use' },
   ],
   [
@@ -42,15 +65,27 @@ const script: StreamEvent[][] = [
   ],
 ];
 
+/**
+ * Runs `provider` with the gated tool. The first call is released when `tool_batch` shows all
+ * three started, and each next one when the previous result has been delivered, so they finish
+ * one at a time in `FINISH_ORDER`.
+ */
 async function collect(provider: Provider): Promise<AgentEvent[]> {
+  const { tool, release } = gatedWait();
   const events: AgentEvent[] = [];
 
   for await (const event of streamAgent({
     provider,
-    tools: [wait],
+    tools: [tool],
     messages: [{ role: 'user', content: 'go' }],
   })) {
     events.push(event);
+
+    if (event.type === 'tool_batch') release(FINISH_ORDER[0] ?? '');
+
+    if (event.type === 'tool_result') {
+      release(FINISH_ORDER[FINISH_ORDER.indexOf(event.call.id) + 1] ?? '');
+    }
   }
 
   return events;

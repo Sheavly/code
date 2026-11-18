@@ -4,6 +4,7 @@ import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { routedProvider, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
+import { until } from '@sheavly/testing/wait/until.fake';
 import type { SearchBackend } from '@sheavly/tools/web-search/web-search.types';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
@@ -65,6 +66,11 @@ describe('the app-selected search backend', () => {
 
     try {
       for await (const _event of conversation.send('go'));
+
+      // The main prompt ends when its model finishes, while the sub-agent runs on as a background
+      // task (only `await_tasks` holds it open), so the child's search is awaited explicitly. It
+      // normally lands within milliseconds; the bound only keeps a loaded machine from failing it.
+      await until(() => searches.length === 2, 10_000);
     } finally {
       await conversation.close();
     }
