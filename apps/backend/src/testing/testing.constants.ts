@@ -17,6 +17,8 @@ export const ALL_GRANTS = [
   'output:capture',
   'model:call',
   'approval:request',
+  'approval:as-tool',
+  'approval:keep',
 ];
 
 /**

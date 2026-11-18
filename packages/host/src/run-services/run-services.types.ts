@@ -3,15 +3,30 @@ import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.serv
 
 /**
  * What an extension says when it asks: the call, what it wants to do (`command`, the text the user
- * reads) and why it is unusual (`concerns`). The scope builds the rest: the request is
- * attributed to the extension, is answered once (no `always_allow`, no `allow_session`) and keeps
- * nothing, so an extension cannot add a permanent or session allow rule. `sessionId`, when given,
- * must be an open session of the run.
+ * reads) and why it is unusual (`concerns`). Unless the extension holds the grants below, the
+ * scope builds the rest: the request is attributed to the extension, is answered once (no
+ * `always_allow`, no `allow_session`) and keeps nothing, so an extension cannot add a permanent or
+ * session allow rule. `sessionId`, when given, must be an open session of the run. Using `tool`,
+ * `options` or `keeps` without its grant is refused, never ignored.
  */
 export type ExtensionApprovalRequest = Pick<
   Parameters<ApprovalRegistry['request']>[0],
   'callId' | 'sessionId' | 'command' | 'concerns' | 'signal'
->;
+> & {
+  /**
+   * Asks as one of the tools the extension contributes (needs `approval:as-tool`): the request
+   * carries this name and the `command` is not prefixed. A name it does not contribute, or any
+   * name during `activate`, is refused.
+   */
+  tool?: string | undefined;
+  /**
+   * What the user may answer, a subset of the protocol's options (needs `approval:keep`).
+   * `always_allow` and `allow_session` need a non-empty `keeps`.
+   */
+  options?: Parameters<ApprovalRegistry['request']>[0]['options'];
+  /** What those two answers would keep, shown to the user (needs `approval:keep`). */
+  keeps?: Parameters<ApprovalRegistry['request']>[0]['keeps'];
+};
 
 /**
  * What an extension may do with approvals (the `approval:request` grant): ask the user, and read

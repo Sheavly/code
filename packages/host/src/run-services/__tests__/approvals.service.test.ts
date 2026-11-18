@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
-import type { ApprovalRequest } from '@sheavly/protocol/approval/approval.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
+import { approveAll } from '../../testing/approve-all.fake.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
 import { MAX_CONCERN_TEXT_CHARS, MAX_REQUEST_CONCERNS } from '../run-services.constants.js';
 import { APPROVALS } from '../run-services.utils.js';
@@ -16,20 +16,6 @@ const request = () => ({
   concerns: [],
   signal: new AbortController().signal,
 });
-
-/** A UI that approves every request it hears, and the requests it heard. */
-function approveAll(run: ReturnType<typeof scopeRun>) {
-  const heard: ApprovalRequest[] = [];
-
-  run.harness.approvals.subscribe((update) => {
-    if (update.type !== 'approval_requested') return;
-
-    heard.push(update.request);
-    run.harness.approvals.respond({ id: update.request.id, response: { decision: 'approve' } });
-  });
-
-  return heard;
-}
 
 describe('the approvals service', () => {
   it('requests through the real registry, which a UI then answers', async () => {
@@ -49,26 +35,35 @@ describe('the approvals service', () => {
     });
   });
 
-  it('builds the request: attributed to the extension, answered once, keeping nothing', async () => {
+  it('builds the default request: attributed to the extension, answered once, keeping nothing', async () => {
     const run = scopeRun();
     const heard = approveAll(run);
 
     await run.activate([asker]);
-
-    // A caller that ignores the type (plain JavaScript) still cannot ask for a permanent rule.
-    const forged = {
-      ...request(),
-      tool: 'run_command',
-      options: ['approve', 'always_allow', 'allow_session'],
-      keeps: [['git', 'log']],
-    };
-
-    await run.servicesOf('asker').get(APPROVALS).request(forged);
+    await run.servicesOf('asker').get(APPROVALS).request(request());
 
     expect(heard).toHaveLength(1);
     expect(heard[0]).toMatchObject({ tool: 'extension:asker', command: '[asker] ls' });
     expect(heard[0]?.options).toEqual(['approve', 'skip', 'skip_with_message']);
     expect(heard[0] && 'keeps' in heard[0]).toBe(false);
+  });
+
+  it('refuses tool, options and keeps without their grant, naming it, and asks nobody', async () => {
+    const run = scopeRun();
+    const heard = approveAll(run);
+
+    await run.activate([{ ...asker, tools: ['run_command'] }]);
+
+    const scope = run.servicesOf('asker').get(APPROVALS);
+    const asTool = Object.assign(request(), { tool: 'run_command' });
+    const withOptions = Object.assign(request(), { options: ['approve', 'skip'] as const });
+    const withKeeps = Object.assign(request(), { keeps: ['git log *'] });
+
+    await expect(scope.request(asTool)).rejects.toThrow(ExtensionUndeclaredError);
+    await expect(scope.request(asTool)).rejects.toThrow(/asker.*approval:as-tool/s);
+    await expect(scope.request(withOptions)).rejects.toThrow(/approval:keep/);
+    await expect(scope.request(withKeeps)).rejects.toThrow(ExtensionUndeclaredError);
+    expect(heard).toEqual([]);
   });
 
   it('rebuilds concerns as two strings each, and reads a missing or non-array one as none', async () => {
@@ -92,7 +87,25 @@ describe('the approvals service', () => {
     ]);
   });
 
-  it('drops a concern without two string fields, and bounds how many and how long the rest are', async () => {
+  it('drops a concern without two string fields', async () => {
+    const run = scopeRun();
+    const heard = approveAll(run);
+
+    await run.activate([asker]);
+    await run
+      .servicesOf('asker')
+      .get(APPROVALS)
+      .request(
+        Object.assign(request(), {
+          concerns: [{ argument: 'only argument' }, { argument: 1, reason: 2 }, null, 'text'],
+        }),
+      );
+
+    // No `undefined` or `1` turned into text: an entry without two strings is not a concern.
+    expect(heard[0]?.concerns).toEqual([]);
+  });
+
+  it('ends a text over the cap with an ellipsis counted inside the cap, and leaves others whole', async () => {
     const run = scopeRun();
     const heard = approveAll(run);
 
@@ -100,27 +113,75 @@ describe('the approvals service', () => {
 
     const scope = run.servicesOf('asker').get(APPROVALS);
     const long = 'x'.repeat(MAX_CONCERN_TEXT_CHARS + 50);
-    const many = Array.from({ length: MAX_REQUEST_CONCERNS + 5 }, (_unused, index) => ({
+    const exact = 'y'.repeat(MAX_CONCERN_TEXT_CHARS);
+
+    await scope.request(
+      Object.assign(request(), {
+        concerns: [
+          { argument: long, reason: long },
+          { argument: exact, reason: 'short' },
+        ],
+      }),
+    );
+
+    const [cut, whole] = heard[0]?.concerns ?? [];
+
+    expect(cut?.argument).toBe(`${'x'.repeat(MAX_CONCERN_TEXT_CHARS - 1)}…`);
+    expect(cut?.reason).toHaveLength(MAX_CONCERN_TEXT_CHARS);
+    expect(whole).toEqual({ argument: exact, reason: 'short' });
+  });
+
+  it('never cuts between the two halves of a character before the ellipsis', async () => {
+    const run = scopeRun();
+    const heard = approveAll(run);
+
+    await run.activate([asker]);
+
+    // The emoji's first half is the last unit that would be kept, so it is dropped with its pair.
+    const text = `${'a'.repeat(MAX_CONCERN_TEXT_CHARS - 2)}😀zz`;
+
+    await run
+      .servicesOf('asker')
+      .get(APPROVALS)
+      .request(Object.assign(request(), { concerns: [{ argument: text, reason: 'r' }] }));
+
+    expect(heard[0]?.concerns[0]?.argument).toBe(`${'a'.repeat(MAX_CONCERN_TEXT_CHARS - 2)}…`);
+  });
+
+  /** What the UI hears when the asker passes `count` numbered concerns. */
+  async function heardWith(count: number) {
+    const run = scopeRun();
+    const heard = approveAll(run);
+    const concerns = Array.from({ length: count }, (_unused, index) => ({
       argument: `a${String(index)}`,
       reason: 'r',
     }));
 
-    await scope.request(
-      Object.assign(request(), {
-        concerns: [{ argument: 'only argument' }, { argument: 1, reason: 2 }, null, 'text'],
-      }),
-    );
-    await scope.request(Object.assign(request(), { concerns: [{ argument: long, reason: long }] }));
-    await scope.request(Object.assign(request(), { concerns: many }));
+    await run.activate([asker]);
+    await run
+      .servicesOf('asker')
+      .get(APPROVALS)
+      .request({ ...request(), concerns });
 
-    const [unusable, cut, capped] = heard.map((heardRequest) => heardRequest.concerns);
+    return { concerns, shown: heard[0]?.concerns ?? [] };
+  }
 
-    // No `undefined` or `1` turned into text: an entry without two strings is not a concern.
-    expect(unusable).toEqual([]);
-    expect(cut?.[0]?.argument).toHaveLength(MAX_CONCERN_TEXT_CHARS);
-    expect(cut?.[0]?.reason).toHaveLength(MAX_CONCERN_TEXT_CHARS);
-    expect(capped).toHaveLength(MAX_REQUEST_CONCERNS);
-    expect(capped?.[0]?.argument).toBe('a0');
+  it('passes exactly the cap through unchanged', async () => {
+    const { concerns, shown } = await heardWith(MAX_REQUEST_CONCERNS);
+
+    expect(shown).toEqual(concerns);
+  });
+
+  it('over the cap keeps the first cap-1 and adds one concern counting what is not shown', async () => {
+    const total = MAX_REQUEST_CONCERNS + 5;
+    const { concerns, shown } = await heardWith(total);
+
+    expect(shown).toHaveLength(MAX_REQUEST_CONCERNS);
+    expect(shown.slice(0, -1)).toEqual(concerns.slice(0, MAX_REQUEST_CONCERNS - 1));
+    expect(shown.at(-1)).toEqual({
+      argument: `+${String(total - (MAX_REQUEST_CONCERNS - 1))} more`,
+      reason: `not shown here: the request had ${String(total)} concerns`,
+    });
   });
 
   it('refuses a request for a session that is not open in the run', async () => {

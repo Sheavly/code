@@ -68,7 +68,11 @@ describe('runServices', () => {
     expect(grants.get(OUTPUT_READER.name)).toEqual(['output:read']);
     expect(grants.get(OUTPUT_CAPTURE.name)).toEqual(['output:capture']);
     expect(grants.get(MODEL.name)).toEqual(['model:call']);
-    expect(grants.get(APPROVALS.name)).toEqual(['approval:request']);
+    expect(grants.get(APPROVALS.name)).toEqual([
+      'approval:request',
+      'approval:as-tool',
+      'approval:keep',
+    ]);
   });
 
   it('keeps the output grants known when the app has no output store, and supplies no environment or whole registry', () => {

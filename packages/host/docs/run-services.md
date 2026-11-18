@@ -20,18 +20,18 @@ manifest declares, like a third-party one.
 
 ## The services
 
-| Key (`run-services.utils`) | Name               | Grant (checked by)                                                                                                                                   | What it leaves out                                                                                                                                  |
-| -------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SESSION_INFO`             | `session-info`     | `session:read`: `get`, `list`, `isReleased`, `releasedStarts`, `onLifecycle`                                                                         | message content, inboxes, every write, the registry                                                                                                 |
-| `CHILD_SESSIONS`           | `child-sessions`   | `sub-agent:create`: `startChild`, `setModel`, `runChild`; `sub-agent:message`: `send`; `sub-agent:observe`: `onUpdate`; `sub-agent:report`: `report` | `publish*`, `end`, `idle`, `resume`, `release*`, `subscribeEntries`, `stream`, notices, inboxes, `'user'` as a sender, any session it did not start |
-| `BACKGROUND_TASKS`         | `background-tasks` | `task:start`: `start`; `task:read`: `get`, `report`, `list`, `observe`; `task:cancel`: `cancel`, `group`                                             | other extensions' tasks, `cancelAll`, `cancelSession`, deliveries, `release*`                                                                       |
-| `TASK_CONTROL`             | `task-control`     | `task:read-any`: `getOwned`, `list`, `report`; `task:cancel-any`: `cancel`, `group`                                                                  | `start`, `cancelAll`, `cancelSession`, deliveries, `release*`; every call needs a `sessionId`                                                       |
-| `OUTPUT_READER`            | `output-reader`    | `output:read`: `log`, `read`, `search`                                                                                                               | `create`; absent when the app has no output store                                                                                                   |
-| `OUTPUT_CAPTURE`           | `output-capture`   | `output:capture`: `create`                                                                                                                           | reading; absent when the app has no output store                                                                                                    |
-| `MODEL`                    | `model`            | `model:call`: `stream` (`contextWindow` is forwarded live)                                                                                           | nothing else a provider has                                                                                                                         |
-| `APPROVALS`                | `approvals`        | `approval:request`: `request` and the read-only `listening`                                                                                          | `respond`, `subscribe`, `observe`, `pending`, `screen`                                                                                              |
-| `INSTRUCTIONS`             | `instructions`     | none: a constant                                                                                                                                     |                                                                                                                                                     |
-| `MAIN_SESSION`             | `main-session`     | none: a constant                                                                                                                                     |                                                                                                                                                     |
+| Key (`run-services.utils`) | Name               | Grant (checked by)                                                                                                                                                        | What it leaves out                                                                                                                                  |
+| -------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_INFO`             | `session-info`     | `session:read`: `get`, `list`, `isReleased`, `releasedStarts`, `onLifecycle`                                                                                              | message content, inboxes, every write, the registry                                                                                                 |
+| `CHILD_SESSIONS`           | `child-sessions`   | `sub-agent:create`: `startChild`, `setModel`, `runChild`; `sub-agent:message`: `send`; `sub-agent:observe`: `onUpdate`; `sub-agent:report`: `report`                      | `publish*`, `end`, `idle`, `resume`, `release*`, `subscribeEntries`, `stream`, notices, inboxes, `'user'` as a sender, any session it did not start |
+| `BACKGROUND_TASKS`         | `background-tasks` | `task:start`: `start`; `task:read`: `get`, `report`, `list`, `observe`; `task:cancel`: `cancel`, `group`                                                                  | other extensions' tasks, `cancelAll`, `cancelSession`, deliveries, `release*`                                                                       |
+| `TASK_CONTROL`             | `task-control`     | `task:read-any`: `getOwned`, `list`, `report`; `task:cancel-any`: `cancel`, `group`                                                                                       | `start`, `cancelAll`, `cancelSession`, deliveries, `release*`; every call needs a `sessionId`                                                       |
+| `OUTPUT_READER`            | `output-reader`    | `output:read`: `log`, `read`, `search`                                                                                                                                    | `create`; absent when the app has no output store                                                                                                   |
+| `OUTPUT_CAPTURE`           | `output-capture`   | `output:capture`: `create`                                                                                                                                                | reading; absent when the app has no output store                                                                                                    |
+| `MODEL`                    | `model`            | `model:call`: `stream` (`contextWindow` is forwarded live)                                                                                                                | nothing else a provider has                                                                                                                         |
+| `APPROVALS`                | `approvals`        | `approval:request`: `request` and the read-only `listening`; `approval:as-tool`: `tool` may name a tool the extension contributes; `approval:keep`: `options` and `keeps` | `respond`, `subscribe`, `observe`, `pending`, `screen`                                                                                              |
+| `INSTRUCTIONS`             | `instructions`     | none: a constant                                                                                                                                                          |                                                                                                                                                     |
+| `MAIN_SESSION`             | `main-session`     | none: a constant                                                                                                                                                          |                                                                                                                                                     |
 
 An extension may only hold a grant of a service it reads (`services.requires` or `optional`): a
 grant of an unread service, or one no service defines (a typo), fails its activation, as does any
@@ -77,17 +77,37 @@ other manifest mismatch.
 - **Skipped extensions.** The scope of a service is built when the host checks that an extension's
   required services are readable, so one is also built for an extension that is then skipped
   (untrusted, dependency, service); the host disarms it then, like any other stop.
-- **Approvals.** The scope builds the request from `callId`, `sessionId`, `command`, `concerns` and
-  `signal` only: `tool` is `extension:<name>`, the `command` the user reads is prefixed with
-  `[<name>]`, only the default options are offered (no `always_allow`, no `allow_session`) and
-  there is no `keeps`, so an answer applies once and never becomes an allow rule. `concerns` is
-  rebuilt as `{ argument, reason }` strings: a non-array is none, an entry without two string
-  fields is dropped (nothing becomes the text `undefined`), at most 20 are kept and each string is
-  cut to 500 characters; `command` is not bounded here. The `[<name>]` prefix is a
+- **Approvals.** By default the scope builds the request from `callId`, `sessionId`, `command`,
+  `concerns` and `signal` only: `tool` is `extension:<name>`, the `command` the user reads is
+  prefixed with `[<name>]`, only the default options are offered (no `always_allow`, no
+  `allow_session`) and there is no `keeps`, so an answer applies once and never becomes an allow
+  rule. Two more grants widen that, checked only when their field is used; a request that uses a
+  field without its grant is refused with `ExtensionUndeclaredError` naming the grant, never
+  silently narrowed. `approval:as-tool` lets `tool` name a tool the extension contributes: the
+  host records the names it contributed once it has checked them against the manifest after
+  `activate` returned, and `tool` must be one of them by exact name (else
+  `ApprovalToolNotContributedError`). A request made during `activate`, or after the extension is
+  stopped, is refused too. Contributed names are unique across a run (a collision fails the
+  run), so no other extension can be attributed as that tool; a name that is only declared in
+  the manifest gets nothing. The `command` is then not prefixed. `approval:keep` lets `options`
+  (a non-empty subset of the protocol's options) and `keeps` through: `keeps` are allow entries
+  parsed with the protocol's schema, at most 20 of at most 500 characters (`ScopeArgumentError`
+  otherwise; `keepsFit`, `@sheavly/extension/approval/approval-keeps.utils` (the limits are defined there too), says whether entries fit, so a caller can
+  leave them out instead of failing; coding does, and offers only approve, skip and
+  skip_with_message when its proposed entries do not fit). `always_allow` and `allow_session` need
+  a non-empty `keeps`, and the registry refuses an answer outside `options`. The host passes
+  `options` and `keeps` through, bounds them and checks that the answer is one of the offered
+  options; whether and how an entry is kept is the requesting extension's own code (coding
+  persists the entries through its permissions after the answer). `keeps` are shown to the user
+  in the prompt. `concerns` is rebuilt as `{ argument, reason }` strings: a non-array is none, an
+  entry without two string fields is dropped (nothing becomes the text `undefined`), and at most 50
+  are kept, each string at most 1000 characters, with nothing cut silently: a longer string ends
+  with `…` (counted in the cap), and over 50 concerns the first 49 are kept and one last concern
+  `{ argument: '+N more', reason: 'not shown here: the request had M concerns' }` says how many are
+  not shown; at or under the cap they pass through as given. `command` is not bounded here. The `[<name>]` prefix is a
   label, not an unforgeable attribution: the caller's text follows it and may contain newlines
   (a terminal shows control characters as literals), so a screener should trust `tool`. A
-  `sessionId` may be any open session of the run, not only one the extension started. `coding` asks through `harness.approvals` directly, not
-  through this scope.
+  `sessionId` may be any open session of the run, not only one the extension started.
 - **Switching off.** The host disarms every instance before the extension's own `deactivate` runs,
   wherever it stops the extension's emitter (deactivate, a roll-back, a failed activation). After
   that every method throws a `ScopeDeactivatedError` naming the extension and the service, and
