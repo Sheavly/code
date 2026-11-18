@@ -75,4 +75,12 @@ export const NOTICE_SAMPLES: Record<HarnessNotice['kind'], HarnessNotice> = {
     handler: 'beforeTurn',
     error: 'boom',
   }),
+  'extension-notice': harnessNoticeSchema.parse({
+    kind: 'extension-notice',
+    extension: 'acme',
+    topic: 'acme.build-status',
+    version: 1,
+    data: { failing: 2 },
+    text: 'Two builds are failing',
+  }),
 };
