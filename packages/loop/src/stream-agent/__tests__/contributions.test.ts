@@ -165,13 +165,22 @@ describe('buildContributions', () => {
     ]);
   });
 
-  it('registers delivery in order: steering, finished work, failed hooks, then the hooks', () => {
+  it('registers delivery in order: steering, finished work, failed hooks, extension notices, then the hooks', () => {
     expect(buildContributions(options(false)).delivery.map((item) => item.name)).toEqual([
       'steering-messages',
       'finished-tasks',
       'hook-failures',
+      'extension-notices',
       'delivery-hooks',
     ]);
+  });
+
+  it('reports a failed extension-notices drain instead of failing the run, and waits for it', () => {
+    const drain = buildContributions(options(false)).delivery.find(
+      (item) => item.name === 'extension-notices',
+    );
+
+    expect(drain).toMatchObject({ onFailure: 'report', abort: 'wait' });
   });
 
   it('registers completion in the flow-rule order: tools, inbox, yield, await, settled', () => {

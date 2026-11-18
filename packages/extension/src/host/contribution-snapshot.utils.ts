@@ -1,4 +1,8 @@
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import { isInNamespace } from '@sheavly/protocol/extension/extension.utils';
+import { extensionQualifiedNameSchema } from '@sheavly/protocol/extension/extension.validator';
+import type { EventContribution, NoticeContribution, RecordedEmit } from '../emit/emit.types.js';
+import { ExtensionEmitError } from '../errors/emit.errors.js';
 import { ExtensionContributionChangedError } from '../errors/extension.errors.js';
 import type {
   ContributionKind,
@@ -8,7 +12,7 @@ import type {
   WorkKindContribution,
 } from '../extension/extension.types.js';
 import type { ExtensionManifest } from '../manifest/manifest.types.js';
-import { assertDeclared } from './declaration.utils.js';
+import { assertDeclared, declaredNoticeTopics } from './declaration.utils.js';
 import type {
   CheckedEntry,
   ContributedBy,
@@ -71,6 +75,46 @@ function checkedList<TContribution, TItem>(params: {
   return Object.freeze(entries);
 }
 
+/** Throws the `ExtensionEmitError` for a contribution whose name or version is not valid. */
+function invalidContribution(params: { extension: string; name: string; problem: string }): never {
+  throw new ExtensionEmitError({
+    ...params,
+    emitted: params.name,
+    failure: 'invalid-contribution',
+  });
+}
+
+/**
+ * What the emitter is armed from: each checked entry's recorded name, with its version and schema
+ * read once, frozen. The name must be a qualified name in the extension's namespace and the
+ * version a positive integer, as the protocol will read them; otherwise the contribution (and so
+ * the activation) fails, naming the extension. The schema is held by reference.
+ */
+function recordedEmits(params: {
+  extension: string;
+  entries: readonly CheckedEntry<EventContribution | NoticeContribution>[];
+}): readonly RecordedEmit[] {
+  const { extension, entries } = params;
+  const recorded = entries.map(({ name, item }) => {
+    const { version, schema } = item;
+
+    if (
+      !extensionQualifiedNameSchema.safeParse(name).success ||
+      !isInNamespace({ extension, name })
+    ) {
+      invalidContribution({ extension, name, problem: 'its name must be "<extension>.<name>"' });
+    }
+
+    if (!Number.isInteger(version) || version < 1) {
+      invalidContribution({ extension, name, problem: 'its version must be a positive integer' });
+    }
+
+    return Object.freeze({ name, version, schema });
+  });
+
+  return Object.freeze(recorded);
+}
+
 /**
  * Holds what an `activate` returned to its manifest and keeps what it checked: every tool, hook
  * (a placed hook by its inner hook's name) and work kind must be listed, its name read exactly
@@ -78,7 +122,8 @@ function checkedList<TContribution, TItem>(params: {
  * Throws an `ExtensionUndeclaredError` for the first not listed. The host merges and orders by the
  * names recorded in the returned snapshot, after `assertSnapshotUnchanged` in the same
  * synchronous step, so a list or name changed later is never merged unchecked. The item objects
- * themselves are not frozen.
+ * themselves are not frozen. An event or notice is also recorded for the emitter by its recorded
+ * name, with its version read once (`recordedEmits`); an invalid name or version throws too.
  */
 export function snapshotContributions(params: {
   manifest: ExtensionManifest;
@@ -90,11 +135,36 @@ export function snapshotContributions(params: {
     tools: contributions.tools,
     hooks: contributions.hooks,
     workKinds: contributions.workKinds,
+    events: contributions.events,
+    notices: contributions.notices,
   };
+
+  const events = checkedList({
+    extension,
+    use: 'event',
+    allowed: manifest.emits.events,
+    declareIn: 'emits.events',
+    source: sources.events,
+    read: (event: EventContribution) => ({ name: event.kind, item: event }),
+  });
+  const notices = checkedList({
+    extension,
+    use: 'notice',
+    allowed: declaredNoticeTopics(manifest),
+    declareIn: 'emits.modelFacingNotices (set it to true)',
+    source: sources.notices,
+    read: (notice: NoticeContribution) => ({ name: notice.topic, item: notice }),
+  });
 
   return {
     returned: contributions,
     sources,
+    events,
+    notices,
+    emittable: {
+      events: recordedEmits({ extension, entries: events }),
+      notices: recordedEmits({ extension, entries: notices }),
+    },
     tools: checkedList<Tool, Tool>({
       extension,
       use: 'tool',
@@ -225,5 +295,21 @@ function assertSnapshotUnchanged(params: {
     current: returned.workKinds,
     entries: snapshot.workKinds,
     nameOf: (kind) => kind.name,
+  });
+  assertListUnchanged({
+    extension,
+    contribution: 'event',
+    source: sources.events,
+    current: returned.events,
+    entries: snapshot.events,
+    nameOf: (event) => event.kind,
+  });
+  assertListUnchanged({
+    extension,
+    contribution: 'notice',
+    source: sources.notices,
+    current: returned.notices,
+    entries: snapshot.notices,
+    nameOf: (notice) => notice.topic,
   });
 }

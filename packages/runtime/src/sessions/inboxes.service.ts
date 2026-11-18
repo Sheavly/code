@@ -1,5 +1,10 @@
-import type { InboxMessage, SessionId } from '@sheavly/protocol/session/session.types';
+import type { InboxMessage, SessionId, SessionInfo } from '@sheavly/protocol/session/session.types';
+import { SessionError } from '../errors/sessions.errors.js';
 import { abortableWait } from '../wait/abortable-wait.helper.js';
+import { parseQueuedNotice } from './queued-notice.validator.js';
+import { assertOpen } from './send-check.helper.js';
+import { MAX_QUEUED_NOTICES } from './sessions.constants.js';
+import type { QueuedNotice } from './sessions.types.js';
 
 /**
  * Each session's inbox: the messages queued for its next model call, and the loops waiting idle
@@ -8,6 +13,43 @@ import { abortableWait } from '../wait/abortable-wait.helper.js';
 export class Inboxes {
   #messages = new Map<SessionId, InboxMessage[]>();
   #waiters = new Map<SessionId, (() => void)[]>();
+  /** The outbox: extension notices for the loop to publish at its next turn. No one waits on it. */
+  #notices = new Map<SessionId, QueuedNotice[]>();
+
+  /**
+   * Queues `notice` for `session`, oldest first; throws `session_ended` once it has ended,
+   * `invalid_notice` when the protocol's schema refuses it (history reads it back, so a malformed
+   * one never gets that far) and `outbox_full` when `MAX_QUEUED_NOTICES` are already waiting. It
+   * wakes no one: a notice is not a reason to run.
+   */
+  addNotice(params: { session: SessionInfo; notice: QueuedNotice }): void {
+    const { session } = params;
+
+    assertOpen({ session, consequence: "it can't receive notices" });
+
+    const notice = parseQueuedNotice({ id: session.id, notice: params.notice });
+    const queued = this.#notices.get(session.id) ?? [];
+
+    if (queued.length >= MAX_QUEUED_NOTICES) {
+      throw new SessionError({
+        reason: 'outbox_full',
+        sessionId: session.id,
+        message: `Session ${session.id} already has ${MAX_QUEUED_NOTICES} extension notices waiting for its next turn; this one was dropped`,
+      });
+    }
+
+    queued.push(notice);
+    this.#notices.set(session.id, queued);
+  }
+
+  /** Removes and returns the session's queued notices, oldest first. */
+  takeNotices(id: SessionId): QueuedNotice[] {
+    const notices = this.#notices.get(id) ?? [];
+
+    this.#notices.delete(id);
+
+    return notices;
+  }
 
   /** Queues `message` for `id`, oldest first, and wakes a loop waiting for one. */
   add(params: { id: SessionId; message: InboxMessage }): void {
@@ -29,6 +71,7 @@ export class Inboxes {
   /** Drops the session's queued messages and wakes anyone waiting on it, for a released session. */
   forget(id: SessionId): void {
     this.#messages.delete(id);
+    this.#notices.delete(id);
     this.wake(id);
   }
 

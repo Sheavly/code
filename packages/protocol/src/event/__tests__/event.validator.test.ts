@@ -1,11 +1,89 @@
 import { describe, expect, it } from 'vitest';
-import { agentEventBodySchema, agentEventSchema } from '../event.validator.js';
+import { agentEventBodySchema, agentEventSchema, entryEventSchema } from '../event.validator.js';
+import {
+  MAX_EXTENSION_DATA_BYTES,
+  MAX_EXTENSION_TEXT_CHARS,
+} from '../../extension/extension.constants.js';
 
 const CALL = {
   call: { id: 'call-1', name: 'read_file', input: { path: 'a.ts' } },
   description: 'reading a.ts',
 };
 const SESSION = { id: 'main', rootId: 'main', depth: 1 };
+
+const EXTENSION_EVENT = {
+  type: 'extension_event',
+  extension: 'acme',
+  kind: 'acme.deploy-finished',
+  version: 2,
+  data: { ok: true, steps: [1, 2, null], note: 'done' },
+  text: 'Deploy finished',
+};
+
+describe('extension_event', () => {
+  it('round trips through the run and the stream schemas', () => {
+    const event = { seq: 0, ...EXTENSION_EVENT };
+
+    expect(agentEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+    expect(entryEventSchema.parse(JSON.parse(JSON.stringify(event)))).toEqual(event);
+  });
+
+  it('parses a kind the reader does not know: the union is closed in type, open in kind', () => {
+    const event = { seq: 3, ...EXTENSION_EVENT, extension: 'other', kind: 'other.never-seen' };
+
+    expect(entryEventSchema.parse(event)).toEqual(event);
+  });
+
+  it('rejects a kind outside the extension namespace, even one that looks close', () => {
+    for (const kind of ['other.thing', 'acmeco.thing', 'acme-thing', 'thing', 'acme.']) {
+      expect(agentEventBodySchema.safeParse({ ...EXTENSION_EVENT, kind }).success).toBe(false);
+    }
+  });
+
+  it('rejects a name that is not kebab-case', () => {
+    for (const extension of ['Acme', 'acme_co', '', 'acme.co']) {
+      const event = { ...EXTENSION_EVENT, extension, kind: `${extension}.x` };
+
+      expect(agentEventBodySchema.safeParse(event).success).toBe(false);
+    }
+  });
+
+  it.each([0, -1, 1.5, '1', null])('rejects the version %j', (version) => {
+    expect(agentEventBodySchema.safeParse({ ...EXTENSION_EVENT, version }).success).toBe(false);
+  });
+
+  it('rejects empty text and text over the cap, and accepts text at the cap', () => {
+    const withText = (text: string) => ({ ...EXTENSION_EVENT, text });
+
+    expect(agentEventBodySchema.safeParse(withText('')).success).toBe(false);
+    expect(
+      agentEventBodySchema.safeParse(withText('x'.repeat(MAX_EXTENSION_TEXT_CHARS + 1))).success,
+    ).toBe(false);
+    expect(
+      agentEventBodySchema.safeParse(withText('x'.repeat(MAX_EXTENSION_TEXT_CHARS))).success,
+    ).toBe(true);
+  });
+
+  it('caps the serialized size of data, counted in bytes', () => {
+    const withData = (data: unknown) => ({ ...EXTENSION_EVENT, data });
+    const overhead = JSON.stringify('').length;
+    const fits = 'x'.repeat(MAX_EXTENSION_DATA_BYTES - overhead);
+
+    expect(agentEventBodySchema.safeParse(withData(fits)).success).toBe(true);
+    expect(agentEventBodySchema.safeParse(withData(`${fits}x`)).success).toBe(false);
+    // Three bytes per character: few characters, over the byte cap.
+    expect(agentEventBodySchema.safeParse(withData('€'.repeat(6000))).success).toBe(false);
+  });
+
+  it('requires data, and rejects a value JSON cannot carry', () => {
+    const { data: _data, ...withoutData } = EXTENSION_EVENT;
+
+    expect(agentEventBodySchema.safeParse(withoutData).success).toBe(false);
+    expect(
+      agentEventBodySchema.safeParse({ ...EXTENSION_EVENT, data: { at: undefined } }).success,
+    ).toBe(false);
+  });
+});
 
 describe('agentEventSchema', () => {
   it('accepts every event kind with its seq', () => {

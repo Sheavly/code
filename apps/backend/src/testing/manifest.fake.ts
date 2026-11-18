@@ -6,12 +6,14 @@ import type { ExtensionManifest } from '@sheavly/extension/manifest/manifest.typ
  * extension declares: the host holds it to exactly that.
  */
 export function manifestOf(
-  fields: Partial<Omit<ExtensionManifest, 'services'>> & {
+  fields: Partial<Omit<ExtensionManifest, 'services' | 'emits'>> & {
     name: string;
     services?: Partial<ExtensionManifest['services']>;
+    /** What it may emit: `{ events: ['notes.progress'], modelFacingNotices: true }`. */
+    emits?: Partial<ExtensionManifest['emits']>;
   },
 ): ExtensionManifest {
-  const { services = {}, ...rest } = fields;
+  const { services = {}, emits = {}, ...rest } = fields;
 
   return {
     dependsOn: [],
@@ -19,9 +21,9 @@ export function manifestOf(
     tools: [],
     hooks: [],
     workKinds: [],
-    emits: { events: [], modelFacingNotices: false },
     serves: { actions: [] },
     ...rest,
+    emits: { events: [], modelFacingNotices: false, ...emits },
     services: { requires: [], optional: [], provides: [], ...services },
   };
 }

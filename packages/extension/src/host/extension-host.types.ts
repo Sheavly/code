@@ -1,5 +1,11 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import type {
+  EventContribution,
+  ExtensionEmitSink,
+  NoticeContribution,
+  RecordedEmit,
+} from '../emit/emit.types.js';
 import type { ExtensionActivationError } from '../errors/extension.errors.js';
 import type {
   Contributions,
@@ -27,6 +33,15 @@ export type ExtensionHostOptions = {
    * skipped. Builtin extensions never ask.
    */
   isTrusted?: ((extension: Extension) => boolean | Promise<boolean>) | undefined;
+  /**
+   * Where the host sends what an extension emits, once checked: the app routes an event to its
+   * session's stream and a notice to the session's model. Not a service, so an extension that
+   * only holds the emit capability cannot reach it and emit under another's name. An extension
+   * with the `sessions` run service can still `publish` or `queueNotice` itself, bypassing the
+   * declaration and naming any extension in the envelope; only narrower services close that.
+   * The session an emit names can be any session of the run. Without a sink, an emit throws.
+   */
+  emit?: ExtensionEmitSink | undefined;
 };
 
 /**
@@ -37,6 +52,8 @@ export type MergedContributions = {
   tools: readonly Tool[];
   hooks: readonly Hook[];
   workKinds: readonly WorkKindContribution[];
+  events: readonly EventContribution[];
+  notices: readonly NoticeContribution[];
 };
 
 /** A setting an activated extension declared, with the value in effect. */
@@ -79,10 +96,19 @@ export type ContributionSnapshot = {
     tools: Contributions['tools'];
     hooks: Contributions['hooks'];
     workKinds: Contributions['workKinds'];
+    events: Contributions['events'];
+    notices: Contributions['notices'];
   };
   tools: readonly CheckedEntry<Tool>[];
   hooks: readonly CheckedEntry<RecordedHook>[];
   workKinds: readonly CheckedEntry<WorkKindContribution>[];
+  events: readonly CheckedEntry<EventContribution>[];
+  notices: readonly CheckedEntry<NoticeContribution>[];
+  /**
+   * What the emitter is armed from: each event kind and notice topic by its recorded name, with
+   * the version read once and validated. Never re-read from the live objects.
+   */
+  emittable: { events: readonly RecordedEmit[]; notices: readonly RecordedEmit[] };
 };
 
 /** One extension's checked contributions, with whose they are. */

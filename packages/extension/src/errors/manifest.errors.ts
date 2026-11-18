@@ -1,3 +1,4 @@
+import { quotedName } from '../emit/quoted-name.utils.js';
 import type { UndeclaredUse } from '../extension/extension.types.js';
 
 /**
@@ -36,7 +37,7 @@ export class ExtensionUndeclaredError extends Error {
     const { extension, use, undeclared, declareIn } = params;
 
     super(
-      `Extension ${extension} uses ${use} "${undeclared}", which its sheavly.json does not declare: add it to ${declareIn}.`,
+      `Extension ${extension} uses ${use} ${quotedName(undeclared)}, which its sheavly.json does not declare: add it to ${declareIn}.`,
     );
     this.extension = extension;
     this.use = use;

@@ -105,7 +105,15 @@ the reason, start time (epoch milliseconds), duration, number of user messages s
 and optional originating call ID. Grouped notices retain their wait reason and each member's optional
 context; task snapshots can also carry a reason.
 The current terminal deliberately omits this timing, reason and conversation context from its output
-and does not let these notices change progress indicators.
+and does not let these notices change progress indicators. An extension's own `extension-notice`
+is a persistent notice too, so the transcript omits it as well.
+
+An `extension_event` is drawn as one line, `<extension>: <text>`: the extension's plain-text
+fallback, squeezed onto one line and escaped as plain terminal text, so control characters and
+escape sequences from third-party code are shown as visible `\u…` codes and never reach the
+terminal. The renderer never switches on the event's `kind`, so a kind it has never heard of shows
+its fallback like any other, and `data` is never printed. The workbook's `step` describes it by
+kind and the first line of its text.
 
 ## Docs
 

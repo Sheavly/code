@@ -34,6 +34,27 @@ describe('streamEntrySchema', () => {
     for (const entry of entries) expect(streamEntrySchema.parse(entry)).toEqual(entry);
   });
 
+  it('takes an extension event published with seq 0 at a later stream position', () => {
+    // Published outside any run, like storage_failed: the event's own seq is 0, the entry's is not.
+    const entry = {
+      seq: 12,
+      at: 5,
+      sessionId: 'main',
+      kind: 'event',
+      event: {
+        seq: 0,
+        type: 'extension_event',
+        extension: 'acme',
+        kind: 'acme.thing',
+        version: 1,
+        data: { n: 1 },
+        text: 'A thing happened',
+      },
+    };
+
+    expect(streamEntrySchema.parse(entry)).toEqual(entry);
+  });
+
   it('rejects an entry without its session, a negative seq or an unknown kind', () => {
     const event = { seq: 0, type: 'text_delta', text: 'hi' };
     const base = { seq: 0, at: 1, sessionId: 'main', kind: 'event', event };

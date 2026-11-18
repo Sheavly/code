@@ -40,6 +40,7 @@ belong to the backend app; this package defines and validates only their wire sh
 | `terminal-settings/` | Global terminal preferences, shared by every profile                                         |
 | `usage/`             | Reported per-call token usage, recorded cost estimates and cumulative totals                 |
 | `notice/`            | `HarnessNotice`: model and UI data carried by `harness_notice` events                        |
+| `extension/`         | The envelope fields, name patterns and size caps of an extension's events and notices        |
 | `permission/`        | A folder's command permissions: its mode and the commands the user allowed                   |
 | `time/`              | `timestampSchema`: when something happened, in milliseconds since the epoch                  |
 | `api/`               | `API_ROUTES`: every HTTP route's method, path and schemas; `openApiDocument`                 |

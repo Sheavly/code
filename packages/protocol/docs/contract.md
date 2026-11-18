@@ -165,6 +165,33 @@ assistant message or importing provider code. Model handling guidance belongs to
 formatter, not the wire payload. Adding a notice kind extends this shared schema rather than
 introducing a separate model-only or UI-only shape.
 
+## Extension events and notices
+
+An extension's own output is an **open envelope inside the closed union**. `extension_event`
+(`{ type, extension, kind, version, data, text }`) is one more member of the event union, and
+`extension-notice` (`{ kind, extension, topic, version, data, text }`) one more persistent notice
+kind (`NOTICE_LIFETIMES`: persistent, so it is also stored in history and a client cannot send
+one). The union stays closed in `type` (the notice's `kind`), but the event's `kind` and the
+notice's `topic` are any `<extension>.<name>`, so a reader that does not know one still parses it
+and shows `text` (or skips it).
+
+- `extension` is the kebab extension name; `kind`/`topic` must start with `<extension>.`, checked
+  by a refinement on the object. `version` is a positive integer, the version of the sender's
+  `data` shape.
+- `data` is any JSON value (`JsonValue`) that the sender's own schema checked; the protocol does
+  not look inside. `text` is a non-empty plain-text fallback.
+- Caps, in `extension/extension.constants.ts`: `text` at most `MAX_EXTENSION_TEXT_CHARS` (2000)
+  characters, and `data` at most `MAX_EXTENSION_DATA_BYTES` (16384) bytes once serialized as JSON.
+- An extension event is live data for a UI, never model input, and is published outside any run
+  with its own `seq` 0 (like `storage_failed`). The workbook numbers steps by `seq`, so it shows
+  a second `#0` for such an event: a known cosmetic limit (numbering steps by position would fix
+  it; that is not part of this change). Only an extension notice's `text` reaches the
+  model, through the core formatter as third-party data; `data` never does.
+- The extension name and qualified-name patterns are defined here, and `@sheavly/extension`'s
+  manifest validator imports them. `extensionEventSchema` and `extensionNoticeSchema` are
+  exported so the extension host checks a finished envelope with the schemas the stream and
+  history read it with.
+
 ## What a server accepts and answers
 
 Model-first setup uses `GET /setup/models` (`ModelCatalogResponse`): backend-provided model

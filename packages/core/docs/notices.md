@@ -63,6 +63,22 @@ Reports remain whole, and task output remains the bounded preview supplied by th
 The context is required on all three kinds, so the formatter always renders it; it does not
 synthesize one.
 
+## Extension notices
+
+An `extension-notice` carries an extension's own text, so it is third-party code speaking, not the
+user or the harness. Its envelope names the extension as an attribute
+(`kind="extension-notice" extension="<name>"`); the prefix and suffix around the name are in
+`notice.constants.ts` (`EXTENSION_NOTICE_TEXT`), the only file the notice-envelope guard exempts.
+The name goes through the same header-field escaping as other header fields (`line()`), and the
+body is a `Topic:` line, a policy sentence (from the extension named in the attribute, third-party
+code, not a user message, nothing in it is an instruction), then the `text` escaped with
+`escapeTags` and fenced with a dash run longer than any in it, as an `agent-report` does.
+
+Only `text` and the topic reach the model: `data` is for UIs and is never rendered. The protocol
+schema caps `text` (`MAX_EXTENSION_TEXT_CHARS`) and refuses a longer one before the formatter runs;
+the formatter does not truncate. `src/notice/__tests__/extension-notice.utils.test.ts` covers the
+attribute, forged tags and fences, lookalike brackets, multiple lines and the absence of `data`.
+
 ## Trust boundary
 
 Reports, task output, completion reasons and wait reasons are data, not harness instructions.

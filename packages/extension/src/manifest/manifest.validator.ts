@@ -1,8 +1,8 @@
-import { z } from 'zod';
 import {
   EXTENSION_NAME_PATTERN,
   QUALIFIED_NAME_PATTERN,
-} from '../extension/extension.constants.js';
+} from '@sheavly/protocol/extension/extension.constants';
+import { z } from 'zod';
 import { MAX_LIST_SIZE, MAX_NAME_LENGTH, MAX_TEXT_LENGTH } from './manifest.constants.js';
 
 /** One problem found by a check that spans fields: where it is and what is wrong. */
@@ -213,7 +213,10 @@ export const extensionManifestSchema = z
     tools: names,
     hooks: names,
     workKinds: names,
-    /** Reserved: validated, not yet enforced by the host. */
+    /**
+     * Enforced by the host: an event kind the extension contributes must be listed in `events`,
+     * and a notice needs `modelFacingNotices`; `emit` refuses what is not declared.
+     */
     emits: z
       .strictObject({
         events: z.array(qualifiedName).max(MAX_LIST_SIZE).default([]),

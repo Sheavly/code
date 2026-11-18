@@ -1,9 +1,11 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
+import type { EventContribution, ExtensionEmit, NoticeContribution } from '../emit/emit.types.js';
 import type { ExtensionManifest } from '../manifest/manifest.types.js';
 
 /** What an extension can contribute or provide, as named in collision messages. */
-export type ContributionKind = 'tool' | 'hook' | 'work kind' | 'setting' | 'service';
+export type ContributionKind =
+  'tool' | 'hook' | 'work kind' | 'setting' | 'service' | 'event' | 'notice';
 
 /**
  * Where an extension's code comes from. `builtin` ships with the harness; `project` is code from
@@ -78,7 +80,14 @@ export type SettingKey<TValue extends SettingValue> = {
 
 /** What an extension did that its manifest must declare, as named in `ExtensionUndeclaredError`. */
 export type UndeclaredUse =
-  'service get' | 'service find' | 'service provide' | 'tool' | 'hook' | 'work kind';
+  | 'service get'
+  | 'service find'
+  | 'service provide'
+  | 'tool'
+  | 'hook'
+  | 'work kind'
+  | 'event'
+  | 'notice';
 
 /** The settings an extension declared, as it reads them. */
 export type Settings = {
@@ -110,6 +119,10 @@ export type Contributions = {
   tools?: readonly Tool[] | undefined;
   hooks?: readonly HookContribution[] | undefined;
   workKinds?: readonly WorkKindContribution[] | undefined;
+  /** Event kinds it may emit (`context.emit.event`); each must be in the manifest's `emits.events`. */
+  events?: readonly EventContribution[] | undefined;
+  /** Notice topics it may emit (`context.emit.notice`); needs `emits.modelFacingNotices`. */
+  notices?: readonly NoticeContribution[] | undefined;
 };
 
 /** What `activate` receives. */
@@ -119,6 +132,12 @@ export type ExtensionContext = {
   services: Services;
   /** The values of the settings this extension declared. */
   settings: Settings;
+  /**
+   * Emits events and model-facing notices under this extension's name. Usable once `activate` has
+   * returned its contributions and the host has checked them, so call it from tools, hooks and
+   * background work, not while activating.
+   */
+  emit: ExtensionEmit;
   /** Aborted when the session ends while the extension is still activating. */
   signal: AbortSignal;
 };

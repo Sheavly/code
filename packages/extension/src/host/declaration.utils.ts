@@ -1,5 +1,6 @@
 import { ExtensionUndeclaredError } from '../errors/manifest.errors.js';
 import type { UndeclaredUse } from '../extension/extension.types.js';
+import type { ExtensionManifest } from '../manifest/manifest.types.js';
 
 /**
  * Whether a declared `entry` covers `name`: an exact match, or a prefix wildcard (`entry` ends in
@@ -12,6 +13,14 @@ function matchesDeclared(params: { entry: string; name: string }): boolean {
   if (!entry.endsWith('*')) return entry === name;
 
   return name.startsWith(entry.slice(0, -1));
+}
+
+/**
+ * The notice topics a manifest declares: any in the extension's own namespace once
+ * `emits.modelFacingNotices` is true, none otherwise. Topics are not listed one by one.
+ */
+export function declaredNoticeTopics(manifest: ExtensionManifest): readonly string[] {
+  return manifest.emits.modelFacingNotices ? [`${manifest.name}.*`] : [];
 }
 
 /**

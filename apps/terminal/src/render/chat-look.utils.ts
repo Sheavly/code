@@ -56,6 +56,7 @@ function stepsOf(palette: Palette): Omit<Look, 'fileChange' | 'failure'> {
       paint.status.error(`✗ hook ${hook} failed in ${handler}: ${error}\n`),
     storageFailed: (error) =>
       paint.status.error(`✗ This chat could not be saved: ${error}\n  The next prompt retries.\n`),
+    extensionEvent: ({ extension, text }) => paint.text.secondary(`⬡ ${extension}: ${text}\n`),
     turnEnd: () => '',
     awaitingTasks: (count) =>
       paint.text.secondary(`… waiting for ${count} background task(s) · Ctrl+C to stop\n`),

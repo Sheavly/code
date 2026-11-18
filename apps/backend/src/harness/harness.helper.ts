@@ -7,6 +7,7 @@ import { runServices } from '@sheavly/host/run-services/run-services.utils';
 import { createWebExtension } from '@sheavly/web/web/web.helper';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
+import { routeEmission } from './extension-emit.helper.js';
 import { safeProblemReporter } from './extension-problems.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
 
@@ -33,6 +34,8 @@ import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
  * lacks (with the missing names); this backend declares no trust for `project` extensions yet.
  * An extension is held to its `sheavly.json`: a service it reads, or a tool, hook or work kind
  * it contributes, that the manifest does not declare fails that extension and not the others.
+ * What an extension emits (`context.emit`) reaches its session through the host's sink wired
+ * here: an event is published to the stream, a notice queued for the model's next turn.
  */
 export async function createBackendHarness(
   options: BackendHarnessOptions,
@@ -76,6 +79,9 @@ export async function createBackendHarness(
     ],
     services: runServices({ harness, outputs }),
     settings: extensionSettings,
+    // The sink is the host's option, not a run service, so holding the emit capability alone cannot
+    // emit under another's name (the `sessions` service still bypasses it).
+    emit: (emission) => routeEmission({ sessions, main: harness.mainSession.id, emission }),
   });
   const lifetime = new AbortController();
   // The run goes on without what a problem concerns, so a UI hears of it, never the run.

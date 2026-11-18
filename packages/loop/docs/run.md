@@ -306,7 +306,11 @@ have their own failure path).
 | 11    | **`completion` contributions**: running tools, inbox, yield, `await_tasks`, settled      | contribution policy; abort gives `interrupted` |
 
 `delivery` is in this order because finished work and failures must be in history before any hook
-sees them: `steering-messages`, `finished-tasks`, `hook-failures`, `delivery-hooks`. `completion`
+sees them: `steering-messages`, `finished-tasks`, `hook-failures`, `extension-notices`,
+`delivery-hooks`. `extension-notices` drains the session's outbox (the notices extensions queued
+with `emit.notice`) through `publishNotice`, so the stream event and the history entry carry the
+same payload in order; a failed drain is reported like a failed hook and the run goes on, and
+`notice` hooks are never offered an `extension-notice`, as they are not a `hook-failed`. `completion`
 is in the flow rules' order (the guide's rules 1 to 5): a yield outranks task completions but not
 `await_tasks`, and the last contribution, `settled`, always answers. The existing flow-rule tests
 pin that order. The run around the turns: `sessionStart`, the turns, `sessionEnd`, then `done`

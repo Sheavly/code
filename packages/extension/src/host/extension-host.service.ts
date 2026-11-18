@@ -1,3 +1,5 @@
+import type { Emitter } from '../emit/emit.types.js';
+import { createEmitter } from '../emit/emit.utils.js';
 import { ExtensionActivationError, ExtensionHostStateError } from '../errors/extension.errors.js';
 import type {
   Contributions,
@@ -59,6 +61,8 @@ export class ExtensionHost {
   readonly #options: ExtensionHostOptions;
   readonly #services: ServiceRegistry;
   readonly #settings: Readonly<Record<string, SettingValue>>;
+  /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
+  readonly #emitters = new Map<string, Emitter>();
   #activated: Extension[] = [];
   #state: 'idle' | 'activating' | 'active' | 'closed' = 'idle';
 
@@ -141,6 +145,9 @@ export class ExtensionHost {
   }): Promise<ActivationStep> {
     const { extension, progress, readable, signal } = params;
     const readableNames = readable.get(extension.name) ?? new Set<string>();
+    const emitter = createEmitter({ manifest: extension.manifest, sink: this.#options.emit });
+
+    this.#emitters.set(extension.name, emitter);
 
     try {
       const skipped = await this.#skipped({
@@ -162,6 +169,7 @@ export class ExtensionHost {
           declared: extension.manifest.services,
         }),
         settings: settingsFor({ extension, values: this.#settings }),
+        emit: emitter.emit,
         signal,
       });
 
@@ -171,8 +179,14 @@ export class ExtensionHost {
         errors: progress.lateDeactivationErrors,
       });
 
+      // Armed only from the recorded names and versions of the checked snapshot, never from the
+      // live objects the extension still holds.
+      emitter.arm(snapshot.emittable);
+
       return { kind: 'activated', snapshot };
     } catch (caughtError) {
+      // `activate` may have kept `context.emit`: a failed extension must not publish.
+      emitter.disarm();
       this.#services.forget(extension.name);
 
       return {
@@ -236,6 +250,8 @@ export class ExtensionHost {
 
     // Taken out before the first `await`: a `deactivate()` meanwhile must not stop them a second time.
     this.#activated = this.#activated.filter((extension) => !names.has(extension.name));
+    // Also before the first `await`: none of them may emit while the others are being stopped.
+    doomed.forEach((extension) => this.#disarm(extension.name));
     progress.contributed = progress.contributed.filter(({ extension }) => !names.has(extension));
 
     for (const extension of doomed.toReversed()) {
@@ -291,8 +307,8 @@ export class ExtensionHost {
 
   /**
    * The snapshot of `contributions`, which is all the host merges from here on. Throws an
-   * `ExtensionUndeclaredError` when they hold a tool, hook or work kind the manifest does not
-   * declare. `activate` had finished, so the extension may hold resources: it is deactivated
+   * `ExtensionUndeclaredError` when they hold a tool, hook, work kind, event or notice the
+   * manifest does not declare. `activate` had finished, so the extension may hold resources: it is deactivated
    * first (its error kept in `errors`), unlike one whose `activate` threw.
    */
   async #holdToManifest(params: {
@@ -310,8 +326,15 @@ export class ExtensionHost {
     }
   }
 
+  /** Ends an extension's emit capability, for good; one that never started has none. */
+  #disarm(extension: string): void {
+    this.#emitters.get(extension)?.disarm();
+  }
+
   /** Deactivates an extension the host stopped without `deactivate()` knowing it; an error is kept, never thrown. */
   async #stopLate(params: { extension: Extension; errors: unknown[] }): Promise<void> {
+    this.#disarm(params.extension.name);
+
     try {
       await params.extension.deactivate?.();
     } catch (caughtError) {
@@ -337,6 +360,8 @@ export class ExtensionHost {
     if (this.#state === 'closed') return [];
 
     this.#state = 'closed';
+    // Before any `deactivate` runs: a stopping extension cannot emit, and neither can one still activating.
+    this.#emitters.forEach((emitter) => emitter.disarm());
 
     const errors: unknown[] = [];
 

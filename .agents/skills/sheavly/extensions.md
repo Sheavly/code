@@ -30,7 +30,8 @@ errors and the JSON Schema are in `packages/extension/docs/manifest.md`; the sha
   "settings": [{ "name": "notes.max-notes", "type": "number", "default": 50, "description": "…" }],
   "tools": ["add_note"],
   "hooks": ["notes-instructions"],
-  "workKinds": ["notes.sync"]
+  "workKinds": ["notes.sync"],
+  "emits": { "events": ["notes.progress"], "modelFacingNotices": true }
 }
 ```
 
@@ -54,8 +55,8 @@ errors and the JSON Schema are in `packages/extension/docs/manifest.md`; the sha
 - **A name not known in advance** (a workspace's own hook files) is a wildcard entry in `tools`,
   `hooks` or `workKinds`: a trailing `*` once, as the last character (`"project-hooks.*"`); a bare
   `"*"` is for `hooks` only. Prefer a prefix.
-- `emits` and `serves` are reserved: validated, not enforced, because events, model-facing
-  notices and actions don't exist yet.
+- `emits` is enforced (see "Emitting events and notices" below). `serves` is reserved:
+  validated, not enforced, because actions don't exist yet.
 
 ### What the host does with it
 
@@ -75,6 +76,11 @@ The host holds an extension to its manifest and fails loudly, naming the extensi
   (`ExtensionContributionChangedError`). Item objects are not frozen, so what a getter does
   after the merge is the extension's own responsibility (see "What the manifest is not" in
   `packages/extension/docs/manifest.md`).
+
+- **After `activate`, for emits**: each contributed event `kind` must be listed exactly in
+  `emits.events`, and a contributed notice needs `emits.modelFacingNotices: true` and a `topic`
+  in the extension's own namespace; the same re-verification and collision check apply.
+- **At each emit**: see "Emitting events and notices".
 
 Both land in `result.failed` as an `ExtensionActivationError` whose `cause` is the
 `ExtensionUndeclaredError` (or the changed-contribution one). The host's own checks cannot be
@@ -96,7 +102,50 @@ A contribution adds to the loop and never owns it. It can be:
 - `tools` and `hooks` (an instruction source is a hook: `createInstructionHook`); a hook can say
   where it goes with `placeHook({ hook, before, after })`;
 - `workKinds`, a declared kind of background work (name and whether it is `finite` or a
-  `service`); the work itself still starts through `startWork` ([sessions-and-background-work.md](sessions-and-background-work.md)).
+  `service`); the work itself still starts through `startWork` ([sessions-and-background-work.md](sessions-and-background-work.md));
+- `events` and `notices`, the kinds and topics it may emit, each with the schema of its `data`.
+
+### Emitting events and notices
+
+An extension tells a UI or the model something with `context.emit`, never by editing the
+protocol's closed unions and never by importing `@sheavly/runtime` to publish. Declare it in
+`sheavly.json` (`emits: { events: ['notes.progress'], modelFacingNotices: true }`), return
+`events: [{ kind, version, schema }]` and `notices: [{ topic, version, schema }]` from `activate`
+(zod schema for `data`), then call `emit.event({ kind, data, text, session? })` or
+`emit.notice({ topic, data, text, session? })` once activated (from a tool, a hook or background
+work; a tool passes `context.session`, the default is the main session).
+
+- **Everything an extension needs to emit comes through `@sheavly/extension`**: the `emit`
+  capability, the contribution types, the envelope types (`ExtensionEvent`, `ExtensionNotice`,
+  `ExtensionEmission`) and the sink type, from `@sheavly/extension/emit/emit.types`. The app
+  supplies only a sink (`ExtensionHostOptions.emit`, wired in `createBackendHarness`); it is an
+  option of the host, not a run service, so an extension that only holds the emit capability
+  cannot emit under another's name (the `sessions` service is a bypass: see below).
+- **The host checks at each emit**: the kind or topic is one this extension contributed and
+  declared (`ExtensionUndeclaredError` for one the manifest does not declare, naming the
+  extension), `version` is the contribution's, `data` parses against its schema (an
+  `ExtensionEmitError` with issue paths, never the values; a schema or data that throws is the same
+  error), the finished envelope parses with the protocol's own event or notice schema (name and
+  namespace, version, `text` 1 to 2000 characters, serialized `data` at most 16384 bytes), and the
+  host has a sink. Before `activate` has returned and been checked it throws "not activated yet";
+  after the host stops, drops or fails the extension (`deactivate()`, a roll-back, a collision, a
+  failed `activate`) it throws `deactivated`. A contribution whose name is not
+  `<extension>.<name>` or whose version is not a positive integer fails the activation. The
+  emitter is armed from the names and versions the host recorded, not the live objects.
+- **The session** an emit names can be any session of the run, sub-agents included; it cannot
+  cross conversations, because one registry serves one conversation. A session's outbox holds at
+  most 100 notices; past that `emit.notice` throws, as it does for an ended session.
+- **What it does not check**: it is a host-checked gate, not a sandbox. The extension is Node code
+  and the `sessions` run service is the session registry itself: declaring `sessions` lets code
+  `publish` or `queueNotice` by another route, bypassing the declaration and naming any extension
+  in the envelope (impersonation to the model; the registry still refuses a malformed notice).
+  Narrower services (#336) are where that closes; until then reading and review keep an
+  extension on `emit`.
+- **A UI never trusts a kind.** An event's `kind` is open: a UI that does not know it shows
+  `text` (the terminal does, escaped as plain text) and never switches on `kind` to refuse. A
+  notice reaches the model as `<harness-notice kind="extension-notice" extension="…">` with the
+  `text` escaped and fenced as data; `data` never reaches the model. Events are not stored in
+  history (they replay from the stream); notices are, and `notice` hooks never see them.
 
 Services are not contributions: an extension shares a typed service (`defineService<T>(name)`)
 with `context.services.provide(KEY, value)`, and the ones that depend on it read it with
@@ -133,7 +182,9 @@ returns the user's value or the default.
   other tasks), `OUTPUTS` (the complete output of every command, which can hold secrets),
   `PROVIDER` (model calls on the app's credentials) and `SESSIONS` (every session's events and
   approvals, messages sent as if from the user, ending sessions, publishing stream entries).
-  `APPROVALS` only requests, but approvals still appear in the stream `SESSIONS` exposes. The app
+  `APPROVALS` only requests, but approvals still appear in the stream `SESSIONS` exposes. The
+  emit sink is not a service, but `SESSIONS` can `publish` and `queueNotice` itself, so it bypasses
+  the emit declaration and can name any extension in the envelope (#336 narrows services). The app
   decides which services it supplies (`runServices` returns a list it can filter) and which
   extensions it loads; the host's only policy is the `origin: 'project'` trust gate (anything not
   `builtin` goes through it), and `origin` is declared by whatever loads the extension, not by
@@ -236,6 +287,10 @@ changes.
   `startWork` and `finiteWork` on `services.get(TASKS)` (declared in `requires`), owned by
   `context.session`.
 - Asking the user: `services.get(APPROVALS).request(...)`; the UI answers, an extension cannot.
+- Telling the UI or the model something: declare `emits` in the manifest, return `events` and
+  `notices` with their schemas, and use `context.emit` (types from
+  `@sheavly/extension/emit/emit.types`); see "Emitting events and notices" and
+  `apps/backend/src/harness/__tests__/third-party-emit.test.ts`.
 - The run's own state: `SESSIONS`, `MAIN_SESSION`, `PROVIDER`, `INSTRUCTIONS` and
   `services.find(OUTPUTS)` (absent without an output store). There is no environment service:
   read configuration through a setting.
@@ -297,8 +352,11 @@ parameter and then cast, a factory parameter outside the `*ExtensionOptions` typ
 composed from another type that holds a service type (`Base & { … }`, or a local or imported alias
 used as a member's type), an options `class`, an options type not named `*ExtensionOptions`, a
 differently named but identical type, and the `harness` option of `coding` (`CodingHarness`, the
-stated exception until coding is split). `emits` and `serves` are reserved: nothing enforces them
-yet.
+stated exception until coding is split). `serves` is reserved: nothing enforces it yet. Nothing
+in lint keeps an extension's source from importing `@sheavly/runtime` session internals to
+publish: the import rules only check layers and exported kinds, so "an extension reaches what it
+needs through `@sheavly/extension`" is a convention held by review and by
+`third-party-emit.test.ts`.
 
 Out of scope, as in #102: lazy activation, a `when` language, per-package trust and a
 marketplace. A CLI to install and manage extensions, which reads manifests before running any

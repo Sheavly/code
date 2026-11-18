@@ -46,6 +46,8 @@ function contributedNames(contributes: Contributions = {}) {
     tools: (contributes.tools ?? []).map((tool) => tool.name),
     hooks: (contributes.hooks ?? []).map((hook) => hookOf(hook).name),
     workKinds: (contributes.workKinds ?? []).map((kind) => kind.name),
+    events: (contributes.events ?? []).map((event) => event.kind),
+    notices: contributes.notices ?? [],
   };
 }
 
@@ -65,7 +67,10 @@ function fakeManifest(fields: FakeExtensionFields): ExtensionManifest {
     tools: [...new Set([...(fields.tools ?? []), ...contributed.tools])],
     hooks: [...new Set([...(fields.hooks ?? []), ...contributed.hooks])],
     workKinds: [...new Set([...(fields.workKinds ?? []), ...contributed.workKinds])],
-    emits: { events: [], modelFacingNotices: false },
+    emits: {
+      events: [...new Set([...(fields.emits?.events ?? []), ...contributed.events])],
+      modelFacingNotices: fields.emits?.modelFacingNotices ?? contributed.notices.length > 0,
+    },
     serves: { actions: [] },
   };
 }

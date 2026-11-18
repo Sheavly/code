@@ -1,8 +1,15 @@
 import type { SessionRegistry } from './sessions.service.js';
 import type { SessionId, SessionInfo, SessionRef } from '@sheavly/protocol/session/session.types';
+import type { PersistentNotice } from '@sheavly/protocol/notice/notice.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { TokenUsage } from '@sheavly/protocol/usage/usage.types';
 import type { MessageId } from '@sheavly/protocol/message/message.types';
+
+/**
+ * An extension's notice, already checked by the extension host, waiting in a session's outbox
+ * for its loop to publish it.
+ */
+export type QueuedNotice = Extract<PersistentNotice, { kind: 'extension-notice' }>;
 
 /** A session's originating user message, retained when its parent starts another prompt. */
 export type SessionMessage = { sessionId: SessionId; messageId: MessageId };
