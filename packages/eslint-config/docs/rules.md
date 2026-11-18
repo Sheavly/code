@@ -94,22 +94,19 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `@sheavly/host/host/host.helper` (`createHarness`), fails, in any form: `import`, a re-export,
   `export * from`, a dynamic `import('…')`, `require('…')` and `import x = require('…')` with a
   literal or expression-free template path. A relative path into a workspace's `src/` and a package
-  specifier with `.`/`..` segments are resolved to the module they reach before matching. Gaps:
-  files under `testing/` and `__tests__` are exempt by file kind, an `allow` entry exempts the
-  whole file, and value imports of the loop's runner and of host `*Scope` classes are not
-  flagged. Type-only uses are allowed (`import type`,
+  specifier with `.`/`..` segments are resolved to the module they reach before matching. The rule
+  has no exceptions: no option, list or file is exempt, and inline directives are off. Gaps:
+  files under `testing/` and `__tests__` are exempt by file kind, and value imports of the loop's
+  runner and of host `*Scope` classes are not flagged. Type-only uses are allowed (`import type`,
   `import { type X }`, `export type`), and so are the work factories
   (`@sheavly/runtime/tasks/work.utils`, `work.types`). The registry modules are not listed in the
   rule: they are read at lint time from the imports of the `Harness` type in
   `packages/host/src/host/host.types.ts` (each member typed by a name imported from a `*.service`
   module), so a new registry is covered with no edit; when that file cannot be read, or yields no
-  registry, every extension file gets one error saying so, instead of going silent. Exceptions are
-  the `allow` option, set in `base.js` from `src/runtime-registry-allow.js`: entries
-  `{ file, reason }` naming a file from the repo root, each with why. There is no other way
-  to silence it (inline directives are off). Tests assert that each entry still matches a real
-  violation in this repo (a stale entry fails), that an unlisted file is reported, and that the
-  list is exactly `extensions/coding/src/preset/coding.helper.ts` today, the `createHarness`
-  call the coding layer removes together with the entry. Limits: this is not a sandbox. An
+  registry, every extension file gets one error saying so, instead of going silent. Tests assert
+  that the extension sources of this repo have no violation (the rule run over `extensions/*`
+  with no options) and that a file shaped like a harness builder (a value import of `createHarness`
+  from `@sheavly/host/host/host.helper` in an extension file) fails. Limits: this is not a sandbox. An
   extension is Node code and can still reach a registry at runtime through a computed or
   non-literal `import()`/`require` path, `createRequire`, `globalThis`, a prototype, or an object
   another module hands it; a registry module imported under a different specifier (a relative
@@ -151,9 +148,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `*ExtensionOptions` type, an options type composed from another type that holds a service type
   (`Base & { … }` or `type S = SessionRegistry` used as `s: S`, local or imported: only the
   `*ExtensionOptions` declaration itself is read), an options `class` (only a type alias and an
-  interface are visited), an options type not named `*ExtensionOptions`, and the `harness` option
-  of `coding` (`CodingHarness` is not a service type, and the registries it carries are a stated
-  exception that splitting coding removes).
+  interface are visited), and an options type not named `*ExtensionOptions`. No `*ExtensionOptions`
+  in this repo carries a registry type.
 - `harness/single-definition`: each `*.types.ts` (in every workspace's `src/`,
   outside tests and fakes) owns the type names it exports. The same name declared anywhere else,
   exported or not (another folder, another package, a second types file of the same package), or

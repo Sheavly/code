@@ -17,7 +17,6 @@ import tseslint from 'typescript-eslint';
 import { DEFAULT_MAX_LINES, FILE_KIND_POLICIES, globsOfKind, TEST_FOLDER } from './file-kinds.js';
 import { harnessPlugin } from './plugin.js';
 import { READABILITY_RULES } from './readability.js';
-import { RUNTIME_REGISTRY_ALLOW } from './runtime-registry-allow.js';
 import { TYPESCRIPT_RULES } from './typescript.js';
 
 // The confinement of an app's replay command, for that app to spread into its own config.
@@ -157,7 +156,7 @@ export function baseConfig(params) {
         ]),
     // --- An extension's declaration matches its workspace: folder and dependencies; its options are
     // choices, not run state the services already carry, and its source never takes the full
-    // registries or builds a harness (the allow list is the stated, tested exception) ---
+    // registries or builds a harness, with no exception ---
     ...(isExtension
       ? [
           {
@@ -166,10 +165,7 @@ export function baseConfig(params) {
             rules: {
               'harness/extension-definition': 'error',
               'harness/extension-options-use-services': 'error',
-              'harness/extension-no-runtime-registries': [
-                'error',
-                { allow: RUNTIME_REGISTRY_ALLOW },
-              ],
+              'harness/extension-no-runtime-registries': 'error',
             },
           },
         ]

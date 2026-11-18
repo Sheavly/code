@@ -8,13 +8,10 @@
 // host's `Harness` type imports its registries from (`harness-registry-types.utils.js`), plus the
 // host helper that builds a harness. A relative path into a workspace's `src/` and a package
 // specifier with `..` segments are resolved to the module they reach first. Not covered: files
-// under `testing/` and `__tests__` (exempt by file kind), the `allow` entries (each exempts a
-// whole file), and value imports of the loop's runner or of host `*Scope` classes. Not a sandbox: an extension is Node code and can still reach
-// a module through a computed path, `createRequire`, `globalThis` or a prototype; review and
-// the manifest's declared services carry that.
-//
-// The `allow` option lists files that are excepted, each with a reason. It is checked against the
-// repo by a test, so an entry that no longer matches a violation fails.
+// under `testing/` and `__tests__` (exempt by file kind), and value imports of the loop's runner
+// or of host `*Scope` classes. The rule has no exceptions. Not a sandbox: an extension is Node
+// code and can still reach a module through a computed path, `createRequire`, `globalThis` or a
+// prototype; review and the manifest's declared services carry that.
 import path from 'node:path';
 import { LAYOUT_RULE_OPTIONS } from '../layout.utils.js';
 import {
@@ -30,25 +27,6 @@ const HOST_HELPER = '@sheavly/host/host/host.helper';
 
 const SOURCE_FILE = /\.[cm]?tsx?$/;
 const toPosix = (file) => file.split(path.sep).join('/');
-
-const OPTIONS_SCHEMA = {
-  ...LAYOUT_RULE_OPTIONS,
-  properties: {
-    ...LAYOUT_RULE_OPTIONS.properties,
-    allow: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          file: { type: 'string', minLength: 1 },
-          reason: { type: 'string', minLength: 1 },
-        },
-        required: ['file', 'reason'],
-        additionalProperties: false,
-      },
-    },
-  },
-};
 
 /** The text of a string literal or an expression-free template, else undefined (a computed path). */
 function literalText(node) {
@@ -84,14 +62,6 @@ function reportUnreadable(context) {
       context.report({ node, messageId: 'unreadable', data: { file: HARNESS_TYPES_FILE } });
     },
   };
-}
-
-/** True if `file` is one of the `allow` entries, which name files from the repo root. */
-function isAllowed(params) {
-  const { allow, root, file } = params;
-  const relative = toPosix(path.relative(root, file));
-
-  return allow.some((entry) => entry.file === relative);
 }
 
 /** A workspace's own source file: `packages/<name>/src/<path>`, the module `@sheavly/<name>/<path>`. */
@@ -160,7 +130,7 @@ function visitorsFor(params) {
 export const extensionNoRuntimeRegistries = {
   meta: {
     type: 'problem',
-    schema: [OPTIONS_SCHEMA],
+    schema: [LAYOUT_RULE_OPTIONS],
     messages: {
       runtime:
         'An extension does not value-import `{{module}}`: it holds the full registries (or builds a harness), which skips the per-extension scoping and grants. Read the scoped services with `services.get(KEY)` in `activate` (session-info, child-sessions, background-tasks, task-control, output-reader, output-capture, approvals) and start work through a work factory (`@sheavly/runtime/tasks/work.utils`). A type-only import is fine.',
@@ -176,8 +146,6 @@ export const extensionNoRuntimeRegistries = {
     if (!root || !SOURCE_FILE.test(context.filename)) return {};
 
     if (!isExtensionSource({ root, options, file: context.filename })) return {};
-
-    if (isAllowed({ allow: options.allow ?? [], root, file: context.filename })) return {};
 
     const { registries } = readHarnessRegistries(root);
 
