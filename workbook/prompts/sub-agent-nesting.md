@@ -10,7 +10,7 @@ check:
         'packages/runtime/src/tasks',
         'packages/loop/src/stream-agent',
         'packages/host/src',
-        'extensions/coding/src/preset',
+        'extensions/coding/src/extension',
         'apps/backend/src/harness',
       ],
     'expect': { 'tools': ['start_agent'], 'reply': ['start_agent'], 'outcome': 'completed' },
