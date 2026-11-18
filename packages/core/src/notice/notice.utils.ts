@@ -5,12 +5,14 @@ import type {
   TaskCompletionContext,
 } from '@sheavly/protocol/notice/notice.types';
 import { outputReferenceLines } from '../output/output.utils.js';
-import { escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
+import { attributeValue, escapeTags, fenceDashes, oneLine } from '../text/text.utils.js';
 import {
   renderAgentReport,
   renderCompletionContext,
   renderCompletionMetrics,
   renderContextUsage,
+  renderExtensionNotice,
+  renderExtensionNoticeEnvelope,
   renderHookFailed,
   renderNoticeEnvelope,
   renderOutputContinuation,
@@ -24,10 +26,17 @@ const count = new Intl.NumberFormat('en-US');
 
 /** Formats trusted harness data with its origin and handling policy, never as a user request. */
 export function formatHarnessNotice(notice: HarnessNotice): string {
+  if (notice.kind === 'extension-notice') {
+    return renderExtensionNoticeEnvelope({
+      extension: attributeValue(notice.extension),
+      body: formatExtensionNotice(notice),
+    });
+  }
+
   return renderNoticeEnvelope({ kind: notice.kind, body: prepareNoticeBody(notice) });
 }
 
-function prepareNoticeBody(notice: HarnessNotice): string {
+function prepareNoticeBody(notice: Exclude<HarnessNotice, { kind: 'extension-notice' }>): string {
   switch (notice.kind) {
     case 'running-tasks':
       return formatRunningTasks(notice);
@@ -112,6 +121,18 @@ function formatTaskFinished(notice: Extract<HarnessNotice, { kind: 'task-finishe
     outputReference: outputReferenceLines({ log: task.outputLog, shown: task.output }),
     context: formatCompletionContext(notice.context),
   });
+}
+
+/**
+ * An extension's text is third-party and written for the model, so it is escaped and fenced like a
+ * report. Only `text` and the topic are used: `data` is for UIs and never reaches the model.
+ */
+function formatExtensionNotice(
+  notice: Extract<HarnessNotice, { kind: 'extension-notice' }>,
+): string {
+  const text = escapeTags(notice.text);
+
+  return renderExtensionNotice({ topic: line(notice.topic), text, fence: fenceDashes(text) });
 }
 
 /** The hook's error is code-written text: angle brackets swapped and fenced as data. */

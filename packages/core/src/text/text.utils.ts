@@ -31,6 +31,14 @@ export function fenceDashes(body: string): string {
   return '-'.repeat(Math.max(3, longest + 1));
 }
 
+/**
+ * Text for a quoted attribute of an envelope tag (`extension="…"`): one escaped line whose `"`
+ * becomes `'`, so it cannot end the attribute and add one of its own. Unchanged for a plain name.
+ */
+export function attributeValue(text: string): string {
+  return oneLine(escapeTags(text)).replaceAll('"', "'");
+}
+
 /** A title is one line, so it cannot open a section of its own. */
 export function oneLine(text: string): string {
   return text.replaceAll(/\s+/g, ' ').trim();

@@ -44,6 +44,18 @@ export const RUNNING_TASKS_NOTICE_TEXT = {
   closing: '</harness-notice>',
 } as const;
 
+/**
+ * The opening carries the extension's name as an attribute, so it is a prefix and a suffix around
+ * the escaped name rather than one fixed line.
+ */
+export const EXTENSION_NOTICE_TEXT = {
+  openingPrefix: '<harness-notice kind="extension-notice" extension="',
+  openingSuffix: '">',
+  textOpening: 'extension text',
+  textClosing: 'end of extension text',
+  closing: '</harness-notice>',
+} as const;
+
 export const OUTPUT_CONTINUATION_NOTICE_TEXT = {
   opening: '<harness-notice kind="output-continuation">',
   closing: '</harness-notice>',
