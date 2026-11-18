@@ -6,7 +6,8 @@ and makes one set of file locks and one process runner (`@sheavly/process`) on t
 built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
 the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
 shares them with sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools and
-hooks, the `sub-agents` service it requires, `outputs` it may read and `coding-run` it provides.
+hooks, the `sub-agents` service it requires, `output-capture` it may read (with the
+`output:capture` grant) and `coding-run` it provides.
 The user chooses the names of a workspace's own `.sheavly/` hooks, so the manifest declares hooks
 with the bare wildcard `*` (the `@sheavly/extension` manifest doc explains wildcards). A coding UI composes it in an
 `ExtensionHost` (`@sheavly/extension`) with the other extensions it wants.
@@ -19,7 +20,7 @@ const harness = await createCodingHarness({ provider, title, workspaceRoot, env:
 const coding = createCodingExtension({ harness, env: process.env, permissions, trustStore, shell });
 ```
 
-The extension reads `OUTPUTS`, when supplied, from the run services
+The extension reads `OUTPUT_CAPTURE`, when supplied, from the run services
 (`@sheavly/host/run-services/run-services.utils`) like any extension; the host that activates it
 supplies them with `runServices`. The one exception to "no more access than a third party" is
 `harness`: coding's workspace, file locks and process runner come from the `CodingHarness` it is
@@ -79,7 +80,8 @@ instead, which has the same checks and approval. The agent can finish independen
 The generic `await_tasks({ ids, reason })` tool can group results for delivery together; its reason
 preserves the dependent decision or next step for the agent after a summary.
 
-With an output store (the conversation's `OutputStore`, supplied to the run as `OUTPUTS`), `run_command` keeps every command's complete
+With an output store (the conversation's `OutputStore`, supplied to the run as `OUTPUT_CAPTURE` for
+writing and `OUTPUT_READER` for `read_output`), `run_command` keeps every command's complete
 captured stdout and stderr, foreground or background, independent of the bounded preview. Output
 printed before a failure, timeout or cancellation stays readable, and a running service's log can be
 read as it grows. The result carries `output_ref=<id>`, the bytes stored and whether the log is

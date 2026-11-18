@@ -38,10 +38,10 @@
     "@sheavly/core": "^0.0.0",
     "@sheavly/extension": "^0.0.0",
     "@sheavly/host": "^0.0.0",
-    "@sheavly/loop": "^0.0.0",
     "@sheavly/tools": "^0.0.0"
   },
   "devDependencies": {
+    "@sheavly/protocol": "^0.0.0",
     "@sheavly/testing": "^0.0.0"
   }
 }

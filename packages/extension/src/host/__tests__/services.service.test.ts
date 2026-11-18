@@ -3,6 +3,7 @@ import { ContributionCollisionError, MissingServiceError } from '../../errors/ex
 import { ExtensionUndeclaredError } from '../../errors/manifest.errors.js';
 import { defineService, hostService } from '../../extension/extension.utils.js';
 import type { ExtensionManifest } from '../../manifest/manifest.types.js';
+import { fakeExtension } from '../../testing/extension.fake.js';
 import { ServiceRegistry } from '../services.service.js';
 
 const GREETING = defineService<string>('greeting');
@@ -17,15 +18,15 @@ function viewOf(params: {
   declared?: Declared;
 }) {
   const { registry, extension, readable, declared } = params;
+  const { requires, optional, provides } = declared ?? {
+    requires: [GREETING.name],
+    optional: [],
+    provides: [GREETING.name],
+  };
 
   return registry.viewFor({
-    extension,
+    extension: fakeExtension({ name: extension, requires, optional, provides }),
     readable: new Set(readable),
-    declared: declared ?? {
-      requires: [GREETING.name],
-      optional: [],
-      provides: [GREETING.name],
-    },
   });
 }
 
@@ -157,12 +158,24 @@ describe('ServiceRegistry declarations', () => {
 
     viewOf({ registry: shared, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
 
+    const reader = fakeExtension({ name: 'reader', requires: ['greeting', 'other'] });
+
     expect(
-      shared.unreadable({ required: ['greeting', 'other'], readable: new Set(['b']) }),
+      shared.unreadable({
+        extension: reader,
+        required: ['greeting', 'other'],
+        readable: new Set(['b']),
+      }),
     ).toEqual(['greeting', 'other']);
     expect(
-      shared.unreadable({ required: ['greeting', other.name], readable: new Set(['a']) }),
+      shared.unreadable({
+        extension: reader,
+        required: ['greeting', other.name],
+        readable: new Set(['a']),
+      }),
     ).toEqual(['other']);
-    expect(registry().unreadable({ required: ['greeting'], readable: new Set() })).toEqual([]);
+    expect(
+      registry().unreadable({ extension: reader, required: ['greeting'], readable: new Set() }),
+    ).toEqual([]);
   });
 });

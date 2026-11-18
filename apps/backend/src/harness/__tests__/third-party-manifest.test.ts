@@ -13,7 +13,7 @@ import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { SESSIONS } from '@sheavly/host/run-services/run-services.utils';
+import { SESSION_INFO } from '@sheavly/host/run-services/run-services.utils';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';
 import { manifestOf } from '../../testing/manifest.fake.js';
 
@@ -40,7 +40,7 @@ describe('a third-party extension’s manifest on the backend run', () => {
         file,
         JSON.stringify({
           name: 'stamper',
-          services: { requires: ['sessions'] },
+          services: { requires: ['session-info'] },
           tools: ['stamp'],
           hooks: ['stamper-hint'],
         }),
@@ -49,7 +49,7 @@ describe('a third-party extension’s manifest on the backend run', () => {
       const stamper = defineExtension({
         manifest: readManifest(file),
         activate: ({ services }) => {
-          services.get(SESSIONS);
+          services.get(SESSION_INFO);
 
           return { tools: [stamp], hooks: [hookNamed('stamper-hint')] };
         },
@@ -68,7 +68,7 @@ describe('a third-party extension’s manifest on the backend run', () => {
     const nosy = defineExtension({
       manifest: manifestOf({ name: 'nosy' }),
       activate: ({ services }) => {
-        services.get(SESSIONS);
+        services.get(SESSION_INFO);
 
         return {};
       },
@@ -83,7 +83,7 @@ describe('a third-party extension’s manifest on the backend run', () => {
     expect(failure).toMatchObject({
       extension: 'nosy',
       use: 'service get',
-      undeclared: 'sessions',
+      undeclared: 'session-info',
     });
   });
 
@@ -103,7 +103,7 @@ describe('a third-party extension’s manifest on the backend run', () => {
     const needy = defineExtension({
       manifest: manifestOf({
         name: 'needy',
-        services: { requires: ['sessions', 'license', 'billing'] },
+        services: { requires: ['session-info', 'license', 'billing'] },
         tools: ['stamp'],
       }),
       activate: () => {

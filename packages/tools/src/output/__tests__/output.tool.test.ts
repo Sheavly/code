@@ -118,6 +118,21 @@ describe('read_output and search_output', () => {
     expect(result.isError).toBe(true);
   });
 
+  it('works over a reader that can only read and search, with no way to create', async () => {
+    const store = new MemoryOutputStore();
+    const ref = await logWith(store, 'readable text');
+    const reader = {
+      read: (params: Parameters<MemoryOutputStore['read']>[0]) => store.read(params),
+      search: (params: Parameters<MemoryOutputStore['search']>[0]) => store.search(params),
+    };
+    const run = toolRunner(createOutputTools(reader));
+
+    expect((await run('c1', 'read_output', { ref })).content).toContain('readable text');
+    expect((await run('c2', 'search_output', { ref, query: 'text' })).content).toContain(
+      '1 match(es)',
+    );
+  });
+
   it('finds the references a model was shown', () => {
     const ref = outputRefSchema.parse('33333333-3333-4333-8333-333333333333');
 

@@ -7,6 +7,7 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { isFiniteKind } from '@sheavly/runtime/tasks/work.utils';
 import { startTaskTool } from '@sheavly/runtime/testing/start-task.fake';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import { runSession } from '../stream-agent/stream-agent.helper.js';
 import type { WorkEnv, WorkKind } from './work-kinds.types.js';
 
@@ -73,10 +74,8 @@ const childProvider: Provider = {
 
 function subAgentTool({ tasks, sessions }: WorkEnv): Tool {
   return createSubAgentTool({
-    sessions,
-    tasks,
+    scopes: registryScopes({ sessions, tasks, runAgent: (options) => runSession(options) }),
     provider: childProvider,
-    runAgent: (options) => runSession(options),
     tools: [],
   });
 }

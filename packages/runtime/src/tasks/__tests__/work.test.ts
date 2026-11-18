@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
+import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskRegistry } from '../tasks.service.js';
+import { runningInfo } from '../tasks.utils.js';
 import { agentWork, finiteWork, isFiniteKind, serviceWork, startWork } from '../work.utils.js';
-import type { WorkInput } from '../work.types.js';
+import type { TaskStarter } from '../task-scope.types.js';
+import type { WorkDefinition, WorkInput } from '../work.types.js';
 
 const owner = sessionIdSchema.parse('main');
 const input: WorkInput = {
@@ -96,6 +99,28 @@ describe('background work kinds', () => {
 
     await tasks.cancelAll();
     expect(seen).toEqual(['task', 'service', 'task', 'service']);
+  });
+
+  it('starts the work in anything that satisfies TaskStarter, with the factory policy', () => {
+    const seen: WorkDefinition[] = [];
+    const starter: TaskStarter = {
+      start: (work) => {
+        seen.push(work);
+
+        return runningInfo({
+          id: taskIdSchema.parse('t1'),
+          callId: work.callId,
+          command: work.command,
+          description: work.description,
+          kind: work.backgroundKind,
+          startedAt: 0,
+        });
+      },
+    };
+
+    startWork({ tasks: starter, work: serviceWork(input) });
+
+    expect(seen.map((work) => work.backgroundKind)).toEqual(['service']);
   });
 
   it('starts the work in the registry it is given', async () => {

@@ -6,6 +6,7 @@ import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createTaskTools } from '@sheavly/tools/tasks/tasks.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import {
   calls,
   routedProvider,
@@ -47,7 +48,11 @@ async function handoff(child: Script[]) {
     ],
     Child: child,
   });
-  const tool = createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools: [] });
+  const tool = createSubAgentTool({
+    scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
+    provider,
+    tools: [],
+  });
   const main = sessions.startMain({ title: 'Main' });
   const result = await runSession({
     provider,

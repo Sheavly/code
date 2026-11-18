@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { runServices } from '@sheavly/host/run-services/run-services.utils';
+import { runServices } from '@sheavly/host/run-services/run-services.helper';
+import { noSubAgentRuns } from '@sheavly/host/testing/run-loop.fake';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
+import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
 import { createCodingHarness } from '../../preset/coding.helper.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
@@ -46,7 +48,7 @@ async function addProjectHook(name: string) {
 }
 
 /** Activates `agents` and `coding` over the test project, trusting it so its own hooks load. */
-async function activate() {
+async function activate(outputs?: MemoryOutputStore) {
   const harness = await createCodingHarness({
     provider: routedProvider({ go: [say('ok')] }),
     title: 'go',
@@ -68,7 +70,7 @@ async function activate() {
         shell: memoryShellStore(),
       }),
     ],
-    services: runServices({ harness }),
+    services: runServices({ harness, outputs, runSession: noSubAgentRuns }),
   });
   const result = await host.activate({ signal: new AbortController().signal });
 
@@ -96,6 +98,19 @@ describe('the coding extension and its manifest', () => {
       ...INSTRUCTION_HOOKS,
       'whatever-the-user-called-it',
     ]);
+  });
+
+  it('captures command output only through the optional output-capture service and its grant', async () => {
+    const runCommand = (tools: { name: string; description: string }[]) =>
+      tools.find((tool) => tool.name === 'run_command')?.description ?? '';
+    const without = await activate();
+    const withStore = await activate(new MemoryOutputStore());
+
+    expect(manifest.services.optional).toEqual(['output-capture']);
+    expect(manifest.grants).toEqual(['output:capture']);
+    expect(withStore.failed).toEqual([]);
+    expect(runCommand([...without.contributions.tools])).not.toContain('read_output');
+    expect(runCommand([...withStore.contributions.tools])).toContain('read_output');
   });
 
   it('declares exactly the tools it contributes and the instruction hooks it always has', async () => {

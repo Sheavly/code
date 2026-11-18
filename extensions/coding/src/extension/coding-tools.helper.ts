@@ -1,4 +1,4 @@
-import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/core/output/output.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createDeleteFileTool } from '../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../edit-file/edit-file.tool.js';
@@ -43,7 +43,7 @@ export function createCommandTools(params: {
   harness: CodingHarness;
   workingRoots: WorkingRoots;
   permissions: CommandPermissions;
-  outputs: OutputStore | undefined;
+  outputs: OutputCapture | undefined;
 }) {
   const { harness, workingRoots, permissions, outputs } = params;
   const { workspace, tasks, approvals, processes } = harness;

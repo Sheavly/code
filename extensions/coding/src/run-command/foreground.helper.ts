@@ -1,5 +1,5 @@
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
-import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/core/output/output.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { ScriptParams } from '@sheavly/process/process/process.types';
@@ -16,7 +16,7 @@ export async function runForeground(params: {
   command: string;
   script: ScriptParams;
   processes: ProcessRunner;
-  outputs: OutputStore | undefined;
+  outputs: OutputCapture | undefined;
 }): Promise<string> {
   const { command, script, processes, outputs } = params;
   const capture = await startCapture(outputs);

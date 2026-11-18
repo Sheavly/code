@@ -42,6 +42,7 @@ every other field defaults to empty.
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                   |
 | `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                            |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance). |
+| `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                   |
 | `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                            |
 
 Every list rejects a repeated name, and the schema reports where: `tools[2]`, `settings[0].default`.
@@ -66,6 +67,31 @@ own hook files choose their names, and renaming them would change stored histori
 hook-name check is therefore a no-op, and the four names listed beside the `"*"`
 (`agents-md`, `skills`, `scratch`, `working-root`) are documentation of what it contributes, not a
 limit. Its tools are still held to the exact list. The services and settings checks are unaffected.
+
+## `grants`
+
+`grants: string[]` lists the verb-level capabilities the extension asks of the host's
+per-extension services (`task:start`, `output:read`, `sub-agent:message`): `<noun>:<verb>`, each
+part lowercase words joined by hyphens, one colon, no duplicates. It is data, so an installer can
+show what an extension may do before running it.
+
+A grant belongs to a service. The host supplies some services as factories (`hostServiceFor`) that
+build one value per extension, and each declares the grants it understands; the host's
+**catalogue** is the union of what the services it was given declare (a plain `hostService` value
+declares none, and a grant a dependency's own provided service might define is out of scope: only
+host services define grants). At activation the host fails an extension, before its `activate`
+runs, with an `ExtensionGrantError` naming the extension and the grant when:
+
+- a grant is in no supplied service's catalogue (a typo fails, and so does a grant of a service the
+  app did not supply), or
+- a grant belongs to a service the extension cannot read, that is, not in its `services.requires`
+  or `services.optional`.
+
+Each service then enforces its own grants per method: the factory receives `{ name, manifest }`
+and every method calls `requireGrant({ extension, grants, grant })`
+(`@sheavly/extension/extension/grants.utils`), which throws an `ExtensionUndeclaredError`
+(`use: 'grant'`, naming the grant, to be added to `grants`). A grant is a declaration the host
+checks, not a sandbox: see [what the manifest is not](#what-the-manifest-is-not).
 
 ## `emits`, and the reserved `serves`
 
@@ -126,10 +152,13 @@ the name (`ExtensionUndeclaredError`).
   by the host or provided by one of its dependencies. If not, the extension is not activated and is
   `skipped` with the reason `service` and the `missing` names. What depends on it is skipped for
   `dependency`; the other extensions are unaffected.
+- **Before activating, for `grants`**: each must be in the catalogue of the supplied services and
+  belong to a service the extension reads, else it fails (`ExtensionGrantError`, in `result.failed`,
+  dependents skipped) without running `activate`. See [`grants`](#grants).
 - **During `activate`**: `services.get` for a name not in `requires` or `optional`, `services.find`
   for one not in `optional` or `requires`, and `services.provide` for one not in `provides` throw at
   the call. Services the host supplies are held to the same list: an extension that reads
-  `sessions` must declare it, which is what lets an installer warn about it.
+  `session-info` must declare it, which is what lets an installer see it (and its grants).
 - **After `activate` returns**: a contributed tool, hook or work kind not listed in `tools`,
   `hooks` or `workKinds` (exactly, or by a wildcard entry) fails the activation. The extension is deactivated (it had activated), its
   services are dropped and its dependents are skipped. The host reads each name once, keeps what
@@ -180,13 +209,13 @@ they do not cover.
   host's checks cover those.
 - **`emits` is a host-checked gate, not a sandbox.** The host checks what passes through
   `context.emit`; an extension is Node code, so nothing stops it from reaching a session's stream
-  by another route: the `sessions` run service, which an extension may declare and read, is the
-  session registry itself, and `publish` and `queueNotice` are on it. The sink is an option of the
-  host, not a service, so an extension that only holds the emit capability cannot emit under
-  another's name. `sessions` remains a bypass: its holder skips the declaration and can name any
+  by another route: no scoped service hands out `publish`, `queueNotice` or `publishTask`, but code that imports
+  the runtime and obtains a registry could call them, skipping the declaration and naming any
   extension in the envelope, which is impersonation to the model (the registry refuses a malformed
-  notice and caps the outbox, but does not check who it names). Narrower services (#336) are where
-  that closes. The `session` an emit names can be any session of the run, sub-agents included; it
+  notice and caps the outbox, but does not check who it names). The sink is an option of the host,
+  not a service, so an extension that only holds the emit capability cannot emit under another's
+  name. Lint rejects the runtime import in an extension's source; review covers the rest. The
+  `session` an emit names can be any session of the run, sub-agents included; it
   cannot cross conversations, because one registry serves one conversation.
 - **Item objects are not frozen.** Tools, work kinds and hooks are kept as the extension returned
   them. The host records and merges the names it checked and re-verifies them (and the lists)
@@ -200,7 +229,13 @@ they do not cover.
   it, and whoever reads it can share tools and hooks with sub-agents without those names
   appearing in its own `tools` or `hooks` (`share` is a service call, not a contribution).
   Declaring `sub-agents` in `requires` (or `optional`) therefore grants that right, and an
-  installer should treat it as such.
+  installer should treat it as such. The service is write-only: `share` copies the lists and
+  validates each entry (an object with a non-empty string `name`, no duplicate), but does not
+  freeze the tool and hook objects, which are held by reference. The shared lists cannot be read
+  or changed through the service. **Known gap, since the service was introduced:** `share` is
+  gated only by `requires`, and cannot check the sharer's `tools` and `hooks` declarations, because
+  `sub-agents` is provided by an extension and only host services define grants in this version.
+  The intended fix is a grant, once an extension-provided service can define grants.
 - **The JSON Schema is the shape only.** `readManifest` is authoritative: cross-field rules
   (a setting under the extension's own name, a name both required and optional, a dependency on
   itself) are not expressible in it.

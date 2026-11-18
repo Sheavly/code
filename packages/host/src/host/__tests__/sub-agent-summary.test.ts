@@ -6,6 +6,7 @@ import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import {
   calls,
   routedProvider,
@@ -34,16 +35,18 @@ async function runNested(options: { summarizeWith?: (provider: Provider) => Summ
     Inner: [say('inner done')],
   });
   const tool = createSubAgentTool({
-    sessions,
-    tasks,
+    scopes: registryScopes({
+      sessions,
+      tasks,
+      runAgent: (runOptions) => {
+        given.push({ summary: runOptions.summary, messages: runOptions.messages });
+
+        return runSession(runOptions);
+      },
+    }),
     provider,
     tools: [],
     ...options,
-    runAgent: (runOptions) => {
-      given.push({ summary: runOptions.summary, messages: runOptions.messages });
-
-      return runSession(runOptions);
-    },
   });
   const main = sessions.startMain({ title: 'Main' });
 

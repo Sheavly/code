@@ -1,5 +1,5 @@
 import { OutputError } from '@sheavly/core/errors/output.errors';
-import type { OutputStore, OutputWriter } from '@sheavly/core/output/output.types';
+import type { OutputCapture, OutputWriter } from '@sheavly/core/output/output.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
 import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import type { Capture } from './run-command.types.js';
@@ -26,7 +26,7 @@ export async function closeCapture(writer: OutputWriter): Promise<OutputLog> {
  * the command: it runs with its bounded preview and the result says the full output is not kept,
  * so the absence is never mistaken for a complete log.
  */
-export async function startCapture(outputs: OutputStore | undefined): Promise<Capture> {
+export async function startCapture(outputs: OutputCapture | undefined): Promise<Capture> {
   if (!outputs) return undefined;
 
   try {

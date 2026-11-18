@@ -3,7 +3,8 @@ import { createCodingExtension } from '@sheavly/coding/extension/coding-extensio
 import { CODING_RUN } from '@sheavly/coding/extension/coding-extension.utils';
 import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
-import { runServices } from '@sheavly/host/run-services/run-services.utils';
+import { runServices } from '@sheavly/host/run-services/run-services.helper';
+import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { createWebExtension } from '@sheavly/web/web/web.helper';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
@@ -77,10 +78,11 @@ export async function createBackendHarness(
       }),
       ...extensions,
     ],
-    services: runServices({ harness, outputs }),
+    services: runServices({ harness, outputs, runSession }),
     settings: extensionSettings,
-    // The sink is the host's option, not a run service, so holding the emit capability alone cannot
-    // emit under another's name (the `sessions` service still bypasses it).
+    // The sink is the host's option, not a run service, and no scoped service hands out `publish`,
+    // `queueNotice` or `publishTask`, so an extension emits only through its own declared capability,
+    // never under another's name.
     emit: (emission) => routeEmission({ sessions, main: harness.mainSession.id, emission }),
   });
   const lifetime = new AbortController();

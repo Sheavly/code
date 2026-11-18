@@ -55,13 +55,10 @@ export type OutputSearch = {
 };
 
 /**
- * One conversation's complete command output. Its logs are private to that conversation: a
- * reference from another conversation is `not_found`, whatever it names. Every method rejects with
- * an `OutputError`.
+ * The read side of the store: what the `output:read` grant allows. Every method rejects with an
+ * `OutputError`, and a reference from another conversation is `not_found`.
  */
-export type OutputStore = {
-  /** Starts a capture. Rejects (`unavailable`) when storage cannot take one. */
-  create(): Promise<OutputWriter>;
+export type OutputReader = {
   /** What is known about a log. */
   log(ref: OutputRef): Promise<OutputLog>;
   /** Up to `maxBytes` from byte `offset`, never ending inside a character. */
@@ -69,3 +66,20 @@ export type OutputStore = {
   /** Literal, case-sensitive matches from byte `fromOffset`. */
   search(params: OutputSearchParams): Promise<OutputSearch>;
 };
+
+/**
+ * The write side of the store: what the `output:capture` grant allows. A new capture fills the
+ * store's quota, so it is a separate capability from reading.
+ */
+export type OutputCapture = {
+  /** Starts a capture. Rejects (`unavailable`) when storage cannot take one. */
+  create(): Promise<OutputWriter>;
+};
+
+/**
+ * One conversation's complete command output. Its logs are private to that conversation: a
+ * reference from another conversation is `not_found`, whatever it names. Every method rejects with
+ * an `OutputError`. The app holds the whole store; an extension gets `OutputReader` and
+ * `OutputCapture` separately.
+ */
+export type OutputStore = OutputReader & OutputCapture;

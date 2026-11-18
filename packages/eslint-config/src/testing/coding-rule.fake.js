@@ -5,8 +5,11 @@ import { harnessPlugin } from '../plugin.js';
 
 const REPO = path.resolve(import.meta.dirname, '../../../..');
 
-/** An ESLint over this repo that runs only `rule`, on every `.ts` file, to lint real sources. */
-export function repoRuleLinter(rule) {
+/**
+ * An ESLint over this repo that runs only `rule` (with `options`, none by default), on every `.ts`
+ * file, to lint real sources.
+ */
+export function repoRuleLinter(rule, options = []) {
   return new ESLint({
     cwd: REPO,
     overrideConfigFile: true,
@@ -15,7 +18,7 @@ export function repoRuleLinter(rule) {
         files: ['**/*.ts'],
         languageOptions: { parser: tseslint.parser, parserOptions: { tsconfigRootDir: REPO } },
         plugins: { harness: harnessPlugin },
-        rules: { [rule]: 'error' },
+        rules: { [rule]: ['error', ...options] },
       },
     ],
   });

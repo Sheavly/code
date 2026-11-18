@@ -15,6 +15,9 @@ import type {
   WorkKindContribution,
 } from '../extension/extension.types.js';
 
+/** Each grant a supplied service declares, with the names of the services that declare it. */
+export type GrantCatalogue = ReadonlyMap<string, readonly string[]>;
+
 /** What an extension host needs: the extensions, and what the app supplies to them. */
 export type ExtensionHostOptions = {
   extensions: readonly Extension[];

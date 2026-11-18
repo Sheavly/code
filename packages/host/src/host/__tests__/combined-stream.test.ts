@@ -3,6 +3,7 @@ import type { StreamEvent } from '@sheavly/core/message/message.types';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import { createHarness } from '../host.helper.js';
 import {
   calls,
@@ -42,10 +43,8 @@ async function runTree(): Promise<{ sessions: SessionRegistry; entries: StreamEn
   sessions.subscribeEntries((entry) => entries.push(entry), { replay: true });
 
   const startAgent = createSubAgentTool({
-    sessions,
-    tasks,
+    scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
     provider,
-    runAgent: runSession,
     tools: [],
   });
 

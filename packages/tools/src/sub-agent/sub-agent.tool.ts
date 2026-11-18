@@ -1,26 +1,33 @@
-import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { messageIdSchema } from '@sheavly/protocol/message/message.validator';
-import { now } from '@sheavly/core/clock/clock.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
+import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { MAX_SESSION_DEPTH } from '@sheavly/runtime/sessions/sessions.constants';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
 import { subAgentWork } from './sub-agent-work.utils.js';
-import { SubAgentStoppedError } from '../errors/sub-agent.errors.js';
+import { runSubAgent } from './sub-agent-run.helper.js';
 import { createTaskTools } from '../tasks/tasks.tool.js';
 import { createReportStatusTool } from './report-status.tool.js';
 import { createMessageAgentTool } from './message-agent.tool.js';
-import {
-  SUB_AGENT_INSTRUCTIONS,
-  subAgentDescription,
-  subAgentPrompts,
-  startedSubAgentPrompt,
-} from './sub-agent.prompt.js';
+import { subAgentDescription, subAgentPrompts, startedSubAgentPrompt } from './sub-agent.prompt.js';
 import type { SubAgentOptions } from './sub-agent.types.js';
-import { finalReply, subAgentInstructions } from './sub-agent.utils.js';
-import { ToolCallError } from '@sheavly/core/errors/tool.errors';
-import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
+
+/** The tools a sub-agent at `child`'s depth gets: the parent's, `report_status`, and what its depth allows. */
+function toolsFor(params: { options: SubAgentOptions; child: SessionRef }) {
+  const { options, child } = params;
+  const { children, sessions, taskControl } = options.scopes;
+  const canNest = child.depth < MAX_SESSION_DEPTH;
+
+  return [
+    ...options.tools,
+    createReportStatusTool({ children }),
+    // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
+    ...(canNest || options.withTaskTools ? createTaskTools(taskControl) : []),
+    ...(canNest
+      ? [createSubAgentTool(options), createMessageAgentTool({ sessions, children })]
+      : []),
+  ];
+}
 
 /**
  * `start_agent`: starts a sub-agent, a nested agent loop on one task, as a background task of
@@ -30,7 +37,7 @@ import type { SessionRef } from '@sheavly/protocol/session/session.types';
  * registry refuses anyway. Its report, its final answer whole, comes back as the task's report.
  */
 export function createSubAgentTool(options: SubAgentOptions) {
-  const { sessions, tasks } = options;
+  const wiring = options.scopes;
 
   return defineTool({
     name: 'start_agent',
@@ -48,14 +55,16 @@ export function createSubAgentTool(options: SubAgentOptions) {
       }
 
       // Throws for an unknown or ended parent, and at the depth cap: no session floats free.
-      const child = sessions.startChild({
+      const child = wiring.children.startChild({
         parentId: context.session.id,
         startedByCall: context.callId,
         title,
       });
       const selected = options.selectProvider?.() ?? { provider: options.provider };
 
-      if (selected.selection) sessions.setModel({ id: child.id, ...selected.selection });
+      if (selected.selection) {
+        wiring.children.setModel({ id: child.id, ...selected.selection });
+      }
 
       const childOptions = {
         ...options,
@@ -63,14 +72,23 @@ export function createSubAgentTool(options: SubAgentOptions) {
         selectProvider: () => selected,
       };
       const started = startWork({
-        tasks,
+        tasks: wiring.tasks,
         work: subAgentWork({
           command: `sub-agent: ${title}`,
           description: context.description,
           callId: context.callId,
           sessionId: context.session.id,
+          // The tools are built when the run starts, so a list or a flag that fills in after this
+          // is built still applies.
           run: ({ signal, onOutput }) =>
-            runChild({ options: childOptions, child, task, signal, onOutput }),
+            runSubAgent({
+              options: childOptions,
+              child,
+              task,
+              tools: toolsFor({ options: childOptions, child }),
+              signal,
+              onOutput,
+            }),
         }),
       });
 
@@ -82,89 +100,4 @@ export function createSubAgentTool(options: SubAgentOptions) {
       });
     },
   });
-}
-
-/**
- * Runs the sub-agent's loop to its end and returns its report, whole. Its status and steering
- * lines go into the task's output preview, never into the report.
- */
-async function runChild(params: {
-  options: SubAgentOptions;
-  child: SessionRef;
-  task: string;
-  signal: AbortSignal;
-  onOutput: (chunk: string) => void;
-}): Promise<{ exitCode: number; report: string }> {
-  const { options, child, task, signal, onOutput } = params;
-  const { sessions, tasks, provider, runAgent, tools, hooks = [], instructions } = options;
-  // The run's one registry, shared with every session: ids are unique across them, and the host's
-  // single observer already publishes each task to the combined stream. The tasks this session
-  // owns (its sub-agents) are stopped when it ends.
-  const canNest = child.depth < MAX_SESSION_DEPTH;
-  const summary = options.summarizeWith?.(provider);
-  const stopListening = sessions.subscribe((update) => {
-    if (update.session.id !== child.id) return;
-
-    if (update.type === 'session_status') onOutput(`[status] ${update.session.status ?? ''}\n`);
-
-    if (update.type === 'session_message') onOutput(`[message] ${update.message.content}\n`);
-  });
-
-  // An id marks the one message the sub-agent's own work is asked for: the agent that started
-  // it wrote the task, and no one else can message a sub-agent as a user.
-  const first: HistoryMessage[] = [
-    { role: 'user', id: messageIdSchema.parse(randomUUID()), content: task, at: now() },
-  ];
-
-  // Kept before the run, so a crash mid-run does not lose what the agent was asked.
-  options.keepHistory?.({ session: child.id, messages: first });
-
-  try {
-    const { reason, messages } = await runAgent({
-      provider,
-      tools: [
-        ...tools,
-        createReportStatusTool({ sessions }),
-        // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
-        ...(canNest || options.withTaskTools ? createTaskTools(tasks) : []),
-        ...(canNest ? [createSubAgentTool(options), createMessageAgentTool({ sessions })] : []),
-      ],
-      hooks,
-      instructions: subAgentInstructions({
-        base: options.baseInstructions,
-        rules: SUB_AGENT_INSTRUCTIONS,
-        extra: instructions,
-      }),
-      messages: first,
-      ...(options.keepHistory && {
-        keepHistory: (kept: readonly HistoryMessage[]) =>
-          options.keepHistory?.({ session: child.id, messages: kept }),
-      }),
-      signal,
-      tasks,
-      session: { registry: sessions, ref: child },
-      ...(summary && { summary }),
-    });
-
-    // Kept whatever the reason: work a stopped run did stays in the record.
-    options.keepHistory?.({ session: child.id, messages });
-
-    // A run that did not finish has no report: its last message is work in progress. Throwing
-    // fails the task with the reason, so the parent is told it failed and why, not handed text.
-    if (reason !== 'completed') {
-      throw new SubAgentStoppedError({ reason });
-    }
-
-    const report = finalReply(messages);
-
-    // The preview keeps the report's end for a UI that shows a card; the parent is handed `report`.
-    onOutput(`\n${report}`);
-
-    return { exitCode: 0, report };
-  } finally {
-    stopListening();
-    // Only this session's tasks: its parent's and siblings' share the registry. The host's
-    // observer outlives the child, so the stream still sees each cancelled task end.
-    await tasks.cancelSession(child.id);
-  }
 }

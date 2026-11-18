@@ -7,6 +7,9 @@ export const MANIFEST_SCHEMA_FILE = 'sheavly.schema.json';
 /** The longest name (extension, service, tool, hook, work kind, setting) a manifest may hold. */
 export const MAX_NAME_LENGTH = 128;
 
+/** A grant is `<noun>:<verb>`, each part lowercase words joined by hyphens (`task:cancel-any`). */
+export const GRANT_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*:[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+
 /** The most entries one list of a manifest may hold. */
 export const MAX_LIST_SIZE = 1000;
 

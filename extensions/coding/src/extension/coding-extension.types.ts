@@ -10,7 +10,7 @@ import type { TrustStore } from '../trust/trust.service.js';
 
 /**
  * What the run decides about its coding tools; the extension builds everything else. The output
- * store (`OUTPUTS`, optional) comes from the run services, not options.
+ * store (`OUTPUT_CAPTURE`, optional) comes from the run services, not options.
  */
 export type CodingExtensionOptions = {
   /** The environment, for the working root and the home folder (an app passes `process.env`). */

@@ -87,13 +87,41 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `extensions/` has none. The rest of the schema (types, settings, wildcards) is validated by
   `readManifest` when the extension loads, not here: this package depends on neither
   `@sheavly/extension` nor zod. Each message says what to change.
+- `harness/extension-no-runtime-registries` (source files of `extensions/*` workspaces, not tests
+  or fakes): an extension reads run state through the scoped services the host builds for it
+  (`services.get(KEY)` in `activate`, limited by its manifest's grants), so it must not take the
+  full registries. A VALUE import of the runtime session, task or approval service modules, or of
+  `@sheavly/host/host/host.helper` (`createHarness`), fails, in any form: `import`, a re-export,
+  `export * from`, a dynamic `import('…')`, `require('…')` and `import x = require('…')` with a
+  literal or expression-free template path. A relative path into a workspace's `src/` and a package
+  specifier with `.`/`..` segments are resolved to the module they reach before matching. Gaps:
+  files under `testing/` and `__tests__` are exempt by file kind, an `allow` entry exempts the
+  whole file, and value imports of the loop's runner and of host `*Scope` classes are not
+  flagged. Type-only uses are allowed (`import type`,
+  `import { type X }`, `export type`), and so are the work factories
+  (`@sheavly/runtime/tasks/work.utils`, `work.types`). The registry modules are not listed in the
+  rule: they are read at lint time from the imports of the `Harness` type in
+  `packages/host/src/host/host.types.ts` (each member typed by a name imported from a `*.service`
+  module), so a new registry is covered with no edit; when that file cannot be read, or yields no
+  registry, every extension file gets one error saying so, instead of going silent. Exceptions are
+  the `allow` option, set in `base.js` from `src/runtime-registry-allow.js`: entries
+  `{ file, reason }` naming a file from the repo root, each with why. There is no other way
+  to silence it (inline directives are off). Tests assert that each entry still matches a real
+  violation in this repo (a stale entry fails), that an unlisted file is reported, and that the
+  list is exactly `extensions/coding/src/preset/coding.helper.ts` today, the `createHarness`
+  call the coding layer removes together with the entry. Limits: this is not a sandbox. An
+  extension is Node code and can still reach a registry at runtime through a computed or
+  non-literal `import()`/`require` path, `createRequire`, `globalThis`, a prototype, or an object
+  another module hands it; a registry module imported under a different specifier (a relative
+  path into the package) is not matched; and what the manifest declares against what the code
+  does is the host's activation check and review.
 - `harness/extension-options-use-services` (source files of `extensions/*` workspaces, not tests):
   a type alias or interface named `*ExtensionOptions` carries the embedding app's choices, never
   run state. Each member (a property, a method, an index, call or construct signature) whose declared
   type NAMES a type a run service carries (a union, an array, a generic argument such as
   `Readonly<…>` or `Promise<…>`, an optional member, an inline literal, `import('x').Type` or a
   qualified `Ns.Type` all count) is reported once, by its name, with the service key to read instead
-  (`services.get(SESSIONS)` in `activate`). A function-typed option counts: a method signature
+  (`services.get(SESSION_INFO)` in `activate`). A function-typed option counts: a method signature
   `run(s: SessionRegistry): void` and a property `run: (s: SessionRegistry) => void` are both
   reported. So is an alias whose whole body is a reference or wrapper
   (`Partial<SessionRegistry>`, reported under the alias name), an `extends` entry of an interface,
@@ -102,7 +130,15 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `defineService<Type>('name')` calls of the host's
   `packages/host/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
   type name are joined with `or`), so a new service is covered with no edit; primitives are
-  ignored. Matching is by type name only: a name the file declares itself (a local type, interface,
+  ignored. Every exported `type X = A & B` of `packages/core/src/output/output.types.ts` whose
+  members are all service types (`OutputStore = OutputReader & OutputCapture`) is refused too, with
+  the members' keys joined by `and`, so the whole store cannot bypass the `output:read` and
+  `output:capture` grants; a missing or unparsable core file adds no such type and is no error. The registry types of the host's `Harness` type (`SessionRegistry`, `TaskRegistry`,
+  `ApprovalRegistry`, read from `packages/host/src/host/host.types.ts` as for
+  `harness/extension-no-runtime-registries`) are refused the same way, with their own message
+  pointing at the scoped services, because the run-service keys carry scope types and no longer
+  name the registries; a `Harness` file that exists but yields no registry is reported like an
+  unreadable run-services file. Matching is by type name only: a name the file declares itself (a local type, interface,
   enum, class or generic parameter) is not reported, and a differently named but structurally
   identical type is a miss. It takes the `root`/`layout` options of the other layout rules. When
   the file isn't under the root (or is not a regular file), or has a syntax error, it does

@@ -1,7 +1,9 @@
 # The task tools
 
-`createTaskTools(tasks)` (`@sheavly/tools/tasks/`) returns three tools on a run's `TaskRegistry`
-(`@sheavly/runtime/tasks/`), for background work: commands started with
+`createTaskTools(tasks)` (`@sheavly/tools/tasks/`) returns three tools that act through a
+`TaskControl` (`@sheavly/runtime/tasks/task-scope.types`: `getOwned`, `list`, `report`, `cancel`
+and `group`, each for the session of the call; a whole `TaskRegistry` is still accepted and read
+through the same calls), for background work: commands started with
 `run_command`'s `background: true` ([@sheavly/coding](../../../extensions/coding/docs/run-command.md)) and
 sub-agents ([sub-agents.md](sub-agents.md)), which run as tasks too.
 

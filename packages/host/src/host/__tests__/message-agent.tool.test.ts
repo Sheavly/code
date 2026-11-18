@@ -13,6 +13,7 @@ import {
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -125,8 +126,12 @@ describe('message_agent: steering a running sub-agent', () => {
     });
 
     const tools = [
-      createSubAgentTool({ sessions, tasks, provider, runAgent: runSession, tools: [] }),
-      createMessageAgentTool({ sessions }),
+      createSubAgentTool({
+        scopes: registryScopes({ sessions, tasks, runAgent: runSession }),
+        provider,
+        tools: [],
+      }),
+      createMessageAgentTool({ sessions, children: sessions }),
     ];
     const events: AgentEvent[] = [];
 
@@ -257,7 +262,7 @@ describe('message_agent: steering a running sub-agent', () => {
 
   it('says a delivered sub-agent was released, not that it is unknown', async () => {
     const { sessions, main, child } = mainWithChild('Done');
-    const tool = createMessageAgentTool({ sessions });
+    const tool = createMessageAgentTool({ sessions, children: sessions });
 
     sessions.end({ id: child.id, state: 'completed' });
     sessions.releaseAgent(child.id);
@@ -277,7 +282,7 @@ describe('message_agent: steering a running sub-agent', () => {
     const startedByCall = callIdSchema.parse('start');
     const a = sessions.startChild({ parentId: main.id, startedByCall, title: 'A' });
     const b = sessions.startChild({ parentId: main.id, startedByCall, title: 'B' });
-    const tool = createMessageAgentTool({ sessions });
+    const tool = createMessageAgentTool({ sessions, children: sessions });
     const signal = new AbortController().signal;
 
     await expect(

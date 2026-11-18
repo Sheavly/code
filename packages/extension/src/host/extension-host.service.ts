@@ -9,6 +9,7 @@ import type {
 } from '../extension/extension.types.js';
 import { sealExtension } from '../extension/extension.utils.js';
 import { changedExtensions, snapshotContributions } from './contribution-snapshot.utils.js';
+import { assertGrantsOffered, grantCatalogueOf } from './grant-catalogue.utils.js';
 import { mergeContributions } from './contributions.utils.js';
 import { orderExtensions, readableServices, withDependents } from './extension-order.utils.js';
 import { assertSettings, settingInfos, settingsFor } from './settings.utils.js';
@@ -17,6 +18,7 @@ import type {
   ContributedBy,
   ContributionSnapshot,
   ExtensionHostOptions,
+  GrantCatalogue,
   SkippedExtension,
 } from './extension-host.types.js';
 import { ServiceRegistry } from './services.service.js';
@@ -60,6 +62,8 @@ export class ExtensionHost {
   readonly #ordered: readonly Extension[];
   readonly #options: ExtensionHostOptions;
   readonly #services: ServiceRegistry;
+  /** The grants the supplied services declare; a manifest's `grants` are verified against it. */
+  readonly #grants: GrantCatalogue;
   readonly #settings: Readonly<Record<string, SettingValue>>;
   /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
   readonly #emitters = new Map<string, Emitter>();
@@ -74,6 +78,7 @@ export class ExtensionHost {
     this.#settings = Object.freeze({ ...options.settings });
     assertSettings({ extensions: sealed, values: this.#settings });
     this.#services = new ServiceRegistry(options.services);
+    this.#grants = grantCatalogueOf(options.services ?? []);
     this.#options = options;
   }
 
@@ -156,18 +161,21 @@ export class ExtensionHost {
         readable: readableNames,
       });
 
-      if (skipped) return { kind: 'skipped', skipped };
+      if (skipped) {
+        // The service check may have built this extension's factory instances: they must not outlive the skip.
+        this.#disarm(extension.name);
+
+        return { kind: 'skipped', skipped };
+      }
 
       // The trust check awaited: `deactivate` may have closed the host meanwhile.
       if (this.#isClosed()) return { kind: 'closed' };
 
+      assertGrantsOffered({ manifest: extension.manifest, catalogue: this.#grants });
+
       const contributions = await extension.activate({
         extension: extension.name,
-        services: this.#services.viewFor({
-          extension: extension.name,
-          readable: readableNames,
-          declared: extension.manifest.services,
-        }),
+        services: this.#services.viewFor({ extension, readable: readableNames }),
         settings: settingsFor({ extension, values: this.#settings }),
         emit: emitter.emit,
         signal,
@@ -185,8 +193,8 @@ export class ExtensionHost {
 
       return { kind: 'activated', snapshot };
     } catch (caughtError) {
-      // `activate` may have kept `context.emit`: a failed extension must not publish.
-      emitter.disarm();
+      // `activate` may have kept `context.emit` or a service: a failed extension must not use them.
+      this.#disarm(extension.name);
       this.#services.forget(extension.name);
 
       return {
@@ -326,9 +334,10 @@ export class ExtensionHost {
     }
   }
 
-  /** Ends an extension's emit capability, for good; one that never started has none. */
+  /** Ends an extension's emit capability and its per-extension services, for good; one that never started has none. */
   #disarm(extension: string): void {
     this.#emitters.get(extension)?.disarm();
+    this.#services.disarm(extension);
   }
 
   /** Deactivates an extension the host stopped without `deactivate()` knowing it; an error is kept, never thrown. */
@@ -344,7 +353,8 @@ export class ExtensionHost {
 
   /**
    * A service the host supplied or an activated extension provided, for the app composing the
-   * run. Throws if none did.
+   * run. Throws if none did, or if it is a per-extension service (`hostServiceFor`): the app
+   * holds no manifest, so it has no scope to read.
    */
   service<TService>(key: ServiceKey<TService>): TService {
     return this.#services.read(key);
@@ -362,6 +372,7 @@ export class ExtensionHost {
     this.#state = 'closed';
     // Before any `deactivate` runs: a stopping extension cannot emit, and neither can one still activating.
     this.#emitters.forEach((emitter) => emitter.disarm());
+    this.#services.disarmAll();
 
     const errors: unknown[] = [];
 
@@ -395,6 +406,7 @@ export class ExtensionHost {
     if (!(await this.#isTrustedToRun(extension))) return { ...skip, reason: 'untrusted' };
 
     const missing = this.#services.unreadable({
+      extension,
       required: extension.manifest.services.requires,
       readable,
     });

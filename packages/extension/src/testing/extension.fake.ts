@@ -72,6 +72,7 @@ function fakeManifest(fields: FakeExtensionFields): ExtensionManifest {
       modelFacingNotices: fields.emits?.modelFacingNotices ?? contributed.notices.length > 0,
     },
     serves: { actions: [] },
+    ...(fields.grants === undefined ? {} : { grants: [...fields.grants] }),
   };
 }
 

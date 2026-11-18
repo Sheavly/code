@@ -48,37 +48,36 @@ way, `createHarness` puts their updates in the sessions' combined stream (`kind:
 ## Run services for extensions
 
 A UI that composes its run from extensions (`@sheavly/extension`) hands the harness's state to all
-of them the same way: `runServices({ harness, outputs })` (`run-services/`) returns it as
-`hostService` entries for `ExtensionHostOptions.services`. Every extension then reads it in
-`activate` without a `dependsOn`, a built-in one no differently from a third-party one.
+of them the same way: `runServices({ harness, outputs, runSession })` (`run-services/`, in
+`run-services.helper.ts`; `runSession` is the loop's runner) returns it as `hostService` entries
+for `ExtensionHostOptions.services`. Every extension then reads it in `activate` without a
+`dependsOn`, a built-in one no differently from a third-party one.
 
-| Key (`run-services.utils`) | Value                                                                |
-| -------------------------- | -------------------------------------------------------------------- |
-| `PROVIDER`                 | `harness.provider`                                                   |
-| `INSTRUCTIONS`             | `harness.instructions`, the composed base instructions               |
-| `SESSIONS`, `MAIN_SESSION` | `harness.sessions` and `harness.mainSession`                         |
-| `TASKS`                    | `harness.tasks`                                                      |
-| `APPROVALS`                | A request-only view of `harness.approvals` (`ApprovalRequester`)     |
-| `OUTPUTS`                  | The app's `OutputStore`; left out when the app has none (use `find`) |
+| Key (`run-services.utils`) | Value                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `INSTRUCTIONS`             | `harness.instructions`, the composed base instructions                             |
+| `MAIN_SESSION`             | `harness.mainSession`                                                              |
+| `SESSION_INFO`             | Read-only session metadata, no message content                                     |
+| `CHILD_SESSIONS`           | The sub-agents the extension started, and only those                               |
+| `BACKGROUND_TASKS`         | The background tasks the extension started, and only those                         |
+| `TASK_CONTROL`             | Reading and cancelling any task of a given session, whatever started it            |
+| `OUTPUT_READER`            | Reading the complete command output; not provided when the app has no output store |
+| `OUTPUT_CAPTURE`           | Starting an output capture; not provided when the app has no output store          |
+| `MODEL`                    | The run's provider, for model calls                                                |
+| `APPROVALS`                | Asking the user to approve something, and whether anyone is there to answer        |
 
-The values are the harness's own objects, not copies, so work an extension starts through `TASKS`
-is the run's work; `APPROVALS` is the exception: an object with only `request`, so an extension
-can ask the user (in its own words) but cannot answer an approval. It does not hide approvals:
-they still appear in the sessions' stream that `SESSIONS` exposes. There is no environment
-service: an extension's configuration comes through its settings (declared in its manifest,
-`ExtensionHostOptions.settings`).
+Every service but the two constants is built per extension and checks a grant its `sheavly.json`
+declares (what each allows and leaves out: [scoped run services](run-services.md)); no extension
+is handed a session registry, a task registry, the whole output store or the loop. There is no
+environment service: an extension's configuration comes through its settings (declared in its
+manifest, `ExtensionHostOptions.settings`).
 
 **Run services are not a sandbox.** An extension is code that can already do whatever Node can;
-the services add the run's authority. `TASKS` lets it list, read the output of, cancel and release
-the run's other tasks (it starts only work it executes itself, never a process for you);
-`OUTPUTS` reads and searches the complete output of every command, which can hold secrets;
-`PROVIDER` makes model calls with the app's credentials; `SESSIONS` reads every session's events
-and approvals, sends messages into a session as if from the user, ends sessions and publishes
-entries into the combined stream. The app decides which services it supplies (`runServices`
-returns a list it can filter) and which extensions it loads; the host's only policy is the
-`origin: 'project'` trust gate (anything that is not `builtin` goes through it). `origin` is
-declared by whatever loads the extension, not by the extension: a loader for repo code (#332)
-must set `origin: 'project'` itself and should supply narrowed services.
+a grant limits what a service does for it, not what Node code can do. The app decides which
+services it supplies (`runServices` returns a list it can filter) and which extensions it loads;
+the host's only policy is the `origin: 'project'` trust gate (anything that is not `builtin` goes
+through it), and no service reads `origin`. `origin` is declared by whatever loads the extension,
+not by the extension: a loader for repo code (#332) must set `origin: 'project'` itself.
 
 ## Instruction composition
 

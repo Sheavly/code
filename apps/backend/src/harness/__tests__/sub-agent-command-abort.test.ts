@@ -15,6 +15,7 @@ import {
 } from '@sheavly/testing/provider/routed-provider.fake';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';
+import { registryScopes } from '@sheavly/tools/testing/registry-scopes.fake';
 import { ProcessRunner } from '@sheavly/process/process/process.service';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 
@@ -97,10 +98,8 @@ describe('sub-agent command permissions resolving after parent interruption', ()
         ],
       });
       const startAgent = createSubAgentTool({
-        sessions,
-        tasks,
+        scopes: registryScopes({ sessions, tasks, runAgent: runChild }),
         provider,
-        runAgent: runChild,
         tools: [child.tool],
         withTaskTools: true,
       });

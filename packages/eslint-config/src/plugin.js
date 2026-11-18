@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { extensionDefinition } from './rules/extension-definition.js';
+import { extensionNoRuntimeRegistries } from './rules/extension-no-runtime-registries.js';
 import { extensionOptionsUseServices } from './rules/extension-options-use-services.js';
 import { fileKind } from './rules/file-kind.js';
 import { brandedIds } from './rules/branded-ids.js';
@@ -42,6 +43,7 @@ if (!existsSync(path.join(REPO_ROOT, SKILLS_DIR))) {
 const RULES = {
   'branded-ids': brandedIds,
   'extension-definition': extensionDefinition,
+  'extension-no-runtime-registries': extensionNoRuntimeRegistries,
   'extension-options-use-services': extensionOptionsUseServices,
   'file-kind': fileKind,
   'guard-env-read': guardEnvRead,

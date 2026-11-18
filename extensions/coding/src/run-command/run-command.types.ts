@@ -1,4 +1,4 @@
-import type { OutputStore, OutputWriter } from '@sheavly/core/output/output.types';
+import type { OutputCapture, OutputWriter } from '@sheavly/core/output/output.types';
 import type { AllowEntry, Permissions } from '@sheavly/protocol/permission/permission.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';
@@ -51,7 +51,7 @@ export type RunCommandOptions = {
    * This conversation's complete-output store. With it every command's captured output is kept
    * whole and its result carries an `output_ref`; without it only the bounded preview exists.
    */
-  outputs?: OutputStore | undefined;
+  outputs?: OutputCapture | undefined;
   /**
    * Runs the commands and stops any still running when the process exits: pass the harness's
    * one runner, built from the environment the app passed in.

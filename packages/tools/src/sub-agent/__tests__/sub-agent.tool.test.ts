@@ -5,7 +5,8 @@ import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import type { RunNestedAgent } from '../sub-agent.types.js';
+import { registryScopes } from '../../testing/registry-scopes.fake.js';
+import type { RunWithRegistries } from '../../testing/registry-scopes.types.js';
 import { createSubAgentTool } from '../sub-agent.tool.js';
 
 let tasks: TaskRegistry;
@@ -21,7 +22,7 @@ describe('start_agent history keeping', () => {
     },
   };
 
-  async function startWith(params: { runAgent: RunNestedAgent; keepHistory: () => void }) {
+  async function startWith(params: { runAgent: RunWithRegistries; keepHistory: () => void }) {
     tasks = new TaskRegistry();
     const sessions = new SessionRegistry();
     const parent = sessions.startMain({ title: 'Main' });
@@ -30,10 +31,8 @@ describe('start_agent history keeping', () => {
     await runTool({
       tools: [
         createSubAgentTool({
-          sessions,
-          tasks,
+          scopes: registryScopes({ sessions, tasks, runAgent: params.runAgent }),
           provider,
-          runAgent: params.runAgent,
           tools: [],
           keepHistory: (call) => {
             params.keepHistory();
@@ -56,7 +55,7 @@ describe('start_agent history keeping', () => {
 
   it('keeps the task before the run and the whole history after it', async () => {
     const order: string[] = [];
-    const runAgent = vi.fn<RunNestedAgent>(async ({ messages }) => {
+    const runAgent = vi.fn<RunWithRegistries>(async ({ messages }) => {
       order.push('run');
 
       return {
@@ -72,7 +71,7 @@ describe('start_agent history keeping', () => {
   });
 
   it('keeps the work of a run that did not complete', async () => {
-    const runAgent = vi.fn<RunNestedAgent>(async ({ messages }) => ({
+    const runAgent = vi.fn<RunWithRegistries>(async ({ messages }) => ({
       reason: 'interrupted',
       messages: [...messages, { role: 'assistant', content: 'half', toolCalls: [] }],
     }));
@@ -87,8 +86,8 @@ describe('start_agent task lifecycle', () => {
     tasks = new TaskRegistry();
     const sessions = new SessionRegistry();
     const parent = sessions.startMain({ title: 'Main' });
-    const finish = Promise.withResolvers<Awaited<ReturnType<RunNestedAgent>>>();
-    const runAgent = vi.fn<RunNestedAgent>(({ signal }) => {
+    const finish = Promise.withResolvers<Awaited<ReturnType<RunWithRegistries>>>();
+    const runAgent = vi.fn<RunWithRegistries>(({ signal }) => {
       signal.addEventListener('abort', () =>
         finish.resolve({ reason: 'interrupted', messages: [] }),
       );
@@ -102,7 +101,13 @@ describe('start_agent task lifecycle', () => {
     };
     const start = vi.spyOn(tasks, 'start');
     const result = await runTool({
-      tools: [createSubAgentTool({ sessions, tasks, provider, runAgent, tools: [] })],
+      tools: [
+        createSubAgentTool({
+          scopes: registryScopes({ sessions, tasks, runAgent }),
+          provider,
+          tools: [],
+        }),
+      ],
       call: {
         id: callIdSchema.parse('child'),
         name: 'start_agent',
@@ -139,9 +144,11 @@ describe('start_agent task lifecycle', () => {
       'message_agent',
     ]);
     expect(Object.keys(childOptions).sort()).toEqual([
+      'child',
       'hooks',
       'instructions',
       'messages',
+      'onRunEnd',
       'provider',
       'session',
       'signal',

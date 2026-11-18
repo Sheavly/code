@@ -2,11 +2,11 @@ import { z } from 'zod';
 import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
 import { awaitTasksPrompts, groupedTasksPrompt } from './await-tasks.prompt.js';
 
 /** Registers a completion group immediately; the registry holds notices until all members settle. */
-export function createAwaitTasksTool(tasks: TaskRegistry) {
+export function createAwaitTasksTool(tasks: TaskControl) {
   return defineTool({
     name: 'await_tasks',
     description: awaitTasksPrompts.description,

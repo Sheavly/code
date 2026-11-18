@@ -36,7 +36,18 @@ sub-agent on one task, `{ title, task }`.
   session; the request carries the sub-agent's `sessionId`. A UI names the asker from the
   session updates: see `watchApprovals` in [@sheavly/client](../../client/docs/design.md).
 - **Its own context.** A sub-agent sees only its task, not the parent's conversation.
-- The loop's `runSession` is passed in as `options.runAgent`: tools can't import the loop.
+- **Scopes.** The tool reaches the run through `options.scopes` (`SubAgentScopes`): `children`
+  (a `ChildSessionScope`: `startChild`, `setModel`, `send`, `report`, `onUpdate`, `runChild`),
+  `tasks` (a `TaskStarter`, so work still starts through `startWork`), `taskControl` (what the
+  task tools act through) and `sessions` (a lookup). They are the structural types of
+  `@sheavly/runtime/sessions/session-scope.types` and `tasks/task-scope.types`, so the tool
+  holds no registry, and `runChild` owns the plumbing into the loop: it keeps the history before
+  and after the run and stops the child's own tasks when it ends. The tool passes `onRunEnd` to
+  stop listening to the child first, so what cancelling those tasks produces never reaches the
+  task's output. Tools can't import the loop, so
+  the loop's `runSession` is never an option: whoever builds the scopes (the host's
+  `child-sessions` service) holds it. A test below `host` builds scopes straight over its
+  registries with `registryScopes` (`@sheavly/tools/testing/registry-scopes.fake`).
 - `start_agent`, `report_status` and `message_agent` only work inside a session: called without
   one (`context.session` unset), they fail with a `ToolCallError` (`reason: 'unavailable'`).
 
