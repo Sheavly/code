@@ -42,6 +42,7 @@ every other field defaults to empty.
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                   |
 | `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                            |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance). |
+| `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                   |
 | `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                            |
 
 Every list rejects a repeated name, and the schema reports where: `tools[2]`, `settings[0].default`.
@@ -66,6 +67,31 @@ own hook files choose their names, and renaming them would change stored histori
 hook-name check is therefore a no-op, and the four names listed beside the `"*"`
 (`agents-md`, `skills`, `scratch`, `working-root`) are documentation of what it contributes, not a
 limit. Its tools are still held to the exact list. The services and settings checks are unaffected.
+
+## `grants`
+
+`grants: string[]` lists the verb-level capabilities the extension asks of the host's
+per-extension services (`task:start`, `output:read`, `sub-agent:message`): `<noun>:<verb>`, each
+part lowercase words joined by hyphens, one colon, no duplicates. It is data, so an installer can
+show what an extension may do before running it.
+
+A grant belongs to a service. The host supplies some services as factories (`hostServiceFor`) that
+build one value per extension, and each declares the grants it understands; the host's
+**catalogue** is the union of what the services it was given declare (a plain `hostService` value
+declares none, and a grant a dependency's own provided service might define is out of scope: only
+host services define grants). At activation the host fails an extension, before its `activate`
+runs, with an `ExtensionGrantError` naming the extension and the grant when:
+
+- a grant is in no supplied service's catalogue (a typo fails, and so does a grant of a service the
+  app did not supply), or
+- a grant belongs to a service the extension cannot read, that is, not in its `services.requires`
+  or `services.optional`.
+
+Each service then enforces its own grants per method: the factory receives `{ name, manifest }`
+and every method calls `requireGrant({ extension, grants, grant })`
+(`@sheavly/extension/extension/grants.utils`), which throws an `ExtensionUndeclaredError`
+(`use: 'grant'`, naming the grant, to be added to `grants`). A grant is a declaration the host
+checks, not a sandbox: see [what the manifest is not](#what-the-manifest-is-not).
 
 ## `emits`, and the reserved `serves`
 
@@ -126,6 +152,9 @@ the name (`ExtensionUndeclaredError`).
   by the host or provided by one of its dependencies. If not, the extension is not activated and is
   `skipped` with the reason `service` and the `missing` names. What depends on it is skipped for
   `dependency`; the other extensions are unaffected.
+- **Before activating, for `grants`**: each must be in the catalogue of the supplied services and
+  belong to a service the extension reads, else it fails (`ExtensionGrantError`, in `result.failed`,
+  dependents skipped) without running `activate`. See [`grants`](#grants).
 - **During `activate`**: `services.get` for a name not in `requires` or `optional`, `services.find`
   for one not in `optional` or `requires`, and `services.provide` for one not in `provides` throw at
   the call. Services the host supplies are held to the same list: an extension that reads

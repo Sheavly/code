@@ -3,7 +3,12 @@ import {
   QUALIFIED_NAME_PATTERN,
 } from '@sheavly/protocol/extension/extension.constants';
 import { z } from 'zod';
-import { MAX_LIST_SIZE, MAX_NAME_LENGTH, MAX_TEXT_LENGTH } from './manifest.constants.js';
+import {
+  GRANT_PATTERN,
+  MAX_LIST_SIZE,
+  MAX_NAME_LENGTH,
+  MAX_TEXT_LENGTH,
+} from './manifest.constants.js';
 
 /** One problem found by a check that spans fields: where it is and what is wrong. */
 type Problem = { path: (string | number)[]; message: string };
@@ -19,6 +24,7 @@ type Fields = {
   workKinds: string[];
   emits: { events: string[] };
   serves: { actions: string[] };
+  grants?: string[] | undefined;
 };
 
 const kebabName = z
@@ -40,6 +46,12 @@ const serviceName = z
     'a service name cannot contain "*": services match by exact name',
   )
   .regex(EXTENSION_NAME_PATTERN, 'must be lowercase words joined by hyphens');
+
+/** A verb-level capability a host service understands: `<noun>:<verb>`, in lowercase kebab parts. */
+const grantName = z
+  .string()
+  .max(MAX_NAME_LENGTH)
+  .regex(GRANT_PATTERN, 'must be <noun>:<verb>, each lowercase words joined by hyphens');
 
 const names = z.array(z.string().min(1).max(MAX_NAME_LENGTH)).max(MAX_LIST_SIZE).default([]);
 
@@ -192,6 +204,7 @@ function crossFieldProblems(fields: Fields): Problem[] {
     ...settingProblems(fields),
     ...contributionProblems(fields),
     ...reservedProblems(fields),
+    ...repeats({ path: ['grants'], list: fields.grants ?? [] }),
   ];
 }
 
@@ -223,6 +236,12 @@ export const extensionManifestSchema = z
         modelFacingNotices: z.boolean().default(false),
       })
       .prefault({}),
+    /**
+     * The verb-level capabilities the extension asks of the host's per-extension services. The
+     * host fails the activation of an extension that names a grant no supplied service offers,
+     * or one whose service it does not read; each service enforces its own grants.
+     */
+    grants: z.array(grantName).max(MAX_LIST_SIZE).optional(),
     /** Reserved: validated, not yet enforced by the host. */
     serves: z
       .strictObject({ actions: z.array(qualifiedName).max(MAX_LIST_SIZE).default([]) })

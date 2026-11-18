@@ -10,8 +10,8 @@ are in the `sheavly` skill's `extensions.md`; this page is how the package is bu
 
 - **The contract** (`extension/`, `manifest/`, `errors/`): `Extension`, `ExtensionDefinition`,
   `Contributions`, `Services`, `Settings`, `ServiceKey` and `SettingKey` (types),
-  `defineExtension`, `defineService`, `hostService`, `settingKey` and `placeHook` (utils) and the
-  typed errors. `defineExtension` takes the extension's manifest and its code, derives the `name`,
+  `defineExtension`, `defineService`, `hostService`, `hostServiceFor`, `requireGrant`,
+  `settingKey` and `placeHook` (utils) and the typed errors. `defineExtension` takes the extension's manifest and its code, derives the `name`,
   `dependsOn` and settings from the manifest and validates the manifest again, so a bad name, a
   self-dependency or a repeated name fails when the extension is defined, at startup. The manifest
   itself (`manifest/`) is a zod schema (`manifest.validator.ts`, the one place those rules live),
@@ -23,8 +23,10 @@ are in the `sheavly` skill's `extensions.md`; this page is how the package is bu
   `assertSettings` (the user's setting values) and `snapshotContributions` (what an extension
   contributed against its manifest, recording the names that were checked so the merge uses only
   those and re-verifies them);
-  `sealExtension` (`extension/`) gives the host one deep-frozen copy of each manifest; `ServiceRegistry` holds the shared services and
-  holds each extension's reads and provides to its manifest.
+  `sealExtension` (`extension/`) gives the host one deep-frozen copy of each manifest; `ServiceRegistry` holds the shared services (building a factory
+  service lazily, once per extension, and disarming those instances with the emitter) and holds
+  each extension's reads and provides to its manifest; `grantCatalogueOf` and
+  `assertGrantsOffered` verify a manifest's `grants` against the supplied services.
 
 ## No category, no policy
 

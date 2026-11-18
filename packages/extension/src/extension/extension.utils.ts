@@ -9,6 +9,7 @@ import type {
   ExtensionDefinition,
   HostService,
   PlacedHook,
+  ServiceConsumer,
   ServiceKey,
   SettingKey,
   SettingTypes,
@@ -114,13 +115,30 @@ export function defineService<TService>(name: string): ServiceKey<TService> {
 
 /**
  * A service the app supplies to the run (`ExtensionHostOptions.services`), readable by every
- * extension without a dependency: `hostService({ key: SESSIONS, value: sessions })`.
+ * extension without a dependency: `hostService({ key: INSTRUCTIONS, value: instructions })`.
  */
 export function hostService<TService>(params: {
   key: ServiceKey<TService>;
   value: TService;
 }): HostService {
   return { name: params.key.name, value: params.value };
+}
+
+/**
+ * A service built per extension, so each gets a value limited to what its manifest grants:
+ * `hostServiceFor({ key, grants: ['task:read'], create })`. The host calls `create` lazily, once
+ * per extension that reads the key and has declared it, with the extension's name and its sealed
+ * manifest; `create` returns the value and, optionally, a `disarm` the host calls when it stops
+ * that extension. `grants` is what the host accepts in a manifest's `grants` for this service.
+ * `create` returns `undefined` when the run has no such service to give: it then reads as not
+ * provided, and the grants stay known.
+ */
+export function hostServiceFor<TService>(params: {
+  key: ServiceKey<TService>;
+  grants: readonly string[];
+  create: (extension: ServiceConsumer) => { value: TService; disarm?: () => void } | undefined;
+}): HostService {
+  return { name: params.key.name, grants: params.grants, forExtension: params.create };
 }
 
 /**

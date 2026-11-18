@@ -22,7 +22,10 @@ describe('runServices', () => {
     const run = harness();
     const outputs = new MemoryOutputStore();
     const byName = new Map(
-      runServices({ harness: run, outputs }).map((service) => [service.name, service.value]),
+      runServices({ harness: run, outputs }).map((service) => [
+        service.name,
+        'value' in service ? service.value : undefined,
+      ]),
     );
 
     expect(byName.get(PROVIDER.name)).toBe(run.provider);

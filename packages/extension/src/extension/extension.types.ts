@@ -24,8 +24,37 @@ export type ServiceKey<TService> = {
   readonly phantom?: TService | undefined;
 };
 
-/** A service the host (the app) supplies to the run: readable by every extension, with no dependency. */
-export type HostService = { name: string; value: unknown };
+/** The extension a per-extension service is built for: its name and the host's sealed manifest. */
+export type ServiceConsumer = { name: string; manifest: ExtensionManifest };
+
+/** What a service factory builds for one extension: the value it reads and how to switch it off. */
+export type ServiceInstance = {
+  value: unknown;
+  /**
+   * Called by the host wherever it disarms the extension's emitter (deactivate, roll-back, a failed
+   * activation). Afterwards a value that was handed out must refuse use. Must not throw.
+   */
+  disarm?: (() => void) | undefined;
+};
+
+/**
+ * A service the host (the app) supplies to the run: readable by every extension, with no
+ * dependency. Either one shared `value`, or a factory (`hostServiceFor`) the host calls once per
+ * extension that reads it, declaring the `grants` its values enforce.
+ */
+export type HostService =
+  | { name: string; value: unknown }
+  | {
+      name: string;
+      /** The `<noun>:<verb>` grants an extension's manifest may ask for from this service. */
+      grants: readonly string[];
+      /**
+       * Builds the value for `extension`, or returns `undefined` when this run has none to give
+       * (an output store the app does not have): the service then reads as not provided, so
+       * `find` answers `undefined`, while its grants stay known to manifests that ask for them.
+       */
+      forExtension: (extension: ServiceConsumer) => ServiceInstance | undefined;
+    };
 
 /**
  * The service registry as one extension sees it: it adds its own services and reads what it
@@ -87,7 +116,8 @@ export type UndeclaredUse =
   | 'hook'
   | 'work kind'
   | 'event'
-  | 'notice';
+  | 'notice'
+  | 'grant';
 
 /** The settings an extension declared, as it reads them. */
 export type Settings = {

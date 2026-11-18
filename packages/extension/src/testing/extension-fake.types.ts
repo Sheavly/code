@@ -15,6 +15,8 @@ export type FakeExtensionFields = {
   optional?: readonly string[];
   /** Service names it provides. */
   provides?: readonly string[];
+  /** The `<noun>:<verb>` grants its manifest asks for; the host verifies them against its services. */
+  grants?: readonly string[];
   /** Names it may contribute; a test that contributes something undeclared tests the failure. */
   tools?: readonly string[];
   hooks?: readonly string[];

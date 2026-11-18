@@ -1,8 +1,21 @@
 import { ContributionCollisionError, MissingServiceError } from '../errors/extension.errors.js';
 import { HOST_PROVIDER } from '../extension/extension.constants.js';
-import type { HostService, ServiceKey, Services } from '../extension/extension.types.js';
-import type { ExtensionManifest } from '../manifest/manifest.types.js';
+import type {
+  HostService,
+  ServiceConsumer,
+  ServiceInstance,
+  ServiceKey,
+  Services,
+} from '../extension/extension.types.js';
 import { assertDeclared } from './declaration.utils.js';
+
+/** A service by its provider: one shared value, or a host factory built per extension. */
+type ServiceEntry =
+  | { provider: string; value: unknown }
+  | {
+      provider: string;
+      factory: (extension: ServiceConsumer) => ServiceInstance | undefined;
+    };
 
 /** How a provider reads in a collision message. */
 function describeProvider(provider: string): string {
@@ -15,43 +28,62 @@ function describeProvider(provider: string): string {
  * depends on) plus the services the host supplies, so a read never depends on activation luck.
  */
 export class ServiceRegistry {
-  readonly #entries = new Map<string, { value: unknown; provider: string }>();
+  readonly #entries = new Map<string, ServiceEntry>();
+  /**
+   * What each factory built for each extension, by extension then service: built once, on first
+   * read. `undefined` records a factory that had nothing to give.
+   */
+  readonly #instances = new Map<string, Map<string, ServiceInstance | undefined>>();
+  /** Extensions whose instances are disarmed: one built afterwards is born disarmed. */
+  readonly #disarmed = new Set<string>();
+  #closed = false;
 
   /** Records the services the host supplies; throws a collision when two share a name. */
   constructor(hostServices: readonly HostService[] = []) {
-    for (const { name, value } of hostServices) {
-      this.#provide({ extension: HOST_PROVIDER, key: { name }, value });
+    for (const service of hostServices) {
+      if ('forExtension' in service) {
+        this.#assertFree({ name: service.name, extension: HOST_PROVIDER });
+        this.#entries.set(service.name, {
+          provider: HOST_PROVIDER,
+          factory: service.forExtension,
+        });
+      } else {
+        this.#provide({
+          extension: HOST_PROVIDER,
+          key: { name: service.name },
+          value: service.value,
+        });
+      }
     }
   }
 
   /**
    * The registry as `extension` sees it; `readable` are the extension names it may read from.
-   * `declared` is the services its manifest lists: `get` and `find` throw an
+   * Its manifest's `services` is what it declared: `get` and `find` throw an
    * `ExtensionUndeclaredError` for a name not in `requires` or `optional`, and `provide` for one
-   * not in `provides`. The host supplies run services too, and they are held to the same list.
+   * not in `provides`. The host supplies run services too, and they are held to the same list. A
+   * host factory service is built for the extension on its first declared read, never for
+   * `provide`, and the same instance comes back on every later read.
    */
-  viewFor(params: {
-    extension: string;
-    readable: ReadonlySet<string>;
-    declared: ExtensionManifest['services'];
-  }): Services {
-    const { extension, readable, declared } = params;
+  viewFor(params: { extension: ServiceConsumer; readable: ReadonlySet<string> }): Services {
+    const { extension, readable } = params;
+    const declared = extension.manifest.services;
     const readableNames = [...declared.requires, ...declared.optional];
 
     return {
       provide: (key, value) => {
         assertDeclared({
-          extension,
+          extension: extension.name,
           use: 'service provide',
           name: key.name,
           allowed: declared.provides,
           declareIn: 'services.provides',
         });
-        this.#provide({ extension, key, value });
+        this.#provide({ extension: extension.name, key, value });
       },
       get: (key) => {
         assertDeclared({
-          extension,
+          extension: extension.name,
           use: 'service get',
           name: key.name,
           allowed: readableNames,
@@ -62,7 +94,7 @@ export class ServiceRegistry {
       },
       find: (key) => {
         assertDeclared({
-          extension,
+          extension: extension.name,
           use: 'service find',
           name: key.name,
           allowed: readableNames,
@@ -78,17 +110,29 @@ export class ServiceRegistry {
    * The names in `required` that an extension could not read now: nobody has provided them, or an
    * extension it does not depend on did (`readable` are the extension names it may read from).
    * The host supplies its services before anything activates and the dependencies have
-   * activated, so what is missing now stays missing.
+   * activated, so what is missing now stays missing. A host factory service counts only when it
+   * builds something for `extension`: the instance is the one a later `get` returns (built once,
+   * memoised), and a factory with nothing to give reads as not provided.
    */
-  unreadable(params: { required: readonly string[]; readable: ReadonlySet<string> }): string[] {
-    const { required, readable } = params;
+  unreadable(params: {
+    extension: ServiceConsumer;
+    required: readonly string[];
+    readable: ReadonlySet<string>;
+  }): string[] {
+    const { extension, required, readable } = params;
 
     return required.filter((name) => {
       const entry = this.#entries.get(name);
 
-      return (
-        entry === undefined || (entry.provider !== HOST_PROVIDER && !readable.has(entry.provider))
-      );
+      if (entry === undefined) return true;
+
+      if ('factory' in entry) {
+        return (
+          this.#instanceFor({ extension, service: name, factory: entry.factory }) === undefined
+        );
+      }
+
+      return entry.provider !== HOST_PROVIDER && !readable.has(entry.provider);
     });
   }
 
@@ -107,7 +151,35 @@ export class ServiceRegistry {
       });
     }
 
+    if ('factory' in entry) {
+      throw new MissingServiceError({
+        service: key.name,
+        reader: 'the app',
+        problem: 'it is built per extension, so only an extension can read it',
+      });
+    }
+
     return entry.value as TService;
+  }
+
+  /**
+   * Switches off what the factories built for `extension`, once: afterwards each instance's
+   * `disarm` has run and one built later is born disarmed. The host calls it wherever it disarms
+   * the extension's emitter.
+   */
+  disarm(extension: string): void {
+    if (this.#disarmed.has(extension)) return;
+
+    this.#disarmed.add(extension);
+
+    for (const instance of this.#instances.get(extension)?.values() ?? []) instance?.disarm?.();
+  }
+
+  /** Disarms every extension's instances, and any built from now on. For when the host closes. */
+  disarmAll(): void {
+    this.#closed = true;
+
+    for (const extension of this.#instances.keys()) this.disarm(extension);
   }
 
   /**
@@ -126,22 +198,48 @@ export class ServiceRegistry {
     value: TService;
   }): void {
     const { extension, key, value } = params;
-    const taken = this.#entries.get(key.name);
 
-    if (taken) {
-      throw new ContributionCollisionError({
-        contribution: 'service',
-        contributionName: key.name,
-        first: describeProvider(taken.provider),
-        second: describeProvider(extension),
-      });
-    }
-
+    this.#assertFree({ name: key.name, extension });
     this.#entries.set(key.name, { value, provider: extension });
   }
 
+  #assertFree(params: { name: string; extension: string }): void {
+    const taken = this.#entries.get(params.name);
+
+    if (!taken) return;
+
+    throw new ContributionCollisionError({
+      contribution: 'service',
+      contributionName: params.name,
+      first: describeProvider(taken.provider),
+      second: describeProvider(params.extension),
+    });
+  }
+
+  /** What the factory of `service` built for `extension`: built on first use, then the same one. */
+  #instanceFor(params: {
+    extension: ServiceConsumer;
+    service: string;
+    factory: (extension: ServiceConsumer) => ServiceInstance | undefined;
+  }): ServiceInstance | undefined {
+    const { extension, service, factory } = params;
+    const built =
+      this.#instances.get(extension.name) ?? new Map<string, ServiceInstance | undefined>();
+
+    if (built.has(service)) return built.get(service);
+
+    const instance = factory(extension);
+
+    built.set(service, instance);
+    this.#instances.set(extension.name, built);
+
+    if (this.#closed || this.#disarmed.has(extension.name)) instance?.disarm?.();
+
+    return instance;
+  }
+
   #get<TService>(params: {
-    extension: string;
+    extension: ServiceConsumer;
     readable: ReadonlySet<string>;
     key: ServiceKey<TService>;
   }): TService {
@@ -151,7 +249,7 @@ export class ServiceRegistry {
     if (found === undefined) {
       throw new MissingServiceError({
         service: key.name,
-        reader: extension,
+        reader: extension.name,
         problem: 'no extension provides it (yet): depend on the extension that does',
       });
     }
@@ -165,7 +263,7 @@ export class ServiceRegistry {
    * on activation order.
    */
   #find<TService>(params: {
-    extension: string;
+    extension: ServiceConsumer;
     readable: ReadonlySet<string>;
     key: ServiceKey<TService>;
   }): { value: TService } | undefined {
@@ -177,9 +275,19 @@ export class ServiceRegistry {
     if (entry.provider !== HOST_PROVIDER && !readable.has(entry.provider)) {
       throw new MissingServiceError({
         service: key.name,
-        reader: extension,
-        problem: `it is provided by ${entry.provider}, which ${extension} does not depend on: add it to dependsOn`,
+        reader: extension.name,
+        problem: `it is provided by ${entry.provider}, which ${extension.name} does not depend on: add it to dependsOn`,
       });
+    }
+
+    if ('factory' in entry) {
+      const instance = this.#instanceFor({
+        extension,
+        service: key.name,
+        factory: entry.factory,
+      });
+
+      return instance && { value: instance.value as TService };
     }
 
     return { value: entry.value as TService };

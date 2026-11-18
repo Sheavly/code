@@ -19,7 +19,9 @@ else about an extension can fail construction.
 `activate({ signal })` runs once per session; a second call throws an `ExtensionHostStateError`.
 Before an extension's `activate`, the host checks that it is not skipped (below) and that every
 service in its manifest's `services.requires` is readable by it: supplied by the host or provided
-by one of its dependencies. Each extension's `activate(context)` is then awaited in order and
+by one of its dependencies, and that each of its manifest's `grants` is offered by a supplied
+service it reads (otherwise an `ExtensionGrantError` fails it before `activate` runs: see
+[manifest](manifest.md#grants)). Each extension's `activate(context)` is then awaited in order and
 returns its contributions, which the host checks against the manifest's `tools`, `hooks`,
 `workKinds` and `emits` (see [manifest](manifest.md)). The context holds an `emit` built for that
 extension; it throws until the contributions passed that check, and again (`deactivated`) once
@@ -61,7 +63,9 @@ Every path that stops, drops or fails an extension also disarms its `context.emi
 (before any extension's own `deactivate` runs), a roll-back for a changed contribution (with its
 dependents), a late stop, a collision or abort, and a failed `activate` or contribution check.
 After that an emit throws an `ExtensionEmitError` with failure `deactivated`, so a tool or task
-that kept the capability cannot publish events or queue notices. (A session's outbox holds at most
+that kept the capability cannot publish events or queue notices. The same paths call the `disarm`
+of every per-extension service instance (`hostServiceFor`), so a scope an extension kept stops
+working too ([services](services.md#per-extension-services-factories)). (A session's outbox holds at most
 100 notices, `MAX_QUEUED_NOTICES`; past it `emit.notice` throws.)
 
 `deactivate()` closes the host and deactivates the activated extensions, last first, once. One

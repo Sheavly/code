@@ -17,6 +17,25 @@ export class ExtensionManifestError extends Error {
 }
 
 /**
+ * An extension's `grants` name something the host cannot honour: a grant no service it supplies
+ * offers (often a typo), or one whose service the extension does not read. Names the extension
+ * and the grant; the activation fails, like an undeclared tool.
+ */
+export class ExtensionGrantError extends Error {
+  override name = 'ExtensionGrantError';
+  readonly extension: string;
+  readonly grant: string;
+
+  constructor(params: { extension: string; grant: string; problem: string }) {
+    const { extension, grant, problem } = params;
+
+    super(`Extension ${extension} asks for the grant ${quotedName(grant)}: ${problem}.`);
+    this.extension = extension;
+    this.grant = grant;
+  }
+}
+
+/**
  * An extension did something its manifest does not declare: it read or provided a service, or
  * contributed a tool, hook or work kind, that `sheavly.json` does not list. Names the extension,
  * what it did and the name, so the manifest or the code can be fixed.

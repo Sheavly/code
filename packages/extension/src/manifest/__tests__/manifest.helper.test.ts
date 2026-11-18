@@ -85,6 +85,28 @@ describe('readManifest', () => {
     expect(message).toContain('dependsOn');
   });
 
+  it('reads the grants a manifest asks for', async () => {
+    const file = await write({
+      name: 'sheavly.json',
+      content: JSON.stringify({ name: 'notes', grants: ['task:read', 'output:read'] }),
+    });
+
+    expect(readManifest(file).grants).toEqual(['task:read', 'output:read']);
+  });
+
+  it('names the file and every bad grant: a wrong format and a repeat', async () => {
+    const file = await write({
+      name: 'sheavly.json',
+      content: JSON.stringify({ name: 'notes', grants: ['Task:Read', 'task:read', 'task:read'] }),
+    });
+    const { message } = failure(file);
+
+    expect(message).toContain(file);
+    expect(message).toContain('grants[0]');
+    expect(message).toContain('grants[2]');
+    expect(message).toContain('"task:read" is listed twice');
+  });
+
   describe('what it will open', () => {
     it('rejects a directory, saying it is not a regular file', async () => {
       const directory = path.join(root, 'sheavly.json');
