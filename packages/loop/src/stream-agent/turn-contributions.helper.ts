@@ -4,7 +4,7 @@ import { maskOldToolOutput } from '../summary/mask.utils.js';
 import { continueAfterOutputLimit } from './output-recovery.helper.js';
 import { orderContributions } from './contributions.helper.js';
 import { awaitTask, yieldEnds } from './completion.helper.js';
-import { deliverMessages, runDeliveryHooks } from './delivery.helper.js';
+import { deliverExtensionNotices, deliverMessages, runDeliveryHooks } from './delivery.helper.js';
 import { reportFinishedTasks } from './task-delivery.helper.js';
 import type {
   Contribution,
@@ -17,8 +17,9 @@ import type {
 import type { AgentOptions } from './stream-agent.types.js';
 
 /**
- * Start of a turn, in order: steering messages, finished work, failed hooks, then the hooks that
- * watch deliveries. Finished work and failures are in history before any hook sees it.
+ * Start of a turn, in order: steering messages, finished work, failed hooks, notices from
+ * extensions, then the hooks that watch deliveries. Finished work, failures and extension notices
+ * are in history before any hook sees them (`notice` hooks are not offered the last two kinds).
  */
 const DELIVERY: Contribution<DeliveryInput, void>[] = [
   {
@@ -52,8 +53,17 @@ const DELIVERY: Contribution<DeliveryInput, void>[] = [
     run: ({ context }) => context.hookFailures.deliver(context.messages),
   },
   {
-    name: 'delivery-hooks',
+    name: 'extension-notices',
     after: ['hook-failures'],
+    // A notice an extension queued is not worth the run: a failed drain is reported like a failed
+    // hook (`hook_failed`) and the turn goes on.
+    onFailure: 'report',
+    abort: 'wait',
+    run: ({ context }) => deliverExtensionNotices(context),
+  },
+  {
+    name: 'delivery-hooks',
+    after: ['extension-notices'],
     onFailure: 'fail-run',
     abort: 'race',
     run: ({ context, state }) =>
