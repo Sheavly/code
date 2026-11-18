@@ -6,6 +6,11 @@ import { agentInfoSchema, runOutcomeSchema } from '../session/session.validator.
 import { taskIdSchema, taskInfoSchema } from '../task/task.validator.js';
 import { tokenUsageSchema } from '../usage/usage.validator.js';
 import {
+  extensionEnvelopeShape,
+  extensionQualifiedNameSchema,
+} from '../extension/extension.validator.js';
+import { isInNamespace } from '../extension/extension.utils.js';
+import {
   MAX_HOOK_FAILED_ERROR_CHARS,
   MAX_RUNNING_TASKS,
   MAX_RUNNING_TASK_TITLE_CHARS,
@@ -111,10 +116,28 @@ const hookFailedNoticeSchema = z.object({
   repeats: z.number().int().positive().exactOptional(),
 });
 
+/**
+ * An extension's own notice, shown to the model through the core formatter. Only `text` reaches
+ * the model, as third-party data that is not an instruction; `data` is for UIs. `topic` is
+ * `<extension>.<name>` in the sender's namespace, and any topic parses. Exported so the
+ * extension host can check an envelope with the schema history will read it with.
+ */
+export const extensionNoticeSchema = z
+  .object({
+    kind: z.literal('extension-notice'),
+    ...extensionEnvelopeShape,
+    topic: extensionQualifiedNameSchema,
+  })
+  .refine((notice) => isInNamespace({ extension: notice.extension, name: notice.topic }), {
+    message: 'topic must start with "<extension>."',
+    path: ['topic'],
+  });
+
 /** A completion delivery retains the agent-authored wait reason as data, not instructions. */
 export const persistentNoticeSchema = z.union([
   individualPersistentNoticeSchema,
   hookFailedNoticeSchema,
+  extensionNoticeSchema,
   z.object({
     kind: z.literal('tasks-finished'),
     reason: z.string(),

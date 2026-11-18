@@ -42,6 +42,30 @@ describe('readEntries', () => {
     await expect(read([bad])).rejects.toThrow();
   });
 
+  it('passes through an extension event of a kind it has never heard of', async () => {
+    const extensionEntry = {
+      seq: 5,
+      at: 1,
+      sessionId: 'main',
+      kind: 'event',
+      event: {
+        seq: 0,
+        type: 'extension_event',
+        extension: 'acme',
+        kind: 'acme.never-heard-of',
+        version: 3,
+        data: { anything: [1, 2, 3] },
+        text: 'Something happened',
+      },
+    };
+    const sse = `event: entry\nid: 5\ndata: ${JSON.stringify(extensionEntry)}\n\n`;
+    const read = [];
+
+    for await (const { entry: parsed } of readEntries(body([sse]))) read.push(parsed);
+
+    expect(read).toEqual([extensionEntry]);
+  });
+
   it('reads nothing from no body', async () => {
     const seen: unknown[] = [];
 

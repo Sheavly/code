@@ -102,6 +102,7 @@ import {
   workspacePermissionsSchema,
 } from '../permission/permission.validator.js';
 import { streamEntrySchema } from '../stream/stream.validator.js';
+import { jsonValueSchema } from '../extension/extension.validator.js';
 import {
   taskIdSchema,
   taskInfoSchema,
@@ -124,6 +125,7 @@ import {
 function contractSchemas(): Record<string, z.ZodType> {
   return {
     TokenUsage: tokenUsageSchema,
+    JsonValue: jsonValueSchema,
     HarnessNotice: harnessNoticeSchema,
     RunningTask: runningTaskSchema,
     RunningTasksNotice: runningTasksNoticeSchema,

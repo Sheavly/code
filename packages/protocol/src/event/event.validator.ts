@@ -12,6 +12,30 @@ import {
 } from '../message/message.validator.js';
 import { historyMessageSchema } from '../history/history.validator.js';
 import { RUN_OUTCOMES } from '../status/status.constants.js';
+import {
+  extensionEnvelopeShape,
+  extensionQualifiedNameSchema,
+} from '../extension/extension.validator.js';
+import { isInNamespace } from '../extension/extension.utils.js';
+
+/**
+ * An extension's own event: an open envelope inside the closed union. `type` is fixed, but
+ * `kind` (`<extension>.<name>`, in the sender's namespace) is any name, so a consumer that does
+ * not know a kind still parses it, and shows `text` or skips it. `data` is the sender's
+ * versioned JSON payload, and `text` its plain-text fallback. Live data for a UI; never model
+ * input, and published outside any run (`seq` 0, like `storage_failed`). Exported so the
+ * extension host can check an envelope with the schema the stream will read it with.
+ */
+export const extensionEventSchema = z
+  .object({
+    type: z.literal('extension_event'),
+    ...extensionEnvelopeShape,
+    kind: extensionQualifiedNameSchema,
+  })
+  .refine((event) => isInNamespace({ extension: event.extension, name: event.kind }), {
+    message: 'kind must start with "<extension>."',
+    path: ['kind'],
+  });
 
 /**
  * Data a tool returns for a UI, never for history (so it costs no tokens). `kind` names it
@@ -214,6 +238,7 @@ const stepEventSchemas = [
    * like `run_failed`. Live data for a UI; it is not model input.
    */
   z.object({ type: z.literal('storage_failed'), error: z.string() }),
+  extensionEventSchema,
 ] as const;
 
 /** The run's end, as the combined stream carries it: how it ended, without the history. */
@@ -234,7 +259,10 @@ export const agentEventBodySchema = z.discriminatedUnion('type', [
   doneEventSchema,
 ]);
 
-/** `seq`: 0, 1, 2, ... with no gaps, in the order consumers receive them. */
+/**
+ * `seq`: 0, 1, 2, ... in the order consumers receive them. A run's events have no gaps; an event
+ * that belongs to no run (`storage_failed`, `extension_event`) carries `seq` 0.
+ */
 const eventSeqSchema = z.object({ seq: z.number().int().nonnegative() });
 
 /** Every event carries `seq` (`eventSeqSchema`). */

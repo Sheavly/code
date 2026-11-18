@@ -13,6 +13,7 @@ export const NOTICE_LIFETIMES: Record<HarnessNotice['kind'], NoticeLifetime> = {
   'task-finished': 'persistent',
   'tasks-finished': 'persistent',
   'hook-failed': 'persistent',
+  'extension-notice': 'persistent',
 };
 
 /** Maximum entries in one transient running-task snapshot. */
