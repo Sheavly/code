@@ -12,14 +12,14 @@ const harness = createHarness({ provider, title: prompt });
 // harness: { provider, instructions, sessions, mainSession, tasks, approvals }
 ```
 
-| Module           | What it holds                                                                |
-| ---------------- | ---------------------------------------------------------------------------- |
-| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types                |
-| `instructions/`  | `composeInstructions`: generic defaults or explicit replacement, then extras |
-| `run-services/`  | `runServices` and the keys (`SESSIONS`, `TASKS`, …) any extension reads      |
-| `conversation/`  | `createConversation`: one conversation across prompts, in one session        |
-| `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones  |
-| `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed   |
+| Module           | What it holds                                                                   |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types                   |
+| `instructions/`  | `composeInstructions`: generic defaults or explicit replacement, then extras    |
+| `run-services/`  | `runServices`, the keys any extension reads and the scoped services behind them |
+| `conversation/`  | `createConversation`: one conversation across prompts, in one session           |
+| `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones     |
+| `errors/`        | `ConversationsError`: no such conversation, skill or model; storage failed      |
 
 A UI the user keeps talking to wraps the harness in a conversation: each prompt continues from
 the history so far, in the same session, idle between prompts until `close`. A failed prompt
@@ -107,3 +107,6 @@ linked to the right prompt. Providers never send these IDs to the model.
 
 - [The services a run shares](docs/harness.md): what `createHarness` makes, and how a UI composes
   a run on it.
+- [Scoped run services](docs/run-services.md): the per-extension services extensions read
+  (`session-info`, `child-sessions`, `background-tasks`, `task-control`, `output-reader`,
+  `output-capture`, `model`), the grant each method checks and what each leaves out.

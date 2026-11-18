@@ -1,60 +1,43 @@
-import type { OutputStore } from '@sheavly/core/output/output.types';
+import type { OutputCapture, OutputReader } from '@sheavly/core/output/output.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import type { HostService } from '@sheavly/extension/extension/extension.types';
-import { defineService, hostService } from '@sheavly/extension/extension/extension.utils';
+import { defineService } from '@sheavly/extension/extension/extension.utils';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
-import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
-import type { Harness } from '../host/host.types.js';
+import type {
+  ChildSessionScope,
+  SessionInfoView,
+} from '@sheavly/runtime/sessions/session-scope.types';
+import type { BackgroundTaskScope, TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
 import type { ApprovalRequester } from './run-services.types.js';
-
-/** The provider the run's main session talks to. */
-export const PROVIDER = defineService<Provider>('provider');
 
 /** The composed base instructions (`Harness.instructions`), the guidance sub-agents start from. */
 export const INSTRUCTIONS = defineService<string>('instructions');
 
-/** The run's session registry: every session, main and sub-agents. */
-export const SESSIONS = defineService<SessionRegistry>('sessions');
-
 /** The main session of the run. */
 export const MAIN_SESSION = defineService<SessionRef>('main-session');
 
-/** The run's one task registry, where background work starts and is observed. */
-export const TASKS = defineService<TaskRegistry>('tasks');
-
 /**
- * Where a tool asks the user to approve something. It only requests: answering belongs to the UI
- * and the app, never to an extension, so the value has no `respond`, `subscribe` or `pending`.
+ * Where a tool asks the user to approve something, and whether anyone is there to answer. It only
+ * requests: answering belongs to the UI and the app, never to an extension. Grant `approval:request`.
  */
 export const APPROVALS = defineService<ApprovalRequester>('approvals');
 
-/** The conversation's complete command output store. Provided only when the app has one: read it with `find`. */
-export const OUTPUTS = defineService<OutputStore>('outputs');
+/** What sessions look like to an extension: read-only metadata, no message content. Grant `session:read`. */
+export const SESSION_INFO = defineService<SessionInfoView>('session-info');
 
-/**
- * The run services as `ExtensionHostOptions.services`, for every extension to read without a
- * dependency. The values are the harness's own objects, not copies, except `APPROVALS`, which is
- * a request-only view of the registry; `OUTPUTS` is left out when the app has no output store.
- * They are not a sandbox: an extension that reads one acts with the run's authority, so an app
- * filters this list for extensions it trusts less.
- */
-export function runServices(params: {
-  harness: Harness;
-  outputs?: OutputStore | undefined;
-}): HostService[] {
-  const { harness, outputs } = params;
-  const approvals: ApprovalRequester = {
-    request: (request) => harness.approvals.request(request),
-  };
+/** The sub-agents an extension started, and only those. Grants `sub-agent:create|message|observe|report`. */
+export const CHILD_SESSIONS = defineService<ChildSessionScope>('child-sessions');
 
-  return [
-    hostService({ key: PROVIDER, value: harness.provider }),
-    hostService({ key: INSTRUCTIONS, value: harness.instructions }),
-    hostService({ key: SESSIONS, value: harness.sessions }),
-    hostService({ key: MAIN_SESSION, value: harness.mainSession }),
-    hostService({ key: TASKS, value: harness.tasks }),
-    hostService({ key: APPROVALS, value: approvals }),
-    ...(outputs ? [hostService({ key: OUTPUTS, value: outputs })] : []),
-  ];
-}
+/** The background tasks an extension started, and only those. Grants `task:start|read|cancel`. */
+export const BACKGROUND_TASKS = defineService<BackgroundTaskScope>('background-tasks');
+
+/** Reading and cancelling any task of a given session, whatever started it. Grants `task:read-any|cancel-any`. */
+export const TASK_CONTROL = defineService<TaskControl>('task-control');
+
+/** Reading the complete command output. Provided only when the app has an output store. Grant `output:read`. */
+export const OUTPUT_READER = defineService<OutputReader>('output-reader');
+
+/** Creating a command output capture. Provided only when the app has an output store. Grant `output:capture`. */
+export const OUTPUT_CAPTURE = defineService<OutputCapture>('output-capture');
+
+/** The run's provider for model calls on the app's credentials. Grant `model:call`. */
+export const MODEL = defineService<Provider>('model');

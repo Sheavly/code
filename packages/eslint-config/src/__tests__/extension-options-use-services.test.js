@@ -326,10 +326,10 @@ describe('the service types are read from the run-services file, not listed', ()
   it("finds the host's run services in this repo", () => {
     const types = readRunServiceTypes(REPO_ROOT);
 
-    expect(types.get('SessionRegistry')).toBe('SESSIONS');
-    expect(types.get('TaskRegistry')).toBe('TASKS');
-    expect(types.get('Provider')).toBe('PROVIDER');
-    expect(types.get('OutputStore')).toBe('OUTPUTS');
+    expect(types.get('SessionInfoView')).toBe('SESSION_INFO');
+    expect(types.get('TaskControl')).toBe('TASK_CONTROL');
+    expect(types.get('Provider')).toBe('MODEL');
+    expect(types.get('OutputReader')).toBe('OUTPUT_READER');
   });
 });
 
