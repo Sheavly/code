@@ -69,25 +69,32 @@ The app supplies the
 host with run services (`runServices`, `@sheavly/host/run-services/run-services.utils`), which
 every extension reads without a `dependsOn`:
 
-| Key                                   | What it is                                                     |
-| ------------------------------------- | -------------------------------------------------------------- |
-| `PROVIDER`, `INSTRUCTIONS`            | The main session's provider and the composed base instructions |
-| `SESSIONS`, `MAIN_SESSION`            | The session registry and the run's main session                |
-| `TASKS`                               | The one task registry: start background work with `startWork`  |
-| `APPROVALS`                           | Where a tool asks the user for approval (`request` only)       |
-| `OUTPUTS` (only with an output store) | The conversation's complete command output store (`find` it)   |
+| Key                                              | What it is                                                                                   |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `INSTRUCTIONS`, `MAIN_SESSION`                   | The composed base instructions and the run's main session (constants)                        |
+| `SESSION_INFO`, `CHILD_SESSIONS`                 | Read-only session metadata; the sub-agents the extension started                             |
+| `BACKGROUND_TASKS`, `TASK_CONTROL`               | The tasks the extension started; any task of the calling session                             |
+| `MODEL`                                          | The run's provider, for model calls                                                          |
+| `APPROVALS`                                      | Where a tool asks the user for approval, once (`request` only)                               |
+| `OUTPUT_READER`, `OUTPUT_CAPTURE` (with a store) | Reading EVERY command's complete output (may hold secrets); creating a capture (`find` them) |
 
-These are full trust, not a sandbox (see
-[run services](../../../packages/host/docs/harness.md#run-services-for-extensions)); an extension
-gets its configuration from `extensionSettings`, not from the environment.
+Each is built per extension and checks the `grants` its `sheavly.json` declares; none is a
+registry. `MAIN_SESSION` is a frozen copy, and what a scope returns or shares is frozen copies.
+`APPROVALS` builds the request itself: attributed to the extension, no `keeps`, no `always_allow`,
+so an answer never becomes an allow rule. `TASK_CONTROL` trusts the `sessionId` it is given, so
+`task:*-any` lets an extension name any session of the run. The `sub-agents` service `agents`
+provides is write-only (`share`). This is least privilege, not a sandbox (see
+[scoped run services](../../../packages/host/docs/run-services.md)); an extension gets its
+configuration from `extensionSettings`, not from the environment.
 
 `extensionSettings` holds the user's values for the settings extensions declare in their manifests,
 by setting name, and `settings` on the returned run lists each with its value in effect; a name no
 extension declares, or a value of the wrong type, fails the run. An extension can place a hook
 before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.
 `src/harness/__tests__/third-party-capabilities.test.ts` shows each of these from an extension that
-uses only public exports. The built-ins read the same services, with one exception: `coding` takes
-its workspace, locks and process runner from the coding harness it is given.
+uses only public exports. The built-ins read the same services under the same grants, with one
+exception: `coding` takes its workspace, locks, process runner and run state from the coding
+harness it is given (tracked in #336).
 
 **What an extension emits.** An extension tells a UI or the model something through
 `context.emit` (`@sheavly/extension`), never by importing the runtime: it declares `emits` in its
@@ -103,10 +110,10 @@ conversation), so it cannot reach another conversation. The host parses the fini
 the protocol's own schemas before the sink sees it, and disarms an extension's `emit` wherever it
 stops, drops or fails the extension (it throws `deactivated` afterwards). The sink is a host
 option, not a run service, so an extension that only holds the emit capability cannot emit under
-another's name. That is as far as it goes: an extension holding the `sessions` run service can
-`publish` or `queueNotice` itself, bypassing the declaration and naming any extension in the
-envelope (the registry still refuses a malformed notice), so it can impersonate another extension
-to the model until narrower services close that (#336). A session's outbox holds at most 100
+another's name. That is as far as it goes: no scoped service hands out `publish`, `queueNotice`
+or `publishTask` (`send` and `report` do produce session updates), but extension code is Node and could import the runtime to reach a registry by another route (lint
+rejects the import in an extension's source, review covers the rest), so it could impersonate
+another extension to the model. A session's outbox holds at most 100
 notices; past that, and for a notice for an ended session, `emit.notice` throws to the extension.
 A reopened conversation replays the stored events and keeps the notices in history.
 `src/harness/__tests__/third-party-emit.test.ts` shows it from an extension that uses only public

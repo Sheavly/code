@@ -42,7 +42,9 @@ sub-agent on one task, `{ title, task }`.
   task tools act through) and `sessions` (a lookup). They are the structural types of
   `@sheavly/runtime/sessions/session-scope.types` and `tasks/task-scope.types`, so the tool
   holds no registry, and `runChild` owns the plumbing into the loop: it keeps the history before
-  and after the run and stops the child's own tasks when it ends. Tools can't import the loop, so
+  and after the run and stops the child's own tasks when it ends. The tool passes `onRunEnd` to
+  stop listening to the child first, so what cancelling those tasks produces never reaches the
+  task's output. Tools can't import the loop, so
   the loop's `runSession` is never an option: whoever builds the scopes (the host's
   `child-sessions` service) holds it. A test below `host` builds scopes straight over its
   registries with `registryScopes` (`@sheavly/tools/testing/registry-scopes.fake`).

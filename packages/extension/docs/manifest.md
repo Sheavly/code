@@ -158,7 +158,7 @@ the name (`ExtensionUndeclaredError`).
 - **During `activate`**: `services.get` for a name not in `requires` or `optional`, `services.find`
   for one not in `optional` or `requires`, and `services.provide` for one not in `provides` throw at
   the call. Services the host supplies are held to the same list: an extension that reads
-  `sessions` must declare it, which is what lets an installer warn about it.
+  `session-info` must declare it, which is what lets an installer see it (and its grants).
 - **After `activate` returns**: a contributed tool, hook or work kind not listed in `tools`,
   `hooks` or `workKinds` (exactly, or by a wildcard entry) fails the activation. The extension is deactivated (it had activated), its
   services are dropped and its dependents are skipped. The host reads each name once, keeps what
@@ -209,13 +209,13 @@ they do not cover.
   host's checks cover those.
 - **`emits` is a host-checked gate, not a sandbox.** The host checks what passes through
   `context.emit`; an extension is Node code, so nothing stops it from reaching a session's stream
-  by another route: the `sessions` run service, which an extension may declare and read, is the
-  session registry itself, and `publish` and `queueNotice` are on it. The sink is an option of the
-  host, not a service, so an extension that only holds the emit capability cannot emit under
-  another's name. `sessions` remains a bypass: its holder skips the declaration and can name any
+  by another route: no scoped service hands out `publish`, `queueNotice` or `publishTask`, but code that imports
+  the runtime and obtains a registry could call them, skipping the declaration and naming any
   extension in the envelope, which is impersonation to the model (the registry refuses a malformed
-  notice and caps the outbox, but does not check who it names). Narrower services (#336) are where
-  that closes. The `session` an emit names can be any session of the run, sub-agents included; it
+  notice and caps the outbox, but does not check who it names). The sink is an option of the host,
+  not a service, so an extension that only holds the emit capability cannot emit under another's
+  name. Lint rejects the runtime import in an extension's source; review covers the rest. The
+  `session` an emit names can be any session of the run, sub-agents included; it
   cannot cross conversations, because one registry serves one conversation.
 - **Item objects are not frozen.** Tools, work kinds and hooks are kept as the extension returned
   them. The host records and merges the names it checked and re-verifies them (and the lists)
@@ -229,7 +229,13 @@ they do not cover.
   it, and whoever reads it can share tools and hooks with sub-agents without those names
   appearing in its own `tools` or `hooks` (`share` is a service call, not a contribution).
   Declaring `sub-agents` in `requires` (or `optional`) therefore grants that right, and an
-  installer should treat it as such.
+  installer should treat it as such. The service is write-only: `share` copies the lists and
+  validates each entry (an object with a non-empty string `name`, no duplicate), but does not
+  freeze the tool and hook objects, which are held by reference. The shared lists cannot be read
+  or changed through the service. **Known gap, since the service was introduced:** `share` is
+  gated only by `requires`, and cannot check the sharer's `tools` and `hooks` declarations, because
+  `sub-agents` is provided by an extension and only host services define grants in this version.
+  The intended fix is a grant, once an extension-provided service can define grants.
 - **The JSON Schema is the shape only.** `readManifest` is authoritative: cross-field rules
   (a setting under the extension's own name, a name both required and optional, a dependency on
   itself) are not expressible in it.

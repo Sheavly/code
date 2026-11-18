@@ -42,7 +42,7 @@ without running it.
 An extension adds tools, hooks and work kinds, and declares the event kinds and notice topics it
 may emit (`events`, `notices`; it sends them through `context.emit`, built per extension, to a sink
 the app supplies, and the host disarms it when the extension stops; the sink is not a service, but
-the `sessions` service remains a bypass until narrower services, #336); it never replaces a core
+no scoped service hands out `publish`, `queueNotice` or `publishTask`, though Node code could reach a registry by importing the runtime); it never replaces a core
 module. The host
 adds nothing of its own to the loop: it returns the merged lists and the app passes them on.
 Two contributions of one kind with one name throw a `ContributionCollisionError` naming both

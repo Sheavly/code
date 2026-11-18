@@ -7,7 +7,7 @@ what an extension can and cannot do is its own to define, so others can build ex
 changing this source. It ships a data-only `sheavly.json` manifest that declares its unique
 kebab-case `name`, `dependsOn`, services, settings and the names it contributes, and an `activate`
 that returns its contributions: tools, hooks, work kinds, and the event kinds and notice topics it
-may emit through `context.emit` (held to the manifest's `emits`; the app supplies the sink, and the host disarms `emit` when the extension stops; an extension with the `sessions` service can still bypass it, #336). The host holds it to its manifest
+may emit through `context.emit` (held to the manifest's `emits`; the app supplies the sink, and the host disarms `emit` when the extension stops; no scoped service hands out `publish`, `queueNotice` or `publishTask`, though Node code could reach a registry by importing the runtime). The host holds it to its manifest
 (a name ending in `*` declares names that are not known in advance, such as a workspace's own hooks).
 The manifest is not a sandbox: an extension is Node code, and the host checks only what it mediates
 (see [What the manifest is not](docs/manifest.md#what-the-manifest-is-not)).
