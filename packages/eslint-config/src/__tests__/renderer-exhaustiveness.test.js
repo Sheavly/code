@@ -16,19 +16,29 @@ async function exhaustivenessErrors(change) {
   return result.messages.filter((message) => message.ruleId === RULE);
 }
 
-describe('the Renderer handles every event and session update kind', () => {
-  it('passes as written', async () => {
-    expect(await exhaustivenessErrors((text) => text)).toEqual([]);
-  });
+// The first lint builds a type-checked program for the Renderer and the workspace sources it
+// imports. Measured alone it took 2.5 to 11 s depending on the machine, and the 30 s default was
+// exceeded in full `npm run check` runs (#331); the cost beside the other workspaces' tests was
+// not measured. The rule needs those types, so the budget is raised, not the check weakened.
+const TYPED_LINT_TIMEOUT_MS = 60_000;
 
-  it.each([
-    ['an event', "      case 'usage':\n"],
-    ['a session update', "      case 'session_released':\n"],
-  ])('fails when %s kind is left out of its switch', async (_name, line) => {
-    expect(source).toContain(line);
+describe(
+  'the Renderer handles every event and session update kind',
+  { timeout: TYPED_LINT_TIMEOUT_MS },
+  () => {
+    it('passes as written', async () => {
+      expect(await exhaustivenessErrors((text) => text)).toEqual([]);
+    });
 
-    const errors = await exhaustivenessErrors((text) => text.replace(line, ''));
+    it.each([
+      ['an event', "      case 'usage':\n"],
+      ['a session update', "      case 'session_released':\n"],
+    ])('fails when %s kind is left out of its switch', async (_name, line) => {
+      expect(source).toContain(line);
 
-    expect(errors).toHaveLength(1);
-  });
-});
+      const errors = await exhaustivenessErrors((text) => text.replace(line, ''));
+
+      expect(errors).toHaveLength(1);
+    });
+  },
+);
