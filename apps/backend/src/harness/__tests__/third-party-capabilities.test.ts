@@ -217,7 +217,6 @@ describe('a third party extends the program without editing our source', () => {
               const answer = await services.get(APPROVALS).request({
                 callId: context.callId,
                 sessionId: context.session?.id,
-                tool: 'purge',
                 command: 'purge cache',
                 concerns: [{ argument: 'cache', reason: 'removes files' }],
                 signal,
@@ -328,7 +327,15 @@ describe('a third party extends the program without editing our source', () => {
     const harness = await open({ extensions: [observer] });
     const { info, main, model } = held;
 
-    expect(main).toBe(harness.mainSession);
+    const before = harness.mainSession.id;
+
+    expect(main).toEqual(harness.mainSession);
+    expect(main).not.toBe(harness.mainSession);
+    expect(Object.isFrozen(main)).toBe(true);
+    expect(() => {
+      (main as { id: string }).id = 'hijacked';
+    }).toThrow(TypeError);
+    expect(harness.mainSession.id).toBe(before);
     expect(info).not.toBe(harness.sessions);
     expect(info?.get(harness.mainSession.id)?.id).toBe(harness.mainSession.id);
 
