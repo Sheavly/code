@@ -1,5 +1,5 @@
 import type { TaskInfo, TaskKind } from '@sheavly/protocol/task/task.types';
-import type { TaskRegistry } from './tasks.service.js';
+import type { TaskStarter } from './task-scope.types.js';
 import type { WorkDefinition, WorkInput } from './work.types.js';
 
 /** Finite work: it keeps its run alive until delivered and can be grouped and awaited. */
@@ -32,8 +32,9 @@ export function isFiniteKind(kind: TaskKind): boolean {
  * Starts work a kind's factory built, so a kind's policy is decided by its factory and not at the
  * call site. It is the one place that calls `TaskRegistry.start`: `harness/no-direct-task-start`
  * fails every other source file, so a new kind is a factory that builds a `WorkDefinition`.
+ * `tasks` is anything that starts work: the registry, or an extension's task scope.
  */
-export function startWork(params: { tasks: TaskRegistry; work: WorkDefinition }): TaskInfo {
+export function startWork(params: { tasks: TaskStarter; work: WorkDefinition }): TaskInfo {
   const { tasks, work } = params;
 
   return tasks.start(work);

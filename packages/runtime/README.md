@@ -128,3 +128,4 @@ cannot be released, including cancelled members; after delivery, each member can
 
 - [Sessions](docs/sessions.md): the session tree, messages and steering, streaming to a UI.
 - [Approvals](docs/approvals.md): how a tool asks the user, and how a UI answers.
+- [Scoped services](docs/scopes.md): the narrow session and task services an extension gets, and the grants each checks.
