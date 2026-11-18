@@ -1,12 +1,12 @@
-import { isFileChange } from '@sheavly/coding/files/files.utils';
-import { isFileRead } from '@sheavly/coding/read-file/read-file.utils';
 import { now } from '@sheavly/core/clock/clock.helper';
 import { plainTerminalText } from './terminal-text.utils.js';
 import { ChangeLog } from '../changes/change-log.service.js';
 import { FailureLog } from '../failures/failure-log.service.js';
 import { logLook } from './log-look.utils.js';
 import type { Expandable, Look, ReplySink, RunningTool, Section, Write } from './render.types.js';
-import { commandOf, describeRead, firstLine, ownLine, seconds, shortId } from './render.utils.js';
+import { commandOf, firstLine, oneLine, seconds, shortId } from './render.utils.js';
+import { drawToolResult } from './tool-result.helper.js';
+import { MAX_EXTENSION_TEXT_CHARS } from '@sheavly/protocol/extension/extension.constants';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
@@ -206,6 +206,16 @@ export class Renderer {
         // Not the end of a run: the prompt carries on, and only the next one is refused.
         this.#activity(this.look.storageFailed(plainTerminalText(event.error)));
         break;
+      case 'extension_event':
+        // The fallback only, never `data`, and never a switch on `kind`: a kind this terminal
+        // does not know still shows its text. One line, so it cannot imitate other output.
+        this.#activity(
+          this.look.extensionEvent({
+            extension: plainTerminalText(event.extension),
+            text: plainTerminalText(oneLine({ text: event.text, max: MAX_EXTENSION_TEXT_CHARS })),
+          }),
+        );
+        break;
       case 'turn_end':
         this.#activity(this.look.turnEnd({ stopReason: event.stopReason }));
         break;
@@ -338,51 +348,16 @@ export class Renderer {
   }
 
   #toolResult(event: EventOf<'tool_result'>): void {
-    const { message, description, durationMs, artifacts = [] } = event;
+    const { lines, latest } = drawToolResult({
+      event,
+      look: this.look,
+      label: this.#label(event.description),
+      changes: this.changes,
+      failures: this.failures,
+    });
 
-    if (message.role !== 'tool') return;
-
-    const change = artifacts.find(isFileChange);
-    const read = artifacts.find(isFileRead);
-    // A file tool's own line ("Edited a.ts (1 → 2 lines)"). A hook can append a long report to the
-    // result for the model; the terminal shows the tool's line and how much more there is, and the
-    // diff follows below.
-    const summary = change ? ownLine(message.content) : `${message.content.length} chars`;
-    const detail = message.isError
-      ? firstLine(message.content)
-      : ((read && describeRead(read)) ?? summary);
-
-    this.#activity(
-      this.look.toolResult({
-        ok: !message.isError,
-        label: this.#label(description),
-        detail: plainTerminalText(detail),
-        seconds: seconds(durationMs),
-      }),
-    );
-
-    if (message.isError) {
-      this.#collapseFailure({ event, command: commandOf(event.call) });
-
-      return;
-    }
-
-    const edit = change && this.changes.keep(change);
-
-    if (!edit) return;
-    this.#latest = 'change';
-    this.#activity(this.look.fileChange(edit));
-  }
-
-  /** Keeps a failed step's message when it says more than its line, and shows it collapsed. */
-  #collapseFailure(params: { event: EventOf<'tool_result'>; command: string | undefined }): void {
-    const { event, command } = params;
-    const title = command ? `${event.description}  $ ${command}` : event.description;
-    const failure = this.failures.keep({ title, content: event.message.content });
-
-    if (!failure) return;
-    this.#latest = 'failure';
-    this.#activity(this.look.failure(failure));
+    if (latest) this.#latest = latest;
+    for (const text of lines) this.#activity(text);
   }
 
   #taskCompleted({ task }: EventOf<'task_completed'>): void {

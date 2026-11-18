@@ -17,6 +17,9 @@ export type RunningTool = {
 /** What the latest collapsed line under a step stands for, which Ctrl+O expands. */
 export type Expandable = 'change' | 'failure';
 
+/** What a finished tool call is drawn as, and which collapsed line (if any) is newly the latest. */
+export type ToolResultLines = { lines: string[]; latest: Expandable | undefined };
+
 /** Where a terminal front end's output goes (stdout, or stdout plus a log file). */
 export type Write = (text: string) => void;
 
@@ -79,6 +82,8 @@ export type Look = {
   runFailed: (error: string) => string;
   hookFailed: (params: { hook: string; handler: string; error: string }) => string;
   storageFailed: (error: string) => string;
+  /** An extension's event as its plain-text fallback, one line; never chosen by the event's kind. */
+  extensionEvent: (params: { extension: string; text: string }) => string;
   turnEnd: (params: {
     stopReason: Extract<EntryEvent, { type: 'turn_end' }>['stopReason'];
   }) => string;

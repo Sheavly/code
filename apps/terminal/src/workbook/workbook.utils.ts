@@ -225,6 +225,8 @@ export function describeEvent(event: EntryEvent): string {
       return `${head}  ${event.hook}.${event.handler}: ${firstLine(event.error)}`;
     case 'storage_failed':
       return `${head}  ${firstLine(event.error)}`;
+    case 'extension_event':
+      return `${head}  ${event.kind} · ${firstLine(event.text)}`;
     case 'turn_end':
       return `${head}  turn ${event.turn} · ${event.stopReason}`;
     case 'done':
