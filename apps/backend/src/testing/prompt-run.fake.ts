@@ -11,6 +11,31 @@ const startHelper: Script = () => [
 ];
 
 /**
+ * Test-only: the options that make a backend run's model start one sub-agent on `go`, and
+ * `start`, which runs that prompt on the harness those options opened and returns the model
+ * request each of the two sessions sent. Split in two so a test can act on the open run (an
+ * extension's `share`) before the sub-agent starts.
+ */
+export function subAgentRun() {
+  const requests: ProviderRequest[] = [];
+
+  return {
+    options: {
+      scripts: { go: [startHelper, say('done')], help: [say('helped')] },
+      onModelCall: (request: ProviderRequest) => requests.push(request),
+    },
+    start: async (harness: BackendHarness) => {
+      await sendPromptAndSettle({ harness, prompt: 'go' });
+
+      return {
+        main: requests.find((request) => request.messages[0]?.content === 'go'),
+        sub: requests.find((request) => request.messages[0]?.content === 'help'),
+      };
+    },
+  };
+}
+
+/**
  * Test-only: runs `go` on a backend run opened by `open` (from `useBackendRuns`), in which the
  * model starts a sub-agent, and returns the system prompt each of the two sessions was sent.
  */
@@ -20,17 +45,9 @@ export async function promptsOf(params: {
     onModelCall: (request: ProviderRequest) => void;
   }) => Promise<BackendHarness>;
 }) {
-  const requests: ProviderRequest[] = [];
-  const harness = await params.open({
-    scripts: { go: [startHelper, say('done')], help: [say('helped')] },
-    onModelCall: (request) => requests.push(request),
-  });
+  const run = subAgentRun();
+  const harness = await params.open(run.options);
+  const { main, sub } = await run.start(harness);
 
-  await sendPromptAndSettle({ harness, prompt: 'go' });
-
-  return {
-    main: requests.find((request) => request.messages[0]?.content === 'go')?.instructions,
-    sub: requests.find((request) => request.messages[0]?.content === 'help')?.instructions,
-    harness,
-  };
+  return { main: main?.instructions, sub: sub?.instructions, harness };
 }

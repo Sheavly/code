@@ -1,3 +1,4 @@
+import type { SubAgentScope } from '@sheavly/agents/agents/agents.types';
 import type { OutputCapture, OutputReader } from '@sheavly/core/output/output.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
 import type { ApprovalRequester } from '@sheavly/host/run-services/run-services.types';
@@ -19,6 +20,8 @@ export type ProbeScopes = {
   main: SessionRef;
   reader: OutputReader | undefined;
   capture: OutputCapture | undefined;
+  /** The `sub-agents` scope, held only by a probe made with `subAgents`. */
+  sharing: SubAgentScope | undefined;
 };
 
 /** Test-only: a request to a test API, as a client sends it (the token is added for it). */
