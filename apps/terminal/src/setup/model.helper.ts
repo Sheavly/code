@@ -5,7 +5,12 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { AnswerOf } from '@sheavly/client/client/client.types';
 import { SetupError } from '../errors/setup.errors.js';
-import { askContextWindow, askDefinition, askSecrets } from './form.helper.js';
+import {
+  askContextWindow,
+  askDefinition,
+  askSecrets,
+  settingsChoosingSecrets,
+} from './form.helper.js';
 import type { ModelSetup, SetupClient, SetupUi } from './setup.types.js';
 import { fieldText, modelActions } from './setup.utils.js';
 import { chooseModelToAdd } from './model-selection.helper.js';
@@ -100,9 +105,31 @@ async function saveSecrets(params: ModelSetup): Promise<void> {
 
   if (adapter.secrets.length === 0) return;
 
-  const secrets = await askSecrets({ adapter, ui });
+  // The secrets asked for depend on the settings just saved (how the model signs in).
+  const { definition } = await client.call('getModel', { profile, model, signal: ui.signal });
+  const secrets = await askSecrets({ adapter, ui, definition });
 
   await client.send('putCredential', { profile, model, body: { secrets }, signal: ui.signal });
+}
+
+/**
+ * Asks the secrets again when an edit changed a setting that decides which secrets apply (how a
+ * model signs in): the stored ones belong to the old way, and the model would be refused until
+ * they are replaced. Sending them replaces every stored secret, so none of the old way is left.
+ */
+async function renewSecretsIfChanged(
+  params: ModelSetup & { before: Record<string, unknown> },
+): Promise<void> {
+  const { client, ui, profile, model, adapter, before } = params;
+  const { definition } = await client.call('getModel', { profile, model, signal: ui.signal });
+  const changed = settingsChoosingSecrets(adapter).some(
+    (setting) => before[setting] !== definition[setting],
+  );
+
+  if (!changed) return;
+
+  ui.notice('How this model signs in changed, so its secrets are asked for again.');
+  await saveSecrets(params);
 }
 
 async function finishModel(params: ModelSetup): Promise<ModelId> {
@@ -116,7 +143,11 @@ async function finishModel(params: ModelSetup): Promise<ModelId> {
 
     if (action === 'start') return model;
     if (action === 'key') await saveSecrets(params);
-    if (action === 'edit') await saveDefinition({ ...params, previous: current });
+
+    if (action === 'edit') {
+      await saveDefinition({ ...params, previous: current });
+      await renewSecretsIfChanged({ ...params, before: current.definition });
+    }
 
     if (action === 'check') {
       ui.notice('Checking the connection…');

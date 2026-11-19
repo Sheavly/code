@@ -54,6 +54,18 @@ export class ModelApiError extends Error {
   }
 }
 
+/**
+ * A request cannot be signed: a signature covers plain headers and a string body, and the protocol
+ * built something else. A bug in the protocol, not a failure of the call, so it is never retried.
+ */
+export class RequestSigningError extends Error {
+  override name = 'RequestSigningError';
+
+  constructor(params: { message: string }) {
+    super(params.message);
+  }
+}
+
 /** The provider switch can't serve: an unknown provider name, or none active yet. */
 export class ProviderSwitchError extends Error {
   override name = 'ProviderSwitchError';

@@ -46,6 +46,38 @@ describe('askContextWindow', () => {
   });
 });
 
+describe('a default a preset supplies for a required field', () => {
+  it('is asked, pre-filled, so a person accepts or changes it', async () => {
+    const adapter = {
+      ...setupAdapter(),
+      config: {
+        type: 'object',
+        required: ['maxTokens'],
+        properties: { maxTokens: { type: 'integer', title: 'Max tokens', minimum: 1 } },
+      },
+    };
+    const { ui } = setupAnswers({ choices: [], text: [] });
+    const shown: { title: string; initial: string | undefined }[] = [];
+
+    ui.text = (question) => {
+      shown.push({ title: question.title, initial: question.initial });
+
+      return Promise.resolve(question.initial ?? '');
+    };
+
+    const accepted = await askDefinition({ adapter, ui, previous: { maxTokens: 32_000 } });
+
+    expect(shown).toEqual([{ title: 'Max tokens', initial: '32000' }]);
+    expect(accepted).toEqual({ maxTokens: 32_000 });
+
+    ui.text = () => Promise.resolve('8000');
+
+    expect(await askDefinition({ adapter, ui, previous: { maxTokens: 32_000 } })).toEqual({
+      maxTokens: 8000,
+    });
+  });
+});
+
 describe('preset definition fields', () => {
   it.each([true, false])(
     'does not treat inherited object keys as fixed or previous values: %s',

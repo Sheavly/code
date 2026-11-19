@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
+import type { AdapterDescription } from '@sheavly/protocol/model/model.types';
 import type { ProfileSetup } from '@sheavly/protocol/setup/setup.types';
 import { fakeSetupBackend, setupAnswers } from '../../testing/setup.fake.js';
 import { runSetupWizard } from '../wizard.helper.js';
@@ -225,6 +226,90 @@ describe('terminal setup over the API', () => {
     expect(notices).toContain('The key was refused.');
     expect(backend.calls.filter(({ name }) => name === 'putCredential')).toHaveLength(2);
     expect(backend.calls.filter(({ name }) => name === 'putModel')).toHaveLength(0);
+  });
+
+  describe('editing a model that signs in one of two ways', () => {
+    const secret = (title: string, appliesWhen: Record<string, string>) => ({
+      type: 'string',
+      secret: true,
+      title,
+      appliesWhen,
+    });
+    const twoWays: AdapterDescription = {
+      kind: 'two-ways',
+      description: 'Signs in one of two ways',
+      secrets: ['apiKey', 'accessKey'],
+      remoteField: 'deployment',
+      config: {
+        type: 'object',
+        required: ['auth', 'deployment'],
+        properties: {
+          auth: { type: 'string', enum: ['api-key', 'access-key'], title: 'Credentials' },
+          deployment: { type: 'string', title: 'Deployment' },
+          apiKey: secret('API key', { auth: 'api-key' }),
+          accessKey: secret('Access key', { auth: 'access-key' }),
+        },
+      },
+    };
+
+    /** Edits the model (signing in with an API key) to sign in `to`, answering `secrets` if asked. */
+    async function edit(params: { to: string; secrets: string[] }) {
+      const backend = fakeSetupBackend({ adapters: [twoWays], keepsKeyOnRewrite: true });
+
+      backend.state.profiles.push({
+        id: profile,
+        name: 'Work',
+        ready: true,
+        models: [
+          {
+            id: model,
+            name: 'Selected',
+            adapter: 'two-ways',
+            definition: { auth: 'api-key', deployment: 'd' },
+            credential: 'set',
+            usable: true,
+          },
+        ],
+      });
+      const answers = setupAnswers({
+        choices: [profile, model, 'edit', '300000', params.to, 'start'],
+        text: ['Selected', 'd', ...params.secrets],
+      });
+
+      await runSetupWizard({
+        ...backend,
+        ui: answers.ui,
+        workspace: '/workspace',
+        setup: backend.state,
+      });
+
+      return { backend, ...answers };
+    }
+
+    it('asks for the secrets of the new way, hidden, and sends them to replace the old way’s', async () => {
+      const { backend, questions, secrets, notices } = await edit({
+        to: 'access-key',
+        secrets: ['new-secret'],
+      });
+
+      expect(notices).toContain(
+        'How this model signs in changed, so its secrets are asked for again.',
+      );
+      expect(secrets).toEqual(['Access key']);
+      expect(questions).not.toContain('API key');
+      expect(backend.calls.filter(({ name }) => name === 'putCredential')).toMatchObject([
+        { call: { body: { secrets: { accessKey: 'new-secret' } } } },
+      ]);
+    });
+
+    it('asks for nothing, and sends nothing, when how it signs in is unchanged', async () => {
+      // No secret answer is given: a question for one would fail the test.
+      const { backend, secrets, notices } = await edit({ to: 'api-key', secrets: [] });
+
+      expect(secrets).toEqual([]);
+      expect(notices.join('\n')).not.toContain('signs in changed');
+      expect(backend.calls.filter(({ name }) => name === 'putCredential')).toEqual([]);
+    });
   });
 
   it('does not prompt or write for a ready workspace in plain mode', async () => {

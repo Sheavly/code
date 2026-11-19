@@ -103,7 +103,12 @@ export class AdapterRegistry {
     const { kind, config, signal, responseTimeoutMs } = params;
     const provider = this.create(kind, { ...config, request: CHECK_REQUEST });
 
-    return checkProvider({ provider, signal, responseTimeoutMs, host: checkHostOf(kind) });
+    return checkProvider({
+      provider,
+      signal,
+      responseTimeoutMs,
+      host: checkHostOf({ kind, config }),
+    });
   }
 
   #adapter(kind: string): Adapter {

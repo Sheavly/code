@@ -1,6 +1,7 @@
 import { providerErrorText } from '@sheavly/core/text/diagnostic-text.utils';
 import { ModelApiError } from '../errors/providers.errors.js';
-import type { RequestPolicy } from './http.types.js';
+import type { RequestPolicy, RequestSigner } from './http.types.js';
+import { withSignature } from './signing.utils.js';
 import {
   backoffMs,
   isRetryableStatus,
@@ -55,8 +56,11 @@ async function attempt(params: {
   init: RequestInit;
   policy: RequestPolicy;
   signal: AbortSignal;
+  sign?: RequestSigner | undefined;
 }): Promise<Attempt> {
-  const { api, fetch, url, init, policy, signal } = params;
+  const { api, fetch, url, policy, signal, sign } = params;
+  // Signed afresh for each attempt: a signature carries the time, and one is good for minutes.
+  const init = sign ? withSignature({ init: params.init, url, sign }) : params.init;
   const timeout = new AbortController();
   const timer = setTimeout(() => {
     timeout.abort();
@@ -111,7 +115,8 @@ async function attempt(params: {
  * `policy.retries` more times, waiting `retryDelayMs` (doubled each time, or the server's
  * `retry-after` if longer). Nothing has streamed yet, so a retry repeats nothing. Any other HTTP
  * error fails at once; an interrupt (`signal`) stops the wait and every attempt. `api` names the
- * API in its errors (`Responses API`, `Anthropic Messages API`).
+ * API in its errors (`Responses API`, `Anthropic Messages API`). With `sign`, every attempt, a
+ * retry included, is signed anew from the headers and string body in `init`.
  */
 export async function sendRequest(params: {
   api: string;
@@ -120,6 +125,7 @@ export async function sendRequest(params: {
   init: RequestInit;
   policy: RequestPolicy;
   signal: AbortSignal;
+  sign?: RequestSigner | undefined;
 }): Promise<Response> {
   const { policy, signal } = params;
 

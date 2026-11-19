@@ -46,22 +46,28 @@ const readFiles = async (folder: string): Promise<Record<string, string>> => {
 };
 
 describe('setting up a model on Bedrock', () => {
+  const claude = { model: 'eu.anthropic.claude-sonnet-5-5', maxTokens: 1024 };
+  const gpt = { model: 'eu.openai.gpt-6-astra' };
+  const TOKEN = 'SESSIONTOKEN-LEAK-CHECK-71c4';
+  const keyPair = { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: KEY, sessionToken: TOKEN };
+  const sonnet = { model: 'claude-sonnet-5-5', family: 'claude' };
+  const astra = { model: 'gpt-6-astra', family: 'gpt' };
+  const messages = 'https://bedrock-runtime.eu-west-1.amazonaws.com/anthropic/v1/messages';
+  const responses = 'https://bedrock-runtime.eu-west-1.amazonaws.com/openai/v1/responses';
+  const signed = expect.stringMatching(/^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\//) as string;
+
   it.each([
-    [
-      'bedrock-anthropic',
-      { model: 'claude-sonnet-5-5', family: 'claude' },
-      { model: 'eu.anthropic.claude-sonnet-5-5', maxTokens: 1024, thinkingMode: 'adaptive' },
-      'https://bedrock-runtime.eu-west-1.amazonaws.com/anthropic/v1/messages',
-    ],
-    [
-      'bedrock-openai',
-      { model: 'gpt-6-astra', family: 'gpt' },
-      { model: 'eu.openai.gpt-6-astra' },
-      'https://bedrock-runtime.eu-west-1.amazonaws.com/openai/v1/responses',
-    ],
+    { adapter: 'bedrock-anthropic', identity: sonnet, fields: { auth: 'api-key', ...claude } },
+    { adapter: 'bedrock-openai', identity: astra, fields: { auth: 'api-key', ...gpt } },
+    { adapter: 'bedrock-anthropic', identity: sonnet, fields: { auth: 'access-key', ...claude } },
+    { adapter: 'bedrock-openai', identity: astra, fields: { auth: 'access-key', ...gpt } },
   ])(
-    'keeps the key of %s in the credential store only, out of the model file and out of a check’s result',
-    async (adapter, identity, fields, url) => {
+    'keeps the secrets of $adapter with $fields.auth in the credential store only, out of the model file and out of a check’s result',
+    async ({ adapter, identity, fields }) => {
+      const byKey = fields.auth === 'api-key';
+      const secrets = byKey ? { apiKey: KEY } : keyPair;
+      const url = adapter === 'bedrock-anthropic' ? messages : responses;
+      const sent = byKey ? KEY : signed;
       const { calls, made } = backend();
 
       await made.setup.putProfile({ id: PROFILE, name: 'Bedrock' });
@@ -75,20 +81,29 @@ describe('setting up a model on Bedrock', () => {
           definition: { region: 'eu-west-1', ...fields },
         },
       });
-      await made.setup.putCredential({ profile: PROFILE, model: MODEL, secrets: { apiKey: KEY } });
+      await made.setup.putCredential({ profile: PROFILE, model: MODEL, secrets });
 
       const result = await made.setup.checkCredential({ profile: PROFILE, model: MODEL });
       const files = await readFiles(path.join(sheavly(), 'profiles', PROFILE));
       const holding = Object.entries(files).filter(([, text]) => text.includes(KEY));
 
-      // The key is stored once, in the credential file, and never in the model's own file.
+      // The secret is stored once, in the credential file, and never in the model's own file.
       expect(holding).toHaveLength(1);
       expect(holding[0]?.[0]).not.toContain('models');
       expect(files[`models/${MODEL}.json`]).toContain(fields.model);
       expect(JSON.stringify(result)).not.toContain(KEY);
+      // A session token is a secret too: stored with the others, in no other file, never echoed.
+      expect(
+        Object.entries(files)
+          .filter(([, text]) => text.includes(TOKEN))
+          .map(([name]) => name),
+      ).toEqual(byKey ? [] : [holding[0]?.[0]]);
+      expect(JSON.stringify(result)).not.toContain(TOKEN);
+      expect(JSON.stringify(calls)).not.toContain(TOKEN);
       expect(result).toMatchObject({ status: 'invalid' });
-      // The one call went to the Region the model names, carrying the key as its adapter sends it.
-      expect(calls).toEqual([{ url, key: KEY }]);
+      // The one call went to the Region the model names: an API key is sent as it is, an access
+      // key pair only as a signature, never the secret itself.
+      expect(calls).toEqual([{ url, key: sent }]);
     },
   );
 
@@ -99,7 +114,12 @@ describe('setting up a model on Bedrock', () => {
         name: 'Opus',
         adapter: 'bedrock-anthropic',
         identity: { model: 'claude-opus-5-5', family: 'claude' },
-        definition: { region: 'us-east-1', model: 'us.anthropic.claude-sonnet-5-5', maxTokens: 1 },
+        definition: {
+          auth: 'api-key',
+          region: 'us-east-1',
+          model: 'us.anthropic.claude-sonnet-5-5',
+          maxTokens: 1,
+        },
       },
       'Use an inference profile for claude-opus-5-5',
     ],
@@ -108,9 +128,22 @@ describe('setting up a model on Bedrock', () => {
       {
         name: 'x',
         adapter: 'bedrock-openai',
-        definition: { region: 'evil.example.com/', model: 'us.openai.gpt-6-astra' },
+        definition: {
+          auth: 'api-key',
+          region: 'evil.example.com/',
+          model: 'us.openai.gpt-6-astra',
+        },
       },
       'Region',
+    ],
+    [
+      'credentials that are not chosen',
+      {
+        name: 'x',
+        adapter: 'bedrock-openai',
+        definition: { region: 'us-east-1', model: 'us.openai.gpt-6-astra' },
+      },
+      'auth',
     ],
   ])('refuses %s, before anything is stored', async (_name, model, why) => {
     const { made } = backend();

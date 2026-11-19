@@ -9,6 +9,11 @@ import type { DefinitionProblem } from './registry.types.js';
  * backend fills in (the request policy), and everything else is checked by the adapter's own
  * schema, so a bad address or an out-of-range number is caught before a key is ever entered. A
  * secret in the definition is itself a problem: a model's file holds none. Empty when it is fine.
+ *
+ * An issue whose path starts at a secret field is not reported, since the stand-ins stand for keys
+ * not entered yet. So a rule across settings and secrets (`refineBedrockAuth`) puts the issues about
+ * a missing or stray secret on that secret's path, and one about a setting on the setting's, or it
+ * is dropped or fails every setup; `registry/__tests__/definition.test.ts` holds both cases.
  */
 export function definitionProblems(params: {
   schema: z.ZodType;

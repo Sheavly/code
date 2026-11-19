@@ -125,19 +125,55 @@ async function askField(params: {
   return text === '' ? undefined : parseFieldValue({ field, text });
 }
 
-/** Values exist only for the write-only credential request, never for a settings preview. */
-export async function askSecrets(params: { adapter: AdapterDescription; ui: SetupUi }) {
-  const { adapter, ui } = params;
+/**
+ * The settings that decide which secrets an adapter takes (the ones its secrets' `appliesWhen`
+ * name, such as how a model signs in). Changing one of them leaves the secrets already stored
+ * belonging to the old way, so they must be asked for again.
+ */
+export function settingsChoosingSecrets(adapter: AdapterDescription): string[] {
+  const form = parseAdapterForm(adapter);
+  const named = adapter.secrets.flatMap((name) =>
+    Object.keys(form.properties[name]?.appliesWhen ?? {}),
+  );
+
+  return [...new Set(named)];
+}
+
+/**
+ * Values exist only for the write-only credential request, never for a settings preview. A secret
+ * that applies only to some settings (`appliesWhen`) is asked for when `definition` has them, so a
+ * model that signs in one way is never asked for the secrets of another; an optional one may be
+ * left empty and is then not sent.
+ */
+export async function askSecrets(params: {
+  adapter: AdapterDescription;
+  ui: SetupUi;
+  definition: Record<string, unknown>;
+}) {
+  const { adapter, ui, definition } = params;
   const form = parseAdapterForm(adapter);
   const secrets: Record<string, string> = {};
 
   for (const name of adapter.secrets) {
-    secrets[name] = await ui.text({
-      title: form.properties[name]?.title ?? name,
-      description: 'Input is hidden. The backend stores this key separately from model settings.',
+    const field = form.properties[name];
+    const applies = Object.entries(field?.appliesWhen ?? {}).every(
+      ([setting, value]) => definition[setting] === value,
+    );
+
+    if (!applies) continue;
+
+    const optional = field?.optional === true;
+    const title = field?.title ?? name;
+    const value = await ui.text({
+      title: optional ? `${title} (optional)` : title,
+      description:
+        field?.description ??
+        'Input is hidden. The backend stores this key separately from model settings.',
       secret: true,
-      validate: (value) => (value ? undefined : 'Enter a key to continue.'),
+      validate: (entered) => (entered || optional ? undefined : 'Enter a key to continue.'),
     });
+
+    if (value) secrets[name] = value;
   }
 
   return secrets;

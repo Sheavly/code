@@ -4,6 +4,7 @@ import { bedrockOpenaiAdapter } from '../openai.adapter.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const base = {
+  auth: 'api-key',
   apiKey: 'bk-secret',
   region: 'us-west-2',
   model: 'global.openai.gpt-6-astra',

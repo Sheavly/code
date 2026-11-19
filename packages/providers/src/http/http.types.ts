@@ -30,3 +30,15 @@ export type ReplyProtocol<TEvent> = {
  * waited for, and the error is reported instead).
  */
 export type RequestPolicy = z.infer<typeof requestPolicySchema>;
+
+/**
+ * Signs one attempt of a request: given what is about to be sent, returns the headers to add. A
+ * signature covers the body and the time, so it is made for every attempt, a retry included, never
+ * once up front. The request has plain headers and a string body.
+ */
+export type RequestSigner = (request: {
+  method: string;
+  url: URL;
+  headers: Record<string, string>;
+  body: string;
+}) => Record<string, string>;

@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 import type { StopReason, StreamEvent } from '@sheavly/core/message/message.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
-import type { RequestPolicy } from '../http/http.types.js';
+import type { RequestPolicy, RequestSigner } from '../http/http.types.js';
 import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { messagesEventSchema, messagesReplaySchema } from './messages.validator.js';
 
@@ -15,6 +15,8 @@ export type MessagesEndpoint = {
   model: string;
   /** Auth and any other headers the backend needs (`anthropic-version` is always sent). */
   headers: Record<string, string>;
+  /** For a backend that signs each request instead of sending a key; see `RequestSigner`. */
+  sign?: RequestSigner | undefined;
 };
 
 export type MessagesThinkingMode = 'adaptive' | 'enabled' | 'disabled';

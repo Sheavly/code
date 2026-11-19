@@ -33,8 +33,21 @@ describe('the catalogue’s AWS Bedrock route', () => {
     }
   });
 
-  it('starts Claude on adaptive thinking, as on Azure', () => {
-    expect(bedrockOf('claude-sonnet-5-5')?.defaults).toEqual({ thinkingMode: 'adaptive' });
+  it('starts Claude on adaptive thinking, as on Azure, and suggests 32000 output tokens', () => {
+    expect(bedrockOf('claude-sonnet-5-5')?.defaults).toEqual({
+      thinkingMode: 'adaptive',
+      maxTokens: 32_000,
+    });
+  });
+
+  it('suggests an output limit only as an answer to accept or change: the adapter has none', () => {
+    const claude = createDefaultRegistry()
+      .describe()
+      .find(({ kind }) => kind === 'bedrock-anthropic');
+    const maxTokens = (claude?.config.properties as Record<string, object>).maxTokens;
+
+    expect(maxTokens).not.toHaveProperty('default');
+    expect(claude?.config.required).toContain('maxTokens');
   });
 
   it('is not advertised when the backend has no Bedrock adapter', () => {
@@ -94,6 +107,7 @@ describe('a Bedrock model of a known identity', () => {
 
       const owner = host.adapter === 'bedrock-openai' ? 'openai' : 'anthropic';
       const definition = {
+        auth: 'api-key',
         region: 'us-east-1',
         maxTokens: 1024,
         ...host.defaults,
