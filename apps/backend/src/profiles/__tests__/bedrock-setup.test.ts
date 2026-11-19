@@ -19,7 +19,9 @@ function backend() {
   const fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const request = new Request(input, init);
 
-    calls.push({ url: request.url, key: request.headers.get('x-api-key') });
+    const bearer = request.headers.get('authorization')?.replace(/^Bearer /, '');
+
+    calls.push({ url: request.url, key: request.headers.get('x-api-key') ?? bearer ?? null });
 
     return new Response(`denied ${KEY}`, { status: 403 });
   }) as typeof globalThis.fetch;
@@ -44,45 +46,51 @@ const readFiles = async (folder: string): Promise<Record<string, string>> => {
 };
 
 describe('setting up a model on Bedrock', () => {
-  it('keeps the key in the credential store only, out of the model file and out of a check’s result', async () => {
-    const { calls, made } = backend();
+  it.each([
+    [
+      'bedrock-anthropic',
+      { model: 'claude-sonnet-5-5', family: 'claude' },
+      { model: 'eu.anthropic.claude-sonnet-5-5', maxTokens: 1024, thinkingMode: 'adaptive' },
+      'https://bedrock-runtime.eu-west-1.amazonaws.com/anthropic/v1/messages',
+    ],
+    [
+      'bedrock-openai',
+      { model: 'gpt-6-astra', family: 'gpt' },
+      { model: 'eu.openai.gpt-6-astra' },
+      'https://bedrock-runtime.eu-west-1.amazonaws.com/openai/v1/responses',
+    ],
+  ])(
+    'keeps the key of %s in the credential store only, out of the model file and out of a check’s result',
+    async (adapter, identity, fields, url) => {
+      const { calls, made } = backend();
 
-    await made.setup.putProfile({ id: PROFILE, name: 'Bedrock' });
-    await made.setup.putModel({
-      profile: PROFILE,
-      id: MODEL,
-      model: {
-        name: 'Claude Sonnet 5.5',
-        adapter: 'bedrock-anthropic',
-        identity: { model: 'claude-sonnet-5-5', family: 'claude' },
-        definition: {
-          region: 'eu-west-1',
-          model: 'eu.anthropic.claude-sonnet-5-5',
-          maxTokens: 1024,
-          thinkingMode: 'adaptive',
+      await made.setup.putProfile({ id: PROFILE, name: 'Bedrock' });
+      await made.setup.putModel({
+        profile: PROFILE,
+        id: MODEL,
+        model: {
+          name: 'Bedrock model',
+          adapter,
+          identity,
+          definition: { region: 'eu-west-1', ...fields },
         },
-      },
-    });
-    await made.setup.putCredential({ profile: PROFILE, model: MODEL, secrets: { apiKey: KEY } });
+      });
+      await made.setup.putCredential({ profile: PROFILE, model: MODEL, secrets: { apiKey: KEY } });
 
-    const result = await made.setup.checkCredential({ profile: PROFILE, model: MODEL });
-    const files = await readFiles(path.join(sheavly(), 'profiles', PROFILE));
-    const holding = Object.entries(files).filter(([, text]) => text.includes(KEY));
+      const result = await made.setup.checkCredential({ profile: PROFILE, model: MODEL });
+      const files = await readFiles(path.join(sheavly(), 'profiles', PROFILE));
+      const holding = Object.entries(files).filter(([, text]) => text.includes(KEY));
 
-    // The key is stored once, in the credential file, and never in the model's own file.
-    expect(holding).toHaveLength(1);
-    expect(holding[0]?.[0]).not.toContain('models');
-    expect(files[`models/${MODEL}.json`]).toContain('eu.anthropic.claude-sonnet-5-5');
-    expect(JSON.stringify(result)).not.toContain(KEY);
-    expect(result).toMatchObject({ status: 'invalid' });
-    // The one call went to the Region the model names, carrying the key as Bedrock expects.
-    expect(calls).toEqual([
-      {
-        url: 'https://bedrock-runtime.eu-west-1.amazonaws.com/anthropic/v1/messages',
-        key: KEY,
-      },
-    ]);
-  });
+      // The key is stored once, in the credential file, and never in the model's own file.
+      expect(holding).toHaveLength(1);
+      expect(holding[0]?.[0]).not.toContain('models');
+      expect(files[`models/${MODEL}.json`]).toContain(fields.model);
+      expect(JSON.stringify(result)).not.toContain(KEY);
+      expect(result).toMatchObject({ status: 'invalid' });
+      // The one call went to the Region the model names, carrying the key as its adapter sends it.
+      expect(calls).toEqual([{ url, key: KEY }]);
+    },
+  );
 
   it.each([
     [
@@ -93,6 +101,7 @@ describe('setting up a model on Bedrock', () => {
         identity: { model: 'claude-opus-5-5', family: 'claude' },
         definition: { region: 'us-east-1', model: 'us.anthropic.claude-sonnet-5-5', maxTokens: 1 },
       },
+      'Use an inference profile for claude-opus-5-5',
     ],
     [
       'a Region that is not a Region code, so the host cannot be steered',
@@ -101,13 +110,18 @@ describe('setting up a model on Bedrock', () => {
         adapter: 'bedrock-openai',
         definition: { region: 'evil.example.com/', model: 'us.openai.gpt-6-astra' },
       },
+      'Region',
     ],
-  ])('refuses %s, before anything is stored', async (_name, model) => {
+  ])('refuses %s, before anything is stored', async (_name, model, why) => {
     const { made } = backend();
 
     await made.setup.putProfile({ id: PROFILE, name: 'Bedrock' });
     await expect(made.setup.putModel({ profile: PROFILE, id: MODEL, model })).rejects.toMatchObject(
-      { reason: 'invalid' },
+      { reason: 'invalid', message: expect.stringContaining(why) as string },
     );
+
+    const files = await readFiles(path.join(sheavly(), 'profiles', PROFILE));
+
+    expect(Object.keys(files).filter((name) => name.startsWith('models'))).toEqual([]);
   });
 });

@@ -69,11 +69,48 @@ describe('a Bedrock model of a known identity', () => {
     ['another model’s profile', 'us.anthropic.claude-sonnet-5-5'],
     ['a profile of another owner', 'us.openai.claude-opus-5-5'],
     ['a bare model ID', 'anthropic.claude-opus-5-5'],
+    ['a profile with extra segments', 'us.anthropic.us.anthropic.claude-opus-5-5'],
     ['no profile', ''],
   ])('refuses %s, so a known model is not paired with a different one', (_name, profile) => {
     expect(() => assertModelHosting({ adapters, model: withProfile(profile) })).toThrow(
       'Use an inference profile for claude-opus-5-5',
     );
+  });
+
+  it('accepts a version suffix on its own profile', () => {
+    expect(() =>
+      assertModelHosting({ adapters, model: withProfile('us.anthropic.claude-opus-5-5:0') }),
+    ).not.toThrow();
+  });
+
+  it('agrees with the adapter: a profile the catalogue accepts is one the adapter accepts', () => {
+    const registry = createDefaultRegistry();
+    const request = { responseTimeoutMs: 1000, retries: 0, retryDelayMs: 0 };
+
+    for (const entry of setupModelCatalog(adapters)) {
+      const host = bedrockOf(entry.identity.model);
+
+      if (!host) continue;
+
+      const owner = host.adapter === 'bedrock-openai' ? 'openai' : 'anthropic';
+      const definition = {
+        region: 'us-east-1',
+        maxTokens: 1024,
+        ...host.defaults,
+        model: `us.${owner}.${entry.identity.model}`,
+      };
+
+      expect(
+        registry.validateDefinition({ kind: host.adapter, definition, host: { request } }),
+        entry.name,
+      ).toEqual([]);
+      expect(() =>
+        assertModelHosting({
+          adapters,
+          model: { name: entry.name, adapter: host.adapter, identity: entry.identity, definition },
+        }),
+      ).not.toThrow();
+    }
   });
 
   it('refuses a GPT model on the Claude route and a Claude model on the GPT route', () => {
