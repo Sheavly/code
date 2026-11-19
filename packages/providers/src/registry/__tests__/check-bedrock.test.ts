@@ -97,6 +97,21 @@ describe('the connection check of a Bedrock model', () => {
     },
   );
 
+  it.each(['ExpiredTokenException', 'SignatureDoesNotMatch', 'UnrecognizedClientException'])(
+    'does not blame a signature or a session token for a refused API key: %s',
+    async (body) => {
+      const result = await checked({
+        kind: 'bedrock-anthropic',
+        config: claude,
+        status: 403,
+        body,
+      });
+
+      expect(result).toMatchObject({ status: 'invalid' });
+      expect(JSON.stringify(result)).not.toMatch(/signature|session token|clock/i);
+    },
+  );
+
   it('leaves a signature refusal of another provider to the general messages', async () => {
     const result = await checked({
       kind: 'azure-anthropic',

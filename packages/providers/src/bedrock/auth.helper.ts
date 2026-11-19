@@ -19,7 +19,7 @@ export function bedrockAuth(params: {
 
   if (config.auth === 'api-key') {
     if (!config.apiKey) {
-      throw new RequestSigningError({ message: 'Credentials api-key need an apiKey' });
+      throw new RequestSigningError({ message: 'An api-key model has no apiKey' });
     }
 
     return { headers: apiKeyHeaders(config.apiKey) };
@@ -29,7 +29,7 @@ export function bedrockAuth(params: {
 
   if (!accessKeyId || !secretAccessKey) {
     throw new RequestSigningError({
-      message: 'Credentials access-key need an accessKeyId and a secretAccessKey',
+      message: 'An access-key model has no accessKeyId or no secretAccessKey',
     });
   }
 

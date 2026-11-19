@@ -3,7 +3,8 @@ import type { CheckHost } from './registry.types.js';
 /**
  * Known diagnoses return fixed text only, never an error body that might echo a credential. A
  * `host` that gives refusals extra meaning (Bedrock's 403 is as often missing model access as a bad
- * key) is explained in its own terms.
+ * key) is explained in its own terms, and a `bedrock-signed` model (an access key pair, whose
+ * requests are signed) also gets a signature's diagnoses.
  */
 export function checkHttpMessage(params: {
   status: number;
@@ -16,11 +17,14 @@ export function checkHttpMessage(params: {
     return 'HTTP 429: Rate limited. Wait and retry, or check your provider quota.';
   }
 
-  const signed = host === 'bedrock' ? signatureMessage({ status, message }) : undefined;
+  const bedrock = host === 'bedrock' || host === 'bedrock-signed';
+  // A signature, a token's expiry and a clock are only a signed request's to explain: an API key
+  // has none of them, and would be blamed for what it did not do.
+  const signed = host === 'bedrock-signed' ? signatureMessage({ status, message }) : undefined;
 
   if (signed) return signed;
 
-  if (host === 'bedrock' && (status === 403 || status === 404)) return bedrockMessage(status);
+  if (bedrock && (status === 403 || status === 404)) return bedrockMessage(status);
 
   if (status !== 400 && status !== 422) return undefined;
 
@@ -34,16 +38,26 @@ export function checkHttpMessage(params: {
     return `HTTP ${String(status)}: Check Max tokens. It is the output limit per reply, not the context window, and must fit the model’s output limit.`;
   }
 
-  if (host === 'bedrock') {
+  if (bedrock) {
     return `HTTP ${String(status)}: Bedrock rejected the request. Check that the inference profile is available from this Region, and the output-token limit and thinking settings.`;
   }
 
   return `HTTP ${String(status)}: The provider rejected the model settings. Check the deployment, output-token limit and thinking settings.`;
 }
 
-/** The host whose check messages adapter `kind` gets: every `bedrock-*` adapter is Bedrock. */
-export function checkHostOf(kind: string): CheckHost | undefined {
-  return kind.startsWith('bedrock-') ? 'bedrock' : undefined;
+/**
+ * The host whose check messages a model gets: every `bedrock-*` adapter is Bedrock, and one that
+ * signs its requests (`auth` of `access-key`) also gets the signature diagnoses.
+ */
+export function checkHostOf(params: {
+  kind: string;
+  config: Record<string, unknown>;
+}): CheckHost | undefined {
+  const { kind, config } = params;
+
+  if (!kind.startsWith('bedrock-')) return undefined;
+
+  return config.auth === 'access-key' ? 'bedrock-signed' : 'bedrock';
 }
 
 /**

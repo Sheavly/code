@@ -88,4 +88,52 @@ describe('signAwsRequest', () => {
   it('never puts the secret key in what it returns', () => {
     expect(JSON.stringify(post())).not.toContain(credentials.secretAccessKey);
   });
+
+  it.each([
+    ['a name with a colon', { 'x-a:b': 'v' }],
+    ['a name with a line break', { 'x-a\nb': 'v' }],
+    ['a value with a line break', { 'x-a': 'one\r\nx-b: two' }],
+    ['a value with a control character', { 'x-a': 'v\u0000' }],
+    ['the same name twice, in other capitals', { 'x-a': '1', 'X-A': '2' }],
+    ['a name the signer sets, in other capitals', { Authorization: 'x' }],
+    ['a Host of its own', { Host: 'evil.example.com' }],
+    ['an x-amz-date of its own', { 'X-Amz-Date': '20000101T000000Z' }],
+  ])('refuses to sign %s, and says nothing of what it held', (_name, headers) => {
+    const attempt = () => post({ headers });
+
+    expect(attempt).toThrow('A header cannot be signed');
+    expect(attempt).toThrow(/^(?!.*(evil|one|two)).*$/s);
+  });
+
+  it('signs the same request the same whatever the capitals of a header name', () => {
+    expect(post({ headers: { 'Content-Type': 'application/json' } }).authorization).toBe(
+      post({ headers: { 'content-type': 'application/json' } }).authorization,
+    );
+  });
+
+  it('signs a query whatever the order of its parameters, and the port it is sent to', () => {
+    const at = (path: string) =>
+      post({ url: new URL(`https://bedrock-runtime.us-east-1.amazonaws.com${path}`) })
+        .authorization;
+
+    expect(at('/p?b=1&a=2&B=3')).toBe(at('/p?B=3&a=2&b=1'));
+    expect(at('/p?a=1')).not.toBe(at('/p?a=2'));
+    expect(
+      post({ url: new URL('https://bedrock-runtime.us-east-1.amazonaws.com:8443/p') })
+        .authorization,
+    ).not.toBe(
+      post({ url: new URL('https://bedrock-runtime.us-east-1.amazonaws.com/p') }).authorization,
+    );
+  });
+
+  it('signs a path the way AWS does for a service that is not S3: each segment encoded twice', () => {
+    // `a b` is `a%20b` in the URL and `a%2520b` in the canonical path, so a request for it differs
+    // from one for the literal `a%20b`, and from one that never had the space.
+    const at = (path: string) =>
+      post({ url: new URL(`https://bedrock-runtime.us-east-1.amazonaws.com${path}`) })
+        .authorization;
+
+    expect(at('/a b')).not.toBe(at('/ab'));
+    expect(at('/a b')).toBe(at('/a%20b'));
+  });
 });

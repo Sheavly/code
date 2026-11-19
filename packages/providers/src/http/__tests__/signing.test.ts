@@ -83,4 +83,13 @@ describe('sendRequest with a signer', () => {
     await expect(unsigned).rejects.toThrow('plain headers and a string body');
     expect(sent).toEqual([]);
   });
+
+  it('refuses a signature that repeats a header the request has, in any capitals, sending nothing', async () => {
+    const { fetch, sent } = fetchAnswering([200]);
+
+    await expect(send({ fetch, sign: () => ({ 'Content-Type': 'text/plain' }) })).rejects.toThrow(
+      'repeats a header',
+    );
+    expect(sent).toEqual([]);
+  });
 });

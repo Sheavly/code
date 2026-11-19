@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { FIELD_KIND } from '../http/http.constants.js';
-import { CREDENTIALS_BY_AUTH } from './bedrock.constants.js';
+import { AUTH_MODES, CREDENTIALS_BY_AUTH } from './bedrock.constants.js';
 import type { BedrockAuthConfig } from './bedrock.types.js';
-import { awsAccessKeyIdSchema } from './sigv4.validator.js';
+import { awsAccessKeyIdSchema, printableCredential } from './sigv4.validator.js';
 
 /**
  * A secret of one credential mode, of the type `base` gives it. Every credential is a secret, so
@@ -35,24 +35,24 @@ function credential<TBase extends z.ZodType<string>>(params: {
  * wrap it in `refineBedrockAuth`.
  */
 export const bedrockAuthFields = {
-  auth: z.enum(['api-key', 'access-key']).meta({
+  auth: z.enum(AUTH_MODES).meta({
     title: 'Credentials',
     description:
       'api-key: a Bedrock API key (a short-term one lasts up to 12 hours). access-key: an IAM access key id and secret, signed for each request.',
   }),
-  apiKey: credential({ base: z.string().min(1), auth: 'api-key', title: 'API key' }),
+  apiKey: credential({ base: printableCredential(), auth: 'api-key', title: 'API key' }),
   accessKeyId: credential({
     base: awsAccessKeyIdSchema,
     auth: 'access-key',
     title: 'Access key ID',
   }),
   secretAccessKey: credential({
-    base: z.string().min(1),
+    base: printableCredential(),
     auth: 'access-key',
     title: 'Secret access key',
   }),
   sessionToken: credential({
-    base: z.string().min(1),
+    base: printableCredential(),
     auth: 'access-key',
     title: 'Session token',
     description: 'Only for temporary credentials; leave empty for a long-term access key.',

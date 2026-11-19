@@ -26,9 +26,14 @@ export function withSignature(params: {
   }
 
   const plain = headers as Record<string, string>;
+  const added = sign({ method: init.method ?? 'POST', url, headers: plain, body });
+  const own = new Set(Object.keys(plain).map((name) => name.toLowerCase()));
 
-  return {
-    ...init,
-    headers: { ...plain, ...sign({ method: init.method ?? 'POST', url, headers: plain, body }) },
-  };
+  // fetch merges header names without regard to case, so a repeat would send a value the signature
+  // did not cover.
+  if (Object.keys(added).some((name) => own.has(name.toLowerCase()))) {
+    throw new RequestSigningError({ message: 'A signature repeats a header the request has' });
+  }
+
+  return { ...init, headers: { ...plain, ...added } };
 }

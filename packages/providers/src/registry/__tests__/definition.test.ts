@@ -84,6 +84,48 @@ describe('AdapterRegistry.validateDefinition', () => {
     expect(problems).toEqual([]);
   });
 
+  describe('for a model that signs in one of two ways', () => {
+    const bedrock = { auth: 'access-key', region: 'us-east-1', model: 'us.openai.gpt-6-astra' };
+
+    // Every secret is stood in for, so the rule that a model signs in one way only is judged
+    // there too, and its issues sit on the secrets' own paths, which are not reported: a setup that
+    // has no key yet is complete. A problem with a setting must still be.
+    it('is complete without its secrets, whichever way it signs in', () => {
+      for (const auth of ['access-key', 'api-key']) {
+        expect(
+          registry.validateDefinition({
+            kind: 'bedrock-openai',
+            definition: { ...bedrock, auth },
+            host: HOST,
+          }),
+          auth,
+        ).toEqual([]);
+      }
+    });
+
+    it('still names a wrong setting, and a way of signing in that is not one', () => {
+      const problems = registry.validateDefinition({
+        kind: 'bedrock-openai',
+        definition: { auth: 'password', region: 'evil.example.com/', model: 'gpt-6-astra' },
+        host: HOST,
+      });
+
+      expect(fieldsOf(problems)).toEqual(expect.arrayContaining(['auth', 'region', 'model']));
+    });
+
+    it('refuses any of its secrets in the definition', () => {
+      const problems = registry.validateDefinition({
+        kind: 'bedrock-openai',
+        definition: { ...bedrock, accessKeyId: 'AKIDLEAK', sessionToken: 'tokenleak' },
+        host: HOST,
+      });
+
+      expect(fieldsOf(problems).sort()).toEqual(['accessKeyId', 'sessionToken']);
+      expect(JSON.stringify(problems)).not.toContain('LEAK');
+      expect(JSON.stringify(problems)).not.toContain('tokenleak');
+    });
+  });
+
   it('refuses an adapter it does not have', () => {
     expect(() => registry.validateDefinition({ kind: 'nope', definition: {}, host: HOST })).toThrow(
       'Unknown adapter: nope',

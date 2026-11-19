@@ -15,6 +15,9 @@ export const INFERENCE_PROFILE_PREFIXES = [
   'global',
 ] as const;
 
+/** The ways a Bedrock model signs in: a Bedrock API key, or an IAM access key pair. */
+export const AUTH_MODES = ['api-key', 'access-key'] as const;
+
 /**
  * For each way of signing in, the secrets it needs and the ones that go only with another way, so a
  * model signs in one way only. The session token is optional: only temporary credentials have one.
