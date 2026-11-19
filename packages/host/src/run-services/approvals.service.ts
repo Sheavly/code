@@ -1,3 +1,4 @@
+import type { ApprovalRequester } from '@sheavly/extension/run-services/run-services.types';
 import type { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import type { ApprovalConcern } from '@sheavly/protocol/approval/approval.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
@@ -11,7 +12,6 @@ import {
   MAX_REQUEST_CONCERNS,
 } from './run-services.constants.js';
 import type { ScopeGuard } from './scope-guard.service.js';
-import type { ApprovalRequester } from './run-services.types.js';
 
 type LooseConcern = Partial<Record<keyof ApprovalConcern, unknown>> | null;
 

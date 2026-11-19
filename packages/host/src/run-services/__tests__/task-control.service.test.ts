@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { BACKGROUND_TASKS, TASK_CONTROL } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
 import { TaskError } from '@sheavly/runtime/errors/tasks.errors';
 import { finiteWork, startWork } from '@sheavly/runtime/tasks/work.utils';
-
-import { ScopeArgumentError, ScopeDeactivatedError } from '../../errors/scopes.errors.js';
+import { ScopeArgumentError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
 import { waitingWork as waiting } from '../../testing/waiting-work.fake.js';
-import { BACKGROUND_TASKS, TASK_CONTROL } from '../run-services.utils.js';
 
 const unknown = taskIdSchema.parse('t99');
 const control = (name: string, grants: string[]) => ({

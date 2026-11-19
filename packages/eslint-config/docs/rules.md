@@ -112,6 +112,48 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   another module hands it; a registry module imported under a different specifier (a relative
   path into the package) is not matched; and what the manifest declares against what the code
   does is the host's activation check and review.
+- `harness/extension-public-contract` (source files of `extensions/*` workspaces, not tests or
+  fakes): `@sheavly/extension` is the contract between the app and the built-in extensions. An
+  extension may use as many other libraries as its own substance needs (core, protocol, workspace,
+  process, tools, the runtime's helpers, other extensions), but it does not reach the app through
+  the app's own package and it takes the contract from `@sheavly/extension`. Three things fail.
+  (1) Any import of `@sheavly/host` or a subpath of it: a static `import`, `import type`,
+  `export … from`, `export * from`, a dynamic `import('…')`, a type query
+  (`typeof import('…')`, `import('…').X`) and `import x = require('…')`, each with a literal (or
+  expression-free template) specifier. (2) An import, from another `@sheavly/…` package than
+  `@sheavly/extension`, of a name that package exposes as the contract, matched by the IMPORTED
+  name (`import { SESSION_INFO as S }` counts): the message gives the path to use instead. A
+  third-party library is not checked, since a name such as `MODEL` is generic. (3) An import of
+  test code in production source: a relative or `@sheavly/…` specifier with a `testing` folder
+  segment or a `.fake` file name (a `../testing/` path, an `@sheavly/workspace/testing/…`
+  subpath), in any form of (1), `import type` included. A fake is exempt
+  from these rules and may import the host, so production must not reach one: move what it needs
+  into production code. Files that are themselves tests or fakes are exempt. The names are not listed in the rule: they are read at
+  lint time (`extension-contract.utils.js`, cached by modification time) from what
+  `packages/extension/src/run-services/run-services.utils.ts` (the keys),
+  `packages/extension/src/run-services/run-services.types.ts` (types defined or re-exported) and
+  `packages/extension/src/errors/scopes.errors.ts` export, so a new key, type or error is covered with no edit. A missing,
+  non-regular or unparsable file adds no names and never crashes: check (2) then covers less, check
+  (1) needs no file. Allowed: anything from `@sheavly/extension/…`, and imports of other names from
+  core, protocol, runtime, workspace, process, tools or another extension; a name a file declares
+  itself is no import. The registries and builders of the runtime stay
+  `harness/extension-no-runtime-registries`'s. Tests assert both paths with RuleTester, a
+  throwaway package that gains a name, a tree with no package files, and that the real
+  `extensions/*` source has no report and the real contract list holds `SESSION_INFO`,
+  `SessionInfoView` and `ScopeDeactivatedError`. Limits: a non-literal dynamic `import(name)`,
+  `require(…)` and a `createRequire(…)(literal)` call are not seen; a relative specifier into
+  another workspace's source is not resolved to a package (only the `testing`/`.fake` check reads
+  it); an import hidden behind a type-only alias file (a local file re-exporting the name) is not
+  followed; matching is by name, not structure (a differently named identical type is a miss);
+  `export * from` is not followed in the package's own contract files (the host check does catch
+  it); a specifier written with unusual casing (`@Sheavly/Host`) is not matched. The rule is
+  enabled for `src/**/*.{ts,tsx}` of an extension workspace only: `.js`, `.cjs`, `.mts`, `.cts`
+  files and files outside `src/` are not linted (`SOURCE_FILES` is shared by every rule, so it is
+  not widened for this one). The `testing` folder segment and the `.fake` file name are matched
+  case-sensitively, a `.fake.d.ts` file is not caught, and a `#` subpath import is not seen. The
+  dependency kind of `@sheavly/host` in an extension's `package.json` is not checked here but by
+  the layout check (`npm run layout`, `scripts/check-layout.mjs`, next to the provider check): an
+  extension may list the host only in `devDependencies`.
 - `harness/extension-options-use-services` (source files of `extensions/*` workspaces, not tests):
   a type alias or interface named `*ExtensionOptions` carries the embedding app's choices, never
   run state. Each member (a property, a method, an index, call or construct signature) whose declared
@@ -124,8 +166,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   (`Partial<SessionRegistry>`, reported under the alias name), an `extends` entry of an interface,
   and a generic parameter's constraint or default. Otherwise a built-in extension would again get
   from the app what a third party cannot. The service types are read at lint time from the
-  `defineService<Type>('name')` calls of the host's
-  `packages/host/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
+  `defineService<Type>('name')` calls of the extension package's
+  `packages/extension/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
   type name are joined with `or`), so a new service is covered with no edit; primitives are
   ignored. Every exported `type X = A & B` of `packages/core/src/output/output.types.ts` whose
   members are all service types (`OutputStore = OutputReader & OutputCapture`) is refused too, with
@@ -162,7 +204,16 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   callbacks are exempt, since their caller fixes the signature; so are test files.
 - **Named exports only** (`harness/no-default-export`): no default exports, so imports and renames
   stay greppable.
-- **No barrels** (`harness/no-barrel`): no re-exports; import from the defining file.
+- **No barrels** (`harness/no-barrel`): no re-exports; import from the defining file. The one
+  exception is a `*.types.ts` file re-exporting, by name, types ANOTHER PACKAGE exposes
+  (`export type { A, B as C } from '@pkg/…'`): a package's public contract types file can expose
+  types it builds on without a second definition, and `harness/single-definition` accepts it
+  because the owner is the source. A relative source (`'./a.types.js'`), a `#` subpath import
+  and an absolute path are refused even there: a types file listing its siblings' types is a
+  barrel by another name. Still rejected there: `export { x } from` (a value), `export *`, `export * as ns` and `export type *`
+  (a wildcard hides what is re-exported), and the inline form `export { type A } from` (a value
+  re-export statement). A type re-export in any other kind (`*.utils.ts`, `*.helper.ts`,
+  `index.ts`) fails too.
 - **Env only in apps** (`harness/no-process-env`, `src/` files of packages; tests and apps are
   exempt): no `process.env` or `process.loadEnvFile`. An app reads env and passes `process.env` in.
 - **`type`, not `interface`**, and caught errors are named `caughtError`.

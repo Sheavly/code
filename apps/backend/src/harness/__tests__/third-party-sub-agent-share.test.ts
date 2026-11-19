@@ -10,8 +10,8 @@ import {
   ExtensionGrantError,
   ExtensionUndeclaredError,
 } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
 import { fakeTool } from '@sheavly/extension/testing/extension.fake';
-import { ScopeDeactivatedError } from '@sheavly/host/errors/scopes.errors';
 import { until } from '@sheavly/testing/wait/until.fake';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';
 import { subAgentRun } from '../../testing/prompt-run.fake.js';
@@ -110,7 +110,7 @@ describe.each(PROBE_KINDS)('$label extension sharing with sub-agents', ({ origin
       expect(toolNames(sub)).toContain('free');
     });
 
-    it('throws the host’s deactivated error from share once the main session has ended', async () => {
+    it('throws the deactivated error from share once the main session has ended', async () => {
       const { harness, scopes } = await openSharers(GRANTS_WITH_SHARE);
       const isDeactivated = () => {
         try {

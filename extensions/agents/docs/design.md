@@ -8,7 +8,7 @@ The session metadata, the sub-agents it owns, its background tasks, the task con
 the composed instructions and the optional output reader reach `activate` as scoped run services:
 `services.get(SESSION_INFO)`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`, `TASK_CONTROL`, `MODEL`,
 `INSTRUCTIONS` and `services.find(OUTPUT_READER)`, all keys of
-`@sheavly/host/run-services/run-services.utils`. The app supplies them with `runServices`; nothing
+`@sheavly/extension/run-services/run-services.utils`. The app supplies them with `runServices`; nothing
 is injected into this extension that a third-party extension could not read the same way, and
 what each can do for it is what its `sheavly.json` `grants` list: `session:read`,
 `sub-agent:create|message|observe|report`, `task:start|read|cancel` (the tasks it started),

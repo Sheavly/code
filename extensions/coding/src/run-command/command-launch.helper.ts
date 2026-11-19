@@ -1,9 +1,11 @@
 import { ToolCallError } from '@sheavly/core/errors/tool.errors';
 import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
-import type { OutputCapture } from '@sheavly/core/output/output.types';
+import type {
+  OutputCapture,
+  TaskStarter,
+} from '@sheavly/extension/run-services/run-services.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskStarter } from '@sheavly/runtime/tasks/task-scope.types';
 import type { WorkDefinition, WorkInput } from '@sheavly/runtime/tasks/work.types';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';

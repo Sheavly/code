@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { CHILD_SESSIONS } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
-import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
-import { CHILD_SESSIONS } from '../run-services.utils.js';
 
 const call = (id: string) => callIdSchema.parse(id);
 // Typed as a session id, the value is the one a user's message carries.

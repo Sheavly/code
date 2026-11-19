@@ -27,9 +27,6 @@
       "path": "../../packages/runtime/tsconfig.build.json"
     },
     {
-      "path": "../../packages/host/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/process/tsconfig.build.json"
     },
     {

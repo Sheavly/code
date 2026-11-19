@@ -1,6 +1,6 @@
 import type { DocumentStore } from '@sheavly/core/store/store.types';
+import type { SessionInfoView } from '@sheavly/extension/run-services/run-services.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { SessionInfoView } from '@sheavly/runtime/sessions/session-scope.types';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import {
   createFileReadsKeeper,

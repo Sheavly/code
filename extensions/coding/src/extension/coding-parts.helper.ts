@@ -4,7 +4,7 @@ import {
   APPROVALS,
   BACKGROUND_TASKS,
   MAIN_SESSION,
-} from '@sheavly/host/run-services/run-services.utils';
+} from '@sheavly/extension/run-services/run-services.utils';
 import { ProcessRunner } from '@sheavly/process/process/process.service';
 import { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';

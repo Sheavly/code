@@ -1,7 +1,7 @@
 import type {
   SessionInfoView,
   SessionLifecycleUpdate,
-} from '@sheavly/runtime/sessions/session-scope.types';
+} from '@sheavly/extension/run-services/run-services.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { SessionUpdate } from '@sheavly/protocol/session/session.types';
 import type { ScopeGuard } from './scope-guard.service.js';

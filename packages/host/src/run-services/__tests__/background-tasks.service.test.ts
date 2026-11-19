@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { BACKGROUND_TASKS } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
@@ -7,10 +9,8 @@ import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { TaskError } from '@sheavly/runtime/errors/tasks.errors';
 import { finiteWork } from '@sheavly/runtime/tasks/work.utils';
-import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
 import { waitingWork as waiting } from '../../testing/waiting-work.fake.js';
-import { BACKGROUND_TASKS } from '../run-services.utils.js';
 
 const unknown = taskIdSchema.parse('t99');
 const nowhere = sessionIdSchema.parse('nowhere');

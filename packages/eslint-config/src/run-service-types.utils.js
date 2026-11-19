@@ -1,13 +1,13 @@
-// The types the host's run services carry, read from the file that defines them, so a rule can't
-// drift from the services: every `export const KEY = defineService<Type>('name')` in the host's
-// run-services file maps `Type` to `KEY`. Primitives (`string`) are services too, but a primitive
-// is never a registry, so only named types are kept.
+// The types the run services carry, read from the file that defines them, so a rule can't drift
+// from the services: every `export const KEY = defineService<Type>('name')` in the extension
+// package's run-services file maps `Type` to `KEY`. Primitives (`string`) are services too, but a
+// primitive is never a registry, so only named types are kept.
 import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import tseslint from 'typescript-eslint';
 
-/** Where the host defines its run services, from the repo root. */
-export const RUN_SERVICES_FILE = 'packages/host/src/run-services/run-services.utils.ts';
+/** Where the run-service keys are defined, from the repo root: the extension package holds them. */
+export const RUN_SERVICES_FILE = 'packages/extension/src/run-services/run-services.utils.ts';
 
 /** Where the output types are defined, from the repo root: `OutputStore` bundles two services. */
 export const CORE_OUTPUT_FILE = 'packages/core/src/output/output.types.ts';

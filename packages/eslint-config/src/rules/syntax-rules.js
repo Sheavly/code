@@ -69,13 +69,6 @@ export const SYNTAX_RULES = {
       message: PARAMS_OBJECT_MESSAGE,
     },
   ],
-  'no-barrel': [
-    {
-      selector: 'ExportAllDeclaration, ExportNamedDeclaration[source]',
-      message:
-        "No re-exports (barrels). Import from the defining `<name>.<kind>.ts` file, or a package's exported subpath (`@sheavly/core/tool/tool.utils`).",
-    },
-  ],
   // The harness is a backend: it emits typed events and registries, and renders nothing. Only an
   // app (a workspace in apps/) is exempt; `baseConfig` reads that from where it is.
   'no-terminal-io': [

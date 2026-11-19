@@ -6,7 +6,7 @@ import type {
 } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { OUTPUT_CAPTURE, SESSION_INFO } from '@sheavly/host/run-services/run-services.utils';
+import { OUTPUT_CAPTURE, SESSION_INFO } from '@sheavly/extension/run-services/run-services.utils';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import {
   forgetReleasedAgents,

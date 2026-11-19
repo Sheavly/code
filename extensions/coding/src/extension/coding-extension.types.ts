@@ -1,9 +1,9 @@
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { DocumentStore } from '@sheavly/core/store/store.types';
+import type { TaskStarter } from '@sheavly/extension/run-services/run-services.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
-import type { TaskStarter } from '@sheavly/runtime/tasks/task-scope.types';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { FileReads } from '@sheavly/workspace/file-reads/file-reads.service';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';

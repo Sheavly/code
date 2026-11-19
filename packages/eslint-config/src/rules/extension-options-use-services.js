@@ -1,7 +1,7 @@
 // An extension's options carry the embedding app's choices, never run state: the host already
 // supplies sessions, tasks, the provider and the rest as services every extension reads, so an
 // option of such a type gives a built-in what a third party cannot get. The service types are read
-// from the host's run-services file (`run-service-types.utils.js`), never listed here, and only
+// from the extension package's run-services file (`run-service-types.utils.js`), never listed here, and only
 // types named `*ExtensionOptions` are checked. The registries the host's `Harness` type carries
 // (`SessionRegistry`, `TaskRegistry`, `ApprovalRegistry`), read from `host.types.ts`, are refused
 // too: the run-service keys now carry scope types, so the registries are no service type.

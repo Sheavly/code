@@ -18,9 +18,6 @@
       "path": "../../packages/extension/tsconfig.build.json"
     },
     {
-      "path": "../../packages/host/tsconfig.build.json"
-    },
-    {
       "path": "../../packages/tools/tsconfig.build.json"
     }
   ],

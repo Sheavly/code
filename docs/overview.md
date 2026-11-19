@@ -60,8 +60,10 @@ flowchart BT
     backend["@sheavly/backend"]
     terminal["@sheavly/terminal"]
   end
-  agents --> host
+  agents --> extension
+  agents --> tools
   backend --> coding
+  backend --> host
   backend --> providers
   backend --> storage
   backend --> summary
@@ -71,7 +73,7 @@ flowchart BT
   coding --> process
   coding --> workspace
   core --> protocol
-  extension --> core
+  extension --> runtime
   host --> extension
   host --> loop
   host --> tools

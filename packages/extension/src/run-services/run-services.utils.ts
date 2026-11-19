@@ -1,12 +1,12 @@
 import type { OutputCapture, OutputReader } from '@sheavly/core/output/output.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import { defineService } from '@sheavly/extension/extension/extension.utils';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type {
   ChildSessionScope,
   SessionInfoView,
 } from '@sheavly/runtime/sessions/session-scope.types';
 import type { BackgroundTaskScope, TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
+import { defineService } from '../extension/extension.utils.js';
 import type { ApprovalRequester, SystemPromptView } from './run-services.types.js';
 
 /**

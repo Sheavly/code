@@ -322,7 +322,7 @@ describe('the service types are read from the run-services file, not listed', ()
     expect(types.size).toBe(6);
   });
 
-  it("finds the host's run services in this repo", () => {
+  it("finds the extension package's run-service keys in this repo", () => {
     const types = readRunServiceTypes(REPO_ROOT);
 
     expect(types.get('SessionInfoView')).toBe('SESSION_INFO');

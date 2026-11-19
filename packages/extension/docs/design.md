@@ -2,7 +2,8 @@
 
 `@sheavly/extension` is the one place the extension lifecycle lives: the contract extensions are
 written against, and the host an app uses to run them. It is generic and depends on `@sheavly/core`
-only (it needs `Tool` and `Hook` for what an extension contributes). Extensions and apps depend on
+(it needs `Tool` and `Hook` for what an extension contributes), `@sheavly/protocol` and, for types
+only, `@sheavly/runtime` (see "The run-service keys"). Extensions and apps depend on
 it; core and `@sheavly/host` know nothing about extensions. The rules an extension author follows
 are in the `sheavly` skill's `extensions.md`; this page is how the package is built.
 
@@ -44,8 +45,16 @@ and the host's behaviour builds on them:
   proposes entries it computed itself asks `keepsFit` first and, when they do not fit, asks without
   keeping anything. The host's scope imports the same definition, so the limits live in one place.
 
-The service keys still come from `@sheavly/host/run-services/run-services.utils` and the scope
-views from the runtime: this package sits below the runtime in the graph, so it cannot hold them.
+## The run-service keys
+
+`run-services/` holds the keys of the services the host supplies (`SESSION_INFO`,
+`BACKGROUND_TASKS`, `APPROVALS` and the rest) with the names a manifest lists in
+`services.requires`, and the types they carry: the ones only the host defined (`ApprovalRequester`,
+`SystemPromptView`) are defined here, and the scope views the runtime and core define are
+re-exported as types, so an extension imports its whole contract from this package. That is why the
+package depends on `@sheavly/runtime`, for types only (`import type`): the runtime depends on core
+and protocol and never on this package, so there is no cycle. `@sheavly/host` still has its own
+copies of the keys until its consumers switch; services match by name, so both coexist.
 
 ## No category, no policy
 

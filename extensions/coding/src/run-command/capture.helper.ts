@@ -1,5 +1,6 @@
 import { OutputError } from '@sheavly/core/errors/output.errors';
-import type { OutputCapture, OutputWriter } from '@sheavly/core/output/output.types';
+import type { OutputWriter } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/extension/run-services/run-services.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
 import { errorCode } from '@sheavly/runtime/errors/errors.utils';
 import type { Capture } from './run-command.types.js';

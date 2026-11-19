@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import {
+  MODEL,
+  OUTPUT_CAPTURE,
+  OUTPUT_READER,
+} from '@sheavly/extension/run-services/run-services.utils';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
-import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
-import { MODEL, OUTPUT_CAPTURE, OUTPUT_READER } from '../run-services.utils.js';
 
 const outputs = [OUTPUT_READER.name, OUTPUT_CAPTURE.name];
 const both = { name: 'a', requires: outputs, grants: ['output:read', 'output:capture'] };

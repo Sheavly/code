@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
-import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
-import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
-import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
-import { createHarness } from '../../host/host.helper.js';
-import { scopeRun } from '../../testing/scope-run.fake.js';
-import { runServices } from '../run-services.helper.js';
 import {
   APPROVALS,
   BACKGROUND_TASKS,
@@ -17,7 +11,13 @@ import {
   OUTPUT_READER,
   SESSION_INFO,
   TASK_CONTROL,
-} from '../run-services.utils.js';
+} from '@sheavly/extension/run-services/run-services.utils';
+import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
+import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
+import { createHarness } from '../../host/host.helper.js';
+import { scopeRun } from '../../testing/scope-run.fake.js';
+import { runServices } from '../run-services.helper.js';
 
 const harness = () => createHarness({ provider: routedProvider({ go: [say('ok')] }), title: 'go' });
 

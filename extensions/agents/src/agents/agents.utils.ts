@@ -1,7 +1,7 @@
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
 import type { ServiceConsumer } from '@sheavly/extension/extension/extension.types';
 import { defineService } from '@sheavly/extension/extension/extension.utils';
 import { requireGrant } from '@sheavly/extension/extension/grants.utils';
-import { ScopeDeactivatedError } from '@sheavly/host/errors/scopes.errors';
 import { SubAgentShareError } from '../errors/agents.errors.js';
 import { OWN_SUB_AGENT_TOOLS, SUB_AGENT_SHARE_GRANT } from './agents.constants.js';
 import type {

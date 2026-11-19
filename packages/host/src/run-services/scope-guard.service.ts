@@ -1,6 +1,6 @@
 import { requireGrant } from '@sheavly/extension/extension/grants.utils';
 import type { ServiceConsumer } from '@sheavly/extension/extension/extension.types';
-import { ScopeDeactivatedError } from '../errors/scopes.errors.js';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
 
 /**
  * What every scoped run service of one extension shares: the grants its manifest declared (read

@@ -2,11 +2,16 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HARNESS_TYPES_FILE } from '../harness-registry-types.utils.js';
 import { harnessPlugin } from '../plugin.js';
-import { repoRuleLinter, ruleIsErrorOn } from '../testing/coding-rule.fake.js';
+import { repoRuleLinter } from '../testing/coding-rule.fake.js';
+import {
+  describeRuleIsOnInExtensions,
+  EXTENSION_WORKSPACES as workspaces,
+  messagesOfText,
+  violationsInExtensions,
+} from '../testing/extension-rule.fake.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 import { tempWorkspace } from '../testing/workspace.fake.js';
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
 const RULE = 'harness/extension-no-runtime-registries';
 const SESSIONS = '@sheavly/runtime/sessions/sessions.service';
 const TASKS = '@sheavly/runtime/tasks/tasks.service';
@@ -20,13 +25,6 @@ import type { SessionRegistry } from '${SESSIONS}';
 import type { TaskRegistry } from '${TASKS}';
 export type Harness = { provider: Provider; sessions: SessionRegistry; tasks: TaskRegistry; approvals: ApprovalRegistry };
 `;
-const manifest = (name, domain) => ({ name, sheavly: { domain } });
-const workspaces = {
-  'package.json': { name: 'monorepo', workspaces: ['apps/*', 'extensions/*', 'packages/*'] },
-  'apps/cli/package.json': manifest('@sheavly/cli', 'coding'),
-  'extensions/web/package.json': manifest('@sheavly/web', 'generic'),
-  'packages/base/package.json': manifest('@sheavly/base', 'generic'),
-};
 const root = tempWorkspace({ ...workspaces, [HARNESS_TYPES_FILE]: HOST_TYPES });
 const bare = tempWorkspace(workspaces);
 const options = [{ root }];
@@ -131,58 +129,34 @@ typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' }).run(
   },
 );
 
-/** The rule's messages for one linted file, each with the file's path from the repo root. */
-function violationsOf(result) {
-  const file = path.relative(REPO_ROOT, result.filePath);
-
-  return result.messages
-    .filter((message) => message.ruleId === RULE)
-    .map((message) => `${file}: ${message.message}`);
-}
-
 describe('the rule has no exceptions, over this repo', () => {
   const eslint = repoRuleLinter(RULE);
 
   it('finds no violation in the source of any extension', async () => {
-    const results = await eslint.lintFiles(['extensions/*/src/**/*.ts']);
-
-    expect(results.flatMap(violationsOf)).toEqual([]);
+    expect(await violationsInExtensions({ eslint, rule: RULE })).toEqual([]);
   });
 
   it('fails a file shaped like a harness builder: a value import of createHarness', async () => {
-    const [result] = await eslint.lintText(
-      `import { createHarness } from '${HOST_HELPER}';\nexport const harness = createHarness({});`,
-      { filePath: path.join(REPO_ROOT, 'extensions/coding/src/extension/coding.helper.ts') },
-    );
+    const messages = await messagesOfText({
+      eslint,
+      code: `import { createHarness } from '${HOST_HELPER}';\nexport const harness = createHarness({});`,
+      file: 'extensions/coding/src/extension/coding.helper.ts',
+    });
 
-    expect(result.messages).toHaveLength(1);
-    expect(result.messages[0]?.ruleId).toBe(RULE);
-    expect(result.messages[0]?.message).toContain(HOST_HELPER);
+    expect(messages.map((message) => message.ruleId)).toEqual([RULE]);
+    expect(messages[0]?.message).toContain(HOST_HELPER);
   });
 
   it("reports a registry import in any extension file, with this repo's own host types", async () => {
-    const [result] = await eslint.lintText(`import { TaskRegistry } from '${TASKS}';`, {
-      filePath: path.join(REPO_ROOT, 'extensions/web/src/web/not-listed.helper.ts'),
+    const messages = await messagesOfText({
+      eslint,
+      code: `import { TaskRegistry } from '${TASKS}';`,
+      file: 'extensions/web/src/web/not-listed.helper.ts',
     });
 
-    expect(result.messages).toHaveLength(1);
-    expect(result.messages[0]?.message).toContain(TASKS);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]?.message).toContain(TASKS);
   });
 });
 
-describe('harness/extension-no-runtime-registries is on', () => {
-  const where = [
-    ['extensions/agents', 'src/x/x.helper.ts', true],
-    ['extensions/web', 'src/x/x.helper.ts', true],
-    ['extensions/coding', 'src/x/x.helper.ts', true],
-    ['extensions/web', 'src/web/__tests__/web.helper.test.ts', false],
-    ['packages/host', 'src/x/x.helper.ts', false],
-    ['apps/backend', 'src/x/x.helper.ts', false],
-  ];
-
-  it.each(where)('%s %s: %s', async (...row) => {
-    const [folder, file, expected] = row;
-
-    expect(await ruleIsErrorOn({ rule: RULE, folder, file })).toBe(expected);
-  });
-});
+describeRuleIsOnInExtensions(RULE);

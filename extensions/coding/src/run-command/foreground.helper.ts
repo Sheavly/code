@@ -1,5 +1,5 @@
 import { outputReferenceLines } from '@sheavly/core/output/output.utils';
-import type { OutputCapture } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/extension/run-services/run-services.types';
 import type { OutputLog } from '@sheavly/protocol/output/output.types';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';
 import type { ScriptParams } from '@sheavly/process/process/process.types';

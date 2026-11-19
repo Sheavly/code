@@ -1,13 +1,15 @@
 import type { SubAgentScope } from '@sheavly/agents/agents/agents.types';
-import type { OutputCapture, OutputReader } from '@sheavly/core/output/output.types';
 import type { Provider } from '@sheavly/core/provider/provider.types';
-import type { ApprovalRequester } from '@sheavly/host/run-services/run-services.types';
-import type { SessionRef } from '@sheavly/protocol/session/session.types';
 import type {
+  ApprovalRequester,
+  BackgroundTaskScope,
   ChildSessionScope,
+  OutputCapture,
+  OutputReader,
   SessionInfoView,
-} from '@sheavly/runtime/sessions/session-scope.types';
-import type { BackgroundTaskScope, TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
+  TaskControl,
+} from '@sheavly/extension/run-services/run-services.types';
+import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
 /** Test-only: the scoped services a scope probe extension was given when the run activated it. */
 export type ProbeScopes = {

@@ -8,10 +8,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ContributionCollisionError } from '@sheavly/extension/errors/extension.errors';
-import {
-  ApprovalToolNotContributedError,
-  ScopeDeactivatedError,
-} from '@sheavly/host/errors/scopes.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { ApprovalToolNotContributedError } from '@sheavly/host/errors/scopes.errors';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { listenAndAnswer } from '../../testing/approval-ui.fake.js';
 import { useBackendRuns } from '../../testing/backend-run.fake.js';

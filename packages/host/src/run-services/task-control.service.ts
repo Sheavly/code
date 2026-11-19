@@ -1,5 +1,5 @@
+import type { TaskControl } from '@sheavly/extension/run-services/run-services.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { ScopeArgumentError } from '../errors/scopes.errors.js';
 import type { ScopeGuard } from './scope-guard.service.js';

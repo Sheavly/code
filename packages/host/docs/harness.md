@@ -51,7 +51,8 @@ A UI that composes its run from extensions (`@sheavly/extension`) hands the harn
 of them the same way: `runServices({ harness, outputs, runSession })` (`run-services/`, in
 `run-services.helper.ts`; `runSession` is the loop's runner) returns it as `hostService` entries
 for `ExtensionHostOptions.services`. Every extension then reads it in `activate` without a
-`dependsOn`, a built-in one no differently from a third-party one.
+`dependsOn`, a built-in one no differently from a third-party one. The keys are defined in
+`@sheavly/extension/run-services/run-services.utils`; the host implements them.
 
 | Key (`run-services.utils`) | Value                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------- |

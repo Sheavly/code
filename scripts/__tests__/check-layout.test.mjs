@@ -279,6 +279,59 @@ describe('the layout check', () => {
     ).toEqual([]);
   });
 
+  describe('an extension and the host', () => {
+    /** A well-formed workspace moved under `extensions/`, with the manifest fields given. */
+    const extension = (manifest) => ({
+      ...Object.fromEntries(
+        Object.entries(
+          wellFormed('notes', { files: [...PUBLISHED.files, 'sheavly.json'], ...manifest }),
+        ).map(([file, content]) => [file.replace('packages/', 'extensions/'), content]),
+      ),
+      'extensions/notes/sheavly.json': json({ name: 'notes' }),
+    });
+    const withHost = (files) =>
+      problems({
+        'package.json': json({
+          name: 'monorepo',
+          workspaces: ['packages/*', 'apps/*', 'extensions/*'],
+        }),
+        ...wellFormed('host'),
+        ...files,
+      });
+
+    it('fails an extension with the host in dependencies, optionalDependencies or peerDependencies', () => {
+      for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+        expect(withHost(extension({ [field]: { '@sheavly/host': '0' } }))).toEqual([
+          expect.stringContaining(
+            `@sheavly/notes lists @sheavly/host under ${field}: an extension takes the contract from @sheavly/extension and may use the host only in its tests. Move @sheavly/host to devDependencies.`,
+          ),
+        ]);
+      }
+    });
+
+    it('accepts the host as a dev dependency, and any other run-time dependency', () => {
+      expect(withHost(extension({ devDependencies: { '@sheavly/host': '0' } }))).toEqual([]);
+      expect(withHost(extension({ dependencies: { '@sheavly/base': '0' } }))).toEqual([]);
+    });
+
+    it('leaves an app depending on the host alone', () => {
+      expect(
+        withHost({
+          'apps/cli/package.json': json({
+            name: '@sheavly/cli',
+            sheavly: { domain: 'coding' },
+            dependencies: { '@sheavly/host': '0' },
+          }),
+          'apps/cli/eslint.config.js': ESLINT,
+          'apps/cli/tsconfig.json': TSCONFIG,
+          'apps/cli/src/main.ts': 'export {};\n',
+          'apps/cli/README.md': '# cli\n\n- [Design](docs/design.md)\n',
+          'apps/cli/docs/design.md': '# Design\n',
+        }),
+      ).toEqual([]);
+    });
+  });
+
   it('fails a workspace with no README, no docs/, or a doc its README never links', () => {
     expect(problems({ 'packages/base/README.md': null })).toEqual([
       expect.stringContaining('packages/base/README.md is missing'),

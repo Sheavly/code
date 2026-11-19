@@ -1,7 +1,7 @@
+import type { BackgroundTaskScope } from '@sheavly/extension/run-services/run-services.types';
 import type { TaskId } from '@sheavly/protocol/task/task.types';
 import { TaskError } from '@sheavly/runtime/errors/tasks.errors';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
-import type { BackgroundTaskScope } from '@sheavly/runtime/tasks/task-scope.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { TaskObserver } from '@sheavly/runtime/tasks/tasks.types';
 import { missingTaskMessage } from '@sheavly/runtime/tasks/tasks.utils';

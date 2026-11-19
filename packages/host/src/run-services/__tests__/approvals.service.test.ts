@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { APPROVALS } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
-import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
 import { approveAll } from '../../testing/approve-all.fake.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
 import { MAX_CONCERN_TEXT_CHARS, MAX_REQUEST_CONCERNS } from '../run-services.constants.js';
-import { APPROVALS } from '../run-services.utils.js';
 
 const asker = { name: 'asker', requires: [APPROVALS.name], grants: ['approval:request'] };
 const blind = { name: 'blind', requires: [APPROVALS.name], grants: [] };

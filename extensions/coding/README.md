@@ -33,7 +33,8 @@ const coding = createCodingExtension({
 ```
 
 The extension integrates like a third party, with no access one lacks (`origin` only gates
-loading). It reads the run services under its declared grants: `SESSION_INFO` (the main session's
+loading). It reads the run services under its declared grants, with the keys and types imported
+from `@sheavly/extension/run-services/run-services.utils` and `.types`: `SESSION_INFO` (the main session's
 idle keeps its file reads, a released session's reads are forgotten), `BACKGROUND_TASKS` (the
 tasks `run_command` and `start_service` start, owned by its scope), `APPROVALS` (the approval
 prompt; `approval:as-tool` lets it ask as `run_command` or `start_service`, and `approval:keep`

@@ -68,6 +68,32 @@ service's own. `grants` is the list the host builds its grant catalogue from (se
 `requireGrant` (`@sheavly/extension/extension/grants.utils`) is the one check a scope method makes,
 for a host service and for [one an extension provides](#services-an-extension-provides-per-consumer).
 
+### Where the run-service keys live and how an extension imports them
+
+The keys of the services the host supplies are in this package, so an extension imports the
+contract and the keys from `@sheavly/extension` alone:
+
+```ts
+import { BACKGROUND_TASKS, SESSION_INFO } from '@sheavly/extension/run-services/run-services.utils';
+import type { BackgroundTaskScope } from '@sheavly/extension/run-services/run-services.types';
+```
+
+`run-services.utils` holds `INSTRUCTIONS` (`instructions`), `MAIN_SESSION` (`main-session`),
+`APPROVALS` (`approvals`), `SESSION_INFO` (`session-info`), `CHILD_SESSIONS` (`child-sessions`),
+`BACKGROUND_TASKS` (`background-tasks`), `TASK_CONTROL` (`task-control`), `OUTPUT_READER`
+(`output-reader`), `OUTPUT_CAPTURE` (`output-capture`) and `MODEL` (`model`). The name is what a
+manifest lists in `services.requires` or `optional`, so it is a contract: a test pins each one.
+The doc comment of each key says which grants apply. A service matches by name, not by key object.
+
+`run-services.types` defines `ApprovalRequester`, `ExtensionApprovalRequest` and
+`SystemPromptView`, and re-exports as types the views the keys carry, which the runtime and core
+define: `SessionInfoView`, `SessionLifecycleUpdate`, `ChildSessionScope`, `RunChildParams`,
+`RunChildResult`, `BackgroundTaskScope`, `TaskStarter`, `TaskControl`, `OutputReader` and
+`OutputCapture`. They are imported with `import type`, so the package depends on
+`@sheavly/runtime` for types only. The values are still made by `@sheavly/host`. A
+`ScopeDeactivatedError` (`@sheavly/extension/errors/scopes.errors`) is what a scope throws when it
+is used after its extension stopped.
+
 The harness's run state reaches extensions this way: `@sheavly/host` has `runServices`, which turns
 a harness into scoped host services (`SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`, `APPROVALS` and the rest), so a
 built-in extension has no more access than a third-party one. See
@@ -80,6 +106,25 @@ extension declares, but an extension is Node code and can still use `fs`, `fetch
 is the `origin: 'project'` trust gate, which gates loading and is read by no service, and `origin`
 is declared by whatever loads the extension, not by the extension. A loader for repo code (#332)
 must set `origin: 'project'` itself.
+
+### An extension built from public exports only
+
+`src/host/__tests__/outside-consumer.test.ts` writes a third-party extension (its own
+`sheavly.json` and one TypeScript file) into a temp directory outside every package's sources,
+links only `@sheavly/extension`, `@sheavly/core`, `@sheavly/protocol` and `zod` into its
+`node_modules`, type-checks it with the TypeScript compiler under the repo's `tsconfig.base.json`
+options (`nodenext`, the `@sheavly/source` condition, every strict flag) and runs it through an
+`ExtensionHost` that supplies `SESSION_INFO`. It proves that the keys, types, `defineExtension`,
+`defineTool`, `defineHook`, `readManifest` and `ScopeDeactivatedError` are reachable through the
+packages' `exports` maps alone, that the extension activates and contributes, and that its read of
+the scoped service works with the `session:read` grant and fails with an
+`ExtensionUndeclaredError` without it. It does not prove that the exports are the right API, the
+published `dist` layout (it reads source through the condition), or anything about code that
+reaches the runtime by a path the maps expose to every importer. It also does not link
+`@sheavly/runtime`, though this package's types import runtime types (`ApprovalRegistry['request']`
+is behind `ApprovalRequester`): TypeScript resolves runtime from the symlink's real path inside
+the repo, so the test cannot show that an author who installs only the four linked packages
+resolves those types.
 
 ## Services an extension provides per consumer
 

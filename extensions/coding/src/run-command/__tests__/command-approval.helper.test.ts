@@ -8,6 +8,7 @@ import { answeringUi } from '@sheavly/runtime/testing/approvals.fake';
 import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake';
 import { testPermissions } from '../../testing/permissions.fake.js';
+import { approvalRequesterOf } from '../../testing/approval-requester.fake.js';
 import { createRunCommandTool } from '../run-command.tool.js';
 
 const temp = useTempWorkspace({ prefix: 'run-command-permissions-', files: { 'src/a.ts': 'a' } });
@@ -23,7 +24,7 @@ const run = (params: {
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: params.permissions,
-        approvals: params.approvals,
+        approvals: params.approvals && approvalRequesterOf(params.approvals),
       }),
     ],
     call: {

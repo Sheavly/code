@@ -14,7 +14,7 @@ import {
   OUTPUT_READER,
   SESSION_INFO,
   TASK_CONTROL,
-} from '@sheavly/host/run-services/run-services.utils';
+} from '@sheavly/extension/run-services/run-services.utils';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { finiteWork } from '@sheavly/runtime/tasks/work.utils';
 import { manifestOf } from './manifest.fake.js';

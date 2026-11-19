@@ -17,6 +17,7 @@ import type { Message } from '@sheavly/protocol/message/message.types';
 import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { testPermissions } from '../../testing/permissions.fake.js';
+import { approvalRequesterOf } from '../../testing/approval-requester.fake.js';
 
 const c1 = callIdSchema.parse('c1');
 
@@ -35,7 +36,7 @@ const tool = (approvals: ApprovalRegistry, permissions = testPermissions({ mode:
     processes: testProcesses(),
     workspace: temp.workspace,
     permissions,
-    approvals,
+    approvals: approvalRequesterOf(approvals),
   });
 
 /** The model asks for `command` once, then ends. Records what each model call was sent. */
@@ -111,7 +112,7 @@ describe('approval flow through the loop', () => {
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions({ mode: 'always_ask' }),
-        approvals,
+        approvals: approvalRequesterOf(approvals),
         tasks: new TaskRegistry(),
       };
       const result = await runTool({
