@@ -64,6 +64,8 @@ with `requireGrant` and a consumer of it. `assertServiceEnforcesGrants`
 (`@sheavly/extension/testing/service-grants.fake`) is what a provider's tests call: for each grant
 its manifest declares for a service, the call listed for it must refuse a consumer without it
 (see [Services](docs/services.md#services-an-extension-provides-per-consumer)).
+`outside-consumer.test.ts` builds, type-checks and runs an extension from public exports only (see
+[Services](docs/services.md#an-extension-built-from-public-exports-only)).
 
 ## Docs
 

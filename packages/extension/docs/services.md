@@ -107,6 +107,21 @@ is the `origin: 'project'` trust gate, which gates loading and is read by no ser
 is declared by whatever loads the extension, not by the extension. A loader for repo code (#332)
 must set `origin: 'project'` itself.
 
+### An extension built from public exports only
+
+`src/host/__tests__/outside-consumer.test.ts` writes a third-party extension (its own
+`sheavly.json` and one TypeScript file) into a temp directory outside every package's sources,
+links only `@sheavly/extension`, `@sheavly/core`, `@sheavly/protocol` and `zod` into its
+`node_modules`, type-checks it with the TypeScript compiler under the repo's `tsconfig.base.json`
+options (`nodenext`, the `@sheavly/source` condition, every strict flag) and runs it through an
+`ExtensionHost` that supplies `SESSION_INFO`. It proves that the keys, types, `defineExtension`,
+`defineTool`, `defineHook`, `readManifest` and `ScopeDeactivatedError` are reachable through the
+packages' `exports` maps alone, that the extension activates and contributes, and that its read of
+the scoped service works with the `session:read` grant and fails with an
+`ExtensionUndeclaredError` without it. It does not prove that the exports are the right API, the
+published `dist` layout (it reads source through the condition), or anything about code that
+reaches the runtime by a path the maps expose to every importer.
+
 ## Services an extension provides per consumer
 
 `provide(key, value)` hands every reader one shared value, so the provider cannot know who calls
