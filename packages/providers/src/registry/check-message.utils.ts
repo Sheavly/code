@@ -16,6 +16,10 @@ export function checkHttpMessage(params: {
     return 'HTTP 429: Rate limited. Wait and retry, or check your provider quota.';
   }
 
+  const signed = host === 'bedrock' ? signatureMessage({ status, message }) : undefined;
+
+  if (signed) return signed;
+
   if (host === 'bedrock' && (status === 403 || status === 404)) return bedrockMessage(status);
 
   if (status !== 400 && status !== 422) return undefined;
@@ -40,6 +44,46 @@ export function checkHttpMessage(params: {
 /** The host whose check messages adapter `kind` gets: every `bedrock-*` adapter is Bedrock. */
 export function checkHostOf(kind: string): CheckHost | undefined {
   return kind.startsWith('bedrock-') ? 'bedrock' : undefined;
+}
+
+/**
+ * What a refusal of a signed request says, in fixed text chosen by what the provider named (never
+ * echoed): an expired session token, a clock that is off, or a signature that did not match.
+ * Undefined for any other 400 or 403, which keep the general Bedrock messages.
+ */
+function signatureMessage(params: { status: number; message: string }): string | undefined {
+  const { status, message } = params;
+
+  if (status !== 400 && status !== 403) return undefined;
+
+  const lower = message.toLowerCase();
+  const prefix = `HTTP ${String(status)}:`;
+
+  if (lower.includes('expiredtoken') || (lower.includes('token') && lower.includes('expired'))) {
+    return `${prefix} The session token has expired. Get new temporary credentials and enter them again.`;
+  }
+
+  if (
+    lower.includes('requestexpired') ||
+    (lower.includes('signature') && lower.includes('expired'))
+  ) {
+    return `${prefix} The request’s signature was refused as out of date. Check that this computer’s clock is right.`;
+  }
+
+  if (
+    lower.includes('signaturedoesnotmatch') ||
+    lower.includes('invalidsignature') ||
+    lower.includes('incompletesignature') ||
+    (lower.includes('signature') && lower.includes('not match'))
+  ) {
+    return `${prefix} The signature did not match. Check the access key ID and the secret access key (and the session token, for temporary credentials).`;
+  }
+
+  if (lower.includes('invalidclienttokenid') || lower.includes('unrecognizedclient')) {
+    return `${prefix} AWS does not know this access key ID. Check it, and that the key is still active.`;
+  }
+
+  return undefined;
 }
 
 /** What a Bedrock 403 or 404 usually means: both are as often access or Region as a wrong key. */

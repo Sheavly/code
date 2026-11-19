@@ -70,9 +70,11 @@ output-limit and rate-limit failures without returning provider error bodies. Se
 [checking a model](docs/backends.md#describing-adapters-and-checking-a-model).
 
 Claude and GPT also run on Amazon Bedrock (`bedrock-anthropic`, `bedrock-openai`), over the
-Messages and Responses protocols of its `bedrock-runtime` endpoint with a Bedrock API key. The model
-is an inference profile ID whose prefix the caller chooses, and Claude's `maxTokens` is required.
-Its connection check explains a Bedrock 403, 404 and 400 in fixed text. See
+Messages and Responses protocols of its `bedrock-runtime` endpoint, signed in with a Bedrock API key
+or an IAM access key pair (each request signed anew with AWS Signature Version 4). The model is an
+inference profile ID whose prefix the caller chooses, and Claude's `maxTokens` is required. Its
+connection check explains a Bedrock 403, 404 and 400, and a signed request's expired token, clock
+and signature, in fixed text. See
 [Models on Amazon Bedrock](docs/backends.md#models-on-amazon-bedrock).
 
 ## Docs

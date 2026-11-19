@@ -14,3 +14,12 @@ export const INFERENCE_PROFILE_PREFIXES = [
   'apac',
   'global',
 ] as const;
+
+/**
+ * For each way of signing in, the secrets it needs and the ones that go only with another way, so a
+ * model signs in one way only. The session token is optional: only temporary credentials have one.
+ */
+export const CREDENTIALS_BY_AUTH = {
+  'api-key': { needs: ['apiKey'], not: ['accessKeyId', 'secretAccessKey', 'sessionToken'] },
+  'access-key': { needs: ['accessKeyId', 'secretAccessKey'], not: ['apiKey'] },
+} as const;

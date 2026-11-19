@@ -4,6 +4,7 @@ import { bedrockAnthropicAdapter } from '../anthropic.adapter.js';
 import { TEST_REQUEST } from '../../testing/request.constants.js';
 
 const base = {
+  auth: 'api-key',
   apiKey: 'bk-secret',
   region: 'us-east-1',
   model: 'us.anthropic.claude-sonnet-5-5',

@@ -146,17 +146,18 @@ No reply-state service is shared between calls. See [Chat cache accounting](prom
 
 ## Models on Amazon Bedrock
 
-Two adapters in `bedrock/` call the regional `bedrock-runtime` endpoint with an Amazon Bedrock API
-key, over the two protocols it serves natively. Neither needs a new protocol, a request signer or
-the AWS SDK:
+Two adapters in `bedrock/` call the regional `bedrock-runtime` endpoint, signed in with an Amazon
+Bedrock API key or an IAM access key pair, over the two protocols it serves natively. Neither needs
+a new protocol or the AWS SDK:
 
 | Model  | Adapter             | Protocol           | Endpoint                                                      |
 | ------ | ------------------- | ------------------ | ------------------------------------------------------------- |
 | Claude | `bedrock-anthropic` | Anthropic Messages | `https://bedrock-runtime.<region>.amazonaws.com/anthropic/v1` |
 | GPT    | `bedrock-openai`    | OpenAI Responses   | `https://bedrock-runtime.<region>.amazonaws.com/openai/v1`    |
 
-Both take `apiKey` (a secret: it goes to the credentials, never into the model's file), `region`
-(a Region code such as `us-east-1`, checked so the host cannot be steered elsewhere) and `model`,
+Both take `auth` (`api-key` or `access-key`, a choice a model's file records), the secrets of that
+way (below), `region` (a Region code such as `us-east-1`, checked so the host cannot be steered
+elsewhere) and `model`,
 an **inference profile ID**: a prefix, the provider, then the model, such as
 `us.anthropic.claude-sonnet-5-5` or `global.openai.gpt-6-astra`. A bare model ID is refused, since
 most Bedrock models cannot be called in-Region, and the prefix is never filled in for you: it decides
@@ -171,6 +172,7 @@ Bedrock answers for a known prefix the model lacks. The ID may hold only letters
 
 ```ts
 registry.create('bedrock-anthropic', {
+  auth: 'api-key',
   apiKey: process.env.BEDROCK_API_KEY,
   region: 'us-east-1',
   model: 'us.anthropic.claude-sonnet-5-5',
@@ -180,7 +182,10 @@ registry.create('bedrock-anthropic', {
 });
 
 registry.create('bedrock-openai', {
-  apiKey: process.env.BEDROCK_API_KEY,
+  auth: 'access-key',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID, // the secrets of this way only
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  sessionToken: process.env.AWS_SESSION_TOKEN, // only for temporary credentials
   region: 'us-east-1',
   model: 'us.openai.gpt-6-astra',
   request,
@@ -191,11 +196,23 @@ registry.create('bedrock-openai', {
   `max_tokens` from the model's token quota when a call starts, and output tokens burn the quota
   faster on the newest Claude models, so the 128000 default of Azure would starve the quota. Set what
   the replies need. The thinking fields are Azure Claude's (see [above](#models-on-azure)).
-- **Keys.** A short-term key lasts up to 12 hours and works only in the Region it was made in; a
-  long-term key creates an IAM user and AWS recommends it for exploration, not production. Either is
-  stored as the model's `apiKey`, so a short-term key must be replaced when it expires. IAM
-  credentials (SigV4, shared profiles, roles) are not supported. A key needs permission to call
-  `bedrock:InvokeModel`, and for GPT also on the account's default project.
+- **Credentials.** Every credential is a secret: it goes to the credential store, never into the
+  model's file, and is never read from `~/.aws` or `AWS_*` variables (the example above reads them
+  for illustration only). A model signs in one way, `auth`, and a secret of the other way is refused:
+  - `api-key`: `apiKey`, a Bedrock API key sent as `x-api-key` (Claude) or a Bearer token (GPT). A
+    short-term key lasts up to 12 hours and works only in the Region it was made in, so it must be
+    replaced when it expires; a long-term key creates an IAM user, and AWS recommends it for
+    exploration, not production.
+  - `access-key`: `accessKeyId` and `secretAccessKey`, and a `sessionToken` for temporary
+    credentials. Nothing but a signature is sent: every request, each retry included, is signed with
+    AWS Signature Version 4 for the `bedrock` service in the model's Region, at the time it is sent
+    (`bedrock/sigv4.utils.ts`, a signer tested against AWS's published examples). The signature is
+    good for about five minutes, so a clock that is off is refused. Temporary credentials expire:
+    replace them in `--setup`.
+
+  Either needs permission to call `bedrock:InvokeModel`, and for GPT also on the account's default
+  project. Shared profiles, SSO and role chains are not supported.
+
 - **GPT runs stateless.** The Responses protocol sends `store: false`, so nothing is kept on Bedrock
   between turns (its default is to keep a response for 30 days). Responses on `bedrock-runtime` are
   synchronous, and have no server-side tools or application inference profiles; the harness uses
@@ -208,14 +225,16 @@ registry.create('bedrock-openai', {
 - **Caching:** see [prompt caching on Bedrock](prompt-caching.md#amazon-bedrock).
 - **The connection check** explains a Bedrock 403 (a refused key, or model access, the Region or
   permissions), a 404 (an unknown profile or Region) and a 400 in fixed text, never Bedrock's own
-  message. Its 429 is a quota, and 503 or 529 mean Bedrock is short of capacity: the retry policy
+  message. For a signed request it also tells an expired session token, a clock that is off, a
+  signature that did not match and an access key ID AWS does not know apart. Its 429 is a quota, and 503 or 529 mean Bedrock is short of capacity: the retry policy
   below already retries 429 and 5xx.
 
 What is not covered: Converse and InvokeModel (the models that speak neither protocol, such as Nova,
-Llama or Mistral), SigV4, Agents, Knowledge Bases, Guardrails, batch inference, provisioned
+Llama or Mistral), shared profiles, SSO and role chains, Agents, Knowledge Bases, Guardrails, batch inference, provisioned
 throughput and application inference profiles. Pricing is not guessed: enter it per model. The
 adapters were written from AWS's public documentation and tested against fake HTTP; they have not
-been run against Bedrock itself.
+been run against Bedrock itself, and that SigV4 is accepted on the `/anthropic/v1/messages` and
+`/openai/v1/responses` routes is assumed from AWS's documentation of its other routes.
 
 ## Sending a call: timeouts and retries
 

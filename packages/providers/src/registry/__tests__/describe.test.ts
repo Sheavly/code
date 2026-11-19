@@ -50,8 +50,18 @@ describe('AdapterRegistry.describe', () => {
     });
 
     it('marks its key a secret, and lists it', () => {
-      expect(adapter.secrets).toEqual(['apiKey']);
+      expect(adapter.secrets).toContain('apiKey');
       expect(propertiesOf(adapter.config).apiKey).toMatchObject({ secret: true });
+    });
+
+    it('lists every secret it takes as one the form marks, and no other field', () => {
+      for (const name of adapter.secrets) {
+        expect(propertiesOf(adapter.config)[name], name).toMatchObject({ secret: true });
+      }
+
+      for (const [name, field] of Object.entries(propertiesOf(adapter.config))) {
+        if (field.secret === true) expect(adapter.secrets, name).toContain(name);
+      }
     });
 
     it('names the field that holds what the provider calls the model, and it is a field', () => {
@@ -74,7 +84,11 @@ describe('AdapterRegistry.describe', () => {
     it('lists only the fields that must be given as required: defaults and options are not', () => {
       const required = (adapter.config.required ?? []) as string[];
 
-      expect(required).toContain('apiKey');
+      // A key is always required, unless the adapter lets the person choose how to sign in: then
+      // that choice is, and the secrets are asked for by it.
+      const chosenByMode = 'appliesWhen' in (propertiesOf(adapter.config).apiKey ?? {});
+
+      expect(required).toContain(chosenByMode ? 'auth' : 'apiKey');
       expect(required).not.toContain('reasoning');
       expect(required).not.toContain('apiVersion');
       expect(required).not.toContain('thinkingBudget');
