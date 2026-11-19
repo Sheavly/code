@@ -64,4 +64,31 @@ export function assertModelHosting(params: {
       });
     }
   }
+
+  assertProfileNamesModel({ model, known: known.identity.model });
+}
+
+/**
+ * A Bedrock inference profile carries a prefix the user chooses, so it cannot be fixed, but it
+ * must still be the catalogue model's own: `‹prefix›.‹owner›.‹model›`. Other hosts have no profile.
+ */
+function assertProfileNamesModel(params: { model: Omit<Model, 'id'>; known: string }): void {
+  const { model, known } = params;
+  const hosting = SETUP_HOSTING.find((entry) => entry.adapter === model.adapter);
+
+  if (hosting?.modelField !== 'profile') return;
+
+  const profile = model.definition.model;
+
+  if (
+    typeof profile === 'string' &&
+    profile.toLowerCase().endsWith(`.${hosting.profileOwner}.${known.toLowerCase()}`)
+  ) {
+    return;
+  }
+
+  throw new SetupError({
+    reason: 'invalid',
+    message: `Use an inference profile for ${known}. Add a new model to choose a different one.`,
+  });
 }

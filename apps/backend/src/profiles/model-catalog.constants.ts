@@ -41,4 +41,20 @@ export const SETUP_HOSTING = [
     modelField: 'deployment',
     defaults: { replayReasoning: true },
   },
+  {
+    adapter: 'bedrock-anthropic',
+    name: 'AWS Bedrock',
+    families: ['claude'],
+    modelField: 'profile',
+    profileOwner: 'anthropic',
+    defaults: { thinkingMode: 'adaptive' },
+  },
+  {
+    adapter: 'bedrock-openai',
+    name: 'AWS Bedrock',
+    families: ['gpt'],
+    modelField: 'profile',
+    profileOwner: 'openai',
+    defaults: {},
+  },
 ] satisfies SetupHostingTemplate[];
