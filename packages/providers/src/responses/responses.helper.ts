@@ -50,6 +50,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
         url,
         policy: config.request,
         signal,
+        sign: endpoint.sign,
         init: {
           method: 'POST',
           headers: { 'content-type': 'application/json', ...endpoint.headers },

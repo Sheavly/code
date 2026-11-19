@@ -59,6 +59,7 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
         url: new URL(`${endpoint.baseUrl}/messages`),
         policy: config.request,
         signal,
+        sign: endpoint.sign,
         init: {
           method: 'POST',
           headers: {
