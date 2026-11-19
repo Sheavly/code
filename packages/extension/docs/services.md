@@ -68,6 +68,32 @@ service's own. `grants` is the list the host builds its grant catalogue from (se
 `requireGrant` (`@sheavly/extension/extension/grants.utils`) is the one check a scope method makes,
 for a host service and for [one an extension provides](#services-an-extension-provides-per-consumer).
 
+### Where the run-service keys live and how an extension imports them
+
+The keys of the services the host supplies are in this package, so an extension imports the
+contract and the keys from `@sheavly/extension` alone:
+
+```ts
+import { BACKGROUND_TASKS, SESSION_INFO } from '@sheavly/extension/run-services/run-services.utils';
+import type { BackgroundTaskScope } from '@sheavly/extension/run-services/run-services.types';
+```
+
+`run-services.utils` holds `INSTRUCTIONS` (`instructions`), `MAIN_SESSION` (`main-session`),
+`APPROVALS` (`approvals`), `SESSION_INFO` (`session-info`), `CHILD_SESSIONS` (`child-sessions`),
+`BACKGROUND_TASKS` (`background-tasks`), `TASK_CONTROL` (`task-control`), `OUTPUT_READER`
+(`output-reader`), `OUTPUT_CAPTURE` (`output-capture`) and `MODEL` (`model`). The name is what a
+manifest lists in `services.requires` or `optional`, so it is a contract: a test pins each one.
+The doc comment of each key says which grants apply. A service matches by name, not by key object.
+
+`run-services.types` defines `ApprovalRequester`, `ExtensionApprovalRequest` and
+`SystemPromptView`, and re-exports as types the views the keys carry, which the runtime and core
+define: `SessionInfoView`, `SessionLifecycleUpdate`, `ChildSessionScope`, `RunChildParams`,
+`RunChildResult`, `BackgroundTaskScope`, `TaskStarter`, `TaskControl`, `OutputReader` and
+`OutputCapture`. They are imported with `import type`, so the package depends on
+`@sheavly/runtime` for types only. The values are still made by `@sheavly/host`. A
+`ScopeDeactivatedError` (`@sheavly/extension/errors/scopes.errors`) is what a scope throws when it
+is used after its extension stopped.
+
 The harness's run state reaches extensions this way: `@sheavly/host` has `runServices`, which turns
 a harness into scoped host services (`SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`, `APPROVALS` and the rest), so a
 built-in extension has no more access than a third-party one. See

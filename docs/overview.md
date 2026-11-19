@@ -71,7 +71,7 @@ flowchart BT
   coding --> process
   coding --> workspace
   core --> protocol
-  extension --> core
+  extension --> runtime
   host --> extension
   host --> loop
   host --> tools
