@@ -30,13 +30,27 @@ export type SubAgentShare = {
 };
 
 /**
- * The `sub-agents` service every extension that requires it holds: write-only. `share` copies
+ * The `sub-agents` service: one scope per consuming extension, write-only. `share` first checks
+ * that the consumer's manifest declares `sub-agent:share` (`ExtensionUndeclaredError` otherwise)
+ * and throws a `ScopeDeactivatedError` once the consumer or `agents` has stopped. It then copies
  * what it is given into lists only this extension's sub-agent tool reads, so a reader of the
  * service cannot call the shared tools (which close over grant-holding services) or change what
- * others shared.
+ * others shared. What a consumer shared is revoked when its scope is disarmed (it failed after
+ * sharing, was rolled back, or stopped, or `agents` stopped): sub-agents started afterwards do
+ * not get it, sub-agents already running keep what they were given, and the names are free again.
  */
 export type SubAgentScope = {
   share: (contribution: SubAgentShare) => void;
+};
+
+/**
+ * The scope `agents` keeps to itself, which consumer scopes delegate to: `share` records the
+ * consumer that shared each entry (`owner`; none for `agents`' own output tools, which are never
+ * revoked) and `revoke` takes back everything one owner shared. Never provided as a service.
+ */
+export type RawSubAgentScope = {
+  share: (contribution: SubAgentShare, owner?: string) => void;
+  revoke: (owner: string) => void;
 };
 
 /**

@@ -11,7 +11,8 @@
       "instructions"
     ],
     "optional": ["output-reader"],
-    "provides": ["sub-agents"]
+    "provides": ["sub-agents"],
+    "grants": { "sub-agents": ["sub-agent:share"] }
   },
   "grants": [
     "session:read",

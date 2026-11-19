@@ -2,75 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { runTool } from '@sheavly/core/tool/tool.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { taskIdSchema } from '@sheavly/protocol/task/task.validator';
-import type { Extension } from '@sheavly/extension/extension/extension.types';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import { fakeExtension, fakeHook, fakeTool } from '@sheavly/extension/testing/extension.fake';
-import { createHarness } from '@sheavly/host/host/host.helper';
-import { runServices } from '@sheavly/host/run-services/run-services.helper';
 import type { RunLoop } from '@sheavly/host/run-services/run-services.types';
-import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { createAgentsExtension } from '../agents.helper.js';
 import { SubAgentShareError } from '../../errors/agents.errors.js';
-import type { AgentsExtensionOptions, SubAgentScope } from '../agents.types.js';
+import {
+  activateAgents as activate,
+  sharingExtension,
+  startedWith,
+} from '../../testing/agents-run.fake.js';
+import type { SubAgentScope } from '../agents.types.js';
 import { SUB_AGENTS } from '../agents.utils.js';
-
-/** Activates `agents` (and `extras`) on host services built from a real harness, as an app does. */
-async function activate(params: {
-  options?: AgentsExtensionOptions;
-  outputs?: MemoryOutputStore;
-  extras?: Extension[];
-  runSession?: RunLoop;
-}) {
-  const harness = createHarness({ provider: routedProvider({ go: [say('ok')] }), title: 'go' });
-  const seen: Parameters<RunLoop>[0][] = [];
-  const recording: RunLoop = (options) => {
-    seen.push(options);
-
-    return Promise.resolve({ reason: 'completed', messages: options.messages });
-  };
-  const host = new ExtensionHost({
-    extensions: [createAgentsExtension(params.options), ...(params.extras ?? [])],
-    services: runServices({
-      harness,
-      outputs: params.outputs,
-      runSession: params.runSession ?? recording,
-    }),
-  });
-  const result = await host.activate({ signal: new AbortController().signal });
-
-  return {
-    host,
-    harness,
-    seen,
-    tools: result.contributions.tools,
-    names: result.contributions.tools.map((tool) => tool.name),
-    result,
-  };
-}
-
-/**
- * What a sub-agent started through the extension's `start_agent` is given: runs the real tool
- * with a loop that records its options, the one place the shared lists are read.
- */
-async function startedWith(run: Awaited<ReturnType<typeof activate>>) {
-  const start = run.tools.find((tool) => tool.name === 'start_agent')!;
-
-  await runTool({
-    tools: [start],
-    call: {
-      id: callIdSchema.parse('probe'),
-      name: 'start_agent',
-      input: { description: 'd', title: 'Probe', task: 'Look around.' },
-    },
-    signal: new AbortController().signal,
-    session: run.harness.mainSession,
-  });
-  await run.harness.tasks.nextSettled();
-
-  return { tools: run.seen[0]?.tools ?? [], hooks: run.seen[0]?.hooks ?? [] };
-}
 
 describe('the agents extension', () => {
   it('contributes the task tools, start_agent and message_agent from the run services', async () => {
@@ -143,16 +88,7 @@ describe('the agents extension', () => {
   });
 
   it('shares its output tools with sub-agents, ahead of what other extensions share', async () => {
-    const sharer = fakeExtension({
-      name: 'sharer',
-      dependsOn: ['agents'],
-      requires: [SUB_AGENTS.name],
-      activate: ({ services }) => {
-        services.get(SUB_AGENTS).share({ tools: [fakeTool('shared_tool')] });
-
-        return {};
-      },
-    });
+    const sharer = sharingExtension((scope) => scope.share({ tools: [fakeTool('shared_tool')] }));
     const run = await activate({ outputs: new MemoryOutputStore(), extras: [sharer] });
     const { tools } = await startedWith(run);
 
@@ -164,18 +100,9 @@ describe('the agents extension', () => {
   });
 
   it('shares hooks and task tools from a dependent extension to its sub-agents', async () => {
-    const sharer = fakeExtension({
-      name: 'sharer',
-      dependsOn: ['agents'],
-      requires: [SUB_AGENTS.name],
-      activate: ({ services }) => {
-        services
-          .get(SUB_AGENTS)
-          .share({ taskTools: [fakeTool('start_job')], hooks: [fakeHook('shared-hook')] });
-
-        return {};
-      },
-    });
+    const sharer = sharingExtension((scope) =>
+      scope.share({ taskTools: [fakeTool('start_job')], hooks: [fakeHook('shared-hook')] }),
+    );
     const { tools, hooks } = await startedWith(await activate({ extras: [sharer] }));
 
     expect(hooks.map((hook) => hook.name)).toEqual(['shared-hook']);
@@ -194,16 +121,9 @@ describe('the agents extension', () => {
         return {};
       },
     });
-    const sharer = fakeExtension({
-      name: 'sharer',
-      dependsOn: ['agents'],
-      requires: [SUB_AGENTS.name],
-      activate: ({ services }) => {
-        services.get(SUB_AGENTS).share({ tools: [fakeTool('kept')], hooks: [fakeHook('kept')] });
-
-        return {};
-      },
-    });
+    const sharer = sharingExtension((scope) =>
+      scope.share({ tools: [fakeTool('kept')], hooks: [fakeHook('kept')] }),
+    );
     const run = await activate({ extras: [sharer, snoop] });
     const service = held[0] as Record<string, unknown>;
 
@@ -224,16 +144,9 @@ describe('the agents extension', () => {
 
   it('copies what is shared: changing the lists given afterwards changes nothing', async () => {
     const given = [fakeTool('first')];
-    const sharer = fakeExtension({
-      name: 'sharer',
-      dependsOn: ['agents'],
-      requires: [SUB_AGENTS.name],
-      activate: ({ services }) => {
-        services.get(SUB_AGENTS).share({ tools: given });
-        given.length = 0;
-
-        return {};
-      },
+    const sharer = sharingExtension((scope) => {
+      scope.share({ tools: given });
+      given.length = 0;
     });
     const { tools } = await startedWith(await activate({ extras: [sharer] }));
 
@@ -244,15 +157,8 @@ describe('the agents extension', () => {
     /** The service as a dependent extension holds it, after the run is active. */
     async function shareWith() {
       let held: Pick<SubAgentScope, 'share'> | undefined;
-      const sharer = fakeExtension({
-        name: 'sharer',
-        dependsOn: ['agents'],
-        requires: [SUB_AGENTS.name],
-        activate: ({ services }) => {
-          held = services.get(SUB_AGENTS);
-
-          return {};
-        },
+      const sharer = sharingExtension((scope) => {
+        held = scope;
       });
       const run = await activate({ extras: [sharer] });
 
