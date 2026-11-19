@@ -7,10 +7,15 @@ import type {
   SessionInfoView,
 } from '@sheavly/runtime/sessions/session-scope.types';
 import type { BackgroundTaskScope, TaskControl } from '@sheavly/runtime/tasks/task-scope.types';
-import type { ApprovalRequester } from './run-services.types.js';
+import type { ApprovalRequester, SystemPromptView } from './run-services.types.js';
 
-/** The composed base instructions (`Harness.instructions`), the guidance sub-agents start from. */
-export const INSTRUCTIONS = defineService<string>('instructions');
+/**
+ * The run's system prompt (`Harness.instructions`), the guidance sub-agents start from. Read
+ * `text` at use, not once in `activate`: the extensions' contributions appear only after every
+ * extension has activated, so during an `activate` it is the base plus the app's own instructions,
+ * and a read made later (an agent's read when it starts a sub-agent) sees them.
+ */
+export const INSTRUCTIONS = defineService<SystemPromptView>('instructions');
 
 /** The main session of the run. */
 export const MAIN_SESSION = defineService<SessionRef>('main-session');

@@ -55,7 +55,7 @@ for `ExtensionHostOptions.services`. Every extension then reads it in `activate`
 
 | Key (`run-services.utils`) | Value                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------------- |
-| `INSTRUCTIONS`             | `harness.instructions`, the composed base instructions                             |
+| `INSTRUCTIONS`             | A read-only view of the system prompt: `text` composes at each read                |
 | `MAIN_SESSION`             | `harness.mainSession`                                                              |
 | `SESSION_INFO`             | Read-only session metadata, no message content                                     |
 | `CHILD_SESSIONS`           | The sub-agents the extension started, and only those                               |
@@ -81,15 +81,51 @@ not by the extension: a loader for repo code (#332) must set `origin: 'project'`
 
 ## Instruction composition
 
-`createHarness` returns stable `instructions` assembled by `composeInstructions`:
-generic core from `instructions/instructions.prompt.ts`, then host extras. Set `baseInstructions` to replace just the generic core;
-omission uses the default and an empty string omits it. Blank sections are skipped, outer
-whitespace is trimmed, and sections are joined with one blank line (`joinInstructions`, from
-`@sheavly/extension/instructions/instructions.utils`, which extensions use for the same join).
+The system prompt is the generic core (`instructions/instructions.prompt.ts`), then the sections
+the run's extensions contribute in activation order, then the app's own `instructions`
+(`composeSystemPrompt`, `instructions/system-prompt.utils.ts`). Set `baseInstructions` to replace
+just the generic core; omission uses the default (or the replacement an extension with
+`system-prompt:replace` contributes) and an empty string omits it. An app's own `baseInstructions`
+wins: a replacement an extension contributes next to it is refused with a
+`BaseInstructionsConflictError` naming the extension, unless the app also lists the reserved name
+`BASE_INSTRUCTIONS_SECTION` (`@sheavly/extension/instructions/instructions.constants`) in
+`omitInstructionSections`. That option is the app's, never an extension's, and always wins: each
+name in it is dropped from what the extensions contributed (a section by the name its manifest
+declares in `instructions`; the reserved name drops a replacement base, which is then not applied
+and conflicts with nothing, so the app's `baseInstructions` or the generic core is used). The names
+are checked first, when `contribute` is called: one that matches no contributed section (or the
+reserved name when no replacement was contributed) throws an `UnknownInstructionSectionError`
+carrying `sectionName` and the sorted `available` names, takes nothing and does not use up the one
+call. Duplicates are harmless and an empty list changes nothing. The option is checked where it
+enters, before anything else: `undefined` means none, and anything but an array of non-blank
+strings (a string, a number, `null`, an object, a blank entry) throws an
+`InvalidOmitInstructionSectionsError` naming the option and the entry's index. The array is read
+once and that copy is used. The option controls only the declared instruction sections. An
+extension's tools, hooks, notices and any section whose name the app does not know are not
+covered, and an extension can still infer an omitted section from the composed text: to remove an
+extension's influence, leave the extension out. Because sub-agents read the
+composed text, they get it without the omitted sections too. Blank sections are skipped, outer whitespace
+is trimmed, and sections are joined with one blank line (`joinInstructions`, from
+`@sheavly/extension/instructions/instructions.utils`, which extensions use for the same join). A
+replacement base is review-only: the review record `npm run lint:prompt` checks covers the host's
+own base, not an extension's text.
 
-A coding app passes `composeCodingInstructions({ instructions })` (`@sheavly/coding`) as the
-`instructions`, which puts coding guidance between the core and host extras, even when the core is
-replaced. Generic hosts receive no coding section and require no workspace.
+`createHarness` builds a `SystemPrompt` (`harness.systemPrompt`) that composes this text each time
+it is read, because the harness exists before any extension activates. The app gives it what the
+extension host merged, once, after every extension has activated
+(`systemPrompt.contribute({ sections, replacement })`, the backend does it from the activation
+result's `instructions`, `baseInstructions` and `baseInstructionsBy`): it is for the app, not for
+extensions, copies and freezes each section, and a second call throws a
+`SystemPromptAlreadyContributedError`. So during any extension's `activate` the text is only the
+base plus the app's own instructions, and a read made later (such as `agents`' read when it
+starts a sub-agent) sees the contributions. `harness.instructions` on
+the object `createHarness` returns, and the `INSTRUCTIONS` run service (`{ text }`, read-only,
+frozen), always read the current text; a copy of the harness (`{ ...harness }`) holds the text of
+the moment it was made. With no extension contributing instructions the text is exactly what
+`composeInstructions` returns for the same options, so a host that does not use the contract is
+unchanged. A coding app adds `createCodingExtension`, whose `coding` section lands between the
+core and the app's extras, even when the core is replaced; generic hosts receive no coding
+section and require no workspace.
 `createConversation` uses the harness text unless its own `instructions` is explicitly supplied.
 That existing option is a complete override, not an extension; an empty override remains empty.
 Direct `streamAgent` or `runAgent` callers pass the returned string explicitly.

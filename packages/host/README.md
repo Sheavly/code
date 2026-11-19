@@ -15,7 +15,7 @@ const harness = createHarness({ provider, title: prompt });
 | Module           | What it holds                                                                   |
 | ---------------- | ------------------------------------------------------------------------------- |
 | `host/`          | `createHarness`, and its `HarnessOptions` and `Harness` types                   |
-| `instructions/`  | `composeInstructions`: generic defaults or explicit replacement, then extras    |
+| `instructions/`  | `SystemPrompt`, `composeSystemPrompt`: base, extensions' sections, then extras  |
 | `run-services/`  | `runServices`, the keys any extension reads and the scoped services behind them |
 | `conversation/`  | `createConversation`: one conversation across prompts, in one session           |
 | `conversations/` | `Conversations`: the live conversations a host serves, by id, and kept ones     |
@@ -67,15 +67,28 @@ conversations.yieldPrompt(id);
 
 A coding UI adds `createCodingExtension` (`@sheavly/coding`) to the run built on this.
 
-The harness composes stable domain-neutral instructions. `instructions` in `HarnessOptions`
-adds host extras; `baseInstructions` replaces only the generic core (an empty string omits it).
+The harness composes domain-neutral instructions, then the sections the run's extensions
+contribute, then the app's own. `instructions` in `HarnessOptions` adds the app's extras;
+`baseInstructions` replaces only the generic core (an empty string omits it) and wins over an
+extension's replacement, which is refused. `omitInstructionSections` is the app's way to use an
+extension without its prompt text: it lists section names (the ones extensions declare in their
+manifests' `instructions`) and the reserved `BASE_INSTRUCTIONS_SECTION` from `@sheavly/extension`
+for a replacement base. A name nothing contributed throws an `UnknownInstructionSectionError`
+listing the available ones, so a typo is never silent; a value that is not an array of non-blank
+strings throws an `InvalidOmitInstructionSectionsError`. The option controls only the declared
+instruction sections. An extension's tools, hooks, notices and any section whose name the app does
+not know are not covered, and an extension can still infer an omitted section from the composed
+text: to remove an extension's influence, leave the extension out. The text is composed at each read (`harness.systemPrompt`
+takes what the extensions contributed once, after every one has activated; `INSTRUCTIONS` reads it
+live, so it holds them only for a read made after that), so with no contributing extension it is
+exactly the generic core and the app's extras.
 The default stays compact: task scope, approval/data boundaries, yielding for required background
 results instead of polling, concise communication, dedicated-tool preference, read-before-edit and
 self-contained delegation. Conditional git/GitHub guidance requires explicit commit authorization,
 inspection before commits and PRs, and separate publication permission; it forbids configuration
 changes and bypassing hooks. It contains no repository-specific conventions, tool mechanics or
 model-specific overlays.
-Conversations use `harness.instructions` by default. An explicit conversation `instructions`
+Conversations read `harness.instructions` at each prompt by default. An explicit conversation `instructions`
 string remains a complete override, including an empty string. Direct loop callers pass
 `instructions: harness.instructions` themselves. See [instruction composition](docs/harness.md#instruction-composition).
 

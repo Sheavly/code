@@ -63,6 +63,7 @@ describe('createHarness', () => {
       'mainSession',
       'provider',
       'sessions',
+      'systemPrompt',
       'tasks',
     ]);
   });

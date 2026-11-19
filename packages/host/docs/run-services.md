@@ -30,12 +30,17 @@ manifest declares, like a third-party one.
 | `OUTPUT_CAPTURE`           | `output-capture`   | `output:capture`: `create`                                                                                                                                                | reading; absent when the app has no output store                                                                                                    |
 | `MODEL`                    | `model`            | `model:call`: `stream` (`contextWindow` is forwarded live)                                                                                                                | nothing else a provider has                                                                                                                         |
 | `APPROVALS`                | `approvals`        | `approval:request`: `request` and the read-only `listening`; `approval:as-tool`: `tool` may name a tool the extension contributes; `approval:keep`: `options` and `keeps` | `respond`, `subscribe`, `observe`, `pending`, `screen`                                                                                              |
-| `INSTRUCTIONS`             | `instructions`     | none: a constant                                                                                                                                                          |                                                                                                                                                     |
+| `INSTRUCTIONS`             | `instructions`     | none: a read-only `{ text }` view, composed at each read                                                                                                                  |                                                                                                                                                     |
 | `MAIN_SESSION`             | `main-session`     | none: a constant                                                                                                                                                          |                                                                                                                                                     |
 
 An extension may only hold a grant of a service it reads (`services.requires` or `optional`): a
 grant of an unread service, or one no service defines (a typo), fails its activation, as does any
 other manifest mismatch.
+
+`INSTRUCTIONS.text` is read at use, never cached: the extensions' contributions appear only after
+every extension has activated, so during any extension's `activate` it is the base plus the app's
+own instructions, and a read made later (such as the agents extension's read when it starts a
+sub-agent) sees them.
 
 ## How the scopes hold together
 
