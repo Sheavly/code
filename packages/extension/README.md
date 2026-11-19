@@ -11,7 +11,14 @@ may emit through `context.emit` (held to the manifest's `emits`; the app supplie
 (a name ending in `*` declares names that are not known in advance, such as a workspace's own hooks).
 The manifest is not a sandbox: an extension is Node code, and the host checks only what it mediates
 (see [What the manifest is not](docs/manifest.md#what-the-manifest-is-not)).
-Extensions share typed services with each other through `defineService`, and the app supplies
+Extensions share typed services with each other through `defineService` (`services.provide` for
+one shared value, `services.provideFor` for a value built per consuming extension, so a service an
+extension provides can declare `services.grants` in its manifest and enforce them with
+`requireGrant`; the consumer a factory receives is a frozen snapshot, grant names are global
+strings so a provider names them after its capability, and a `disarm` that throws is contained and
+reported (one that returns a rejected promise is collected best-effort when it settles; one that
+hangs synchronously blocks `deactivate()`; what a failed activation closed the host with is
+returned once by the next `deactivate()`); see [Services](docs/services.md#services-an-extension-provides-per-consumer)), and the app supplies
 run-level services any extension can read (`hostService`, or `hostServiceFor` for one built per extension and limited to the `grants` its manifest asks for; the host verifies those at activation and a service checks them with `requireGrant`). An app builds an `ExtensionHost`, which
 activates them in dependency order, reports an extension that fails without stopping the rest,
 skips code that is not trusted and merges what they contribute for the app to hand to the loop.
@@ -40,7 +47,7 @@ await host.deactivate();
 
 | Module          | What it holds                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extension/`    | `Extension`, `ExtensionDefinition`, `Contributions`, `InstructionContribution`, `Services`, `Settings`, `defineExtension`, `defineService`, `hostService`, `hostServiceFor`, `requireGrant`, `settingKey`, `placeHook`: the contract extensions are written against                                                                                                           |
+| `extension/`    | `Extension`, `ExtensionDefinition`, `Contributions`, `InstructionContribution`, `Services` (`provide`, `provideFor`, `get`, `find`), `ServiceInstance`, `ServiceConsumer`, `Settings`, `defineExtension`, `defineService`, `hostService`, `hostServiceFor`, `requireGrant`, `settingKey`, `placeHook`: the contract extensions are written against                            |
 | `emit/`         | `ExtensionEmit` (what `context.emit` offers), `EventContribution`, `NoticeContribution`, `ExtensionEvent`, `ExtensionNotice`, `ExtensionEmission`, `ExtensionEmitSink` (types): an extension's events and model-facing notices, and the sink the app supplies                                                                                                                 |
 | `manifest/`     | `readManifest` (helper: reads and validates a `sheavly.json` without running the extension), `ExtensionManifest` and `SettingManifest` (types), `manifestJsonSchema` (utils); the zod schema is internal. The JSON Schema for editors is `sheavly.schema.json`                                                                                                                |
 | `host/`         | `ExtensionHost`: activates extensions in dependency order, isolates failures, gates trust, holds each extension to its manifest, merges contributions                                                                                                                                                                                                                         |
@@ -49,7 +56,13 @@ await host.deactivate();
 | `errors/`       | `ExtensionDefinitionError`, `ExtensionManifestError`, `ExtensionUndeclaredError`, `ExtensionGrantError`, `ExtensionContributionChangedError`, `ExtensionGraphError`, `ContributionCollisionError`, `MissingServiceError`, `ExtensionSettingError`, `HookOrderError`, `ExtensionHostStateError`, `ExtensionActivationError`, `ExtensionEmitError`, `ExtensionInstructionError` |
 
 Tests build extensions with `fakeExtension`, `fakeHook`, `fakeInstruction` and `fakeTool` from
-`@sheavly/extension/testing/extension.fake`.
+`@sheavly/extension/testing/extension.fake` (`serviceGrants` declares the grants of a service the
+fake provides). `fakeGrantedProvider` and `fakeGrantedConsumer`
+(`@sheavly/extension/testing/granted-service.fake`) are a provider whose service enforces a grant
+with `requireGrant` and a consumer of it. `assertServiceEnforcesGrants`
+(`@sheavly/extension/testing/service-grants.fake`) is what a provider's tests call: for each grant
+its manifest declares for a service, the call listed for it must refuse a consumer without it
+(see [Services](docs/services.md#services-an-extension-provides-per-consumer)).
 
 ## Docs
 

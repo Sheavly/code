@@ -123,7 +123,7 @@ describe('ExtensionHost verifies manifest grants against the supplied services',
     expect(result.failed[0]?.cause).toMatchObject({ grant: 'output:read' });
   });
 
-  it('does not offer a grant a dependency provides: only host services define grants', async () => {
+  it('does not offer a grant a dependency provides without declaring it in services.grants', async () => {
     const result = await activate({
       extensions: [
         {

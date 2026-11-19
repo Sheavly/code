@@ -42,6 +42,7 @@ every other field defaults to empty.
 | `services.requires`           | Service names (kebab-case, as in `defineService('name')`; never a `*`) the extension reads with `services.get`. It cannot activate without them.                                                                                                                                                                                                                                                          |
 | `services.optional`           | Service names it reads with `services.find`. A name is not both required and optional.                                                                                                                                                                                                                                                                                                                    |
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                                                                                           |
+| `services.grants`             | Optional. An object from a service this extension provides to the `<noun>:<verb>` grants that service understands (`{ "sub-agents": ["sub-agent:share"] }`); keys must be in `services.provides`. See [`services.grants`](#servicesgrants).                                                                                                                                                               |
 | `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                                                                                                    |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance).                                                                         |
 | `instructions`                | The names of the system-prompt sections it may contribute (`Contributions.instructions[].name`), by exact name: no `*`, no duplicates, and not `baseInstructions`, which is reserved for the replacement base (the app uses it to omit the replacement). A declared name may go unused. Contributing any needs the `system-prompt:extend` grant; see [`system-prompt:extend`](#the-system-prompt-grants). |
@@ -79,14 +80,14 @@ part lowercase words joined by hyphens, one colon, no duplicates. It is data, so
 show what an extension may do before running it.
 
 A grant belongs to a service. The host supplies some services as factories (`hostServiceFor`) that
-build one value per extension, and each declares the grants it understands; the host's
-**catalogue** is the union of what the services it was given declare (a plain `hostService` value
-declares none, and a grant a dependency's own provided service might define is out of scope: only
-host services define grants). At activation the host fails an extension, before its `activate`
-runs, with an `ExtensionGrantError` naming the extension and the grant when:
+build one value per extension, and each declares the grants it understands; an extension's
+manifest declares the grants of the services it provides ([`services.grants`](#servicesgrants)).
+The host's **catalogue** is the union of both (a plain `hostService` value declares none). At
+activation the host fails an extension, before its `activate` runs, with an `ExtensionGrantError`
+naming the extension and the grant when:
 
-- a grant is in no supplied service's catalogue (a typo fails, and so does a grant of a service the
-  app did not supply), or
+- a grant is in no catalogue entry (a typo fails, and so does a grant of a service the app did not
+  supply or no loaded extension provides), or
 - a grant belongs to a service the extension cannot read, that is, not in its `services.requires`
   or `services.optional`.
 
@@ -95,6 +96,38 @@ and every method calls `requireGrant({ extension, grants, grant })`
 (`@sheavly/extension/extension/grants.utils`), which throws an `ExtensionUndeclaredError`
 (`use: 'grant'`, naming the grant, to be added to `grants`). A grant is a declaration the host
 checks, not a sandbox: see [what the manifest is not](#what-the-manifest-is-not).
+
+## `services.grants`
+
+`services.grants` maps a service name this extension **provides** to the grants that service
+understands, so the grants of an extension's own service are as visible as a host service's:
+
+```json
+"services": { "provides": ["sub-agents"], "grants": { "sub-agents": ["sub-agent:share"] } }
+```
+
+It is optional (absent means none). Each list follows the rule of `grants` (`<noun>:<verb>`, lowercase
+kebab parts, one colon, bounded, no duplicates), a key must be in `provides` (the problem points
+at `services.grants.<name>`), and a grant the host offers itself (the
+[system-prompt grants](#the-system-prompt-grants)) cannot be claimed by a service. A grant may be
+offered by two services. Like all of the manifest it is data: an installer reads it before any
+code runs.
+
+What the host does with it:
+
+- Its catalogue lists every such grant for every loaded extension, before anything activates, so a
+  consumer's `grants` entry verifies even when the provider is skipped (untrusted, a missing
+  dependency); the consumer then reads the service as missing, like any service nobody provides.
+- A consumer that lists the grant must list the service in `services.requires` or `optional`,
+  with the same `ExtensionGrantError` as for a host service.
+- The provider must provide a service that declares grants with `services.provideFor`, which hands
+  `create` the consuming extension (its name, sealed manifest and live `contributedTools`);
+  `services.provide` for it fails the provider's activation with an `ExtensionDefinitionError`
+  ([services](services.md#services-an-extension-provides-per-consumer)).
+
+What stays the provider's: **enforcement**. The host builds the scope per consumer, but it cannot
+check that the provider's methods check the right grant, or any. The provider's methods call
+`requireGrant` over `consumer.manifest.grants`, and review covers that they do.
 
 ## The system-prompt grants
 
@@ -191,14 +224,14 @@ the name (`ExtensionUndeclaredError`).
   by the host or provided by one of its dependencies. If not, the extension is not activated and is
   `skipped` with the reason `service` and the `missing` names. What depends on it is skipped for
   `dependency`; the other extensions are unaffected.
-- **Before activating, for `grants`**: each must be in the catalogue of the supplied services and
-  belong to a service the extension reads, else it fails (`ExtensionGrantError`, in `result.failed`,
+- **Before activating, for `grants`**: each must be in the catalogue (the supplied services and
+  every loaded extension's `services.grants`) and belong to a service the extension reads, else it fails (`ExtensionGrantError`, in `result.failed`,
   dependents skipped) without running `activate`. The two
   [system-prompt grants](#the-system-prompt-grants) are the host's own and need no service. See
   [`grants`](#grants).
 - **During `activate`**: `services.get` for a name not in `requires` or `optional`, `services.find`
-  for one not in `optional` or `requires`, and `services.provide` for one not in `provides` throw at
-  the call. Services the host supplies are held to the same list: an extension that reads
+  for one not in `optional` or `requires`, and `services.provide` or `provideFor` for one not in
+  `provides` throw at the call (`provide` also throws for a service that declares grants). Services the host supplies are held to the same list: an extension that reads
   `session-info` must declare it, which is what lets an installer see it (and its grants).
 - **After `activate` returns**: a contributed tool, hook or work kind not listed in `tools`,
   `hooks` or `workKinds` (exactly, or by a wildcard entry) fails the activation. The extension is deactivated (it had activated), its
@@ -291,14 +324,40 @@ they do not cover.
 - **The `sub-agents` service grants a right the lists do not show.** The agents extension provides
   it, and whoever reads it can share tools and hooks with sub-agents without those names
   appearing in its own `tools` or `hooks` (`share` is a service call, not a contribution).
-  Declaring `sub-agents` in `requires` (or `optional`) therefore grants that right, and an
-  installer should treat it as such. The service is write-only: `share` copies the lists and
-  validates each entry (an object with a non-empty string `name`, no duplicate), but does not
-  freeze the tool and hook objects, which are held by reference. The shared lists cannot be read
-  or changed through the service. **Known gap, since the service was introduced:** `share` is
-  gated only by `requires`, and cannot check the sharer's `tools` and `hooks` declarations, because
-  `sub-agents` is provided by an extension and only host services define grants in this version.
-  The intended fix is a grant, once an extension-provided service can define grants.
+  `share` needs the grant `sub-agent:share` in the manifest's `grants` (the agents extension
+  declares it for `sub-agents` in its `services.grants`), and the service in `requires` or
+  `optional`: an installer reads that grant as the right to put tools and hooks in every
+  sub-agent. Without it `share` throws an `ExtensionUndeclaredError` (`use: 'grant'`). The service
+  is write-only: `share` copies the lists and validates each entry (an object with a non-empty
+  string `name`, no duplicate), but does not freeze the tool and hook objects, which are held by
+  reference. The shared lists cannot be read or changed through the service. What an extension
+  shared is taken back when its scope is disarmed (it failed after sharing, was rolled back or
+  stopped, or `agents` stopped): sub-agents started afterwards do not get it, sub-agents already
+  running keep what they were given. What the host does not check is the shared names against
+  the sharer's own `tools` and `hooks`: they are a service call, not a contribution.
+- **Grants are global strings, not per service.** A grant name is one entry in the host's
+  catalogue; the catalogue does not record which service it belongs to. Two providers may declare
+  the same grant name, and a consumer that lists it and requires either service verifies. That is
+  no bypass: reading each service still needs its own `requires`, and each provider enforces its
+  own methods. Name a grant after the provider's capability (`<noun>:<verb>` with a noun that
+  names it: `sub-agent:share`, not `share:use`), so one grant does not read as the right to
+  something else.
+- **The consumer a factory receives is a frozen snapshot.** `create(consumer)` of a host or an
+  extension service gets one `Object.freeze`d `{ name, manifest, contributedTools }` per
+  extension, the same object the extension holds when it reads its own service. It cannot be
+  renamed or have `contributedTools` replaced, so a scope never reads the identity or the vouched
+  tool names of another extension; `contributedTools()` still answers live.
+- **A throwing `disarm` is contained and reported.** A service instance's `disarm` should not
+  throw; if it does, the host keeps going (every other scope is still disarmed, every
+  extension's `deactivate()` still runs) and the error comes back in the list `deactivate()`
+  returns, or in `lateDeactivationErrors` when it happens while activating, or, when the
+  activation fails, from the next `deactivate()`. A `disarm` that returns a promise is not
+  awaited: its rejection is collected best-effort when it settles (possibly after the stop
+  returned). A `disarm` that hangs synchronously blocks `deactivate()` for every extension.
+- **The `services` an extension receives is a plain object.** Each extension gets its own view
+  (`get`, `find`, `provide`, `provideFor`), not frozen: an extension can replace its own `get`,
+  but it cannot reach another extension's view, and what the host checks (the declared use, the
+  readable providers) does not run through that object.
 - **The JSON Schema is the shape only.** `readManifest` is authoritative: cross-field rules
   (a setting under the extension's own name, a name both required and optional, a dependency on
   itself) are not expressible in it.

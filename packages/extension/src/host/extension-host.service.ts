@@ -13,6 +13,7 @@ import { changedExtensions, snapshotContributions } from './contribution-snapsho
 import { assertGrantsOffered, grantCatalogueOf } from './grant-catalogue.utils.js';
 import { mergeContributions } from './contributions.utils.js';
 import { orderExtensions, readableServices, withDependents } from './extension-order.utils.js';
+import { skipReasonOf } from './extension-skip.helper.js';
 import { assertSettings, settingInfos, settingsFor } from './settings.utils.js';
 import type {
   ActivationResult,
@@ -20,8 +21,7 @@ import type {
   ContributionSnapshot,
   ExtensionHostOptions,
   GrantCatalogue,
-  Progress,
-  SkippedExtension,
+  ActivationProgress,
 } from './extension-host.types.js';
 import { isFinalState } from './extension-state.utils.js';
 import type { ExtensionState } from './extension-state.types.js';
@@ -50,7 +50,7 @@ export class ExtensionHost {
   readonly #ordered: readonly Extension[];
   readonly #options: ExtensionHostOptions;
   readonly #services: ServiceRegistry;
-  /** The grants the supplied services declare; a manifest's `grants` are verified against it. */
+  /** The grants the supplied services and the extensions' `services.grants` declare; a manifest's `grants` are verified against it. */
   readonly #grants: GrantCatalogue;
   readonly #settings: Readonly<Record<string, SettingValue>>;
   /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
@@ -58,6 +58,8 @@ export class ExtensionHost {
   /** Each extension's one state (see `EXTENSION_TRANSITIONS`); the tool names it contributed count once it is merged. */
   readonly #states: ExtensionStates;
   readonly #consumers = new Map<string, ServiceConsumer>();
+  /** Errors a failed activation closed the host with, for the next `deactivate()` to return once. */
+  readonly #pending: unknown[] = [];
   #activated: Extension[] = [];
   #state: 'idle' | 'activating' | 'active' | 'closed' = 'idle';
 
@@ -70,7 +72,7 @@ export class ExtensionHost {
     this.#settings = Object.freeze({ ...options.settings });
     assertSettings({ extensions: sealed, values: this.#settings });
     this.#services = new ServiceRegistry(options.services);
-    this.#grants = grantCatalogueOf(options.services ?? []);
+    this.#grants = grantCatalogueOf({ services: options.services ?? [], extensions: sealed });
     this.#options = options;
   }
 
@@ -89,7 +91,7 @@ export class ExtensionHost {
     this.#state = 'activating';
 
     const readable = readableServices(this.#ordered);
-    const progress: Progress = {
+    const progress: ActivationProgress = {
       contributed: [],
       failed: [],
       skipped: [],
@@ -118,8 +120,12 @@ export class ExtensionHost {
 
       return await this.#result(progress);
     } catch (caughtError) {
-      // A collision or an abort during activation: don't leave activated extensions running.
-      await this.deactivate();
+      // A collision or an abort during activation: don't leave activated extensions running. The
+      // thrown error stays the cause; what the closing contained would be lost with it, so the
+      // next `deactivate()` returns it.
+      const closing = await this.deactivate();
+
+      this.#pending.push(...progress.lateDeactivationErrors, ...closing);
       throw caughtError;
     }
   }
@@ -136,7 +142,7 @@ export class ExtensionHost {
    */
   async #activateOne(params: {
     extension: Extension;
-    progress: Progress;
+    progress: ActivationProgress;
     readable: ReadonlyMap<string, ReadonlySet<string>>;
     signal: AbortSignal;
   }): Promise<ActivationStep> {
@@ -148,8 +154,11 @@ export class ExtensionHost {
     this.#enter({ extension: extension.name, to: 'activating' });
 
     try {
-      const skipped = await this.#skipped({
+      const skipped = await skipReasonOf({
         extension,
+        consumer: this.#consumerOf(extension),
+        services: this.#services,
+        options: this.#options,
         unavailable: progress.unavailable,
         readable: readableNames,
       });
@@ -217,7 +226,7 @@ export class ExtensionHost {
   async #record(params: {
     extension: Extension;
     step: ActivationStep;
-    progress: Progress;
+    progress: ActivationProgress;
   }): Promise<boolean> {
     const { extension, step, progress } = params;
 
@@ -256,7 +265,7 @@ export class ExtensionHost {
    */
   async #rollBackChanged(params: {
     changed: ReadonlyMap<string, unknown>;
-    progress: Progress;
+    progress: ActivationProgress;
   }): Promise<void> {
     const { changed, progress } = params;
     const doomed = withDependents({ ordered: this.#activated, roots: new Set(changed.keys()) });
@@ -287,14 +296,21 @@ export class ExtensionHost {
    * meanwhile. Roll-backs await (their `deactivate` calls can change what a survivor holds), so
    * the last check of every survivor and the merge run together with no `await` between them.
    */
-  async #result(progress: Progress): Promise<ActivationResult> {
-    const { failed, skipped, lateDeactivationErrors } = progress;
+  async #result(progress: ActivationProgress): Promise<ActivationResult> {
+    const { failed, skipped } = progress;
     let changed = changedExtensions(progress.contributed);
 
     while (changed.size > 0 && !this.#isClosed()) {
       await this.#rollBackChanged({ changed, progress });
       changed = changedExtensions(progress.contributed);
     }
+
+    // Disarm errors contained while activating (a failed or rolled-back extension) are reported
+    // here, with the errors of `deactivate` calls that ran late. They stay in `progress`, so a
+    // merge that throws below does not lose them.
+    progress.lateDeactivationErrors.push(...this.#services.takeDisarmErrors());
+
+    const lateDeactivationErrors = [...progress.lateDeactivationErrors];
 
     if (this.#isClosed()) {
       return {
@@ -361,8 +377,10 @@ export class ExtensionHost {
   }
 
   /**
-   * The extension as a per-extension service sees it: one object per extension, whose
-   * `contributedTools` holds the checked names only while the extension is merged: empty before
+   * The extension as a per-extension service sees it: one FROZEN snapshot per extension, handed to
+   * every factory and to the extension itself when it reads its own service, so nothing can
+   * rename it or swap its `contributedTools`. That function reads the state table by the name
+   * captured here, and answers the checked names only while the extension is merged: empty before
    * the merge that checks collisions passed, and after any stop, roll-back or failure.
    */
   #consumerOf(extension: Extension): ServiceConsumer {
@@ -370,11 +388,12 @@ export class ExtensionHost {
 
     if (known) return known;
 
-    const consumer: ServiceConsumer = {
-      name: extension.name,
-      manifest: extension.manifest,
-      contributedTools: () => this.#states.contributedTools(extension.name),
-    };
+    const { name, manifest } = extension;
+    const consumer: ServiceConsumer = Object.freeze({
+      name,
+      manifest,
+      contributedTools: () => this.#states.contributedTools(name),
+    });
 
     this.#consumers.set(extension.name, consumer);
 
@@ -403,12 +422,17 @@ export class ExtensionHost {
 
   /**
    * Closes the host and deactivates the activated extensions, last first, once (a second call
-   * does nothing). Called while `activate` is still running, it stops the rest from starting and
-   * deactivates what finishes meanwhile. One extension's `deactivate` throwing never stops the
-   * others; the errors come back for the caller to report.
+   * returns what an activation that failed closed the host with, once, then nothing). Called while
+   * `activate` is still running, it stops the rest from starting and deactivates what finishes
+   * meanwhile. One extension's `deactivate` throwing, or a service's `disarm` throwing, never
+   * stops the others; the errors come back for the caller to report. A `disarm` that returns a
+   * promise is not awaited: its rejection is returned by the first call that runs after it
+   * settled, which can be a later one.
    */
   async deactivate(): Promise<readonly unknown[]> {
-    if (this.#state === 'closed') return [];
+    if (this.#state === 'closed') {
+      return [...this.#pending.splice(0), ...this.#services.takeDisarmErrors()];
+    }
 
     this.#state = 'closed';
     // Before any `deactivate` runs: a stopping extension cannot emit, and neither can one still activating.
@@ -427,40 +451,7 @@ export class ExtensionHost {
       }
     }
 
-    return errors;
-  }
-
-  /**
-   * Why an extension does not activate, if it does not: a dependency that did not, code that is
-   * not trusted, or a required service nobody offers it.
-   */
-  async #skipped(params: {
-    extension: Extension;
-    unavailable: ReadonlySet<string>;
-    readable: ReadonlySet<string>;
-  }): Promise<SkippedExtension | undefined> {
-    const { extension, unavailable, readable } = params;
-    const skip = { extension: extension.name } as const;
-
-    if (extension.dependsOn.some((name) => unavailable.has(name))) {
-      return { ...skip, reason: 'dependency' };
-    }
-
-    if (!(await this.#isTrustedToRun(extension))) return { ...skip, reason: 'untrusted' };
-
-    const missing = this.#services.unreadable({
-      extension: this.#consumerOf(extension),
-      required: extension.manifest.services.requires,
-      readable,
-    });
-
-    return missing.length === 0 ? undefined : { ...skip, reason: 'service', missing };
-  }
-
-  async #isTrustedToRun(extension: Extension): Promise<boolean> {
-    // Only a declared builtin skips the gate: any other origin value is code to trust first.
-    if (extension.origin === undefined || extension.origin === 'builtin') return true;
-
-    return (await this.#options.isTrusted?.(extension)) === true;
+    // A service's `disarm` that threw was contained when it ran; it is reported with the rest.
+    return [...this.#services.takeDisarmErrors(), ...errors];
   }
 }

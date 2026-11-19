@@ -227,7 +227,7 @@ describe('the host offers the prompt grants without a service', () => {
   it.each([...EXTEND, ...REPLACE])(
     'knows %s with no service supplied, so a manifest listing it does not fail',
     async (grant) => {
-      expect(grantCatalogueOf([]).has(grant)).toBe(true);
+      expect(grantCatalogueOf({ services: [], extensions: [] }).has(grant)).toBe(true);
 
       const result = await activate([{ name: 'a', grants: [grant] }]);
 
