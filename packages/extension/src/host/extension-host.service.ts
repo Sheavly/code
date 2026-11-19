@@ -16,30 +16,17 @@ import { orderExtensions, readableServices, withDependents } from './extension-o
 import { assertSettings, settingInfos, settingsFor } from './settings.utils.js';
 import type {
   ActivationResult,
-  ContributedBy,
+  ActivationStep,
   ContributionSnapshot,
   ExtensionHostOptions,
   GrantCatalogue,
+  Progress,
   SkippedExtension,
 } from './extension-host.types.js';
+import { isFinalState } from './extension-state.utils.js';
+import type { ExtensionState } from './extension-state.types.js';
+import { ExtensionStates } from './extension-states.service.js';
 import { ServiceRegistry } from './services.service.js';
-
-/** How one extension's activation went. */
-type ActivationStep =
-  | { kind: 'closed' }
-  | { kind: 'skipped'; skipped: SkippedExtension }
-  | { kind: 'failed'; error: ExtensionActivationError }
-  | { kind: 'activated'; snapshot: ContributionSnapshot };
-
-/** What one `activate` call has recorded so far. */
-type Progress = {
-  contributed: ContributedBy[];
-  failed: ExtensionActivationError[];
-  skipped: SkippedExtension[];
-  lateDeactivationErrors: unknown[];
-  /** Extensions that did not activate: what depends on them is skipped. */
-  unavailable: Set<string>;
-};
 
 /**
  * Activates a run's extensions: checks the graph and the settings, activates each in dependency
@@ -68,8 +55,8 @@ export class ExtensionHost {
   readonly #settings: Readonly<Record<string, SettingValue>>;
   /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
   readonly #emitters = new Map<string, Emitter>();
-  /** The tool names each running extension contributed, recorded once checked against its manifest. */
-  readonly #contributedTools = new Map<string, readonly string[]>();
+  /** Each extension's one state (see `EXTENSION_TRANSITIONS`); the tool names it contributed count once it is merged. */
+  readonly #states: ExtensionStates;
   readonly #consumers = new Map<string, ServiceConsumer>();
   #activated: Extension[] = [];
   #state: 'idle' | 'activating' | 'active' | 'closed' = 'idle';
@@ -79,6 +66,7 @@ export class ExtensionHost {
     const sealed = options.extensions.map((extension) => sealExtension(extension));
 
     this.#ordered = orderExtensions(sealed);
+    this.#states = new ExtensionStates(this.#ordered.map((extension) => extension.name));
     this.#settings = Object.freeze({ ...options.settings });
     assertSettings({ extensions: sealed, values: this.#settings });
     this.#services = new ServiceRegistry(options.services);
@@ -157,6 +145,7 @@ export class ExtensionHost {
     const emitter = createEmitter({ manifest: extension.manifest, sink: this.#options.emit });
 
     this.#emitters.set(extension.name, emitter);
+    this.#enter({ extension: extension.name, to: 'activating' });
 
     try {
       const skipped = await this.#skipped({
@@ -167,13 +156,17 @@ export class ExtensionHost {
 
       if (skipped) {
         // The service check may have built this extension's factory instances: they must not outlive the skip.
-        this.#disarm(extension.name);
+        this.#enter({ extension: extension.name, to: 'skipped' });
 
         return { kind: 'skipped', skipped };
       }
 
       // The trust check awaited: `deactivate` may have closed the host meanwhile.
-      if (this.#isClosed()) return { kind: 'closed' };
+      if (this.#isClosed()) {
+        this.#enter({ extension: extension.name, to: 'stopped' });
+
+        return { kind: 'closed' };
+      }
 
       assertGrantsOffered({ manifest: extension.manifest, catalogue: this.#grants });
 
@@ -197,15 +190,16 @@ export class ExtensionHost {
       // Armed only from the recorded names and versions of the checked snapshot, never from the
       // live objects the extension still holds.
       emitter.arm(snapshot.emittable);
-      this.#contributedTools.set(
-        extension.name,
-        Object.freeze(snapshot.tools.map((entry) => entry.name)),
-      );
+      // Verified is not merged: the names are attributable only once the merge passed.
+      this.#states.verify({
+        extension: extension.name,
+        tools: Object.freeze(snapshot.tools.map((entry) => entry.name)),
+      });
 
       return { kind: 'activated', snapshot };
     } catch (caughtError) {
       // `activate` may have kept `context.emit` or a service: a failed extension must not use them.
-      this.#disarm(extension.name);
+      this.#enter({ extension: extension.name, to: 'failed' });
       this.#services.forget(extension.name);
 
       return {
@@ -231,6 +225,7 @@ export class ExtensionHost {
 
     if (step.kind === 'activated') {
       if (this.#isClosed()) {
+        this.#enter({ extension: extension.name, to: 'stopped' });
         await this.#stopLate({ extension, errors: progress.lateDeactivationErrors });
 
         return false;
@@ -270,7 +265,7 @@ export class ExtensionHost {
     // Taken out before the first `await`: a `deactivate()` meanwhile must not stop them a second time.
     this.#activated = this.#activated.filter((extension) => !names.has(extension.name));
     // Also before the first `await`: none of them may emit while the others are being stopped.
-    doomed.forEach((extension) => this.#disarm(extension.name));
+    doomed.forEach(({ name }) => this.#enter({ extension: name, to: 'rolled-back' }));
     progress.contributed = progress.contributed.filter(({ extension }) => !names.has(extension));
 
     for (const extension of doomed.toReversed()) {
@@ -312,10 +307,14 @@ export class ExtensionHost {
       };
     }
 
+    // One merge for every survivor: a collision throws here and leaves none of them merged.
+    const contributions = mergeContributions(progress.contributed);
+
+    this.#activated.forEach(({ name }) => this.#enter({ extension: name, to: 'merged' }));
     this.#state = 'active';
 
     return {
-      contributions: mergeContributions(progress.contributed),
+      contributions,
       active: this.#activated.map((extension) => extension.name),
       settings: settingInfos({ extensions: this.#activated, values: this.#settings }),
       failed,
@@ -348,14 +347,23 @@ export class ExtensionHost {
   /** Ends an extension's emit capability and its per-extension services, for good; one that never started has none. */
   #disarm(extension: string): void {
     this.#emitters.get(extension)?.disarm();
-    this.#contributedTools.delete(extension);
     this.#services.disarm(extension);
   }
 
   /**
+   * Moves an extension along the state table; entering a final state ends its emit capability and
+   * services, so cleanup runs on every path in. The table refuses a move it does not list.
+   */
+  #enter(params: { extension: string; to: Exclude<ExtensionState, 'verified'> }): void {
+    this.#states.move(params);
+
+    if (isFinalState(params.to)) this.#disarm(params.extension);
+  }
+
+  /**
    * The extension as a per-extension service sees it: one object per extension, whose
-   * `contributedTools` reads the names recorded after the check and is empty before it and after
-   * the host stops the extension.
+   * `contributedTools` holds the checked names only while the extension is merged: empty before
+   * the merge that checks collisions passed, and after any stop, roll-back or failure.
    */
   #consumerOf(extension: Extension): ServiceConsumer {
     const known = this.#consumers.get(extension.name);
@@ -365,7 +373,7 @@ export class ExtensionHost {
     const consumer: ServiceConsumer = {
       name: extension.name,
       manifest: extension.manifest,
-      contributedTools: () => this.#contributedTools.get(extension.name) ?? [],
+      contributedTools: () => this.#states.contributedTools(extension.name),
     };
 
     this.#consumers.set(extension.name, consumer);
@@ -405,8 +413,9 @@ export class ExtensionHost {
     this.#state = 'closed';
     // Before any `deactivate` runs: a stopping extension cannot emit, and neither can one still activating.
     this.#emitters.forEach((emitter) => emitter.disarm());
-    this.#contributedTools.clear();
     this.#services.disarmAll();
+    // One that is still activating moves when its step ends; it is neither verified nor merged yet.
+    this.#activated.forEach(({ name }) => this.#enter({ extension: name, to: 'stopped' }));
 
     const errors: unknown[] = [];
 

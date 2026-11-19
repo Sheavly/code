@@ -30,6 +30,48 @@ that activated, the `active` names, `failed` and `skipped`. An aborted `signal` 
 what activated is deactivated and the abort reason is thrown, and so is a contribution collision
 or a `HookOrderError`.
 
+## States
+
+The host holds one state per extension (`ExtensionStates`), moved only along one table
+(`EXTENSION_TRANSITIONS` in `host/extension-state.constants.ts`; `canMove` in
+`extension-state.utils.ts` answers whether a move is listed, and a move that is not throws an
+`ExtensionStateError`). A test fails when the block below differs from the table.
+
+<!-- extension-lifecycle:start -->
+
+| State         | May move to                        |
+| ------------- | ---------------------------------- |
+| `sealed`      | activating                         |
+| `activating`  | verified, skipped, failed, stopped |
+| `verified`    | merged, rolled-back, stopped       |
+| `merged`      | stopped                            |
+| `skipped`     | final                              |
+| `failed`      | final                              |
+| `rolled-back` | final                              |
+| `stopped`     | final                              |
+
+<!-- extension-lifecycle:end -->
+
+- `sealed`: known to the host, not reached yet (one never reached stays here).
+- `activating`: its trust and service checks, its `activate` and the check of what it returned are
+  running.
+- `verified`: `activate` returned and its contributions were snapshotted and checked against the
+  manifest; its emit capability is armed. Nothing is merged yet.
+- `merged`: the one merge at the end of `activate`, which checks names across extensions, passed.
+  Every surviving extension moves from `verified` to `merged` together; a collision throws before
+  any of them does, so none is merged.
+- `skipped`, `failed`, `rolled-back` and `stopped` are final. `skipped`: it never ran. `failed`: its
+  `activate`, its trust check or its manifest check threw. `rolled-back`: its contributions changed
+  after the check, or it depends on one whose did. `stopped`: the host closed (`deactivate()`, a
+  late finish after the close, or a close before it started).
+- Every move into a final state ends the extension's `emit` capability and disarms its
+  per-extension services; `failed` and `rolled-back` also drop the services it provided.
+
+`ServiceConsumer.contributedTools()` reads this state: it holds the tool names checked against the
+manifest only while the extension is `merged`. It is empty while the extension is `activating` or
+`verified` (so an extension that already returned cannot be attributed a tool name another
+extension also contributes before the collision check), and empty again in every final state.
+
 ## Failure isolation
 
 One extension failing never stops the others.

@@ -147,6 +147,23 @@ export type SkippedExtension =
       missing: readonly string[];
     };
 
+/** How one extension's activation went. */
+export type ActivationStep =
+  | { kind: 'closed' }
+  | { kind: 'skipped'; skipped: SkippedExtension }
+  | { kind: 'failed'; error: ExtensionActivationError }
+  | { kind: 'activated'; snapshot: ContributionSnapshot };
+
+/** What one `activate` call has recorded so far. */
+export type Progress = {
+  contributed: ContributedBy[];
+  failed: ExtensionActivationError[];
+  skipped: SkippedExtension[];
+  lateDeactivationErrors: unknown[];
+  /** Extensions that did not activate: what depends on them is skipped. */
+  unavailable: Set<string>;
+};
+
 /** What activating the extensions produced. One extension failing never stops the others. */
 export type ActivationResult = {
   contributions: MergedContributions;
