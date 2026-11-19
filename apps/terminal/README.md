@@ -8,6 +8,7 @@ like any other UI, and stops it on the way out.
 npm run dev -w @sheavly/terminal                                   # a conversation you keep talking to
 npm run dev:terminal -- --setup                                    # add or update profiles, models and keys
 npm run dev:terminal -- --resume <conversation-id>                  # reopen a saved conversation
+npm run dev:terminal -- --profile <profile-id>                     # start on a profile, for this run only
 npm run demo -- "Read package.json and tell me the project name"   # one prompt, printed as it happens
 npm run workbook -- list                                           # stored prompts and saved runs
 npm run replay -- last --summary                                   # a stored run or conversation, no model call

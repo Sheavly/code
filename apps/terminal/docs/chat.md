@@ -296,6 +296,30 @@ across restarts. `npm run dev:terminal -- --resume <conversation-id>` reopens on
 with its saved history, workspace and model selection. An optional message after the id is sent
 as the next prompt. A failed prompt keeps completed tool work and the user's message.
 
+A conversation resumed with `--resume` runs on the profile it started on. A `--profile` given
+with it that names another profile is ignored, and the terminal says so before it reopens
+anything: `→ conversation <id> runs on its own profile Home (<id>); --profile <id> ignored`.
+
+### A chat on a chosen profile
+
+`npm run dev:terminal -- --profile <profile-id>` starts the chat on that profile (the demo takes
+the same flag). The id is the profile's lowercase UUID, as in `~/.sheavly/profiles/<id>/`; it is
+removed from the prompt words. An explicit profile beats the workspace binding, which beats the
+default profile.
+
+It is for this run only: nothing is bound, no default changes and neither `config.json` nor
+`profile.json` is written, so chats on different profiles can start at the same moment. Setup is
+not consulted for it (`queryWorkspaceProfile` and the readiness check of the workspace are
+skipped); the named profile is checked instead, before a conversation opens:
+
+- a malformed id fails like a malformed `--resume` id, and a missing value is the same error;
+- an unknown id is `There is no profile <id>`, never a fall-back to another profile;
+- a profile that exists but has no usable model or key is reported by name as not ready;
+- `--setup` with `--profile` is refused: setup binds a profile and sets the default.
+
+The startup banner says which profile the chat runs on, next to the conversation line:
+`→ profile Work (<id>)`. `/model` and `/mode` still remember their choice on that profile.
+
 ## Setup
 
 ### Model modes

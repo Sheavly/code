@@ -14,7 +14,8 @@ passed in the environment to the backend the demo starts: `WORKSPACE_ROOT`, `SHO
 are in your profile (`~/.sheavly`), not here: see
 [models and keys](../../backend/docs/harness.md#models-and-keys). The
 `--trust` flag trusts the workspace's `.sheavly/` hooks: `npm run demo -- --trust "your prompt"`.
-The demo's own:
+`--profile <profile-id>` runs it on that profile, for this run only, as in
+[the chat](chat.md#a-chat-on-a-chosen-profile). The demo's own:
 
 - `SESSIONS_SSE_LOG=<file>`: writes the conversation's stream, as a UI reads it, to a file.
 

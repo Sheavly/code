@@ -6,6 +6,7 @@ import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import { isMainSession } from '@sheavly/protocol/session/session.utils';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
@@ -60,8 +61,10 @@ export class RemoteConversation {
     model?: string | undefined;
     /** The reasoning effort to start on, for this conversation only; the profile's own when omitted. */
     mode?: ModelMode | undefined;
+    /** The profile to start on; the workspace's binding, else the default, when omitted. */
+    profile?: ProfileId | undefined;
   }): Promise<RemoteConversation> {
-    const { backend, messages, workspace, model, mode } = params;
+    const { backend, messages, workspace, model, mode, profile } = params;
     const client = clientFor(backend);
     const { id } = await client.call('startConversation', {
       body: {
@@ -69,6 +72,7 @@ export class RemoteConversation {
         ...(workspace && { workspace }),
         ...(model && { model }),
         ...(mode && { mode }),
+        ...(profile && { profile }),
       },
     });
 
