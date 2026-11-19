@@ -48,7 +48,8 @@ const readFiles = async (folder: string): Promise<Record<string, string>> => {
 describe('setting up a model on Bedrock', () => {
   const claude = { model: 'eu.anthropic.claude-sonnet-5-5', maxTokens: 1024 };
   const gpt = { model: 'eu.openai.gpt-6-astra' };
-  const keyPair = { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: KEY };
+  const TOKEN = 'SESSIONTOKEN-LEAK-CHECK-71c4';
+  const keyPair = { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: KEY, sessionToken: TOKEN };
   const sonnet = { model: 'claude-sonnet-5-5', family: 'claude' };
   const astra = { model: 'gpt-6-astra', family: 'gpt' };
   const messages = 'https://bedrock-runtime.eu-west-1.amazonaws.com/anthropic/v1/messages';
@@ -91,6 +92,14 @@ describe('setting up a model on Bedrock', () => {
       expect(holding[0]?.[0]).not.toContain('models');
       expect(files[`models/${MODEL}.json`]).toContain(fields.model);
       expect(JSON.stringify(result)).not.toContain(KEY);
+      // A session token is a secret too: stored with the others, in no other file, never echoed.
+      expect(
+        Object.entries(files)
+          .filter(([, text]) => text.includes(TOKEN))
+          .map(([name]) => name),
+      ).toEqual(byKey ? [] : [holding[0]?.[0]]);
+      expect(JSON.stringify(result)).not.toContain(TOKEN);
+      expect(JSON.stringify(calls)).not.toContain(TOKEN);
       expect(result).toMatchObject({ status: 'invalid' });
       // The one call went to the Region the model names: an API key is sent as it is, an access
       // key pair only as a signature, never the secret itself.
