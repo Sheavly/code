@@ -5,12 +5,12 @@
  * deactivated. Every test runs for a built-in and a third-party probe with the same manifest.
  */
 import { describe, expect, it } from 'vitest';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import {
   BACKGROUND_TASKS,
   OUTPUT_READER,
 } from '@sheavly/extension/run-services/run-services.utils';
-import { ScopeDeactivatedError } from '@sheavly/host/errors/scopes.errors';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
