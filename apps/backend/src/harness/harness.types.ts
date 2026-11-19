@@ -40,8 +40,24 @@ export type ServedSettings = CliSettings & ReturnType<typeof parseRunEnv>;
  */
 export type ModelSwitch = { switch: ProviderSwitch; choices: ModelChoice[] };
 
-/** What the backend decides about a run. */
-export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseInstructions'> & {
+/**
+ * What the backend decides about a run. `instructions` are the app's own extras, after the
+ * generic base and the sections the run's extensions contribute (`coding`'s guidance among
+ * them); `baseInstructions` replaces only the generic base (an empty string omits it) and wins
+ * over an extension's replacement, which fails the run naming that extension unless the app lists
+ * the reserved name (`BASE_INSTRUCTIONS_SECTION`) in `omitInstructionSections`. That option is the
+ * app's alone and always wins: it leaves out the named sections the extensions contribute (the
+ * names their manifests declare in `instructions`, `coding` for the coding guidance), and a name
+ * nothing contributed fails the run with an `UnknownInstructionSectionError`, including a name
+ * from an extension this run skipped (untrusted, or a missing service): omit only what the run's
+ * extensions contribute. It is handed to the host's system prompt only; no extension reads it,
+ * and a run that fails composing the prompt tells extensions only a generic reason, never the
+ * names.
+ */
+export type BackendHarnessOptions = Pick<
+  HarnessOptions,
+  'instructions' | 'baseInstructions' | 'omitInstructionSections'
+> & {
   provider: Provider;
   subAgentProvider?: Parameters<typeof createSubAgentTool>[0]['selectProvider'];
   /** Public web reading, default on; false omits it for the main run and every sub-agent. */

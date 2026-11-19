@@ -8,8 +8,10 @@ scratch and working-root hooks and the workspace's `.sheavly/` hooks. It shares 
 sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools and hooks, the
 services it requires (`sub-agents`, `session-info`, `background-tasks`, `approvals`,
 `main-session`), `output-capture` it may read and `coding-run` it provides, and the grants it
-holds: `output:capture`, `session:read`, `task:start`, `approval:request`, `approval:as-tool` and
-`approval:keep`.
+holds: `output:capture`, `session:read`, `task:start`, `approval:request`, `approval:as-tool`,
+`approval:keep` and `system-prompt:extend`. It also contributes one system-prompt section, named
+`coding` in the manifest's `instructions`: the coding guidance, with its own `# Coding work`
+heading.
 The user chooses the names of a workspace's own `.sheavly/` hooks, so the manifest declares hooks
 with the bare wildcard `*` (the `@sheavly/extension` manifest doc explains wildcards). A coding UI composes it in an
 `ExtensionHost` (`@sheavly/extension`) with the other extensions it wants, over the run services
@@ -17,13 +19,9 @@ with the bare wildcard `*` (the `@sheavly/extension` manifest doc explains wildc
 
 ```ts
 import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
-import { composeCodingInstructions } from '@sheavly/coding/instructions/coding-instructions.helper';
 
-const harness = createHarness({
-  provider,
-  title,
-  instructions: composeCodingInstructions({ instructions }),
-});
+// The app passes only its own `instructions`: the coding guidance comes from the extension.
+const harness = createHarness({ provider, title, instructions });
 const coding = createCodingExtension({
   workspaceRoot,
   env: process.env,
@@ -54,7 +52,7 @@ tools also use a shared scratch folder outside the repo; see
 | ---------------- | ------------------------------------------------------------------------------------------------- |
 | `extension/`     | `createCodingExtension`, `CODING_RUN`, `CODING_HOOK_NAMES`: coding as an extension of a run       |
 | `file-reads/`    | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
-| `instructions/`  | `CODING_INSTRUCTIONS`, `composeCodingInstructions`: coding guidance inserted before host extras   |
+| `instructions/`  | `CODING_INSTRUCTIONS`: the coding guidance the extension contributes as a prompt section          |
 | `read-file/`     | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
 | `grep/`          | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
 | `glob/`          | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard      |
@@ -107,11 +105,16 @@ last stage and every stderr print. If storage cannot start a capture the command
 result says the full output is not being stored; a storage failure mid-capture marks the log
 incomplete, never complete. Without it only the preview exists, as before.
 
-`composeCodingInstructions({ instructions })` (built on `joinInstructions` from
-`@sheavly/extension/instructions/instructions.utils`) gives the `instructions` an app passes to
-`createHarness`, which returns generic core, coding guidance, then caller extras. The harness's
-`baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
-this text by default; direct loop callers pass it explicitly. See
+The coding guidance is a section the extension contributes (`instructions: [{ name: 'coding',
+text: CODING_INSTRUCTIONS }]`, under the `system-prompt:extend` grant), not something an app
+composes. The run's system prompt is the generic core, then the sections of the extensions in
+activation order (coding's among them), then the app's own `instructions`. The app's
+`baseInstructions` replaces only the generic core, not coding guidance. An app that wants `coding`
+without its guidance lists the section `coding` in `omitInstructionSections`. The option controls
+only the declared instruction sections. An extension's tools, hooks, notices and any section whose
+name the app does not know are not covered, and an extension can still infer an omitted section
+from the composed text: to remove an extension's influence, leave the extension out. Conversations use this
+text by default; direct loop callers pass it explicitly. See
 [instruction composition](../../packages/host/docs/harness.md#instruction-composition).
 Coding guidance excludes routine investigation of secret-bearing files and forbids probing or
 bypassing protected-file rules. Tool guards still enforce those rules independently.

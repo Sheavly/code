@@ -9,6 +9,73 @@ exactly in `emits.events`) and `notices` (topics in its own namespace, with
 `emits.modelFacingNotices` set) it returns are held to the manifest the same way; with their
 `data` schemas they say what its `context.emit` may send.
 
+## System-prompt sections
+
+An extension can put text in the system prompt. `activate` returns
+`instructions: [{ name, text }]` (`InstructionContribution`), next to its tools and hooks.
+
+- **Declared and granted.** Each `name` is listed in the manifest's `instructions`, and the
+  manifest lists the `system-prompt:extend` grant; otherwise the activation fails
+  (`ExtensionUndeclaredError`, `use: 'instruction'` for a name, `use: 'grant'` for the grant). A
+  declared name may go unused. See [manifest](manifest.md#the-system-prompt-grants).
+- **Order.** `ActivationResult.contributions.instructions` holds the sections of every extension
+  in activation order (dependency order, then the order given), and an extension's own in the order
+  it returned them. Two sections with one name, from two extensions or one, collide
+  (`ContributionCollisionError`, naming both extensions).
+- **No header.** The host adds no heading, label or separator to a section: the extension writes
+  its own heading in `text`, and what it wrote is what is held, byte for byte. Putting sections
+  into the prompt (and how they are joined) is the caller's job; this package only merges them.
+- **The cap.** `text` must be a non-blank string of at most `MAX_INSTRUCTION_CHARS` (4000)
+  characters (`@sheavly/extension/instructions/instructions.constants`). An empty, blank or
+  non-string text, or a longer one, fails the whole extension with an `ExtensionInstructionError`
+  naming the extension, the section and the cap; none of its sections is merged.
+- **Frozen copies.** The host reads each name and text once at the check and holds its own frozen
+  `{ name, text }` copy in a frozen list. Changing the extension's own objects or array afterwards
+  changes nothing the host holds; changing them before the merge, while others activate, fails the
+  extension (`ExtensionContributionChangedError`).
+- **What is enforced where.** The host enforces the grant, the declared name, the cap, the
+  collision and the copy at run time, each on the one read it takes of the extension's list (a
+  getter or proxy that answers differently on a later read decides nothing). The only lint is
+  `harness/prompt-location`, which wants authored model text in a `*.prompt.ts`. The text's
+  **content** is review-only: it is the system prompt, so a section is the most trusted text an
+  extension can write. Also review-only, because the rule does not flag them:
+  `Object.assign({ name }, { text: '...' })`, a section array held in a class field,
+  `c.baseInstructions = '...'` assigned onto a `Contributions` variable and
+  `{ name, get text() { return '...' } }`. This is least privilege, not a sandbox.
+
+### Replacing the generic base
+
+`baseInstructions: string` replaces the generic base of the system prompt only: other extensions'
+sections and the app's own instructions still follow it. It needs the `system-prompt:replace`
+grant and no manifest name (it is one slot); without the grant the activation fails with an
+`ExtensionUndeclaredError` (`use: 'grant'`). It is held to the same text rules and cap as a
+section (a blank replacement would silently drop the core guidance, which is the app's choice and
+not an extension's), read once and kept as the string. The 4000-character cap applies to a
+replacement too, so a replacement cannot carry the host's own generic base (about 34 KB): it is
+meant for a short base, and an app that needs a long custom base sets `baseInstructions` itself. At most one extension per run may contribute
+it: a second one fails with a `ContributionCollisionError` naming both, in either order. The
+merged value is `contributions.baseInstructions` (`undefined` when none). The replacement text
+IS the model's base prompt, and its content is review-only: the host's own base prompt has a
+recorded review (`npm run lint:prompt`) that an extension's replacement skips. When the app passes
+its own base explicitly, the app's base takes precedence over an extension's replacement.
+
+The app, not the extension, decides what reaches the prompt: its `omitInstructionSections` option
+(`HarnessOptions`) leaves out a section by the name the manifest declares, or the replacement by
+the reserved name `BASE_INSTRUCTIONS_SECTION` (`instructions.constants`), and always wins. The
+option itself is not reachable by an extension, and a name nothing contributed fails the run. This
+is the app choosing what its own prompt holds, least privilege, not a sandbox: the extension still
+runs. The option controls only the declared instruction sections. An extension's tools, hooks,
+notices and any section whose name the app does not know are not covered, and an extension can
+still infer an omitted section from the composed text: to remove an extension's influence, leave
+the extension out.
+
+That name is **reserved**: a section cannot be called `baseInstructions`, because the app uses that
+label to omit the replacement, and a section with the same label could not be told apart from it
+(omitting one would drop both, and a typo's "Available" list would hide the clash). The host
+refuses such a section at activation with an `ExtensionInstructionError` (`problem: 'reserved'`),
+and the manifest schema refuses the label in `instructions`. The label stays valid as the
+replacement slot itself, under `system-prompt:replace`.
+
 ## Settings
 
 A setting is a static declaration in the extension's manifest, like `name` and `dependsOn`, so the

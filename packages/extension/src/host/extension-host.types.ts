@@ -11,11 +11,15 @@ import type {
   Contributions,
   Extension,
   HostService,
+  InstructionContribution,
   SettingValue,
   WorkKindContribution,
 } from '../extension/extension.types.js';
 
-/** Each grant a supplied service declares, with the names of the services that declare it. */
+/**
+ * Each grant a supplied service declares, with the names of the services that declare it. A grant
+ * the host offers itself (`system-prompt:extend`) lists `HOST_PROVIDER`, which needs no service.
+ */
 export type GrantCatalogue = ReadonlyMap<string, readonly string[]>;
 
 /** What an extension host needs: the extensions, and what the app supplies to them. */
@@ -54,6 +58,12 @@ export type ExtensionHostOptions = {
 export type MergedContributions = {
   tools: readonly Tool[];
   hooks: readonly Hook[];
+  /** Frozen `{ name, text }` copies taken at the check, in activation order. */
+  instructions: readonly InstructionContribution[];
+  /** The one replacement for the generic base, if an extension holds it; at most one may. */
+  baseInstructions: string | undefined;
+  /** The extension that holds `baseInstructions`, for a host that must refuse it by name. */
+  baseInstructionsBy: string | undefined;
   workKinds: readonly WorkKindContribution[];
   events: readonly EventContribution[];
   notices: readonly NoticeContribution[];
@@ -98,12 +108,17 @@ export type ContributionSnapshot = {
   sources: {
     tools: Contributions['tools'];
     hooks: Contributions['hooks'];
+    instructions: Contributions['instructions'];
     workKinds: Contributions['workKinds'];
     events: Contributions['events'];
     notices: Contributions['notices'];
   };
   tools: readonly CheckedEntry<Tool>[];
   hooks: readonly CheckedEntry<RecordedHook>[];
+  /** Each item is the host's own frozen copy, its text read and validated once. */
+  instructions: readonly CheckedEntry<InstructionContribution>[];
+  /** The replacement base, read once and validated; strings are immutable. */
+  baseInstructions: string | undefined;
   workKinds: readonly CheckedEntry<WorkKindContribution>[];
   events: readonly CheckedEntry<EventContribution>[];
   notices: readonly CheckedEntry<NoticeContribution>[];

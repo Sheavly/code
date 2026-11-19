@@ -8,7 +8,6 @@
 // namespace aliases resolve to the same imported binding; typed contracts cover routed options.
 export const OPTION_APIS = new Set([
   'createHarness',
-  'composeCodingInstructions',
   'createConversation',
   'createSubAgentTool',
   'runAgent',
@@ -17,5 +16,6 @@ export const OPTION_APIS = new Set([
   'sample',
   'buildContributions',
   'composeInstructions',
+  'composeSystemPrompt',
   'appendInstructionContext',
 ]);

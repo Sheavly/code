@@ -26,7 +26,9 @@ are in the `sheavly` skill's `extensions.md`; this page is how the package is bu
   `sealExtension` (`extension/`) gives the host one deep-frozen copy of each manifest; `ServiceRegistry` holds the shared services (building a factory
   service lazily, once per extension, and disarming those instances with the emitter) and holds
   each extension's reads and provides to its manifest; `grantCatalogueOf` and
-  `assertGrantsOffered` verify a manifest's `grants` against the supplied services.
+  `assertGrantsOffered` verify a manifest's `grants` against the supplied services plus the two
+  the host offers itself (`system-prompt:extend`, `system-prompt:replace`, defined once in
+  `instructions/instructions.constants.ts`).
 
 ## Pure helpers an extension shares with the host
 
@@ -34,10 +36,9 @@ For these two helpers an extension no longer needs `@sheavly/host`: the package 
 and the host's behaviour builds on them:
 
 - `joinInstructions` (`instructions/instructions.utils`): joins instruction sections, each trimmed,
-  blank or missing ones dropped, a blank line between. An extension that contributes instructions
-  (coding's `composeCodingInstructions`) puts its own text in front of the app's with it. The
-  host's `composeInstructions` builds on it and adds the generic base prompt, which stays in
-  `@sheavly/host`.
+  blank or missing ones dropped, a blank line between. The host's `composeInstructions` and
+  `composeSystemPrompt` build on it and add the generic base prompt, which stays in
+  `@sheavly/host`; an extension contributes sections and the host composes them.
 - `keepsFit`, `MAX_REQUEST_KEEPS` and `MAX_KEEP_ENTRY_CHARS` (`approval/`): the limits the host's
   approvals scope enforces on the `keeps` of a request (`approval:keep`). An extension that
   proposes entries it computed itself asks `keepsFit` first and, when they do not fit, asks without
@@ -57,7 +58,9 @@ without running it.
 
 ## Why a contribution never owns the loop
 
-An extension adds tools, hooks and work kinds, and declares the event kinds and notice topics it
+An extension adds tools, hooks, work kinds and system-prompt sections (`instructions`, and the one
+replacement `baseInstructions`, each behind its own host-offered grant, checked in
+`instruction-check.utils.ts`), and declares the event kinds and notice topics it
 may emit (`events`, `notices`; it sends them through `context.emit`, built per extension, to a sink
 the app supplies, and the host disarms it when the extension stops; the sink is not a service, but
 no scoped service hands out `publish`, `queueNotice` or `publishTask`, though Node code could reach a registry by importing the runtime); it never replaces a core

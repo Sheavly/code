@@ -5,6 +5,7 @@ import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
+import type { SystemPrompt } from '../instructions/system-prompt.service.js';
 
 /**
  * What any run needs, from the UI: the provider it picked and a title. Nothing here says which
@@ -14,10 +15,22 @@ export type HarnessOptions = {
   provider: Provider;
   /** Title of the main session (e.g. the prompt). */
   title: string;
-  /** Host extras after the generic core (and the coding section when an app composes it with `composeCodingInstructions`). */
+  /** The app's own extras, after the generic core and the sections extensions contribute. */
   instructions?: string | undefined;
-  /** Replaces only the generic core. Omission uses the default; an empty string omits it. */
+  /**
+   * Replaces only the generic core. Omission uses the default (or an extension's replacement); an
+   * empty string omits it. It wins over an extension's replacement, which is then refused.
+   */
   baseInstructions?: string | undefined;
+  /**
+   * Instruction sections to leave out of the prompt: the names extensions declare in their
+   * manifests' `instructions`, plus `BASE_INSTRUCTIONS_SECTION` (`@sheavly/extension`) for an
+   * extension's replacement base. The app always wins; a name nothing contributed fails loudly
+   * (`UnknownInstructionSectionError`) when the contributions are given to `systemPrompt`. Must be
+   * an array of non-blank strings (or `undefined`): anything else throws an
+   * `InvalidOmitInstructionSectionsError` from `createHarness`.
+   */
+  omitInstructionSections?: readonly string[] | undefined;
   /** Sees every model call (main session and sub-agents) before it is made. */
   onModelCall?: ((request: ProviderRequest) => void) | undefined;
   /** Pass registries in when a tool needs them before the harness exists (default: new ones). */
@@ -38,8 +51,15 @@ export type HarnessOptions = {
  */
 export type Harness = {
   provider: Provider;
-  /** Stable composed text for direct runs and, by default, conversations. */
+  /**
+   * The system prompt as of now, for direct runs and, by default, conversations. On the harness
+   * `createHarness` returns it is read live: the extensions' sections are in it once the app has
+   * given them to `systemPrompt`, which happens after every extension has activated; an app that
+   * returns a copy of the harness takes the text of that moment.
+   */
   instructions: string;
+  /** Where the run's system prompt is composed; an app gives it what the extensions contributed. */
+  systemPrompt: SystemPrompt;
   sessions: SessionRegistry;
   mainSession: SessionRef;
   tasks: TaskRegistry;

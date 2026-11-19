@@ -116,7 +116,59 @@ A contribution adds to the loop and never owns it. It can be:
   where it goes with `placeHook({ hook, before, after })`;
 - `workKinds`, a declared kind of background work (name and whether it is `finite` or a
   `service`); the work itself still starts through `startWork` ([sessions-and-background-work.md](sessions-and-background-work.md));
-- `events` and `notices`, the kinds and topics it may emit, each with the schema of its `data`.
+- `events` and `notices`, the kinds and topics it may emit, each with the schema of its `data`;
+- `instructions: [{ name, text }]`, named sections of the system prompt, declared in the
+  manifest's `instructions` and needing the `system-prompt:extend` grant; the host adds no header
+  and caps a section at `MAX_INSTRUCTION_CHARS`. `baseInstructions: string` replaces the generic
+  base only, needs `system-prompt:replace`, and at most one extension holds it. The text is the
+  system prompt, so its content is review-only (`packages/extension/docs/contributions.md`).
+
+### Contributing to the system prompt
+
+Two grants the host offers itself (no service defines them) put text in the model's system prompt:
+
+- `system-prompt:extend`: `instructions: [{ name, text }]`, each `name` declared in the manifest's
+  `instructions`.
+- `system-prompt:replace`: `baseInstructions: string`, which replaces the generic core only.
+
+They are the strongest grants: what the extension writes IS the system prompt. The host enforces
+who may contribute (the grant), the declared names, a non-blank `text` of at most
+`MAX_INSTRUCTION_CHARS` (4000), unique section names, at most one replacer, and frozen copies read
+once: the extension host reads each contribution field once per check and decides the grant, the
+checks and the merge on that one read, so a getter or proxy that answers differently the second
+time decides nothing (a list that changes before the merge fails the extension with
+`ExtensionContributionChangedError`). `SystemPrompt.contribute` (the app's call, not an
+extension's) copies and freezes each section and takes a contribution once; a second call throws.
+The cap applies to a replacement base too, so it cannot carry the host's own generic base (about
+34 KB): it is for a short base, and an app that needs a long custom base sets `baseInstructions`
+itself. The host adds no header. `SystemPrompt` (`@sheavly/host`) composes at each read: the app's
+`baseInstructions`, else the one extension replacement, else the generic base; then the sections in
+activation order; then the app's own `instructions`. An app's own `baseInstructions` wins: an
+extension replacement next to it is refused with `BaseInstructionsConflictError` naming the
+extension (the backend rejects with it). The app can also leave a section out, or the replacement
+(by the reserved `BASE_INSTRUCTIONS_SECTION` name), with its `omitInstructionSections` option and
+always wins; an omitted replacement conflicts with nothing, a name nothing contributed throws an
+`UnknownInstructionSectionError`, and the option itself is not reachable by an extension (least
+privilege, not a sandbox). The option controls only the declared instruction sections. An
+extension's tools, hooks, notices and any section whose name the app does not know are not
+covered, and an extension can still infer an omitted section from the composed text: to remove an
+extension's influence, leave the extension out. The name `baseInstructions` is reserved for the
+replacement: a section cannot take it (the manifest schema and the host refuse it), so omitting it
+means one thing. The app hands the activation result's contributions to
+`harness.systemPrompt.contribute`; `harness.instructions` is a live getter.
+
+The content is review-only, with one lint check: `harness/prompt-location` requires authored model
+text to live in a `*.prompt.ts`. It covers the instruction and `baseInstructions` options passed to
+harness APIs and a section's `text` (a literal, a template, a `*.constants.ts` value or a helper's
+literal result is reported); it is bounded static tracing (see
+`packages/eslint-config/docs/rules.md`), so sections built with `.map` or spread elements, `text`
+built at runtime and a dynamically imported module stay review-only, and so do
+`Object.assign({ name }, { text: '...' })`, a section array held in a class field,
+`c.baseInstructions = '...'` assigned onto a `Contributions` variable and
+`{ name, get text() { return '...' } }`, which the rule does not flag. Nothing checks what the text says, and the host's own recorded review (`npm run lint:prompt`) does
+not cover an extension's text. **Breaking:** the `INSTRUCTIONS` run service value is a frozen
+`{ text }` view, no longer a string: code that read it as a string reads `.text`. This is least
+privilege, not a sandbox: the grants mediate the host's composition only.
 
 ### Emitting events and notices
 
@@ -195,11 +247,13 @@ configuration is a setting.
 | `OUTPUT_CAPTURE`               | `output-capture`               | `output:capture`: create a new output, which fills the store's quota (only when the app has a store)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `MODEL`                        | `model`                        | `model:call`: model calls on the app's credentials (budgets are deferred)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `APPROVALS`                    | `approvals`                    | `approval:request`: ask the user to approve, plus the read-only `listening`; by default the scope builds the request (attributed to the extension, answered once, no `keeps`, no `always_allow`); `approval:as-tool`: ask as a tool the extension contributes (unprefixed command; contributions are unique across a run, and a request during `activate` is refused); `approval:keep`: pass `options` and `keeps` through, bounded (50 concerns of 1000 characters with visible cuts; at most 20 `keeps` of 500), and the answer must be one of the offered options; whether an entry is kept is the requesting extension's own code, the prompt shows the entries (`always_allow`/`allow_session` need `keeps`); using a field without its grant is refused |
-| `INSTRUCTIONS`, `MAIN_SESSION` | `instructions`, `main-session` | none: constants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `INSTRUCTIONS`, `MAIN_SESSION` | `instructions`, `main-session` | none: `main-session` is a constant; `instructions` is a frozen read-only view `{ text }` of the system prompt, composed at each read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 - **A grant is `<noun>:<verb>`** (lowercase kebab parts, one colon), declared in the manifest's
   `grants` and readable by an installer before any code runs. The catalogue is what the supplied
-  services declare; a grant is verb-level, one capability, and a new capability is a new grant,
+  services declare, plus the two the host offers itself with no service: `system-prompt:extend`
+  and `system-prompt:replace` (the strongest grants: what the extension writes is the system
+  prompt); a grant is verb-level, one capability, and a new capability is a new grant,
   never a widened one.
 - **Nothing exposes a registry.** No scoped service hands out `publish`, `queueNotice`,
   `publishTask`, `end`, `release`, `cancelAll`, `cancelSession`, an inbox or a stream of message
@@ -366,7 +420,8 @@ changes.
   `@sheavly/extension/emit/emit.types`); see "Emitting events and notices" and
   `apps/backend/src/harness/__tests__/third-party-emit.test.ts`.
 - The run's own state: `SESSION_INFO`, `CHILD_SESSIONS`, `MAIN_SESSION`, `MODEL`, `INSTRUCTIONS`
-  and `services.find(OUTPUT_READER)` / `find(OUTPUT_CAPTURE)` (absent without an output store),
+  (a live `{ text }` view: read `.text` when you need the prompt, each time, never cache it as a
+  string) and `services.find(OUTPUT_READER)` / `find(OUTPUT_CAPTURE)` (absent without an output store),
   each with its grants (see "Run services and grants"). There is no environment service: read
   configuration through a setting.
 

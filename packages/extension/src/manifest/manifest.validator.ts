@@ -3,6 +3,7 @@ import {
   QUALIFIED_NAME_PATTERN,
 } from '@sheavly/protocol/extension/extension.constants';
 import { z } from 'zod';
+import { BASE_INSTRUCTIONS_SECTION } from '../instructions/instructions.constants.js';
 import {
   GRANT_PATTERN,
   MAX_LIST_SIZE,
@@ -21,6 +22,7 @@ type Fields = {
   settings: { name: string }[];
   tools: string[];
   hooks: string[];
+  instructions: string[];
   workKinds: string[];
   emits: { events: string[] };
   serves: { actions: string[] };
@@ -133,12 +135,42 @@ function wildcardProblems(params: {
   });
 }
 
-/** Names listed twice, or wildcards written wrongly, in tools, hooks and work kinds. */
+/** Every name containing a `*`: a section matches by exact name, so no wildcard is allowed. */
+function exactNameProblems(params: { path: string[]; list: readonly string[] }): Problem[] {
+  const { path, list } = params;
+
+  return list.flatMap((name, index) =>
+    name.includes('*')
+      ? [{ path: [...path, index], message: `"${name}": a name here cannot contain "*"` }]
+      : [],
+  );
+}
+
+/** The reserved replacement-base label, which no section may be named. */
+function reservedNameProblems(params: { path: string[]; list: readonly string[] }): Problem[] {
+  const { path, list } = params;
+
+  return list.flatMap((name, index) =>
+    name === BASE_INSTRUCTIONS_SECTION
+      ? [
+          {
+            path: [...path, index],
+            message: `"${name}": a name here cannot be "${BASE_INSTRUCTIONS_SECTION}", which is reserved for a replacement base`,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Names listed twice, or wildcards written wrongly, in tools, hooks, instructions and work kinds. */
 function contributionProblems(fields: Fields): Problem[] {
   return [
+    ...exactNameProblems({ path: ['instructions'], list: fields.instructions }),
+    ...reservedNameProblems({ path: ['instructions'], list: fields.instructions }),
     ...repeats({ path: ['tools'], list: fields.tools }),
     ...repeats({ path: ['hooks'], list: fields.hooks }),
     ...repeats({ path: ['workKinds'], list: fields.workKinds }),
+    ...repeats({ path: ['instructions'], list: fields.instructions }),
     ...wildcardProblems({ path: ['tools'], list: fields.tools, allowBare: false }),
     ...wildcardProblems({ path: ['hooks'], list: fields.hooks, allowBare: true }),
     ...wildcardProblems({ path: ['workKinds'], list: fields.workKinds, allowBare: false }),
@@ -225,6 +257,11 @@ export const extensionManifestSchema = z
     settings: z.array(settingSchema).max(MAX_LIST_SIZE).default([]),
     tools: names,
     hooks: names,
+    /**
+     * The system-prompt sections it may contribute, by exact name. Needs the `system-prompt:extend`
+     * grant; the host refuses an undeclared section.
+     */
+    instructions: names,
     workKinds: names,
     /**
      * Enforced by the host: an event kind the extension contributes must be listed in `events`,
@@ -239,7 +276,8 @@ export const extensionManifestSchema = z
     /**
      * The verb-level capabilities the extension asks of the host's per-extension services. The
      * host fails the activation of an extension that names a grant no supplied service offers,
-     * or one whose service it does not read; each service enforces its own grants.
+     * or one whose service it does not read; each service enforces its own grants. The host
+     * offers `system-prompt:extend` and `system-prompt:replace` itself: they need no service.
      */
     grants: z.array(grantName).max(MAX_LIST_SIZE).optional(),
     /** Reserved: validated, not yet enforced by the host. */

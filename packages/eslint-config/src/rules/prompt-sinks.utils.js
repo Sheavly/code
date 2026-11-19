@@ -56,6 +56,19 @@ export function modelSectionType(type) {
   );
 }
 
+/** A system-prompt section an extension contributes (`InstructionContribution`), by declaration. */
+export function instructionSectionType(type) {
+  if (!hasPromptProperties(type, ['name', 'text'])) return false;
+
+  const declarations = type.getProperty('text').declarations ?? [];
+
+  return declarations.some(
+    (entry) =>
+      entry.parent?.parent?.name?.text === 'InstructionContribution' &&
+      entry.getSourceFile().fileName.endsWith('.types.ts'),
+  );
+}
+
 /** Resolve the defining signature, so `send`/`stream` and destructured hook aliases are not names heuristics. */
 export function typedPromptCall(params) {
   const { context, node } = params;

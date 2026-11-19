@@ -9,7 +9,9 @@ or commands. It reads the run's scoped services from the run services
 (`@sheavly/host/run-services/run-services.utils`) in `activate`, as any extension can, so the host
 must supply them (`runServices`): `SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`,
 `TASK_CONTROL`, `MODEL`, `INSTRUCTIONS` and, with an output store, `OUTPUT_READER`. It holds no
-registry and does not import the loop: `CHILD_SESSIONS` runs a sub-agent's loop. Its options are
+registry and does not import the loop: `CHILD_SESSIONS` runs a sub-agent's loop. `INSTRUCTIONS`
+is a live view of the system prompt, read when each sub-agent starts, so sub-agents get the
+sections other extensions contribute. Its options are
 the embedding app's choices only: `subAgentProvider`, `summarizeWith`, `keepAgentHistory` and
 `logOf`. It provides `SUB_AGENTS`, a write-only service: an extension that depends on `agents`
 shares the tools and hooks its sub-agents get with `share`, and cannot read or change what others

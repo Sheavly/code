@@ -24,6 +24,7 @@ describe('the extension manifest schema', () => {
       settings: [],
       tools: [],
       hooks: [],
+      instructions: [],
       workKinds: [],
       emits: { events: [], modelFacingNotices: false },
       serves: { actions: [] },
@@ -43,6 +44,8 @@ describe('the extension manifest schema', () => {
       ],
       tools: ['add_note'],
       hooks: ['notes-hook'],
+      instructions: ['notes-guidance'],
+      grants: ['system-prompt:extend', 'system-prompt:replace'],
       workKinds: ['notes.sync'],
       emits: { events: ['notes.added'], modelFacingNotices: true },
       serves: { actions: ['notes.clear'] },
@@ -105,8 +108,31 @@ describe('the extension manifest schema', () => {
     ]);
   });
 
-  it.each(['tools', 'hooks', 'workKinds'])('rejects a name listed twice in %s', (field) => {
-    expect(problemPaths({ name: 'notes', [field]: ['one', 'one'] })).toEqual([`${field}.1`]);
+  it.each(['tools', 'hooks', 'instructions', 'workKinds'])(
+    'rejects a name listed twice in %s',
+    (field) => {
+      expect(problemPaths({ name: 'notes', [field]: ['one', 'one'] })).toEqual([`${field}.1`]);
+    },
+  );
+
+  it.each(['notes-*', '*', 'a*b'])(
+    'rejects the wildcard %j in instructions: a section matches by exact name',
+    (name) => {
+      expect(problemPaths({ name: 'notes', instructions: [name] })).toEqual(['instructions.0']);
+    },
+  );
+
+  it('rejects the reserved replacement-base label in instructions, and only there', () => {
+    const input = { name: 'notes', instructions: ['ok', 'baseInstructions'] };
+
+    expect(problemPaths(input)).toEqual(['instructions.1']);
+    expect(problems(input).join('\n')).toContain('reserved for a replacement base');
+    expect(problems({ name: 'notes', instructions: ['baseInstructions-2'] })).toEqual([]);
+    expect(problems({ name: 'notes', tools: ['baseInstructions'] })).toEqual([]);
+  });
+
+  it('accepts an exact instruction name', () => {
+    expect(problems({ name: 'notes', instructions: ['notes-guidance'] })).toEqual([]);
   });
 
   describe('wildcard names', () => {

@@ -8,6 +8,7 @@ import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.err
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
+import { CODING_INSTRUCTIONS } from '../../instructions/coding-instructions.prompt.js';
 import { codingRun } from '../../testing/coding-run.fake.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
 import type { CodingRunParams } from '../../testing/testing.types.js';
@@ -128,7 +129,29 @@ describe('the coding extension and its manifest', () => {
       'approval:request',
       'approval:as-tool',
       'approval:keep',
+      'system-prompt:extend',
     ]);
+  });
+
+  it('contributes its guidance as the one declared section, with the text of its prompt file', async () => {
+    const { failed, contributions } = await activate();
+
+    expect(failed).toEqual([]);
+    expect(manifest.instructions).toEqual(['coding']);
+    expect(contributions.instructions).toEqual([{ name: 'coding', text: CODING_INSTRUCTIONS }]);
+    expect(contributions.baseInstructions).toBeUndefined();
+  });
+
+  it('fails to activate when its manifest lacks system-prompt:extend, and adds no section', async () => {
+    const { failed, active, contributions } = await activate(
+      undefined,
+      withoutGrant('system-prompt:extend'),
+    );
+
+    expect(active).toEqual(['agents']);
+    expect(failed).toHaveLength(1);
+    expect(String(failed[0]?.cause)).toContain('system-prompt:extend');
+    expect(contributions.instructions).toEqual([]);
   });
 
   it('fails to activate when its manifest lacks session:read, which it needs to hear the sessions', async () => {

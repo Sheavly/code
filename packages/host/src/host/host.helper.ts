@@ -3,7 +3,7 @@ import { ApprovalRegistry } from '@sheavly/runtime/approvals/approvals.service';
 import { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { Harness, HarnessOptions } from './host.types.js';
-import { composeInstructions } from '../instructions/instructions.helper.js';
+import { SystemPrompt } from '../instructions/system-prompt.service.js';
 
 /**
  * The services one run shares, for any LLM project: the provider the UI picked (seen by
@@ -13,6 +13,11 @@ import { composeInstructions } from '../instructions/instructions.helper.js';
  */
 export function createHarness(options: HarnessOptions): Harness {
   const { title, onModelCall } = options;
+  const systemPrompt = new SystemPrompt({
+    baseInstructions: options.baseInstructions,
+    instructions: options.instructions,
+    omitInstructionSections: options.omitInstructionSections,
+  });
   const provider: Provider = onModelCall
     ? {
         stream: (request) => {
@@ -46,7 +51,11 @@ export function createHarness(options: HarnessOptions): Harness {
 
   return {
     provider,
-    instructions: composeInstructions(options),
+    // Read at use: the extensions contribute after this harness exists.
+    get instructions() {
+      return systemPrompt.text;
+    },
+    systemPrompt,
     sessions,
     mainSession,
     tasks,

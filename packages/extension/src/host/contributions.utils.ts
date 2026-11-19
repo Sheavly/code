@@ -1,6 +1,7 @@
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import { ContributionCollisionError } from '../errors/extension.errors.js';
 import type { ContributionKind } from '../extension/extension.types.js';
+import { BASE_INSTRUCTIONS_SECTION } from '../instructions/instructions.constants.js';
 import type {
   CheckedEntry,
   ContributedBy,
@@ -56,6 +57,28 @@ function mergeHooks(
 }
 
 /**
+ * The one replacement base, or `undefined` when no extension holds it. A second extension that
+ * brings one collides with the first, naming both, whatever their order.
+ */
+function mergeBase(contributed: readonly ContributedBy[]): string | undefined {
+  const lists = contributed.map(({ extension, snapshot }) => ({
+    extension,
+    entries:
+      snapshot.baseInstructions === undefined
+        ? []
+        : [
+            {
+              name: BASE_INSTRUCTIONS_SECTION,
+              original: snapshot.baseInstructions,
+              item: snapshot.baseInstructions,
+            },
+          ],
+  }));
+
+  return mergeNamed({ contribution: 'base instructions', lists })[0]?.item;
+}
+
+/**
  * Every extension's checked contributions (see `snapshotContributions`) as one list per kind, in
  * the order given (activation order); hooks are then placed by their constraints. Names are the
  * ones recorded at the check. Two contributions of one kind with the same name throw, naming
@@ -71,6 +94,14 @@ export function mergeContributions(contributed: readonly ContributedBy[]): Merge
       ({ item }) => item,
     ),
     hooks: mergeHooks(listsOf((s) => s.hooks)),
+    instructions: Object.freeze(
+      mergeNamed({ contribution: 'instruction', lists: listsOf((s) => s.instructions) }).map(
+        ({ item }) => item,
+      ),
+    ),
+    baseInstructions: mergeBase(contributed),
+    baseInstructionsBy: contributed.find(({ snapshot }) => snapshot.baseInstructions !== undefined)
+      ?.extension,
     workKinds: mergeNamed({ contribution: 'work kind', lists: listsOf((s) => s.workKinds) }).map(
       ({ item }) => item,
     ),

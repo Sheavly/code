@@ -13,7 +13,8 @@
     "task:start",
     "approval:request",
     "approval:as-tool",
-    "approval:keep"
+    "approval:keep",
+    "system-prompt:extend"
   ],
   "tools": [
     "read_file",
@@ -27,5 +28,6 @@
     "run_command",
     "start_service"
   ],
-  "hooks": ["agents-md", "skills", "scratch", "working-root", "*"]
+  "hooks": ["agents-md", "skills", "scratch", "working-root", "*"],
+  "instructions": ["coding"]
 }

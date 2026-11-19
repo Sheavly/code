@@ -177,6 +177,7 @@ describe('the registries are read from the Harness type, not listed', () => {
     expect(Object.fromEntries(registries)).toEqual({
       ApprovalRegistry: '@sheavly/runtime/approvals/approvals.service',
       SessionRegistry: '@sheavly/runtime/sessions/sessions.service',
+      SystemPrompt: '../instructions/system-prompt.service',
       TaskRegistry: '@sheavly/runtime/tasks/tasks.service',
     });
   });

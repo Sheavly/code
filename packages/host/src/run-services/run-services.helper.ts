@@ -40,7 +40,8 @@ import { TaskControlScope } from './task-control.service.js';
  * manifest declares: `SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`, `TASK_CONTROL`,
  * `OUTPUT_READER`, `OUTPUT_CAPTURE`, `MODEL` and `APPROVALS`. The output pair reads as not
  * provided (`find` answers `undefined`) when the app has no output store, though its grants stay
- * known. `INSTRUCTIONS` and `MAIN_SESSION` are constants and need no grant. `runSession` is the
+ * known. `INSTRUCTIONS` (a read-only view that composes the prompt at each read) and
+ * `MAIN_SESSION` need no grant. `runSession` is the
  * loop's runner, which `CHILD_SESSIONS` calls itself so no extension holds the loop or a registry.
  * Grants limit what a service does for an extension; they are not a sandbox, and an app filters
  * this list for extensions it trusts less.
@@ -103,7 +104,15 @@ export function runServices(params: {
       grants: OUTPUT_CAPTURE_GRANTS,
       build: (guard) => outputs && new OutputCaptureScope({ guard, store: outputs }),
     }),
-    hostService({ key: INSTRUCTIONS, value: harness.instructions }),
+    // A read-only view: the harness keeps the object that takes contributions.
+    hostService({
+      key: INSTRUCTIONS,
+      value: Object.freeze({
+        get text() {
+          return harness.systemPrompt.text;
+        },
+      }),
+    }),
     // A frozen copy: the harness keeps its own object, which no extension can reach to change.
     hostService({ key: MAIN_SESSION, value: Object.freeze({ ...mainSession }) }),
   ];

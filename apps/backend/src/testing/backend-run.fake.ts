@@ -49,6 +49,10 @@ function openBackendRun(params: {
   permissions?: CommandPermissions;
   onModelCall?: (request: ProviderRequest) => void;
   onExtensionProblem?: (caughtError: unknown) => void;
+  /** The app's own system-prompt extras and replacement base (`BackendHarnessOptions`). */
+  instructions?: string | undefined;
+  baseInstructions?: string | undefined;
+  omitInstructionSections?: readonly string[] | undefined;
   /** Keeps the run's combined stream in this store, and `resume` carries on a stored one. */
   entries?: EntryStore;
   resume?: StoredLog;
@@ -69,6 +73,9 @@ function openBackendRun(params: {
     outputs: params.outputs,
     onModelCall: params.onModelCall,
     onExtensionProblem: params.onExtensionProblem,
+    instructions: params.instructions,
+    baseInstructions: params.baseInstructions,
+    omitInstructionSections: params.omitInstructionSections,
     entries: params.entries,
     resume: params.resume,
   });

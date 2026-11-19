@@ -6,7 +6,7 @@ An extension is one unit of what a run includes. The framework puts no category 
 what an extension can and cannot do is its own to define, so others can build extensions without
 changing this source. It ships a data-only `sheavly.json` manifest that declares its unique
 kebab-case `name`, `dependsOn`, services, settings and the names it contributes, and an `activate`
-that returns its contributions: tools, hooks, work kinds, and the event kinds and notice topics it
+that returns its contributions: tools, hooks, work kinds, system-prompt `instructions` sections and a replacement `baseInstructions` (each behind a host-offered grant, `system-prompt:extend` and `system-prompt:replace`, and the text's content is review-only), and the event kinds and notice topics it
 may emit through `context.emit` (held to the manifest's `emits`; the app supplies the sink, and the host disarms `emit` when the extension stops; no scoped service hands out `publish`, `queueNotice` or `publishTask`, though Node code could reach a registry by importing the runtime). The host holds it to its manifest
 (a name ending in `*` declares names that are not known in advance, such as a workspace's own hooks).
 The manifest is not a sandbox: an extension is Node code, and the host checks only what it mediates
@@ -34,21 +34,21 @@ const notes = defineExtension({
 
 const host = new ExtensionHost({ extensions: [notes], settings: { 'notes.max-notes': 100 } });
 const { contributions, settings, failed, skipped } = await host.activate({ signal });
-// contributions: { tools, hooks, workKinds, events, notices }, merged in activation order, hooks placed
+// contributions: { tools, hooks, instructions, baseInstructions, workKinds, events, notices }, merged in activation order, hooks placed
 await host.deactivate();
 ```
 
-| Module          | What it holds                                                                                                                                                                                                                                                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `extension/`    | `Extension`, `ExtensionDefinition`, `Contributions`, `Services`, `Settings`, `defineExtension`, `defineService`, `hostService`, `hostServiceFor`, `requireGrant`, `settingKey`, `placeHook`: the contract extensions are written against                                                                                                         |
-| `emit/`         | `ExtensionEmit` (what `context.emit` offers), `EventContribution`, `NoticeContribution`, `ExtensionEvent`, `ExtensionNotice`, `ExtensionEmission`, `ExtensionEmitSink` (types): an extension's events and model-facing notices, and the sink the app supplies                                                                                    |
-| `manifest/`     | `readManifest` (helper: reads and validates a `sheavly.json` without running the extension), `ExtensionManifest` and `SettingManifest` (types), `manifestJsonSchema` (utils); the zod schema is internal. The JSON Schema for editors is `sheavly.schema.json`                                                                                   |
-| `host/`         | `ExtensionHost`: activates extensions in dependency order, isolates failures, gates trust, holds each extension to its manifest, merges contributions                                                                                                                                                                                            |
-| `instructions/` | `joinInstructions` (utils): joins instruction sections, each trimmed, blank ones dropped, a blank line between; the text an extension contributes goes in front of the app's                                                                                                                                                                     |
-| `approval/`     | `keepsFit` (utils), `MAX_REQUEST_KEEPS`, `MAX_KEEP_ENTRY_CHARS` (constants): whether the allow entries an extension proposes to keep fit what the host's approvals scope accepts                                                                                                                                                                 |
-| `errors/`       | `ExtensionDefinitionError`, `ExtensionManifestError`, `ExtensionUndeclaredError`, `ExtensionGrantError`, `ExtensionContributionChangedError`, `ExtensionGraphError`, `ContributionCollisionError`, `MissingServiceError`, `ExtensionSettingError`, `HookOrderError`, `ExtensionHostStateError`, `ExtensionActivationError`, `ExtensionEmitError` |
+| Module          | What it holds                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension/`    | `Extension`, `ExtensionDefinition`, `Contributions`, `InstructionContribution`, `Services`, `Settings`, `defineExtension`, `defineService`, `hostService`, `hostServiceFor`, `requireGrant`, `settingKey`, `placeHook`: the contract extensions are written against                                                                                                           |
+| `emit/`         | `ExtensionEmit` (what `context.emit` offers), `EventContribution`, `NoticeContribution`, `ExtensionEvent`, `ExtensionNotice`, `ExtensionEmission`, `ExtensionEmitSink` (types): an extension's events and model-facing notices, and the sink the app supplies                                                                                                                 |
+| `manifest/`     | `readManifest` (helper: reads and validates a `sheavly.json` without running the extension), `ExtensionManifest` and `SettingManifest` (types), `manifestJsonSchema` (utils); the zod schema is internal. The JSON Schema for editors is `sheavly.schema.json`                                                                                                                |
+| `host/`         | `ExtensionHost`: activates extensions in dependency order, isolates failures, gates trust, holds each extension to its manifest, merges contributions                                                                                                                                                                                                                         |
+| `instructions/` | `joinInstructions` (utils): joins instruction sections, each trimmed, blank ones dropped, a blank line between; the text an extension contributes goes in front of the app's. `MAX_INSTRUCTION_CHARS` (4000), `SYSTEM_PROMPT_EXTEND_GRANT`, `SYSTEM_PROMPT_REPLACE_GRANT` (constants); `InstructionProblem` (types)                                                           |
+| `approval/`     | `keepsFit` (utils), `MAX_REQUEST_KEEPS`, `MAX_KEEP_ENTRY_CHARS` (constants): whether the allow entries an extension proposes to keep fit what the host's approvals scope accepts                                                                                                                                                                                              |
+| `errors/`       | `ExtensionDefinitionError`, `ExtensionManifestError`, `ExtensionUndeclaredError`, `ExtensionGrantError`, `ExtensionContributionChangedError`, `ExtensionGraphError`, `ContributionCollisionError`, `MissingServiceError`, `ExtensionSettingError`, `HookOrderError`, `ExtensionHostStateError`, `ExtensionActivationError`, `ExtensionEmitError`, `ExtensionInstructionError` |
 
-Tests build extensions with `fakeExtension`, `fakeHook` and `fakeTool` from
+Tests build extensions with `fakeExtension`, `fakeHook`, `fakeInstruction` and `fakeTool` from
 `@sheavly/extension/testing/extension.fake`.
 
 ## Docs
@@ -57,4 +57,4 @@ Tests build extensions with `fakeExtension`, `fakeHook` and `fakeTool` from
 - [Manifest](docs/manifest.md): the `sheavly.json` every extension ships, each field, how an installer reads it and how the host enforces it.
 - [Lifecycle](docs/lifecycle.md): activation order, failure isolation, trust gating and deactivation.
 - [Services](docs/services.md): how extensions share typed services, and what each may read.
-- [Contributions](docs/contributions.md): settings an extension declares and reads, and where a hook goes among the others.
+- [Contributions](docs/contributions.md): system-prompt sections and the replacement base, settings an extension declares and reads, and where a hook goes among the others.

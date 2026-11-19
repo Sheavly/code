@@ -41,6 +41,12 @@ export type ApprovalRequester = {
 };
 
 /**
+ * The system prompt as an extension reads it (`INSTRUCTIONS`): read-only, composed again on every
+ * read. It cannot contribute: only the app gives the prompt what the extensions contributed.
+ */
+export type SystemPromptView = { readonly text: string };
+
+/**
  * The loop's runner for one nested session, which `child-sessions` calls from `runChild` with the
  * run's full registries. The app passes the loop's `runSession`: the extension never holds it.
  */

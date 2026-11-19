@@ -5,7 +5,15 @@ import type { ExtensionManifest } from '../manifest/manifest.types.js';
 
 /** What an extension can contribute or provide, as named in collision messages. */
 export type ContributionKind =
-  'tool' | 'hook' | 'work kind' | 'setting' | 'service' | 'event' | 'notice';
+  | 'tool'
+  | 'hook'
+  | 'work kind'
+  | 'setting'
+  | 'service'
+  | 'event'
+  | 'notice'
+  | 'instruction'
+  | 'base instructions';
 
 /**
  * Where an extension's code comes from. `builtin` ships with the harness; `project` is code from
@@ -127,6 +135,7 @@ export type UndeclaredUse =
   | 'work kind'
   | 'event'
   | 'notice'
+  | 'instruction'
   | 'grant';
 
 /** The settings an extension declared, as it reads them. */
@@ -152,12 +161,33 @@ export type PlacedHook = {
 export type HookContribution = Hook | PlacedHook;
 
 /**
+ * A section of the system prompt an extension contributes. The host adds no header or
+ * separator of its own, so `text` carries its own heading.
+ */
+export type InstructionContribution = {
+  /** Unique across all extensions; the manifest's `instructions` declares it. */
+  name: string;
+  /** Non-blank, at most `MAX_INSTRUCTION_CHARS` characters. */
+  text: string;
+};
+
+/**
  * What an extension adds to a run. Contributions add to the loop and never own it: nothing here
- * replaces a core module. Instruction sources contribute as hooks (`createInstructionHook`).
+ * replaces a core module. Instruction sources contribute as hooks (`createInstructionHook`);
+ * `instructions` are sections of the system prompt itself and need the `system-prompt:extend`
+ * grant.
  */
 export type Contributions = {
   tools?: readonly Tool[] | undefined;
   hooks?: readonly HookContribution[] | undefined;
+  /** System-prompt sections, each named in the manifest's `instructions`. */
+  instructions?: readonly InstructionContribution[] | undefined;
+  /**
+   * Replaces the generic base of the system prompt (never the other sections nor the app's own
+   * instructions). Needs the `system-prompt:replace` grant, no manifest name, and at most one
+   * extension per run may contribute it. Non-blank, at most `MAX_INSTRUCTION_CHARS` characters.
+   */
+  baseInstructions?: string | undefined;
   workKinds?: readonly WorkKindContribution[] | undefined;
   /** Event kinds it may emit (`context.emit.event`); each must be in the manifest's `emits.events`. */
   events?: readonly EventContribution[] | undefined;

@@ -4,6 +4,7 @@ import { OPTION_APIS } from './prompt-apis.utils.js';
 import { createPromptFlow, memberName, unwrapPrompt, walkPrompt } from './prompt-flow.utils.js';
 import {
   hasPromptProperties,
+  instructionSectionType,
   modelMessageType,
   modelOptionsType,
   modelSectionType,
@@ -152,8 +153,25 @@ export const promptLocation = {
       }
     }
 
+    // Array literals of object literals only: `.map` and spread elements stay with review.
+    function checkSections(list, node) {
+      const arrays = flow.expand(list).filter((entry) => entry.node.type === 'ArrayExpression');
+      const sections = arrays.flatMap((array) =>
+        array.node.elements
+          .filter(Boolean)
+          .flatMap((element) => flow.expand(flow.ref(element, array.module, array.env))),
+      );
+
+      for (const section of sections) {
+        if (section.node.type === 'ObjectExpression') {
+          checkProperty({ value: section, name: 'text', node, sink: 'instruction section text' });
+        }
+      }
+    }
+
     function checkOptions(value, node) {
       for (const name of ['instructions', 'baseInstructions']) checkProperty({ value, name, node });
+      for (const list of flow.properties(value, 'instructions')) checkSections(list, node);
       for (const messages of flow.properties(value, 'messages')) checkMessages(messages, node);
     }
 
@@ -204,6 +222,10 @@ export const promptLocation = {
         }
 
         if (modelMessageType(type)) checkMessages(value, node);
+
+        if (instructionSectionType(type)) {
+          checkProperty({ value, name: 'text', node, sink: 'instruction section text' });
+        }
 
         if (modelSectionType(type)) {
           for (const name of ['title', 'guidance']) {

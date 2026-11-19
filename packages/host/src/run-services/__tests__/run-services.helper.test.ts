@@ -22,7 +22,7 @@ import {
 const harness = () => createHarness({ provider: routedProvider({ go: [say('ok')] }), title: 'go' });
 
 describe('runServices', () => {
-  it('supplies the two constants as plain values, and nothing else as the harness’s own object', () => {
+  it('supplies the two read-only values, and nothing else as the harness’s own object', () => {
     const run = harness();
     const services = runServices({ harness: run, outputs: new MemoryOutputStore(), runSession });
     const plain = new Map(
@@ -30,8 +30,22 @@ describe('runServices', () => {
     );
 
     expect([...plain.keys()].sort()).toEqual([INSTRUCTIONS.name, MAIN_SESSION.name].sort());
-    expect(plain.get(INSTRUCTIONS.name)).toBe(run.instructions);
+    expect(plain.get(INSTRUCTIONS.name)).toEqual({ text: run.instructions });
     expect(plain.get(MAIN_SESSION.name)).toEqual(run.mainSession);
+  });
+
+  it('shares the prompt as a frozen view that reads what the harness composes at that moment', () => {
+    const run = harness();
+    const view = runServices({ harness: run, runSession })
+      .filter((service) => service.name === INSTRUCTIONS.name)
+      .map((service) => ('value' in service ? (service.value as { text: string }) : undefined))[0];
+    const before = view?.text;
+
+    run.systemPrompt.contribute({ sections: [{ name: 's', text: '# Late' }] });
+
+    expect(Object.isFrozen(view)).toBe(true);
+    expect(view?.text).toBe(`${before}\n\n# Late`);
+    expect(view).not.toHaveProperty('contribute');
   });
 
   it('shares a frozen copy of the main session, so no extension can change the harness’s own', () => {
