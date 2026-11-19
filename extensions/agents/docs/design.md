@@ -19,6 +19,12 @@ the sub-agent's history and stops the sub-agent's own tasks when it ends. Anothe
 sub-agents and tasks read as unknown to it. See
 [scoped run services](../../../packages/host/docs/run-services.md).
 
+`INSTRUCTIONS` is a read-only view whose `text` composes the system prompt at each read. The
+extension holds the view, not the text: extensions that activate after it (`coding`) contribute
+sections, so the text it would read in `activate` is not the final one. `start_agent` reads it
+when each sub-agent starts, so a sub-agent gets the base, every extension's sections and the
+app's extras, then its own role rules.
+
 ## The sub-agent tool starts with nothing
 
 `start_agent` is built here, but with no tools or hooks of its own. A sub-agent's tools are what

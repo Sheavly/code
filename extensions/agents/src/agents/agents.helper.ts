@@ -47,7 +47,7 @@ export function createAgentsExtension(options: AgentsExtensionOptions = {}): Ext
       const tasks = services.get(BACKGROUND_TASKS);
       const taskControl = services.get(TASK_CONTROL);
       const provider = services.get(MODEL);
-      const baseInstructions = services.get(INSTRUCTIONS);
+      const prompt = services.get(INSTRUCTIONS);
       const outputs = services.find(OUTPUT_READER);
       // Only `scope.share` is provided: the lists stay in this closure, read by `start_agent` alone.
       const { scope, shared } = createSubAgentScope();
@@ -66,7 +66,11 @@ export function createAgentsExtension(options: AgentsExtensionOptions = {}): Ext
           createSubAgentTool({
             scopes: { sessions, children, tasks, taskControl },
             provider,
-            baseInstructions,
+            // Read per sub-agent, not now: `coding` and the others contribute their sections
+            // after this extension activates, and a sub-agent inherits them.
+            get baseInstructions() {
+              return prompt.text;
+            },
             ...(options.subAgentProvider && { selectProvider: options.subAgentProvider }),
             ...(options.summarizeWith && { summarizeWith: options.summarizeWith }),
             ...(options.keepAgentHistory && { keepHistory: options.keepAgentHistory }),
