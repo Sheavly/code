@@ -1,6 +1,7 @@
 // The layout check (`npm run layout`, part of `npm run check`): the workspaces on disk hold
 // together as the layout reads them (packages/eslint-config/src/layout.utils.js): each has a
-// domain, is named `@sheavly/<folder>`, and depends on no app, and a generic one on no coding one.
+// domain, is named `@sheavly/<folder>`, and depends on no app, and a generic one on no coding one;
+// an extension depends on the host only in its tests (a dev dependency).
 // Every workspace also has an `eslint.config.js` calling `baseConfig`, a `tsconfig.json`
 // extending `tsconfig.base.json` with `rootDir: "src"`, a `tsconfig.build.json` referencing
 // exactly the workspaces it depends on, and source of its own. And TypeScript
@@ -163,6 +164,28 @@ function providerProblems(params) {
     );
 }
 
+const HOST = '@sheavly/host';
+/** Every manifest field that makes a package a run-time edge of the workspace that lists it. */
+const RUN_TIME_FIELDS = ['dependencies', 'optionalDependencies', 'peerDependencies'];
+
+/**
+ * An extension takes its contract from `@sheavly/extension` and never depends at run time on the
+ * host, the app's own wiring; its tests may, as a dev dependency, to build a harness. Optional and
+ * peer dependencies ship with the package too, so they count as run-time ones.
+ */
+function extensionHostProblems(params) {
+  const { workspaces, layout } = params;
+
+  return workspaces
+    .filter(({ name }) => layout[name].kind === 'extension')
+    .flatMap(({ name, manifest }) =>
+      RUN_TIME_FIELDS.filter((field) => manifest[field]?.[HOST] !== undefined).map(
+        (field) =>
+          `${name} lists ${HOST} under ${field}: an extension takes the contract from @sheavly/extension and may use the host only in its tests. Move ${HOST} to devDependencies.`,
+      ),
+    );
+}
+
 /**
  * Every workspace documents itself in two layers: its README.md, the first place to look (what it
  * is for, its public API, an example), and its docs/ folder, which goes deeper. The README links
@@ -223,6 +246,7 @@ export function findLayoutProblems(params) {
     ...emptyProblems({ root, workspaces, files }),
     ...docsProblems({ root, workspaces, files }),
     ...providerProblems({ root, workspaces, layout, files }),
+    ...extensionHostProblems({ workspaces, layout }),
     ...strayProblems({ workspaces, files, notSource }),
   ];
 }

@@ -77,7 +77,7 @@ They run automatically:
 
 ## The layout and reference checks
 
-The layout check (`npm run layout`) holds the words to the code: the graph in `docs/overview.md` is current and drawn nowhere else, no doc or comment names a path in the old root `src/` (one starting `src/<workspace>`), source names no issue number, and no doc promises what an issue will do ("until" or "once" one lands). Say what is true now; history and plans live in the issue. It also holds AGENTS.md and the skills to the code: every path, import, `npm run` script, `harness/*` rule and code name they put in backticks must exist (`scripts/rule-references.mjs`). A reference meant to point outside the repo goes in `scripts/rule-references.allowlist.json` with its reason; an entry nothing needs any more fails too.
+The layout check (`npm run layout`) holds the words to the code: the graph in `docs/overview.md` is current and drawn nowhere else, no doc or comment names a path in the old root `src/` (one starting `src/<workspace>`), source names no issue number, and no doc promises what an issue will do ("until" or "once" one lands). Say what is true now; history and plans live in the issue. An extension does not depend on `@sheavly/host` at run time: only as a dev dependency, for its tests. It also holds AGENTS.md and the skills to the code: every path, import, `npm run` script, `harness/*` rule and code name they put in backticks must exist (`scripts/rule-references.mjs`). A reference meant to point outside the repo goes in `scripts/rule-references.allowlist.json` with its reason; an entry nothing needs any more fails too.
 
 ## Harness impact
 
