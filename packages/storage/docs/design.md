@@ -94,7 +94,7 @@ replaced is decided once.
   trusted-workspaces.json                # shared: trust is about a repo, not a provider
   permissions/<workspace-key>.json       # shared: what run_command may do in a folder
   profiles/<profile-id>/
-    profile.json                         # identity, lastModelSelection and modelModes keyed by UUID
+    profile.json                         # identity, lastModelSelection and modelEfforts keyed by UUID
     models/<model-id>.json               # one file per model: { id, name, adapter, ...fields }
     credentials.json                     # { [model-id]: { apiKey } }, the only file with keys
     workspaces/<workspace-key>/
@@ -113,17 +113,22 @@ Everything on disk is named by an id, never by what a person typed (`<profile-id
 `<model-id>` are lowercase UUIDs; `<workspace-key>` is a hash of the workspace's real path). A
 person's names (`work`, `Astra 6`) are inside the files, as labels.
 
-`profile.json` stores the latest model/mode pair in `lastModelSelection` and the last mode of
-each model in `modelModes`. `ProfileRegistry.rememberModel` writes both together, using the
-profile write queue and atomic file replacement. Omitting a mode restores that model's previous
-mode, or medium for a new model. Renames preserve both preferences, and profiles remain separate.
+`profile.json` stores the latest model/effort pair in `lastModelSelection` and the last effort of
+each model in `modelEfforts`. `ProfileRegistry.rememberModel` writes both together, using the
+profile write queue and atomic file replacement. Omitting an effort restores that model's previous
+effort, or medium for a new model. Renames preserve both preferences, and profiles remain separate.
 A key `profile.json` does not define, such as an old `lastModelId`, is dropped on read and not
-written back. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
+written back. Stored conversation indexes keep their own `modelId` and `effort`, so resume does not
 take another conversation's latest preferences.
+
+Files written before "mode" became "effort" are read as the new form: `modelModes` and
+`lastModelSelection.mode` in `profile.json`, and `mode` in a conversation's `index.json`
+(`legacy-effort/`). Nothing rewrites them on its own; each is saved in the new form the next time
+its store writes it, and when both keys are present the new one wins.
 
 **A tool outside the harness may read** `profiles/<profile-id>/profile.json` (its `id` and `name`)
 and each conversation's `index.json` (the fields of `StoredConversation`: `id`, `title`, `modelId`,
-`mode`, `workspace`, `profile`, `status`, `startedAt`, `updatedAt`), read-only, to list profiles
+`effort`, `workspace`, `profile`, `status`, `startedAt`, `updatedAt`), read-only, to list profiles
 and their chats. Nothing else here is a contract: not the other files, not the rest of
 `profile.json`, and not `<workspace-key>`, a hash of the real path that a reader finds by listing
 `workspaces/`, never computes. Readiness and validation are the backend's (`GET /setup`).

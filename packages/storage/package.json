@@ -43,7 +43,8 @@
     "./serial-queue/*": null,
     "./jsonl-file/*": null,
     "./safe-path/*": null,
-    "./file-lock/*": null
+    "./file-lock/*": null,
+    "./legacy-effort/*": null
   },
   "files": [
     "dist",

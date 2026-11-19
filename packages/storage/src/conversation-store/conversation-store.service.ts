@@ -10,9 +10,9 @@ import { conversationIdSchema } from '@sheavly/protocol/server/server.validator'
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import type { StoredConversation } from '@sheavly/protocol/store/store.types';
-import { storedConversationSchema } from '@sheavly/protocol/store/store.validator';
 import { StorageFileError } from '../errors/storage.errors.js';
 import { readJsonFile, writeJsonFile } from '../json-file/json-file.helper.js';
+import { storedConversationIndexSchema } from '../legacy-effort/legacy-effort.validator.js';
 import { listFolderNames } from '../listing/listing.helper.js';
 import type { FileProblem, ListedFile } from '../listing/listing.types.js';
 import { splitListed } from '../listing/listing.utils.js';
@@ -221,7 +221,7 @@ export class FileConversationStore implements ConversationStore {
     try {
       const stored = await readJsonFile({
         file: path.join(folder, INDEX_FILE),
-        schema: storedConversationSchema,
+        schema: storedConversationIndexSchema,
         holdsSecrets: true,
       });
 
