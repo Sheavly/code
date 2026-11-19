@@ -12,19 +12,55 @@ import { subAgentDescription, subAgentPrompts, startedSubAgentPrompt } from './s
 import type { SubAgentOptions } from './sub-agent.types.js';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
 
-/** The tools a sub-agent at `child`'s depth gets: the parent's, `report_status`, and what its depth allows. */
-function toolsFor(params: { options: SubAgentOptions; child: SessionRef }) {
-  const { options, child } = params;
-  const { children, sessions, taskControl } = options.scopes;
+/**
+ * `options` with the provider the sub-agent was pinned to, still holding the live `tools` and
+ * `hooks` of `options` (copied as descriptors, so a getter stays a getter): a `start_agent` the
+ * sub-agent calls later reads what is shared at that call, not what was shared when it started.
+ * Every descriptor is copied as configurable, so options the caller froze still work, as they did
+ * when the options were spread.
+ */
+function pinProvider(params: {
+  options: SubAgentOptions;
+  selected: ReturnType<NonNullable<SubAgentOptions['selectProvider']>>;
+}): SubAgentOptions {
+  const { options, selected } = params;
+  const original: PropertyDescriptorMap = Object.getOwnPropertyDescriptors(options);
+  const copied: PropertyDescriptorMap = {};
+
+  for (const key of Reflect.ownKeys(original)) {
+    copied[key] = { ...original[key], configurable: true };
+  }
+
+  const pinned = Object.defineProperties({}, copied);
+
+  return Object.defineProperties(pinned, {
+    provider: { value: selected.provider, enumerable: true, writable: true, configurable: true },
+    selectProvider: {
+      value: () => selected,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    },
+  }) as SubAgentOptions;
+}
+
+/**
+ * The tools a sub-agent at `child`'s depth gets: the parent's, `report_status`, and what its depth
+ * allows. `own` is what this sub-agent was given (a snapshot); `nested` builds the `start_agent`
+ * it can call, which takes its own snapshot at that call.
+ */
+function toolsFor(params: { own: SubAgentOptions; nested: SubAgentOptions; child: SessionRef }) {
+  const { own, nested, child } = params;
+  const { children, sessions, taskControl } = own.scopes;
   const canNest = child.depth < MAX_SESSION_DEPTH;
 
   return [
-    ...options.tools,
+    ...own.tools,
     createReportStatusTool({ children }),
     // Background-capable tools need inspection, grouping and cancellation even at the depth cap.
-    ...(canNest || options.withTaskTools ? createTaskTools(taskControl) : []),
+    ...(canNest || own.withTaskTools ? createTaskTools(taskControl) : []),
     ...(canNest
-      ? [createSubAgentTool(options), createMessageAgentTool({ sessions, children })]
+      ? [createSubAgentTool(nested), createMessageAgentTool({ sessions, children })]
       : []),
   ];
 }
@@ -66,11 +102,14 @@ export function createSubAgentTool(options: SubAgentOptions) {
         wiring.children.setModel({ id: child.id, ...selected.selection });
       }
 
+      // Spreading reads the `tools` and `hooks` getters once: what this sub-agent runs with is
+      // what was shared now, even if something is revoked while it runs.
       const childOptions = {
         ...options,
         provider: selected.provider,
         selectProvider: () => selected,
       };
+      const nestedOptions = pinProvider({ options, selected });
       const started = startWork({
         tasks: wiring.tasks,
         work: subAgentWork({
@@ -78,14 +117,14 @@ export function createSubAgentTool(options: SubAgentOptions) {
           description: context.description,
           callId: context.callId,
           sessionId: context.session.id,
-          // The tools are built when the run starts, so a list or a flag that fills in after this
-          // is built still applies.
+          // The tools are built when the run starts, from the snapshot taken at this call; a
+          // nested `start_agent` takes its own snapshot when it is called.
           run: ({ signal, onOutput }) =>
             runSubAgent({
               options: childOptions,
               child,
               task,
-              tools: toolsFor({ options: childOptions, child }),
+              tools: toolsFor({ own: childOptions, nested: nestedOptions, child }),
               signal,
               onOutput,
             }),
