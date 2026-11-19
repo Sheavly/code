@@ -124,8 +124,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   (`Partial<SessionRegistry>`, reported under the alias name), an `extends` entry of an interface,
   and a generic parameter's constraint or default. Otherwise a built-in extension would again get
   from the app what a third party cannot. The service types are read at lint time from the
-  `defineService<Type>('name')` calls of the host's
-  `packages/host/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
+  `defineService<Type>('name')` calls of the extension package's
+  `packages/extension/src/run-services/run-services.utils.ts` (type name → exported key; keys sharing one
   type name are joined with `or`), so a new service is covered with no edit; primitives are
   ignored. Every exported `type X = A & B` of `packages/core/src/output/output.types.ts` whose
   members are all service types (`OutputStore = OutputReader & OutputCapture`) is refused too, with
