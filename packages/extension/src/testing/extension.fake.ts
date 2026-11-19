@@ -70,6 +70,16 @@ function fakeManifest(fields: FakeExtensionFields): ExtensionManifest {
       requires: [...(fields.requires ?? [])],
       optional: [...(fields.optional ?? [])],
       provides: [...(fields.provides ?? [])],
+      ...(fields.serviceGrants === undefined
+        ? {}
+        : {
+            grants: Object.fromEntries(
+              Object.entries(fields.serviceGrants).map(([service, grants]) => [
+                service,
+                [...grants],
+              ]),
+            ),
+          }),
     },
     settings: [...(fields.settings ?? [])],
     tools: [...new Set([...(fields.tools ?? []), ...contributed.tools])],

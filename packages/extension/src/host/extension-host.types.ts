@@ -12,13 +12,19 @@ import type {
   Extension,
   HostService,
   InstructionContribution,
+  ServiceConsumer,
+  ServiceInstance,
   SettingValue,
   WorkKindContribution,
 } from '../extension/extension.types.js';
 
+/** Builds the instance of one per-extension service for a consuming extension, if it has one to give. */
+export type ServiceFactory = (consumer: ServiceConsumer) => ServiceInstance | undefined;
+
 /**
- * Each grant a supplied service declares, with the names of the services that declare it. A grant
- * the host offers itself (`system-prompt:extend`) lists `HOST_PROVIDER`, which needs no service.
+ * Each grant a service declares, with the names of the services that declare it: a service the
+ * host supplies, or one an extension's manifest offers under `services.grants`. A grant the host
+ * offers itself (`system-prompt:extend`) lists `HOST_PROVIDER`, which needs no service.
  */
 export type GrantCatalogue = ReadonlyMap<string, readonly string[]>;
 
@@ -146,6 +152,23 @@ export type SkippedExtension =
       /** The required services nobody offered it, for a message that says what to add. */
       missing: readonly string[];
     };
+
+/** How one extension's activation went. */
+export type ActivationStep =
+  | { kind: 'closed' }
+  | { kind: 'skipped'; skipped: SkippedExtension }
+  | { kind: 'failed'; error: ExtensionActivationError }
+  | { kind: 'activated'; snapshot: ContributionSnapshot };
+
+/** What one `activate` call has recorded so far. */
+export type ActivationProgress = {
+  contributed: ContributedBy[];
+  failed: ExtensionActivationError[];
+  skipped: SkippedExtension[];
+  lateDeactivationErrors: unknown[];
+  /** Extensions that did not activate: what depends on them is skipped. */
+  unavailable: Set<string>;
+};
 
 /** What activating the extensions produced. One extension failing never stops the others. */
 export type ActivationResult = {

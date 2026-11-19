@@ -14,7 +14,8 @@
     "approval:request",
     "approval:as-tool",
     "approval:keep",
-    "system-prompt:extend"
+    "system-prompt:extend",
+    "sub-agent:share"
   ],
   "tools": [
     "read_file",

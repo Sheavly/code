@@ -9,7 +9,8 @@ sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools an
 services it requires (`sub-agents`, `session-info`, `background-tasks`, `approvals`,
 `main-session`), `output-capture` it may read and `coding-run` it provides, and the grants it
 holds: `output:capture`, `session:read`, `task:start`, `approval:request`, `approval:as-tool`,
-`approval:keep` and `system-prompt:extend`. It also contributes one system-prompt section, named
+`approval:keep`, `system-prompt:extend` and `sub-agent:share` (to share its tools and hooks with
+sub-agents). It also contributes one system-prompt section, named
 `coding` in the manifest's `instructions`: the coding guidance, with its own `# Coding work`
 heading.
 The user chooses the names of a workspace's own `.sheavly/` hooks, so the manifest declares hooks

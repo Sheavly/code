@@ -3,7 +3,10 @@ import {
   QUALIFIED_NAME_PATTERN,
 } from '@sheavly/protocol/extension/extension.constants';
 import { z } from 'zod';
-import { BASE_INSTRUCTIONS_SECTION } from '../instructions/instructions.constants.js';
+import {
+  BASE_INSTRUCTIONS_SECTION,
+  HOST_OFFERED_GRANTS,
+} from '../instructions/instructions.constants.js';
 import {
   GRANT_PATTERN,
   MAX_LIST_SIZE,
@@ -18,7 +21,12 @@ type Problem = { path: (string | number)[]; message: string };
 type Fields = {
   name: string;
   dependsOn: string[];
-  services: { requires: string[]; optional: string[]; provides: string[] };
+  services: {
+    requires: string[];
+    optional: string[];
+    provides: string[];
+    grants?: Record<string, string[]> | undefined;
+  };
   settings: { name: string }[];
   tools: string[];
   hooks: string[];
@@ -205,6 +213,33 @@ function serviceProblems(fields: Fields): Problem[] {
   ];
 }
 
+/**
+ * The grants a provided service declares: only for a service in `provides`, each once, and never
+ * one the host offers itself (it needs no service, so a service cannot claim it).
+ */
+function serviceGrantProblems(fields: Fields): Problem[] {
+  const { provides, grants = {} } = fields.services;
+
+  return Object.entries(grants).flatMap(([service, list]) => {
+    const path = ['services', 'grants', service];
+    const unprovided = provides.includes(service)
+      ? []
+      : [
+          {
+            path,
+            message: `"${service}" is not in services.provides: only a provided service can declare grants`,
+          },
+        ];
+    const hostOwned = list.flatMap((grant, index) =>
+      HOST_OFFERED_GRANTS.includes(grant)
+        ? [{ path: [...path, index], message: `"${grant}" is a grant the host offers itself` }]
+        : [],
+    );
+
+    return [...unprovided, ...repeats({ path, list }), ...hostOwned];
+  });
+}
+
 /** Settings are named `<extension>.<setting>`, once each. */
 function settingProblems(fields: Fields): Problem[] {
   const list = fields.settings.map((setting) => setting.name);
@@ -233,6 +268,7 @@ function crossFieldProblems(fields: Fields): Problem[] {
   return [
     ...dependencyProblems(fields),
     ...serviceProblems(fields),
+    ...serviceGrantProblems(fields),
     ...settingProblems(fields),
     ...contributionProblems(fields),
     ...reservedProblems(fields),
@@ -252,7 +288,17 @@ export const extensionManifestSchema = z
     name: kebabName,
     dependsOn: extensionNames,
     services: z
-      .strictObject({ requires: serviceNames, optional: serviceNames, provides: serviceNames })
+      .strictObject({
+        requires: serviceNames,
+        optional: serviceNames,
+        provides: serviceNames,
+        /**
+         * The grants each provided service understands, by service name (a key must be in
+         * `provides`). A service that declares grants is provided per consumer
+         * (`services.provideFor`), so it can enforce them. Absent means none.
+         */
+        grants: z.record(serviceName, z.array(grantName).max(MAX_LIST_SIZE)).optional(),
+      })
       .prefault({}),
     settings: z.array(settingSchema).max(MAX_LIST_SIZE).default([]),
     tools: names,

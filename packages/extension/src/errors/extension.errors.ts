@@ -114,6 +114,23 @@ export class ExtensionHostStateError extends Error {
   }
 }
 
+/** The host tried to move an extension to a state its table does not allow from the current one. */
+export class ExtensionStateError extends Error {
+  override name = 'ExtensionStateError';
+  readonly extension: string;
+  readonly from: string;
+  readonly to: string;
+
+  constructor(params: { extension: string; from: string; to: string }) {
+    const { extension, from, to } = params;
+
+    super(`Extension ${extension} cannot move from ${from} to ${to}.`);
+    this.extension = extension;
+    this.from = from;
+    this.to = to;
+  }
+}
+
 /**
  * What an extension's `activate` returned changed after the host checked it against the manifest
  * (a list that grew, an entry replaced, a name that reads differently). The host merges the names

@@ -21,6 +21,9 @@ export const ALL_GRANTS = [
   'approval:keep',
 ];
 
+/** Test-only: the grant to share tools and hooks with sub-agents, which `ALL_GRANTS` leaves out. */
+export const SHARE_GRANT = 'sub-agent:share';
+
 /** Test-only: the two grants that widen an approval request beyond the default. */
 export const APPROVAL_WIDENING_GRANTS = ['approval:as-tool', 'approval:keep'];
 

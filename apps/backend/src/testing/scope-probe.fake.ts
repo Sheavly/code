@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SUB_AGENTS } from '@sheavly/agents/agents/agents.utils';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { ExtensionEmit } from '@sheavly/extension/emit/emit.types';
 import type { ExtensionOrigin } from '@sheavly/extension/extension/extension.types';
@@ -17,10 +18,13 @@ import {
 import type { SessionId } from '@sheavly/protocol/session/session.types';
 import { finiteWork } from '@sheavly/runtime/tasks/work.utils';
 import { manifestOf } from './manifest.fake.js';
-import { ALL_GRANTS } from './testing.constants.js';
+import { ALL_GRANTS, SHARE_GRANT } from './testing.constants.js';
 import type { ProbeScopes } from './testing.types.js';
 
 const progress = z.object({ done: z.number() });
+
+/** Test-only: what a probe that shares with sub-agents holds: every v1 grant and `sub-agent:share`. */
+export const GRANTS_WITH_SHARE = [...ALL_GRANTS, SHARE_GRANT];
 
 /**
  * Test-only: an extension that reads every scoped run service, holds them for the test, and
@@ -28,7 +32,10 @@ const progress = z.object({ done: z.number() });
  * and a third-party probe declare the same manifest, so a test runs the same assertions for both.
  * With `emits` it declares and contributes one event and one notice, named after the probe. With
  * `tools` it declares and contributes a trivial tool of each name; with `declaredTools` it only
- * declares those names in its manifest and contributes nothing under them.
+ * declares those names in its manifest and contributes nothing under them. With `subAgents` it
+ * depends on `agents`, requires `sub-agents` and holds that scope as `sharing`; the grant to use
+ * it (`sub-agent:share`) is only held if `grants` lists it. `onActivate` runs inside `activate`
+ * once the scopes are held, so a test can act while the run is still activating.
  */
 export function scopeProbe(params: {
   name: string;
@@ -37,9 +44,11 @@ export function scopeProbe(params: {
   emits?: boolean | undefined;
   tools?: string[];
   declaredTools?: string[];
+  subAgents?: boolean;
+  onActivate?: () => void;
 }) {
   const { name, origin, grants = ALL_GRANTS, emits = false, tools = [] } = params;
-  const { declaredTools = [] } = params;
+  const { declaredTools = [], subAgents = false, onActivate } = params;
   const kind = `${name}.wait`;
   const eventKind = `${name}.progress`;
   const topic = `${name}.reminder`;
@@ -52,8 +61,10 @@ export function scopeProbe(params: {
       tools: [...tools, ...declaredTools],
       workKinds: [kind],
       emits: emits ? { events: [eventKind], modelFacingNotices: true } : {},
+      dependsOn: subAgents ? ['agents'] : [],
       services: {
         requires: [
+          ...(subAgents ? [SUB_AGENTS.name] : []),
           SESSION_INFO.name,
           CHILD_SESSIONS.name,
           BACKGROUND_TASKS.name,
@@ -78,8 +89,10 @@ export function scopeProbe(params: {
           main: services.get(MAIN_SESSION),
           reader: services.find(OUTPUT_READER),
           capture: services.find(OUTPUT_CAPTURE),
+          sharing: subAgents ? services.get(SUB_AGENTS) : undefined,
         },
       };
+      onActivate?.();
 
       return {
         tools: tools.map((toolName) =>

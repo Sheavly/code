@@ -1,3 +1,6 @@
+/** The grant an extension declares in its manifest to `share` with sub-agents. */
+export const SUB_AGENT_SHARE_GRANT = 'sub-agent:share';
+
 /**
  * The tools every sub-agent gets from the `agents` extension itself, whatever is shared: another
  * extension cannot share a tool under one of these names.

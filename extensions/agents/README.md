@@ -13,11 +13,17 @@ registry and does not import the loop: `CHILD_SESSIONS` runs a sub-agent's loop.
 is a live view of the system prompt, read when each sub-agent starts, so sub-agents get the
 sections other extensions contribute. Its options are
 the embedding app's choices only: `subAgentProvider`, `summarizeWith`, `keepAgentHistory` and
-`logOf`. It provides `SUB_AGENTS`, a write-only service: an extension that depends on `agents`
-shares the tools and hooks its sub-agents get with `share`, and cannot read or change what others
-shared. Its `sheavly.json` declares the services it requires
+`logOf`. It provides `SUB_AGENTS`, a write-only service with one scope per consumer: an extension
+that depends on `agents`, requires `sub-agents` and declares the `sub-agent:share` grant shares the
+tools and hooks its sub-agents get with `share`, and cannot read or change the lists through the
+service; without the grant `share` throws an `ExtensionUndeclaredError`, and after the consumer or
+`agents` stops it throws a `ScopeDeactivatedError`. What a consumer shared is revoked when its
+scope is disarmed (it failed after sharing, was rolled back, stopped, or `agents` stopped):
+sub-agents started afterwards do not get it, sub-agents already running keep what they were
+given, and the names are free to share again. `agents`' own output tools are never revoked. Its `sheavly.json` declares the services it requires
 (`session-info`, `child-sessions`, `background-tasks`, `task-control`, `model`, `instructions`),
-reads optionally (`output-reader`) and provides (`sub-agents`), every grant it uses
+reads optionally (`output-reader`) and provides (`sub-agents`, with the grant it understands,
+`sub-agent:share`, under `services.grants`), every grant it uses
 (`session:read`, `sub-agent:create`, `sub-agent:message`, `sub-agent:observe`,
 `sub-agent:report`, `task:start`, `task:read`, `task:cancel`, `task:read-any`,
 `task:cancel-any`, `model:call`, `output:read`: what each allows is in
@@ -29,7 +35,8 @@ import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
 import { SUB_AGENTS } from '@sheavly/agents/agents/agents.utils';
 
 const agents = createAgentsExtension({ subAgentProvider, logOf });
-// In another extension whose sheavly.json lists "agents" in dependsOn:
+// In another extension whose sheavly.json lists "agents" in dependsOn, "sub-agents" in
+// services.requires and "sub-agent:share" in grants:
 //   services.get(SUB_AGENTS).share({ tools, taskTools, hooks });
 ```
 

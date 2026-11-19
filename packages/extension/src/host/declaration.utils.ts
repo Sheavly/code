@@ -1,3 +1,4 @@
+import { ExtensionDefinitionError } from '../errors/extension.errors.js';
 import { ExtensionUndeclaredError } from '../errors/manifest.errors.js';
 import type { UndeclaredUse } from '../extension/extension.types.js';
 import type { ExtensionManifest } from '../manifest/manifest.types.js';
@@ -21,6 +22,25 @@ function matchesDeclared(params: { entry: string; name: string }): boolean {
  */
 export function declaredNoticeTopics(manifest: ExtensionManifest): readonly string[] {
   return manifest.emits.modelFacingNotices ? [`${manifest.name}.*`] : [];
+}
+
+/**
+ * Throws an `ExtensionDefinitionError` when `manifest` declares grants for `service`: such a
+ * service is built per consumer (`provideFor`), so a single shared value could not know whom to
+ * check. Naming the extension, the service and the fix.
+ */
+export function assertNoSharedValueForGrants(params: {
+  manifest: ExtensionManifest;
+  service: string;
+}): void {
+  const { manifest, service } = params;
+
+  if ((manifest.services.grants?.[service]?.length ?? 0) === 0) return;
+
+  throw new ExtensionDefinitionError({
+    extension: manifest.name,
+    problem: `its sheavly.json declares grants for the service "${service}", so it must provide it with services.provideFor, which builds a value per consumer, not services.provide, whose one shared value cannot check who calls it`,
+  });
 }
 
 /**

@@ -130,7 +130,17 @@ describe('the coding extension and its manifest', () => {
       'approval:as-tool',
       'approval:keep',
       'system-prompt:extend',
+      'sub-agent:share',
     ]);
+  });
+
+  it('fails to activate when its manifest lacks sub-agent:share, which it needs to share its tools', async () => {
+    const { failed, active } = await activate(undefined, withoutGrant('sub-agent:share'));
+    const causes = failed.map((one) => [one.extension, one.cause] as const);
+
+    expect(active).toEqual(['agents']);
+    expect(causes).toEqual([['coding', expect.any(ExtensionUndeclaredError)]]);
+    expect(causes[0]?.[1]).toMatchObject({ use: 'grant', undeclared: 'sub-agent:share' });
   });
 
   it('contributes its guidance as the one declared section, with the text of its prompt file', async () => {

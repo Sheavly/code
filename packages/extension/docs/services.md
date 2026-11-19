@@ -28,7 +28,8 @@ In `activate`, `context.services.provide(KEY, value)` makes the value available 
   it. For a service provided by an extension it does not depend on, `find` returns `undefined`
   until that extension has activated and throws afterwards, so its answer is order-dependent for
   non-dependencies: an extension should `dependsOn` what it `find`s.
-- Two extensions providing one key throw a `ContributionCollisionError` naming both.
+- Two extensions providing one key (`provide` or `provideFor`) throw a
+  `ContributionCollisionError` naming both.
 - The services of an extension whose `activate` threw are dropped, so nothing reads a half-built
   extension.
 
@@ -60,11 +61,12 @@ to fail at `get`.
 
 The host calls each instance's `disarm` wherever it disarms the extension's emitter: `deactivate()`
 (before any extension deactivates), a roll-back, a collision or abort, a failed activation and an
-extension that finished after the host closed. It runs once, must not throw, and a value read
-after it is born disarmed. What a disarmed value does (the scopes throw `deactivated`) is the
+extension that finished after the host closed. It runs once and should not throw (if it does, the host contains the error
+and reports it: see below), and a value read after it is born disarmed. What a disarmed value does (the scopes throw `deactivated`) is the
 service's own. `grants` is the list the host builds its grant catalogue from (see
 [manifest](manifest.md#grants)); plain `{ name, value }` entries keep working and declare none.
-`requireGrant` (`@sheavly/extension/extension/grants.utils`) is the one check a scope method makes.
+`requireGrant` (`@sheavly/extension/extension/grants.utils`) is the one check a scope method makes,
+for a host service and for [one an extension provides](#services-an-extension-provides-per-consumer).
 
 The harness's run state reaches extensions this way: `@sheavly/host` has `runServices`, which turns
 a harness into scoped host services (`SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`, `APPROVALS` and the rest), so a
@@ -78,6 +80,95 @@ extension declares, but an extension is Node code and can still use `fs`, `fetch
 is the `origin: 'project'` trust gate, which gates loading and is read by no service, and `origin`
 is declared by whatever loads the extension, not by the extension. A loader for repo code (#332)
 must set `origin: 'project'` itself.
+
+## Services an extension provides per consumer
+
+`provide(key, value)` hands every reader one shared value, so the provider cannot know who calls
+it. A service that must limit what each caller may do is provided with
+`services.provideFor({ key, create })`, the extension counterpart of `hostServiceFor`:
+`create(consumer)` receives the consuming extension (`ServiceConsumer`: its `name`, its sealed
+manifest and a live `contributedTools()`) and returns `{ value, disarm? }`. The consumer is a
+frozen snapshot the host makes once per extension (`Object.freeze`, `contributedTools` closed
+over the extension's name): a provider that reads its own key holds the same object, so it
+cannot rename it to read another extension's scope or widen what `contributedTools()` vouches
+for. A scope that keeps the consumer can trust `consumer.name` for as long as it lives.
+
+```json
+{ "services": { "provides": ["sub-agents"], "grants": { "sub-agents": ["sub-agent:share"] } } }
+```
+
+```ts
+services.provideFor({
+  key: SUB_AGENTS,
+  create: (consumer) => ({
+    value: {
+      share: (tools) => {
+        requireGrant({
+          extension: consumer.name,
+          grants: consumer.manifest.grants,
+          grant: 'sub-agent:share',
+        });
+        // ...
+      },
+    },
+  }),
+});
+```
+
+- **Per consumer, lazily, once.** The host calls `create` on a consumer's first `get` or `find` of
+  the key, after the declared-use check, and memoises it: the same consumer reads the same value
+  every time, two consumers get distinct ones. It is never called for an extension that does not
+  depend on the provider (that read throws `MissingServiceError`), nor for `provide`. A provider
+  that reads its own key is a consumer like any other, built for its own manifest. An extension
+  cannot list its own service in `requires` (it would be skipped before it can provide it), so it
+  reads it with `optional` and `find`. The app's `host.service(key)` rejects such a service, as
+  it does a host factory.
+- **Grants are declared in the manifest.** `services.grants` maps a service the extension
+  provides to the grants it understands ([manifest](manifest.md#servicesgrants)). A consumer
+  lists one in its `grants` and the service in `services.requires` or `optional`; the host checks
+  that before any code runs, like a host service's grants. If the provider is skipped (not
+  trusted, a dependency missing) its grants stay known, so a consumer's manifest still verifies
+  and the service then reads as missing like any service nobody provides.
+- **A service with declared grants must use `provideFor`.** `provide` for such a key throws an
+  `ExtensionDefinitionError` naming the extension, the service and the fix, which fails the
+  provider's activation. `provideFor` for a service with no declared grants is allowed. A key not
+  in `services.provides` is refused as `provide` refuses it (`ExtensionUndeclaredError`), and a
+  key another extension or the host already provides throws a `ContributionCollisionError`
+  naming both, whichever of `provide` and `provideFor` each used.
+- **The provider enforces.** The host calls `create` with the consumer and nothing else: the
+  service's methods check the right grant with `requireGrant` over `consumer.manifest.grants`
+  (the `ExtensionUndeclaredError` with `use: 'grant'` names the consumer and the grant). The host
+  cannot check that a provider's methods check the right grant, or any at all: that is the
+  provider's code, and review is what covers it. What a test can prove is each call: a provider's
+  test calls `assertServiceEnforcesGrants({ provider, service, calls })`
+  (`@sheavly/extension/testing/service-grants.fake`, with `services` and `alongside` for what the
+  provider reads) with one call per grant its manifest declares for the service. For each grant it
+  runs a real host with a consumer that holds every other declared grant, and the call must throw
+  the undeclared-grant error naming that consumer and grant; with the grant held it must not. It
+  fails when `calls` lacks a declared grant or names one the provider does not. It proves each
+  listed call refuses without its grant, not that the list covers every method of the service. For
+  an extension in `extensions/*` the eslint-config tests require such a call.
+- **Disarm follows both ends.** A `disarm` returned by `create` runs once when the host disarms
+  the consuming extension (`deactivate()`, a roll-back, a failed activation, a skip, an extension
+  that finished after the close) and also when the providing extension enters a final state, so a
+  scope never outlives its provider. A value read after either end is born disarmed. It should
+  not throw, and if it does the host contains it: the instance still counts as ended once, every
+  other instance is still disarmed, every extension's `deactivate()` still runs and the state
+  table still completes its moves. The errors are collected and reported with the others: in
+  the list `deactivate()` returns, or, when the disarm ran during activation (a failed or
+  rolled-back extension), in the result's `lateDeactivationErrors`. `activate()` does not reject
+  because of it. When the activation itself fails (a collision, an abort) the thrown error is
+  unchanged and what the closing contained is returned once by the next `deactivate()`.
+  A `disarm` that returns a promise is not awaited, so a hang there cannot block the stop; its
+  rejection is collected best-effort, when it settles, and returned by the next `deactivate()`
+  that runs after that (it can be the same call or a later one). An app that calls
+  `deactivate()` once, as the backend does, therefore hears a rejection that settles within the
+  stop (an `async` function that throws) and never one that settles later, after a timer or other
+  I/O: write a `disarm` so that it does not reject. A `disarm` that hangs synchronously blocks
+  `deactivate()` for every extension: the host cannot interrupt it.
+
+Like every grant, this is least privilege, not a sandbox: a consumer is Node code and the
+provider's check only covers what goes through the service.
 
 ## The app
 

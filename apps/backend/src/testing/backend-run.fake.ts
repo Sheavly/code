@@ -36,7 +36,7 @@ export function useBackendRuns() {
 }
 
 /**
- * Test-only: a backend run in `base` with no web tools and a scripted provider, adding the given
+ * Test-only: a backend run in `base` with no web tools (unless asked) and a scripted provider, adding the given
  * `extensions` the way an embedding app does. The default script answers `done` to `go`.
  */
 function openBackendRun(params: {
@@ -45,6 +45,9 @@ function openBackendRun(params: {
   extensionSettings?: Record<string, SettingValue>;
   scripts?: Record<string, Script[]>;
   outputs?: OutputStore | undefined;
+  /** The web tools, off unless a test turns them on. */
+  webFetch?: Parameters<typeof createBackendHarness>[0]['webFetch'];
+  webSearch?: Parameters<typeof createBackendHarness>[0]['webSearch'];
   /** What `run_command` consults; asks about every command and keeps nothing by default. */
   permissions?: CommandPermissions;
   onModelCall?: (request: ProviderRequest) => void;
@@ -66,8 +69,8 @@ function openBackendRun(params: {
     }),
     env: {},
     permissions: params.permissions ?? askingPermissions(),
-    webFetch: false,
-    webSearch: false,
+    webFetch: params.webFetch ?? false,
+    webSearch: params.webSearch ?? false,
     extensions: params.extensions,
     extensionSettings: params.extensionSettings,
     outputs: params.outputs,

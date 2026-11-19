@@ -32,25 +32,39 @@ export type ServiceKey<TService> = {
   readonly phantom?: TService | undefined;
 };
 
-/** The extension a per-extension service is built for: its name and the host's sealed manifest. */
+/**
+ * The extension a per-extension service is built for (a host `hostServiceFor` or an extension's
+ * `provideFor`): its name and the host's sealed manifest. It is a frozen snapshot the host makes
+ * once per extension: the extension itself holds the same object when it reads its own service,
+ * so no member can be reassigned or redefined, and a scope that keeps it never reads another
+ * identity than the one it was built for.
+ */
 export type ServiceConsumer = {
-  name: string;
-  manifest: ExtensionManifest;
+  readonly name: string;
+  readonly manifest: ExtensionManifest;
   /**
    * The names of the tools the extension contributed, as the host recorded and checked them after
-   * `activate` returned. A live read: empty while `activate` runs, and empty again once the
-   * extension is stopped, rolled back or failed, so a scope that holds it never vouches for a tool
-   * that is not running.
+   * `activate` returned. A live answer from the host's state table, closed over the extension's
+   * name: empty while `activate` runs, and empty again once the extension is stopped, rolled back
+   * or failed, so a scope that holds it never vouches for a tool that is not running.
    */
-  contributedTools: () => readonly string[];
+  readonly contributedTools: () => readonly string[];
 };
 
 /** What a service factory builds for one extension: the value it reads and how to switch it off. */
-export type ServiceInstance = {
-  value: unknown;
+export type ServiceInstance<TService = unknown> = {
+  value: TService;
   /**
-   * Called by the host wherever it disarms the extension's emitter (deactivate, roll-back, a failed
-   * activation). Afterwards a value that was handed out must refuse use. Must not throw.
+   * Called by the host wherever it disarms the extension it was built for (deactivate, roll-back,
+   * a failed activation), and when the extension that provides the service stops, so a value
+   * never outlives its provider. Afterwards a value that was handed out must refuse use. Runs
+   * once and should not throw: if it does, the host contains the error (every other instance is
+   * still disarmed and every extension still stops) and reports it with the errors of
+   * `deactivate()`, or with `lateDeactivationErrors` when it happens while activating. A
+   * `disarm` that hangs without returning blocks the stop. One that returns a promise (an async
+   * function satisfies `() => void`) is not awaited: if it rejects, the host collects the
+   * rejection when it settles, which can be after the stop returned, and the next `deactivate()`
+   * that runs after that returns it.
    */
   disarm?: (() => void) | undefined;
 };
@@ -84,6 +98,21 @@ export type Services = {
    * another extension, or the host, already provides `key`, naming both.
    */
   provide: <TService>(key: ServiceKey<TService>, value: TService) => void;
+  /**
+   * Like `provide`, but the value is built per extension that reads it, so the provider knows who
+   * calls it and can enforce the grants its manifest's `services.grants` declares for this
+   * service (`requireGrant` over `consumer.manifest.grants`). `create` runs lazily, once per
+   * consuming extension, on its first `get` or `find`, and the same value comes back on every
+   * later read. A provider reading its own key is a consumer like any other. `disarm` runs when
+   * the consumer or the provider stops, is rolled back or fails; it should not throw (the host
+   * contains and reports an error it does). Throws like
+   * `provide` for a key not in `services.provides` or one another extension or the host
+   * provides. A service that declares grants must be provided this way: `provide` throws.
+   */
+  provideFor: <TService>(params: {
+    key: ServiceKey<TService>;
+    create: (consumer: ServiceConsumer) => ServiceInstance<TService>;
+  }) => void;
   /**
    * The service under `key`. Throws when it is not provided, or provided by an extension this one
    * does not depend on (declare it in `dependsOn`, so activation order guarantees it exists). A
