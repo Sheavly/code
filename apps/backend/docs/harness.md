@@ -194,11 +194,11 @@ The models a conversation runs on are the user's, kept in their folder (`~/.shea
   leaves the others alone; `PUT /conversations/:id/model` (the chat's `/model`) switches it.
 - **Where it starts.** A new conversation starts on the profile's last model (the one chosen last
   in any of its conversations), else its first. A switch is remembered for the next conversation
-  without touching the ones running. Profiles keep `lastModelSelection` (the model/mode pair)
-  and `modelModes` (each model's last-used effort). Low, medium, high and extreme are reasoning
-  modes; a model with no remembered mode starts on medium. Switching back to a model restores
-  its latest mode in the profile, even if another conversation changed that preference. A
-  resumed conversation instead restores its own saved pair. A mode-only switch is persisted
+  without touching the ones running. Profiles keep `lastModelSelection` (the model/effort pair)
+  and `modelEfforts` (each model's last-used effort). Low, medium, high and extreme are reasoning
+  efforts; a model with no remembered effort starts on medium. Switching back to a model restores
+  its latest effort in the profile, even if another conversation changed that preference. A
+  resumed conversation instead restores its own saved pair. An effort-only switch is persisted
   through the same API, without changing the model.
 - **DeepSeek snapshot setup.** The app catalogue offers **DeepSeek V4.1 Flash (1017)** with
   identity `DeepSeek-V4.1-Flash-1017`, family `deepseek`, and only the `azure-chat` hosting route.

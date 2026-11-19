@@ -4,7 +4,7 @@ Keep typing while it works: what you send waits its turn.
 When it asks to run a command, choose with the arrows or a number and press Enter; Esc skips it.
 Ctrl+C stops the running prompt; pressed again with nothing running, it quits.
 /model lists the models of your profile; /model <name> switches to one from the next prompt on.
-/mode shows reasoning effort; /mode low|medium|high|extreme sets it and remembers it for this model.
+/effort shows reasoning effort; /effort low|medium|high|extreme sets it and remembers it for this model.
 File changes show as one collapsed line. /changes lists the files this chat changed; /changes <file>,
 /changes #<n> or /changes all shows their diffs. A failed step with more to say than its first line
 is collapsed too: /errors lists them and /errors #<n> shows one in full. Ctrl+O expands the latest
@@ -23,4 +23,12 @@ export const LINE_COLUMNS = 80;
 export const EXIT_COMMANDS = ['/exit', '/quit'];
 
 /** The chat's own commands, offered by Tab completion at the start of a line. */
-export const CHAT_COMMANDS = ['/changes', '/errors', '/exit', '/help', '/model', '/mode', '/quit'];
+export const CHAT_COMMANDS = [
+  '/changes',
+  '/effort',
+  '/errors',
+  '/exit',
+  '/help',
+  '/model',
+  '/quit',
+];

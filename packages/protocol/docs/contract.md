@@ -311,12 +311,16 @@ continuation allowance is exhausted, the run ends with `max_tokens`; context exh
 
 ## Models
 
-`ModelMode` is `low`, `medium`, `high` or `extreme`. `ModelSelection` pairs `modelId` with `mode`.
-A profile keeps `lastModelSelection` and `modelModes`, keyed by model UUID; absent per-model
-preferences start on medium. `PUT /conversations/:id/model` accepts optional `mode`: supplying it
+`ModelEffort` is `low`, `medium`, `high` or `extreme`. `ModelSelection` pairs `modelId` with `effort`.
+A profile keeps `lastModelSelection` and `modelEfforts`, keyed by model UUID; absent per-model
+preferences start on medium. `PUT /conversations/:id/model` accepts optional `effort`: supplying it
 sets and remembers effort for that model; omitting it restores that model's last-used effort.
-The active model choice, session updates and stored conversation index carry the mode too.
-Modes do not change context size, tool permissions or the output-token limit.
+The active model choice, session updates and stored conversation index carry the effort too.
+Efforts do not change context size, tool permissions or the output-token limit.
+
+This field was called `mode` before. The API is a clean break: a request that still sends `mode`
+has it ignored, like any field the request does not define, so a client must send `effort`. Files a
+store wrote with the old names are still read (see the storage design doc).
 
 `model/` is how a model is described to a UI and stored, with no code that talks to a provider:
 

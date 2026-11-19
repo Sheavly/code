@@ -326,18 +326,18 @@ skipped); the named profile is checked instead, before a conversation opens:
 - `--setup` with `--profile` is refused: setup binds a profile and sets the default.
 
 The startup banner says which profile the chat runs on, next to the conversation line:
-`→ profile Work (<id>)`. `/model` and `/mode` still remember their choice on that profile.
+`→ profile Work (<id>)`. `/model` and `/effort` still remember their choice on that profile.
 
 ## Setup
 
-### Model modes
+### Model effort
 
-`/mode` shows the current reasoning effort. `/mode low`, `/mode medium`, `/mode high` and
-`/mode extreme` change it, with the selection shown in the status line. The profile remembers
-the mode for this model, separately from every other model. `/model` switches restore the
-selected model's latest remembered mode, or medium when it has none. Existing conversations
+`/effort` shows the current reasoning effort. `/effort low`, `/effort medium`, `/effort high` and
+`/effort extreme` change it, with the selection shown in the status line. The profile remembers
+the effort for this model, separately from every other model. `/model` switches restore the
+selected model's latest remembered effort, or medium when it has none. Existing conversations
 and sub-agents retain their own selections; new conversations use the profile's latest pair.
-Modes take effect at the next model call, not midway through a response.
+Efforts take effect at the next model call, not midway through a response.
 
 On a workspace without a ready profile, the interactive chat opens setup before creating a
 conversation. You can also open it explicitly with `npm run dev:terminal -- --setup`, including
@@ -348,7 +348,7 @@ when a profile already works.
    installed adapters. The form asks the context size ("300K" or "1M"), then only for required
    fields, using provider defaults for optional ones. It derives a display name from the model/deployment; use Edit model settings
    to rename it or change advanced values. Claude's output limit defaults to the model's documented 128000 for recognized IDs. Reasoning
-   effort defaults to medium until you select a mode.
+   effort defaults to medium until you select an effort.
 3. Enter the settings and API key. The key is masked, including paste, and sent only to the
    write-only credential route. Existing keys are never loaded into an input or shown again.
    For Azure Claude models requiring adaptive thinking, choose **adaptive** under Thinking mode

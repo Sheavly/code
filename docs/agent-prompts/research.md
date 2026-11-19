@@ -346,7 +346,7 @@ those remain empirical questions.
 
 The current [Responses builder](../../packages/providers/src/responses/responses.helper.ts)
 uses its reasoning flag to request/replay encrypted content, not send none effort. The
-[mode schema](../../packages/protocol/src/model/model.validator.ts) permits only low, medium,
+[effort schema](../../packages/protocol/src/model/model.validator.ts) permits only low, medium,
 high and extreme. Flash's non-thinking condition is not selectable through the normal harness;
 reasoning false alone does not establish it.
 

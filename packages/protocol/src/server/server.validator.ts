@@ -3,7 +3,7 @@ import { approvalResponseSchema } from '../approval/approval.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { clientHistoryMessageSchema, historyMessageSchema } from '../history/history.validator.js';
 import { promptPartSchema } from '../message/message.validator.js';
-import { adapterKindSchema, modelIdSchema, modelModeSchema } from '../model/model.validator.js';
+import { adapterKindSchema, modelEffortSchema, modelIdSchema } from '../model/model.validator.js';
 import { permissionModeSchema } from '../permission/permission.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
 import { sessionIdSchema } from '../session/session.validator.js';
@@ -41,7 +41,7 @@ export const startConversationRequestSchema = z.object({
    * The reasoning effort this conversation starts its model on, instead of the one the profile
    * remembers for it. For this conversation only: it is not remembered for the profile.
    */
-  mode: modelModeSchema.exactOptional(),
+  effort: modelEffortSchema.exactOptional(),
 });
 
 export const startConversationResponseSchema = z.object({ id: conversationIdSchema });
@@ -75,8 +75,8 @@ export const modelChoiceSchema = z.object({
   name: z.string(),
   adapter: adapterKindSchema,
   model: z.string(),
-  /** Older clients may omit it; the backend uses medium when no mode was selected. */
-  mode: modelModeSchema.exactOptional(),
+  /** Older clients may omit it; the backend uses medium when no effort was selected. */
+  effort: modelEffortSchema.exactOptional(),
 });
 
 /**
@@ -116,8 +116,8 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
  */
 export const switchModelRequestSchema = z.object({
   id: modelIdSchema,
-  /** Omitted: restore the mode last used with this model in the profile. */
-  mode: modelModeSchema.exactOptional(),
+  /** Omitted: restore the effort last used with this model in the profile. */
+  effort: modelEffortSchema.exactOptional(),
 });
 
 /**

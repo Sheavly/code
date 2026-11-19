@@ -2,21 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { collect } from '@sheavly/testing/fetch/fake-fetch.fake';
 import { chatCall, chatFrame, chatTransport } from '../../testing/chat-completions.fake.js';
 
-const modes = ['low', 'medium', 'high', 'extreme'] as const;
+const efforts = ['low', 'medium', 'high', 'extreme'] as const;
 
 describe('explicit Chat effort profiles', () => {
   it.each([
     [undefined, ['low', 'medium', 'high', 'xhigh']],
     ['openai', ['low', 'medium', 'high', 'xhigh']],
     ['deepseek', ['low', 'high', 'high', 'max']],
-  ] as const)('maps every loop mode using profile %s', async (effortProfile, expected) => {
+  ] as const)('maps every loop effort using profile %s', async (effortProfile, expected) => {
     const { provider, requests } = chatTransport({
-      responses: modes.map(() => [chatFrame({ finish: 'stop' })]),
+      responses: efforts.map(() => [chatFrame({ finish: 'stop' })]),
       config: { effortProfile, thinkingMode: 'enabled' },
     });
 
-    for (const mode of modes) {
-      await collect(provider.stream(chatCall({ mode })));
+    for (const effort of efforts) {
+      await collect(provider.stream(chatCall({ effort })));
     }
 
     expect(requests.map(({ body }) => body.reasoning_effort)).toEqual(expected);
@@ -39,21 +39,21 @@ describe('explicit Chat effort profiles', () => {
       },
     });
 
-    await collect(provider.stream(chatCall({ mode: 'extreme' })));
+    await collect(provider.stream(chatCall({ effort: 'extreme' })));
     expect(requests[0]?.body.reasoning_effort).toBe('xhigh');
     expect(requests[0]?.body).not.toHaveProperty('thinking');
   });
 
   it.each(['openai', 'deepseek'] as const)(
-    'disabled thinking suppresses effort for %s; missing mode never invents effort',
+    'disabled thinking suppresses effort for %s; missing effort never invents effort',
     async (effortProfile) => {
       const disabled = chatTransport({
-        responses: modes.map(() => [chatFrame({ finish: 'stop' })]),
+        responses: efforts.map(() => [chatFrame({ finish: 'stop' })]),
         config: { effortProfile, thinkingMode: 'disabled' },
       });
 
-      for (const mode of modes) {
-        await collect(disabled.provider.stream(chatCall({ mode })));
+      for (const effort of efforts) {
+        await collect(disabled.provider.stream(chatCall({ effort })));
       }
 
       for (const { body } of disabled.requests) {

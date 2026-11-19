@@ -71,7 +71,7 @@ describe('ProviderSwitch', () => {
       .add('b', { ...named('b'), contextWindow: 1_000_000 });
 
     expect(providers.pinned('a').contextWindow).toBe(300_000);
-    providers.setMode({ name: 'a', mode: 'high' });
+    providers.setEffort({ name: 'a', effort: 'high' });
     providers.use('b');
     expect(providers.pinned('a').contextWindow).toBe(300_000);
   });
@@ -131,15 +131,15 @@ describe('ProviderSwitch', () => {
       expect(() => providers.remove('x')).toThrow('Unknown provider: x (available: a)');
     });
 
-    it('forgets the removed provider mode, so a provider added again under its name starts unset', () => {
+    it('forgets the removed provider effort, so a provider added again under its name starts unset', () => {
       const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
 
-      providers.setMode({ name: 'a', mode: 'high' });
+      providers.setEffort({ name: 'a', effort: 'high' });
       providers.remove('a');
       providers.add('a', named('a'));
       providers.use('a');
 
-      expect(providers.activeMode).toBeUndefined();
+      expect(providers.activeEffort).toBeUndefined();
     });
 
     it('changes neither a pinned provider nor a stream already started', async () => {
@@ -165,12 +165,14 @@ describe('ProviderSwitch', () => {
       expect(text(await collect(providers.stream(request)))).toBe('second');
     });
 
-    it('setMode refuses a provider that was removed', () => {
+    it('setEffort refuses a provider that was removed', () => {
       const providers = new ProviderSwitch().add('a', named('a')).add('b', named('b'));
 
       providers.remove('b');
 
-      expect(() => providers.setMode({ name: 'b', mode: 'low' })).toThrow('Unknown provider: b');
+      expect(() => providers.setEffort({ name: 'b', effort: 'low' })).toThrow(
+        'Unknown provider: b',
+      );
     });
 
     it('use refuses a removed name and keeps the active provider', () => {
@@ -187,17 +189,17 @@ describe('ProviderSwitch', () => {
     const seen: (string | undefined)[] = [];
     const provider: Provider = {
       async *stream(call) {
-        seen.push(call.mode);
+        seen.push(call.effort);
         yield { type: 'done', stopReason: 'end_turn' };
       },
     };
     const switching = new ProviderSwitch().add('a', provider);
 
-    switching.setMode({ name: 'a', mode: 'high' });
+    switching.setEffort({ name: 'a', effort: 'high' });
     const started = switching.stream(request);
     const child = switching.pinned('a');
 
-    switching.setMode({ name: 'a', mode: 'low' });
+    switching.setEffort({ name: 'a', effort: 'low' });
     await collect(started);
     await collect(child.stream(request));
     await collect(switching.stream(request));

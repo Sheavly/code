@@ -45,7 +45,7 @@ describe('parseChatInput', () => {
     expect(parseChatInput('/model  claude ')).toEqual({ kind: 'model', name: 'claude' });
   });
 
-  it.each(['/model a b', '/mode a b', '/help x'])(
+  it.each(['/model a b', '/effort a b', '/help x'])(
     'rejects %s instead of sending it to the model',
     (line) => {
       expect(parseChatInput(line)).toMatchObject({ kind: 'usage' });
@@ -133,11 +133,11 @@ describe('completeChatLine', () => {
     expect(completeChatLine({ before: '/', skills })).toEqual([
       [
         '/changes',
+        '/effort',
         '/errors',
         '/exit',
         '/help',
         '/model',
-        '/mode',
         '/quit',
         '/git',
         '/help-docs',

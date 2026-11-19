@@ -4,7 +4,7 @@ import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
 import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { CallId } from '@sheavly/protocol/message/message.types';
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type {
   InboxMessage,
   SessionId,
@@ -71,7 +71,7 @@ export type RunChildResult = { reason: string; messages: HistoryMessage[] };
 export type ChildSessionScope = {
   /** Throws for an unknown or ended parent, the depth cap and a `startedByCall` a sibling used. */
   startChild(params: { parentId: SessionId; startedByCall: CallId; title: string }): SessionRef;
-  setModel(params: { id: SessionId; modelId: ModelId; mode?: ModelMode }): void;
+  setModel(params: { id: SessionId; modelId: ModelId; effort?: ModelEffort }): void;
   /** `from` is the main session or an owned child, never `'user'`. */
   send(params: {
     id: SessionId;

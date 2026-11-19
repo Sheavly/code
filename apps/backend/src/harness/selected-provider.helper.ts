@@ -20,7 +20,7 @@ export function selectedProvider(params: {
 
   const selection: ModelSelection = {
     modelId: choice.id,
-    mode: models.switch.activeMode ?? 'medium',
+    effort: models.switch.activeEffort ?? 'medium',
   };
   const pinned = models.switch.pinned(choice.id);
 
@@ -28,7 +28,7 @@ export function selectedProvider(params: {
     selection,
     provider: {
       stream(request: ProviderRequest) {
-        const selected = { ...request, mode: selection.mode };
+        const selected = { ...request, effort: selection.effort };
 
         onModelCall?.(selected);
 

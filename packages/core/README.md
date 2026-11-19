@@ -4,7 +4,7 @@ The code contracts tools, hooks and providers are written against: `defineTool` 
 `defineHook`, `defineAdapter`, the `Provider` and its `ProviderRequest`, and the `Environment` an
 app passes in. No services, no tools of its own: everything else builds on this.
 
-`ProviderRequest.mode` optionally carries `low`, `medium`, `high` or `extreme` reasoning effort
+`ProviderRequest.effort` optionally carries `low`, `medium`, `high` or `extreme` reasoning effort
 for one call. The caller chooses it; the provider translates it to its API's native settings.
 The provider's `done` event may carry `usage`, with reported token counts. Input includes cache
 reads and writes, and output includes reasoning when the provider reports it that way. Missing

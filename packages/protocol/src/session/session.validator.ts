@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { callIdSchema } from '../message/message.validator.js';
-import { modelIdSchema, modelModeSchema } from '../model/model.validator.js';
+import { modelEffortSchema, modelIdSchema } from '../model/model.validator.js';
 import {
   INCONSISTENT_SESSION_MESSAGE,
   RUN_OUTCOMES,
@@ -66,7 +66,7 @@ const sessionDetails = {
    * (a library run with no model file behind it) has none.
    */
   modelId: modelIdSchema.exactOptional(),
-  mode: modelModeSchema.exactOptional(),
+  effort: modelEffortSchema.exactOptional(),
 };
 
 /** A snapshot of a sub-agent: who it is, who started it, and where it is. */
@@ -117,7 +117,7 @@ export const sessionUpdateSchema = z.discriminatedUnion('type', [
     type: z.literal('session_model'),
     session: sessionInfoSchema,
     modelId: modelIdSchema,
-    mode: modelModeSchema.exactOptional(),
+    effort: modelEffortSchema.exactOptional(),
   }),
   z.object({ type: z.literal('session_ended'), session: sessionInfoSchema }),
   /**

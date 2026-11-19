@@ -20,25 +20,25 @@ describe('profileIdSchema', () => {
 });
 
 describe('profileSchema', () => {
-  it('holds no fields beyond id, name, lastModelSelection and modelModes', () => {
+  it('holds no fields beyond id, name, lastModelSelection and modelEfforts', () => {
     const parsed = profileSchema.parse({ id: ID, name: 'Work', terminal: { reducedMotion: true } });
 
     expect(parsed).toEqual({ id: ID, name: 'Work' });
   });
 
-  it('holds a selection and per-model modes, rejecting unknown modes and non-ID keys', () => {
+  it('holds a selection and per-model efforts, rejecting unknown efforts and non-ID keys', () => {
     const valid = {
       id: ID,
       name: 'Work',
-      lastModelSelection: { modelId: ID, mode: 'high' },
-      modelModes: { [ID]: 'high' },
+      lastModelSelection: { modelId: ID, effort: 'high' },
+      modelEfforts: { [ID]: 'high' },
     };
 
     expect(profileSchema.safeParse(valid).success).toBe(true);
-    expect(profileSchema.safeParse({ ...valid, modelModes: { [ID]: 'turbo' } }).success).toBe(
+    expect(profileSchema.safeParse({ ...valid, modelEfforts: { [ID]: 'turbo' } }).success).toBe(
       false,
     );
-    expect(profileSchema.safeParse({ ...valid, modelModes: { Sonnet: 'high' } }).success).toBe(
+    expect(profileSchema.safeParse({ ...valid, modelEfforts: { Sonnet: 'high' } }).success).toBe(
       false,
     );
   });

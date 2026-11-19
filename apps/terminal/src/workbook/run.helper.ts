@@ -179,7 +179,7 @@ async function streamRun(params: {
     backend,
     messages: history,
     model: params.request.model,
-    mode: params.request.mode,
+    effort: params.request.effort,
   });
   const stopStream = new AbortController();
 

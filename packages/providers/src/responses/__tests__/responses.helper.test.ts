@@ -29,14 +29,14 @@ describe('createResponsesProvider', () => {
     });
 
     /** The temperature the request actually carried, when a hint of 0 was asked for. */
-    const sentWith = async (target: typeof plain, extra: { mode?: 'high' } = {}) => {
+    const sentWith = async (target: typeof plain, extra: { effort?: 'high' } = {}) => {
       await collect(target.stream({ ...request(), temperature: 0, ...extra }));
 
       return requests.at(-1)?.body.temperature;
     };
 
     expect(await sentWith(plain)).toBe(0);
-    expect(await sentWith(plain, { mode: 'high' })).toBeUndefined();
+    expect(await sentWith(plain, { effort: 'high' })).toBeUndefined();
     expect(await sentWith(provider(fetch))).toBeUndefined();
   });
 
@@ -160,11 +160,13 @@ describe('createResponsesProvider', () => {
   });
   it.each(['low', 'medium', 'high', 'extreme'] as const)(
     'sends %s as native reasoning effort',
-    async (mode) => {
+    async (effort) => {
       const { fetch, requests } = fakeFetch([]);
 
-      await collect(provider(fetch).stream({ ...request(), mode }));
-      expect(requests[0]?.body.reasoning).toEqual({ effort: mode === 'extreme' ? 'xhigh' : mode });
+      await collect(provider(fetch).stream({ ...request(), effort }));
+      expect(requests[0]?.body.reasoning).toEqual({
+        effort: effort === 'extreme' ? 'xhigh' : effort,
+      });
     },
   );
   it('streams text deltas and ends the turn', async () => {

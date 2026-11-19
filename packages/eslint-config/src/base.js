@@ -21,6 +21,8 @@ import { TYPESCRIPT_RULES } from './typescript.js';
 
 // The confinement of an app's replay command, for that app to spread into its own config.
 export { replayConfinement } from './replay-confinement.js';
+// The storage package's rule that stored profiles and indexes are read through the migration.
+export { storedFileReads } from './stored-file-reads.js';
 
 const TYPED_FILES = ['**/*.ts', '**/*.tsx'];
 const PLAIN_JS_FILES = ['**/*.js', '**/*.mjs'];

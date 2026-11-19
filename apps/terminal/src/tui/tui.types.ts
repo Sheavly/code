@@ -4,7 +4,7 @@ import type {
   ApprovalResponse,
 } from '@sheavly/protocol/approval/approval.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 import type { RunningTool } from '../render/render.types.js';
 import type { ContextUsage, UsageTotals } from '@sheavly/protocol/usage/usage.types';
 
@@ -39,7 +39,7 @@ export type StatusInfo = {
   /** Grouped tasks the held run still waits on; only read in `awaiting_tasks`. */
   awaitedTasks?: number;
   model: string;
-  modelMode?: ModelMode;
+  modelEffort?: ModelEffort;
   mode: PermissionMode;
   /**
    * The branch of the folder the agents work in, once they chose one: shown once here so paths

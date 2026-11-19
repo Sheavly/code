@@ -42,7 +42,7 @@ export class WorkbookNotFoundError extends Error {
   }
 }
 
-/** A workbook option (`--mode` or `WORKBOOK_MODE`) holds a value the workbook can't use. */
+/** A workbook option (`--effort` or `WORKBOOK_EFFORT`) holds a value the workbook can't use. */
 export class WorkbookOptionError extends Error {
   override name = 'WorkbookOptionError';
   /** The rejected value, as given. */

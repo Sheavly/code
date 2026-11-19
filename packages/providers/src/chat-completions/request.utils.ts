@@ -22,7 +22,7 @@ export function chatRequestBody(params: {
 }): Record<string, unknown> {
   const { request, endpoint, source, replayReasoning, maxTokens, thinkingMode, effortProfile } =
     params;
-  const sendsEffort = Boolean(request.mode) && thinkingMode !== 'disabled';
+  const sendsEffort = Boolean(request.effort) && thinkingMode !== 'disabled';
 
   return {
     model: endpoint.model,
@@ -53,24 +53,26 @@ export function chatRequestBody(params: {
     stream: true,
     stream_options: { include_usage: true },
     ...(thinkingMode && { thinking: { type: thinkingMode } }),
-    ...(sendsEffort && { reasoning_effort: nativeEffort({ mode: request.mode, effortProfile }) }),
+    ...(sendsEffort && {
+      reasoning_effort: nativeEffort({ effort: request.effort, effortProfile }),
+    }),
     // Reasoning models reject a temperature, so it goes only when no effort is sent.
     ...(request.temperature !== undefined && !sendsEffort && { temperature: request.temperature }),
   };
 }
 
 function nativeEffort(params: {
-  mode: ProviderRequest['mode'];
+  effort: ProviderRequest['effort'];
   effortProfile: ChatEffortProfile;
 }): string | undefined {
-  const { mode, effortProfile } = params;
+  const { effort, effortProfile } = params;
 
   if (effortProfile === 'deepseek') {
-    if (mode === 'extreme') return 'max';
-    if (mode === 'medium') return 'high';
+    if (effort === 'extreme') return 'max';
+    if (effort === 'medium') return 'high';
 
-    return mode;
+    return effort;
   }
 
-  return mode === 'extreme' ? 'xhigh' : mode;
+  return effort === 'extreme' ? 'xhigh' : effort;
 }

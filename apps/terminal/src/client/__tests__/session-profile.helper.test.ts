@@ -51,7 +51,7 @@ function session(overrides: FakeHandlers = {}) {
           id: STORED,
           title: 'old',
           modelId: modelIdSchema.parse('00000000-0000-4000-8000-000000000002'),
-          mode: 'medium',
+          effort: 'medium',
           workspace: '/work',
           profile: HOME,
           status: 'closed',

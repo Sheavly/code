@@ -6,7 +6,7 @@ import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { PromptPart } from '@sheavly/protocol/message/message.types';
-import type { ModelId, ModelMode, ModelSelection } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId, ModelSelection } from '@sheavly/protocol/model/model.types';
 import type { PermissionMode } from '@sheavly/protocol/permission/permission.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type {
@@ -60,7 +60,7 @@ export type ConversationRun = {
    */
   workingRoot?: () => Promise<ConversationDetails['workingRoot']>;
   /** Switches to the model with this id, from the next model call; false when there is none. */
-  useModel: (id: ModelId, mode?: ModelMode) => boolean | Promise<boolean>;
+  useModel: (id: ModelId, effort?: ModelEffort) => boolean | Promise<boolean>;
 };
 
 /** One live conversation the app built: its services, the conversation, and its skills if any. */
@@ -89,7 +89,7 @@ export type StartConversationParams = {
   /** The model a new conversation starts on (an id or a name): for the app to resolve and act on. */
   model?: string | undefined;
   /** The reasoning effort a new conversation starts on, for this conversation only. */
-  mode?: ModelMode | undefined;
+  effort?: ModelEffort | undefined;
   /** An explicitly resumed selection, not the profile's last-used preference. */
   modelSelection?: ModelSelection | undefined;
 };

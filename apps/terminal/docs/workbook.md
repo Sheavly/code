@@ -46,16 +46,16 @@ A run starts on the effort the profile remembers for its model. To run on anothe
 that, name it:
 
 ```bash
-npm run workbook -- run signed-prefix --model claude-sonnet-5-5 --mode high   # this run only
-export WORKBOOK_MODE=high                                                     # a default of your own
+npm run workbook -- run signed-prefix --model claude-sonnet-5-5 --effort high   # this run only
+export WORKBOOK_EFFORT=high                                                       # a default of your own
 ```
 
-- **`--mode <low|medium|high|extreme>`**, else **`WORKBOOK_MODE`**, else the profile's mode for the
-  model. An empty value means none. Any other value is refused, so a typo never runs on another
-  effort.
-- **It is for that run only**, like `--model`: `/mode` in the chat is what changes the remembered
-  one. A conversation that is reopened keeps the mode it was saved with.
-- **Underneath** it is the optional `mode` of `POST /conversations`
+- **`--effort <low|medium|high|extreme>`**, else **`WORKBOOK_EFFORT`**, else the profile's effort
+  for the model. An empty value means none. Any other value is refused, so a typo never runs on
+  another effort.
+- **It is for that run only**, like `--model`: `/effort` in the chat is what changes the remembered
+  one. A conversation that is reopened keeps the effort it was saved with.
+- **Underneath** it is the optional `effort` of `POST /conversations`
   ([API](../../backend/docs/api.md)).
 
 ## Layout

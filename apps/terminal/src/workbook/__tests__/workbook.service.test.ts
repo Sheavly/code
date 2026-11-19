@@ -14,7 +14,7 @@ import {
   mergeTextDeltas,
   parseCommand,
   runId,
-  workbookMode,
+  workbookEffort,
   workbookModel,
 } from '../workbook.utils.js';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
@@ -68,38 +68,38 @@ describe('workbookModel', () => {
   });
 });
 
-describe('workbookMode', () => {
-  it('uses --mode, else WORKBOOK_MODE, else none', () => {
-    expect(workbookMode({ flag: 'high', env: { WORKBOOK_MODE: 'low' } })).toBe('high');
-    expect(workbookMode({ flag: undefined, env: { WORKBOOK_MODE: 'low' } })).toBe('low');
-    expect(workbookMode({ flag: undefined, env: {} })).toBeUndefined();
-    expect(workbookMode({ flag: '', env: { WORKBOOK_MODE: '' } })).toBeUndefined();
+describe('workbookEffort', () => {
+  it('uses --effort, else WORKBOOK_EFFORT, else none', () => {
+    expect(workbookEffort({ flag: 'high', env: { WORKBOOK_EFFORT: 'low' } })).toBe('high');
+    expect(workbookEffort({ flag: undefined, env: { WORKBOOK_EFFORT: 'low' } })).toBe('low');
+    expect(workbookEffort({ flag: undefined, env: {} })).toBeUndefined();
+    expect(workbookEffort({ flag: '', env: { WORKBOOK_EFFORT: '' } })).toBeUndefined();
   });
 
-  it('refuses a value that is not a mode, rather than running on another effort', () => {
-    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow(WorkbookOptionError);
-    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow(
+  it('refuses a value that is not an effort, rather than running on another effort', () => {
+    expect(() => workbookEffort({ flag: 'max', env: {} })).toThrow(WorkbookOptionError);
+    expect(() => workbookEffort({ flag: 'max', env: {} })).toThrow(
       expect.objectContaining({ value: 'max' }) as Error,
     );
-    expect(() => workbookMode({ flag: 'max', env: {} })).toThrow('not one of');
-    expect(() => workbookMode({ flag: undefined, env: { WORKBOOK_MODE: 'fast' } })).toThrow(
-      'WORKBOOK_MODE',
+    expect(() => workbookEffort({ flag: 'max', env: {} })).toThrow('not one of');
+    expect(() => workbookEffort({ flag: undefined, env: { WORKBOOK_EFFORT: 'fast' } })).toThrow(
+      'WORKBOOK_EFFORT',
     );
   });
 
   it('is read by every command that runs, and never mistaken for a word', () => {
-    expect(parseCommand(['run', 'guards', '--mode', 'high'])).toMatchObject({
+    expect(parseCommand(['run', 'guards', '--effort', 'high'])).toMatchObject({
       name: 'run',
       prompt: 'guards',
-      mode: 'high',
+      effort: 'high',
     });
-    expect(parseCommand(['check', 'guards', '--mode', 'low'])).toMatchObject({
+    expect(parseCommand(['check', 'guards', '--effort', 'low'])).toMatchObject({
       name: 'check',
       prompts: ['guards'],
-      mode: 'low',
+      effort: 'low',
     });
-    expect(parseCommand(['run', 'guards', '--mode'])).toEqual({ name: 'help' });
-    expect(parseCommand(['run', 'guards', '--mode=high'])).toEqual({ name: 'help' });
+    expect(parseCommand(['run', 'guards', '--effort'])).toEqual({ name: 'help' });
+    expect(parseCommand(['run', 'guards', '--effort=high'])).toEqual({ name: 'help' });
   });
 });
 

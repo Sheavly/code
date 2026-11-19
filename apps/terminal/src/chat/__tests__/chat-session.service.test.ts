@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EntryEvent } from '@sheavly/protocol/event/event.types';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import { sessionIdSchema } from '@sheavly/protocol/session/session.validator';
@@ -37,7 +37,7 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
   const sent: string[] = [];
   const open: { release: () => void; signal: AbortSignal | undefined }[] = [];
   let model = FAST;
-  const modes = new Map<string, ModelMode>();
+  const efforts = new Map<string, ModelEffort>();
 
   const conversation: ChatConversation = {
     yieldPrompt: () => Promise.resolve(false),
@@ -54,14 +54,14 @@ function fakeConversation(params: { skills: string[]; failOn: string | undefined
       Promise.resolve({
         model: {
           ...models.find((choice) => choice.id === model),
-          mode: modes.get(model) ?? 'medium',
+          effort: efforts.get(model) ?? 'medium',
         },
         models,
       } as never),
-    useModel: (id, mode) => {
+    useModel: (id, effort) => {
       if (!models.some((choice) => choice.id === id)) return Promise.resolve(false);
       model = id;
-      if (mode) modes.set(id, mode);
+      if (effort) efforts.set(id, effort);
 
       return Promise.resolve(true);
     },
@@ -399,22 +399,22 @@ describe('ChatSession', () => {
     const { session, fake, output } = chat();
 
     for (const line of [
-      '/mode high',
+      '/effort high',
       '/model Deep',
-      '/mode low',
+      '/effort low',
       '/model Fast',
-      '/mode',
-      '/mode turbo',
+      '/effort',
+      '/effort turbo',
     ]) {
       session.submit(line);
     }
 
     await session.idle();
-    expect((await fake.conversation.details()).model.mode).toBe('high');
+    expect((await fake.conversation.details()).model.effort).toBe('high');
     expect(output()).toContain('→ Fast · high');
     expect(output()).toContain('→ Deep · low');
     expect(output()).toContain('Fast · high');
-    expect(output()).toContain('Choose a mode: low, medium, high, extreme.');
+    expect(output()).toContain('Choose an effort: low, medium, high, extreme.');
     expect(fake.sent).toEqual([]);
   });
 

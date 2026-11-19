@@ -6,7 +6,7 @@ remain in ignored workbook runs; these sanitized results preserve every candidat
 
 ## Configuration
 
-- Adapter/model: `azure-chat` / `DeepSeek-V4-Flash`, medium mode, 512 output tokens per call.
+- Adapter/model: `azure-chat` / `DeepSeek-V4-Flash`, medium effort, 512 output tokens per call.
 - Session turn ceilings: 10 for `complete-change`, 6 for `deepseek-chat`; workbook permits one retry.
 - Recorded source: `bcd8419+uncommitted`. Draft A's runtime hashes match the
   [measured text](research.md#local-draft-text-measurements).
@@ -82,7 +82,7 @@ experiment with the refined wording.
 ## Refined smoke validation
 
 The user approved one bounded safety-aware workbook check with the same disposable exact-command
-grant, medium mode, 512-token output ceiling and 10-turn limit, allowing at most one retry.
+grant, medium effort, 512-token output ceiling and 10-turn limit, allowing at most one retry.
 `0611-complete-change` passed on the first attempt: six model calls, seven tool calls, one session.
 No retry or additional paid run was made.
 

@@ -179,7 +179,7 @@ describe('Chat replay and automatic cache request prefixes', () => {
         ],
       },
     ];
-    const events = await collect(provider.stream(chatCall({ messages, mode: 'extreme' })));
+    const events = await collect(provider.stream(chatCall({ messages, effort: 'extreme' })));
 
     expect(events.some((event) => event.type === 'reasoning')).toBe(false);
     expect(events).toContainEqual({

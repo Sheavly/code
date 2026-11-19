@@ -91,13 +91,13 @@ describe('createMessagesProvider', () => {
   });
   it.each(['low', 'medium', 'high', 'extreme'] as const)(
     'sends %s as adaptive effort without a fixed budget',
-    async (mode) => {
+    async (effort) => {
       const { fetch, requests } = replies([...thinking, STOP]);
-      const events = await collect(provider({ fetch }).stream({ ...request(), mode }));
+      const events = await collect(provider({ fetch }).stream({ ...request(), effort }));
 
       expect(requests[0]?.body.thinking).toEqual({ type: 'adaptive' });
       expect(requests[0]?.body.output_config).toEqual({
-        effort: mode === 'extreme' ? 'max' : mode,
+        effort: effort === 'extreme' ? 'max' : effort,
       });
       expect(events.some((event) => event.type === 'reasoning')).toBe(true);
     },
@@ -106,7 +106,7 @@ describe('createMessagesProvider', () => {
     const { fetch, requests } = replies([STOP], [STOP], [STOP], [STOP]);
 
     await collect(provider({ fetch }).stream({ ...request(), temperature: 0 }));
-    await collect(provider({ fetch }).stream({ ...request(), temperature: 0, mode: 'high' }));
+    await collect(provider({ fetch }).stream({ ...request(), temperature: 0, effort: 'high' }));
     await collect(
       provider({ fetch, thinkingBudget: 1024 }).stream({ ...request(), temperature: 0 }),
     );

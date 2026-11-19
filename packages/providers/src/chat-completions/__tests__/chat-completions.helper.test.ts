@@ -246,7 +246,7 @@ describe('native Chat Completions', () => {
       },
     ];
 
-    await collect(provider.stream({ ...request(messages), mode: 'high' }));
+    await collect(provider.stream({ ...request(messages), effort: 'high' }));
     expect(requests[0]?.body).toMatchObject({ thinking: { type: 'disabled' } });
     expect(requests[0]?.body).not.toHaveProperty('reasoning_effort');
     expect(requests[0]?.body.messages).toEqual([
@@ -305,7 +305,7 @@ describe('native Chat Completions', () => {
     ]);
 
     await collect(provider.stream({ ...request(), temperature: 0 }));
-    await collect(provider.stream({ ...request(), temperature: 0, mode: 'high' }));
+    await collect(provider.stream({ ...request(), temperature: 0, effort: 'high' }));
     await collect(provider.stream(request()));
 
     expect(requests[0]?.body.temperature).toBe(0);

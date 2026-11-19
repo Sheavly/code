@@ -1,7 +1,7 @@
 import type { ReplayDropHandler } from '@sheavly/core/adapter/replay.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
@@ -120,7 +120,7 @@ export class Profiles {
       request,
       contextWindow,
       ...(found.lastModelSelection && { startWith: found.lastModelSelection.modelId }),
-      ...(found.modelModes && { modes: found.modelModes }),
+      ...(found.modelEfforts && { efforts: found.modelEfforts }),
     });
 
     // The switch starts on a model among the choices (see `modelsOf`), so with any choice at all
@@ -141,13 +141,13 @@ export class Profiles {
       models,
       notes,
       first,
-      select: async (selection: { modelId: ModelId; mode?: ModelMode }) => {
+      select: async (selection: { modelId: ModelId; effort?: ModelEffort }) => {
         const profile = await this.#profileNamed(found.id);
-        const mode = selection.mode ?? profile.modelModes?.[selection.modelId] ?? 'medium';
+        const effort = selection.effort ?? profile.modelEfforts?.[selection.modelId] ?? 'medium';
 
-        await this.#registry.rememberModel({ id: found.id, modelId: selection.modelId, mode });
+        await this.#registry.rememberModel({ id: found.id, modelId: selection.modelId, effort });
 
-        return mode;
+        return effort;
       },
     };
   }

@@ -1,4 +1,4 @@
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import { AdapterError } from '@sheavly/providers/errors/providers.errors';
 import type { AdapterRegistry } from '@sheavly/providers/registry/registry.service';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
@@ -24,7 +24,7 @@ export async function modelsOf(params: {
   registry: AdapterRegistry;
   request: RequestSettings;
   startWith?: ModelId | undefined;
-  modes?: Partial<Record<ModelId, ModelMode>>;
+  efforts?: Partial<Record<ModelId, ModelEffort>>;
   /** The window every model is told, instead of its file's (`CONTEXT_WINDOW`). */
   contextWindow?: number | undefined;
 }): Promise<ProfileModels> {
@@ -53,7 +53,7 @@ export async function modelsOf(params: {
           override: contextWindow,
         }),
       );
-      models.switch.setMode({ name: model.id, mode: params.modes?.[model.id] ?? 'medium' });
+      models.switch.setEffort({ name: model.id, effort: params.efforts?.[model.id] ?? 'medium' });
       models.choices.push({
         id: model.id,
         name: model.name,

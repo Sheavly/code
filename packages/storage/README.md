@@ -31,7 +31,9 @@ Internal (closed in `exports`): `safe-path/` (`namedPath`, `assertSafeRoot`, `re
 `removeFolder`: every path a store makes, reads, writes or deletes is checked there), `serial-queue/`
 (`SerialQueue`, one change at a time, and `LockedChange`, the one read-modify-write primitive every
 store uses: a queue in the process plus a lock file across processes), `file-lock/` (the lock
-file behind it) and `jsonl-file/` (append and read a stream's lines).
+file behind it), `jsonl-file/` (append and read a stream's lines) and `legacy-effort/` (reads a
+`profile.json` or conversation `index.json` written before "mode" became "effort", and the stores
+save it in the new form).
 
 Runs on Linux, macOS and Windows; see [Design](docs/design.md#every-operating-system) for what that
 asks of every module here.

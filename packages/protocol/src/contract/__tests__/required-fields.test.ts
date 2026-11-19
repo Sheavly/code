@@ -60,7 +60,7 @@ const STORED = {
   id: '3f2b8a52-5c0e-4a0e-9a53-8f7f4b1c2d3e',
   title: 'A chat',
   modelId: '9d6c1a52-5c0e-4a0e-9a53-8f7f4b1c2d3e',
-  mode: 'medium',
+  effort: 'medium',
   workspace: '/work',
   profile: '1a2b3c4d-5c0e-4a0e-9a53-8f7f4b1c2d3e',
   status: 'closed',
@@ -105,9 +105,9 @@ const CASES: [string, () => boolean, () => boolean][] = [
     () => taskInfoSchema.safeParse(without(TASK, 'kind')).success,
   ],
   [
-    'a stored conversation records its mode',
+    'a stored conversation records its effort',
     () => storedConversationSchema.safeParse(STORED).success,
-    () => storedConversationSchema.safeParse(without(STORED, 'mode')).success,
+    () => storedConversationSchema.safeParse(without(STORED, 'effort')).success,
   ],
 ];
 

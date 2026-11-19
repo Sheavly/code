@@ -5,7 +5,7 @@ import { reconnectingEntries } from '@sheavly/client/client/reconnect.helper';
 import { RefusedError } from '@sheavly/client/errors/client.errors';
 import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/approval.types';
 import type { ClientHistoryMessage, HistoryMessage } from '@sheavly/protocol/history/history.types';
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ConversationDetails, ConversationId } from '@sheavly/protocol/server/server.types';
 import { isMainSession } from '@sheavly/protocol/session/session.utils';
@@ -60,18 +60,18 @@ export class RemoteConversation {
     /** The model to start on, by id or name; the profile's own choice when omitted. */
     model?: string | undefined;
     /** The reasoning effort to start on, for this conversation only; the profile's own when omitted. */
-    mode?: ModelMode | undefined;
+    effort?: ModelEffort | undefined;
     /** The profile to start on; the workspace's binding, else the default, when omitted. */
     profile?: ProfileId | undefined;
   }): Promise<RemoteConversation> {
-    const { backend, messages, workspace, model, mode, profile } = params;
+    const { backend, messages, workspace, model, effort, profile } = params;
     const client = clientFor(backend);
     const { id } = await client.call('startConversation', {
       body: {
         ...(messages && { messages }),
         ...(workspace && { workspace }),
         ...(model && { model }),
-        ...(mode && { mode }),
+        ...(effort && { effort }),
         ...(profile && { profile }),
       },
     });
@@ -143,11 +143,11 @@ export class RemoteConversation {
   }
 
   /** Switches to the model with this id, from the next model call; false when the conversation hasn't it. */
-  async useModel(modelId: ModelId, mode?: ModelMode): Promise<boolean> {
+  async useModel(modelId: ModelId, effort?: ModelEffort): Promise<boolean> {
     try {
       await this.#client.send('switchModel', {
         id: this.id,
-        body: { id: modelId, ...(mode && { mode }) },
+        body: { id: modelId, ...(effort && { effort }) },
       });
     } catch (caughtError) {
       // Only "no such model" is the user's to fix with another model; anything else is a failure.

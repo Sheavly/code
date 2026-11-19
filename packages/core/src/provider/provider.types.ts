@@ -1,7 +1,7 @@
 import type { StreamEvent } from '../message/message.types.js';
 import type { HarnessNotice } from '@sheavly/protocol/notice/notice.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 
 // --- Provider contract (Anthropic, OpenAI, local, ... all implement this) ---
 
@@ -18,7 +18,7 @@ export type ProviderRequest = {
    */
   instructions?: string | undefined;
   /** Effort for this call, captured when it starts; a later switch never changes an active stream. */
-  mode?: ModelMode | undefined;
+  effort?: ModelEffort | undefined;
   /**
    * Sampling temperature for this call, a hint for work that should be repeatable (a summary).
    * An adapter sends it only where its API accepts it alongside the call's other settings, and

@@ -10,7 +10,7 @@ export function Activity(props: ActivityProps) {
   const {
     state,
     model,
-    modelMode,
+    modelEffort,
     workingBranch,
     mode,
     tasks,
@@ -45,7 +45,7 @@ export function Activity(props: ActivityProps) {
       <Text color={secondary}>
         {' '}
         · {plainTerminalText(model)}
-        {modelMode ? ` · ${modelMode}` : ''}
+        {modelEffort ? ` · ${modelEffort}` : ''}
         {workingBranch ? ` · ⎇ ${plainTerminalText(workingBranch)}` : ''} · mode:{' '}
       </Text>
       <Text {...(mode === 'allow_all' ? { color: colors.status.error } : {})}>{mode}</Text>
