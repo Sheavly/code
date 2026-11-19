@@ -318,6 +318,10 @@ sets and remembers effort for that model; omitting it restores that model's last
 The active model choice, session updates and stored conversation index carry the effort too.
 Efforts do not change context size, tool permissions or the output-token limit.
 
+This field was called `mode` before. The API is a clean break: a request that still sends `mode`
+has it ignored, like any field the request does not define, so a client must send `effort`. Files a
+store wrote with the old names are still read (see the storage design doc).
+
 `model/` is how a model is described to a UI and stored, with no code that talks to a provider:
 
 - A model has an **id**, a lowercase UUID that is the stem of its file (`models/<id>.json`) and
