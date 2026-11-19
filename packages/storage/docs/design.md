@@ -121,6 +121,13 @@ A key `profile.json` does not define, such as an old `lastModelId`, is dropped o
 written back. Stored conversation indexes keep their own `modelId` and `mode`, so resume does not
 take another conversation's latest preferences.
 
+**A tool outside the harness may read** `profiles/<profile-id>/profile.json` (its `id` and `name`)
+and each conversation's `index.json` (the fields of `StoredConversation`: `id`, `title`, `modelId`,
+`mode`, `workspace`, `profile`, `status`, `startedAt`, `updatedAt`), read-only, to list profiles
+and their chats. Nothing else here is a contract: not the other files, not the rest of
+`profile.json`, and not `<workspace-key>`, a hash of the real path that a reader finds by listing
+`workspaces/`, never computes. Readiness and validation are the backend's (`GET /setup`).
+
 Terminal preferences live in `config.json` under `terminal`: `reducedMotion` and `bell` are
 optional booleans. Missing preferences mean animated activity and no terminal bell.
 `ConfigStore.setTerminalSettings` replaces them through the same write queue as profile bindings.

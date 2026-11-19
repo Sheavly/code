@@ -1,6 +1,8 @@
 import path from 'node:path';
 import { createClient } from '@sheavly/client/client/client.helper';
+import { profileArgs } from '../client/profile-args.utils.js';
 import { closeSession, openSession } from '../client/session.helper.js';
+import { SetupError } from '../errors/setup.errors.js';
 import { abortingStop, interruptOnCtrlC } from '../interrupt/interrupt.helper.js';
 import { prepareSetup } from '../setup/setup.helper.js';
 import { startScreenChat } from '../tui/screen-chat.helper.js';
@@ -81,6 +83,14 @@ async function openSessionInterruptibly(params: {
   interactive: boolean;
 }): Promise<Awaited<ReturnType<typeof openSession>> | undefined> {
   const { write, args, workspace, interactive } = params;
+
+  // Setup binds a profile and sets the default; a run on a named profile changes neither.
+  if (args.includes('--setup') && profileArgs(args).profile) {
+    throw new SetupError(
+      '--setup cannot be combined with --profile: setup changes which profile is used.',
+    );
+  }
+
   const startup = new AbortController();
   const ctrlC = interruptOnCtrlC({
     write,

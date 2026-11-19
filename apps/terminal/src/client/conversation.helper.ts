@@ -1,5 +1,6 @@
 import type { ClientHistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
 import type { Backend } from './client.types.js';
 import { RemoteConversation } from './conversation.service.js';
@@ -16,8 +17,10 @@ export function openConversation(params: {
   workspace?: string | undefined;
   model?: string | undefined;
   mode?: ModelMode | undefined;
+  /** The profile to start on instead of the workspace's own; not read when resuming. */
+  profile?: ProfileId | undefined;
 }): Promise<RemoteConversation> {
-  const { backend, resume, messages, workspace, model, mode } = params;
+  const { backend, resume, messages, workspace, model, mode, profile } = params;
 
   if (resume) return RemoteConversation.reopen({ backend, id: resume });
 
@@ -27,5 +30,6 @@ export function openConversation(params: {
     ...(workspace && { workspace }),
     ...(model && { model }),
     ...(mode && { mode }),
+    ...(profile && { profile }),
   });
 }

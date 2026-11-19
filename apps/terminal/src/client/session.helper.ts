@@ -2,6 +2,8 @@ import type { ConversationDetails } from '@sheavly/protocol/server/server.types'
 import type { ModelId } from '@sheavly/protocol/model/model.types';
 import { conversationIdSchema } from '@sheavly/protocol/server/server.validator';
 import { BackendError } from '../errors/backend.errors.js';
+import { profileArgs } from './profile-args.utils.js';
+import { describeProfile, settleProfile } from './session-profile.helper.js';
 import { Renderer } from '../render/render.service.js';
 import { projectTrustNotice } from '../render/render.utils.js';
 import { connectBackend } from './backend.helper.js';
@@ -33,6 +35,7 @@ export async function openSession(params: {
 }> {
   const { env, args, write } = params;
   const resume = resumeArgs(args);
+  const chosen = profileArgs(resume.args);
   const backend = await connectBackend({
     env,
     args: args.filter((arg) => arg === '--trust'),
@@ -42,12 +45,20 @@ export async function openSession(params: {
   let conversation: RemoteConversation | undefined;
 
   try {
-    const model = await params.prepare?.(backend);
+    const profile = await settleProfile({
+      backend,
+      resume: resume.id,
+      requested: chosen.profile,
+      write,
+    });
+    // A named profile is used as it is: setup would judge, and bind, another one.
+    const model = profile ? undefined : await params.prepare?.(backend);
 
     conversation = await openConversation({
       backend,
       resume: resume.id,
       workspace: params.workspace,
+      profile,
     });
 
     if (!resume.id && model && !(await conversation.useModel(model))) {
@@ -56,7 +67,7 @@ export async function openSession(params: {
       });
     }
 
-    return await describeSession({ backend, conversation, args: resume.args, write });
+    return await describeSession({ backend, conversation, args: chosen.args, write });
   } catch (caughtError) {
     await closeSession({ backend, conversation });
     throw caughtError;
@@ -106,6 +117,7 @@ async function describeSession(params: {
   const details = await conversation.details();
 
   write(`→ conversation ${conversation.id} (reopen with --resume)\n`);
+  write(`→ profile ${await describeProfile({ backend, profile: details.profile })}\n`);
   write(`→ ${details.model.adapter} / ${details.model.model} in ${details.workspace}\n`);
 
   if (details.permissionMode === 'allow_all') {
