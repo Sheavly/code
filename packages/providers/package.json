@@ -1,7 +1,7 @@
 {
   "name": "@sheavly/providers",
   "version": "0.0.0",
-  "description": "Model backends: the Responses protocol, its backends (OpenAI, Azure), the adapter registry and the provider switch. A UI builds its provider here.",
+  "description": "Model backends: the Responses and Messages protocols, their backends (OpenAI, Azure, Amazon Bedrock), the adapter registry and the provider switch. A UI builds its provider here.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc -b tsconfig.build.json",

@@ -25,6 +25,7 @@ const provider = createDefaultRegistry().create('openai', {
 | `anthropic-messages/` | The Anthropic Messages protocol: `createMessagesProvider`, `defineMessagesAdapter`                              |
 | `openai/`             | Backend: config → Responses endpoint (Bearer key)                                                               |
 | `azure/`              | Azure backends: `openai.adapter` (Responses), `chat.adapter` (Chat Completions), `anthropic.adapter` (Messages) |
+| `bedrock/`            | Amazon Bedrock backends: `anthropic.adapter` (Claude, Messages), `openai.adapter` (GPT, Responses)              |
 | `errors/`             | `AdapterError`, `ModelApiError`, `ProviderSwitchError`                                                          |
 | `testing/`            | Fakes for tests: Responses API items, a model call                                                              |
 
@@ -67,6 +68,12 @@ window. The registry's connection check gives fixed, actionable explanations for
 output-limit and rate-limit failures without returning provider error bodies. See
 [Models on Azure](docs/backends.md#models-on-azure) and
 [checking a model](docs/backends.md#describing-adapters-and-checking-a-model).
+
+Claude and GPT also run on Amazon Bedrock (`bedrock-anthropic`, `bedrock-openai`), over the
+Messages and Responses protocols of its `bedrock-runtime` endpoint with a Bedrock API key. The model
+is an inference profile ID whose prefix the caller chooses, and Claude's `maxTokens` is required.
+Its connection check explains a Bedrock 403, 404 and 400 in fixed text. See
+[Models on Amazon Bedrock](docs/backends.md#models-on-amazon-bedrock).
 
 ## Docs
 

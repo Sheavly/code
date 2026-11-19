@@ -3,6 +3,7 @@ import type { Provider } from '@sheavly/core/provider/provider.types';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import type { AdapterDescription, KeyCheck } from '@sheavly/protocol/model/model.types';
 import { AdapterError } from '../errors/providers.errors.js';
+import { checkHostOf } from './check-message.utils.js';
 import { checkProvider } from './check.helper.js';
 import { definitionProblems } from './definition.utils.js';
 import { describeAdapter, fieldsMarked } from './describe.utils.js';
@@ -102,7 +103,7 @@ export class AdapterRegistry {
     const { kind, config, signal, responseTimeoutMs } = params;
     const provider = this.create(kind, { ...config, request: CHECK_REQUEST });
 
-    return checkProvider({ provider, signal, responseTimeoutMs });
+    return checkProvider({ provider, signal, responseTimeoutMs, host: checkHostOf(kind) });
   }
 
   #adapter(kind: string): Adapter {

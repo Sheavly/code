@@ -7,5 +7,11 @@ export type DefinitionProblem = {
   message: string;
 };
 
+/**
+ * A provider whose refusals mean more than the status says, so its check explains them in its own
+ * terms. Other adapters get the general messages.
+ */
+export type CheckHost = 'bedrock';
+
 /** A check that did not end `valid`: the status it ended with. */
 export type FailedCheck = Exclude<KeyCheck['status'], 'valid'>;

@@ -3,6 +3,8 @@ import { azureAnthropicAdapter } from '../azure/anthropic.adapter.js';
 import { azureOpenaiAdapter } from '../azure/openai.adapter.js';
 import { openaiAdapter } from '../openai/openai.adapter.js';
 import { azureChatAdapter } from '../azure/chat.adapter.js';
+import { bedrockAnthropicAdapter } from '../bedrock/anthropic.adapter.js';
+import { bedrockOpenaiAdapter } from '../bedrock/openai.adapter.js';
 import { AdapterRegistry } from './registry.service.js';
 
 /** Registry pre-loaded with the built-in adapters. Register more on the returned instance. */
@@ -11,5 +13,7 @@ export function createDefaultRegistry(deps?: AdapterDeps): AdapterRegistry {
     .register(openaiAdapter)
     .register(azureOpenaiAdapter)
     .register(azureChatAdapter)
-    .register(azureAnthropicAdapter);
+    .register(azureAnthropicAdapter)
+    .register(bedrockAnthropicAdapter)
+    .register(bedrockOpenaiAdapter);
 }
