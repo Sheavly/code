@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { apiKeySchema, requestPolicySchema } from '../http/adapter-config.validator.js';
-import { MIN_THINKING_BUDGET } from '../anthropic-messages/messages.constants.js';
+import {
+  claudeThinkingFields,
+  refineClaudeThinking,
+} from '../anthropic-messages/claude-config.validator.js';
 import { defineMessagesAdapter } from '../anthropic-messages/messages.helper.js';
 import { messagesMaxTokens } from '../anthropic-messages/output-tokens.utils.js';
 
@@ -31,8 +34,8 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
   kind: 'azure-anthropic',
   description: 'Anthropic Messages API on Azure AI Foundry (Claude)',
   remoteField: 'deployment',
-  configSchema: z
-    .object({
+  configSchema: refineClaudeThinking({
+    schema: z.object({
       apiKey: apiKeySchema,
       baseUrl: foundryEndpoint,
       deployment: z.string().min(1).meta({
@@ -44,44 +47,12 @@ export const azureAnthropicAdapter = defineMessagesAdapter({
         description:
           'Output tokens per reply, including thinking. Leave empty for a model-aware default (128000, the documented limit, for current Claude IDs; 8192 for unknown deployments). Explicit values must fit the deployment’s output limit.',
       }),
-      thinkingMode: z.enum(['adaptive', 'enabled', 'disabled']).optional().meta({
-        title: 'Thinking mode',
-        description:
-          'Use adaptive for models that require it, such as Sonnet 5.5. Enabled uses a fixed thinking budget; disabled turns thinking off.',
-      }),
-      thinkingBudget: z.number().int().min(MIN_THINKING_BUDGET).optional().meta({
-        title: 'Thinking budget',
-        description:
-          'Only for enabled thinking: at least 1024, under max tokens. Leave empty for adaptive or disabled.',
-      }),
-      promptCaching: z.boolean().default(true).meta({
-        title: 'Prompt caching',
-        description:
-          'Send cache_control so repeated turns reuse the prompt prefix. On by default; turn it off only for a deployment that rejects the field.',
-      }),
+      ...claudeThinkingFields,
       request: requestPolicySchema,
-    })
-    .refine(
-      (config) =>
-        config.thinkingBudget === undefined ||
-        config.thinkingBudget <
-          messagesMaxTokens({ model: config.deployment, maxTokens: config.maxTokens }),
-      { message: 'thinkingBudget must be less than maxTokens', path: ['thinkingBudget'] },
-    )
-    .refine((config) => config.thinkingMode !== 'enabled' || config.thinkingBudget !== undefined, {
-      message: 'Enabled thinking requires a thinking budget.',
-      path: ['thinkingBudget'],
-    })
-    .refine(
-      (config) =>
-        config.thinkingBudget === undefined ||
-        config.thinkingMode === undefined ||
-        config.thinkingMode === 'enabled',
-      {
-        message: 'Leave thinkingBudget empty for adaptive or disabled thinking.',
-        path: ['thinkingBudget'],
-      },
-    ),
+    }),
+    maxTokensOf: (config) =>
+      messagesMaxTokens({ model: config.deployment, maxTokens: config.maxTokens }),
+  }),
   toEndpoint: (config) => ({
     baseUrl: config.baseUrl,
     model: config.deployment,

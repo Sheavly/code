@@ -36,7 +36,14 @@ describe('createDefaultRegistry', () => {
   it('has the built-in adapters, and no default model of its own', () => {
     const registry = createDefaultRegistry();
 
-    expect(registry.kinds()).toEqual(['openai', 'azure-openai', 'azure-chat', 'azure-anthropic']);
+    expect(registry.kinds()).toEqual([
+      'openai',
+      'azure-openai',
+      'azure-chat',
+      'azure-anthropic',
+      'bedrock-anthropic',
+      'bedrock-openai',
+    ]);
     expect(() => registry.create('openai', { apiKey: 'k' })).toThrow('Invalid config for openai');
   });
 });

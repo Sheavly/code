@@ -21,11 +21,24 @@ export type SetupModelTemplate = Pick<ModelOffering, 'name'> & {
   };
 };
 
-/** App-owned hosting policy; model names and connection settings are separate choices. */
+/**
+ * App-owned hosting policy; model names and connection settings are separate choices. A `model`
+ * field is fixed to the catalogue's id, a `deployment` one starts as it, and a `profile` one (a
+ * Bedrock inference profile, whose prefix is the user's choice) starts empty and must name the
+ * catalogue model of `profileOwner`.
+ */
 export type SetupHostingTemplate = {
-  adapter: 'azure-openai' | 'openai' | 'azure-anthropic' | 'azure-chat';
+  adapter:
+    | 'azure-openai'
+    | 'openai'
+    | 'azure-anthropic'
+    | 'azure-chat'
+    | 'bedrock-anthropic'
+    | 'bedrock-openai';
   name: string;
   families: string[];
-  modelField: 'model' | 'deployment';
   defaults: Record<string, unknown>;
-};
+} & (
+  | { modelField: 'model' | 'deployment' }
+  | { modelField: 'profile'; profileOwner: 'anthropic' | 'openai' }
+);

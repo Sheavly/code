@@ -33,6 +33,8 @@ describe('AdapterRegistry.describe', () => {
       'azure-openai',
       'azure-chat',
       'azure-anthropic',
+      'bedrock-anthropic',
+      'bedrock-openai',
     ]);
   });
 

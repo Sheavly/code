@@ -64,4 +64,41 @@ export function assertModelHosting(params: {
       });
     }
   }
+
+  assertProfileNamesModel({ model, known: known.identity.model });
+}
+
+/**
+ * A Bedrock inference profile carries a prefix the user chooses, so it cannot be fixed, but it
+ * must still be the catalogue model's own: `‹prefix›.‹owner›.‹model›`. Other hosts have no profile.
+ */
+function assertProfileNamesModel(params: { model: Omit<Model, 'id'>; known: string }): void {
+  const { model, known } = params;
+  const hosting = SETUP_HOSTING.find((entry) => entry.adapter === model.adapter);
+
+  if (hosting?.modelField !== 'profile') return;
+
+  const profile = model.definition.model;
+
+  if (typeof profile === 'string' && isProfileOf({ profile, owner: hosting.profileOwner, known })) {
+    return;
+  }
+
+  throw new SetupError({
+    reason: 'invalid',
+    message: `Use an inference profile for ${known}. Add a new model to choose a different one.`,
+  });
+}
+
+/**
+ * Whether `profile` is `‹prefix›.‹owner›.‹known›`, the prefix being any one the person chose and a
+ * `:‹n›` version suffix allowed. The adapter judges the prefix; this only ties the profile to the
+ * catalogue model, so another model's profile, or one with extra segments, is not accepted.
+ */
+function isProfileOf(params: { profile: string; owner: string; known: string }): boolean {
+  const { profile, owner, known } = params;
+  const [prefix, ...rest] = profile.toLowerCase().split('.');
+  const tail = rest.join('.').replace(/:\d+$/, '');
+
+  return Boolean(prefix) && tail === `${owner}.${known.toLowerCase()}`;
 }

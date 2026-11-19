@@ -144,6 +144,79 @@ truncated replies never release partial tool arguments. Complete tool calls are 
 index, with valid IDs, and final usage includes reported cache reads without counting them twice.
 No reply-state service is shared between calls. See [Chat cache accounting](prompt-caching.md#chat-completions-backends-deepseek-azure-chat).
 
+## Models on Amazon Bedrock
+
+Two adapters in `bedrock/` call the regional `bedrock-runtime` endpoint with an Amazon Bedrock API
+key, over the two protocols it serves natively. Neither needs a new protocol, a request signer or
+the AWS SDK:
+
+| Model  | Adapter             | Protocol           | Endpoint                                                      |
+| ------ | ------------------- | ------------------ | ------------------------------------------------------------- |
+| Claude | `bedrock-anthropic` | Anthropic Messages | `https://bedrock-runtime.<region>.amazonaws.com/anthropic/v1` |
+| GPT    | `bedrock-openai`    | OpenAI Responses   | `https://bedrock-runtime.<region>.amazonaws.com/openai/v1`    |
+
+Both take `apiKey` (a secret: it goes to the credentials, never into the model's file), `region`
+(a Region code such as `us-east-1`, checked so the host cannot be steered elsewhere) and `model`,
+an **inference profile ID**: a prefix, the provider, then the model, such as
+`us.anthropic.claude-sonnet-5-5` or `global.openai.gpt-6-astra`. A bare model ID is refused, since
+most Bedrock models cannot be called in-Region, and the prefix is never filled in for you: it decides
+where a request may run. A geography (`us`, `eu`, `ca`, `au`, `jp`) keeps requests there; `global`
+lets them run in any commercial Region. Which prefixes a model has differs per model (its card in the
+[Bedrock model list](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html) names them),
+and a prefix is no proof of residency: check the profile with `GetInferenceProfile` from each source
+Region. The adapters accept `us`, `us-gov`, `ca`, `eu`, `au`, `jp`, `apac` and `global`; another
+prefix is refused before a request is sent (add it to `bedrock.constants.ts` when AWS adds one), and
+Bedrock answers for a known prefix the model lacks. The ID may hold only letters, digits and
+`. _ : -`.
+
+```ts
+registry.create('bedrock-anthropic', {
+  apiKey: process.env.BEDROCK_API_KEY,
+  region: 'us-east-1',
+  model: 'us.anthropic.claude-sonnet-5-5',
+  maxTokens: 16_000,
+  thinkingMode: 'adaptive',
+  request,
+});
+
+registry.create('bedrock-openai', {
+  apiKey: process.env.BEDROCK_API_KEY,
+  region: 'us-east-1',
+  model: 'us.openai.gpt-6-astra',
+  request,
+});
+```
+
+- **`maxTokens` is required for Claude, with no default.** Bedrock holds back the input plus
+  `max_tokens` from the model's token quota when a call starts, and output tokens burn the quota
+  faster on the newest Claude models, so the 128000 default of Azure would starve the quota. Set what
+  the replies need. The thinking fields are Azure Claude's (see [above](#models-on-azure)).
+- **Keys.** A short-term key lasts up to 12 hours and works only in the Region it was made in; a
+  long-term key creates an IAM user and AWS recommends it for exploration, not production. Either is
+  stored as the model's `apiKey`, so a short-term key must be replaced when it expires. IAM
+  credentials (SigV4, shared profiles, roles) are not supported. A key needs permission to call
+  `bedrock:InvokeModel`, and for GPT also on the account's default project.
+- **GPT runs stateless.** The Responses protocol sends `store: false`, so nothing is kept on Bedrock
+  between turns (its default is to keep a response for 30 days). Responses on `bedrock-runtime` are
+  synchronous, and have no server-side tools or application inference profiles; the harness uses
+  client-side tools only.
+- **Model access** is per account and may take up to 15 minutes after subscribing; until then a call
+  answers 403. Claude models before Opus 4.7 also need the Anthropic use case form.
+- **Signed thinking** is bound to the model and the prefix that produced it, and on some Claude models
+  to the AWS account, so replaying it under another account is a 400. A model's `replaySource` covers
+  its endpoint (and so its Region) and profile, not the account.
+- **Caching:** see [prompt caching on Bedrock](prompt-caching.md#amazon-bedrock).
+- **The connection check** explains a Bedrock 403 (a refused key, or model access, the Region or
+  permissions), a 404 (an unknown profile or Region) and a 400 in fixed text, never Bedrock's own
+  message. Its 429 is a quota, and 503 or 529 mean Bedrock is short of capacity: the retry policy
+  below already retries 429 and 5xx.
+
+What is not covered: Converse and InvokeModel (the models that speak neither protocol, such as Nova,
+Llama or Mistral), SigV4, Agents, Knowledge Bases, Guardrails, batch inference, provisioned
+throughput and application inference profiles. Pricing is not guessed: enter it per model. The
+adapters were written from AWS's public documentation and tested against fake HTTP; they have not
+been run against Bedrock itself.
+
 ## Sending a call: timeouts and retries
 
 For Messages replies, `message_stop` with open content blocks is accepted only when the server

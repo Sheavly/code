@@ -6,7 +6,7 @@ import {
   CHECK_RESPONSE_TIMEOUT_MS,
   CHECK_SERVER_ERROR_FROM,
 } from './registry.constants.js';
-import type { FailedCheck } from './registry.types.js';
+import type { CheckHost, FailedCheck } from './registry.types.js';
 import { CHECK_PROMPT } from './registry.prompt.js';
 import { checkHttpMessage } from './check-message.utils.js';
 
@@ -27,7 +27,9 @@ function statusOf(httpStatus: number): FailedCheck {
  * the reply) is `rejected`; a server failure, a network error, a timeout or a reply cut off is
  * `unreachable`. The message is fixed per status: what the provider said can echo what was sent.
  */
-function classifyFailure(error: ModelApiError): KeyCheck {
+function classifyFailure(params: { error: ModelApiError; host: CheckHost | undefined }): KeyCheck {
+  const { error, host } = params;
+
   switch (error.reason) {
     case 'network':
     case 'timeout':
@@ -40,7 +42,7 @@ function classifyFailure(error: ModelApiError): KeyCheck {
       return {
         status,
         message:
-          checkHttpMessage({ status: error.status ?? 0, message: error.message }) ??
+          checkHttpMessage({ status: error.status ?? 0, message: error.message, host }) ??
           CHECK_MESSAGES[status],
       };
     }
@@ -60,8 +62,10 @@ export async function checkProvider(params: {
   provider: Provider;
   signal?: AbortSignal | undefined;
   responseTimeoutMs?: number | undefined;
+  /** Whose refusals to explain in their own terms; the general messages when omitted. */
+  host?: CheckHost | undefined;
 }): Promise<KeyCheck> {
-  const { provider, signal, responseTimeoutMs = CHECK_RESPONSE_TIMEOUT_MS } = params;
+  const { provider, signal, responseTimeoutMs = CHECK_RESPONSE_TIMEOUT_MS, host } = params;
   const stop = new AbortController();
   const timer = setTimeout(() => {
     stop.abort();
@@ -82,7 +86,7 @@ export async function checkProvider(params: {
     // The caller's own interrupt is theirs to see; only our timeout is an answer.
     if (signal?.aborted) throw caughtError;
     if (stop.signal.aborted) return failed('unreachable');
-    if (caughtError instanceof ModelApiError) return classifyFailure(caughtError);
+    if (caughtError instanceof ModelApiError) return classifyFailure({ error: caughtError, host });
     throw caughtError;
   } finally {
     clearTimeout(timer);

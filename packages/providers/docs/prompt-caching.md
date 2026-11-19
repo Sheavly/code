@@ -111,7 +111,7 @@ hits, billing or model quality.
 - Two kinds: implicit (best effort, no request change) and explicit (model-specific markers). Converse and ConverseStream take a standalone `cachePoint` in `system`, `messages` and `tools`; InvokeModel for Claude takes `cache_control`; OpenAI models on Bedrock take `prompt_cache_breakpoint` on the Responses, Chat Completions and InvokeModel APIs, and Converse does not support explicit caching for them.
 - Up to 4 checkpoints per request for the models listed; minimums 512 to 4,096 tokens by model; TTL 5 minutes or 1 hour for Claude, 30 minutes for the OpenAI models listed. An entry lives on the server that handled the request, so a request sent before an identical one has started responding writes a new entry instead of reading one.
 - Usage reports tokens read from and written to the cache.
-- Contract impact: a Bedrock adapter is a new protocol folder (see [backends.md](backends.md)). It needs a place to put one checkpoint after the last stable message. The existing rule covers it: the adapter ends the prefix before `notices` itself, as `anthropic-messages/cache-breakpoint.utils.ts` does. No `ProviderRequest` field is needed. **Follow-up: the Bedrock adapter issue should carry this.**
+- What the built-in adapters send ([Models on Amazon Bedrock](backends.md#models-on-amazon-bedrock)): `bedrock-anthropic` is the Messages protocol, so it sends the top-level `cache_control` unless `promptCaching` is `false`, and ends the prefix before `notices` as `anthropic-messages/cache-breakpoint.utils.ts` does. Bedrock accepts the top-level field only for the models its caching page lists (Haiku 4.5, Sonnet 4.6, Opus 4.7, 4.8, 5 and 5.5, Sonnet 5 and 5.5, Haiku 5.5); another model answers `ValidationException`, so set `promptCaching: false` for it. `bedrock-openai` is the Responses protocol and sends the explicit breakpoints of `explicitCache` (on by default; 30 minutes, at least 1,024 tokens, GPT-6 and later), and nothing in `ProviderRequest` changes. Neither adapter sends `cachePoint`: that belongs to Converse, which is not implemented.
 
 ### Vertex AI and Gemini
 
@@ -141,7 +141,7 @@ hits, billing or model quality.
 
 Not opened yet; each needs an issue before the adapter it belongs to:
 
-- Bedrock adapter (Converse `cachePoint`, InvokeModel `cache_control`).
+- Bedrock over Converse (`cachePoint`) or InvokeModel, for models that speak neither Messages nor Responses.
 - Gemini adapter: implicit now, explicit cache lifecycle only if needed.
 - Optional 1-hour TTL for Messages, and a 12-hour `ttl` for Responses, if idle gaps over the default lifetime show up in real runs.
 - Measure live reuse on Sol with consecutive tool turns (cache reads and writes in `usage`). It needs paid calls, so it has not been run.

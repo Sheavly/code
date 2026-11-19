@@ -24,12 +24,17 @@ Run `npm run dev:terminal -- --setup`, choose a profile, then **Add a model**:
 1. **What model do you want to add?** Select a backend-provided model, or **Custom model** and
    enter its name/identifier.
 2. **How do you want to host it?** Select a compatible, registered hosting route. GPT models offer
-   Azure and OpenAI; Claude and DeepSeek Flash currently offer Azure. Bedrock and other native
-   providers are not advertised as working routes without their adapters.
+   Azure, OpenAI and AWS Bedrock; Claude offers Azure and AWS Bedrock; DeepSeek Flash currently
+   offers Azure (Bedrock does not serve it). Other native providers are not advertised as working
+   routes without their adapters.
 3. **Context size**: "300K" (the default) or "1M", how much context the agent is told it has. It
    paces itself by it, so a smaller size tends to cost less; it limits nothing the provider accepts.
 4. Enter that route's connection details and masked key. Azure deployment names may differ from
    the chosen model. Native model IDs are filled in without asking the same question again.
+   AWS Bedrock asks for a Region, the **inference profile** (a prefix, then the model, such as
+   `us.anthropic.claude-sonnet-5-5`; you choose the prefix, and `global` lets requests run in any
+   Region), for Claude the output limit per reply, and a Bedrock API key. The profile must be the
+   chosen model's own. See [models on Bedrock](../../../packages/providers/docs/backends.md#models-on-amazon-bedrock).
 5. Save and start chatting, or explicitly test the connection (a small paid API call).
 
 The selected identity is stored as model metadata, separate from hosting settings and credentials.

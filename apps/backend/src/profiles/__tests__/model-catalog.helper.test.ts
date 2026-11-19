@@ -15,10 +15,19 @@ describe('model-first setup catalogue', () => {
       expect(new Set(model.hosts.map(({ adapter }) => adapter)).size).toBe(model.hosts.length);
 
       for (const host of model.hosts) {
+        // What a person types in setup: the endpoint, or a Bedrock Region, profile and output limit.
+        const owner = host.adapter === 'bedrock-openai' ? 'openai' : 'anthropic';
+        const typed = {
+          baseUrl: 'https://example.test',
+          region: 'us-east-1',
+          maxTokens: 1024,
+          model: `us.${owner}.some-model`,
+        };
+
         expect(
           registry.validateDefinition({
             kind: host.adapter,
-            definition: { baseUrl: 'https://example.test', ...host.defaults, ...host.fixed },
+            definition: { ...typed, ...host.defaults, ...host.fixed },
             host: { request: { responseTimeoutMs: 1000, retries: 0, retryDelayMs: 0 } },
           }),
         ).toEqual([]);
@@ -29,8 +38,15 @@ describe('model-first setup catalogue', () => {
     const models = setupModelCatalog(adapters);
     const hosts = (model: string) => models.find((entry) => entry.identity.model === model)?.hosts;
 
-    expect(hosts('gpt-6.1-sol')?.map(({ name }) => name)).toEqual(['Azure', 'OpenAI']);
-    expect(hosts('claude-opus-5-5')?.map(({ adapter }) => adapter)).toEqual(['azure-anthropic']);
+    expect(hosts('gpt-6.1-sol')?.map(({ name }) => name)).toEqual([
+      'Azure',
+      'OpenAI',
+      'AWS Bedrock',
+    ]);
+    expect(hosts('claude-opus-5-5')?.map(({ adapter }) => adapter)).toEqual([
+      'azure-anthropic',
+      'bedrock-anthropic',
+    ]);
     expect(hosts('deepseek-v4-flash')).toEqual([
       {
         adapter: 'azure-chat',
