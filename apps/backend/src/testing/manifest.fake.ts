@@ -20,6 +20,7 @@ export function manifestOf(
     settings: [],
     tools: [],
     hooks: [],
+    instructions: [],
     workKinds: [],
     serves: { actions: [] },
     ...rest,

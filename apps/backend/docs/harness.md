@@ -1,7 +1,22 @@
 # What a run includes
 
-The backend composes shared generic instructions, coding guidance (`composeCodingInstructions`)
-and any explicit host extras. Backend conversations use that composed text by default; sub-agents receive it before
+The system prompt is the generic base, the sections the run's extensions contribute (the `coding`
+extension its guidance) in activation order, then the app's own `instructions`. An app passes only
+its own `instructions` and, if it wants to replace the generic base, `baseInstructions`; the
+backend gives the host's `harness.systemPrompt` what the activated extensions contributed, once,
+after all have activated (the returned harness's `instructions` is a getter on that live text). An
+extension with the `system-prompt:replace` grant may replace the generic base when the app passes
+no `baseInstructions`; next to an app `baseInstructions` it is refused and the run fails, naming
+the extension, unless the app lists the reserved name `baseInstructions`
+(`BASE_INSTRUCTIONS_SECTION`) in `omitInstructionSections`. That app option leaves out the named
+sections extensions contribute (`coding` for the coding guidance, or a third party's declared
+section name) while keeping the extension; the app always wins, an unknown name fails the run
+(`UnknownInstructionSectionError`, the extensions closed first, like the conflict error), and
+sub-agents get the same composed text. A name the run did not contribute includes one from an
+extension that was skipped as untrusted or for a missing service, so omit only what the run's
+extensions contribute. The error goes to the caller; the extensions, whose `signal.reason` is
+set when the run is stopped, are told only that composing the prompt failed, never the names.
+Backend conversations use that composed text by default; sub-agents receive it before
 their narrower child role. The terminal and workbook use this same backend path, not separate
 prompt copies. See [instruction composition](../../../packages/host/docs/harness.md#instruction-composition).
 
@@ -12,7 +27,7 @@ conversation it serves, for whichever UI, is built on it, by `servedConversation
 
 ## The run
 
-`createBackendHarness` builds the host's services (`createHarness`, with the composed
+`createBackendHarness` builds the host's services (`createHarness`, with the app's own
 instructions), keeps the file locks (the `fileLocks` it is given, shared by every run of an app, or
 its own) and gives them to the `coding` extension, which opens the workspace and its process
 runner itself. It then composes:
@@ -73,7 +88,7 @@ every extension reads without a `dependsOn`:
 
 | Key                                              | What it is                                                                                   |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `INSTRUCTIONS`, `MAIN_SESSION`                   | The composed base instructions and the run's main session (constants)                        |
+| `INSTRUCTIONS`, `MAIN_SESSION`                   | The system prompt (a live read-only view) and the run's main session                         |
 | `SESSION_INFO`, `CHILD_SESSIONS`                 | Read-only session metadata; the sub-agents the extension started                             |
 | `BACKGROUND_TASKS`, `TASK_CONTROL`               | The tasks the extension started; any task of the calling session                             |
 | `MODEL`                                          | The run's provider, for model calls                                                          |
