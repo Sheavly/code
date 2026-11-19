@@ -36,7 +36,12 @@ export function setupAdapter(): AdapterDescription {
 
 /** Stateful setup routes, validated by the same request and response schemas as the backend. */
 export function fakeSetupBackend(
-  options: { adapters?: AdapterDescription[]; catalog?: ModelOffering[] } = {},
+  options: {
+    adapters?: AdapterDescription[];
+    catalog?: ModelOffering[];
+    /** Keep a model's key when it is rewritten, as the real backend does; by default it is forgotten. */
+    keepsKeyOnRewrite?: boolean;
+  } = {},
 ) {
   const state: Setup = { home: '/test-home', profiles: [], problems: [] };
   let binding: Setup['defaultProfile'];
@@ -84,11 +89,12 @@ export function fakeSetupBackend(
       const model = putModelRequestSchema.parse(body);
       const profile = profileOf(params.profile);
       const existing = profile.models.findIndex((item) => item.id === params.model);
+      const kept = options.keepsKeyOnRewrite ? profile.models[existing] : undefined;
       const next = {
         ...model,
         id: modelIdSchema.parse(params.model),
-        credential: 'missing' as const,
-        usable: false,
+        credential: kept?.credential ?? ('missing' as const),
+        usable: kept?.usable ?? false,
       };
 
       if (existing < 0) profile.models.push(next);

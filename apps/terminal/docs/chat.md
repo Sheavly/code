@@ -36,7 +36,8 @@ Run `npm run dev:terminal -- --setup`, choose a profile, then **Add a model**:
    Region), for Claude the output limit per reply, and **Credentials**: `api-key` (a Bedrock API
    key) or `access-key` (an IAM access key ID and secret access key, and a session token if they
    are temporary). Setup then asks only for the secrets of the way you chose; they are stored apart
-   from the model's settings. The profile must be the chosen model's own. See [models on Bedrock](../../../packages/providers/docs/backends.md#models-on-amazon-bedrock).
+   from the model's settings. Editing the model to sign in the other way asks for the new way's
+   secrets again, which replace the old way's. The profile must be the chosen model's own. See [models on Bedrock](../../../packages/providers/docs/backends.md#models-on-amazon-bedrock).
 5. Save and start chatting, or explicitly test the connection (a small paid API call).
 
 The selected identity is stored as model metadata, separate from hosting settings and credentials.

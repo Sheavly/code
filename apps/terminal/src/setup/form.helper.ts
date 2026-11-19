@@ -126,6 +126,20 @@ async function askField(params: {
 }
 
 /**
+ * The settings that decide which secrets an adapter takes (the ones its secrets' `appliesWhen`
+ * name, such as how a model signs in). Changing one of them leaves the secrets already stored
+ * belonging to the old way, so they must be asked for again.
+ */
+export function settingsChoosingSecrets(adapter: AdapterDescription): string[] {
+  const form = parseAdapterForm(adapter);
+  const named = adapter.secrets.flatMap((name) =>
+    Object.keys(form.properties[name]?.appliesWhen ?? {}),
+  );
+
+  return [...new Set(named)];
+}
+
+/**
  * Values exist only for the write-only credential request, never for a settings preview. A secret
  * that applies only to some settings (`appliesWhen`) is asked for when `definition` has them, so a
  * model that signs in one way is never asked for the secrets of another; an optional one may be
