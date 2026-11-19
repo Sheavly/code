@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { readLegacyStreamEntry } from '../legacy-effort.utils.js';
 import {
   storedConversationIndexSchema,
   storedProfileFileSchema,
+  storedStreamEntrySchema,
 } from '../legacy-effort.validator.js';
 
 const MODEL = '4b1f9a52-3c5e-4a77-9d64-0e2b7f1c8a30';
@@ -96,5 +98,89 @@ describe('a profile written before "mode" became "effort"', () => {
     expect(
       storedProfileFileSchema.safeParse({ ...profile, modelModes: { [MODEL]: 'turbo' } }).success,
     ).toBe(false);
+  });
+});
+
+describe('a stream entry written before "mode" became "effort"', () => {
+  const SESSION = '7c3e1a90-2b4d-4e6f-8a1c-3d5e7f9b0a12';
+  const snapshot = {
+    id: SESSION,
+    rootId: SESSION,
+    depth: 1,
+    title: 'Conversation',
+    state: 'running',
+    startedAt: 1,
+    modelId: MODEL,
+  };
+  const entry = (update: Record<string, unknown>) => ({
+    seq: 1,
+    sessionId: SESSION,
+    kind: 'update',
+    update,
+    at: 2,
+  });
+
+  it('reads the mode of a model switch and of its session snapshot as the effort', () => {
+    expect(
+      storedStreamEntrySchema.parse(
+        entry({
+          type: 'session_model',
+          session: { ...snapshot, mode: 'medium' },
+          modelId: MODEL,
+          mode: 'medium',
+        }),
+      ),
+    ).toEqual(
+      entry({
+        type: 'session_model',
+        session: { ...snapshot, effort: 'medium' },
+        modelId: MODEL,
+        effort: 'medium',
+      }),
+    );
+  });
+
+  it('reads the mode of any update on a session, whose main-session snapshot refuses the key', () => {
+    expect(
+      storedStreamEntrySchema.parse(
+        entry({ type: 'session_idle', session: { ...snapshot, mode: 'high' } }),
+      ),
+    ).toEqual(entry({ type: 'session_idle', session: { ...snapshot, effort: 'high' } }));
+  });
+
+  it('reads one in the current form as it is, and prefers the effort when both are there', () => {
+    const current = entry({
+      type: 'session_model',
+      session: { ...snapshot, effort: 'low' },
+      modelId: MODEL,
+      effort: 'low',
+    });
+
+    expect(storedStreamEntrySchema.parse(current)).toEqual(current);
+    expect(
+      storedStreamEntrySchema.parse(
+        entry({
+          type: 'session_model',
+          session: { ...snapshot, mode: 'high', effort: 'low' },
+          modelId: MODEL,
+          mode: 'high',
+          effort: 'low',
+        }),
+      ),
+    ).toEqual(current);
+  });
+
+  it('still refuses an old mode that is not an effort', () => {
+    expect(
+      storedStreamEntrySchema.safeParse(
+        entry({ type: 'session_model', session: snapshot, modelId: MODEL, mode: 'turbo' }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it('leaves a mode outside a session update alone, where it means something else', () => {
+    const approval = { ...entry({ mode: 'ask' }), kind: 'approval' };
+
+    expect(readLegacyStreamEntry(approval)).toBe(approval);
   });
 });

@@ -23,6 +23,24 @@ export function readLegacyConversationIndex(input: unknown): unknown {
 }
 
 /**
+ * A `stream.jsonl` entry as an older version wrote it, read as the current one: a session update's
+ * `mode` (on `session_model`) and its session snapshot's `mode` are `effort`. Only `update`
+ * entries are touched, so a `mode` in an approval, a task or a tool's input keeps its own meaning.
+ * The stream is append-only, so old lines stay as they are and are read this way every time.
+ */
+export function readLegacyStreamEntry(input: unknown): unknown {
+  if (!isRecord(input) || input.kind !== 'update' || !isRecord(input.update)) return input;
+
+  const { session, ...update } = input.update;
+  const withSession = {
+    ...update,
+    ...(session !== undefined && { session: renameModeToEffort(session) }),
+  };
+
+  return { ...input, update: renameModeToEffort(withSession) };
+}
+
+/**
  * A `profile.json` as an older version wrote it, read as the current one: `modelModes` is
  * `modelEfforts`, and `lastModelSelection.mode` is `lastModelSelection.effort`. The file is
  * rewritten in the new form the next time the profile is saved.

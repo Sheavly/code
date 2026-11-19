@@ -1,8 +1,8 @@
 import path from 'node:path';
 import type { EntryStore } from '@sheavly/core/store/store.types';
-import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import type { ConversationId } from '@sheavly/protocol/server/server.types';
+import { storedStreamEntrySchema } from '../legacy-effort/legacy-effort.validator.js';
 import { AppendLog } from './append-log.service.js';
 import { STREAM_FILE } from './conversation-store.constants.js';
 import { DiagnosticFile } from './diagnostic-file.service.js';
@@ -24,7 +24,7 @@ export class EntryFile implements EntryStore {
 
     this.#log = new AppendLog({
       file: path.join(params.folder, STREAM_FILE),
-      schema: streamEntrySchema,
+      schema: storedStreamEntrySchema,
       noun: 'Stream',
       unit: 'entry',
       prepare: async () => diagnostics.prepare(),

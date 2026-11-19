@@ -10,6 +10,8 @@ const PROFILE_SCHEMA =
   "import { profileSchema } from '@sheavly/protocol/profile/profile.validator';";
 const INDEX_SCHEMA =
   "import { storedConversationSchema } from '@sheavly/protocol/store/store.validator';";
+const STREAM_SCHEMA =
+  "import { streamEntrySchema } from '@sheavly/protocol/stream/stream.validator';";
 const OTHER_NAMES =
   "import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator'; import { storedConversationsResponseSchema } from '@sheavly/protocol/store/store.validator';";
 
@@ -34,10 +36,10 @@ async function broken(params) {
   return messages.map((message) => message.ruleId);
 }
 
-// A store that parses profile.json or index.json with the plain protocol schema would reject every
-// file written before "mode" became "effort". What a reader does with the parsed value, and a
+// A store that parses profile.json, index.json or stream.jsonl with the plain protocol schema would
+// reject every file written before "mode" became "effort". What a reader does with the parsed value, and a
 // schema copied under another name, stay with review.
-describe('reading a stored profile or conversation index in the storage package', () => {
+describe('reading a stored profile, conversation index or stream in the storage package', () => {
   it('is an error for source files, and not for the migration or the tests', () => {
     expect(storedFileReads.rules['no-restricted-imports'][0]).toBe('error');
     expect(storedFileReads.files).toEqual(['src/**/*.ts']);
@@ -51,6 +53,7 @@ describe('reading a stored profile or conversation index in the storage package'
     ['src/profile-registry/open-profile.service.ts', PROFILE_SCHEMA],
     ['src/conversation-store/conversation-store.service.ts', INDEX_SCHEMA],
     ['src/conversation-store/history-file.service.ts', INDEX_SCHEMA],
+    ['src/conversation-store/entry-file.service.ts', STREAM_SCHEMA],
   ])('refuses the plain schema in %s', async (file, code) => {
     expect(await broken({ code, file })).toEqual(['no-restricted-imports']);
   });
@@ -67,6 +70,8 @@ describe('reading a stored profile or conversation index in the storage package'
     'src/profile-store/__tests__/profile-store.service.test.ts',
     'src/conversation-store/__tests__/conversation-store.service.test.ts',
   ])('leaves %s free to use the plain schemas', async (file) => {
-    expect(await broken({ code: `${PROFILE_SCHEMA} ${INDEX_SCHEMA}`, file })).toEqual([]);
+    expect(
+      await broken({ code: `${PROFILE_SCHEMA} ${INDEX_SCHEMA} ${STREAM_SCHEMA}`, file }),
+    ).toEqual([]);
   });
 });

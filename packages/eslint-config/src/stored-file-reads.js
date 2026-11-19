@@ -1,6 +1,7 @@
-// A stored `profile.json` and conversation `index.json` are read through the schemas that also take
-// the files written before "mode" became "effort" (`legacy-effort/` in `@sheavly/storage`); the
-// plain protocol schemas reject those files, so a store that parsed with them would lose old data.
+// A stored `profile.json`, conversation `index.json` and `stream.jsonl` are read through the
+// schemas that also take the files written before "mode" became "effort" (`legacy-effort/` in
+// `@sheavly/storage`); the plain protocol schemas reject those files, so a store that parsed with
+// them would lose old data.
 // The storage package spreads `storedFileReads` into its config; its files are relative to it.
 
 export const storedFileReads = {
@@ -23,6 +24,12 @@ export const storedFileReads = {
             importNames: ['storedConversationSchema'],
             message:
               'Read a stored index.json with storedConversationIndexSchema (legacy-effort/legacy-effort.validator): storedConversationSchema rejects files written before "mode" became "effort".',
+          },
+          {
+            name: '@sheavly/protocol/stream/stream.validator',
+            importNames: ['streamEntrySchema'],
+            message:
+              'Read a stored stream.jsonl with storedStreamEntrySchema (legacy-effort/legacy-effort.validator): streamEntrySchema rejects lines written before "mode" became "effort".',
           },
         ],
       },

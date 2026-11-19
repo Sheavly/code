@@ -122,9 +122,11 @@ written back. Stored conversation indexes keep their own `modelId` and `effort`,
 take another conversation's latest preferences.
 
 Files written before "mode" became "effort" are read as the new form: `modelModes` and
-`lastModelSelection.mode` in `profile.json`, and `mode` in a conversation's `index.json`
-(`legacy-effort/`). Nothing rewrites them on its own; each is saved in the new form the next time
-its store writes it, and when both keys are present the new one wins.
+`lastModelSelection.mode` in `profile.json`, `mode` in a conversation's `index.json`, and `mode` on
+a session update and its session snapshot in `stream.jsonl` (`legacy-effort/`). Nothing rewrites
+them on its own; a profile or index is saved in the new form the next time its store writes it,
+and a stream, being append-only, keeps its old lines and is read this way every time. When both
+keys are present the new one wins.
 
 **A tool outside the harness may read** `profiles/<profile-id>/profile.json` (its `id` and `name`)
 and each conversation's `index.json` (the fields of `StoredConversation`: `id`, `title`, `modelId`,
