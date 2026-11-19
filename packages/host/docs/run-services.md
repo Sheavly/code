@@ -1,17 +1,21 @@
 # Scoped run services
 
 `runServices({ harness, outputs, runSession })` (`run-services/run-services.helper.ts`) returns the
-services every extension of a run can read without a `dependsOn`. The keys are in
-`run-services/run-services.utils.ts`. Most are built **per extension** by a factory
+services every extension of a run can read without a `dependsOn`. The keys are defined in
+`@sheavly/extension/run-services/run-services.utils`, not here: the host implements them, and a
+test pins that it supplies every key the extension package defines under its exact name. Most are built **per extension** by a factory
 (`hostServiceFor`, `@sheavly/extension`): the host calls it once, the first time an extension that
 declared the service reads it, with the extension's name and sealed manifest. Each method of the
 value it returns checks a **grant**, a `<noun>:<verb>` string in the extension's `sheavly.json`
 `grants` list, and throws an `ExtensionUndeclaredError` naming the extension and the grant when it
 is missing. The host reads `manifest.grants` once, when the service is built.
 
-The types are in `@sheavly/runtime/sessions/session-scope.types`,
-`@sheavly/runtime/tasks/task-scope.types` and `@sheavly/core/output/output.types`; the classes that
-implement them are the `*.service.ts` files of `run-services/`.
+The types the services carry (the scope views, `ApprovalRequester`, `SystemPromptView`) are stated
+in `@sheavly/extension/run-services/run-services.types`; the classes that implement them are the
+`*.service.ts` files of `run-services/`. `ScopeDeactivatedError` is defined in
+`@sheavly/extension/errors/scopes.errors`. The scope errors that stay in the host
+(`errors/scopes.errors.ts`) are `ScopeArgumentError`, `ApprovalToolNotContributedError` and
+`ChildRunningError`. `RunLoop`, the loop's runner type, is host-only.
 
 **A grant limits what a service does for an extension; it is not a sandbox.** An extension is Node
 code. It can use `fs`, `child_process` and `fetch` without declaring them, and a grant is only as

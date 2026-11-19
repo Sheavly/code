@@ -1,6 +1,18 @@
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { HostService } from '@sheavly/extension/extension/extension.types';
 import { hostService } from '@sheavly/extension/extension/extension.utils';
+import {
+  APPROVALS,
+  BACKGROUND_TASKS,
+  CHILD_SESSIONS,
+  INSTRUCTIONS,
+  MAIN_SESSION,
+  MODEL,
+  OUTPUT_CAPTURE,
+  OUTPUT_READER,
+  SESSION_INFO,
+  TASK_CONTROL,
+} from '@sheavly/extension/run-services/run-services.utils';
 import type { Harness } from '../host/host.types.js';
 import { ApprovalsScope } from './approvals.service.js';
 import { BackgroundTasksScope } from './background-tasks.service.js';
@@ -18,18 +30,6 @@ import {
   TASK_CONTROL_GRANTS,
 } from './run-services.constants.js';
 import type { RunLoop } from './run-services.types.js';
-import {
-  APPROVALS,
-  BACKGROUND_TASKS,
-  CHILD_SESSIONS,
-  INSTRUCTIONS,
-  MAIN_SESSION,
-  MODEL,
-  OUTPUT_CAPTURE,
-  OUTPUT_READER,
-  SESSION_INFO,
-  TASK_CONTROL,
-} from './run-services.utils.js';
 import { scopedService } from './scoped-service.helper.js';
 import { SessionInfoScope } from './session-info.service.js';
 import { TaskControlScope } from './task-control.service.js';

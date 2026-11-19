@@ -1,18 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import type { RunChildParams } from '@sheavly/extension/run-services/run-services.types';
+import { CHILD_SESSIONS } from '@sheavly/extension/run-services/run-services.utils';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { callIdSchema, messageIdSchema } from '@sheavly/protocol/message/message.validator';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
-import type { RunChildParams } from '@sheavly/runtime/sessions/session-scope.types';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { ChildRunningError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
 import { waitingWork } from '../../testing/waiting-work.fake.js';
 import type { RunLoop } from '../run-services.types.js';
-import { CHILD_SESSIONS } from '../run-services.utils.js';
 
 const call = (id: string) => callIdSchema.parse(id);
 const owner = (name: string, grants = ['sub-agent:create']) => ({

@@ -1,6 +1,6 @@
+import type { ChildSessionScope } from '@sheavly/extension/run-services/run-services.types';
 import type { SessionId, SessionRef } from '@sheavly/protocol/session/session.types';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
-import type { ChildSessionScope } from '@sheavly/runtime/sessions/session-scope.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import { ChildRunningError } from '../errors/scopes.errors.js';

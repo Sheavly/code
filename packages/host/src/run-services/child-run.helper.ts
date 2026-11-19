@@ -1,5 +1,8 @@
+import type {
+  RunChildParams,
+  RunChildResult,
+} from '@sheavly/extension/run-services/run-services.types';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
-import type { RunChildParams, RunChildResult } from '@sheavly/runtime/sessions/session-scope.types';
 import type { SessionRegistry } from '@sheavly/runtime/sessions/sessions.service';
 import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
 import type { RunLoop } from './run-services.types.js';

@@ -3,11 +3,11 @@ import {
   MAX_KEEP_ENTRY_CHARS,
   MAX_REQUEST_KEEPS,
 } from '@sheavly/extension/approval/approval-keeps.constants';
+import { APPROVALS } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { ApprovalToolNotContributedError, ScopeArgumentError } from '../../errors/scopes.errors.js';
 import { approveAll } from '../../testing/approve-all.fake.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
-import { APPROVALS } from '../run-services.utils.js';
 
 const base = { requires: [APPROVALS.name], contributes: ['run_command'] };
 const asTool = { ...base, name: 'as-tool', grants: ['approval:request', 'approval:as-tool'] };

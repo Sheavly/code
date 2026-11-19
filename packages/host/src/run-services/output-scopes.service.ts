@@ -1,4 +1,7 @@
-import type { OutputCapture, OutputReader } from '@sheavly/core/output/output.types';
+import type {
+  OutputCapture,
+  OutputReader,
+} from '@sheavly/extension/run-services/run-services.types';
 import type { ScopeGuard } from './scope-guard.service.js';
 
 /** `OutputReader` for one extension: every method needs `output:read`. */

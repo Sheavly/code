@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
+import { SESSION_INFO } from '@sheavly/extension/run-services/run-services.utils';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
-import { ScopeDeactivatedError } from '../../errors/scopes.errors.js';
 import { scopeRun } from '../../testing/scope-run.fake.js';
-import { SESSION_INFO } from '../run-services.utils.js';
 
 /** Starts a sub-agent under the run's main session, announced to every lifecycle listener. */
 const startChildOf = (run: ReturnType<typeof scopeRun>) =>
