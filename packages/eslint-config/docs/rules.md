@@ -415,7 +415,14 @@ or variables named “prompt”:
   APIs, including `appendInstructionContext`;
 - typed model request options and `Provider.stream`, typed message/history content for authored
   system/user messages, hook `addContext`/`addInstructions` and conversation `send`/`followup`;
-- typed `ModelSection` titles and guidance, not arbitrary UI titles or `RuleSection` metadata.
+- typed `ModelSection` titles and guidance, not arbitrary UI titles or `RuleSection` metadata;
+- an extension's system-prompt sections: the `text` of each `InstructionContribution` (the
+  `instructions` of a `Contributions` return, an array literal of object literals, written inline
+  or built in a variable first, or any object literal typed `InstructionContribution`) and its
+  `baseInstructions`. A string or template literal, a `*.constants.ts` value or a helper's literal
+  result is reported; a value imported from an adjacent `*.prompt.ts` (`text: CODING_INSTRUCTIONS`)
+  passes. An unrelated `{ name, text }` is not a section and is not reported
+  (`src/__tests__/prompt-location-sections.test.js`, which also lints the real extensions).
 
 Local/import aliases, workspace package/relative imports, static object properties/destructuring,
 concatenation, templates, arrays/join, static map projections and ordinary return builders are
@@ -438,7 +445,12 @@ reflection, external package bodies or all branch/loop execution. Unsupported pa
 remain opaque rather than crashing lint. Typed boundaries need TypeScript services and recognizable defining
 contracts; untyped lookalike `send`/`stream`/hook methods are intentionally not matched. A renderer
 whose output never reaches a supported sink cannot be identified just by its name. Fully dynamic
-user/caller data cannot be classified as authored instructions. Review must cover those paths;
+user/caller data cannot be classified as authored instructions. For instruction sections that
+leaves review-only: sections produced by `.map`, spread elements (`...more`) in the array, `text`
+built at runtime and a dynamically imported module. The rule also does not flag these, which are
+review-only too: `Object.assign({ name }, { text: '...' })`, a section array held in a class field,
+`c.baseInstructions = '...'` assigned onto a `Contributions` variable and
+`{ name, get text() { return '...' } }`. Review must cover those paths;
 do not suppress violations with inline disables or a baseline.
 
 ## System prompt review
