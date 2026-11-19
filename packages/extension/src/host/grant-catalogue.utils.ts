@@ -1,14 +1,19 @@
 import { ExtensionGrantError } from '../errors/manifest.errors.js';
+import { HOST_PROVIDER } from '../extension/extension.constants.js';
 import type { HostService } from '../extension/extension.types.js';
+import { HOST_OFFERED_GRANTS } from '../instructions/instructions.constants.js';
 import type { ExtensionManifest } from '../manifest/manifest.types.js';
 import type { GrantCatalogue } from './extension-host.types.js';
 
 /**
- * The grants the supplied services understand. Only factory services declare grants; a plain
- * value declares none, so a grant that only a value could "own" is unknown.
+ * The grants the supplied services understand, plus the ones the host offers itself
+ * (`HOST_OFFERED_GRANTS`, listed under `HOST_PROVIDER`). Only factory services declare grants; a
+ * plain value declares none, so a grant that only a value could "own" is unknown.
  */
 export function grantCatalogueOf(services: readonly HostService[]): GrantCatalogue {
-  const catalogue = new Map<string, string[]>();
+  const catalogue = new Map<string, string[]>(
+    HOST_OFFERED_GRANTS.map((grant) => [grant, [HOST_PROVIDER]]),
+  );
 
   for (const service of services) {
     if (!('grants' in service)) continue;
@@ -43,6 +48,9 @@ export function assertGrantsOffered(params: {
         problem: 'no service the host supplies offers it (a typo?)',
       });
     }
+
+    // The host's own grants need no service, so there is nothing for the extension to list.
+    if (offeredBy.includes(HOST_PROVIDER)) continue;
 
     if (offeredBy.some((service) => readable.includes(service))) continue;
 

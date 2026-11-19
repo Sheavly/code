@@ -115,7 +115,8 @@ export function defineService<TService>(name: string): ServiceKey<TService> {
 
 /**
  * A service the app supplies to the run (`ExtensionHostOptions.services`), readable by every
- * extension without a dependency: `hostService({ key: INSTRUCTIONS, value: instructions })`.
+ * extension without a dependency: `hostService({ key: INSTRUCTIONS, value: view })`, where `view`
+ * is the frozen `{ text }` view of the system prompt (a `SystemPromptView`), not a string.
  */
 export function hostService<TService>(params: {
   key: ServiceKey<TService>;

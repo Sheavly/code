@@ -116,7 +116,12 @@ A contribution adds to the loop and never owns it. It can be:
   where it goes with `placeHook({ hook, before, after })`;
 - `workKinds`, a declared kind of background work (name and whether it is `finite` or a
   `service`); the work itself still starts through `startWork` ([sessions-and-background-work.md](sessions-and-background-work.md));
-- `events` and `notices`, the kinds and topics it may emit, each with the schema of its `data`.
+- `events` and `notices`, the kinds and topics it may emit, each with the schema of its `data`;
+- `instructions: [{ name, text }]`, named sections of the system prompt, declared in the
+  manifest's `instructions` and needing the `system-prompt:extend` grant; the host adds no header
+  and caps a section at `MAX_INSTRUCTION_CHARS`. `baseInstructions: string` replaces the generic
+  base only, needs `system-prompt:replace`, and at most one extension holds it. The text is the
+  system prompt, so its content is review-only (`packages/extension/docs/contributions.md`).
 
 ### Emitting events and notices
 
@@ -199,7 +204,9 @@ configuration is a setting.
 
 - **A grant is `<noun>:<verb>`** (lowercase kebab parts, one colon), declared in the manifest's
   `grants` and readable by an installer before any code runs. The catalogue is what the supplied
-  services declare; a grant is verb-level, one capability, and a new capability is a new grant,
+  services declare, plus the two the host offers itself with no service: `system-prompt:extend`
+  and `system-prompt:replace` (the strongest grants: what the extension writes is the system
+  prompt); a grant is verb-level, one capability, and a new capability is a new grant,
   never a widened one.
 - **Nothing exposes a registry.** No scoped service hands out `publish`, `queueNotice`,
   `publishTask`, `end`, `release`, `cancelAll`, `cancelSession`, an inbox or a stream of message

@@ -20,6 +20,8 @@ export type FakeExtensionFields = {
   /** Names it may contribute; a test that contributes something undeclared tests the failure. */
   tools?: readonly string[];
   hooks?: readonly string[];
+  /** Instruction section names it may contribute; declared for `contributes.instructions` too. */
+  instructions?: readonly string[];
   workKinds?: readonly string[];
   settings?: readonly SettingManifest[];
   /**

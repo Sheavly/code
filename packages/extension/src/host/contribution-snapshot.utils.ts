@@ -8,6 +8,7 @@ import type {
   ContributionKind,
   Contributions,
   HookContribution,
+  InstructionContribution,
   UndeclaredUse,
   WorkKindContribution,
 } from '../extension/extension.types.js';
@@ -20,6 +21,11 @@ import type {
   RecordedHook,
 } from './extension-host.types.js';
 import { hookOf, isPlaced } from './hook-order.utils.js';
+import {
+  assertMayExtendPrompt,
+  checkedBaseInstructions,
+  checkedInstruction,
+} from './instruction-check.utils.js';
 
 /** A tool or work kind is checked as it is. */
 function checkedAsIs<TItem extends { name: string }>(item: TItem) {
@@ -117,8 +123,11 @@ function recordedEmits(params: {
 
 /**
  * Holds what an `activate` returned to its manifest and keeps what it checked: every tool, hook
- * (a placed hook by its inner hook's name) and work kind must be listed, its name read exactly
- * once. Listing more than it contributes is fine, since some are contributed only under options.
+ * (a placed hook by its inner hook's name), instruction section and work kind must be listed, its
+ * name read exactly once, and every contribution field of `contributions` is read once here (the
+ * instruction list is copied once, and that copy decides the grant, the checks and the merge).
+ * Instruction sections also need the `system-prompt:extend` grant and a
+ * valid text (`ExtensionInstructionError`), and are held as frozen `{ name, text }` copies. Listing more than it contributes is fine, since some are contributed only under options.
  * Throws an `ExtensionUndeclaredError` for the first not listed. The host merges and orders by the
  * names recorded in the returned snapshot, after `assertSnapshotUnchanged` in the same
  * synchronous step, so a list or name changed later is never merged unchecked. The item objects
@@ -134,10 +143,17 @@ export function snapshotContributions(params: {
   const sources = {
     tools: contributions.tools,
     hooks: contributions.hooks,
+    instructions: contributions.instructions,
     workKinds: contributions.workKinds,
     events: contributions.events,
     notices: contributions.notices,
   };
+
+  // One copy of the one read: the grant, the section checks and the merge all use it, so a getter
+  // or proxy that answers differently the second time decides nothing.
+  const sections = [...(sources.instructions ?? [])];
+
+  assertMayExtendPrompt({ manifest, sections });
 
   const events = checkedList({
     extension,
@@ -181,6 +197,15 @@ export function snapshotContributions(params: {
       source: sources.hooks,
       read: checkedHook,
     }),
+    instructions: checkedList({
+      extension,
+      use: 'instruction',
+      allowed: manifest.instructions,
+      declareIn: 'instructions',
+      source: sections,
+      read: (section: InstructionContribution) => checkedInstruction({ extension, section }),
+    }),
+    baseInstructions: checkedBaseInstructions({ manifest, contributions }),
     workKinds: checkedList<WorkKindContribution, WorkKindContribution>({
       extension,
       use: 'work kind',
@@ -287,6 +312,14 @@ function assertSnapshotUnchanged(params: {
     current: returned.hooks,
     entries: snapshot.hooks,
     nameOf: (recorded) => recorded.hook.name,
+  });
+  assertListUnchanged({
+    extension,
+    contribution: 'instruction',
+    source: sources.instructions,
+    current: returned.instructions,
+    entries: snapshot.instructions,
+    nameOf: (section) => section.name,
   });
   assertListUnchanged({
     extension,

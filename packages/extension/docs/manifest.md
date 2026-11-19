@@ -28,6 +28,8 @@ every other field defaults to empty.
   ],
   "tools": ["add_note"],
   "hooks": ["notes-instructions"],
+  "instructions": ["notes-guidance"],
+  "grants": ["system-prompt:extend"],
   "workKinds": ["notes.sync"]
 }
 ```
@@ -42,6 +44,7 @@ every other field defaults to empty.
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                   |
 | `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                            |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance). |
+| `instructions`                | The names of the system-prompt sections it may contribute (`Contributions.instructions[].name`), by exact name: no `*`, no duplicates. A declared name may go unused. Contributing any needs the `system-prompt:extend` grant; see [`system-prompt:extend`](#the-system-prompt-grants).                                           |
 | `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                   |
 | `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                            |
 
@@ -92,6 +95,38 @@ and every method calls `requireGrant({ extension, grants, grant })`
 (`@sheavly/extension/extension/grants.utils`), which throws an `ExtensionUndeclaredError`
 (`use: 'grant'`, naming the grant, to be added to `grants`). A grant is a declaration the host
 checks, not a sandbox: see [what the manifest is not](#what-the-manifest-is-not).
+
+## The system-prompt grants
+
+Two grants belong to no service: the host offers them itself, so the catalogue always holds them
+(`grantCatalogueOf` lists them under `HOST_PROVIDER`), a manifest that lists one never fails with
+"no service offers it", and it need not list a service for it. Listing one while contributing
+nothing is fine. Each covers only its own contribution; neither implies the other. Both strings
+are defined once, in `@sheavly/extension/instructions/instructions.constants`
+(`SYSTEM_PROMPT_EXTEND_GRANT`, `SYSTEM_PROMPT_REPLACE_GRANT`).
+
+- **`system-prompt:extend`** lets the extension contribute `instructions: [{ name, text }]`, named
+  in the manifest's `instructions`. Without the grant, an extension that returns any section fails
+  its activation with an `ExtensionUndeclaredError` (`use: 'grant'`, naming the extension and the
+  grant), like a service method called without its grant. An empty list needs no grant.
+- **`system-prompt:replace`** lets the extension contribute `baseInstructions: string`, which
+  replaces the generic base of the system prompt and nothing else: other extensions' sections and
+  the app's own `instructions` still follow it. It has no manifest name list (it is one slot), but
+  without the grant, activation fails the same way. At most one extension per run may hold it: a
+  second one fails the run's merge with a `ContributionCollisionError` naming both, whichever
+  activates first. When the app passes its own base explicitly, the app's base takes precedence
+  over an extension's replacement; the app's explicit choice is not overridden.
+
+**These are the strongest grants an extension can ask for.** What an extension writes here IS the
+system prompt: the model follows it as the harness's own instruction, ahead of anything the user
+typed. The host checks only the shape of the text: a non-blank string of at most
+`MAX_INSTRUCTION_CHARS` (4000) characters, read once and frozen
+(`ExtensionInstructionError` otherwise, naming the extension, the section and the cap). It does
+not and cannot check the **content**: that stays review-only. The host's own base prompt has a
+recorded review that `npm run lint:prompt` checks; a text an extension contributes skips that
+check, so an installer should read the section names and treat these grants as "may instruct the
+model". A blank replacement is refused because it would silently drop the core guidance, which is
+the app's choice and never an extension's.
 
 ## `emits`, and the reserved `serves`
 
@@ -154,7 +189,9 @@ the name (`ExtensionUndeclaredError`).
   `dependency`; the other extensions are unaffected.
 - **Before activating, for `grants`**: each must be in the catalogue of the supplied services and
   belong to a service the extension reads, else it fails (`ExtensionGrantError`, in `result.failed`,
-  dependents skipped) without running `activate`. See [`grants`](#grants).
+  dependents skipped) without running `activate`. The two
+  [system-prompt grants](#the-system-prompt-grants) are the host's own and need no service. See
+  [`grants`](#grants).
 - **During `activate`**: `services.get` for a name not in `requires` or `optional`, `services.find`
   for one not in `optional` or `requires`, and `services.provide` for one not in `provides` throw at
   the call. Services the host supplies are held to the same list: an extension that reads
@@ -168,6 +205,16 @@ the name (`ExtensionUndeclaredError`).
   `events` (each `kind` must be listed exactly in `emits.events`) and `notices` (needs
   `emits.modelFacingNotices: true`, and each `topic` must start with `<extension>.`), whose lists
   the re-verification covers, and whose names collide like any other contribution.
+- **After `activate` returns, for the system prompt**: each contributed instruction `name` must be
+  listed in `instructions`, the manifest must list `system-prompt:extend` (any section) and
+  `system-prompt:replace` (a `baseInstructions`), and every text must be a non-blank string of at
+  most `MAX_INSTRUCTION_CHARS` characters, else the extension fails like any other undeclared
+  contribution and none of its sections or base is merged. Each section is kept as the host's own
+  frozen `{ name, text }` copy and `baseInstructions` as the string read once, so what the
+  extension does with its objects afterwards changes nothing. Two sections with one name, or a
+  second `baseInstructions`, collide (`ContributionCollisionError` naming both). Merged sections
+  come out in activation order. A manifest that lists a prompt grant, or a name, it never uses is
+  fine.
 - **At each emit** (`context.emit.event` / `.notice`): before `activate` has returned and passed the
   check above it throws "not activated yet". It then accepts only a kind or topic the extension
   contributed (an undeclared one is an `ExtensionUndeclaredError`, a declared one it never
@@ -217,6 +264,11 @@ they do not cover.
   name. Lint rejects the runtime import in an extension's source; review covers the rest. The
   `session` an emit names can be any session of the run, sub-agents included; it
   cannot cross conversations, because one registry serves one conversation.
+- **The content of a system-prompt text is review-only.** The host enforces the grant, the
+  declared name, the cap and that the text is a non-blank string; nothing checks what it says.
+  Lint has no rule for it, and the recorded prompt review (`npm run lint:prompt`) covers the
+  host's own base prompt, not text an extension contributes. Section texts are frozen copies;
+  tools, work kinds and hooks are not (next item).
 - **Item objects are not frozen.** Tools, work kinds and hooks are kept as the extension returned
   them. The host records and merges the names it checked and re-verifies them (and the lists)
   right before the merge, but a getter that changes what an object does or says after the merge is

@@ -23,7 +23,7 @@ by one of its dependencies, and that each of its manifest's `grants` is offered 
 service it reads (otherwise an `ExtensionGrantError` fails it before `activate` runs: see
 [manifest](manifest.md#grants)). Each extension's `activate(context)` is then awaited in order and
 returns its contributions, which the host checks against the manifest's `tools`, `hooks`,
-`workKinds` and `emits` (see [manifest](manifest.md)). The context holds an `emit` built for that
+`instructions`, `workKinds`, `emits` and the system-prompt grants (see [manifest](manifest.md)). The context holds an `emit` built for that
 extension; it throws until the contributions passed that check, and again (`deactivated`) once
 the host stops, drops or fails the extension (see Deactivation). The result holds the merged `contributions` (hooks already placed), the `settings` of the extensions
 that activated, the `active` names, `failed` and `skipped`. An aborted `signal` stops the rest:
@@ -38,8 +38,10 @@ One extension failing never stops the others.
   `ExtensionActivationError` and the services it provided are dropped.
 - An extension that reads a service, or provides one, its manifest does not list throws an
   `ExtensionUndeclaredError` at that call, inside its `activate`, which is a failure like any
-  other `activate` that throws. One that contributes a tool, hook or work kind its manifest does
-  not list (exactly, or through a `*` wildcard entry) fails after `activate` returned: it is deactivated (it had activated; an error from
+  other `activate` that throws. One that contributes a tool, hook, instruction section or work kind its manifest does
+  not list (exactly, or through a `*` wildcard entry; sections match exactly), that contributes
+  sections or a replacement base without the `system-prompt:extend` or `system-prompt:replace`
+  grant, or whose prompt text is blank, not a string or over the cap, fails after `activate` returned: it is deactivated (it had activated; an error from
   that `deactivate` lands in `lateDeactivationErrors`), its services are dropped and nothing it
   contributed is merged. Both are reported in `failed`, with the `ExtensionUndeclaredError` as the
   `cause`.

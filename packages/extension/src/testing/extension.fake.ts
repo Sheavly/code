@@ -22,6 +22,13 @@ export function fakeHook(name: string) {
   return defineHook({ name, sessionStart: async () => undefined });
 }
 
+/** An instruction section with the given name; its text is a heading and the name, unless given. */
+export function fakeInstruction(params: { name: string; text?: string }) {
+  const { name, text = `# Section ${name}` } = params;
+
+  return { name, text };
+}
+
 /**
  * A setting declaration for `fakeExtension`, its `type` taken from the default's:
  * `fakeSetting({ name: 'notes.level', default: 3 })`.
@@ -45,6 +52,7 @@ function contributedNames(contributes: Contributions = {}) {
   return {
     tools: (contributes.tools ?? []).map((tool) => tool.name),
     hooks: (contributes.hooks ?? []).map((hook) => hookOf(hook).name),
+    instructions: (contributes.instructions ?? []).map((section) => section.name),
     workKinds: (contributes.workKinds ?? []).map((kind) => kind.name),
     events: (contributes.events ?? []).map((event) => event.kind),
     notices: contributes.notices ?? [],
@@ -66,6 +74,7 @@ function fakeManifest(fields: FakeExtensionFields): ExtensionManifest {
     settings: [...(fields.settings ?? [])],
     tools: [...new Set([...(fields.tools ?? []), ...contributed.tools])],
     hooks: [...new Set([...(fields.hooks ?? []), ...contributed.hooks])],
+    instructions: [...new Set([...(fields.instructions ?? []), ...contributed.instructions])],
     workKinds: [...new Set([...(fields.workKinds ?? []), ...contributed.workKinds])],
     emits: {
       events: [...new Set([...(fields.emits?.events ?? []), ...contributed.events])],
