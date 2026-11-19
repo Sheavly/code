@@ -9,6 +9,10 @@ export const fieldSchema = z.object({
   title: z.string().exactOptional(),
   description: z.string().exactOptional(),
   secret: z.boolean().exactOptional(),
+  /** A secret asked for only while the model's other settings have these values (`auth`). */
+  appliesWhen: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).exactOptional(),
+  /** A secret that may be left empty. */
+  optional: z.boolean().exactOptional(),
   default: z.union([z.string(), z.number(), z.boolean()]).exactOptional(),
   enum: z.array(z.union([z.string(), z.number(), z.boolean()])).exactOptional(),
   format: z.string().exactOptional(),

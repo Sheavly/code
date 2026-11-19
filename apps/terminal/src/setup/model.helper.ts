@@ -100,7 +100,9 @@ async function saveSecrets(params: ModelSetup): Promise<void> {
 
   if (adapter.secrets.length === 0) return;
 
-  const secrets = await askSecrets({ adapter, ui });
+  // The secrets asked for depend on the settings just saved (how the model signs in).
+  const { definition } = await client.call('getModel', { profile, model, signal: ui.signal });
+  const secrets = await askSecrets({ adapter, ui, definition });
 
   await client.send('putCredential', { profile, model, body: { secrets }, signal: ui.signal });
 }
