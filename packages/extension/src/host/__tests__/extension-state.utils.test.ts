@@ -19,7 +19,11 @@ const ALLOWED: readonly (readonly [ExtensionState, ExtensionState])[] = [
   ['merged', 'stopped'],
 ];
 
-const GUIDE = join(import.meta.dirname, '../../../docs/lifecycle.md');
+/** The two documents that print the table: this package's lifecycle note and the repository's guide. */
+const GUIDES = [
+  join(import.meta.dirname, '../../../docs/lifecycle.md'),
+  join(import.meta.dirname, '../../../../..', '.agents/skills/sheavly/state-machines.md'),
+];
 
 /** The table with runs of spaces and dashes collapsed, so Prettier's column padding does not matter. */
 function collapsed(table: string): string {
@@ -113,9 +117,9 @@ describe('ExtensionStates', () => {
   });
 });
 
-describe('the lifecycle guide', () => {
-  it('prints the state table as it is (rewrite the block between the markers from extensionLifecycleMarkdown)', async () => {
-    const guide = await readFile(GUIDE, 'utf8');
+describe.each(GUIDES)('the lifecycle table in %s', (path) => {
+  it('is the state table as it is (rewrite the block between the markers from extensionLifecycleMarkdown)', async () => {
+    const guide = await readFile(path, 'utf8');
     const [, rest = ''] = guide.split('<!-- extension-lifecycle:start -->');
     const [printed = ''] = rest.split('<!-- extension-lifecycle:end -->');
 

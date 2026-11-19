@@ -117,7 +117,9 @@ sub-agent) sees them.
   wherever it stops the extension's emitter (deactivate, a roll-back, a failed activation). After
   that every method throws a `ScopeDeactivatedError` naming the extension and the service, and
   what the scope had subscribed to is stopped. It does not abort a `runChild` already in flight
-  nor cancel the tasks the scope started.
+  nor cancel the tasks the scope started. A `disarm` that throws is contained and reported
+  (a rejected promise it returns is collected best-effort when it settles); the extension host
+  returns the errors from `deactivate()`, and from the next call when an activation failed.
 - **What the scopes do not hand out.** No scoped service hands out `publish`, `queueNotice` or
   `publishTask`. They are not silent: `send` and `report` produce session updates, and a child's
   loop publishes its events.
@@ -129,10 +131,16 @@ sub-agent) sees them.
 - **`sub-agents`** is provided by `agents`, not by the host, and write-only: `share` copies the
   arrays and validates each entry (an object with a non-empty string `name`; no duplicate, no name
   a sub-agent already gets), but does not freeze the tool and hook objects, which are held by
-  reference. Nothing can read the shared lists. **Known gap, since the service was introduced:**
-  `share` is gated only by `requires: sub-agents` and cannot check the sharer's manifest `tools` and
-  `hooks`, because the service is provided by an extension and only host services define grants in
-  this version. The intended fix is a grant, once extension-provided services can define grants.
+  reference. Nothing can read the shared lists. It is provided per consumer
+  (`services.provideFor`) behind the grant `sub-agent:share`, which `agents` declares in its
+  manifest's `services.grants`: `share` without it throws an `ExtensionUndeclaredError`
+  (`use: 'grant'`). The grant is enforced by `agents`, not by the host
+  ([services](../../extension/docs/services.md#services-an-extension-provides-per-consumer)).
+  `share` does not check the shared names against the sharer's manifest `tools` and `hooks`.
+  What a consumer shared is revoked when its scope is disarmed (it failed after sharing, was
+  rolled back or stopped, or `agents` stopped): sub-agents started afterwards do not get it,
+  sub-agents already running keep what they were given. A running sub-agent that starts a nested
+  one gives it the lists as they are at that call, so a revoke is not carried into it.
 - **Verbs reject, not throw.** A method that returns a promise (`cancel`, `runChild`, the output
   services) rejects with a refusal, as the output contract says, instead of throwing before it
   has a promise.

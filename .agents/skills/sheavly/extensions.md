@@ -104,11 +104,16 @@ extension is Node code and can use `fs`, `child_process`, `fetch` and `process.e
 declaring them; the manifest declares only what the host mediates (services, merged
 contributions, settings), a wildcard (coding's bare `*` for hooks) makes a declared set
 open-ended, a service matches by name and not identity, and a required service from an extension
-it does not `dependsOn` skips the extension. Declaring the `sub-agents` service (the agents
-extension provides it) in `requires` grants the right to share tools and hooks with sub-agents
-without those names appearing in the extension's own `tools` or `hooks` (`share` is a service
-call, not a contribution): an installer should treat it as that grant. Grants cannot be defined
-by an extension-provided service in this version, so this one is gated by `requires` alone.
+it does not `dependsOn` skips the extension. Sharing tools and hooks with sub-agents (the
+`sub-agents` service the `agents` extension provides) takes `sub-agents` in `requires` and the
+grant `sub-agent:share` in `grants`: the shared names do not appear in the extension's own
+`tools` or `hooks` (`share` is a service call, not a contribution), so an installer should read
+that grant as the right to put tools and hooks in every sub-agent. `share` without the grant
+throws an `ExtensionUndeclaredError` (`use: 'grant'`). The host does not check the shared names
+against the sharer's manifest. What an extension shared is revoked when its scope is disarmed (it
+failed after sharing, was rolled back or stopped): sub-agents started afterwards do not get it,
+running ones keep what they were given. A sub-agent that starts a nested one takes the lists as
+they are at that call, so a nested start after a revoke does not get it either.
 
 A contribution adds to the loop and never owns it. It can be:
 
@@ -251,10 +256,14 @@ configuration is a setting.
 
 - **A grant is `<noun>:<verb>`** (lowercase kebab parts, one colon), declared in the manifest's
   `grants` and readable by an installer before any code runs. The catalogue is what the supplied
-  services declare, plus the two the host offers itself with no service: `system-prompt:extend`
-  and `system-prompt:replace` (the strongest grants: what the extension writes is the system
-  prompt); a grant is verb-level, one capability, and a new capability is a new grant,
-  never a widened one.
+  services declare, the ones an extension's `services.grants` declares for a service it provides
+  (`sub-agent:share`, of `sub-agents`: share tools and hooks with every sub-agent), plus the two
+  the host offers itself with no service: `system-prompt:extend` and `system-prompt:replace` (the
+  strongest grants: what the extension writes is the system prompt); a grant is verb-level, one capability, and a new capability is a new grant,
+  never a widened one. Grants are global strings, not per service: two providers may declare the
+  same name and a consumer that lists it and requires either service verifies (no bypass: each
+  service still needs its own `requires` and enforces its own methods), so name a grant after the
+  provider's capability (`<noun>:<verb>`).
 - **Nothing exposes a registry.** No scoped service hands out `publish`, `queueNotice`,
   `publishTask`, `end`, `release`, `cancelAll`, `cancelSession`, an inbox or a stream of message
   content (`send` and `report` do produce session updates, and a child's loop publishes).
@@ -271,14 +280,53 @@ configuration is a setting.
   follows from its declared grants and the shape of each service.
 - **A grant no service defines fails the activation**, as does one whose service the extension
   does not read (`ExtensionGrantError`): a typo cannot silently grant nothing.
-- **v1: only host services define grants.** A grant defined by a service an extension itself
-  provides is out of scope.
+- **An extension can define grants for a service it provides**, per consumer: see "Providing a
+  service per consumer" below.
 - The old whole-registry keys (`SESSIONS`, `TASKS`, `OUTPUTS`) are gone, and so are `PROVIDER`
   (now `MODEL`) and the `sessions`, `tasks` and `outputs` service names: an extension that still
   requires one is skipped (reason `service`, `missing`). The `sub-agents` service `agents`
   `provides` is separate and WRITE-ONLY: only `share` (which copies and freezes its input) is
   public, so reading it grants no way to call or change what others shared. A message to a session
   the extension did not start now reads `Unknown session`.
+
+### Providing a service per consumer
+
+`services.provide(KEY, value)` hands every reader one value, so the provider cannot tell who
+calls. A service that limits what each caller may do uses
+`services.provideFor({ key, create(consumer) })` (full description:
+`packages/extension/docs/services.md`).
+
+- **Manifest.** `services.grants` maps a service the extension provides to the grants it
+  understands: `{ "sub-agents": ["sub-agent:share"] }`. Its keys must be in `provides`, and a grant
+  a host service offers is refused. The catalogue includes them, so a consumer lists the grant in
+  `grants` and the service in `requires` or `optional`; a typo or an unread service fails its
+  activation (`ExtensionGrantError`), as for a host service.
+- **The host** calls `create` once per reading extension, on its first read, with the consumer's
+  `name`, sealed manifest and a `contributedTools()` that answers live. The consumer is one frozen
+  snapshot per extension (the extension holds the same object when it reads its own service), so
+  nothing can rename it or swap its function. A provider that declares grants for a service MUST
+  use `provideFor`: a plain `provide` fails its activation.
+- **The provider enforces.** Each method checks the grant with `requireGrant` over
+  `consumer.manifest.grants` and throws `ExtensionUndeclaredError` (`use: 'grant'`). The host
+  cannot check that a provider's methods check the right grant, or any: review covers it. `agents`
+  is the example (`sub-agents`, `SUB_AGENT_SHARE_GRANT` in
+  `extensions/agents/src/agents/agents.constants.ts`; `coding` and `web` declare it; `agents`'
+  own output tools are shared directly, with no grant).
+- **Lifecycle.** The returned `disarm` runs once on every path that disarms the host's scopes for
+  the consuming extension, and when the provider itself reaches a final state, so a scope never
+  outlives its provider; a value read after either is born disarmed. A `disarm` should not throw;
+  if it does, the host contains it (the others are still disarmed, every `deactivate` still runs)
+  and reports the error with `deactivate()`'s, or in `lateDeactivationErrors` while activating;
+  when the activation fails, the next `deactivate()` returns it once. A `disarm` that returns a
+  promise is not awaited: a rejection is collected when it settles (best effort), and one that
+  hangs synchronously blocks `deactivate()`.
+  What a scope handed on is the provider's own business: `agents` revokes what a consumer shared.
+  See "Scoped service" in
+  [state-machines.md](state-machines.md).
+- **Attribution.** `consumer.contributedTools()` answers only once the consumer is `merged`
+  (see "Extension in the host" in [state-machines.md](state-machines.md)).
+
+Like every grant, this is least privilege, not a sandbox.
 
 ## Rules
 
@@ -332,9 +380,10 @@ configuration is a setting.
   whether that is fatal (the backend deactivates what activated, then throws).
 - **A host lives one session.** It activates once (a second `activate` throws), an aborted signal
   or a `deactivate` while it activates stops the rest, and an extension whose `activate` threw is
-  not deactivated: `activate` cleans up after itself before it throws. Share with another
-  extension's scope (`SUB_AGENTS`) as the last step of `activate`: what is shared is not taken
-  back, so a failure after it would leave tools behind.
+  not deactivated: `activate` cleans up after itself before it throws. What an extension shared
+  through `SUB_AGENTS` is revoked when its scope is disarmed (a failed `activate` included), so
+  sub-agents started afterwards do not get it; sharing as the last step still keeps a failure from
+  leaving anything behind in a provider that does not revoke.
 - **Content needs no trust, code does.** A `project` extension is skipped (`untrusted`) unless
   the host's `isTrusted` says its code is trusted. Builtin extensions never ask. `origin` is a
   declaration by the app that loads the extension, not a check: an app that embeds code vouches
