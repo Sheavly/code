@@ -58,19 +58,19 @@ types remain in the host's types file. Prompt files use the adopted 300-line fil
 stay internal unless their whole kind is deliberately exported. Create only files and exports
 required by the implementation.
 
-| Owner                     | Owns                                                                           | Does not own                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
-| Host instruction module   | Domain-neutral agent guidance and reusable static assembly                     | Coding identity, workspace access, model configuration or a chosen tool set           |
-| Coding instruction module | Coding role and project-work guidance, supplied through the coding composition | Generic consumers' defaults or provider configuration                                 |
-| Tools sub-agent module    | Child role, task boundary, status reporting and parent steering                | A copy of the common prompt, imports from host/coding, or access to unavailable tools |
-| Backend app               | Supplies domain/host extras and composes tools and hooks for main/child runs   | Independent prompt copies for terminal, server and workbook                           |
-| Core, if required         | Minimal shared contracts used by multiple layers                               | Prompt prose, provider configuration or family selection by deployment-name matching  |
+| Owner                     | Owns                                                                         | Does not own                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Host instruction module   | Domain-neutral agent guidance and reusable static assembly                   | Coding identity, workspace access, model configuration or a chosen tool set           |
+| Coding instruction module | Coding role and project-work guidance, contributed by the coding extension   | Generic consumers' defaults or provider configuration                                 |
+| Tools sub-agent module    | Child role, task boundary, status reporting and parent steering              | A copy of the common prompt, imports from host/coding, or access to unavailable tools |
+| Backend app               | Supplies domain/host extras and composes tools and hooks for main/child runs | Independent prompt copies for terminal, server and workbook                           |
+| Core, if required         | Minimal shared contracts used by multiple layers                             | Prompt prose, provider configuration or family selection by deployment-name matching  |
 
 The current dependency direction prevents the tools package from importing host instructions.
 The backend must pass composed shared instructions to the sub-agent factory; the factory adds
-only its child-role section. A coding app can extend the generic host through options
-(`composeCodingInstructions`), but the generic host cannot reach into coding to discover that
-extension.
+only its child-role section. The coding extension contributes its guidance as a system-prompt
+section, which the app gives the host's composition after activation, but the generic host cannot
+reach into coding to discover that extension.
 
 ### Why template strings
 
@@ -165,8 +165,8 @@ The approved implementation uses a host extension plus an explicit replacement o
 - New `HarnessOptions.instructions`: host extras appended after the built-in core.
 - New `HarnessOptions.baseInstructions`: optional explicit replacement of the generic core;
   omission uses the default, an empty string explicitly omits it. Host extras still apply.
-- `composeCodingInstructions` supplies the coding section before caller extras, even when the
-  generic core is replaced. A non-coding host uses `createHarness` directly.
+- The coding extension's `coding` section comes before caller extras, even when the generic core
+  is replaced. A non-coding host uses `createHarness` directly.
 - The harness returns the composed instructions for direct runs. A conversation uses those when
   its existing `instructions` option is absent. An explicitly supplied conversation string remains
   a complete run-instruction override for compatibility, including an intentionally empty string.

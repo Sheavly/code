@@ -12,8 +12,10 @@ import {
   forgetReleasedAgents,
   keepReadsWithConversation,
 } from '../file-reads/file-reads.helper.js';
+import { CODING_INSTRUCTIONS } from '../instructions/coding-instructions.prompt.js';
 import type { SkillRoots } from '../skills/skills.types.js';
 import { createInstructionHooks, loadWorkspaceHooks } from './coding-hooks.helper.js';
+import { CODING_SECTION } from './coding-extension.constants.js';
 import { createCommandTools, createFileTools } from './coding-tools.helper.js';
 import type { CodingExtensionOptions, CodingParts } from './coding-extension.types.js';
 import { CODING_RUN } from './coding-extension.utils.js';
@@ -110,5 +112,9 @@ async function contribute(params: {
   // get the same hook objects, each running its own `sessionStart`.
   services.get(SUB_AGENTS).share({ tools: fileTools, taskTools: commandTools, hooks });
 
-  return { tools: [...fileTools, ...commandTools], hooks };
+  return {
+    tools: [...fileTools, ...commandTools],
+    hooks,
+    instructions: [{ name: CODING_SECTION, text: CODING_INSTRUCTIONS }],
+  };
 }
