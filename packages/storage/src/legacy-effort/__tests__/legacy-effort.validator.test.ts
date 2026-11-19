@@ -42,6 +42,19 @@ describe('a conversation index written before "mode" became "effort"', () => {
       false,
     );
   });
+
+  it('does not let a file with a __proto__ key change what every object inherits', () => {
+    const hostile: unknown = JSON.parse(
+      JSON.stringify({ ...INDEX, mode: 'low' }).replace('{', '{"__proto__":{"polluted":true},'),
+    );
+    const parsed = storedConversationIndexSchema.parse(hostile);
+
+    expect(parsed).toEqual({ ...INDEX, effort: 'low' });
+    expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+    const fresh: { polluted?: boolean } = {};
+
+    expect(fresh.polluted).toBeUndefined();
+  });
 });
 
 describe('a profile written before "mode" became "effort"', () => {

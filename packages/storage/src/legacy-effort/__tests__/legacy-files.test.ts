@@ -76,4 +76,33 @@ describe('files written before "mode" became "effort"', () => {
 
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ ...rest, effort: 'low' });
   });
+
+  it('reports an old index with an invalid mode without showing what the conversation holds', async () => {
+    const folder = path.join(temp.path(), 'workspace');
+    const reported: string[] = [];
+    const store = new FileConversationStore({
+      folder,
+      onProblem: (problem) => reported.push(problem.message),
+    });
+    const file = path.join(folder, 'conversations', CONVERSATION, 'index.json');
+
+    await writeFileIn({
+      file,
+      value: {
+        id: CONVERSATION,
+        title: 'PRIVATE-TITLE',
+        modelId: MODEL,
+        mode: 'turbo',
+        workspace: '/work/repo',
+        profile: PROFILE,
+        status: 'closed',
+        startedAt: 1,
+        updatedAt: 2,
+      },
+    });
+
+    expect(await store.list()).toEqual([]);
+    expect(reported).toHaveLength(1);
+    expect(reported[0]).not.toContain('PRIVATE-TITLE');
+  });
 });
