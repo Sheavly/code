@@ -500,6 +500,44 @@ invalidating this inventory. Saved prompt/tool sources are read from disk; only 
 uses the current lint buffer. Reviewers still assess these changes and the explanation. The record is a reviewed
 source snapshot, not a violation-suppression baseline: every detected drift fails.
 
+## Service grants need a proof test
+
+Not an ESLint rule: a test over the repo (`src/__tests__/service-grants-tests.test.js`, logic in
+`src/service-grants-tests.utils.js`), run with the package's tests. The host verifies that the
+grants an extension's `sheavly.json` declares for a service it provides (`services.grants`) exist,
+but only the provider's own methods check them. So every `extensions/*` workspace whose manifest
+declares a non-empty `services.grants` must have a `src/**/__tests__/*.test.ts` that imports
+`assertServiceEnforcesGrants` from the testing kit and calls it. A named import (an alias counts),
+a namespace import (`import * as kit` and `kit.assertServiceEnforcesGrants(`) and several imports
+of the specifier in one file all count; a comment, an import with no call, a type-only import, a
+re-export and a function of that name from another module do not. The check reads text with
+regular expressions, not syntax. The import specifier
+is not listed: it is the name of the workspace that holds a `service-grants.fake.ts` under its
+`src/testing/` behind a `./testing/*` export, plus that subpath. When more than one workspace holds
+that file the specifier is ambiguous, so the check reports one problem naming them instead of
+picking the first. Extensions without service grants are asked for nothing.
+The tests accept the real tree and reject synthetic workspaces with no test, with an import never
+called, a call from another module and two holders of the helper.
+
+**Limits:** it proves only that a call expression to the helper exists in a test file of the
+workspace. It does not prove:
+
+- that the call runs: a call under `describe.skip`/`it.skip`/`it.todo`, in dead code (`if (false)`)
+  or in a function nothing calls still counts, and so does text in a string or template literal,
+  an object method of the same file with the helper's name (`{ assertServiceEnforcesGrants() {} }`)
+  and a `typeof assertServiceEnforcesGrants<...>` instantiation with no call;
+- that it targets the real provider rather than a stub;
+- that `calls` cover every method of the service (the helper proves each listed call refuses
+  without its grant, and fails a list that omits a declared grant);
+- that it is per provider or per service: it is per workspace, so one call satisfies a workspace
+  that provides several services;
+- that the provider does not special-case the probe consumer the helper uses.
+
+All of these are review-only. A helper re-exported from another module and called there is not
+recognised (the check wants the import of the specifier in the file that calls it), and neither is
+a call through a bracketed member name of the namespace import. It is not
+wired into `npm run layout`, so it runs where the package's tests run.
+
 ## The rest of the config
 
 `eslint.config.js` is strict and type-aware (typescript-eslint `strictTypeChecked`), with
