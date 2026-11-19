@@ -3,6 +3,34 @@ import { baseConfig } from '@sheavly/eslint-config';
 
 export default defineConfig([
   ...baseConfig({ tsconfigRootDir: import.meta.dirname }),
+  // A stored `profile.json` and conversation `index.json` are read through the schemas that also
+  // take the files written before "mode" became "effort" (`src/legacy-effort/`); the plain protocol
+  // schemas would reject those files, so a store that parsed with them would lose old data.
+  {
+    files: ['src/**/*.ts'],
+    ignores: ['src/legacy-effort/**', 'src/**/__tests__/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@sheavly/protocol/profile/profile.validator',
+              importNames: ['profileSchema'],
+              message:
+                'Read a stored profile.json with storedProfileFileSchema (legacy-effort/legacy-effort.validator): profileSchema rejects files written before "mode" became "effort".',
+            },
+            {
+              name: '@sheavly/protocol/store/store.validator',
+              importNames: ['storedConversationSchema'],
+              message:
+                'Read a stored index.json with storedConversationIndexSchema (legacy-effort/legacy-effort.validator): storedConversationSchema rejects files written before "mode" became "effort".',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // The credential store is the one module that names the credentials file: it is where the file
   // is read, checked to be private and written. Nothing else in the repo may (`harness/no-credentials-file`).
   { files: ['src/credential-store/**'], rules: { 'harness/no-credentials-file': 'off' } },
