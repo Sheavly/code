@@ -83,8 +83,8 @@ left out and listed in `skippedExtensions` with `reason: 'service'` and the `mis
 untrusted or dependent one has `untrusted` or `dependency`). A name ending in `*` in the manifest
 declares names only known at run time, as `coding` does for the `.sheavly/` hooks of a workspace.
 The app supplies the
-host with run services (`runServices`, `@sheavly/host/run-services/run-services.utils`), which
-every extension reads without a `dependsOn`:
+host with run services (`runServices`), which every extension reads without a `dependsOn`. Their
+keys are exported by `@sheavly/extension/run-services/run-services.utils`:
 
 | Key                                              | What it is                                                                                   |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |

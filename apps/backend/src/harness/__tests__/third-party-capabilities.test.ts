@@ -1,8 +1,8 @@
 /**
  * Acceptance test: a third party extends the program without editing our source. Every extension
  * here uses only exports reachable from the monorepo (the packages are private workspaces; this
- * test lives in `apps/backend`; publishing and installing are #332): public exports (`@sheavly/extension`, `@sheavly/host/run-services`,
- * `@sheavly/runtime`, `@sheavly/core`, the testing fakes) and is added through
+ * test lives in `apps/backend`; publishing and installing are #332): public exports (`@sheavly/extension`, including the run-service
+ * keys, `@sheavly/runtime`, `@sheavly/core`, the testing fakes) and is added through
  * `createBackendHarness({ extensions })`, the one call an embedding app makes.
  */
 import { z } from 'zod';
@@ -17,7 +17,7 @@ import {
   placeHook,
   settingKey,
 } from '@sheavly/extension/extension/extension.utils';
-import { createConversation } from '@sheavly/host/conversation/conversation.helper';
+import type { SessionInfoView } from '@sheavly/extension/run-services/run-services.types';
 import {
   APPROVALS,
   BACKGROUND_TASKS,
@@ -25,10 +25,10 @@ import {
   MODEL,
   OUTPUT_READER,
   SESSION_INFO,
-} from '@sheavly/host/run-services/run-services.utils';
+} from '@sheavly/extension/run-services/run-services.utils';
+import { createConversation } from '@sheavly/host/conversation/conversation.helper';
 import { streamAgent } from '@sheavly/loop/stream-agent/stream-agent.helper';
 import type { SessionRef } from '@sheavly/protocol/session/session.types';
-import type { SessionInfoView } from '@sheavly/runtime/sessions/session-scope.types';
 import { finiteWork, startWork } from '@sheavly/runtime/tasks/work.utils';
 import { calls, say, toolCall } from '@sheavly/testing/provider/routed-provider.fake';
 import type { Script } from '@sheavly/testing/provider/provider.types';
