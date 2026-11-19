@@ -47,7 +47,9 @@ export const SETUP_HOSTING = [
     families: ['claude'],
     modelField: 'profile',
     profileOwner: 'anthropic',
-    defaults: { thinkingMode: 'adaptive' },
+    // Setup shows this as the suggested answer to "Max tokens": a person accepts or changes it.
+    // The adapter itself has no default, since Bedrock reserves it from the quota on every call.
+    defaults: { thinkingMode: 'adaptive', maxTokens: 32_000 },
   },
   {
     adapter: 'bedrock-openai',

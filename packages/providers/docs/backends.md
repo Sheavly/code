@@ -192,10 +192,12 @@ registry.create('bedrock-openai', {
 });
 ```
 
-- **`maxTokens` is required for Claude, with no default.** Bedrock holds back the input plus
-  `max_tokens` from the model's token quota when a call starts, and output tokens burn the quota
-  faster on the newest Claude models, so the 128000 default of Azure would starve the quota. Set what
-  the replies need. The thinking fields are Azure Claude's (see [above](#models-on-azure)).
+- **`maxTokens` is required for Claude, and the adapter has no default.** Bedrock holds back the
+  input plus `max_tokens` from the model's token quota when a call starts, and output tokens burn the
+  quota faster on the newest Claude models, so the 128000 default of Azure would starve the quota.
+  Set what the replies need. Setup suggests 32000 for a model from its catalogue, as the answer to
+  the question, which a person accepts or changes. The thinking fields are Azure Claude's (see
+  [above](#models-on-azure)).
 - **Credentials.** Every credential is a secret: it goes to the credential store, never into the
   model's file, and is never read from `~/.aws` or `AWS_*` variables (the example above reads them
   for illustration only). A model signs in one way, `auth`, and a secret of the other way is refused:
@@ -232,9 +234,13 @@ registry.create('bedrock-openai', {
 What is not covered: Converse and InvokeModel (the models that speak neither protocol, such as Nova,
 Llama or Mistral), shared profiles, SSO and role chains, Agents, Knowledge Bases, Guardrails, batch inference, provisioned
 throughput and application inference profiles. Pricing is not guessed: enter it per model. The
-adapters were written from AWS's public documentation and tested against fake HTTP; they have not
-been run against Bedrock itself, and that SigV4 is accepted on the `/anthropic/v1/messages` and
-`/openai/v1/responses` routes is assumed from AWS's documentation of its other routes.
+adapters were written from AWS's public documentation and tested against fake HTTP. What a real
+Bedrock account has confirmed, by the author with a signed access key pair: a SigV4 request for
+the `bedrock` service is accepted on both the `/anthropic/v1/messages` and the
+`/openai/v1/responses` route and streams as server-sent events, and a model set up through
+`--setup` with `access-key` credentials answers. Not confirmed: sending a Bedrock API key (the
+`x-api-key` and Bearer headers are from AWS's documentation), and Bedrock's own error and throttle
+behaviour.
 
 ## Sending a call: timeouts and retries
 
