@@ -3,5 +3,6 @@
   "name": "web",
   "dependsOn": ["agents"],
   "services": { "requires": ["sub-agents"] },
+  "grants": ["sub-agent:share"],
   "tools": ["web_fetch", "web_search"]
 }
