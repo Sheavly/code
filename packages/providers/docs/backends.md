@@ -164,7 +164,10 @@ where a request may run. A geography (`us`, `eu`, `ca`, `au`, `jp`) keeps reques
 lets them run in any commercial Region. Which prefixes a model has differs per model (its card in the
 [Bedrock model list](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards.html) names them),
 and a prefix is no proof of residency: check the profile with `GetInferenceProfile` from each source
-Region. The adapters accept the known prefixes and Bedrock answers for the rest.
+Region. The adapters accept `us`, `us-gov`, `ca`, `eu`, `au`, `jp`, `apac` and `global`; another
+prefix is refused before a request is sent (add it to `bedrock.constants.ts` when AWS adds one), and
+Bedrock answers for a known prefix the model lacks. The ID may hold only letters, digits and
+`. _ : -`.
 
 ```ts
 registry.create('bedrock-anthropic', {

@@ -51,6 +51,14 @@ describe('bedrockAnthropicAdapter', () => {
     'US-EAST-1',
     'us_east_1',
     'us-east-1/../x',
+    'us-east-1\n',
+    'us-east-1.',
+    'us-east-1@evil.com',
+    'us-east-1:443',
+    'us-east-1#',
+    'us-east-1%2e',
+    'ｕs-east-1',
+    `us-${'a'.repeat(40)}-1`,
     '',
   ])('refuses the region %j, so the host cannot be steered elsewhere', (region) => {
     expect(parse({ region }).success).toBe(false);
@@ -70,6 +78,10 @@ describe('bedrockAnthropicAdapter', () => {
     ['a profile of another provider', 'us.openai.gpt-6-astra'],
     ['an unknown prefix', 'mars.anthropic.claude-sonnet-5-5'],
     ['a profile without a model', 'us.anthropic.'],
+    ['a newline in the model', 'us.anthropic.claude\nx'],
+    ['a path in the model', 'us.anthropic.claude/../x'],
+    ['a space in the model', 'us.anthropic.claude sonnet'],
+    ['an overlong model', `us.anthropic.${'a'.repeat(300)}`],
     ['an empty value', ''],
   ])('refuses %s', (_name, model) => {
     expect(parse({ model }).success).toBe(false);

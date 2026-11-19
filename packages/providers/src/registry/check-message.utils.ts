@@ -16,8 +16,7 @@ export function checkHttpMessage(params: {
     return 'HTTP 429: Rate limited. Wait and retry, or check your provider quota.';
   }
 
-  if (host === 'bedrock' && status === 403) return bedrockMessage(status);
-  if (host === 'bedrock' && status === 404) return bedrockMessage(status);
+  if (host === 'bedrock' && (status === 403 || status === 404)) return bedrockMessage(status);
 
   if (status !== 400 && status !== 422) return undefined;
 

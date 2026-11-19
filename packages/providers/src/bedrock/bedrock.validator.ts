@@ -7,6 +7,7 @@ import { INFERENCE_PROFILE_PREFIXES } from './bedrock.constants.js';
  */
 export const bedrockRegionSchema = z
   .string()
+  .max(32)
   .regex(/^[a-z]{2}(-[a-z]+)+-\d+$/, 'Expected a Region code like us-east-1')
   .meta({
     title: 'Region',
@@ -29,6 +30,8 @@ export function bedrockProfileSchema(params: {
   return z
     .string()
     .min(1)
+    .max(200)
+    .regex(/^[A-Za-z0-9._:-]+$/, 'Use letters, digits and . _ : - only')
     .refine(
       (id) => {
         const [prefix, owner, ...model] = id.split('.');

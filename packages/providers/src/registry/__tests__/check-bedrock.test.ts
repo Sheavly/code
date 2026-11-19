@@ -20,6 +20,24 @@ const checked = (params: { kind: string; config: Record<string, unknown>; status
   });
 
 describe('the connection check of a Bedrock model', () => {
+  it('gives Bedrock’s messages to every adapter for Bedrock, which is named bedrock-*', () => {
+    // The check picks its messages from the kind's prefix, so a Bedrock adapter named otherwise
+    // would silently get the general ones.
+    const described = createDefaultRegistry().describe();
+    const onBedrock = described.filter(({ description }) => /bedrock/i.test(description));
+
+    expect(onBedrock.length).toBeGreaterThan(0);
+
+    for (const { kind } of onBedrock) expect(kind.startsWith('bedrock-'), kind).toBe(true);
+
+    for (const { kind } of described.filter(({ kind: name }) => name.startsWith('bedrock-'))) {
+      expect(
+        onBedrock.map((adapter) => adapter.kind),
+        kind,
+      ).toContain(kind);
+    }
+  });
+
   it.each([
     ['bedrock-anthropic', claude],
     ['bedrock-openai', gpt],

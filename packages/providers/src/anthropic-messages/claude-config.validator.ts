@@ -26,7 +26,7 @@ export const claudeThinkingFields = {
   promptCaching: z.boolean().default(true).meta({
     title: 'Prompt caching',
     description:
-      'Send cache_control so repeated turns reuse the prompt prefix. On by default; turn it off only for a model that rejects the field.',
+      'Send cache_control so repeated turns reuse the prompt prefix. On by default; turn it off only for a deployment or model that rejects the field.',
   }),
 };
 
