@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { ESLint, Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
+import { storedFileReads } from '../stored-file-reads.js';
 
 const STORAGE = path.resolve(import.meta.dirname, '../../../storage');
 const eslint = new ESLint({ cwd: STORAGE });
@@ -37,6 +38,14 @@ async function broken(params) {
 // file written before "mode" became "effort". What a reader does with the parsed value, and a
 // schema copied under another name, stay with review.
 describe('reading a stored profile or conversation index in the storage package', () => {
+  it('is an error for source files, and not for the migration or the tests', () => {
+    expect(storedFileReads.rules['no-restricted-imports'][0]).toBe('error');
+    expect(storedFileReads.files).toEqual(['src/**/*.ts']);
+    expect(storedFileReads.ignores).toEqual(
+      expect.arrayContaining(['src/legacy-effort/**', 'src/**/__tests__/**']),
+    );
+  });
+
   it.each([
     ['src/profile-store/profile-store.service.ts', PROFILE_SCHEMA],
     ['src/profile-registry/open-profile.service.ts', PROFILE_SCHEMA],
