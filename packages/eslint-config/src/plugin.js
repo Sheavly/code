@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { extensionDeclaresGrants } from './rules/extension-declares-grants.js';
 import { extensionDefinition } from './rules/extension-definition.js';
 import { extensionNoRuntimeRegistries } from './rules/extension-no-runtime-registries.js';
 import { extensionOptionsUseServices } from './rules/extension-options-use-services.js';
@@ -44,6 +45,7 @@ if (!existsSync(path.join(REPO_ROOT, SKILLS_DIR))) {
 
 const RULES = {
   'branded-ids': brandedIds,
+  'extension-declares-grants': extensionDeclaresGrants,
   'extension-definition': extensionDefinition,
   'extension-no-runtime-registries': extensionNoRuntimeRegistries,
   'extension-options-use-services': extensionOptionsUseServices,

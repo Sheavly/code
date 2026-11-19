@@ -165,6 +165,7 @@ export function baseConfig(params) {
             files: SOURCE_FILES,
             ignores: testFiles,
             rules: {
+              'harness/extension-declares-grants': 'error',
               'harness/extension-definition': 'error',
               'harness/extension-options-use-services': 'error',
               'harness/extension-no-runtime-registries': 'error',
