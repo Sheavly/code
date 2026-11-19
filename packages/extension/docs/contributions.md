@@ -34,8 +34,14 @@ An extension can put text in the system prompt. `activate` returns
   changes nothing the host holds; changing them before the merge, while others activate, fails the
   extension (`ExtensionContributionChangedError`).
 - **What is enforced where.** The host enforces the grant, the declared name, the cap, the
-  collision and the copy at run time. There is no lint rule. The text's **content** is review-only:
-  it is the system prompt, so a section is the most trusted text an extension can write.
+  collision and the copy at run time, each on the one read it takes of the extension's list (a
+  getter or proxy that answers differently on a later read decides nothing). The only lint is
+  `harness/prompt-location`, which wants authored model text in a `*.prompt.ts`. The text's
+  **content** is review-only: it is the system prompt, so a section is the most trusted text an
+  extension can write. Also review-only, because the rule does not flag them:
+  `Object.assign({ name }, { text: '...' })`, a section array held in a class field,
+  `c.baseInstructions = '...'` assigned onto a `Contributions` variable and
+  `{ name, get text() { return '...' } }`. This is least privilege, not a sandbox.
 
 ### Replacing the generic base
 
@@ -44,12 +50,31 @@ sections and the app's own instructions still follow it. It needs the `system-pr
 grant and no manifest name (it is one slot); without the grant the activation fails with an
 `ExtensionUndeclaredError` (`use: 'grant'`). It is held to the same text rules and cap as a
 section (a blank replacement would silently drop the core guidance, which is the app's choice and
-not an extension's), read once and kept as the string. At most one extension per run may contribute
+not an extension's), read once and kept as the string. The 4000-character cap applies to a
+replacement too, so a replacement cannot carry the host's own generic base (about 34 KB): it is
+meant for a short base, and an app that needs a long custom base sets `baseInstructions` itself. At most one extension per run may contribute
 it: a second one fails with a `ContributionCollisionError` naming both, in either order. The
 merged value is `contributions.baseInstructions` (`undefined` when none). The replacement text
 IS the model's base prompt, and its content is review-only: the host's own base prompt has a
 recorded review (`npm run lint:prompt`) that an extension's replacement skips. When the app passes
 its own base explicitly, the app's base takes precedence over an extension's replacement.
+
+The app, not the extension, decides what reaches the prompt: its `omitInstructionSections` option
+(`HarnessOptions`) leaves out a section by the name the manifest declares, or the replacement by
+the reserved name `BASE_INSTRUCTIONS_SECTION` (`instructions.constants`), and always wins. The
+option itself is not reachable by an extension, and a name nothing contributed fails the run. This
+is the app choosing what its own prompt holds, least privilege, not a sandbox: the extension still
+runs. The option controls only the declared instruction sections. An extension's tools, hooks,
+notices and any section whose name the app does not know are not covered, and an extension can
+still infer an omitted section from the composed text: to remove an extension's influence, leave
+the extension out.
+
+That name is **reserved**: a section cannot be called `baseInstructions`, because the app uses that
+label to omit the replacement, and a section with the same label could not be told apart from it
+(omitting one would drop both, and a typo's "Available" list would hide the clash). The host
+refuses such a section at activation with an `ExtensionInstructionError` (`problem: 'reserved'`),
+and the manifest schema refuses the label in `instructions`. The label stays valid as the
+replacement slot itself, under `system-prompt:replace`.
 
 ## Settings
 

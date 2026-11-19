@@ -36,10 +36,9 @@ For these two helpers an extension no longer needs `@sheavly/host`: the package 
 and the host's behaviour builds on them:
 
 - `joinInstructions` (`instructions/instructions.utils`): joins instruction sections, each trimmed,
-  blank or missing ones dropped, a blank line between. An extension that contributes instructions
-  (coding's `composeCodingInstructions`) puts its own text in front of the app's with it. The
-  host's `composeInstructions` builds on it and adds the generic base prompt, which stays in
-  `@sheavly/host`.
+  blank or missing ones dropped, a blank line between. The host's `composeInstructions` and
+  `composeSystemPrompt` build on it and add the generic base prompt, which stays in
+  `@sheavly/host`; an extension contributes sections and the host composes them.
 - `keepsFit`, `MAX_REQUEST_KEEPS` and `MAX_KEEP_ENTRY_CHARS` (`approval/`): the limits the host's
   approvals scope enforces on the `keeps` of a request (`approval:keep`). An extension that
   proposes entries it computed itself asks `keepsFit` first and, when they do not fit, asks without

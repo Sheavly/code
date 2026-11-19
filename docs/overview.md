@@ -233,7 +233,9 @@ A provider (`packages/core/src/provider/`) is one method, `stream(request)`, ret
 | `tools`        | The tool definitions (name, description, JSON schema)                                                                                    |
 | `signal`       | Aborts the call                                                                                                                          |
 
-The host composes stable generic instructions, optional coding guidance and host extras.
+The host composes the system prompt at each read: the generic core (or a replacement), then the
+sections the extensions contribute (coding guidance is the `coding` extension's section), then the
+app's own extras.
 Conversations use them by default; an explicit conversation string remains a complete override.
 Children receive explicitly injected shared text before their role. All models use the same text.
 See [instruction composition](../packages/host/docs/harness.md#instruction-composition).

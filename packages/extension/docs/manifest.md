@@ -34,19 +34,19 @@ every other field defaults to empty.
 }
 ```
 
-| Field                         | Meaning                                                                                                                                                                                                                                                                                                                           |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `$schema`                     | Optional. The JSON Schema the file follows, so an editor validates it: `sheavly.schema.json` at this package's root.                                                                                                                                                                                                              |
-| `name`                        | Required. Unique, kebab-case (`EXTENSION_NAME_PATTERN`).                                                                                                                                                                                                                                                                          |
-| `dependsOn`                   | Extension names (kebab-case) that activate first and whose services become readable. No duplicates, not the extension itself.                                                                                                                                                                                                     |
-| `services.requires`           | Service names (kebab-case, as in `defineService('name')`; never a `*`) the extension reads with `services.get`. It cannot activate without them.                                                                                                                                                                                  |
-| `services.optional`           | Service names it reads with `services.find`. A name is not both required and optional.                                                                                                                                                                                                                                            |
-| `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                   |
-| `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                            |
-| `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance). |
-| `instructions`                | The names of the system-prompt sections it may contribute (`Contributions.instructions[].name`), by exact name: no `*`, no duplicates. A declared name may go unused. Contributing any needs the `system-prompt:extend` grant; see [`system-prompt:extend`](#the-system-prompt-grants).                                           |
-| `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                   |
-| `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                            |
+| Field                         | Meaning                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$schema`                     | Optional. The JSON Schema the file follows, so an editor validates it: `sheavly.schema.json` at this package's root.                                                                                                                                                                                                                                                                                      |
+| `name`                        | Required. Unique, kebab-case (`EXTENSION_NAME_PATTERN`).                                                                                                                                                                                                                                                                                                                                                  |
+| `dependsOn`                   | Extension names (kebab-case) that activate first and whose services become readable. No duplicates, not the extension itself.                                                                                                                                                                                                                                                                             |
+| `services.requires`           | Service names (kebab-case, as in `defineService('name')`; never a `*`) the extension reads with `services.get`. It cannot activate without them.                                                                                                                                                                                                                                                          |
+| `services.optional`           | Service names it reads with `services.find`. A name is not both required and optional.                                                                                                                                                                                                                                                                                                                    |
+| `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                                                                                           |
+| `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                                                                                                    |
+| `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance).                                                                         |
+| `instructions`                | The names of the system-prompt sections it may contribute (`Contributions.instructions[].name`), by exact name: no `*`, no duplicates, and not `baseInstructions`, which is reserved for the replacement base (the app uses it to omit the replacement). A declared name may go unused. Contributing any needs the `system-prompt:extend` grant; see [`system-prompt:extend`](#the-system-prompt-grants). |
+| `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                                                                                           |
+| `emits`, `serves`             | `emits` is enforced (see below); `serves` is reserved.                                                                                                                                                                                                                                                                                                                                                    |
 
 Every list rejects a repeated name, and the schema reports where: `tools[2]`, `settings[0].default`.
 
@@ -106,7 +106,8 @@ are defined once, in `@sheavly/extension/instructions/instructions.constants`
 (`SYSTEM_PROMPT_EXTEND_GRANT`, `SYSTEM_PROMPT_REPLACE_GRANT`).
 
 - **`system-prompt:extend`** lets the extension contribute `instructions: [{ name, text }]`, named
-  in the manifest's `instructions`. Without the grant, an extension that returns any section fails
+  in the manifest's `instructions` (never `baseInstructions`: that name is reserved for the
+  replacement, so the app's omit label means one thing). Without the grant, an extension that returns any section fails
   its activation with an `ExtensionUndeclaredError` (`use: 'grant'`, naming the extension and the
   grant), like a service method called without its grant. An empty list needs no grant.
 - **`system-prompt:replace`** lets the extension contribute `baseInstructions: string`, which
@@ -115,7 +116,10 @@ are defined once, in `@sheavly/extension/instructions/instructions.constants`
   without the grant, activation fails the same way. At most one extension per run may hold it: a
   second one fails the run's merge with a `ContributionCollisionError` naming both, whichever
   activates first. When the app passes its own base explicitly, the app's base takes precedence
-  over an extension's replacement; the app's explicit choice is not overridden.
+  over an extension's replacement; the app's explicit choice is not overridden. The app can also
+  omit a section, or the replacement (by the reserved `BASE_INSTRUCTIONS_SECTION` name), with its
+  `omitInstructionSections` option and always wins; the grant says what an extension may ask for,
+  and the app still decides what reaches its prompt.
 
 **These are the strongest grants an extension can ask for.** What an extension writes here IS the
 system prompt: the model follows it as the harness's own instruction, ahead of anything the user
@@ -266,8 +270,15 @@ they do not cover.
   cannot cross conversations, because one registry serves one conversation.
 - **The content of a system-prompt text is review-only.** The host enforces the grant, the
   declared name, the cap and that the text is a non-blank string; nothing checks what it says.
-  Lint has no rule for it, and the recorded prompt review (`npm run lint:prompt`) covers the
-  host's own base prompt, not text an extension contributes. Section texts are frozen copies;
+  Lint covers only where the text lives: `harness/prompt-location` requires a section's `text`
+  and `baseInstructions` to come from a `*.prompt.ts`, with the gaps listed in
+  [contributions](contributions.md) (`Object.assign({ name }, { text })`, a section array in a
+  class field, `c.baseInstructions = '...'` on a `Contributions` variable, a `get text()`), which
+  stay review-only. The recorded prompt review (`npm run lint:prompt`) covers the
+  host's own base prompt, not text an extension contributes. The 4000-character cap applies to a
+  replacement base too, so it cannot carry the host's own generic base (about 34 KB): it is meant
+  for a short base, and an app that needs a long custom base sets `baseInstructions` itself.
+  Section texts are frozen copies;
   tools, work kinds and hooks are not (next item).
 - **Item objects are not frozen.** Tools, work kinds and hooks are kept as the extension returned
   them. The host records and merges the names it checked and re-verifies them (and the lists)
