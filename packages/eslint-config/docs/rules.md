@@ -162,7 +162,14 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   callbacks are exempt, since their caller fixes the signature; so are test files.
 - **Named exports only** (`harness/no-default-export`): no default exports, so imports and renames
   stay greppable.
-- **No barrels** (`harness/no-barrel`): no re-exports; import from the defining file.
+- **No barrels** (`harness/no-barrel`): no re-exports; import from the defining file. The one
+  exception is a `*.types.ts` file re-exporting types by name (`export type { A, B as C } from '…'`):
+  a package's public contract types file can expose types it builds on without a second
+  definition, and `harness/single-definition` accepts it because the owner is the source. Still
+  rejected there: `export { x } from` (a value), `export *`, `export * as ns` and `export type *`
+  (a wildcard hides what is re-exported), and the inline form `export { type A } from` (a value
+  re-export statement). A type re-export in any other kind (`*.utils.ts`, `*.helper.ts`,
+  `index.ts`) fails too.
 - **Env only in apps** (`harness/no-process-env`, `src/` files of packages; tests and apps are
   exempt): no `process.env` or `process.loadEnvFile`. An app reads env and passes `process.env` in.
 - **`type`, not `interface`**, and caught errors are named `caughtError`.
