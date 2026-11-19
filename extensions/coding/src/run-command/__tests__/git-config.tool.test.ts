@@ -10,6 +10,7 @@ import { useTempWorkspace } from '@sheavly/workspace/testing/temp-workspace.fake
 import { createRunCommandTool } from '../run-command.tool.js';
 import { safeGitArgs } from '../run-command.utils.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
+import { approvalRequesterOf } from '../../testing/approval-requester.fake.js';
 import { testProcesses } from '@sheavly/process/testing/process-runner.fake';
 import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 
@@ -68,7 +69,7 @@ const run = (command: string) =>
         processes: testProcesses(),
         workspace: temp.workspace,
         permissions: testPermissions(),
-        approvals: approveAll(),
+        approvals: approvalRequesterOf(approveAll()),
       }),
     ],
     call: {

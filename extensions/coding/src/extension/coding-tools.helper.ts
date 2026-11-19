@@ -1,4 +1,4 @@
-import type { OutputCapture } from '@sheavly/core/output/output.types';
+import type { OutputCapture } from '@sheavly/extension/run-services/run-services.types';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
 import { createDeleteFileTool } from '../delete-file/delete-file.tool.js';
 import { createEditFileTool } from '../edit-file/edit-file.tool.js';

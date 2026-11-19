@@ -3,6 +3,7 @@ import type { answeringUi } from '@sheavly/runtime/testing/approvals.fake';
 import { parseCommand } from '../run-command/allow-list.utils.js';
 import { confirmCommand } from '../run-command/command-approval.helper.js';
 import type { CommandPermissions } from '../run-command/run-command.types.js';
+import { approvalRequesterOf } from './approval-requester.fake.js';
 
 /** Exercises approval decisions without executing the command or requiring a real Git repository. */
 export function commandConfirmer() {
@@ -20,7 +21,7 @@ export function commandConfirmer() {
       command,
       steps: parsed.steps,
       permissions,
-      approvals: ui.approvals,
+      approvals: approvalRequesterOf(ui.approvals),
       call: { callId: callIdSchema.parse('approval-test') },
       signal: new AbortController().signal,
     });
