@@ -19,25 +19,12 @@ import {
   moduleOf,
   readHarnessRegistries,
 } from '../harness-registry-types.utils.js';
-import { isExtensionSource } from './extension-source.utils.js';
-import { findRoot } from './workspace-types.js';
+import { extensionRootOf, literalText } from './extension-source.utils.js';
 
 /** The host helper whose `createHarness` builds the registries. */
 const HOST_HELPER = '@sheavly/host/host/host.helper';
 
-const SOURCE_FILE = /\.[cm]?tsx?$/;
 const toPosix = (file) => file.split(path.sep).join('/');
-
-/** The text of a string literal or an expression-free template, else undefined (a computed path). */
-function literalText(node) {
-  if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;
-
-  if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) {
-    return node.quasis[0].value.cooked ?? undefined;
-  }
-
-  return undefined;
-}
 
 /** True if the import brings no value: `import type`, or only inline `type` specifiers. */
 function isTypeOnlyImport(node) {
@@ -139,13 +126,9 @@ export const extensionNoRuntimeRegistries = {
     },
   },
   create(context) {
-    const options = context.options[0] ?? {};
-    const root = options.root ?? findRoot(context.cwd);
+    const root = extensionRootOf(context);
 
-    // Cheap checks first: a file that is not extension source pays for no parse or stat.
-    if (!root || !SOURCE_FILE.test(context.filename)) return {};
-
-    if (!isExtensionSource({ root, options, file: context.filename })) return {};
+    if (!root) return {};
 
     const { registries } = readHarnessRegistries(root);
 

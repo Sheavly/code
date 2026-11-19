@@ -168,6 +168,7 @@ export function baseConfig(params) {
               'harness/extension-definition': 'error',
               'harness/extension-options-use-services': 'error',
               'harness/extension-no-runtime-registries': 'error',
+              'harness/extension-public-contract': 'error',
             },
           },
         ]

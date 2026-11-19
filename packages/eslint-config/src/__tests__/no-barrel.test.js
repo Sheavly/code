@@ -1,9 +1,9 @@
 import { harnessPlugin } from '../plugin.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 
-// A re-export is a barrel, except a types file naming the types it exposes as its public API:
-// that creates no second definition. Values, wildcards, the inline `type` modifier and every
-// other file kind stay rejected.
+// A re-export is a barrel, except a types file naming, from another package, the types it exposes
+// as its public API: that creates no second definition. Relative sources, values, wildcards, the
+// inline `type` modifier and every other file kind stay rejected.
 const ruleTester = typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' });
 
 const TYPES = 'src/run-services/run-services.types.ts';
@@ -19,6 +19,10 @@ ruleTester.run('no-barrel', harnessPlugin.rules['no-barrel'], {
     { code: "export type { A } from '@x/y/a.types';", filename: TYPES },
     { code: "export type { A, B, C } from '@x/y/a.types';", filename: TYPES },
     { code: "export type { A, B as C } from '@x/y/a.types';", filename: TYPES },
+    {
+      code: "export type { A } from '@sheavly/runtime/a/a.types';",
+      filename: 'src/index.types.ts',
+    },
   ],
   invalid: [
     // A value re-export, a wildcard and a namespace re-export, in a types file or not.
@@ -32,6 +36,12 @@ ruleTester.run('no-barrel', harnessPlugin.rules['no-barrel'], {
     // The inline modifier makes a value re-export statement.
     reports("export { type A } from './a.types.js';", TYPES),
     reports("export { type A, b } from './a.types.js';", TYPES),
+    // A relative source is a barrel by another name, even in a types file.
+    reports("export type { A } from './a.types.js';", TYPES),
+    reports("export type { A, B } from '../b/b.types.js';", 'src/a/index.types.ts'),
+    // A `#` subpath import and an absolute path name this package's own files too.
+    reports("export type { A } from '#internal/a.types';", TYPES),
+    reports("export type { A } from '/abs/a.types';", TYPES),
     // A type re-export outside a types file.
     reports("export type { A } from './a.types.js';", 'src/a/a.utils.ts'),
     reports("export type { A } from './a.types.js';", 'src/a/a.helper.ts'),
