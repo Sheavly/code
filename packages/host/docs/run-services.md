@@ -125,7 +125,9 @@ sub-agent) sees them.
   does not compile, and `scopedService` takes the grants a manifest may ask for from the same table.
   A scope that gains a method adds it to the table first:
   `run-service-grants.service.test.ts` fails when a scope's public members and the table differ,
-  when a service offers a grant no member needs, and when a method runs without its grant.
+  when a service offers a grant no member needs, and when a method runs without its grant. The
+  same table is what `harness/extension-declares-grants` reads to check an extension's calls
+  against its manifest before they run (`packages/eslint-config/docs/rules.md`).
 - **Switching off.** The host disarms every instance before the extension's own `deactivate` runs,
   wherever it stops the extension's emitter (deactivate, a roll-back, a failed activation). After
   that every method throws a `ScopeDeactivatedError` naming the extension and the service, and

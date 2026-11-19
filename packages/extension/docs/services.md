@@ -130,9 +130,17 @@ does not compile and a grant string is written nowhere else; and each service's 
 grants a manifest may ask for is the distinct grants of its members (`grantsOfService`). It is
 the one place to change when a scope gains a method: add the member here, and the host's test
 that compares each scope's public members with the table fails until you do. It is a plain
-literal (no spreads, computed keys, calls or imported values) so a lint rule, a later change,
-can read it from source without running code. `main-session` and `instructions` need no grant
+literal (no spreads, computed keys, calls or imported values) so the lint rule
+`harness/extension-declares-grants` reads it from source without running code, to report an
+extension's call whose grant its manifest lacks (what it follows and misses:
+`packages/eslint-config/docs/rules.md`). `main-session` and `instructions` need no grant
 and are absent.
+
+The table is deep-frozen when its module loads (every level, in the module that defines it), so an
+extension that imports it cannot change what the host checks: an assignment, a delete or a
+`defineProperty` throws a `TypeError`. `grantOf` and `grantsOfService` look names up as own
+members only, so a name that is not one (`constructor`, `__proto__`, a name added to
+`Object.prototype`) throws a `RangeError`, and `grantsOfService` returns a new array on each call.
 
 ### An extension built from public exports only
 
