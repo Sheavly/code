@@ -339,8 +339,9 @@ Like every grant, this is least privilege, not a sandbox.
 - **The host supplies run services any extension can read.** They come from the app as
   `hostService` entries, readable without a `dependsOn` once declared in `requires`/`optional`;
   an extension cannot provide a key the host supplies. The app builds them with `runServices`
-  (`@sheavly/host/run-services/run-services.helper`, keys in `run-services.utils`, the one place
-  they are made). No service is a whole registry: each is narrow, built per extension, and checks
+  (`@sheavly/host/run-services/run-services.helper`, the one place they are made). The host
+  implements the services; the keys and the types they carry are defined by `@sheavly/extension`
+  (see "The contract between an app and an extension"). No service is a whole registry: each is narrow, built per extension, and checks
   the grants the extension's manifest declares. See "Run services and grants" below.
 - **Run services are least privilege, not a sandbox.** An extension is Node code: it can use `fs`,
   `child_process`, `fetch` and `process.env`, and can import runtime classes, without declaring
@@ -438,14 +439,16 @@ changes.
 - Import only public subpaths: `@sheavly/extension/extension/extension.utils`
   (`defineExtension`, `defineService`, `settingKey`, `placeHook`),
   `@sheavly/extension/manifest/manifest.helper` (`readManifest`),
-  `@sheavly/host/run-services/run-services.utils` (the keys), `@sheavly/runtime/tasks/work.utils`
-  (background work) and `@sheavly/core/tool/tool.utils`. Never import `coding` or `agents`
-  internals.
+  `@sheavly/extension/run-services/run-services.utils` (the keys),
+  `@sheavly/extension/run-services/run-services.types` (the types the app hands you),
+  `@sheavly/runtime/tasks/work.utils` (background work) and `@sheavly/core/tool/tool.utils`.
+  Never import `@sheavly/host`, nor `coding` or `agents` internals.
 - `@sheavly/extension` provides the contract and the pure helpers an extension shares with the
   host: `joinInstructions` (`instructions/instructions.utils`) and `keepsFit` with its limits
-  (`approval/approval-keeps.utils`, `approval-keeps.constants`). The service keys still come from
-  `@sheavly/host/run-services/run-services.utils` and the scope views from the runtime, because
-  the extension package sits below the runtime in the graph and cannot hold them.
+  (`approval/approval-keeps.utils`, `approval-keeps.constants`). The service keys, the types the
+  app hands an extension (the scope views included) and `ScopeDeactivatedError`
+  (`@sheavly/extension/errors/scopes.errors`) are in it too: see "The contract between an app and
+  an extension".
 - A setting: list it in the manifest's `settings`, make the key with `settingKey` and read it
   with `context.settings.get`; the user's value is `extensionSettings`.
 - A hook position: `placeHook({ hook, before: [CODING_HOOK_NAMES.agentsMd] })` or `after`, by
@@ -473,6 +476,54 @@ changes.
   string) and `services.find(OUTPUT_READER)` / `find(OUTPUT_CAPTURE)` (absent without an output store),
   each with its grants (see "Run services and grants"). There is no environment service: read
   configuration through a setting.
+- Before you finish, these three catch a broken contract:
+  - `harness/extension-public-contract` (lint): reports a literal import of `@sheavly/host`, a
+    contract name taken from another `@sheavly` package than `@sheavly/extension`, and an import
+    of test code (`testing/` path, `.fake` file) in production source; its limits are in
+    `packages/eslint-config/docs/rules.md`.
+  - `extensions/coding/src/extension/__tests__/coding-hook-names.test.ts`: pins the built-in hook
+    names (`agents-md`, `skills`, `scratch`, `working-root`) you place hooks around.
+  - `packages/extension/src/host/__tests__/outside-consumer.test.ts`: type-checks and runs an
+    extension built from public exports only, and proves the grant is enforced.
+
+## The contract between an app and an extension
+
+`@sheavly/extension` is the contract; the host implements it and defines no keys.
+
+- **What it holds.** The ten run-service keys in `run-services/run-services.utils` (`INSTRUCTIONS`,
+  `MAIN_SESSION`, `APPROVALS`, `SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`,
+  `TASK_CONTROL`, `OUTPUT_READER`, `OUTPUT_CAPTURE`, `MODEL`); the types the app hands an
+  extension in `run-services/run-services.types` (`ExtensionApprovalRequest`, `ApprovalRequester`,
+  `SystemPromptView`, and the scope views it re-exports: `ChildSessionScope`, `RunChildParams`,
+  `RunChildResult`, `SessionInfoView`, `SessionLifecycleUpdate`, `BackgroundTaskScope`,
+  `TaskStarter`, `TaskControl`, `OutputReader`, `OutputCapture`); and `ScopeDeactivatedError` in
+  `errors/scopes.errors`. It depends on `@sheavly/runtime` for the view types only (type imports,
+  no cycle). The host's own scope errors (`ScopeArgumentError`, `ApprovalToolNotContributedError`,
+  `ChildRunningError`) stay in `@sheavly/host/errors/scopes.errors`: they are not the contract.
+- **What else an extension may import.** As many libraries as its own substance needs: core,
+  protocol, the runtime's helpers (errors, locks, work factories), workspace, process, tools and
+  other extensions. Only the contract with the app comes from `@sheavly/extension`, never from
+  `@sheavly/host`.
+- **The rule.** `harness/extension-public-contract` reports, in the non-test, non-fake
+  `src/**/*.{ts,tsx}` of `extensions/*`: (1) an import of `@sheavly/host` in any form with a
+  literal specifier (static, `import type`, `export … from`, `export * from`, `import()`,
+  `typeof import()`, `import('…').X`, `import x = require()`); (2) an import of a contract name
+  from another `@sheavly` package than `@sheavly/extension` (a third-party library is not
+  checked); (3) an import of test code in production source (a relative path with a `testing/`
+  segment, a `.fake` file, a path into an `@sheavly` package with a `testing/` segment), since fakes may
+  import the host. The names are read from the extension package's own files, matched by imported
+  name, not by shape. It is lint, not a sandbox: a non-literal dynamic import, `require`,
+  `createRequire(…)(literal)`, an import behind a local re-export file and unusual casing are not
+  seen. The full list of limits is in `packages/eslint-config/docs/rules.md`. The dependency kind
+  of the host is the layout check's (`npm run layout`): an extension may list `@sheavly/host` only
+  in `devDependencies`.
+- **The outside-consumer test.** `packages/extension/src/host/__tests__/outside-consumer.test.ts`
+  builds a throwaway workspace with an extension from public exports only, type-checks it with the
+  repo's compiler options through the real `exports` maps, runs it through a real host and proves
+  the grant is enforced. It does not prove the exports are the right API or the published `dist`
+  layout, and it links `@sheavly/runtime` not at all: the extension package's types import runtime
+  types, which resolve from the symlink's real path in the repo, so an author who installs only
+  the four linked packages is not shown to resolve them (see `packages/extension/docs/services.md`).
 
 ### Built-in hook names
 

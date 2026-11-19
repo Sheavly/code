@@ -120,7 +120,11 @@ packages' `exports` maps alone, that the extension activates and contributes, an
 the scoped service works with the `session:read` grant and fails with an
 `ExtensionUndeclaredError` without it. It does not prove that the exports are the right API, the
 published `dist` layout (it reads source through the condition), or anything about code that
-reaches the runtime by a path the maps expose to every importer.
+reaches the runtime by a path the maps expose to every importer. It also does not link
+`@sheavly/runtime`, though this package's types import runtime types (`ApprovalRegistry['request']`
+is behind `ApprovalRequester`): TypeScript resolves runtime from the symlink's real path inside
+the repo, so the test cannot show that an author who installs only the four linked packages
+resolves those types.
 
 ## Services an extension provides per consumer
 
