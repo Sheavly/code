@@ -94,6 +94,7 @@ describe('a Bedrock model of a known identity', () => {
 
       const owner = host.adapter === 'bedrock-openai' ? 'openai' : 'anthropic';
       const definition = {
+        auth: 'api-key',
         region: 'us-east-1',
         maxTokens: 1024,
         ...host.defaults,
