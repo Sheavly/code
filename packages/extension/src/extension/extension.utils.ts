@@ -2,6 +2,7 @@ import type { Hook } from '@sheavly/core/hook/hook.types';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
 import { ExtensionDefinitionError } from '../errors/extension.errors.js';
 import type { ExtensionManifest, SettingType } from '../manifest/manifest.types.js';
+import { deepFreeze } from './deep-freeze.utils.js';
 import { UNNAMED_EXTENSION } from './extension.constants.js';
 import { extensionManifestSchema } from '../manifest/manifest.validator.js';
 import type {
@@ -14,17 +15,6 @@ import type {
   SettingKey,
   SettingTypes,
 } from './extension.types.js';
-
-/** `value` and everything below it frozen. Only for plain data (a parsed manifest). */
-function deepFreeze<TValue>(value: TValue): TValue {
-  if (typeof value !== 'object' || value === null || Object.isFrozen(value)) return value;
-
-  Object.freeze(value);
-
-  for (const inner of Object.values(value)) deepFreeze(inner);
-
-  return value;
-}
 
 /** The name an unvalidated manifest gives itself, or a placeholder, for the message about it. */
 function writtenNameOf(manifest: unknown): string {
