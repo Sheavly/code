@@ -25,6 +25,12 @@ export default defineConfig(({ mode }) => ({
         : []),
     ],
     environment: 'node',
+    // Workers per test run. The default is about one per core, and `turbo.json` runs several test
+    // runs at once, so the gate started dozens of workers and pinned a 20-core machine. 4 was
+    // measured together with turbo's `concurrency` 5 (see `turbo.json`). It is set here and not
+    // through `VITEST_MAX_WORKERS`, which turbo's strict environment mode strips before it reaches
+    // vitest.
+    maxWorkers: 4,
     // A workspace's tests are its own: an app that is only an entry script, or the fakes package
     // (tested by every test that uses it), has none, and that passes.
     passWithNoTests: true,

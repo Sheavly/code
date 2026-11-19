@@ -8,6 +8,14 @@
   // The cache stays in this checkout (turbo would otherwise share the main worktree's), so a
   // worktree never writes into another one.
   "cacheDir": ".turbo/cache",
+  // At most this many tasks run at once (turbo's default is 10). The tasks are typecheck, type-aware
+  // lint and test runs, and each test run starts its own pool of workers (`maxWorkers` in
+  // `vitest.config.ts`), so the two limits multiply: uncapped, the gate holds almost every core of
+  // a 20-core machine for minutes. 5 with `maxWorkers` 4 was measured on that machine: the gate
+  // used about 17% less CPU for the same work and almost never saturated it, while its wall time
+  // stayed the same (the quality gate guide has the measurement). Override for one run with
+  // `npm run check -- --concurrency=<n>`.
+  "concurrency": "5",
   // A change in a shared config or the lockfile invalidates every cached result. The ESLint
   // config's own tests are left out: they change no rule, and the package's own `test` task still
   // hashes them. Its `testing/` fakes stay in, since the root's tests import them too.
