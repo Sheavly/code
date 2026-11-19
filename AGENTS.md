@@ -1,7 +1,7 @@
 # Sheavly harness
 
 An agent harness built as a backend: a small generic core (protocol, core, providers, runtime,
-tools, loop, host), coding as a preset on top (workspace, coding), and every front end an app
+tools, loop, host), coding as an extension on top (workspace, coding), and every front end an app
 (`apps/*`). npm workspaces + Turbo, ESM TypeScript, Node 24. Why it exists and where it is going:
 `docs/vision.md`; how it fits together: `docs/overview.md`.
 

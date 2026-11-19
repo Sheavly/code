@@ -185,17 +185,17 @@ work factories (`startWork`, `@sheavly/runtime/tasks/work.utils`) and ask the us
 `APPROVALS`, which only requests: answering is the UI's. There is no environment service;
 configuration is a setting.
 
-| Key                            | Service (name)                 | Grants → what each allows                                                                                                                                                                                                                                                                                            |
-| ------------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SESSION_INFO`                 | `session-info`                 | `session:read`: `get`, `list`, `isReleased`, `releasedStarts`, `onLifecycle` (metadata, never message content)                                                                                                                                                                                                       |
-| `CHILD_SESSIONS`               | `child-sessions`               | `sub-agent:create`: `startChild` (parent is the main session or an owned child), `setModel` on own, `runChild`; `sub-agent:message`: `send` to owned children (never as `'user'`); `sub-agent:observe`: updates of owned children; `sub-agent:report`: report an owned child's status                                |
-| `BACKGROUND_TASKS`             | `background-tasks`             | `task:start`: start work it owns; `task:read`: get, report, list, observe its own; `task:cancel`: cancel, group its own                                                                                                                                                                                              |
-| `TASK_CONTROL`                 | `task-control`                 | `task:read-any`: read any extension's task in the calling session (what `task_status` does); `task:cancel-any`: cancel or group any of them (`cancel_task`, `await_tasks`); a `sessionId` is always required and trusted (the service cannot know the caller), so these let an extension name any session of the run |
-| `OUTPUT_READER`                | `output-reader`                | `output:read`: `log`, `read`, `search` the shared store, which holds EVERY command's complete output, secrets included (only when the app has one)                                                                                                                                                                   |
-| `OUTPUT_CAPTURE`               | `output-capture`               | `output:capture`: create a new output, which fills the store's quota (only when the app has a store)                                                                                                                                                                                                                 |
-| `MODEL`                        | `model`                        | `model:call`: model calls on the app's credentials (budgets are deferred)                                                                                                                                                                                                                                            |
-| `APPROVALS`                    | `approvals`                    | `approval:request`: ask the user to approve, plus the read-only `listening`; the scope builds the request (attributed to the extension, answered once, no `keeps`, no `always_allow`)                                                                                                                                |
-| `INSTRUCTIONS`, `MAIN_SESSION` | `instructions`, `main-session` | none: constants                                                                                                                                                                                                                                                                                                      |
+| Key                            | Service (name)                 | Grants → what each allows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION_INFO`                 | `session-info`                 | `session:read`: `get`, `list`, `isReleased`, `releasedStarts`, `onLifecycle` (metadata, never message content)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `CHILD_SESSIONS`               | `child-sessions`               | `sub-agent:create`: `startChild` (parent is the main session or an owned child), `setModel` on own, `runChild`; `sub-agent:message`: `send` to owned children (never as `'user'`); `sub-agent:observe`: updates of owned children; `sub-agent:report`: report an owned child's status                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `BACKGROUND_TASKS`             | `background-tasks`             | `task:start`: start work it owns; `task:read`: get, report, list, observe its own; `task:cancel`: cancel, group its own                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `TASK_CONTROL`                 | `task-control`                 | `task:read-any`: read any extension's task in the calling session (what `task_status` does); `task:cancel-any`: cancel or group any of them (`cancel_task`, `await_tasks`); a `sessionId` is always required and trusted (the service cannot know the caller), so these let an extension name any session of the run                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `OUTPUT_READER`                | `output-reader`                | `output:read`: `log`, `read`, `search` the shared store, which holds EVERY command's complete output, secrets included (only when the app has one)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `OUTPUT_CAPTURE`               | `output-capture`               | `output:capture`: create a new output, which fills the store's quota (only when the app has a store)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `MODEL`                        | `model`                        | `model:call`: model calls on the app's credentials (budgets are deferred)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `APPROVALS`                    | `approvals`                    | `approval:request`: ask the user to approve, plus the read-only `listening`; by default the scope builds the request (attributed to the extension, answered once, no `keeps`, no `always_allow`); `approval:as-tool`: ask as a tool the extension contributes (unprefixed command; contributions are unique across a run, and a request during `activate` is refused); `approval:keep`: pass `options` and `keeps` through, bounded (50 concerns of 1000 characters with visible cuts; at most 20 `keeps` of 500), and the answer must be one of the offered options; whether an entry is kept is the requesting extension's own code, the prompt shows the entries (`always_allow`/`allow_session` need `keeps`); using a field without its grant is refused |
+| `INSTRUCTIONS`, `MAIN_SESSION` | `instructions`, `main-session` | none: constants                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 - **A grant is `<noun>:<verb>`** (lowercase kebab parts, one colon), declared in the manifest's
   `grants` and readable by an installer before any code runs. The catalogue is what the supplied
@@ -252,11 +252,12 @@ configuration is a setting.
   nothing from the app that another extension could not read from the same services under the same
   grants; options are only the embedding app's choices (a provider selector, a summarizer), and
   `harness/extension-options-use-services` fails an `*ExtensionOptions` member whose declared type
-  names a type a run service carries or a registry type of `Harness`. The one stated exception:
-  `coding` still reads its workspace, file locks, process runner and the run's task, approval and
-  session state from the `CodingHarness` it is given (built on `createHarness`), and takes its own
-  `env` option (working roots and home); only its output capture comes through a service
-  (`output-capture`, grant `output:capture`); the rest of its access is tracked in #336. A new built-in that needs
+  names a type a run service carries or a registry type of `Harness`. There is no exception:
+  `coding` opens its own workspace, file reads and process runner and takes `workspaceRoot`,
+  `scratchRoot`, `fileLocks` and `env` options; it reads `SESSION_INFO` (`session:read`),
+  `BACKGROUND_TASKS` (`task:start`), `APPROVALS` (`approval:request`, `approval:as-tool`,
+  `approval:keep`), `MAIN_SESSION`, `SUB_AGENTS` and the optional `OUTPUT_CAPTURE`
+  (`output:capture`) like any extension. A new built-in that needs
   something only the app's code can inject is a missing run service: add the service (and its
   grants), not an option.
 - **Settings are declared in the manifest and read through the context.** `Extension.settings` is
@@ -337,6 +338,11 @@ changes.
   `@sheavly/host/run-services/run-services.utils` (the keys), `@sheavly/runtime/tasks/work.utils`
   (background work) and `@sheavly/core/tool/tool.utils`. Never import `coding` or `agents`
   internals.
+- `@sheavly/extension` provides the contract and the pure helpers an extension shares with the
+  host: `joinInstructions` (`instructions/instructions.utils`) and `keepsFit` with its limits
+  (`approval/approval-keeps.utils`, `approval-keeps.constants`). The service keys still come from
+  `@sheavly/host/run-services/run-services.utils` and the scope views from the runtime, because
+  the extension package sits below the runtime in the graph and cannot hold them.
 - A setting: list it in the manifest's `settings`, make the key with `settingKey` and read it
   with `context.settings.get`; the user's value is `extensionSettings`.
 - A hook position: `placeHook({ hook, before: [CODING_HOOK_NAMES.agentsMd] })` or `after`, by
@@ -348,7 +354,13 @@ changes.
   `startWork` and `finiteWork` on `services.get(BACKGROUND_TASKS)` (`background-tasks` in
   `requires`, grants `task:start` and `task:read`), owned by `context.session`.
 - Asking the user: `services.get(APPROVALS).request(...)` (`approvals` in `requires`, grant
-  `approval:request`); the UI answers, an extension cannot.
+  `approval:request`); the UI answers, an extension cannot. Naming one of the tools you
+  contribute as the asker needs `approval:as-tool`; offering `options` and `keeps` (the user's
+  "allow for this session" and "always allow") needs `approval:keep`. The host only passes them
+  through and checks the answer was offered: keeping an entry after the answer is your own code
+  (coding persists them through its permissions), and entries that do not fit the limits
+  (`keepsFit`, `@sheavly/extension/approval/approval-keeps.utils`) are better left out than
+  refused.
 - Telling the UI or the model something: declare `emits` in the manifest, return `events` and
   `notices` with their schemas, and use `context.emit` (types from
   `@sheavly/extension/emit/emit.types`); see "Emitting events and notices" and
@@ -408,12 +420,16 @@ by type name. And `harness/extension-no-runtime-registries`: in the non-test sou
 `extensions/*`, a value import of the runtime session, task or approval service modules (the
 modules `Harness` types its registries from) or of `createHarness` fails, so an extension's code
 does not build or reach a registry by importing one (a relative path into a workspace's `src/`
-and `..` segments in a package specifier are resolved first). It has one documented, tested
-exception list: `coding`'s `preset/coding.helper.ts` (it builds on `createHarness`). A test pins
-the list to that one entry, and another fails an entry whose file no longer holds a violation,
-so an exception cannot be added unnoticed and cannot outlive its cause. Its gaps: files under `testing/` and `__tests__` are exempt by file kind,
-the allow entry exempts the WHOLE `coding.helper.ts` file, and value imports of the loop's runner
-(`runSession`) and of host `*Scope` classes are not flagged.
+and `..` segments in a package specifier are resolved first). It has no exception list: no
+extension, `coding` included, may take a registry, and a test checks that the real tree has no
+violation. Its gaps: files under `testing/` and `__tests__` are exempt by file kind, and value
+imports of the loop's runner (`runSession`) and of host `*Scope` classes are not flagged.
+
+**Enforced at run time by the host:** an undeclared service or grant is refused, and so is a field
+a grant covers (`tool` without `approval:as-tool`, `options`/`keeps` without `approval:keep`); a
+`tool` must be one the extension contributes (checked against the names the host recorded after
+`activate`, so a request during `activate` is refused). **By lint:** the two rules above. **By
+review only:** the list below.
 
 **This is least privilege, not a sandbox.** None of this confines extension code (see "What the
 manifest is not" above): an extension is Node code and can still import runtime classes through a
@@ -430,11 +446,10 @@ conditional types that only resolve to a registry, an option typed `unknown`, `a
 parameter and then cast, a factory parameter outside the `*ExtensionOptions` type, an options type
 composed from another type that holds a service type (`Base & { … }`, or a local or imported alias
 used as a member's type), an options `class`, an options type not named `*ExtensionOptions`, a
-differently named but identical type, and the `harness` option of `coding` (`CodingHarness`, the
-stated exception, tracked in #336). Also review-only
+differently named but identical type. Also review-only
 for the import rule: a registry reached through a type-only import turned into a value, a dynamic
-`import()` of a non-literal path, a registry obtained from another object the extension is handed,
-and a grant that is declared but needlessly broad (the host fails a grant nobody defines, not one
+`import()` of a non-literal path, a computed `require`, `globalThis`, a registry obtained from
+another object the extension is handed, and a grant that is declared but needlessly broad (the host fails a grant nobody defines, not one
 the code never uses). `serves` is reserved: nothing enforces it yet. "An extension reaches what it
 needs through `@sheavly/extension` and the scoped services" is held by those checks, by review and
 by `third-party-emit.test.ts`.

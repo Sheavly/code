@@ -52,7 +52,6 @@ typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' }).run(
         filename: web,
         options,
       },
-      { code: alias('harness: CodingHarness'), filename: web, options },
       // Only `*ExtensionOptions` is checked.
       {
         code: 'export type WebFetchOptions = { tasks: TaskRegistry };',

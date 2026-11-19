@@ -17,7 +17,12 @@ export const ALL_GRANTS = [
   'output:capture',
   'model:call',
   'approval:request',
+  'approval:as-tool',
+  'approval:keep',
 ];
+
+/** Test-only: the two grants that widen an approval request beyond the default. */
+export const APPROVAL_WIDENING_GRANTS = ['approval:as-tool', 'approval:keep'];
 
 /**
  * Test-only: the extensions a test runs the same assertions for. A built-in declares its origin;

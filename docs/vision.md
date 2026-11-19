@@ -21,8 +21,8 @@ Cursor, OpenCode, Claude Code, Codex and the like are closed where it matters:
 VSCode won by architecture, not features: a small core, built-in features that use the same API as
 extensions, a protocol (LSP) that decoupled language smarts from the editor, and configuration that
 lives in the repo. The harness takes the same shape, for agents of any kind: **a small core,
-everything else an extension, and any UI a client.** Coding is the first preset built on it
-(the coding packages, which a coding UI composes), not the point of the core: a text extractor or a chat wrapper uses the
+everything else an extension, and any UI a client.** Coding is the first extension built on it
+(the `coding` extension, which a coding UI composes), not the point of the core: a text extractor or a chat wrapper uses the
 same loop, tools and hooks without a repo in sight.
 
 | VSCode                          | Sheavly                                                                         |

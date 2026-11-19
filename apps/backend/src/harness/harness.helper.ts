@@ -1,10 +1,12 @@
 import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
 import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
 import { CODING_RUN } from '@sheavly/coding/extension/coding-extension.utils';
-import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
+import { composeCodingInstructions } from '@sheavly/coding/instructions/coding-instructions.helper';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
+import { createHarness } from '@sheavly/host/host/host.helper';
 import { runServices } from '@sheavly/host/run-services/run-services.helper';
 import { runSession } from '@sheavly/loop/stream-agent/stream-agent.helper';
+import { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import { createWebExtension } from '@sheavly/web/web/web.helper';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
@@ -21,7 +23,11 @@ import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
  * workspace's `.sheavly/` hooks if it is trusted. `coding` and `web` share their tools (and
  * `coding` its hooks) with sub-agents through `agents`. The packages provide the pieces and the
  * shared services, never the choice. Skills are instructions, like AGENTS.md, so workspace trust
- * doesn't gate them.
+ * doesn't gate them. The run's `instructions` are the coding guidance and the app's own, composed
+ * here (`composeCodingInstructions`) on the host's `createHarness`; `coding` opens the workspace
+ * and takes the `fileLocks` (default: this run's own), `workspaceRoot`, `scratchRoot` and `env`
+ * given here, and reads the run like any extension, so the run returns its `workspace` from
+ * `CODING_RUN`.
  *
  * An embedding app adds its own with `extensions`, after these, without editing any of them. Every
  * extension, built-in or not, reads the run's provider, instructions, sessions, main session,
@@ -58,17 +64,26 @@ export async function createBackendHarness(
     onExtensionProblem,
     extensions = [],
     extensionSettings,
-    ...coding
+    workspaceRoot,
+    scratchRoot,
+    env,
+    fileLocks = new KeyedLocks(),
+    ...harnessOptions
   } = options;
-  const harness = await createCodingHarness(coding);
+  const harness = createHarness({
+    ...harnessOptions,
+    instructions: composeCodingInstructions({ instructions: harnessOptions.instructions }),
+  });
   const { sessions } = harness;
   const host = new ExtensionHost({
     extensions: [
       createWebExtension({ webFetch, webSearch }),
       createAgentsExtension({ subAgentProvider, summarizeWith, keepAgentHistory, logOf }),
       createCodingExtension({
-        harness,
-        env: options.env,
+        workspaceRoot,
+        scratchRoot,
+        env,
+        fileLocks,
         permissions,
         home,
         trustStore,
@@ -119,10 +134,12 @@ export async function createBackendHarness(
     throw failed[0].cause;
   }
 
-  const { workingRoots, skills, projectHooks, projectTrust } = host.service(CODING_RUN);
+  const { workspace, workingRoots, skills, projectHooks, projectTrust } = host.service(CODING_RUN);
 
   return {
     ...harness,
+    workspace,
+    fileLocks,
     workingRoots,
     tools: [...contributions.tools],
     hooks: [...contributions.hooks],

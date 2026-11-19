@@ -6,14 +6,18 @@ import type {
 } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { OUTPUT_CAPTURE } from '@sheavly/host/run-services/run-services.utils';
+import { OUTPUT_CAPTURE, SESSION_INFO } from '@sheavly/host/run-services/run-services.utils';
 import { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
-import { keepReadsWithConversation } from '../file-reads/file-reads.helper.js';
+import {
+  forgetReleasedAgents,
+  keepReadsWithConversation,
+} from '../file-reads/file-reads.helper.js';
 import type { SkillRoots } from '../skills/skills.types.js';
 import { createInstructionHooks, loadWorkspaceHooks } from './coding-hooks.helper.js';
 import { createCommandTools, createFileTools } from './coding-tools.helper.js';
-import type { CodingExtensionOptions } from './coding-extension.types.js';
+import type { CodingExtensionOptions, CodingParts } from './coding-extension.types.js';
 import { CODING_RUN } from './coding-extension.utils.js';
+import { openCodingParts } from './coding-parts.helper.js';
 
 // src/extension/ and dist/extension/ are both two levels below the workspace root.
 const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
@@ -23,29 +27,32 @@ const manifest = readManifest(new URL('../../sheavly.json', import.meta.url));
  * AGENTS.md, skills, scratch and working-root hooks, and the workspace's `.sheavly/` hooks (if it
  * is trusted). Skills are instructions, like AGENTS.md, so workspace trust doesn't gate them.
  *
- * It depends on `agents` to share its tools and hooks with sub-agents, and provides `CODING_RUN`.
- * It reads `OUTPUT_CAPTURE` (`output:capture`), when the host supplies it, from the run services
- * like any extension; the logs it fills are read back through `read_output`. Its
- * one exception is the `harness`: coding's workspace, locks and processes (and the registries,
- * since `createCodingHarness` is built on `createHarness`) come from the harness it is given, and
- * the `env` option is its own (working-root and home resolution). It does not provide the
- * run-level services (they come from the host); it provides `CODING_RUN`. Keeping the
- * conversation's file reads is stopped when the extension is deactivated, or at once if its
- * activation fails.
+ * It integrates like any extension, with no access a third party lacks. It opens its own
+ * workspace, file reads and process runner (the process runner stops what it started when the
+ * process exits) and takes its file locks from the `fileLocks` option, so several runs can share
+ * them. It reads `SESSION_INFO` (`session:read`: the main session's idle keeps the file reads, any
+ * session's release forgets its reads), `BACKGROUND_TASKS` (`task:start`), `APPROVALS`
+ * (`approval:request`, and `approval:as-tool` and `approval:keep` for its two tools' prompts),
+ * `MAIN_SESSION`, `SUB_AGENTS` and, when the host supplies it, `OUTPUT_CAPTURE`
+ * (`output:capture`; the logs it fills are read back through `read_output`). It depends on
+ * `agents` to share its tools and hooks with sub-agents, and provides `CODING_RUN`. Listening to
+ * the sessions is stopped when the extension is deactivated, or at once if its activation fails.
  */
 export function createCodingExtension(options: CodingExtensionOptions): Extension {
-  const { harness, shell, env, onFileReadsProblem } = options;
-  let stopKeepingReads: () => void = () => undefined;
+  const { shell, env, onFileReadsProblem } = options;
+  let stopListening: () => void = () => undefined;
 
   return defineExtension({
     manifest,
     activate: async ({ services }) => {
-      const { workspace, fileReads, sessions, mainSession } = harness;
+      const parts = await openCodingParts({ options, services });
+      const { workspace, fileReads, mainSession } = parts;
+      const sessions = services.get(SESSION_INFO);
       // One per conversation, over its `shell.json`: the main session and every sub-agent share it.
       const workingRoots = new WorkingRoots({ store: shell, workspace, env });
       const skillRoots = { root: workspace.root, home: options.home };
-
-      stopKeepingReads = await keepReadsWithConversation({
+      const stopForgetting = forgetReleasedAgents({ fileReads, sessions });
+      const stopKeeping = await keepReadsWithConversation({
         fileReads,
         sessions,
         agentId: mainSession.id,
@@ -53,35 +60,46 @@ export function createCodingExtension(options: CodingExtensionOptions): Extensio
         ...(onFileReadsProblem && { onProblem: onFileReadsProblem }),
       });
 
+      stopListening = () => {
+        stopForgetting();
+        stopKeeping();
+      };
+
       try {
-        return await contribute({ options, services, workingRoots, skillRoots });
+        return await contribute({ options, parts, services, workingRoots, skillRoots });
       } catch (caughtError) {
         // An extension whose `activate` threw is not deactivated: it cleans up after itself.
-        stopKeepingReads();
+        stopListening();
         throw caughtError;
       }
     },
-    deactivate: () => stopKeepingReads(),
+    deactivate: () => stopListening(),
   });
 }
 
 /** The coding extension's tools and hooks, and what it provides and shares; throws if a hook is broken. */
 async function contribute(params: {
   options: CodingExtensionOptions;
+  parts: CodingParts;
   services: Services;
   workingRoots: WorkingRoots;
   skillRoots: SkillRoots;
 }): Promise<Contributions> {
-  const { options, services, workingRoots, skillRoots } = params;
-  const { harness, permissions } = options;
+  const { options, parts, services, workingRoots, skillRoots } = params;
+  const { permissions } = options;
   const outputs = services.find(OUTPUT_CAPTURE);
-  const instructionHooks = createInstructionHooks({ harness, workingRoots, skillRoots });
-  const projectHooks = await loadWorkspaceHooks({ harness, instructionHooks, options });
+  const instructionHooks = createInstructionHooks({ parts, workingRoots, skillRoots });
+  const projectHooks = await loadWorkspaceHooks({
+    workspace: parts.workspace,
+    instructionHooks,
+    options,
+  });
   const hooks = [...instructionHooks, ...projectHooks.hooks];
-  const fileTools = createFileTools({ harness, workingRoots, skillRoots });
-  const commandTools = createCommandTools({ harness, workingRoots, permissions, outputs });
+  const fileTools = createFileTools({ parts, workingRoots, skillRoots });
+  const commandTools = createCommandTools({ parts, workingRoots, permissions, outputs });
 
   services.provide(CODING_RUN, {
+    workspace: parts.workspace,
     workingRoots,
     skills: skillRoots,
     projectHooks: projectHooks.hooks,

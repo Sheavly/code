@@ -2,7 +2,6 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HARNESS_TYPES_FILE } from '../harness-registry-types.utils.js';
 import { harnessPlugin } from '../plugin.js';
-import { RUNTIME_REGISTRY_ALLOW } from '../runtime-registry-allow.js';
 import { repoRuleLinter, ruleIsErrorOn } from '../testing/coding-rule.fake.js';
 import { typescriptRuleTester } from '../testing/rule-tester.fake.js';
 import { tempWorkspace } from '../testing/workspace.fake.js';
@@ -106,12 +105,6 @@ typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' }).run(
         filename: at(file),
         options,
       })),
-      // A listed file is excepted, and only that file.
-      {
-        code: `import { createHarness } from '${HOST_HELPER}';`,
-        filename: web,
-        options: [{ root, allow: [{ file: 'extensions/web/src/web/web.helper.ts', reason: 'x' }] }],
-      },
     ],
     invalid: [
       ...VALUE_USES.map(([code, module]) => ({
@@ -120,15 +113,7 @@ typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' }).run(
         options,
         errors: [runtime(module)],
       })),
-      // A file that is not listed fails, even with another one listed.
-      {
-        code: `import { createHarness } from '${HOST_HELPER}';`,
-        filename: web,
-        options: [
-          { root, allow: [{ file: 'extensions/web/src/web/other.helper.ts', reason: 'x' }] },
-        ],
-        errors: [runtime(HOST_HELPER)],
-      },
+      // The option set takes no `allow`: there is no exception to name.
       {
         code: `import { a } from '${SESSIONS}';\nexport * from '${TASKS}';`,
         filename: web,
@@ -146,37 +131,36 @@ typescriptRuleTester({ sourceType: 'module', ecmaVersion: 'latest' }).run(
   },
 );
 
-describe('the exception list', () => {
-  const entries = RUNTIME_REGISTRY_ALLOW.map((entry) => [entry.file, entry]);
+/** The rule's messages for one linted file, each with the file's path from the repo root. */
+function violationsOf(result) {
+  const file = path.relative(REPO_ROOT, result.filePath);
 
-  it('is exactly coding.helper.ts today', () => {
-    // The coding layer must remove this entry (and then this test) when coding reads the scoped
-    // services instead of building its own harness.
-    expect(RUNTIME_REGISTRY_ALLOW.map((entry) => entry.file)).toEqual([
-      'extensions/coding/src/preset/coding.helper.ts',
-    ]);
+  return result.messages
+    .filter((message) => message.ruleId === RULE)
+    .map((message) => `${file}: ${message.message}`);
+}
+
+describe('the rule has no exceptions, over this repo', () => {
+  const eslint = repoRuleLinter(RULE);
+
+  it('finds no violation in the source of any extension', async () => {
+    const results = await eslint.lintFiles(['extensions/*/src/**/*.ts']);
+
+    expect(results.flatMap(violationsOf)).toEqual([]);
   });
 
-  it('gives every entry a reason', () => {
-    expect(RUNTIME_REGISTRY_ALLOW.every((entry) => entry.reason.length > 0)).toBe(true);
+  it('fails a file shaped like a harness builder: a value import of createHarness', async () => {
+    const [result] = await eslint.lintText(
+      `import { createHarness } from '${HOST_HELPER}';\nexport const harness = createHarness({});`,
+      { filePath: path.join(REPO_ROOT, 'extensions/coding/src/extension/coding.helper.ts') },
+    );
+
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.ruleId).toBe(RULE);
+    expect(result.messages[0]?.message).toContain(HOST_HELPER);
   });
 
-  it.each(entries)('%s still holds a violation, so its entry is not stale', async (file) => {
-    const [result] = await repoRuleLinter(RULE).lintFiles([file]);
-
-    expect(result.messages.map((message) => message.ruleId)).toContain(RULE);
-  });
-
-  it.each(entries)('%s is excepted by the entry and by nothing else', async (file) => {
-    const [result] = await repoRuleLinter(RULE, [{ allow: RUNTIME_REGISTRY_ALLOW }]).lintFiles([
-      file,
-    ]);
-
-    expect(result.messages).toEqual([]);
-  });
-
-  it("reports a violation in a file that is not listed, with this repo's own host types", async () => {
-    const eslint = repoRuleLinter(RULE, [{ allow: RUNTIME_REGISTRY_ALLOW }]);
+  it("reports a registry import in any extension file, with this repo's own host types", async () => {
     const [result] = await eslint.lintText(`import { TaskRegistry } from '${TASKS}';`, {
       filePath: path.join(REPO_ROOT, 'extensions/web/src/web/not-listed.helper.ts'),
     });

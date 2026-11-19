@@ -9,7 +9,7 @@ check:
         'extensions/coding/src/agents-md',
         'extensions/coding/src/trust',
         'packages/host/src',
-        'extensions/coding/src/preset',
+        'extensions/coding/src/extension',
         'apps/backend/src/harness',
         'apps/terminal/src/workbook',
       ],

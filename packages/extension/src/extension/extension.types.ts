@@ -25,7 +25,17 @@ export type ServiceKey<TService> = {
 };
 
 /** The extension a per-extension service is built for: its name and the host's sealed manifest. */
-export type ServiceConsumer = { name: string; manifest: ExtensionManifest };
+export type ServiceConsumer = {
+  name: string;
+  manifest: ExtensionManifest;
+  /**
+   * The names of the tools the extension contributed, as the host recorded and checked them after
+   * `activate` returned. A live read: empty while `activate` runs, and empty again once the
+   * extension is stopped, rolled back or failed, so a scope that holds it never vouches for a tool
+   * that is not running.
+   */
+  contributedTools: () => readonly string[];
+};
 
 /** What a service factory builds for one extension: the value it reads and how to switch it off. */
 export type ServiceInstance = {

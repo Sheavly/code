@@ -9,7 +9,7 @@ Create `packages/tools/src/<name>/` (generic) or `extensions/coding/src/<name>/`
 - `<name>.tool.ts`: `create<Name>Tool(options)` returns `defineTool({ name, description, inputSchema, execute })`.
 - `inputSchema` is a `z.object`. Never add a `description` field: the harness adds the model's call description itself and strips it before `execute`.
 - `execute({ input, signal, context })` returns a string, or `{ content, artifacts }` to give a UI data the model never sees (tagged with a `kind` the tool owns, e.g. the file tools' `FileChange`: emitted on `tool_result`, never put in history; see `docs/tools.md`, "Artifacts"). It throws `Error`s with clear messages (`runTool` turns them into error results). Pass `signal` to every async operation.
-- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `@sheavly/coding/files/files.helper`. Never read or write `.env*` files. Commands go through the harness's `ProcessRunner` (`@sheavly/process/process/process.service`) and the allow list.
+- All file access goes through `Workspace` (`resolveRead` / `resolveWrite`); writing tools use `resolveWritable` from `@sheavly/coding/files/files.helper`. Never read or write `.env*` files. Commands go through the coding extension's own `ProcessRunner` (`@sheavly/process/process/process.service`) and the allow list.
 - Include it from the backend that wants it (`createBackendHarness`), with `*.tool` exported by its package (`npm run export -- packages/<pkg> tool`). No package adds a tool to a run.
 
 ## A sub-agent

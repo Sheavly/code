@@ -28,6 +28,24 @@ are in the `sheavly` skill's `extensions.md`; this page is how the package is bu
   each extension's reads and provides to its manifest; `grantCatalogueOf` and
   `assertGrantsOffered` verify a manifest's `grants` against the supplied services.
 
+## Pure helpers an extension shares with the host
+
+For these two helpers an extension no longer needs `@sheavly/host`: the package holds them, pure,
+and the host's behaviour builds on them:
+
+- `joinInstructions` (`instructions/instructions.utils`): joins instruction sections, each trimmed,
+  blank or missing ones dropped, a blank line between. An extension that contributes instructions
+  (coding's `composeCodingInstructions`) puts its own text in front of the app's with it. The
+  host's `composeInstructions` builds on it and adds the generic base prompt, which stays in
+  `@sheavly/host`.
+- `keepsFit`, `MAX_REQUEST_KEEPS` and `MAX_KEEP_ENTRY_CHARS` (`approval/`): the limits the host's
+  approvals scope enforces on the `keeps` of a request (`approval:keep`). An extension that
+  proposes entries it computed itself asks `keepsFit` first and, when they do not fit, asks without
+  keeping anything. The host's scope imports the same definition, so the limits live in one place.
+
+The service keys still come from `@sheavly/host/run-services/run-services.utils` and the scope
+views from the runtime: this package sits below the runtime in the graph, so it cannot hold them.
+
 ## No category, no policy
 
 The framework imposes nothing on what an extension is: it has no kind or domain, and the host

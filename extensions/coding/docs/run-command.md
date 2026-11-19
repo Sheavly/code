@@ -1,9 +1,11 @@
 # run_command
 
-Commands run without a shell through the harness's `ProcessRunner`
-([@sheavly/process](../../../packages/process/docs/design.md)). The approval registry
-([@sheavly/runtime](../../../packages/runtime/docs/approvals.md)) asks only about base commands, never options
-or file operands.
+Commands run without a shell through the coding extension's `ProcessRunner`
+([@sheavly/process](../../../packages/process/docs/design.md)). The run's approvals
+([@sheavly/runtime](../../../packages/runtime/docs/approvals.md), read through the `approvals`
+service) ask only about base commands, never options or file operands. The prompt names the tool
+that asks (`run_command` or `start_service`, through `approval:as-tool`) and offers to keep an
+answer (through `approval:keep`).
 
 The adjacent `run-command.prompt.ts` holds the tool description, input guidance and background-launch
 instructions. Its pure builders receive whether background work is enabled and the prepared launch
@@ -75,6 +77,11 @@ needs its own grant. One question covers all unapproved commands, and skipping i
 `ApprovalRequest.keeps` lists the grants being offered. Entries are saved before execution;
 if saving fails, the command does not run. With no listening UI, an unapproved command fails
 immediately rather than running unattended.
+
+The approvals service accepts at most 20 entries of at most 500 characters. When a line proposes
+more (more than 20 distinct unlisted base commands) or a longer entry, the prompt offers no entries
+and only **Run once**, **Skip** and **Skip with a message**; every command of the line is still
+listed as a concern.
 
 ### Entry forms
 

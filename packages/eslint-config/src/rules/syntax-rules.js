@@ -56,7 +56,7 @@ export const SYNTAX_RULES = {
     {
       selector: "MemberExpression[object.name='process'][property.name=/^(env|loadEnvFile)$/]",
       message:
-        'Read env only in an app (apps/*): it loads `.env` and passes `process.env` in (`createCodingHarness({ env })`). A package takes the values, or an `Environment` (`@sheavly/core/environment/environment.types`), as options; it never reads env itself.',
+        'Read env only in an app (apps/*): it loads `.env` and passes `process.env` in (`createCodingExtension({ env })`). A package takes the values, or an `Environment` (`@sheavly/core/environment/environment.types`), as options; it never reads env itself.',
     },
   ],
   // Only module-level functions: inline callbacks (`.map((x, i) => ...)`) and class methods

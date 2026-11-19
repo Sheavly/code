@@ -12,6 +12,7 @@ check:
         'extensions/coding/src/read-file',
         'extensions/coding/src/write-file',
         'extensions/coding/src/delete-file',
+        'extensions/coding/src/file-reads',
         'packages/core/src/tool',
         'packages/host/src/instructions',
       ],

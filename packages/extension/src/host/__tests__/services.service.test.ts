@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ContributionCollisionError, MissingServiceError } from '../../errors/extension.errors.js';
 import { ExtensionUndeclaredError } from '../../errors/manifest.errors.js';
+import type { Extension, ServiceConsumer } from '../../extension/extension.types.js';
 import { defineService, hostService } from '../../extension/extension.utils.js';
 import type { ExtensionManifest } from '../../manifest/manifest.types.js';
 import { fakeExtension } from '../../testing/extension.fake.js';
@@ -9,6 +10,11 @@ import { ServiceRegistry } from '../services.service.js';
 const GREETING = defineService<string>('greeting');
 
 type Declared = ExtensionManifest['services'];
+
+/** The extension as a service factory sees it, with no tools contributed. */
+function consumerOf(extension: Extension): ServiceConsumer {
+  return { name: extension.name, manifest: extension.manifest, contributedTools: () => [] };
+}
 
 /** A declaration that lists the greeting service as read and provided, unless `declared` says else. */
 function viewOf(params: {
@@ -25,7 +31,7 @@ function viewOf(params: {
   };
 
   return registry.viewFor({
-    extension: fakeExtension({ name: extension, requires, optional, provides }),
+    extension: consumerOf(fakeExtension({ name: extension, requires, optional, provides })),
     readable: new Set(readable),
   });
 }
@@ -158,7 +164,7 @@ describe('ServiceRegistry declarations', () => {
 
     viewOf({ registry: shared, extension: 'a', readable: ['a'] }).provide(GREETING, 'hi');
 
-    const reader = fakeExtension({ name: 'reader', requires: ['greeting', 'other'] });
+    const reader = consumerOf(fakeExtension({ name: 'reader', requires: ['greeting', 'other'] }));
 
     expect(
       shared.unreadable({

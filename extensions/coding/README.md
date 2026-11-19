@@ -1,34 +1,50 @@
 # @sheavly/coding
 
 Coding as an extension (see [the extensions guide](../../.agents/skills/sheavly/extensions.md)):
-the coding tools and the services a coding run shares. `createCodingHarness` opens the workspace
-and makes one set of file locks and one process runner (`@sheavly/process`) on top of `createHarness`; the tools are
-built on those. `createCodingExtension` contributes the file tools, `read_skill`, `run_command`,
-the AGENTS.md, skills, scratch and working-root hooks and the workspace's `.sheavly/` hooks, and
-shares them with sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools and
-hooks, the `sub-agents` service it requires, `output-capture` it may read (with the
-`output:capture` grant) and `coding-run` it provides.
+the coding tools and the hooks that go with them. `createCodingExtension` opens the workspace and
+makes one file-reads store and one process runner (`@sheavly/process`) for its tools, and
+contributes the file tools, `read_skill`, `run_command`, `start_service`, the AGENTS.md, skills,
+scratch and working-root hooks and the workspace's `.sheavly/` hooks. It shares them with
+sub-agents through `@sheavly/agents`. Its `sheavly.json` declares those tools and hooks, the
+services it requires (`sub-agents`, `session-info`, `background-tasks`, `approvals`,
+`main-session`), `output-capture` it may read and `coding-run` it provides, and the grants it
+holds: `output:capture`, `session:read`, `task:start`, `approval:request`, `approval:as-tool` and
+`approval:keep`.
 The user chooses the names of a workspace's own `.sheavly/` hooks, so the manifest declares hooks
 with the bare wildcard `*` (the `@sheavly/extension` manifest doc explains wildcards). A coding UI composes it in an
-`ExtensionHost` (`@sheavly/extension`) with the other extensions it wants.
+`ExtensionHost` (`@sheavly/extension`) with the other extensions it wants, over the run services
+(`runServices` from `@sheavly/host/run-services/run-services.helper`).
 
 ```ts
-import { createCodingHarness } from '@sheavly/coding/preset/coding.helper';
 import { createCodingExtension } from '@sheavly/coding/extension/coding-extension.helper';
+import { composeCodingInstructions } from '@sheavly/coding/instructions/coding-instructions.helper';
 
-const harness = await createCodingHarness({ provider, title, workspaceRoot, env: process.env });
-const coding = createCodingExtension({ harness, env: process.env, permissions, trustStore, shell });
+const harness = createHarness({
+  provider,
+  title,
+  instructions: composeCodingInstructions({ instructions }),
+});
+const coding = createCodingExtension({
+  workspaceRoot,
+  env: process.env,
+  permissions,
+  trustStore,
+  shell,
+});
 ```
 
-The extension reads `OUTPUT_CAPTURE`, when supplied, from the run services
-(`@sheavly/host/run-services/run-services.utils`) like any extension; the host that activates it
-supplies them with `runServices`. The one exception to "no more access than a third party" is
-`harness`: coding's workspace, file locks and process runner come from the `CodingHarness` it is
-given, which also carries the run state (sessions, tasks, approvals) because `createCodingHarness`
-is built on `createHarness`. Its other options are the app's choices: `env` (its own, for working
-root and home resolution; the run services carry no environment), `permissions`, `home`,
-`trustStore`, `trustWorkspace`, `shell` and `onFileReadsProblem`. `createCodingHarness` takes its
-own `env` too.
+The extension integrates like a third party, with no access one lacks (`origin` only gates
+loading). It reads the run services under its declared grants: `SESSION_INFO` (the main session's
+idle keeps its file reads, a released session's reads are forgotten), `BACKGROUND_TASKS` (the
+tasks `run_command` and `start_service` start, owned by its scope), `APPROVALS` (the approval
+prompt; `approval:as-tool` lets it ask as `run_command` or `start_service`, and `approval:keep`
+lets it offer "Allow for this session" and "Always allow"), `MAIN_SESSION`, `SUB_AGENTS` and,
+when supplied, `OUTPUT_CAPTURE`. Its options are the app's choices: `workspaceRoot`,
+`scratchRoot`, `env` (for the workspace, the working root and home resolution and the commands'
+environment; the run services carry no environment), `fileLocks` (one set shared by every run of
+an app, so two runs editing one file take turns; default: its own), `permissions`, `home`,
+`trustStore`, `trustWorkspace`, `shell` and `onFileReadsProblem`. Grants limit what a service
+does for an extension; they are not a sandbox.
 
 Pass `scratchRoot` (an absolute folder the app picks, e.g. `<tmpdir>/sheavly`) to let the file
 tools also use a shared scratch folder outside the repo; see
@@ -36,10 +52,9 @@ tools also use a shared scratch folder outside the repo; see
 
 | Module           | What it holds                                                                                     |
 | ---------------- | ------------------------------------------------------------------------------------------------- |
-| `preset/`        | `createCodingHarness`: the workspace, `fileLocks` and `processes` a run shares                    |
 | `extension/`     | `createCodingExtension`, `CODING_RUN`, `CODING_HOOK_NAMES`: coding as an extension of a run       |
 | `file-reads/`    | `keepReadsWithConversation`: restores and keeps what the main agent read with its conversation    |
-| `instructions/`  | `CODING_INSTRUCTIONS`: coding guidance inserted before host extras                                |
+| `instructions/`  | `CODING_INSTRUCTIONS`, `composeCodingInstructions`: coding guidance inserted before host extras   |
 | `read-file/`     | `read_file`, and the `FileRead` artifact with its `isFileRead` guard                              |
 | `grep/`          | `grep`: ripgrep search of the workspace, and the `GrepResult` artifact with its guard             |
 | `glob/`          | `glob`: files matching a pattern, newest first, and the `GlobResult` artifact with its guard      |
@@ -92,7 +107,9 @@ last stage and every stderr print. If storage cannot start a capture the command
 result says the full output is not being stored; a storage failure mid-capture marks the log
 incomplete, never complete. Without it only the preview exists, as before.
 
-The preset returns `instructions`: generic core, coding guidance, then caller extras. Its inherited
+`composeCodingInstructions({ instructions })` (built on `joinInstructions` from
+`@sheavly/extension/instructions/instructions.utils`) gives the `instructions` an app passes to
+`createHarness`, which returns generic core, coding guidance, then caller extras. The harness's
 `baseInstructions` option replaces only the generic core, not coding guidance. Conversations use
 this text by default; direct loop callers pass it explicitly. See
 [instruction composition](../../packages/host/docs/harness.md#instruction-composition).

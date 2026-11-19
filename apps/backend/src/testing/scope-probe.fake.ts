@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { defineTool } from '@sheavly/core/tool/tool.utils';
 import type { ExtensionEmit } from '@sheavly/extension/emit/emit.types';
 import type { ExtensionOrigin } from '@sheavly/extension/extension/extension.types';
 import { defineExtension } from '@sheavly/extension/extension/extension.utils';
@@ -25,15 +26,20 @@ const progress = z.object({ done: z.number() });
  * Test-only: an extension that reads every scoped run service, holds them for the test, and
  * declares exactly the `grants` given. What a probe is does not depend on `origin`: a built-in
  * and a third-party probe declare the same manifest, so a test runs the same assertions for both.
- * With `emits` it declares and contributes one event and one notice, named after the probe.
+ * With `emits` it declares and contributes one event and one notice, named after the probe. With
+ * `tools` it declares and contributes a trivial tool of each name; with `declaredTools` it only
+ * declares those names in its manifest and contributes nothing under them.
  */
 export function scopeProbe(params: {
   name: string;
   origin?: ExtensionOrigin | undefined;
   grants?: string[];
   emits?: boolean | undefined;
+  tools?: string[];
+  declaredTools?: string[];
 }) {
-  const { name, origin, grants = ALL_GRANTS, emits = false } = params;
+  const { name, origin, grants = ALL_GRANTS, emits = false, tools = [] } = params;
+  const { declaredTools = [] } = params;
   const kind = `${name}.wait`;
   const eventKind = `${name}.progress`;
   const topic = `${name}.reminder`;
@@ -43,6 +49,7 @@ export function scopeProbe(params: {
     manifest: manifestOf({
       name,
       grants,
+      tools: [...tools, ...declaredTools],
       workKinds: [kind],
       emits: emits ? { events: [eventKind], modelFacingNotices: true } : {},
       services: {
@@ -75,6 +82,14 @@ export function scopeProbe(params: {
       };
 
       return {
+        tools: tools.map((toolName) =>
+          defineTool({
+            name: toolName,
+            description: `Probe tool ${toolName}`,
+            inputSchema: z.object({}),
+            execute: async () => 'ok',
+          }),
+        ),
         workKinds: [{ name: kind, description: 'Waits to be cancelled', completion: 'finite' }],
         ...(emits && {
           events: [{ kind: eventKind, version: 1, schema: progress }],

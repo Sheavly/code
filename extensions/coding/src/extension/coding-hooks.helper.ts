@@ -5,14 +5,14 @@ import {
 } from '@sheavly/core/instruction-context/instruction-source.helper';
 import { scratchSource } from '@sheavly/workspace/scratch/scratch-hook.helper';
 import type { WorkingRoots } from '@sheavly/workspace/working-root/working-roots.service';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { agentsMdSource } from '../agents-md/agents-md.helper.js';
 import { loadProjectHooks } from '../project-hooks/project-hooks.helper.js';
 import type { ProjectHooks } from '../project-hooks/project-hooks.types.js';
-import type { CodingHarness } from '../preset/coding.types.js';
 import { skillsSource } from '../skills/skills.helper.js';
 import type { SkillRoots } from '../skills/skills.types.js';
 import { workingRootSource } from '../working-root/working-root-hook.helper.js';
-import type { CodingExtensionOptions } from './coding-extension.types.js';
+import type { CodingExtensionOptions, CodingParts } from './coding-extension.types.js';
 
 /**
  * AGENTS.md, skills, the scratch folder and the working root, as instruction hooks. Their order is
@@ -21,18 +21,18 @@ import type { CodingExtensionOptions } from './coding-extension.types.js';
  * so sub-agents running this same hook share their root agent's folder.
  */
 export function createInstructionHooks(params: {
-  harness: CodingHarness;
+  parts: Pick<CodingParts, 'workspace' | 'mainSession'>;
   workingRoots: WorkingRoots;
   skillRoots: SkillRoots;
 }): Hook[] {
-  const { harness, workingRoots, skillRoots } = params;
-  const { workspace } = harness;
+  const { parts, workingRoots, skillRoots } = params;
+  const { workspace, mainSession } = parts;
 
   return registerInstructionHooks([
     createInstructionHook(agentsMdSource({ root: workspace.root, workingRoots })),
     createInstructionHook(skillsSource(skillRoots)),
     ...(workspace.scratchRoot
-      ? [createInstructionHook(scratchSource({ workspace, agentId: harness.mainSession.id }))]
+      ? [createInstructionHook(scratchSource({ workspace, agentId: mainSession.id }))]
       : []),
     createInstructionHook(workingRootSource({ workingRoots })),
   ]);
@@ -44,14 +44,14 @@ export function createInstructionHooks(params: {
  * why, for a UI to show.
  */
 export function loadWorkspaceHooks(params: {
-  harness: CodingHarness;
+  workspace: Workspace;
   instructionHooks: readonly Hook[];
   options: Pick<CodingExtensionOptions, 'trustStore' | 'trustWorkspace'>;
 }): Promise<ProjectHooks> {
-  const { harness, instructionHooks, options } = params;
+  const { workspace, instructionHooks, options } = params;
 
   return loadProjectHooks({
-    root: harness.workspace.root,
+    root: workspace.root,
     trust: options.trustStore,
     grant: options.trustWorkspace ?? false,
     hostHooks: instructionHooks,

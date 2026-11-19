@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach } from 'vitest';
+import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import type { OutputStore } from '@sheavly/core/output/output.types';
@@ -44,6 +45,8 @@ function openBackendRun(params: {
   extensionSettings?: Record<string, SettingValue>;
   scripts?: Record<string, Script[]>;
   outputs?: OutputStore | undefined;
+  /** What `run_command` consults; asks about every command and keeps nothing by default. */
+  permissions?: CommandPermissions;
   onModelCall?: (request: ProviderRequest) => void;
   onExtensionProblem?: (caughtError: unknown) => void;
   /** Keeps the run's combined stream in this store, and `resume` carries on a stored one. */
@@ -58,7 +61,7 @@ function openBackendRun(params: {
       persistence: memoryTrust({ file: path.join(params.base, 'trusted.json') }),
     }),
     env: {},
-    permissions: askingPermissions(),
+    permissions: params.permissions ?? askingPermissions(),
     webFetch: false,
     webSearch: false,
     extensions: params.extensions,

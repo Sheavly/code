@@ -3,18 +3,14 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createAgentsExtension } from '@sheavly/agents/agents/agents.helper';
-import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
+import { runTool } from '@sheavly/core/tool/tool.helper';
+import { ExtensionUndeclaredError } from '@sheavly/extension/errors/manifest.errors';
 import { readManifest } from '@sheavly/extension/manifest/manifest.helper';
-import { runServices } from '@sheavly/host/run-services/run-services.helper';
-import { noSubAgentRuns } from '@sheavly/host/testing/run-loop.fake';
-import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
+import { callIdSchema } from '@sheavly/protocol/message/message.validator';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
-import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
-import { createCodingHarness } from '../../preset/coding.helper.js';
+import { codingRun } from '../../testing/coding-run.fake.js';
 import { testPermissions } from '../../testing/permissions.fake.js';
-import { memoryTrust } from '../../testing/trust.fake.js';
-import { TrustStore } from '../../trust/trust.service.js';
-import { createCodingExtension } from '../coding-extension.helper.js';
+import type { CodingRunParams } from '../../testing/testing.types.js';
 import { CODING_HOOK_NAMES } from '../coding-hook-names.constants.js';
 
 const manifest = readManifest(new URL('../../../sheavly.json', import.meta.url));
@@ -48,35 +44,28 @@ async function addProjectHook(name: string) {
 }
 
 /** Activates `agents` and `coding` over the test project, trusting it so its own hooks load. */
-async function activate(outputs?: MemoryOutputStore) {
-  const harness = await createCodingHarness({
-    provider: routedProvider({ go: [say('ok')] }),
-    title: 'go',
-    workspaceRoot: project,
+async function activate(outputs?: MemoryOutputStore, adjust?: CodingRunParams['adjust']) {
+  const run = await codingRun({
+    project,
     scratchRoot: path.join(base, 'scratch'),
-    env: {},
-  });
-  const host = new ExtensionHost({
-    extensions: [
-      createAgentsExtension(),
-      createCodingExtension({
-        harness,
-        env: {},
-        permissions: testPermissions(),
-        trustStore: new TrustStore({
-          persistence: memoryTrust({ file: path.join(base, 'trusted.json') }),
-        }),
-        trustWorkspace: true,
-        shell: memoryShellStore(),
-      }),
-    ],
-    services: runServices({ harness, outputs, runSession: noSubAgentRuns }),
-  });
-  const result = await host.activate({ signal: new AbortController().signal });
+    outputs,
+    adjust,
+  }).activate();
 
-  await host.deactivate();
+  await run.deactivate();
 
-  return result;
+  return run.result;
+}
+
+/** The coding extension with `grant` struck from its manifest, as a third party might declare it. */
+function withoutGrant(grant: string): NonNullable<CodingRunParams['adjust']> {
+  return (coding) => ({
+    ...coding,
+    manifest: {
+      ...coding.manifest,
+      grants: (coding.manifest.grants ?? []).filter((one) => one !== grant),
+    },
+  });
 }
 
 describe('the coding extension and its manifest', () => {
@@ -107,7 +96,7 @@ describe('the coding extension and its manifest', () => {
     const withStore = await activate(new MemoryOutputStore());
 
     expect(manifest.services.optional).toEqual(['output-capture']);
-    expect(manifest.grants).toEqual(['output:capture']);
+    expect(manifest.grants).toContain('output:capture');
     expect(withStore.failed).toEqual([]);
     expect(runCommand([...without.contributions.tools])).not.toContain('read_output');
     expect(runCommand([...withStore.contributions.tools])).toContain('read_output');
@@ -122,5 +111,56 @@ describe('the coding extension and its manifest', () => {
 
     expect(coding).toEqual(manifest.tools);
     expect(manifest.hooks).toEqual([...INSTRUCTION_HOOKS, '*']);
+  });
+
+  it('asks only for the services and grants its call sites use', () => {
+    expect(manifest.services.requires).toEqual([
+      'sub-agents',
+      'session-info',
+      'background-tasks',
+      'approvals',
+      'main-session',
+    ]);
+    expect(manifest.grants).toEqual([
+      'output:capture',
+      'session:read',
+      'task:start',
+      'approval:request',
+      'approval:as-tool',
+      'approval:keep',
+    ]);
+  });
+
+  it('fails to activate when its manifest lacks session:read, which it needs to hear the sessions', async () => {
+    const { failed, active } = await activate(undefined, withoutGrant('session:read'));
+
+    expect(active).toEqual(['agents']);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.cause).toBeInstanceOf(ExtensionUndeclaredError);
+    expect(String(failed[0]?.cause)).toContain('session:read');
+  });
+
+  it('refuses a background command when its manifest lacks task:start', async () => {
+    const coding = codingRun({
+      project,
+      permissions: testPermissions({ mode: 'allow_all' }),
+      adjust: withoutGrant('task:start'),
+    });
+    const run = await coding.activate();
+    const result = await runTool({
+      tools: [run.tool('run_command')],
+      call: {
+        id: callIdSchema.parse('c1'),
+        name: 'run_command',
+        input: { description: 'echo', command: 'echo hi', background: true },
+      },
+      signal: new AbortController().signal,
+      session: coding.harness.mainSession,
+    });
+
+    await run.deactivate();
+
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('task:start');
   });
 });

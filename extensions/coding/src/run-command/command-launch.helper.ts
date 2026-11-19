@@ -3,7 +3,7 @@ import { requireTaskSession } from '@sheavly/core/tool/tool-session.helper';
 import type { ToolContext } from '@sheavly/core/tool/tool.types';
 import type { OutputCapture } from '@sheavly/core/output/output.types';
 import type { SessionId } from '@sheavly/protocol/session/session.types';
-import type { TaskRegistry } from '@sheavly/runtime/tasks/tasks.service';
+import type { TaskStarter } from '@sheavly/runtime/tasks/task-scope.types';
 import type { WorkDefinition, WorkInput } from '@sheavly/runtime/tasks/work.types';
 import { startWork } from '@sheavly/runtime/tasks/work.utils';
 import type { ProcessRunner } from '@sheavly/process/process/process.service';
@@ -65,15 +65,15 @@ export async function prepareCommand(params: {
 }
 
 /**
- * The registry background commands start in and the session that owns them. Call it before
- * `prepareCommand`, so a harness with no registry, or a call outside a session, refuses before the
- * user is asked to approve a command that could not start. Throws `ToolCallError` for either.
+ * What background commands start in and the session that owns them. Call it before
+ * `prepareCommand`, so a run with no task starter, or a call outside a session, refuses before
+ * the user is asked to approve a command that could not start. Throws `ToolCallError` for either.
  */
 export function requireBackground(params: {
-  tasks: TaskRegistry | undefined;
+  tasks: TaskStarter | undefined;
   tool: CommandToolName;
   context: ToolContext;
-}): { tasks: TaskRegistry; sessionId: SessionId } {
+}): { tasks: TaskStarter; sessionId: SessionId } {
   const { tasks, tool, context } = params;
 
   if (!tasks) {
@@ -92,7 +92,7 @@ export function requireBackground(params: {
  * the capture it runs with.
  */
 export async function startCommandWork(params: {
-  tasks: TaskRegistry;
+  tasks: TaskStarter;
   sessionId: SessionId;
   toWork: (input: WorkInput) => WorkDefinition;
   command: string;

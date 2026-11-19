@@ -12,6 +12,7 @@ export class ScopeGuard {
   readonly #extension: string;
   readonly #service: string;
   readonly #grants: readonly string[];
+  readonly #contributedTools: () => readonly string[];
   readonly #stops = new Set<() => void>();
   #armed = true;
 
@@ -21,6 +22,15 @@ export class ScopeGuard {
     this.#extension = extension.name;
     this.#service = service;
     this.#grants = [...(extension.manifest.grants ?? [])];
+    this.#contributedTools = () => extension.contributedTools();
+  }
+
+  /**
+   * The names of the tools the extension contributes, as the host recorded and checked them: empty
+   * while `activate` runs and once the extension is stopped. Read live on every call.
+   */
+  get contributedTools(): readonly string[] {
+    return this.#contributedTools();
   }
 
   /** The name of the extension this scope was built for. */

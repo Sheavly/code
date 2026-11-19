@@ -62,8 +62,8 @@ that changed since (by a command, the user or another agent) is refused with "ch
 it" and needs a new read, and a file that did not change keeps its read, so a command that never
 touched it costs no re-read. An agent's own edit updates its hash, so it can edit that place again
 unread; another agent's view of the file goes stale. A released session's reads go with it
-(`createCodingHarness` clears them). Reads are kept per agent (a `FileReads` from
-`@sheavly/workspace/file-reads/`, one per harness), by real path: the main agent and each sub-agent
+(the coding extension clears them when the session service reports the release). Reads are kept per
+agent (a `FileReads` from `@sheavly/workspace/file-reads/`, one per run), by real path: the main agent and each sub-agent
 must read for themselves, and a symlink and its target are one file.
 
 **Reads survive a reopen.** The backend keeps the main agent's reads (the pieces it was shown and

@@ -1,7 +1,7 @@
 # What a run includes
 
-The coding harness supplies shared generic instructions, coding guidance and any explicit host
-extras. Backend conversations use that composed text by default; sub-agents receive it before
+The backend composes shared generic instructions, coding guidance (`composeCodingInstructions`)
+and any explicit host extras. Backend conversations use that composed text by default; sub-agents receive it before
 their narrower child role. The terminal and workbook use this same backend path, not separate
 prompt copies. See [instruction composition](../../../packages/host/docs/harness.md#instruction-composition).
 
@@ -12,8 +12,10 @@ conversation it serves, for whichever UI, is built on it, by `servedConversation
 
 ## The run
 
-`createBackendHarness` opens the coding services (`createCodingHarness`: the workspace, file
-locks and process runner), then composes:
+`createBackendHarness` builds the host's services (`createHarness`, with the composed
+instructions), keeps the file locks (the `fileLocks` it is given, shared by every run of an app, or
+its own) and gives them to the `coding` extension, which opens the workspace and its process
+runner itself. It then composes:
 
 | What                                                  | From              | Why                                                                                                                                                                   |
 | ----------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -75,13 +77,15 @@ every extension reads without a `dependsOn`:
 | `SESSION_INFO`, `CHILD_SESSIONS`                 | Read-only session metadata; the sub-agents the extension started                             |
 | `BACKGROUND_TASKS`, `TASK_CONTROL`               | The tasks the extension started; any task of the calling session                             |
 | `MODEL`                                          | The run's provider, for model calls                                                          |
-| `APPROVALS`                                      | Where a tool asks the user for approval, once (`request` only)                               |
+| `APPROVALS`                                      | Where a tool asks the user for approval (`request` and `listening` only)                     |
 | `OUTPUT_READER`, `OUTPUT_CAPTURE` (with a store) | Reading EVERY command's complete output (may hold secrets); creating a capture (`find` them) |
 
 Each is built per extension and checks the `grants` its `sheavly.json` declares; none is a
 registry. `MAIN_SESSION` is a frozen copy, and what a scope returns or shares is frozen copies.
 `APPROVALS` builds the request itself: attributed to the extension, no `keeps`, no `always_allow`,
-so an answer never becomes an allow rule. `TASK_CONTROL` trusts the `sessionId` it is given, so
+so an answer never becomes an allow rule, unless the manifest declares `approval:as-tool` (the
+request may name a tool the extension contributes) or `approval:keep` (it may offer to
+keep an answer, shown to the user). `TASK_CONTROL` trusts the `sessionId` it is given, so
 `task:*-any` lets an extension name any session of the run. The `sub-agents` service `agents`
 provides is write-only (`share`). This is least privilege, not a sandbox (see
 [scoped run services](../../../packages/host/docs/run-services.md)); an extension gets its
@@ -92,9 +96,9 @@ by setting name, and `settings` on the returned run lists each with its value in
 extension declares, or a value of the wrong type, fails the run. An extension can place a hook
 before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.
 `src/harness/__tests__/third-party-capabilities.test.ts` shows each of these from an extension that
-uses only public exports. The built-ins read the same services under the same grants, with one
-exception: `coding` takes its workspace, locks, process runner and run state from the coding
-harness it is given (tracked in #336).
+uses only public exports. The built-ins read the same services under the same grants, with no
+exception: `coding` opens its own workspace and process runner, and reads the sessions, tasks,
+approvals and main session through the run services.
 
 **What an extension emits.** An extension tells a UI or the model something through
 `context.emit` (`@sheavly/extension`), never by importing the runtime: it declares `emits` in its

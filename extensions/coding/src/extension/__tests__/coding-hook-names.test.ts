@@ -2,9 +2,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createHarness } from '@sheavly/host/host/host.helper';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { testWorkingRoots } from '@sheavly/workspace/testing/working-root-store.fake';
-import { createCodingHarness } from '../../preset/coding.helper.js';
+import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { CODING_HOOK_NAMES } from '../coding-hook-names.constants.js';
 import { createInstructionHooks } from '../coding-hooks.helper.js';
 
@@ -20,17 +21,15 @@ afterEach(async () => {
 
 describe('the coding extension hook names', () => {
   it('are the names third parties place hooks against, in run order: renaming any one fails here', async () => {
-    const harness = await createCodingHarness({
+    const { mainSession } = createHarness({
       provider: routedProvider({ hi: [say('hello')] }),
       title: 'hi',
-      workspaceRoot: base,
-      scratchRoot: path.join(base, 'scratch'),
-      env: {},
     });
+    const workspace = await Workspace.open(base, { scratchRoot: path.join(base, 'scratch') });
     const hooks = createInstructionHooks({
-      harness,
-      workingRoots: testWorkingRoots({ workspace: harness.workspace }),
-      skillRoots: { root: harness.workspace.root, home: undefined },
+      parts: { workspace, mainSession },
+      workingRoots: testWorkingRoots({ workspace }),
+      skillRoots: { root: workspace.root, home: undefined },
     });
 
     // Object.values keeps insertion order: the order the instruction sources declare.

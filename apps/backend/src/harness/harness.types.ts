@@ -11,7 +11,6 @@ import type { Tool } from '@sheavly/core/tool/tool.types';
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types';
-import type { CodingHarness } from '@sheavly/coding/preset/coding.types';
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
@@ -26,7 +25,8 @@ import type { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool
 import type { HistoryToolOptions } from '@sheavly/tools/history/history.types';
 import type { createWebFetchTool } from '@sheavly/tools/web-fetch/web-fetch.tool';
 import type { createWebSearchTool } from '@sheavly/tools/web-search/web-search.tool';
-import type { HarnessOptions } from '@sheavly/host/host/host.types';
+import type { Harness, HarnessOptions } from '@sheavly/host/host/host.types';
+import type { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 
 /** What the backend's command line and environment set for a run. */
 export type CliSettings = ReturnType<typeof parseCliSettings>;
@@ -92,7 +92,10 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   logOf?: HistoryToolOptions['logOf'];
   /** The stored log of a conversation being reopened (see `HarnessOptions.resume`). */
   resume?: StoredLog | undefined;
-  /** The file locks shared with every other run of this backend (see `CodingHarnessOptions`). */
+  /**
+   * The file locks shared with every other run of this backend, so two runs editing one file take
+   * turns (see `CodingExtensionOptions.fileLocks`). Default: a set of this run's own.
+   */
   fileLocks?: KeyedLocks | undefined;
   /**
    * Hears of an extension's `deactivate` that threw, at the end of the session or when another
@@ -111,8 +114,12 @@ export type BackendHarnessOptions = Pick<HarnessOptions, 'instructions' | 'baseI
   extensionSettings?: Readonly<Record<string, SettingValue>> | undefined;
 };
 
-/** A run on the backend: the coding services, and the tools and hooks it includes. */
-export type BackendHarness = CodingHarness & {
+/** A run on the backend: the run's services, the coding workspace, and the tools and hooks it includes. */
+export type BackendHarness = Harness & {
+  /** The workspace the file tools are confined to (the coding extension opened it). */
+  workspace: Workspace;
+  /** The locks every file tool of the run takes: the set given, or the run's own. */
+  fileLocks: KeyedLocks;
   /** The conversation's working root, shared by its main session and sub-agents. */
   workingRoots: WorkingRoots;
   tools: Tool[];

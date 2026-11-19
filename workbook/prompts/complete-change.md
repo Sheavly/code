@@ -10,7 +10,7 @@ check:
         'packages/host/src/host',
         'packages/host/src/conversation',
         'extensions/coding/src/instructions',
-        'extensions/coding/src/preset',
+        'extensions/coding/src/extension',
         'apps/backend/src/harness',
         'apps/terminal/src/workbook/check.helper.ts',
         'apps/terminal/src/workbook/check.utils.ts',

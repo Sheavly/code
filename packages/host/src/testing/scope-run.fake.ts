@@ -1,19 +1,27 @@
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { Services } from '@sheavly/extension/extension/extension.types';
 import { ExtensionHost } from '@sheavly/extension/host/extension-host.service';
-import { fakeExtension } from '@sheavly/extension/testing/extension.fake';
+import { fakeExtension, fakeTool } from '@sheavly/extension/testing/extension.fake';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { createHarness } from '../host/host.helper.js';
 import { runServices } from '../run-services/run-services.helper.js';
 import type { RunLoop } from '../run-services/run-services.types.js';
 import { noSubAgentRuns } from './run-loop.fake.js';
 
-/** What a fake extension of a `scopeRun` declares: the services it reads and the grants it holds. */
+/**
+ * What a fake extension of a `scopeRun` declares: the services it reads, the grants it holds and
+ * the tools its manifest names (declared, and contributed only when `contributes` lists them).
+ */
 type ScopedExtension = {
   name: string;
   requires: string[];
   optional?: string[];
   grants: string[];
+  tools?: string[];
+  /** Tools it contributes (and so declares): trivial tools of these names. */
+  contributes?: string[];
+  /** Runs inside `activate`, with the services the extension was given. */
+  during?: (services: Services) => Promise<void>;
 };
 
 /**
@@ -30,16 +38,20 @@ export function scopeRun(options: { outputs?: OutputStore; runSession?: RunLoop 
     harness,
     async activate(extensions: ScopedExtension[]) {
       const host = new ExtensionHost({
-        extensions: extensions.map((fields) =>
-          fakeExtension({
-            ...fields,
-            activate: ({ services }) => {
-              seen.set(fields.name, services);
+        extensions: extensions.map(({ contributes = [], during, ...fields }) => {
+          const tools = contributes.map((name) => fakeTool(name));
 
-              return {};
+          return fakeExtension({
+            ...fields,
+            contributes: { tools },
+            activate: async ({ services }) => {
+              seen.set(fields.name, services);
+              await during?.(services);
+
+              return { tools };
             },
-          }),
-        ),
+          });
+        }),
         services: runServices({
           harness,
           outputs: options.outputs,
