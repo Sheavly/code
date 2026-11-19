@@ -22,23 +22,51 @@ export function literalText(node) {
  * Reads the root from the rule's `root` option, else from the working directory.
  */
 export function extensionRootOf(context) {
+  return extensionWorkspaceOf(context)?.root;
+}
+
+/**
+ * The repo root and the workspace (`{ dir, relative, name, manifest }`) of the linted file when it
+ * is extension source, as `extensionRootOf` decides, else undefined.
+ */
+export function extensionWorkspaceOf(context) {
   const options = context.options[0] ?? {};
   const root = options.root ?? findRoot(context.cwd);
 
   // Cheap checks first: a file that is not extension source pays for no parse or stat.
   if (!root || !SOURCE_FILE.test(context.filename)) return undefined;
 
-  return isExtensionSource({ root, options, file: context.filename }) ? root : undefined;
+  const workspace = extensionWorkspaceOfFile({ root, options, file: context.filename });
+
+  return workspace ? { root, workspace } : undefined;
+}
+
+/** The workspace of `file` when it is non-test source of one the layout calls an extension. */
+function extensionWorkspaceOfFile(params) {
+  const { root, options, file } = params;
+  const workspace = workspaceOfFile({ workspaces: listWorkspaces(root), file });
+
+  if (!workspace || isTestOrFake(path.relative(workspace.dir, file))) return undefined;
+
+  const layout = options.layout ?? readLayout({ root });
+
+  return layout[workspace.name]?.kind === 'extension' ? workspace : undefined;
 }
 
 /** True if `file` is non-test source of a workspace the layout calls an extension. */
 export function isExtensionSource(params) {
-  const { root, options, file } = params;
-  const workspace = workspaceOfFile({ workspaces: listWorkspaces(root), file });
+  return extensionWorkspaceOfFile(params) !== undefined;
+}
 
-  if (!workspace || isTestOrFake(path.relative(workspace.dir, file))) return false;
+/** The variable `name` names from `scope` outwards, or undefined when it is not declared. */
+export function findVariable(params) {
+  const { scope, name } = params;
 
-  const layout = options.layout ?? readLayout({ root });
+  for (let current = scope; current; current = current.upper) {
+    const variable = current.set.get(name);
 
-  return layout[workspace.name]?.kind === 'extension';
+    if (variable) return variable;
+  }
+
+  return undefined;
 }

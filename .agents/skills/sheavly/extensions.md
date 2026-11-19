@@ -76,7 +76,9 @@ The host holds an extension to its manifest and fails loudly, naming the extensi
   the app did not supply), or one whose service the extension does not read (not in
   `requires`/`optional`), fails the activation (`ExtensionGrantError`, naming the extension and
   the grant) without running `activate`. **At run time**, each method of a scoped service checks
-  its grant and throws an `ExtensionUndeclaredError` (`use: 'grant'`) when it is missing.
+  its grant and throws an `ExtensionUndeclaredError` (`use: 'grant'`) when it is missing. The
+  runtime check stays, and lint now reports most such calls first (`harness/extension-declares-grants`,
+  see "Run services and grants").
 - **During `activate`**, `services.get` of a name not in `requires`/`optional`, `services.find`
   of one not in `optional`/`requires`, and `services.provide` of one not in `provides` throw.
   Services the host supplies (`session-info`, `output-reader` and the rest) must be declared too.
@@ -254,6 +256,19 @@ configuration is a setting.
 | `APPROVALS`                    | `approvals`                    | `approval:request`: ask the user to approve, plus the read-only `listening`; by default the scope builds the request (attributed to the extension, answered once, no `keeps`, no `always_allow`); `approval:as-tool`: ask as a tool the extension contributes (unprefixed command; contributions are unique across a run, and a request during `activate` is refused); `approval:keep`: pass `options` and `keeps` through, bounded (50 concerns of 1000 characters with visible cuts; at most 20 `keeps` of 500), and the answer must be one of the offered options; whether an entry is kept is the requesting extension's own code, the prompt shows the entries (`always_allow`/`allow_session` need `keeps`); using a field without its grant is refused |
 | `INSTRUCTIONS`, `MAIN_SESSION` | `instructions`, `main-session` | none: `main-session` is a constant; `instructions` is a frozen read-only view `{ text }` of the system prompt, composed at each read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
+- **Which method needs which grant** is one table, `RUN_SERVICE_GRANTS` in `@sheavly/extension`
+  (`run-services/run-service-grants.constants`), and the one place to change when a scope gains a
+  method: the host derives each scope's checks and the grants a service offers from it, a host test
+  fails when a scope has a method the table does not declare, and the lint rule below reads it.
+- **Lint checks your calls against your manifest.** The runtime check above stays, but
+  `harness/extension-declares-grants` also fails, in the production source of `extensions/*`, a
+  call to a method of a scoped service whose grant the workspace's `sheavly.json` does not list.
+  It follows a scope read with `services.get`/`find` (bound or chained) and a parameter or
+  variable annotated with a scope's type, and the grant of `tool`, `options` or `keeps` when an
+  approval request is an object literal. It reads syntax only: a scope passed around without an
+  annotation, destructuring, a stored or copied scope, a non-literal request and a service an
+  extension provides stay review-only, and a grant declared but never called is not reported.
+  What it recognises and misses is in `packages/eslint-config/docs/rules.md`.
 - **A grant is `<noun>:<verb>`** (lowercase kebab parts, one colon), declared in the manifest's
   `grants` and readable by an installer before any code runs. The catalogue is what the supplied
   services declare, the ones an extension's `services.grants` declares for a service it provides
@@ -476,11 +491,13 @@ changes.
   string) and `services.find(OUTPUT_READER)` / `find(OUTPUT_CAPTURE)` (absent without an output store),
   each with its grants (see "Run services and grants"). There is no environment service: read
   configuration through a setting.
-- Before you finish, these three catch a broken contract:
+- Before you finish, these four catch a broken contract:
   - `harness/extension-public-contract` (lint): reports a literal import of `@sheavly/host`, a
     contract name taken from another `@sheavly` package than `@sheavly/extension`, and an import
     of test code (`testing/` path, `.fake` file) in production source; its limits are in
     `packages/eslint-config/docs/rules.md`.
+  - `harness/extension-declares-grants` (lint): reports a call to a scoped run service's method
+    whose grant your `sheavly.json` does not list; its limits are in the same file.
   - `extensions/coding/src/extension/__tests__/coding-hook-names.test.ts`: pins the built-in hook
     names (`agents-md`, `skills`, `scratch`, `working-root`) you place hooks around.
   - `packages/extension/src/host/__tests__/outside-consumer.test.ts`: type-checks and runs an
@@ -575,7 +592,10 @@ by type name. And `harness/extension-no-runtime-registries`: in the non-test sou
 `extensions/*`, a value import of the runtime session, task or approval service modules (the
 modules `Harness` types its registries from) or of `createHarness` fails, so an extension's code
 does not build or reach a registry by importing one (a relative path into a workspace's `src/`
-and `..` segments in a package specifier are resolved first). It has no exception list: no
+and `..` segments in a package specifier are resolved first). And
+`harness/extension-declares-grants`: a call to a method of a scoped run service whose grant the
+workspace's `sheavly.json` lacks fails lint, for the forms the rule follows (see "Run services and
+grants"); the converse, a declared grant no call uses, is not reported. It has no exception list: no
 extension, `coding` included, may take a registry, and a test checks that the real tree has no
 violation. Its gaps: files under `testing/` and `__tests__` are exempt by file kind, and value
 imports of the loop's runner (`runSession`) and of host `*Scope` classes are not flagged.
@@ -583,7 +603,7 @@ imports of the loop's runner (`runSession`) and of host `*Scope` classes are not
 **Enforced at run time by the host:** an undeclared service or grant is refused, and so is a field
 a grant covers (`tool` without `approval:as-tool`, `options`/`keeps` without `approval:keep`); a
 `tool` must be one the extension contributes (checked against the names the host recorded after
-`activate`, so a request during `activate` is refused). **By lint:** the two rules above. **By
+`activate`, so a request during `activate` is refused). **By lint:** the rules above. **By
 review only:** the list below.
 
 **This is least privilege, not a sandbox.** None of this confines extension code (see "What the
@@ -592,8 +612,10 @@ path the rule does not see, use `fs`, `fetch` and `child_process`, or read the e
 host's run-time checks mediate only what goes through the services, and the lint rules are
 development guardrails that catch honest mistakes. **Review only:** that
 `activate` does no work the session did not ask for, that a service key is not
-a way around an import boundary, that what the manifest declares matches what the code needs (the
-host catches an undeclared use at run time, not a declaration nothing uses), an extension built by
+a way around an import boundary, that what the manifest declares matches what the code needs (lint
+catches an undeclared grant for the calls it follows and the host catches an undeclared use at run
+time; nothing catches a declaration nothing uses, and a call lint does not follow is seen only when
+it runs), an extension built by
 a helper instead of a direct `defineExtension` object literal, and a manifest read through
 another function than the plain `readManifest` call; for the options rule, an aliased or
 re-exported type name (`import type { X as S }`), a `typeof` query of a value and utility or

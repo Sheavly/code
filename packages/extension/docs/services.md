@@ -107,6 +107,41 @@ is the `origin: 'project'` trust gate, which gates loading and is read by no ser
 is declared by whatever loads the extension, not by the extension. A loader for repo code (#332)
 must set `origin: 'project'` itself.
 
+### Which method needs which grant
+
+`RUN_SERVICE_GRANTS` (`@sheavly/extension/run-services/run-service-grants.constants`) is the one
+place that says which grant each method of each scoped run service needs: service name, then
+member name, then an entry that is either a grant string or, for a member whose optional
+arguments need grants of their own, `{ grant, arguments }`:
+
+```ts
+'session-info': { get: 'session:read' },
+approvals: {
+  request: {
+    grant: 'approval:request',
+    arguments: { tool: 'approval:as-tool', options: 'approval:keep', keeps: 'approval:keep' },
+  },
+},
+```
+
+The host derives from it: each scope calls `guard.enter('<member>')` (or `enter('request', 'tool')`
+for an argument), which looks the grant up and checks it, so a member the table does not declare
+does not compile and a grant string is written nowhere else; and each service's list of
+grants a manifest may ask for is the distinct grants of its members (`grantsOfService`). It is
+the one place to change when a scope gains a method: add the member here, and the host's test
+that compares each scope's public members with the table fails until you do. It is a plain
+literal (no spreads, computed keys, calls or imported values) so the lint rule
+`harness/extension-declares-grants` reads it from source without running code, to report an
+extension's call whose grant its manifest lacks (what it follows and misses:
+`packages/eslint-config/docs/rules.md`). `main-session` and `instructions` need no grant
+and are absent.
+
+The table is deep-frozen when its module loads (every level, in the module that defines it), so an
+extension that imports it cannot change what the host checks: an assignment, a delete or a
+`defineProperty` throws a `TypeError`. `grantOf` and `grantsOfService` look names up as own
+members only, so a name that is not one (`constructor`, `__proto__`, a name added to
+`Object.prototype`) throws a `RangeError`, and `grantsOfService` returns a new array on each call.
+
 ### An extension built from public exports only
 
 `src/host/__tests__/outside-consumer.test.ts` writes a third-party extension (its own

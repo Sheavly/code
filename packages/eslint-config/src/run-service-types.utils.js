@@ -27,8 +27,18 @@ function serviceTypeOf(init) {
     : undefined;
 }
 
-/** The service types in `ast`, as a map from type name to its key constants joined with ` or `. */
-function serviceTypesIn(ast) {
+/** The name string of a `defineService<T>('name')` call, or undefined when it is not a literal. */
+function serviceNameOf(init) {
+  const [name] = init.arguments;
+
+  return name?.type === 'Literal' && typeof name.value === 'string' ? name.value : undefined;
+}
+
+/**
+ * Every `export const KEY = defineService<Type>('name')` of `ast` with a named type and a literal
+ * name, as a map from the constant to `{ name, type }`.
+ */
+function serviceKeysIn(ast) {
   const keys = new Map();
 
   for (const statement of ast.body) {
@@ -36,14 +46,24 @@ function serviceTypesIn(ast) {
 
     for (const declarator of statement.declaration?.declarations ?? []) {
       const type = serviceTypeOf(declarator.init);
+      const name = type ? serviceNameOf(declarator.init) : undefined;
 
-      if (type && declarator.id.type === 'Identifier') {
-        keys.set(type, [...(keys.get(type) ?? []), declarator.id.name]);
+      if (type && name !== undefined && declarator.id.type === 'Identifier') {
+        keys.set(declarator.id.name, { name, type });
       }
     }
   }
 
-  return new Map([...keys].map(([type, names]) => [type, names.join(' or ')]));
+  return keys;
+}
+
+/** The service types of `keys`, as a map from type name to its key constants joined with ` or `. */
+function serviceTypesOf(keys) {
+  const byType = new Map();
+
+  for (const [key, { type }] of keys) byType.set(type, [...(byType.get(type) ?? []), key]);
+
+  return new Map([...byType].map(([type, names]) => [type, names.join(' or ')]));
 }
 
 /** Parses `code`, or returns undefined for a syntax error (the host's own checks report those). */
@@ -101,16 +121,17 @@ function readOnce(params) {
   const { file, coreFile } = params;
   const ast = parseSource(readFileSync(file, 'utf8'));
 
-  if (!ast) return { state: 'unparsable', types: new Map() };
+  if (!ast) return { state: 'unparsable', types: new Map(), keys: new Map() };
 
-  const types = serviceTypesIn(ast);
+  const keys = serviceKeysIn(ast);
+  const types = serviceTypesOf(keys);
   // A missing or unparsable core file only means no composites: the run-services file stays the
   // source of truth for whether the rule can see anything.
   const coreAst = coreFile ? parseSource(readFileSync(coreFile, 'utf8')) : undefined;
 
   if (coreAst) addCompositesIn({ ast: coreAst, types });
 
-  return { state: 'read', types };
+  return { state: 'read', types, keys };
 }
 
 /** The path of `file` when it is a regular file, with its modification time. */
@@ -123,7 +144,8 @@ function regularFile(file) {
 /**
  * What the run-services file under `root` yields: `state` is `missing` (a throwaway tree, a
  * checkout without the host), `unparsable` (a syntax error) or `read`, and `types` maps each
- * type name to its key constants joined with ` or `, empty unless `read`. It also holds each
+ * type name to its key constants joined with ` or `, empty unless `read`, and `keys` maps each
+ * key constant to its service `name` and carried `type`, empty unless `read`. `types` also holds each
  * exported intersection of service types in `CORE_OUTPUT_FILE` (`OutputStore`), mapped to its
  * members' keys joined with ` and `; that file being missing or unparsable adds nothing and is no
  * error. Re-read when either file changes, a failed parse included, so a broken file is not
@@ -134,7 +156,7 @@ export function readRunServices(root) {
   // A directory or another special file at that path is a broken checkout, not a file to read.
   const services = regularFile(file);
 
-  if (!services) return { state: 'missing', types: new Map() };
+  if (!services) return { state: 'missing', types: new Map(), keys: new Map() };
 
   const core = regularFile(path.join(root, CORE_OUTPUT_FILE));
   const signature = `${services.mtimeMs}:${core?.mtimeMs}`;

@@ -16,6 +16,7 @@ import {
   workspaceOfFile,
 } from '../layout.utils.js';
 import { isTestOrFake } from '../test-paths.utils.js';
+import { findVariable } from './extension-source.utils.js';
 import { findRoot } from './workspace-types.js';
 
 /** What the manifest provides, so the call must not say it again. */
@@ -45,18 +46,6 @@ function isImportMetaUrl(node) {
     node.object.meta.name === 'import' &&
     node.object.property.name === 'meta'
   );
-}
-
-function findVariable(params) {
-  const { scope, name } = params;
-
-  for (let current = scope; current; current = current.upper) {
-    const variable = current.set.get(name);
-
-    if (variable) return variable;
-  }
-
-  return undefined;
 }
 
 /**

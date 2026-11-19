@@ -13,29 +13,29 @@ type TaskSource = Pick<TaskRegistry, 'getOwned' | 'list' | 'report' | 'cancel' |
  * `sessionId` (the registry reads an absent one as every task of the run) and refuses without.
  */
 export class TaskControlScope implements TaskControl {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'task-control'>;
   readonly #tasks: TaskSource;
 
-  constructor(params: { guard: ScopeGuard; tasks: TaskSource }) {
+  constructor(params: { guard: ScopeGuard<'task-control'>; tasks: TaskSource }) {
     this.#guard = params.guard;
     this.#tasks = params.tasks;
     Object.freeze(this);
   }
 
   getOwned: TaskControl['getOwned'] = ({ id, sessionId }) => {
-    this.#guard.check('task:read-any');
+    this.#guard.enter('getOwned');
 
     return this.#tasks.getOwned({ id, sessionId: this.#required(sessionId) });
   };
 
   list: TaskControl['list'] = (sessionId) => {
-    this.#guard.check('task:read-any');
+    this.#guard.enter('list');
 
     return this.#tasks.list(this.#required(sessionId));
   };
 
   report: TaskControl['report'] = (id, sessionId) => {
-    this.#guard.check('task:read-any');
+    this.#guard.enter('report');
 
     return this.#tasks.getOwned({ id, sessionId: this.#required(sessionId) })
       ? this.#tasks.report(id)
@@ -45,7 +45,7 @@ export class TaskControlScope implements TaskControl {
   // The ownership check and the cancel happen in one call with nothing awaited between them, so
   // the answer cannot be stale when the task is stopped.
   cancel: TaskControl['cancel'] = async ({ id, sessionId }) => {
-    this.#guard.check('task:cancel-any');
+    this.#guard.enter('cancel');
 
     if (!this.#tasks.getOwned({ id, sessionId: this.#required(sessionId) })) return undefined;
 
@@ -53,7 +53,7 @@ export class TaskControlScope implements TaskControl {
   };
 
   group: TaskControl['group'] = (params) => {
-    this.#guard.check('task:cancel-any');
+    this.#guard.enter('group');
     this.#tasks.group({ ...params, sessionId: this.#required(params.sessionId) });
   };
 

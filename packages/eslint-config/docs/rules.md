@@ -154,6 +154,76 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   dependency kind of `@sheavly/host` in an extension's `package.json` is not checked here but by
   the layout check (`npm run layout`, `scripts/check-layout.mjs`, next to the provider check): an
   extension may list the host only in `devDependencies`.
+- `harness/extension-declares-grants` (source files of `extensions/*` workspaces, not tests or
+  fakes): a scoped run service refuses a call whose grant the extension's `sheavly.json` does not
+  list, but only when the call runs, so a call in a tool's `execute`, a hook handler or a rare
+  branch can stay unseen. The rule reports a call to a method of a scoped service when the
+  workspace's manifest `grants` lacks the grant that method needs; the message names the grant,
+  the `service.method` (`approvals.request({ tool })` for an argument grant) and the manifest to
+  edit (the workspace's own `sheavly.json`, as a path from the repo root). It is syntax only: no type information, so it adds
+  nothing to the typed-lint cost. A call is recognised in three forms. (a) A KEY imported from
+  `@sheavly/extension/run-services/run-services.utils` (under any local name) that is a key of
+  that file. (b) A scope value: `services.get(KEY)` or `services.find(KEY)` on any receiver,
+  chained directly (`services.get(KEY).list()`, `services.find(KEY)?.list()`) or bound with
+  `const` or `let` (`s.list()`, `s?.list()`, `s!.list()`), also from a nested function or callback
+  that uses the variable, which is the lazily run case. The value is followed through `as`,
+  `satisfies` and `<T>` type assertions as it is through `?.` and `!`
+  (`(services.get(KEY) as SessionInfoView).list()`, `const s = services.get(KEY) as T; s.list()`).
+  A variable is followed when EVERY value written to it is a read of the same service, in any
+  order: its initialiser if any and each `=` assignment (`let s; s = services.get(KEY)`,
+  `let s: T | undefined; s = services.find(KEY); s?.list()`, a call before a later write), looking
+  through the same casts. A write of `undefined` or `null` is neutral. A variable that is also
+  assigned something else (another variable, a call that is not a scope read), assigned two
+  different services, or changed by a destructuring, `++` or `+=` is mixed and NOT followed:
+  review-only. (c) A parameter or variable annotated with
+  a scope type imported from `@sheavly/extension/run-services/run-services.types` (under any local
+  name; `T | undefined` counts), mapped to its service through the key that carries the type
+  (`SessionInfoView` to `session-info`); a type carried by two keys is checked against both
+  services. The annotation vouches for the initial value (an initialiser or a parameter default),
+  but a later assignment must be a read of that service, else the variable is not followed. Which grant each method needs is read at lint time from `RUN_SERVICE_GRANTS` in
+  `packages/extension/src/run-services/run-service-grants.constants.ts` and the keys from
+  `run-services.utils.ts` (`run-service-grants.utils.js`, `run-service-types.utils.js`; parsed, not
+  executed, cached by modification time and size), so a new scope method or a new service is
+  covered with no edit. The mapping is checked first, before the manifest: when the file exists
+  and parses but is not the documented plain literal (it yields no entries, or has an entry the
+  reader cannot read: a spread, a call, a computed key, a new shape; one unreadable entry empties
+  the whole table), the rule REPORTS once per linted extension file, naming the file and saying
+  `RUN_SERVICE_GRANTS` must be a plain literal of the documented shape, even for an extension
+  with no manifest (the rule has gone blind). A missing file (a throwaway tree, a checkout
+  without the extension package) or a syntax error (the compiler reports it) stays silent, as
+  does a missing or unreadable keys file. A method the mapping does not list is ignored (the host's tests catch a scope that gains
+  one). A `{ grant, arguments }` entry also needs the argument's grant when the call's first
+  argument is an object literal with a non-computed property of that name (a quoted or shorthand
+  name counts; a literal `undefined` value does not); a spread, a computed key or a non-literal
+  argument leaves only the base grant checked. The manifest is read with the layout's
+  `sheavly.json` reader: one that is missing, not JSON or has `grants` that is not an array makes
+  the rule report no call, since the layout check and the other rules report that (a broken
+  mapping is still reported, as above); a manifest without
+  `grants` declares none. A manifest listing grants in any order is the same. The converse, a
+  declared grant that no call needs, is deliberately NOT reported: a per-file rule cannot see the
+  whole workspace, and a grant can be needed by a call it cannot follow; a test pins that a
+  manifest with grants no call uses reports nothing. Review-only, not reported and not claimed as
+  covered: a scope passed around (as a function argument without an annotation), destructured
+  methods (`const { list } = scope`), a method read without a call (`const f = scope.list`, and the
+  `approvals.listening` flag), a computed key (`scope[name]()`), a scope stored on an object or a
+  class field, a copy of the scope (`const t = s`), a `services` object that is not named in a call
+  the rule sees, a service an extension PROVIDES (`sub-agents` with `sub-agent:share`: its keys are
+  not in the mapping, so the rule ignores them; see #380), an `any`-typed value, a variable
+  that is also assigned something else or another service, a namespace key import (`import * as keys …; services.get(keys.SESSION_INFO)`), a
+  parameter annotated through a destructured pattern
+  (`function f({ s }: { s: SessionInfoView })`), a call through `.call`, `.apply` or `.bind` or
+  `Reflect.apply`, a key aliased to a local constant (`const k = KEY; services.get(k)`), a key
+  imported from a local re-export file, a scope used inside a `Promise.then`-style callback whose
+  parameter is not annotated, and the argument grants of a non-literal request. A
+  `Map.get(KEY)` receiver is also treated as a service read (any receiver is accepted). Tests
+  cover every service of the real mapping (a call per distinct grant, reported without the grant
+  and accepted with it), each form, the argument grants, what is not followed, the converse,
+  exempt files, a missing manifest (no call reported, a broken mapping still reported), a mapping
+  that gains a method or service, a mapping that exists and parses but is not the documented
+  literal (reported) or is missing or has a syntax error (silent), that the reader returns every
+  service, member, grant and argument of the real file (compared with a count from its text), and
+  that the real `extensions/*` source has no report (a report there is a call that would throw
+  at run time).
 - `harness/extension-options-use-services` (source files of `extensions/*` workspaces, not tests):
   a type alias or interface named `*ExtensionOptions` carries the embedding app's choices, never
   run state. Each member (a property, a method, an index, call or construct signature) whose declared

@@ -89,13 +89,13 @@ function cleanConcerns(concerns: unknown): ApprovalConcern[] {
  * `sessionId` is accepted for any session open in the run, not only one this extension started.
  */
 export class ApprovalsScope implements ApprovalRequester {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'approvals'>;
   readonly #registry: Pick<ApprovalRegistry, 'request' | 'listening'>;
 
   readonly #sessions: Pick<SessionRegistry, 'get'>;
 
   constructor(params: {
-    guard: ScopeGuard;
+    guard: ScopeGuard<'approvals'>;
     registry: Pick<ApprovalRegistry, 'request' | 'listening'>;
     sessions: Pick<SessionRegistry, 'get'>;
   }) {
@@ -106,7 +106,7 @@ export class ApprovalsScope implements ApprovalRequester {
   }
 
   request: ApprovalRequester['request'] = async (params) => {
-    this.#guard.check('approval:request');
+    this.#guard.enter('request');
 
     const { callId, sessionId, command, concerns, signal } = params;
 
@@ -137,7 +137,7 @@ export class ApprovalsScope implements ApprovalRequester {
 
     if (tool === undefined) return { tool: `extension:${name}`, command: `[${name}] ${command}` };
 
-    this.#guard.check('approval:as-tool');
+    this.#guard.enter('request', 'tool');
 
     if (!this.#guard.contributedTools.includes(tool)) {
       throw new ApprovalToolNotContributedError({ extension: name, tool });
@@ -150,14 +150,15 @@ export class ApprovalsScope implements ApprovalRequester {
   #keeping(params: { options: unknown; keeps: unknown }): ReturnType<typeof parseKeepRequest> {
     if (params.options === undefined && params.keeps === undefined) return {};
 
-    this.#guard.check('approval:keep');
+    // `options` and `keeps` need one grant, so it does not matter which names the use.
+    this.#guard.enter('request', 'options');
 
     return parseKeepRequest(params);
   }
 
   /** Whether a UI is subscribed to answer: without one, a request is refused at once. */
   get listening(): boolean {
-    this.#guard.check('approval:request');
+    this.#guard.enter('listening');
 
     return this.#registry.listening;
   }

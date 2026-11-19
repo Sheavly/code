@@ -117,6 +117,17 @@ sub-agent) sees them.
   label, not an unforgeable attribution: the caller's text follows it and may contain newlines
   (a terminal shows control characters as literals), so a screener should trust `tool`. A
   `sessionId` may be any open session of the run, not only one the extension started.
+- **Which grant a method needs.** It is data, `RUN_SERVICE_GRANTS` in
+  `@sheavly/extension/run-services/run-service-grants.constants`, not a literal in a scope. A scope
+  holds a `ScopeGuard<'<service name>'>` and starts each method with `guard.enter('<method>')`
+  (`enter('request', 'tool')` for an argument with a grant of its own); `enter` looks the grant up
+  and checks it, after the check that the scope is still armed. A method the table does not declare
+  does not compile, and `scopedService` takes the grants a manifest may ask for from the same table.
+  A scope that gains a method adds it to the table first:
+  `run-service-grants.service.test.ts` fails when a scope's public members and the table differ,
+  when a service offers a grant no member needs, and when a method runs without its grant. The
+  same table is what `harness/extension-declares-grants` reads to check an extension's calls
+  against its manifest before they run (`packages/eslint-config/docs/rules.md`).
 - **Switching off.** The host disarms every instance before the extension's own `deactivate` runs,
   wherever it stops the extension's emitter (deactivate, a roll-back, a failed activation). After
   that every method throws a `ScopeDeactivatedError` naming the extension and the service, and
