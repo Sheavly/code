@@ -16,7 +16,7 @@ import type { ScopeGuard } from './scope-guard.service.js';
  * private; `runChild` is the one place they reach the loop.
  */
 export class ChildSessionsScope implements ChildSessionScope {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'child-sessions'>;
   readonly #registry: SessionRegistry;
   readonly #tasks: TaskRegistry;
   readonly #main: SessionRef;
@@ -27,7 +27,7 @@ export class ChildSessionsScope implements ChildSessionScope {
   readonly #running = new Set<SessionId>();
 
   constructor(params: {
-    guard: ScopeGuard;
+    guard: ScopeGuard<'child-sessions'>;
     registry: SessionRegistry;
     tasks: TaskRegistry;
     main: SessionRef;
@@ -44,7 +44,7 @@ export class ChildSessionsScope implements ChildSessionScope {
   startChild: ChildSessionScope['startChild'] = (params) => {
     const { parentId, startedByCall, title } = params;
 
-    this.#guard.check('sub-agent:create');
+    this.#guard.enter('startChild');
 
     if (parentId !== this.#main.id) this.#requireOwned(parentId);
 
@@ -58,13 +58,13 @@ export class ChildSessionsScope implements ChildSessionScope {
   };
 
   setModel: ChildSessionScope['setModel'] = (params) => {
-    this.#guard.check('sub-agent:create');
+    this.#guard.enter('setModel');
     this.#requireOwned(params.id);
     this.#registry.setModel(params);
   };
 
   send: ChildSessionScope['send'] = (params) => {
-    this.#guard.check('sub-agent:message');
+    this.#guard.enter('send');
     this.#requireOwned(params.id);
 
     if (params.from !== this.#main.id) this.#requireOwned(params.from);
@@ -73,13 +73,13 @@ export class ChildSessionsScope implements ChildSessionScope {
   };
 
   report: ChildSessionScope['report'] = (params) => {
-    this.#guard.check('sub-agent:report');
+    this.#guard.enter('report');
     this.#requireOwned(params.id);
     this.#registry.report(params);
   };
 
   onUpdate: ChildSessionScope['onUpdate'] = (listener) => {
-    this.#guard.check('sub-agent:observe');
+    this.#guard.enter('onUpdate');
 
     return this.#guard.track(
       this.#registry.subscribe((update) => {
@@ -90,7 +90,7 @@ export class ChildSessionsScope implements ChildSessionScope {
 
   // Async so a refusal rejects, like any failure of the run, instead of throwing before a promise exists.
   runChild: ChildSessionScope['runChild'] = async (params) => {
-    this.#guard.check('sub-agent:create');
+    this.#guard.enter('runChild');
 
     const { child: given, ...run } = params;
 

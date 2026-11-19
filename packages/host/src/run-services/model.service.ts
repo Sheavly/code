@@ -7,17 +7,17 @@ import type { ScopeGuard } from './scope-guard.service.js';
  * that can switch model answers for the one its next call goes to.
  */
 export class ModelScope implements Provider {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'model'>;
   readonly #provider: Provider;
 
-  constructor(params: { guard: ScopeGuard; provider: Provider }) {
+  constructor(params: { guard: ScopeGuard<'model'>; provider: Provider }) {
     this.#guard = params.guard;
     this.#provider = params.provider;
     Object.freeze(this);
   }
 
   stream: Provider['stream'] = (request) => {
-    this.#guard.check('model:call');
+    this.#guard.enter('stream');
 
     return this.#provider.stream(request);
   };

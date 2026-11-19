@@ -19,16 +19,6 @@ import { BackgroundTasksScope } from './background-tasks.service.js';
 import { ChildSessionsScope } from './child-sessions.service.js';
 import { ModelScope } from './model.service.js';
 import { OutputCaptureScope, OutputReaderScope } from './output-scopes.service.js';
-import {
-  APPROVALS_GRANTS,
-  BACKGROUND_TASKS_GRANTS,
-  CHILD_SESSIONS_GRANTS,
-  MODEL_GRANTS,
-  OUTPUT_CAPTURE_GRANTS,
-  OUTPUT_READER_GRANTS,
-  SESSION_INFO_GRANTS,
-  TASK_CONTROL_GRANTS,
-} from './run-services.constants.js';
 import type { RunLoop } from './run-services.types.js';
 import { scopedService } from './scoped-service.helper.js';
 import { SessionInfoScope } from './session-info.service.js';
@@ -57,12 +47,12 @@ export function runServices(params: {
   return [
     scopedService({
       key: SESSION_INFO,
-      grants: SESSION_INFO_GRANTS,
+      service: 'session-info',
       build: (guard) => new SessionInfoScope({ guard, sessions }),
     }),
     scopedService({
       key: CHILD_SESSIONS,
-      grants: CHILD_SESSIONS_GRANTS,
+      service: 'child-sessions',
       build: (guard) =>
         new ChildSessionsScope({
           guard,
@@ -74,34 +64,34 @@ export function runServices(params: {
     }),
     scopedService({
       key: BACKGROUND_TASKS,
-      grants: BACKGROUND_TASKS_GRANTS,
+      service: 'background-tasks',
       build: (guard) => new BackgroundTasksScope({ guard, registry: tasks, sessions }),
     }),
     scopedService({
       key: TASK_CONTROL,
-      grants: TASK_CONTROL_GRANTS,
+      service: 'task-control',
       build: (guard) => new TaskControlScope({ guard, tasks }),
     }),
     scopedService({
       key: MODEL,
-      grants: MODEL_GRANTS,
+      service: 'model',
       build: (guard) => new ModelScope({ guard, provider: harness.provider }),
     }),
     scopedService({
       key: APPROVALS,
-      grants: APPROVALS_GRANTS,
+      service: 'approvals',
       build: (guard) => new ApprovalsScope({ guard, registry: approvals, sessions }),
     }),
     // Without a store these read as not provided (`find` answers undefined), but stay supplied so
     // a manifest that asks for their grants still activates.
     scopedService({
       key: OUTPUT_READER,
-      grants: OUTPUT_READER_GRANTS,
+      service: 'output-reader',
       build: (guard) => outputs && new OutputReaderScope({ guard, store: outputs }),
     }),
     scopedService({
       key: OUTPUT_CAPTURE,
-      grants: OUTPUT_CAPTURE_GRANTS,
+      service: 'output-capture',
       build: (guard) => outputs && new OutputCaptureScope({ guard, store: outputs }),
     }),
     // A read-only view: the harness keeps the object that takes contributions.

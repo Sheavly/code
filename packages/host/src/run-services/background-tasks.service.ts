@@ -16,7 +16,7 @@ import type { ScopeGuard } from './scope-guard.service.js';
  * open in the run, so no task is left under an owner nothing will ever cancel.
  */
 export class BackgroundTasksScope implements BackgroundTaskScope {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'background-tasks'>;
   readonly #registry: TaskRegistry;
   readonly #sessions: Pick<SessionRegistry, 'get'>;
   readonly #owned = new Set<TaskId>();
@@ -33,7 +33,7 @@ export class BackgroundTasksScope implements BackgroundTaskScope {
   #draining = false;
 
   constructor(params: {
-    guard: ScopeGuard;
+    guard: ScopeGuard<'background-tasks'>;
     registry: TaskRegistry;
     sessions: Pick<SessionRegistry, 'get'>;
   }) {
@@ -50,7 +50,7 @@ export class BackgroundTasksScope implements BackgroundTaskScope {
   }
 
   start: BackgroundTaskScope['start'] = (work) => {
-    this.#guard.check('task:start');
+    this.#guard.enter('start');
     requireOpenSession({
       sessions: this.#sessions,
       id: work.sessionId,
@@ -71,25 +71,25 @@ export class BackgroundTasksScope implements BackgroundTaskScope {
   };
 
   get: BackgroundTaskScope['get'] = (id) => {
-    this.#guard.check('task:read');
+    this.#guard.enter('get');
 
     return this.#owned.has(id) ? this.#registry.get(id) : undefined;
   };
 
   report: BackgroundTaskScope['report'] = (id) => {
-    this.#guard.check('task:read');
+    this.#guard.enter('report');
 
     return this.#owned.has(id) ? this.#registry.report(id) : undefined;
   };
 
   list: BackgroundTaskScope['list'] = () => {
-    this.#guard.check('task:read');
+    this.#guard.enter('list');
 
     return this.#registry.list().filter((task) => this.#owned.has(task.id));
   };
 
   observe: BackgroundTaskScope['observe'] = (observer) => {
-    this.#guard.check('task:read');
+    this.#guard.enter('observe');
 
     this.#observers.add(observer);
 
@@ -99,7 +99,7 @@ export class BackgroundTasksScope implements BackgroundTaskScope {
   };
 
   cancel: BackgroundTaskScope['cancel'] = async (id) => {
-    this.#guard.check('task:cancel');
+    this.#guard.enter('cancel');
 
     if (!this.#owned.has(id)) return undefined;
 
@@ -107,7 +107,7 @@ export class BackgroundTasksScope implements BackgroundTaskScope {
   };
 
   group: BackgroundTaskScope['group'] = (params) => {
-    this.#guard.check('task:cancel');
+    this.#guard.enter('group');
 
     for (const id of params.ids) {
       if (this.#owned.has(id)) continue;

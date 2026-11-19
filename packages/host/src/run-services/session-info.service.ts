@@ -36,41 +36,41 @@ function lifecycleOf(update: SessionUpdate): SessionLifecycleUpdate | undefined 
  * reaches the listener.
  */
 export class SessionInfoScope implements SessionInfoView {
-  readonly #guard: ScopeGuard;
+  readonly #guard: ScopeGuard<'session-info'>;
   readonly #sessions: SessionSource;
 
-  constructor(params: { guard: ScopeGuard; sessions: SessionSource }) {
+  constructor(params: { guard: ScopeGuard<'session-info'>; sessions: SessionSource }) {
     this.#guard = params.guard;
     this.#sessions = params.sessions;
     Object.freeze(this);
   }
 
   get: SessionInfoView['get'] = (id) => {
-    this.#guard.check('session:read');
+    this.#guard.enter('get');
 
     return this.#sessions.get(id);
   };
 
   list: SessionInfoView['list'] = () => {
-    this.#guard.check('session:read');
+    this.#guard.enter('list');
 
     return this.#sessions.list();
   };
 
   isReleased: SessionInfoView['isReleased'] = (id) => {
-    this.#guard.check('session:read');
+    this.#guard.enter('isReleased');
 
     return this.#sessions.isReleased(id);
   };
 
   releasedStarts: SessionInfoView['releasedStarts'] = () => {
-    this.#guard.check('session:read');
+    this.#guard.enter('releasedStarts');
 
     return this.#sessions.releasedStarts();
   };
 
   onLifecycle: SessionInfoView['onLifecycle'] = (listener) => {
-    this.#guard.check('session:read');
+    this.#guard.enter('onLifecycle');
 
     return this.#guard.track(
       this.#sessions.subscribe((update) => {
