@@ -26,17 +26,17 @@ describe('global terminal settings', () => {
     await registry.setTerminalSettings({ reducedMotion: true });
     await Promise.all([
       registry.put({ id: WORK, name: 'Day job' }),
-      registry.rememberModel({ id: WORK, modelId: ASTRA, mode: 'high' }),
+      registry.rememberModel({ id: WORK, modelId: ASTRA, effort: 'high' }),
     ]);
 
     expect(await registry.get(WORK)).toMatchObject({
       name: 'Day job',
-      lastModelSelection: { modelId: ASTRA, mode: 'high' },
+      lastModelSelection: { modelId: ASTRA, effort: 'high' },
     });
     expect((await registry.config()).terminal).toEqual({ reducedMotion: true });
     await registry.setTerminalSettings({ reducedMotion: false });
     expect((await registry.config()).terminal).toEqual({ reducedMotion: false });
-    expect((await registry.get(WORK))?.modelModes).toEqual({ [ASTRA]: 'high' });
+    expect((await registry.get(WORK))?.modelEfforts).toEqual({ [ASTRA]: 'high' });
     await registry.delete(WORK);
     expect((await registry.config()).terminal).toEqual({ reducedMotion: false });
   });

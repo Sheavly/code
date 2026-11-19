@@ -15,13 +15,13 @@ describe('the model a profile last used', () => {
     await registry.rememberModel({ id: WORK, modelId: ASTRA });
     expect((await registry.get(WORK))?.lastModelSelection).toEqual({
       modelId: ASTRA,
-      mode: 'medium',
+      effort: 'medium',
     });
 
     await registry.rememberModel({ id: WORK, modelId: BORA });
     expect((await registry.get(WORK))?.lastModelSelection).toEqual({
       modelId: BORA,
-      mode: 'medium',
+      effort: 'medium',
     });
   });
 
@@ -45,8 +45,8 @@ describe('the model a profile last used', () => {
     expect(await registry.get(WORK)).toEqual({
       id: WORK,
       name: 'Day job',
-      lastModelSelection: { modelId: ASTRA, mode: 'medium' },
-      modelModes: { [ASTRA]: 'medium' },
+      lastModelSelection: { modelId: ASTRA, effort: 'medium' },
+      modelEfforts: { [ASTRA]: 'medium' },
     });
   });
 
@@ -66,25 +66,25 @@ describe('the model a profile last used', () => {
     expect(await registry.get(WORK)).toEqual({
       id: WORK,
       name: 'Day job',
-      lastModelSelection: { modelId: ASTRA, mode: 'medium' },
-      modelModes: { [ASTRA]: 'medium', [BORA]: 'medium' },
+      lastModelSelection: { modelId: ASTRA, effort: 'medium' },
+      modelEfforts: { [ASTRA]: 'medium', [BORA]: 'medium' },
     });
   });
 
-  it('remembers each model’s mode across switches and registry restarts', async () => {
+  it('remembers each model’s effort across switches and registry restarts', async () => {
     const registry = temp.registry();
 
     await registry.put({ id: WORK, name: 'Work' });
-    await registry.rememberModel({ id: WORK, modelId: ASTRA, mode: 'extreme' });
-    await registry.rememberModel({ id: WORK, modelId: BORA, mode: 'low' });
+    await registry.rememberModel({ id: WORK, modelId: ASTRA, effort: 'extreme' });
+    await registry.rememberModel({ id: WORK, modelId: BORA, effort: 'low' });
     await registry.rememberModel({ id: WORK, modelId: ASTRA });
 
     const file = path.join(temp.root(), 'profiles', WORK, 'profile.json');
     const saved = JSON.parse(await readFile(file, 'utf8')) as unknown;
 
     expect(saved).toMatchObject({
-      lastModelSelection: { modelId: ASTRA, mode: 'extreme' },
-      modelModes: { [ASTRA]: 'extreme', [BORA]: 'low' },
+      lastModelSelection: { modelId: ASTRA, effort: 'extreme' },
+      modelEfforts: { [ASTRA]: 'extreme', [BORA]: 'low' },
     });
   });
 

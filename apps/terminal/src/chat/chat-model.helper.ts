@@ -1,4 +1,4 @@
-import { modelModeSchema } from '@sheavly/protocol/model/model.validator';
+import { modelEffortSchema } from '@sheavly/protocol/model/model.validator';
 import { listModels, pickModel } from './chat.utils.js';
 import type { ChatConversation } from './chat.types.js';
 
@@ -34,11 +34,11 @@ export async function runModelCommand(params: {
 
   const updated = await conversation.details();
 
-  return `→ ${choice.name}: ${choice.adapter} / ${choice.model} · ${updated.model.mode ?? 'medium'}`;
+  return `→ ${choice.name}: ${choice.adapter} / ${choice.model} · ${updated.model.effort ?? 'medium'}`;
 }
 
 /** Lists or changes reasoning effort for the selected model without switching its identity. */
-export async function runModeCommand(params: {
+export async function runEffortCommand(params: {
   conversation: ChatConversation;
   typed: string | undefined;
 }): Promise<string> {
@@ -46,16 +46,16 @@ export async function runModeCommand(params: {
   const { model } = await conversation.details();
 
   if (typed === undefined) {
-    return `${model.name} · ${model.mode ?? 'medium'}\nModes: low, medium, high, extreme`;
+    return `${model.name} · ${model.effort ?? 'medium'}\nEfforts: low, medium, high, extreme`;
   }
 
-  const mode = modelModeSchema.safeParse(typed.toLowerCase());
+  const effort = modelEffortSchema.safeParse(typed.toLowerCase());
 
-  if (!mode.success) return 'Choose a mode: low, medium, high, extreme.';
+  if (!effort.success) return 'Choose an effort: low, medium, high, extreme.';
 
-  if (!(await conversation.useModel(model.id, mode.data))) {
+  if (!(await conversation.useModel(model.id, effort.data))) {
     return 'The selected model is no longer available.';
   }
 
-  return `→ ${model.name} · ${mode.data}`;
+  return `→ ${model.name} · ${effort.data}`;
 }

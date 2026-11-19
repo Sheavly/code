@@ -90,7 +90,7 @@ import {
   modelIdSchema,
   modelSchema,
   modelPricingSchema,
-  modelModeSchema,
+  modelEffortSchema,
   modelSelectionSchema,
   modelIdentitySchema,
 } from '../model/model.validator.js';
@@ -136,7 +136,7 @@ function contractSchemas(): Record<string, z.ZodType> {
     ModelUsage: modelUsageSchema,
     ModelPricing: modelPricingSchema,
     UsageTotals: usageTotalsSchema,
-    ModelMode: modelModeSchema,
+    ModelEffort: modelEffortSchema,
     ModelSelection: modelSelectionSchema,
     ModelIdentity: modelIdentitySchema,
     ModelOffering: modelOfferingSchema,

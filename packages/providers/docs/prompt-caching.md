@@ -57,7 +57,7 @@ too. Earlier replies that still match remain replayable.
 A transient notice is therefore no longer transient to the model, only to stored history and the
 UI. Responses and Chat Completions have no analogous signature check and are unchanged.
 
-**Measured** (Sonnet 5.5, `thinking-replay` workbook check, `--mode high`, a `context-usage`
+**Measured** (Sonnet 5.5, `thinking-replay` workbook check, `--effort high`, a `context-usage`
 notice on every call; one run each unless stated):
 
 | Version                     | Calls | Thinking blocks per reply | Calls with a drop | Output tokens | Time   |

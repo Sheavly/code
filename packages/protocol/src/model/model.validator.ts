@@ -10,9 +10,9 @@ import { MAX_CONTEXT_WINDOW } from './model.constants.js';
 export const modelIdSchema = lowercaseUuidSchema.brand<'ModelId'>();
 
 /** Reasoning effort, independent of context size, output length and tool permissions. */
-export const modelModeSchema = z.enum(['low', 'medium', 'high', 'extreme']);
+export const modelEffortSchema = z.enum(['low', 'medium', 'high', 'extreme']);
 
-export const modelSelectionSchema = z.object({ modelId: modelIdSchema, mode: modelModeSchema });
+export const modelSelectionSchema = z.object({ modelId: modelIdSchema, effort: modelEffortSchema });
 
 /** The chosen model, independent of the profile UUID, hosting adapter and deployment name. */
 export const modelIdentitySchema = z.object({

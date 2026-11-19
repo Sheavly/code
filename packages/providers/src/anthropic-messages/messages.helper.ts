@@ -24,10 +24,10 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
   const thinking = thinkingFor(config);
 
   return {
-    async *stream({ instructions, messages, notices, tools, signal, mode, temperature }) {
+    async *stream({ instructions, messages, notices, tools, signal, effort, temperature }) {
       // Effort enables adaptive thinking; preserve its signed blocks across tool calls as well.
       const reasoningSource =
-        mode || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
+        effort || thinking?.type === 'enabled' || thinking?.type === 'adaptive'
           ? replaySource({
               protocol: 'messages',
               endpoint: endpoint.baseUrl,
@@ -75,15 +75,15 @@ export function createMessagesProvider(config: MessagesProviderConfig): Provider
             ...(tools.length > 0 && {
               tools: apiTools,
             }),
-            ...(mode
+            ...(effort
               ? {
                   thinking: { type: 'adaptive' },
-                  output_config: { effort: mode === 'extreme' ? 'max' : mode },
+                  output_config: { effort: effort === 'extreme' ? 'max' : effort },
                 }
               : thinking && { thinking }),
             // Thinking requires the default temperature, so a hint is sent only without it.
             ...(temperature !== undefined &&
-              !mode &&
+              !effort &&
               (!thinking || thinking.type === 'disabled') && { temperature }),
             ...(config.promptCaching !== false && { cache_control: PROMPT_CACHE_CONTROL }),
             stream: true,

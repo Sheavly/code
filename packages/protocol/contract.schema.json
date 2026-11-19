@@ -241,7 +241,7 @@
         "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
         "modelId": { "$ref": "#/$defs/ModelId" },
-        "mode": { "$ref": "#/$defs/ModelMode" }
+        "effort": { "$ref": "#/$defs/ModelEffort" }
       },
       "required": [
         "id",
@@ -302,14 +302,14 @@
         "incomplete"
       ]
     },
-    "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+    "ModelEffort": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
     "ModelSelection": {
       "type": "object",
       "properties": {
         "modelId": { "$ref": "#/$defs/ModelId" },
-        "mode": { "$ref": "#/$defs/ModelMode" }
+        "effort": { "$ref": "#/$defs/ModelEffort" }
       },
-      "required": ["modelId", "mode"]
+      "required": ["modelId", "effort"]
     },
     "ModelIdentity": {
       "type": "object",
@@ -1182,7 +1182,7 @@
             "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
             "modelId": { "$ref": "#/$defs/ModelId" },
-            "mode": { "$ref": "#/$defs/ModelMode" }
+            "effort": { "$ref": "#/$defs/ModelEffort" }
           },
           "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
           "additionalProperties": false
@@ -1250,7 +1250,7 @@
             "type": { "type": "string", "const": "session_model" },
             "session": { "$ref": "#/$defs/SessionInfo" },
             "modelId": { "$ref": "#/$defs/ModelId" },
-            "mode": { "$ref": "#/$defs/ModelMode" }
+            "effort": { "$ref": "#/$defs/ModelEffort" }
           },
           "required": ["type", "session", "modelId"]
         },
@@ -1558,7 +1558,7 @@
         "workspace": { "type": "string", "minLength": 1 },
         "profile": { "$ref": "#/$defs/ModelId" },
         "model": { "type": "string", "minLength": 1, "maxLength": 200 },
-        "mode": { "$ref": "#/$defs/ModelMode" }
+        "effort": { "$ref": "#/$defs/ModelEffort" }
       }
     },
     "StartConversationResponse": {
@@ -1591,7 +1591,7 @@
         "name": { "type": "string" },
         "adapter": { "$ref": "#/$defs/AdapterKind" },
         "model": { "type": "string" },
-        "mode": { "$ref": "#/$defs/ModelMode" }
+        "effort": { "$ref": "#/$defs/ModelEffort" }
       },
       "required": ["id", "name", "adapter", "model"]
     },
@@ -1647,7 +1647,7 @@
       "type": "object",
       "properties": {
         "id": { "$ref": "#/$defs/ModelId" },
-        "mode": { "$ref": "#/$defs/ModelMode" }
+        "effort": { "$ref": "#/$defs/ModelEffort" }
       },
       "required": ["id"]
     },
@@ -1762,7 +1762,7 @@
         "id": { "$ref": "#/$defs/ModelId" },
         "title": { "type": "string" },
         "modelId": { "$ref": "#/$defs/ModelId" },
-        "mode": { "$ref": "#/$defs/ModelMode" },
+        "effort": { "$ref": "#/$defs/ModelEffort" },
         "workspace": { "type": "string" },
         "profile": { "$ref": "#/$defs/ModelId" },
         "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
@@ -1773,7 +1773,7 @@
         "id",
         "title",
         "modelId",
-        "mode",
+        "effort",
         "workspace",
         "profile",
         "status",
@@ -1902,10 +1902,10 @@
         "id": { "$ref": "#/$defs/ModelId" },
         "name": { "type": "string", "minLength": 1, "maxLength": 80 },
         "lastModelSelection": { "$ref": "#/$defs/ModelSelection" },
-        "modelModes": {
+        "modelEfforts": {
           "type": "object",
           "propertyNames": { "$ref": "#/$defs/ModelId" },
-          "additionalProperties": { "$ref": "#/$defs/ModelMode" }
+          "additionalProperties": { "$ref": "#/$defs/ModelEffort" }
         },
         "models": { "type": "array", "items": { "$ref": "#/$defs/SetupModel" } },
         "ready": { "type": "boolean" }

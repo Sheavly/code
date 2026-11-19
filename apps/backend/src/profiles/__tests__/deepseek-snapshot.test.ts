@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { profileIdSchema } from '@sheavly/protocol/profile/profile.validator';
 import { createDefaultRegistry } from '@sheavly/providers/registry/default-registry.helper';
@@ -40,19 +40,19 @@ function setupFor(fetch: typeof globalThis.fetch) {
   return { adapters, registry, setup };
 }
 
-const modes: { mode: ModelMode; effort: string }[] = [
-  { mode: 'low', effort: 'low' },
-  { mode: 'medium', effort: 'high' },
-  { mode: 'high', effort: 'high' },
-  { mode: 'extreme', effort: 'max' },
+const efforts: { effort: ModelEffort; reasoningEffort: string }[] = [
+  { effort: 'low', reasoningEffort: 'low' },
+  { effort: 'medium', reasoningEffort: 'high' },
+  { effort: 'high', reasoningEffort: 'high' },
+  { effort: 'extreme', reasoningEffort: 'max' },
 ];
 
 describe.each(['DeepSeek-V4.1-Flash-1017', 'production-east'])(
   'snapshot deployment %s',
   (deployment) => {
-    it.each(modes)(
-      'keeps setup thinking/replay and $mode effort through provider construction',
-      async ({ mode, effort }) => {
+    it.each(efforts)(
+      'keeps setup thinking/replay and $effort effort through provider construction',
+      async ({ effort, reasoningEffort }) => {
         const fake = fakeFetchSequence({
           responses: [
             [
@@ -104,7 +104,7 @@ describe.each(['DeepSeek-V4.1-Flash-1017', 'production-east'])(
           profile,
           registry: adapters,
           request: REQUEST,
-          modes: { [snapshotId]: mode },
+          efforts: { [snapshotId]: effort },
         });
 
         expect(notes).toEqual([]);
@@ -145,7 +145,7 @@ describe.each(['DeepSeek-V4.1-Flash-1017', 'production-east'])(
           expect(request.body).toMatchObject({
             model: deployment,
             thinking: { type: 'enabled' },
-            reasoning_effort: effort,
+            reasoning_effort: reasoningEffort,
           });
           expect(request.body).not.toHaveProperty('effortProfile');
           expect(request.body).not.toHaveProperty('replayReasoning');
@@ -187,7 +187,7 @@ it('does not migrate saved V4 Flash settings when listing the catalogue or build
     profile,
     registry: adapters,
     request: REQUEST,
-    modes: { [legacyId]: 'extreme' },
+    efforts: { [legacyId]: 'extreme' },
   });
 
   expect(notes).toEqual([]);

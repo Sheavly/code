@@ -53,7 +53,7 @@ export function apiHandlers(
             workspace: body.workspace,
             profile: body.profile,
             model: body.model,
-            mode: body.mode,
+            effort: body.effort,
           }),
         },
         201,
@@ -65,7 +65,11 @@ export function apiHandlers(
       return c.body(null, 204);
     },
     switchModel: async ({ c, id, body }) => {
-      await conversations.useModel({ id, modelId: body.id, ...(body.mode && { mode: body.mode }) });
+      await conversations.useModel({
+        id,
+        modelId: body.id,
+        ...(body.effort && { effort: body.effort }),
+      });
 
       return c.body(null, 204);
     },

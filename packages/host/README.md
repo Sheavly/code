@@ -92,10 +92,10 @@ Conversations read `harness.instructions` at each prompt by default. An explicit
 string remains a complete override, including an empty string. Direct loop callers pass
 `instructions: harness.instructions` themselves. See [instruction composition](docs/harness.md#instruction-composition).
 
-`await conversations.useModel({ id, modelId, mode? })` changes one conversation's selection.
-The app restores that model's remembered mode when omitted. Switches for one conversation are
+`await conversations.useModel({ id, modelId, effort? })` changes one conversation's selection.
+The app restores that model's remembered effort when omitted. Switches for one conversation are
 serialized; a failed switch rejects its caller but does not block a later one. The main session
-and stored index retain the selected mode. Reopening passes the saved model/mode pair to the app,
+and stored index retain the selected effort. Reopening passes the saved model/effort pair to the app,
 not the profile's more recent preference.
 
 **Keeping conversations.** Give `Conversations` a `store` (`ConversationStore`,

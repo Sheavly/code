@@ -43,7 +43,7 @@ and never mutate conversation history or system instructions. See
 Chat Completions uses its own nested function tools, streamed deltas and `finish_reason` markers.
 It bounds replies with `maxTokens`, reports final token usage, and optionally replays plain
 `reasoning_content` under endpoint/model provenance across tool and user turns, including
-assistant replies without tool calls. Explicit `effortProfile: 'deepseek'` maps loop modes to
+assistant replies without tool calls. Explicit `effortProfile: 'deepseek'` maps loop efforts to
 `low/high/high/max`; the default `'openai'` retains `low/medium/high/xhigh`, without deployment-name
 inference. Thinking and replay remain separate options. Automatic cache usage counts reported
 hits once and misses as uncached input, never cache writes; missing fields are not proof of
@@ -60,7 +60,7 @@ does not match the current endpoint and model is omitted without losing text or 
 carried and the next request sends them again in the same place, so a changing notice no longer
 costs the thinking; the model therefore reads earlier notices. See
 [the replay tradeoff](docs/prompt-caching.md#signed-thinking-replay-and-transient-notices) and
-[Model effort modes](docs/backends.md#model-effort-modes).
+[Model effort](docs/backends.md#model-effort).
 
 Azure Claude supports `thinkingMode: 'adaptive'`, budgeted `'enabled'` thinking, and `'disabled'`.
 Adaptive thinking takes no fixed budget; `maxTokens` limits output per reply, not the context

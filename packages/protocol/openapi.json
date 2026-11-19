@@ -1270,7 +1270,7 @@
           "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
-          "mode": { "$ref": "#/components/schemas/ModelMode" }
+          "effort": { "$ref": "#/components/schemas/ModelEffort" }
         },
         "required": [
           "id",
@@ -1333,14 +1333,14 @@
           "incomplete"
         ]
       },
-      "ModelMode": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
+      "ModelEffort": { "type": "string", "enum": ["low", "medium", "high", "extreme"] },
       "ModelSelection": {
         "type": "object",
         "properties": {
           "modelId": { "$ref": "#/components/schemas/ModelId" },
-          "mode": { "$ref": "#/components/schemas/ModelMode" }
+          "effort": { "$ref": "#/components/schemas/ModelEffort" }
         },
-        "required": ["modelId", "mode"]
+        "required": ["modelId", "effort"]
       },
       "ModelIdentity": {
         "type": "object",
@@ -2245,7 +2245,7 @@
               "startedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "endedAt": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
               "modelId": { "$ref": "#/components/schemas/ModelId" },
-              "mode": { "$ref": "#/components/schemas/ModelMode" }
+              "effort": { "$ref": "#/components/schemas/ModelEffort" }
             },
             "required": ["id", "rootId", "depth", "title", "state", "startedAt"],
             "additionalProperties": false
@@ -2316,7 +2316,7 @@
               "type": { "type": "string", "const": "session_model" },
               "session": { "$ref": "#/components/schemas/SessionInfo" },
               "modelId": { "$ref": "#/components/schemas/ModelId" },
-              "mode": { "$ref": "#/components/schemas/ModelMode" }
+              "effort": { "$ref": "#/components/schemas/ModelEffort" }
             },
             "required": ["type", "session", "modelId"]
           },
@@ -2648,7 +2648,7 @@
           "workspace": { "type": "string", "minLength": 1 },
           "profile": { "$ref": "#/components/schemas/ModelId" },
           "model": { "type": "string", "minLength": 1, "maxLength": 200 },
-          "mode": { "$ref": "#/components/schemas/ModelMode" }
+          "effort": { "$ref": "#/components/schemas/ModelEffort" }
         }
       },
       "StartConversationResponse": {
@@ -2684,7 +2684,7 @@
           "name": { "type": "string" },
           "adapter": { "$ref": "#/components/schemas/AdapterKind" },
           "model": { "type": "string" },
-          "mode": { "$ref": "#/components/schemas/ModelMode" }
+          "effort": { "$ref": "#/components/schemas/ModelEffort" }
         },
         "required": ["id", "name", "adapter", "model"]
       },
@@ -2740,7 +2740,7 @@
         "type": "object",
         "properties": {
           "id": { "$ref": "#/components/schemas/ModelId" },
-          "mode": { "$ref": "#/components/schemas/ModelMode" }
+          "effort": { "$ref": "#/components/schemas/ModelEffort" }
         },
         "required": ["id"]
       },
@@ -2864,7 +2864,7 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "title": { "type": "string" },
           "modelId": { "$ref": "#/components/schemas/ModelId" },
-          "mode": { "$ref": "#/components/schemas/ModelMode" },
+          "effort": { "$ref": "#/components/schemas/ModelEffort" },
           "workspace": { "type": "string" },
           "profile": { "$ref": "#/components/schemas/ModelId" },
           "status": { "type": "string", "enum": ["open", "closed", "interrupted"] },
@@ -2875,7 +2875,7 @@
           "id",
           "title",
           "modelId",
-          "mode",
+          "effort",
           "workspace",
           "profile",
           "status",
@@ -3007,10 +3007,10 @@
           "id": { "$ref": "#/components/schemas/ModelId" },
           "name": { "type": "string", "minLength": 1, "maxLength": 80 },
           "lastModelSelection": { "$ref": "#/components/schemas/ModelSelection" },
-          "modelModes": {
+          "modelEfforts": {
             "type": "object",
             "propertyNames": { "$ref": "#/components/schemas/ModelId" },
-            "additionalProperties": { "$ref": "#/components/schemas/ModelMode" }
+            "additionalProperties": { "$ref": "#/components/schemas/ModelEffort" }
           },
           "models": { "type": "array", "items": { "$ref": "#/components/schemas/SetupModel" } },
           "ready": { "type": "boolean" }

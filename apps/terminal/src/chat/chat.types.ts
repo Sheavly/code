@@ -22,7 +22,7 @@ export type ChatInput =
   | { kind: 'help' }
   /** `/model` lists the models; `/model <name>` switches to one. */
   | { kind: 'model'; name: string | undefined }
-  | { kind: 'mode'; name: string | undefined }
+  | { kind: 'effort'; name: string | undefined }
   /** `/changes` lists the files changed; `/changes <file or #n or all>` shows diffs. */
   | { kind: 'changes'; target: string | undefined }
   /** `/errors` lists the failed steps with more to say; `/errors #<n>` shows one in full. */

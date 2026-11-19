@@ -19,7 +19,7 @@ import type { ApprovalId, ApprovalResponse } from '@sheavly/protocol/approval/ap
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import { prepareForSend, refuseOverlappingSend, releaseOnAbort } from './prompt.helper.js';
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type {
   ConversationDetails,
   ConversationId,
@@ -70,7 +70,7 @@ export class Conversations {
       workspace: params.workspace,
       profile: params.profile,
       model: params.model,
-      mode: params.mode,
+      effort: params.effort,
       ...(keeper && storageOf({ store: this.#store, keeper, id })),
     });
 
@@ -115,7 +115,7 @@ export class Conversations {
       // profile, whatever it would pick for a new one now.
       workspace: stored.workspace,
       profile: stored.profile,
-      modelSelection: { modelId: stored.modelId, mode: stored.mode },
+      modelSelection: { modelId: stored.modelId, effort: stored.effort },
       ...(storage && { storage: { ...storage, resume } }),
     });
 
@@ -198,7 +198,7 @@ export class Conversations {
   async useModel(params: {
     id: ConversationId;
     modelId: ModelId;
-    mode?: ModelMode;
+    effort?: ModelEffort;
   }): Promise<void> {
     return this.#modelChanges.run({ id: params.id, change: () => this.#useModel(params) });
   }
@@ -206,22 +206,22 @@ export class Conversations {
   async #useModel(params: {
     id: ConversationId;
     modelId: ModelId;
-    mode?: ModelMode;
+    effort?: ModelEffort;
   }): Promise<void> {
     const { id, modelId } = params;
     const live = this.get(id);
 
-    if (!(await live.run.useModel(modelId, params.mode))) {
+    if (!(await live.run.useModel(modelId, params.effort))) {
       throw new ConversationsError({
         reason: 'unknown_model',
         message: `No model with id ${modelId} in conversation ${id}; its details list the models`,
       });
     }
 
-    const mode = live.run.details().model.mode ?? 'medium';
+    const effort = live.run.details().model.effort ?? 'medium';
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, mode });
-    this.#keepers.get(id)?.keepIndex({ modelId, mode });
+    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId, effort });
+    this.#keepers.get(id)?.keepIndex({ modelId, effort });
   }
 
   #summary(id: ConversationId): ConversationSummary {
@@ -264,14 +264,18 @@ export class Conversations {
     const live = this.get(id);
     const summary = this.#summary(id);
     const { model, workspace, profile } = live.run.details();
-    const mode = model.mode ?? 'medium';
+    const effort = model.effort ?? 'medium';
 
-    live.harness.sessions.setModel({ id: live.harness.mainSession.id, modelId: model.id, mode });
+    live.harness.sessions.setModel({
+      id: live.harness.mainSession.id,
+      modelId: model.id,
+      effort,
+    });
     keeper?.begin({
       id,
       title: summary.title,
       modelId: model.id,
-      mode,
+      effort,
       workspace,
       profile,
       status: 'open',

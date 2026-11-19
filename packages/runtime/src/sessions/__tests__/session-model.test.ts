@@ -75,16 +75,16 @@ describe('a session’s model', () => {
     expect(models).toHaveLength(1);
   });
 
-  it('announces mode changes on the same model and keeps each session’s mode separate', () => {
+  it('announces effort changes on the same model and keeps each session’s effort separate', () => {
     const { sessions, main, child, models } = agents();
 
-    sessions.setModel({ id: main.id, modelId: ASTRA, mode: 'high' });
-    sessions.setModel({ id: child.id, modelId: ASTRA, mode: 'low' });
-    sessions.setModel({ id: main.id, modelId: ASTRA, mode: 'extreme' });
-    sessions.setModel({ id: main.id, modelId: ASTRA, mode: 'extreme' });
+    sessions.setModel({ id: main.id, modelId: ASTRA, effort: 'high' });
+    sessions.setModel({ id: child.id, modelId: ASTRA, effort: 'low' });
+    sessions.setModel({ id: main.id, modelId: ASTRA, effort: 'extreme' });
+    sessions.setModel({ id: main.id, modelId: ASTRA, effort: 'extreme' });
     expect(models).toHaveLength(3);
-    expect(sessions.get(main.id)?.mode).toBe('extreme');
-    expect(sessions.get(child.id)?.mode).toBe('low');
+    expect(sessions.get(main.id)?.effort).toBe('extreme');
+    expect(sessions.get(child.id)?.effort).toBe('low');
   });
 
   it('can change while a session is idle between prompts, but not once it has ended', () => {

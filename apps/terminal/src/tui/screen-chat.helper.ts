@@ -49,7 +49,7 @@ export async function startScreenChat(params: {
   const status = {
     state: 'ready' as const,
     model: details.model.name,
-    modelMode: details.model.mode ?? 'medium',
+    modelEffort: details.model.effort ?? 'medium',
     mode: details.permissionMode,
     ...branchOf(details),
     tasks: 0,
@@ -141,7 +141,7 @@ export async function startScreenChat(params: {
             if (details.contextUsage) context.update(details.contextUsage);
             screen.setStatus({
               model: details.model.name,
-              modelMode: details.model.mode ?? 'medium',
+              modelEffort: details.model.effort ?? 'medium',
               // Cleared when the root was, so the badge never outlives it.
               workingBranch: branchOf(details).workingBranch,
               usage: usage.snapshot,

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { modelIdSchema, modelModeSchema } from '../model/model.validator.js';
+import { modelEffortSchema, modelIdSchema } from '../model/model.validator.js';
 import { profileIdSchema } from '../profile/profile.validator.js';
 import { conversationIdSchema } from '../server/server.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
@@ -21,7 +21,7 @@ export const storedConversationSchema = z.object({
   /** The model it ran on last, by its id; a name is a label and could be shared or renamed. */
   modelId: modelIdSchema,
   /** Restoring uses this, never the profile's newer selection. */
-  mode: modelModeSchema,
+  effort: modelEffortSchema,
   /** The folder it works in, as a real path, fixed when it started. */
   workspace: z.string(),
   /** The profile whose models and keys it runs on, fixed when it started. */

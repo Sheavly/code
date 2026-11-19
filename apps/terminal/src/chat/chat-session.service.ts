@@ -11,7 +11,7 @@ import type { ChatConversation, Describer, RunState, TurnOutcome } from './chat.
 import { mainRunState, parseChatInput } from './chat.utils.js';
 import type { StopResult } from '../interrupt/interrupt.types.js';
 import { describeFailure } from '../render/terminal-text.utils.js';
-import { runModelCommand, runModeCommand } from './chat-model.helper.js';
+import { runEffortCommand, runModelCommand } from './chat-model.helper.js';
 import { runEnd } from '@sheavly/protocol/status/run-end.utils';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 
@@ -242,9 +242,9 @@ export class ChatSession {
           runModelCommand({ conversation: this.#conversation, typed: parsed.name }),
         );
         break;
-      case 'mode':
+      case 'effort':
         await this.#printCommand(() =>
-          runModeCommand({ conversation: this.#conversation, typed: parsed.name }),
+          runEffortCommand({ conversation: this.#conversation, typed: parsed.name }),
         );
         break;
       case 'prompt':

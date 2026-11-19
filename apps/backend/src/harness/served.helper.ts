@@ -4,7 +4,7 @@ import type {
   CreateConversation,
   LiveConversation,
 } from '@sheavly/host/conversations/conversations.types';
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type { PermissionStore } from '@sheavly/storage/permission-store/permission-store.service';
 import type { TrustStore } from '@sheavly/coding/trust/trust.service';
 import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
@@ -90,19 +90,19 @@ export async function servedConversation(params: {
     startOnRequestedModel({ models: workspace.models, requested: asked.model });
   }
 
-  // Like the model, a requested mode is for this new conversation only and is never remembered.
+  // Like the model, a requested effort is for this new conversation only and is never remembered.
   const active = workspace.models.switch.active;
 
-  if (asked.mode && active && !asked.modelSelection) {
-    workspace.models.switch.setMode({ name: active, mode: asked.mode });
+  if (asked.effort && active && !asked.modelSelection) {
+    workspace.models.switch.setEffort({ name: active, effort: asked.effort });
   }
 
   // Resume the conversation's own selection, never a newer selection from another conversation.
   if (asked.modelSelection) {
     workspace.models.switch.use(asked.modelSelection.modelId);
-    workspace.models.switch.setMode({
+    workspace.models.switch.setEffort({
       name: asked.modelSelection.modelId,
-      mode: asked.modelSelection.mode,
+      effort: asked.modelSelection.effort,
     });
   }
 
@@ -172,7 +172,7 @@ export async function servedConversation(params: {
             onFailure: (caughtError) =>
               log(`Could not read the working root for the header: ${errorMessage(caughtError)}\n`),
           }),
-        useModel: (id, mode) => useModel({ workspace, id, ...(mode && { mode }) }),
+        useModel: (id, effort) => useModel({ workspace, id, ...(effort && { effort }) }),
       },
     }),
     dispose: async () => {
@@ -188,7 +188,7 @@ function modelsIn(workspace: WorkspaceModels) {
   return {
     model: {
       ...(choices.find((choice) => choice.id === active.active) ?? workspace.first),
-      mode: active.activeMode ?? 'medium',
+      effort: active.activeEffort ?? 'medium',
     },
     models: choices,
   };
@@ -196,21 +196,24 @@ function modelsIn(workspace: WorkspaceModels) {
 
 /**
  * Switches to the model with this id, and remembers it as the profile's last, where its next new
- * conversation starts. Without an explicit mode it restores this model's latest mode in the
+ * conversation starts. Without an explicit effort it restores this model's latest effort in the
  * profile. A failed preference write rejects the switch before the active selection changes.
  */
 async function useModel(params: {
   workspace: WorkspaceModels;
   id: ModelId;
-  mode?: ModelMode;
+  effort?: ModelEffort;
 }): Promise<boolean> {
   const { workspace, id } = params;
 
   if (!workspace.models.choices.some((choice) => choice.id === id)) return false;
 
-  const mode = await workspace.select({ modelId: id, ...(params.mode && { mode: params.mode }) });
+  const effort = await workspace.select({
+    modelId: id,
+    ...(params.effort && { effort: params.effort }),
+  });
 
-  workspace.models.switch.setMode({ name: id, mode });
+  workspace.models.switch.setEffort({ name: id, effort });
   workspace.models.switch.use(id);
 
   return true;

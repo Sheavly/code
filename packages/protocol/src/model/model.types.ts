@@ -5,7 +5,7 @@ import type {
   modelFileSchema,
   modelIdSchema,
   modelSchema,
-  modelModeSchema,
+  modelEffortSchema,
   modelSelectionSchema,
   modelIdentitySchema,
 } from './model.validator.js';
@@ -13,7 +13,7 @@ import type {
 /** A model's id: a lowercase UUID, which names the model wherever one is picked or switched to. */
 export type ModelId = z.infer<typeof modelIdSchema>;
 
-export type ModelMode = z.infer<typeof modelModeSchema>;
+export type ModelEffort = z.infer<typeof modelEffortSchema>;
 export type ModelSelection = z.infer<typeof modelSelectionSchema>;
 export type ModelIdentity = z.infer<typeof modelIdentitySchema>;
 

@@ -3,7 +3,7 @@ import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseOrThrow } from '@sheavly/core/validation/validation.validator';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 import { WorkbookStoreError } from '../errors/workbook.errors.js';
 import { Workspace } from '@sheavly/workspace/workspace/workspace.service';
 import { DocumentFile } from '@sheavly/storage/document-file/document-file.service';
@@ -147,7 +147,7 @@ async function attempt(params: {
   prompt: CheckedPrompt;
   approvedCommands: readonly string[];
   model: string | undefined;
-  mode: ModelMode | undefined;
+  effort: ModelEffort | undefined;
 }): Promise<{ problems: string[]; runs: string[]; interrupted: boolean }> {
   const { store, prompt } = params;
   // A fresh trust store per attempt, outside every repo: a check never touches the user's own.
@@ -187,7 +187,7 @@ async function attempt(params: {
           trust: step.run.trust,
           showModelCalls: false,
           model: params.model,
-          mode: params.mode,
+          effort: params.effort,
         },
       });
 
@@ -231,7 +231,7 @@ async function runCheck(params: {
   prompt: CheckedPrompt;
   approvedCommands: readonly string[];
   model: string | undefined;
-  mode: ModelMode | undefined;
+  effort: ModelEffort | undefined;
 }): Promise<CheckOutcome> {
   const attempts: string[][] = [];
   const runs: string[] = [];
@@ -270,12 +270,12 @@ export async function checkWorkbook(params: {
   /** The model every run of every check starts on (id or name); the profile's own when omitted. */
   model?: string | undefined;
   /** The reasoning effort every run of every check starts on; the profile's own when omitted. */
-  mode?: ModelMode | undefined;
+  effort?: ModelEffort | undefined;
   write: (text: string) => void;
 }): Promise<CheckEnd> {
   assertCheckBackend(process.env);
   const approvedCommands = parseApprovedCommands(params.approvedCommands ?? []);
-  const { store, names, all, write, model, mode } = params;
+  const { store, names, all, write, model, effort } = params;
   const changed = names.length > 0 || all ? [] : changedFiles();
   const { checks, uncovered, unknown } = selectChecks({
     prompts: await store.prompts(),
@@ -306,7 +306,7 @@ export async function checkWorkbook(params: {
   const outcomes: CheckOutcome[] = [];
 
   for (const prompt of checks) {
-    const outcome = await runCheck({ store, prompt, approvedCommands, model, mode });
+    const outcome = await runCheck({ store, prompt, approvedCommands, model, effort });
 
     outcomes.push(outcome);
     // Ctrl+C stops the paid runs: nothing more starts after a stopped one.

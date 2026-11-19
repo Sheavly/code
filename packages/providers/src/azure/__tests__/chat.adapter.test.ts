@@ -98,7 +98,7 @@ describe('Azure Foundry Chat Completions', () => {
       provider.stream({
         messages: [{ role: 'user', content: 'hello' }],
         tools: [],
-        mode: 'extreme',
+        effort: 'extreme',
         signal: new AbortController().signal,
       }),
     );

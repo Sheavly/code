@@ -5,7 +5,7 @@ import { modelIdSchema } from '@sheavly/protocol/model/model.validator';
 import { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
 import { selectedProvider } from '../selected-provider.helper.js';
 
-it('a sub-agent captures the model and mode at start, including in its logged calls', async () => {
+it('a sub-agent captures the model and effort at start, including in its logged calls', async () => {
   const id = modelIdSchema.parse('11111111-1111-4111-8111-111111111111');
   const called: ProviderRequest[] = [];
   const logged: ProviderRequest[] = [];
@@ -17,19 +17,19 @@ it('a sub-agent captures the model and mode at start, including in its logged ca
   };
   const active = new ProviderSwitch().add(id, provider);
 
-  active.setMode({ name: id, mode: 'high' });
+  active.setEffort({ name: id, effort: 'high' });
   const pinned = selectedProvider({
     models: { switch: active, choices: [{ id, name: 'A', adapter: 'openai', model: 'a' }] },
     onModelCall: (request) => logged.push(request),
   });
 
-  active.setMode({ name: id, mode: 'low' });
+  active.setEffort({ name: id, effort: 'low' });
   await collect(
     pinned.provider.stream({ messages: [], tools: [], signal: new AbortController().signal }),
   );
-  expect(pinned.selection).toEqual({ modelId: id, mode: 'high' });
-  expect(called[0]?.mode).toBe('high');
-  expect(logged[0]?.mode).toBe('high');
+  expect(pinned.selection).toEqual({ modelId: id, effort: 'high' });
+  expect(called[0]?.effort).toBe('high');
+  expect(logged[0]?.effort).toBe('high');
 });
 
 it('a sub-agent is told the window of the model it started on, whatever the main session switches to', () => {

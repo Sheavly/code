@@ -130,26 +130,29 @@ describe('servedConversation', () => {
     const a = await conversations.start();
     const b = await conversations.start();
 
-    await conversations.useModel({ id: a, modelId: FAST_ID, mode: 'high' });
-    await conversations.useModel({ id: a, modelId: DEEP_ID, mode: 'low' });
+    await conversations.useModel({ id: a, modelId: FAST_ID, effort: 'high' });
+    await conversations.useModel({ id: a, modelId: DEEP_ID, effort: 'low' });
     await conversations.useModel({ id: a, modelId: FAST_ID });
-    expect((await conversations.details(a)).model.mode).toBe('high');
-    expect((await conversations.details(b)).model.mode).toBe('medium');
+    expect((await conversations.details(a)).model.effort).toBe('high');
+    expect((await conversations.details(b)).model.effort).toBe('medium');
 
     await collect((await conversations.send({ id: a, prompt: { text: 'hi' } })).events);
     expect(requests[0]?.body.reasoning).toEqual({ effort: 'high' });
     await conversations.close(a);
-    await conversations.useModel({ id: b, modelId: DEEP_ID, mode: 'extreme' });
+    await conversations.useModel({ id: b, modelId: DEEP_ID, effort: 'extreme' });
     await conversations.closeAll();
 
     const restarted = serve({}, fetch).conversations;
     const fresh = await restarted.start();
 
-    expect((await restarted.details(fresh)).model).toMatchObject({ id: DEEP_ID, mode: 'extreme' });
+    expect((await restarted.details(fresh)).model).toMatchObject({
+      id: DEEP_ID,
+      effort: 'extreme',
+    });
     await restarted.reopen(a);
-    expect((await restarted.details(a)).model).toMatchObject({ id: FAST_ID, mode: 'high' });
+    expect((await restarted.details(a)).model).toMatchObject({ id: FAST_ID, effort: 'high' });
     await restarted.useModel({ id: a, modelId: DEEP_ID });
-    expect((await restarted.details(a)).model.mode).toBe('extreme');
+    expect((await restarted.details(a)).model.effort).toBe('extreme');
     await restarted.closeAll();
   });
 
@@ -157,32 +160,32 @@ describe('servedConversation', () => {
     const registry = await setUpProfile({ home, models: [fast, deep], lastModelId: FAST_ID });
     const { fetch, requests } = fakeFetch([{ type: 'response.output_text.delta', delta: 'OK' }]);
     const { conversations } = serve({}, fetch);
-    const asked = await conversations.start({ mode: 'extreme' });
+    const asked = await conversations.start({ effort: 'extreme' });
     const other = await conversations.start();
 
     expect((await conversations.details(asked)).model).toMatchObject({
       id: FAST_ID,
-      mode: 'extreme',
+      effort: 'extreme',
     });
-    expect((await conversations.details(other)).model.mode).toBe('medium');
+    expect((await conversations.details(other)).model.effort).toBe('medium');
 
     await collect((await conversations.send({ id: asked, prompt: { text: 'hi' } })).events);
     expect(requests[0]?.body.reasoning).toEqual({ effort: 'xhigh' });
-    expect((await registry.get(TEST_PROFILE))?.modelModes?.[FAST_ID]).not.toBe('extreme');
+    expect((await registry.get(TEST_PROFILE))?.modelEfforts?.[FAST_ID]).not.toBe('extreme');
     await conversations.closeAll();
   });
 
-  it('serializes simultaneous model and effort selections without losing the model’s remembered mode', async () => {
+  it('serializes simultaneous model and effort selections without losing the model’s remembered effort', async () => {
     await setUpProfile({ home, models: [fast, deep] });
     const { conversations } = serve();
     const id = await conversations.start();
 
     await Promise.all([
-      conversations.useModel({ id, modelId: FAST_ID, mode: 'high' }),
-      conversations.useModel({ id, modelId: DEEP_ID, mode: 'low' }),
+      conversations.useModel({ id, modelId: FAST_ID, effort: 'high' }),
+      conversations.useModel({ id, modelId: DEEP_ID, effort: 'low' }),
       conversations.useModel({ id, modelId: FAST_ID }),
     ]);
-    expect((await conversations.details(id)).model).toMatchObject({ id: FAST_ID, mode: 'high' });
+    expect((await conversations.details(id)).model).toMatchObject({ id: FAST_ID, effort: 'high' });
     await conversations.closeAll();
   });
 

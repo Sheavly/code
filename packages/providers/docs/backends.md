@@ -102,16 +102,16 @@ emitted as retained state nor serialized; ordinary text and tool calls remain un
 `effortProfile` explicitly selects native effort mapping and defaults to `'openai'` in both
 `azure-chat` and `createChatCompletionsProvider`. It is never inferred from a deployment name:
 
-| Loop mode | `effortProfile: 'openai'` (default) | `effortProfile: 'deepseek'` |
-| --------- | ----------------------------------- | --------------------------- |
-| low       | low                                 | low                         |
-| medium    | medium                              | high                        |
-| high      | high                                | high                        |
-| extreme   | xhigh                               | max                         |
+| Loop effort | `effortProfile: 'openai'` (default) | `effortProfile: 'deepseek'` |
+| ----------- | ----------------------------------- | --------------------------- |
+| low         | low                                 | low                         |
+| medium      | medium                              | high                        |
+| high        | high                                | high                        |
+| extreme     | xhigh                               | max                         |
 
 Optional `thinkingMode` sends `thinking: {type: 'enabled' | 'disabled'}` through the existing
 Foundry extra-parameter pass-through. Leave it unspecified for the deployment default. Disabled
-thinking omits a conflicting `reasoning_effort`; a call without a loop mode sends no effort.
+thinking omits a conflicting `reasoning_effort`; a call without a loop effort sends no effort.
 The profile changes effort mapping only, not thinking or replay defaults. For a DeepSeek
 snapshot that supports these upstream settings, configure all three explicitly:
 
@@ -299,10 +299,10 @@ not marked one fails a test for every registered adapter.
 switch is set to, for a run pinned to one model (a sub-agent) while the main session switches. A
 host adds each provider under a model's id; a display name is never a key.
 
-### Model effort modes
+### Model effort
 
 The backend selects low, medium, high or extreme independently for each model and conversation.
-`ProviderSwitch.setMode` changes future calls, with the effort captured in `ProviderRequest.mode`
+`ProviderSwitch.setEffort` changes future calls, with the effort captured in `ProviderRequest.effort`
 when the stream begins. `pinned` captures that effort as well as the provider, so a sub-agent is
 not moved by a later switch.
 
@@ -317,8 +317,8 @@ signatures are never replayed. The AGENTS.md and skills hooks append updates to 
 rather than rewriting the system prompt. See
 [preserved thinking](https://platform.claude.com/docs/en/build-with-claude/preserved-thinking).
 This requires a deployment supporting those native effort levels; an unsupported
-setting is reported by the provider, never silently relabelled as another mode. Calls without
-an effort mode retain their configured thinking behavior. See
+setting is reported by the provider, never silently relabelled as another effort. Calls without
+an effort retain their configured thinking behavior. See
 [Anthropic's effort reference](https://platform.claude.com/docs/en/build-with-claude/effort).
 
 ### Temperature hint
@@ -326,7 +326,7 @@ an effort mode retain their configured thinking behavior. See
 `ProviderRequest.temperature` is a hint for work that should be repeatable, such as a summary. An
 adapter sends it only where its API accepts it beside the call's other settings, and otherwise
 leaves it out, so a caller cannot rely on it being applied. Chat Completions sends it unless a
-reasoning effort is sent. Anthropic Messages sends it only with thinking off (no effort mode, no
+reasoning effort is sent. Anthropic Messages sends it only with thinking off (no effort, no
 thinking budget or adaptive mode), since thinking requires the default temperature. Responses
 sends it only when the model's `reasoning` is off and no effort is set, since reasoning models
 reject it. Nothing retries after a rejection: the fallback is to omit the field.
@@ -339,7 +339,7 @@ deployment names keep a conservative 8192 default, because the Messages API requ
 `max_tokens` and the adapter does not guess their capabilities.
 Explicit limits, including those already saved in model files, remain unchanged. To use an
 automatic default for an existing model, remove its explicit `maxTokens` in advanced setup.
-Effort modes do not alter the resolved output limit. The Messages API's `max_tokens` and
+Effort levels do not alter the resolved output limit. The Messages API's `max_tokens` and
 `model_context_window_exceeded` stop reasons are distinct in the harness, so the loop only
 attempts output continuation for the former.
 

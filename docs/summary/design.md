@@ -82,7 +82,7 @@ Rules that follow from it:
   needs no new rule: the Anthropic backend hashes the request prefix (system instructions, tools
   and preceding messages) and replays signed thinking only when it still matches, otherwise
   leaving it out while text and tool calls stay (`prefix.utils.ts`,
-  [backends](../../packages/providers/docs/backends.md#model-effort-modes)). A checkpoint in
+  [backends](../../packages/providers/docs/backends.md#model-effort)). A checkpoint in
   front of the tail changes the prefix, so that thinking is dropped by the existing rule, and the
   tail's first call after a summary pays for it once. Responses and Chat Completions have no such
   binding ([providers](../../packages/core/docs/providers.md)). Checked against the code and its

@@ -1,4 +1,4 @@
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type { ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ModelSwitch } from '../harness/harness.types.js';
@@ -29,8 +29,8 @@ export type WorkspaceModels = ProfileModels & {
   /** The model a conversation starts on: the switch's active one, which is among the choices. */
   first: ModelChoice;
   /**
-   * Restores or explicitly sets the model's remembered effort and saves the model/mode selection
+   * Restores or explicitly sets the model's remembered effort and saves the model/effort selection
    * atomically. Rejects on write failure; the caller changes its own active selection afterwards.
    */
-  select: (selection: { modelId: ModelId; mode?: ModelMode }) => Promise<ModelMode>;
+  select: (selection: { modelId: ModelId; effort?: ModelEffort }) => Promise<ModelEffort>;
 };

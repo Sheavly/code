@@ -1,4 +1,4 @@
-import type { ModelId, ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort, ModelId } from '@sheavly/protocol/model/model.types';
 import type { Profile, ProfileId } from '@sheavly/protocol/profile/profile.types';
 import type { TerminalSettings } from '@sheavly/protocol/terminal-settings/terminal-settings.types';
 import { ConfigStore } from '../config-store/config-store.service.js';
@@ -54,7 +54,7 @@ export class ProfileRegistry {
   }
 
   /**
-   * Remembers the model and effort together. An omitted mode restores this model's own last
+   * Remembers the model and effort together. An omitted effort restores this model's own last
    * effort, or medium when none exists. It is a hint: a model removed since is simply not found
    * by whoever reads it, and the next choice replaces it. Throws a `RegistryError`
    * (`unknown_profile`) when there is no such profile.
@@ -62,19 +62,19 @@ export class ProfileRegistry {
   async rememberModel(params: {
     id: ProfileId;
     modelId: ModelId;
-    mode?: ModelMode;
+    effort?: ModelEffort;
   }): Promise<void> {
     const { id, modelId } = params;
 
     await this.#profileWrites.run(async () => {
       const profile = await requireProfile({ profiles: this.#profiles, id });
 
-      const mode = params.mode ?? profile.modelModes?.[modelId] ?? 'medium';
+      const effort = params.effort ?? profile.modelEfforts?.[modelId] ?? 'medium';
 
       await this.#profiles.put({
         ...profile,
-        lastModelSelection: { modelId, mode },
-        modelModes: { ...profile.modelModes, [modelId]: mode },
+        lastModelSelection: { modelId, effort },
+        modelEfforts: { ...profile.modelEfforts, [modelId]: effort },
       });
     });
   }

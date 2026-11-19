@@ -78,9 +78,9 @@ describe('the other requests', () => {
     expect(startConversationRequestSchema.parse({ messages })).toEqual({ messages });
   });
 
-  it('starts a conversation on a reasoning effort, and refuses one that is not a mode', () => {
-    expect(startConversationRequestSchema.parse({ mode: 'high' })).toEqual({ mode: 'high' });
-    expect(startConversationRequestSchema.safeParse({ mode: 'max' }).success).toBe(false);
+  it('starts a conversation on a reasoning effort, and refuses one that is not an effort', () => {
+    expect(startConversationRequestSchema.parse({ effort: 'high' })).toEqual({ effort: 'high' });
+    expect(startConversationRequestSchema.safeParse({ effort: 'max' }).success).toBe(false);
   });
 
   it('resumes from, and reads back, a history that holds a checkpoint', () => {

@@ -140,7 +140,7 @@ describe('provider output continuation through the real loop', () => {
       }),
     );
 
-    providers.setMode({ name: 'claude', mode: 'high' });
+    providers.setEffort({ name: 'claude', effort: 'high' });
     const result = await runSession({
       provider: providers,
       tools: [apply],

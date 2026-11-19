@@ -1,7 +1,7 @@
 import type { StreamEvent } from '@sheavly/core/message/message.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { ProviderSwitchError } from '../errors/providers.errors.js';
-import type { ModelMode } from '@sheavly/protocol/model/model.types';
+import type { ModelEffort } from '@sheavly/protocol/model/model.types';
 
 /**
  * A Provider that forwards to whichever named provider is currently active,
@@ -22,14 +22,14 @@ import type { ModelMode } from '@sheavly/protocol/model/model.types';
  * | any             | `remove(unknown)`| refused                                         |
  * | none            | `stream`         | refused (`none_active`)                         |
  *
- * `remove` also forgets the provider's mode. A mode is read when a call starts (`stream`) or when
+ * `remove` also forgets the provider's effort. An effort is read when a call starts (`stream`) or when
  * a provider is pinned, never later, so removing a provider changes neither a stream in flight
  * nor a provider already pinned.
  */
 export class ProviderSwitch implements Provider {
   private readonly providers = new Map<string, Provider>();
   private activeName: string | undefined;
-  private readonly modes = new Map<string, ModelMode>();
+  private readonly efforts = new Map<string, ModelEffort>();
 
   /** Adds (or replaces) a named provider. The first one added becomes active. */
   add(name: string, provider: Provider): this {
@@ -40,7 +40,7 @@ export class ProviderSwitch implements Provider {
   }
 
   /**
-   * Removes a named provider and its mode. If it was active, the first remaining provider (in the
+   * Removes a named provider and its effort. If it was active, the first remaining provider (in the
    * order added) becomes active, or none is. Throws a `ProviderSwitchError` (`unknown`) for a name
    * that was never added. A stream in flight and a provider already `pinned` are unaffected.
    */
@@ -48,7 +48,7 @@ export class ProviderSwitch implements Provider {
     if (!this.providers.has(name)) throw this.#unknown(name);
 
     this.providers.delete(name);
-    this.modes.delete(name);
+    this.efforts.delete(name);
 
     if (this.activeName === name) this.activeName = this.names()[0];
   }
@@ -70,12 +70,12 @@ export class ProviderSwitch implements Provider {
     return this.activeName;
   }
 
-  get activeMode(): ModelMode | undefined {
-    return this.activeName ? this.modes.get(this.activeName) : undefined;
+  get activeEffort(): ModelEffort | undefined {
+    return this.activeName ? this.efforts.get(this.activeName) : undefined;
   }
 
-  /** Changes future calls only; a pinned provider captures its mode when pinned. */
-  setMode(params: { name: string; mode: ModelMode }): void {
+  /** Changes future calls only; a pinned provider captures its effort when pinned. */
+  setEffort(params: { name: string; effort: ModelEffort }): void {
     if (!this.providers.has(params.name)) {
       throw new ProviderSwitchError({
         reason: 'unknown',
@@ -83,7 +83,7 @@ export class ProviderSwitch implements Provider {
       });
     }
 
-    this.modes.set(params.name, params.mode);
+    this.efforts.set(params.name, params.effort);
   }
 
   names(): string[] {
@@ -102,12 +102,12 @@ export class ProviderSwitch implements Provider {
 
     if (!provider) throw this.#unknown(key);
 
-    const mode = this.modes.get(key);
+    const effort = this.efforts.get(key);
 
-    if (!mode) return provider;
+    if (!effort) return provider;
 
     return {
-      stream: (request) => provider.stream({ ...request, mode }),
+      stream: (request) => provider.stream({ ...request, effort }),
       get contextWindow() {
         return provider.contextWindow;
       },
@@ -126,8 +126,8 @@ export class ProviderSwitch implements Provider {
       throw new ProviderSwitchError({ reason: 'none_active', message: 'No active provider' });
     }
 
-    const mode = this.activeMode;
+    const effort = this.activeEffort;
 
-    return provider.stream(mode ? { ...request, mode } : request);
+    return provider.stream(effort ? { ...request, effort } : request);
   }
 }

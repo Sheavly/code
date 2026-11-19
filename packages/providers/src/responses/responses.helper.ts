@@ -33,7 +33,7 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
       notices = [],
       tools,
       signal,
-      mode,
+      effort,
       temperature,
       cacheKey,
     }) {
@@ -82,9 +82,9 @@ export function createResponsesProvider(config: ResponsesProviderConfig): Provid
             // Explicit-only: writes end at the marked history, never at a transient notice.
             ...(marked && { prompt_cache_options: EXPLICIT_CACHE_OPTIONS }),
             ...(reasoning ? { include: ['reasoning.encrypted_content'] } : {}),
-            ...(mode && { reasoning: { effort: mode === 'extreme' ? 'xhigh' : mode } }),
+            ...(effort && { reasoning: { effort: effort === 'extreme' ? 'xhigh' : effort } }),
             // Reasoning models reject a temperature, so a hint is sent only with reasoning off.
-            ...(temperature !== undefined && !reasoning && !mode && { temperature }),
+            ...(temperature !== undefined && !reasoning && !effort && { temperature }),
           }),
         },
       });
