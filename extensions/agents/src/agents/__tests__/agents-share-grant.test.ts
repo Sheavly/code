@@ -3,8 +3,8 @@ import {
   ExtensionGrantError,
   ExtensionUndeclaredError,
 } from '@sheavly/extension/errors/manifest.errors';
+import { ScopeDeactivatedError } from '@sheavly/extension/errors/scopes.errors';
 import { fakeExtension, fakeHook, fakeTool } from '@sheavly/extension/testing/extension.fake';
-import { ScopeDeactivatedError } from '@sheavly/host/errors/scopes.errors';
 import { MemoryOutputStore } from '@sheavly/testing/store/memory-output.fake';
 import { SubAgentShareError } from '../../errors/agents.errors.js';
 import { activateAgents, startedWith } from '../../testing/agents-run.fake.js';

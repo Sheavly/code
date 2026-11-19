@@ -9,7 +9,7 @@ import {
   OUTPUT_READER,
   SESSION_INFO,
   TASK_CONTROL,
-} from '@sheavly/host/run-services/run-services.utils';
+} from '@sheavly/extension/run-services/run-services.utils';
 import { createHistoryTools } from '@sheavly/tools/history/history.tool';
 import { createMessageAgentTool } from '@sheavly/tools/sub-agent/message-agent.tool';
 import { createSubAgentTool } from '@sheavly/tools/sub-agent/sub-agent.tool';

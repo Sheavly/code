@@ -6,7 +6,7 @@ import type { SubAgentOptions } from '@sheavly/tools/sub-agent/sub-agent.types';
 /**
  * What the embedding app chooses about its sub-agents. The run's sessions, tasks, provider,
  * instructions and output store are not options: the extension reads them from the run services
- * (`@sheavly/host/run-services/run-services.utils`), as any extension can.
+ * (`@sheavly/extension/run-services/run-services.utils`), as any extension can.
  */
 export type AgentsExtensionOptions = {
   subAgentProvider?: SubAgentOptions['selectProvider'] | undefined;

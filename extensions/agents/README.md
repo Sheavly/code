@@ -6,7 +6,7 @@ Sub-agents, the background task tools, command output reading and history search
 `read_output` and `search_output` (when the host supplies an output store), `start_agent` with
 `message_agent` and the history tools (with `logOf`). It is generic: nothing here knows about files
 or commands. It reads the run's scoped services from the run services
-(`@sheavly/host/run-services/run-services.utils`) in `activate`, as any extension can, so the host
+(`@sheavly/extension/run-services/run-services.utils`) in `activate`, as any extension can, so the host
 must supply them (`runServices`): `SESSION_INFO`, `CHILD_SESSIONS`, `BACKGROUND_TASKS`,
 `TASK_CONTROL`, `MODEL`, `INSTRUCTIONS` and, with an output store, `OUTPUT_READER`. It holds no
 registry and does not import the loop: `CHILD_SESSIONS` runs a sub-agent's loop. `INSTRUCTIONS`
