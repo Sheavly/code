@@ -51,6 +51,55 @@ export class StreamLostError extends Error {
 }
 
 /**
+ * A public route's answer was larger than the client reads (`PUBLIC_ANSWER_MAX_BYTES`): it stopped
+ * reading and cancelled the body. Whatever answered is not the server, which answers a few bytes.
+ */
+export class AnswerTooLargeError extends Error {
+  override name = 'AnswerTooLargeError';
+
+  constructor(params: { route: string; maxBytes: number }) {
+    const { route, maxBytes } = params;
+
+    super(`The answer to ${route} is larger than ${String(maxBytes)} bytes`);
+  }
+}
+
+/** A public route's request was answered with a redirect, which the client never follows. */
+export class RedirectedError extends Error {
+  override name = 'RedirectedError';
+
+  constructor(params: { route: string }) {
+    super(`The answer to ${params.route} is a redirect, which a public route never follows`);
+  }
+}
+
+/** `verifyServer` got an empty token: nothing can be verified against it, and no request is made. */
+export class EmptyTokenError extends Error {
+  override name = 'EmptyTokenError';
+
+  constructor() {
+    super('verifyServer needs a non-empty token');
+  }
+}
+
+/**
+ * The server did not answer `verifyServer` within `timeoutMs`. It is a failure to reach a server,
+ * like a refused connection, not a verdict about one: the caller decides what an absent server
+ * means. The abort the timer caused is the `cause`.
+ */
+export class VerifyTimeoutError extends Error {
+  override name = 'VerifyTimeoutError';
+  readonly timeoutMs: number;
+
+  constructor(params: { timeoutMs: number; cause: unknown }) {
+    const { timeoutMs, cause } = params;
+
+    super(`The server did not answer within ${String(timeoutMs)} ms`, { cause });
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+/**
  * A backend's answer didn't match the contract: the route's schema refused it. A client and
  * backend that drifted apart fail here, loudly, instead of passing on data no type describes.
  */

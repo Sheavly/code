@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type { API_ROUTES } from '@sheavly/protocol/api/api.constants';
-import type { RouteName } from '@sheavly/protocol/api/api.types';
+import type { PublicRouteName, RouteName } from '@sheavly/protocol/api/api.types';
 
 type RouteOf<N extends RouteName> = (typeof API_ROUTES)[N];
 
@@ -50,13 +50,20 @@ export type ReconnectPolicy = {
   wait?: (params: { ms: number; signal: AbortSignal }) => Promise<void>;
 };
 
-/** Where a client reaches a backend, and how. */
-export type ClientOptions = {
+/** Where a client with no token reaches a backend, and how. */
+export type PublicClientOptions = {
   url: string;
-  /** Sent as `Authorization: Bearer <token>` on every request; never in a URL. */
-  token: string;
   /** Reaches the backend (the global `fetch` when unset): a test's fake, a proxy. */
   fetch?: typeof fetch;
+};
+
+/** Where a client reaches a backend, and how. */
+export type ClientOptions = PublicClientOptions & {
+  /** Sent as `Authorization: Bearer <token>` on every private route; never in a URL. */
+  token: string;
   /** How the streams this client's helpers follow reconnect. */
   reconnect?: ReconnectPolicy;
 };
+
+/** The routes a client with no token may call: those the contract marks `public`, and answer JSON. */
+export type PublicJsonRoute = Extract<PublicRouteName, JsonRoute>;
