@@ -18,6 +18,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
+import { sheavlyHome } from '@sheavly/storage/home/home.helper';
 import { pruneScratch } from '@sheavly/workspace/scratch/scratch.helper';
 import { createAdaptorServer } from '@hono/node-server';
 import { createApiApp } from './api/api.helper.js';
@@ -27,7 +28,6 @@ import { parseCliSettings, parseRunEnv, parseServerEnv } from './harness/setting
 import { newInstanceId } from './instance/instance-id.helper.js';
 import { listenServer } from './listen/listen.helper.js';
 import { configureServerTimeouts } from './listen/server-timeouts.helper.js';
-import { sheavlyHome } from './profiles/home.helper.js';
 import { readServerVersion } from './version/server-version.helper.js';
 
 // npm runs a workspace's script inside its folder; work from the folder it was started in

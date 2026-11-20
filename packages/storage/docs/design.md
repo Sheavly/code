@@ -173,7 +173,9 @@ something that works on the system the code was written on and fails on another:
   Windows' 260-character limit.
 - **Paths are built with `node:path`**, never by joining with `/`, and a path kept in a file is
   not compared as text across systems (`C:\Users\x` and `c:\users\x` are one folder).
-- **The home folder is `os.homedir()`**, chosen by the app. `HOME` doesn't exist on Windows.
+- **The home folder is `os.homedir()`**, never `HOME`, which doesn't exist on Windows. `sheavlyHome`
+  (`home/`) is the one place that picks the user's folder: `SHEAVLY_HOME` (an empty one counts as
+  not set), else `.sheavly` in that home. A store takes the root it is given and never reads env.
 - **Sorting does not use the system's locale.** `readdir` lists in the system's order and a
   default `Intl.Collator` follows the machine's language, so the same profile would list
   differently on two machines. A listing sorts file names by code and labels with a fixed locale.

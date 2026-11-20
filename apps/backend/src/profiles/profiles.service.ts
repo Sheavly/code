@@ -8,12 +8,12 @@ import type { AdapterRegistry } from '@sheavly/providers/registry/registry.servi
 import { workspaceKey } from '@sheavly/storage/config-store/config-store.utils';
 import { StorageFileError } from '@sheavly/storage/errors/storage.errors';
 import type { FileConversationStore } from '@sheavly/storage/conversation-store/conversation-store.service';
+import { sheavlyHome } from '@sheavly/storage/home/home.helper';
 import type { FileProblem } from '@sheavly/storage/listing/listing.types';
 import { ProfileRegistry } from '@sheavly/storage/profile-registry/profile-registry.service';
 import type { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { SetupError } from '../errors/setup.errors.js';
 import type { Placement, RequestSettings } from './profiles.types.js';
-import { sheavlyHome } from './home.helper.js';
 import { modelsOf } from './models.helper.js';
 import { ProfileSetup } from './setup.service.js';
 import { WorkspaceSetup } from './workspace-setup.service.js';

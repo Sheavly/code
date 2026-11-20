@@ -2,8 +2,8 @@
 
 The user's data on disk: the folder layout under `~/.sheavly`, file-backed stores for
 conversations, models, credentials and profiles, and the one atomic JSON write they share. Generic:
-it knows nothing about files in a workspace or about code. It never reads env or picks the home
-folder; an app passes the root in.
+it knows nothing about files in a workspace or about code. A store never reads env: an app passes
+the root in, and `sheavlyHome(env)` is the one place that says which folder that is.
 
 ```ts
 import { readJsonFile, writeJsonFile } from '@sheavly/storage/json-file/json-file.helper';
@@ -25,6 +25,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
 | `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
 | `settings-file/`      | `SettingsFiles`: the text of the user's `settings.json`, global and per profile, edited by hand           |
+| `home/`               | `sheavlyHome`: the user's folder, `SHEAVLY_HOME` or `~/.sheavly`, from an environment                     |
 | `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide          |
 | `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                        |
 
