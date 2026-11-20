@@ -57,10 +57,12 @@ function extensionFrom(params: {
     name: manifest.name,
     dependsOn: manifest.dependsOn,
     settings: deepFreeze(
-      manifest.settings.map(({ name, description, default: value }) => ({
+      manifest.settings.map(({ name, description, default: value, scope, restricted }) => ({
         name,
         description,
         default: value,
+        scope,
+        restricted,
       })),
     ),
     origin: code.origin,
@@ -166,6 +168,8 @@ export function settingKey<TType extends SettingType>(params: {
     name,
     description: declared.description,
     default: declared.default as SettingTypes[TType],
+    scope: declared.scope,
+    restricted: declared.restricted,
   };
 }
 

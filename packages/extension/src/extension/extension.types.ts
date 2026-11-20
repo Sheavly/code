@@ -152,6 +152,10 @@ export type SettingKey<TValue extends SettingValue> = {
   readonly description: string;
   /** The value when the user sets none; its type is the type the user's value must have. */
   readonly default: TValue;
+  /** `project`: a workspace's `.sheavly/settings.json` may set it; `user`: only the user's own files. */
+  readonly scope: 'user' | 'project';
+  /** A `project` setting a workspace may set only while the workspace is trusted. */
+  readonly restricted: boolean;
 };
 
 /** What an extension did that its manifest must declare, as named in `ExtensionUndeclaredError`. */

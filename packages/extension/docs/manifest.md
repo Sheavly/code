@@ -43,7 +43,7 @@ every other field defaults to empty.
 | `services.optional`           | Service names it reads with `services.find`. A name is not both required and optional.                                                                                                                                                                                                                                                                                                                    |
 | `services.provides`           | Service names it gives with `services.provide`.                                                                                                                                                                                                                                                                                                                                                           |
 | `services.grants`             | Optional. An object from a service this extension provides to the `<noun>:<verb>` grants that service understands (`{ "sub-agents": ["sub-agent:share"] }`); keys must be in `services.provides`. See [`services.grants`](#servicesgrants).                                                                                                                                                               |
-| `settings`                    | `{ name, type, default, description }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest's `name`; `type` is `string`, `number` or `boolean`, and `default` has that type.                                                                                                                                                                                                    |
+| `settings`                    | `{ name, type, default, description, scope, restricted }` per setting. `name` is `<extension>.<setting>` and its prefix is the manifest name; `type` is `string`, `number` or `boolean`, and `default` has that type. `scope`, `restricted` and the refused credential-looking names: see [Settings](#settings).                                                                                          |
 | `tools`, `hooks`, `workKinds` | The names the extension contributes (`Contributions.tools[].name`, `hooks[].name`, `workKinds[].name`; a placed hook by its inner hook's name). No duplicates. A declared name may go unused: an extension can contribute some only under options. An entry ending in `*` is a [wildcard](#wildcards-names-not-known-in-advance).                                                                         |
 | `instructions`                | The names of the system-prompt sections it may contribute (`Contributions.instructions[].name`), by exact name: no `*`, no duplicates, and not `baseInstructions`, which is reserved for the replacement base (the app uses it to omit the replacement). A declared name may go unused. Contributing any needs the `system-prompt:extend` grant; see [`system-prompt:extend`](#the-system-prompt-grants). |
 | `grants`                      | Optional. `<noun>:<verb>` capabilities (lowercase kebab parts, one colon, no duplicates) it asks of the host's per-extension services; see [`grants`](#grants).                                                                                                                                                                                                                                           |
@@ -209,11 +209,70 @@ in memory is held to the same rules as a file. It holds a deep-frozen copy, so c
 passed in afterwards changes nothing, and a manifest that is not an object throws an
 `ExtensionDefinitionError`.
 
+## Settings
+
+Each entry of `settings` declares one setting the user can change. Besides `name`, `type`,
+`default` and `description` it has two optional fields that say who may change it:
+
+- `scope`: `"user"` (the default) or `"project"`. A `user` setting is set only from the user's own
+  files (the global and the profile layer). A `project` setting may also be set from a
+  workspace's `.sheavly/settings.json`, the weakest layer.
+- `restricted`: a boolean, `false` by default. A `restricted` setting is taken from a workspace only
+  while the workspace is trusted. `restricted: true` with `scope: "user"` is rejected, because a
+  `user` setting is never read from a workspace, so the flag would promise a protection that does
+  nothing; a restricted setting must say `"scope": "project"`.
+
+```json
+{
+  "name": "notes",
+  "settings": [
+    {
+      "name": "notes.max-notes",
+      "type": "number",
+      "default": 50,
+      "description": "How many to keep",
+      "scope": "project"
+    },
+    {
+      "name": "notes.export-dir",
+      "type": "string",
+      "default": "notes",
+      "description": "Where notes are exported, inside the project",
+      "scope": "project",
+      "restricted": true
+    }
+  ]
+}
+```
+
+A `project` setting that is not `restricted` applies from a workspace that is not trusted, so declare
+it only if a hostile repository setting it is harmless. A `project` string setting is input the
+repository controls: an extension that uses it as a path or a URL must confine it itself, or
+declare it `restricted`. How the layers combine, and what happens to a workspace value that is not
+allowed, is in [lifecycle](lifecycle.md#where-setting-values-come-from).
+
+### No credential settings
+
+There is no secret setting type, and a setting's name may not look like a credential: the
+`<setting>` part after `<extension>.` is split into segments at `-`, `_` and `.`, and the manifest
+is rejected when a segment is, ignoring case, one of `key`, `token`, `secret`, `password`,
+`credential`, `passwd`, `apikey`, `pwd`, `bearer`, `passphrase`, `auth`, `accesstoken`,
+`secretkey` or `privatekey` (so `api-key`, `access-token`, `db-password` and `http-auth` are
+rejected). The match is on a whole segment, not a substring: `monkey`, `author`, `keyboard-layout`,
+`tokenizer` and `max-tokens` are accepted. The trade-off is in both directions: a harmless name
+with one of those words (`sort-key`, `max-key-length`) is a false positive and must be renamed,
+and a credential under a word not in the list (`pat`, a name in another language), a plural
+(`tokens`) or a run-together compound the list does not name is not caught. The rule keeps the
+obvious mistake out of a manifest; it does not make a setting a safe place for a credential. The
+settings files are plain JSON and a repository's file is shared, so a credential does not belong
+in a setting or a settings file.
+
 ## Settings keys
 
 A typed key refers to a manifest entry: `settingKey({ manifest, name: 'notes.max-notes', type: 'number' })`
-is a `SettingKey<number>` whose default and description are the manifest's. It throws an
-`ExtensionDefinitionError` when the manifest does not declare the name or declares another type.
+is a `SettingKey<number>` whose default, description, `scope` and `restricted` are the manifest's.
+It throws an `ExtensionDefinitionError` when the manifest does not declare the name or declares
+another type.
 
 ## What the host enforces
 
@@ -359,8 +418,8 @@ they do not cover.
   but it cannot reach another extension's view, and what the host checks (the declared use, the
   readable providers) does not run through that object.
 - **The JSON Schema is the shape only.** `readManifest` is authoritative: cross-field rules
-  (a setting under the extension's own name, a name both required and optional, a dependency on
-  itself) are not expressible in it.
+  (a setting under the extension's own name, `restricted` on a `user` setting, a credential-looking
+  setting name, a name both required and optional, a dependency on itself) are not expressible in it.
 - **A service key matches by name, not identity.** Two `defineService('x')` keys are the same
   service to the host.
 - **`readManifest(string)` is not confined to a root.** An installer must not pass it an untrusted

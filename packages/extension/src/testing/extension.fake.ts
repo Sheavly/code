@@ -37,14 +37,23 @@ export function fakeSetting(params: {
   name: string;
   default: SettingValue;
   description?: string;
+  scope?: SettingManifest['scope'];
+  restricted?: boolean;
 }): SettingManifest {
-  const { name, default: value, description = `Fake setting ${name}` } = params;
+  const {
+    name,
+    default: value,
+    description = `Fake setting ${name}`,
+    scope = 'user',
+    restricted = false,
+  } = params;
+  const base = { name, description, scope, restricted };
 
-  if (typeof value === 'string') return { name, description, type: 'string', default: value };
+  if (typeof value === 'string') return { ...base, type: 'string', default: value };
 
-  if (typeof value === 'number') return { name, description, type: 'number', default: value };
+  if (typeof value === 'number') return { ...base, type: 'number', default: value };
 
-  return { name, description, type: 'boolean', default: value };
+  return { ...base, type: 'boolean', default: value };
 }
 
 /** The names a `contributes` holds, one list per kind, to declare them. */

@@ -43,7 +43,16 @@ const open = useBackendRuns();
 function notesManifest() {
   return manifestOf({
     name: 'notes',
-    settings: [{ name: 'notes.max-lines', type: 'number', default: 50, description: 'Lines' }],
+    settings: [
+      {
+        name: 'notes.max-lines',
+        type: 'number',
+        default: 50,
+        description: 'Lines',
+        scope: 'user',
+        restricted: false,
+      },
+    ],
   });
 }
 

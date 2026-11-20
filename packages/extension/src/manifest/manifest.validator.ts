@@ -8,6 +8,7 @@ import {
   HOST_OFFERED_GRANTS,
 } from '../instructions/instructions.constants.js';
 import {
+  CREDENTIAL_WORDS,
   GRANT_PATTERN,
   MAX_LIST_SIZE,
   MAX_NAME_LENGTH,
@@ -27,7 +28,7 @@ type Fields = {
     provides: string[];
     grants?: Record<string, string[]> | undefined;
   };
-  settings: { name: string }[];
+  settings: { name: string; scope: 'user' | 'project'; restricted: boolean }[];
   tools: string[];
   hooks: string[];
   instructions: string[];
@@ -72,6 +73,10 @@ const serviceNames = z.array(serviceName).max(MAX_LIST_SIZE).default([]);
 const settingBase = {
   name: qualifiedName,
   description: z.string().min(1).max(MAX_TEXT_LENGTH),
+  /** Who may set it: `user` from the user's own files only, `project` also from a workspace's `.sheavly/settings.json`. */
+  scope: z.enum(['user', 'project']).default('user'),
+  /** A `project` setting a workspace may set only when the workspace is trusted. */
+  restricted: z.boolean().default(false),
 };
 
 /** A setting's declaration: its `default` must be of its `type`, so the two are one union. */
@@ -240,13 +245,50 @@ function serviceGrantProblems(fields: Fields): Problem[] {
   });
 }
 
-/** Settings are named `<extension>.<setting>`, once each. */
+/** A setting whose name has a credential word as a whole segment: a setting holds no credential. */
+function credentialNameProblems(settings: Fields['settings']): Problem[] {
+  return settings.flatMap(({ name }, index) => {
+    const segments = name
+      .slice(name.indexOf('.') + 1)
+      .toLowerCase()
+      .split(/[-_.]/);
+    const word = segments.find((segment) => CREDENTIAL_WORDS.includes(segment));
+
+    return word === undefined
+      ? []
+      : [
+          {
+            path: ['settings', index, 'name'],
+            message: `"${name}" looks like a credential ("${word}"): a setting holds no credential, so rename it`,
+          },
+        ];
+  });
+}
+
+/** A `restricted` setting is read from a workspace, so it must be `project`: on a `user` one it protects nothing. */
+function restrictedProblems(settings: Fields['settings']): Problem[] {
+  return settings.flatMap(({ restricted, scope }, index) =>
+    restricted && scope === 'user'
+      ? [
+          {
+            path: ['settings', index, 'restricted'],
+            message:
+              'a restricted setting must have scope "project": a "user" setting is never read from a workspace',
+          },
+        ]
+      : [],
+  );
+}
+
+/** Settings are named `<extension>.<setting>`, once each, and `restricted` only on a `project` one. */
 function settingProblems(fields: Fields): Problem[] {
   const list = fields.settings.map((setting) => setting.name);
 
   return [
     ...outsideNamespace({ path: ['settings'], list, extension: fields.name }),
     ...repeats({ path: ['settings'], list }),
+    ...credentialNameProblems(fields.settings),
+    ...restrictedProblems(fields.settings),
   ];
 }
 
