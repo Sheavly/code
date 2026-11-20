@@ -19,6 +19,17 @@ Finish a change only when `npm run check` passes.
 - Formatting is single quotes, semicolons, trailing commas and 100 columns (`.prettierrc.json`). Don't hand-format: let Prettier do it.
 - Root tooling scripts live in `scripts/` (plain Node ESM, tests in `scripts/__tests__/`).
 
+## How much of the machine the gate uses
+
+Two caps keep `npm run check` from taking every core: `concurrency` in `turbo.json` (5 tasks at once; turbo's default is 10) and `maxWorkers` in `vitest.config.ts` (4 workers per test run; vitest's default is about one per core). Each test run starts its own pool of workers, so the two multiply: uncapped, the gate holds almost every core of a 20-core machine for minutes. Measured on that machine in three capped and three uncapped runs taken alternately, with the machine nearly idle (other processes used about 6% of it in every run, the same in both variants) and the gate's own CPU read from its cgroup, the capped gate used about 17% less CPU for the same work and spent under 2 seconds above 90% CPU where the uncapped gate spent about 90; the wall time was the same within noise (about 215 s). The caps free the machine for other work and do not make the gate faster. Under load from other work, the real-repository lint tests have timed out, but they did not on a quiet machine, so a gain in reliability is not shown. The CI runners, which have 4 vCPUs, were not measured this way.
+
+The worker cap is in the config, not in `VITEST_MAX_WORKERS`, because turbo's strict environment mode strips that variable before it reaches vitest. To override for one run:
+
+- turbo: `npm run check -- --concurrency=<n>` (a count, or a percentage such as `50%`).
+- one workspace's tests: `npm test -w <workspace> -- --maxWorkers=<n>`. It runs vitest directly with the root config, and the command-line value wins over the config.
+
+`scripts/__tests__/gate-parallelism.test.mjs` fails if either cap is removed or is not a positive integer or a percentage. It pins that the caps exist, not their values, and no test can measure CPU use.
+
 ## The Cursor hooks (`.cursor/hooks.json`)
 
 They run automatically:
