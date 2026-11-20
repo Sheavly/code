@@ -29,9 +29,11 @@ sub-agents run; only `await_tasks` keeps it open. When finite work finishes whil
 is idle, it starts a run itself (no new user message) so the model sees the notice; that run's
 events reach every UI through the combined stream, and `conversation.stop()` stops it. `send`
 through `Conversations` first asks such a run to end (`settleWake`), so a user's line is the next
-prompt. Services never wake it: their notice reaches the next prompt. A `summary` option (`SummaryOptions`, `@sheavly/core`) is handed to
-every prompt's run, so the loop summarizes the history when the context nears the window; the
-host never picks a summarizer, the app does.
+prompt. Services never wake it: their notice reaches the next prompt. It wakes as often as work
+finishes: an app that wants a limit sets `maxConsecutiveWakes`, and `onWakeCapped` tells it when
+that limit keeps a notice waiting for the user's next prompt. A `summary` option (`SummaryOptions`,
+`@sheavly/core`) is handed to every prompt's run, so the loop summarizes the history when the
+context nears the window; the host never picks a summarizer, the app does.
 
 ```ts
 import { createConversation } from '@sheavly/host/conversation/conversation.helper';

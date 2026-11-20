@@ -73,9 +73,17 @@ export type ConversationOptions = {
   onWakeFailure?: (error: unknown) => void;
   /**
    * How many runs in a row the conversation may start itself for finished work without a user
-   * prompt between them (default `MAX_CONSECUTIVE_WAKES`); past it, notices wait for the next prompt.
+   * prompt between them. Unset means no limit, as for any unattended work; past a limit, notices
+   * wait for the next prompt and `onWakeCapped` is told.
    */
   maxConsecutiveWakes?: number;
+  /**
+   * Told, with the limit, whenever finished work finds the conversation at `maxConsecutiveWakes`
+   * and so cannot wake it, so the app can say the notice waits for the user. It repeats while that
+   * notice waits (each settlement and each run end asks again), so an app that shows it should do
+   * so once. Must not throw: an error goes to `onWakeFailure`, as for a failed wake run.
+   */
+  onWakeCapped?: (limit: number) => void;
 };
 
 /**

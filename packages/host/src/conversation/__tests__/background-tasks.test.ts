@@ -8,6 +8,7 @@ import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.f
 import { until } from '@sheavly/testing/wait/until.fake';
 import { createHarness } from '../../host/host.helper.js';
 import { createConversation } from '../conversation.helper.js';
+import type { ConversationOptions } from '../conversation.types.js';
 
 /** The task cannot finish until the test releases it, independently of model turns. */
 function conversationWithTask(backgroundKind?: 'task' | 'service') {
@@ -49,6 +50,49 @@ function startBuild(conversation: ReturnType<typeof createConversation>) {
   })();
 
   return { events, running };
+}
+
+/**
+ * A conversation whose model answers the first prompt, then `answers` wake runs, recording the
+ * request of each wake in `seen`. `caps` sets the wake limit and the app's callbacks for it.
+ */
+function conversationAnsweringWakes(params: {
+  answers: number;
+  caps?: Pick<ConversationOptions, 'maxConsecutiveWakes' | 'onWakeCapped' | 'onWakeFailure'>;
+}) {
+  const { answers, caps } = params;
+  const seen: ProviderRequest[] = [];
+  const answer = (request: ProviderRequest) => {
+    seen.push(request);
+
+    return say('ok')(request);
+  };
+  const harness = createHarness({
+    title: 'Build',
+    provider: routedProvider({
+      build: [say('first'), ...Array.from({ length: answers }, () => answer)],
+    }),
+  });
+  const conversation = createConversation({ harness, run: streamAgent, tools: [], ...caps });
+
+  return { harness, conversation, seen };
+}
+
+/** Starts finite work that finishes at once and waits until the registry has settled it. */
+async function finishTask(params: { harness: ReturnType<typeof createHarness>; label: string }) {
+  const { harness, label } = params;
+
+  harness.tasks.start({
+    command: label,
+    description: label,
+    sessionId: harness.mainSession.id,
+    run: async ({ onOutput }) => {
+      onOutput(`${label} done`);
+
+      return { exitCode: 0 };
+    },
+  });
+  await until(() => harness.tasks.runningCount === 0);
 }
 
 /** Unlike the manually released build, this work must be stopped by lifecycle cleanup. */
@@ -224,51 +268,83 @@ describe('background task lifecycle in a conversation', () => {
     }
   });
 
-  it('stops waking at the cap until the next prompt, which then gets the notice', async () => {
-    const seen: ProviderRequest[] = [];
-    const answer = (request: ProviderRequest) => {
-      seen.push(request);
-
-      return say('ok')(request);
-    };
-    const harness = createHarness({
-      title: 'Build',
-      provider: routedProvider({ build: [say('first'), answer, answer, answer] }),
-    });
-    const conversation = createConversation({
-      harness,
-      run: streamAgent,
-      tools: [],
-      maxConsecutiveWakes: 1,
-    });
-    const finishTask = async (label: string) => {
-      harness.tasks.start({
-        command: label,
-        description: label,
-        sessionId: harness.mainSession.id,
-        run: async ({ onOutput }) => {
-          onOutput(`${label} done`);
-
-          return { exitCode: 0 };
+  it('stops waking at a set cap and says so, until the next prompt delivers the notice (rule 1)', async () => {
+    const capped: number[] = [];
+    const { harness, conversation, seen } = conversationAnsweringWakes({
+      answers: 3,
+      caps: {
+        maxConsecutiveWakes: 1,
+        onWakeCapped: (limit) => {
+          capped.push(limit);
         },
-      });
-      await until(() => harness.tasks.runningCount === 0);
-    };
+      },
+    });
 
     try {
       for await (const _event of conversation.send('build'));
 
-      await finishTask('task one');
+      await finishTask({ harness, label: 'task one' });
       await until(() => seen.length === 1 && !conversation.running);
+      expect(capped).toEqual([]);
 
-      await finishTask('task two');
+      await finishTask({ harness, label: 'task two' });
+      await until(() => capped.length === 1);
       await setTimeout(100);
+      expect(capped).toEqual([1]);
       expect(seen).toHaveLength(1);
       expect(harness.tasks.hasUnreported).toBe(true);
 
       for await (const _event of conversation.send('next'));
 
       expect(JSON.stringify(seen.at(-1)?.messages)).toContain('task two done');
+    } finally {
+      await conversation.close();
+    }
+  });
+
+  it('wakes for every finished task however many wakes came before, with no cap set (rule 1)', async () => {
+    const wakes = 12;
+    const { harness, conversation, seen } = conversationAnsweringWakes({ answers: wakes });
+
+    try {
+      for await (const _event of conversation.send('build'));
+
+      for (let wake = 1; wake <= wakes; wake++) {
+        await finishTask({ harness, label: `task ${wake}` });
+        await until(() => seen.length === wake && !conversation.running, 5_000);
+      }
+
+      expect(JSON.stringify(seen.at(-1)?.messages)).toContain(`task ${wakes} done`);
+      expect(harness.tasks.hasUnreported).toBe(false);
+    } finally {
+      await conversation.close();
+    }
+  });
+
+  it('reports a throwing onWakeCapped to onWakeFailure and leaves the conversation idle', async () => {
+    const failures: unknown[] = [];
+    const { harness, conversation, seen } = conversationAnsweringWakes({
+      answers: 1,
+      caps: {
+        maxConsecutiveWakes: 0,
+        onWakeCapped: () => {
+          throw new Error('app callback failed');
+        },
+        onWakeFailure: (error) => {
+          failures.push(error);
+        },
+      },
+    });
+
+    try {
+      for await (const _event of conversation.send('build'));
+
+      await finishTask({ harness, label: 'task one' });
+      await until(() => failures.length > 0);
+
+      expect(failures[0]).toMatchObject({ message: 'app callback failed' });
+      expect(conversation.running).toBe(false);
+      expect(seen).toHaveLength(0);
     } finally {
       await conversation.close();
     }
