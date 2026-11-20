@@ -3,6 +3,7 @@ import { ExtensionDefinitionError, ExtensionSettingError } from '../../errors/ex
 import { settingKey } from '../../extension/extension.utils.js';
 import { fakeExtension, fakeSetting } from '../../testing/extension.fake.js';
 import { ExtensionHost } from '../extension-host.service.js';
+import { layerSettings } from '../setting-layers.utils.js';
 
 const signal = new AbortController().signal;
 const LEVEL_DECLARED = fakeSetting({ name: 'notes.level', description: 'How deep', default: 3 });
@@ -174,14 +175,71 @@ describe('ExtensionHost settings', () => {
     const { settings } = await host.activate({ signal });
 
     expect(settings).toEqual([
-      { extension: 'notes', name: 'notes.level', description: 'How deep', default: 3, value: 3 },
+      {
+        extension: 'notes',
+        name: 'notes.level',
+        description: 'How deep',
+        default: 3,
+        value: 3,
+        source: 'default',
+        scope: 'user',
+        restricted: false,
+      },
       {
         extension: 'notes',
         name: 'notes.title',
         description: 'A title',
         default: 'none',
         value: 'Hi',
+        source: 'default',
+        scope: 'user',
+        restricted: false,
       },
     ]);
+  });
+
+  it('reports the layer in effect, the scope and restricted of each setting', async () => {
+    const extension = fakeExtension({
+      name: 'logs',
+      settings: [
+        fakeSetting({ name: 'logs.depth', default: 3, scope: 'project' }),
+        fakeSetting({ name: 'logs.target', default: 'none', scope: 'project', restricted: true }),
+        fakeSetting({ name: 'logs.color', default: false }),
+      ],
+    });
+    const layered = layerSettings({
+      extensions: [extension],
+      global: { source: 'g.json', values: { 'logs.color': true } },
+      workspace: { source: 'w.json', values: { 'logs.depth': 7 } },
+      workspaceTrusted: false,
+    });
+    const host = new ExtensionHost({
+      extensions: [extension],
+      settings: layered.values,
+      settingSources: layered.sources,
+    });
+    const { settings } = await host.activate({ signal });
+
+    expect(
+      settings.map(({ name, value, source, scope, restricted }) => ({
+        name,
+        value,
+        source,
+        scope,
+        restricted,
+      })),
+    ).toEqual([
+      { name: 'logs.depth', value: 7, source: 'workspace', scope: 'project', restricted: false },
+      { name: 'logs.target', value: 'none', source: 'default', scope: 'project', restricted: true },
+      { name: 'logs.color', value: true, source: 'global', scope: 'user', restricted: false },
+    ]);
+  });
+
+  it('reads a source only for the names it lists, from own keys', async () => {
+    const sources = JSON.parse('{"__proto__":"global"}') as Record<string, 'global'>;
+    const host = new ExtensionHost({ extensions: [notes()], settingSources: sources });
+    const { settings } = await host.activate({ signal });
+
+    expect(settings.map((info) => info.source)).toEqual(['default', 'default']);
   });
 });

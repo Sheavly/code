@@ -17,6 +17,7 @@ import type {
   SettingValue,
   WorkKindContribution,
 } from '../extension/extension.types.js';
+import type { SettingSource } from './setting-layers.types.js';
 
 /** Builds the instance of one per-extension service for a consuming extension, if it has one to give. */
 export type ServiceFactory = (consumer: ServiceConsumer) => ServiceInstance | undefined;
@@ -41,6 +42,12 @@ export type ExtensionHostOptions = {
    * declares, or a value of another type than the declared default's, throws.
    */
   settings?: Readonly<Record<string, SettingValue>> | undefined;
+  /**
+   * The layer each value in `settings` came from, by setting name (`layerSettings(...).sources`),
+   * for `SettingInfo.source`. A name it does not list reads as `default`; the host does not
+   * check it against `settings`.
+   */
+  settingSources?: Readonly<Record<string, SettingSource>> | undefined;
   /**
    * Whether the user trusts the code of a `project` extension. Without it, project extensions are
    * skipped. Builtin extensions never ask.
@@ -83,6 +90,12 @@ export type SettingInfo = {
   default: SettingValue;
   /** The user's value if the host was given one, otherwise the default. */
   value: SettingValue;
+  /** The layer the value comes from: `default` unless the host was given a source for the name. */
+  source: SettingSource;
+  /** Whether a workspace's file may set it (`project`) or only the user's own files (`user`). */
+  scope: 'user' | 'project';
+  /** Whether a workspace may set it only while it is trusted. */
+  restricted: boolean;
 };
 
 /**

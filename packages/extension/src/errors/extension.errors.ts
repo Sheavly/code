@@ -61,15 +61,18 @@ export class ExtensionSettingError extends Error {
   /** The setting's name, and the extension that read it, when an extension was reading. */
   readonly setting: string;
   readonly extension: string | undefined;
+  /** The layer and file the wrong value came from, when it came from a settings layer. */
+  readonly source: string | undefined;
 
-  constructor(params: { setting: string; extension?: string; problem: string }) {
+  constructor(params: { setting: string; extension?: string; source?: string; problem: string }) {
     super(
       params.extension === undefined
-        ? `Setting "${params.setting}": ${params.problem}`
+        ? `Setting "${params.setting}"${params.source === undefined ? '' : ` in ${params.source}`}: ${params.problem}`
         : `Extension ${params.extension} cannot read setting "${params.setting}": ${params.problem}`,
     );
     this.setting = params.setting;
     this.extension = params.extension;
+    this.source = params.source;
   }
 }
 

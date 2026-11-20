@@ -14,6 +14,7 @@ import { assertGrantsOffered, grantCatalogueOf } from './grant-catalogue.utils.j
 import { mergeContributions } from './contributions.utils.js';
 import { orderExtensions, readableServices, withDependents } from './extension-order.utils.js';
 import { skipReasonOf } from './extension-skip.helper.js';
+import type { SettingSource } from './setting-layers.types.js';
 import { assertSettings, settingInfos, settingsFor } from './settings.utils.js';
 import type {
   ActivationResult,
@@ -53,6 +54,7 @@ export class ExtensionHost {
   /** The grants the supplied services and the extensions' `services.grants` declare; a manifest's `grants` are verified against it. */
   readonly #grants: GrantCatalogue;
   readonly #settings: Readonly<Record<string, SettingValue>>;
+  readonly #settingSources: Readonly<Record<string, SettingSource>>;
   /** Each extension's emit capability: disarmed wherever the host stops, drops or fails it. */
   readonly #emitters = new Map<string, Emitter>();
   /** Each extension's one state (see `EXTENSION_TRANSITIONS`); the tool names it contributed count once it is merged. */
@@ -70,6 +72,7 @@ export class ExtensionHost {
     this.#ordered = orderExtensions(sealed);
     this.#states = new ExtensionStates(this.#ordered.map((extension) => extension.name));
     this.#settings = Object.freeze({ ...options.settings });
+    this.#settingSources = Object.freeze({ ...options.settingSources });
     assertSettings({ extensions: sealed, values: this.#settings });
     this.#services = new ServiceRegistry(options.services);
     this.#grants = grantCatalogueOf({ services: options.services ?? [], extensions: sealed });
@@ -332,7 +335,11 @@ export class ExtensionHost {
     return {
       contributions,
       active: this.#activated.map((extension) => extension.name),
-      settings: settingInfos({ extensions: this.#activated, values: this.#settings }),
+      settings: settingInfos({
+        extensions: this.#activated,
+        values: this.#settings,
+        sources: this.#settingSources,
+      }),
       failed,
       skipped,
       lateDeactivationErrors,
