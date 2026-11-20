@@ -24,7 +24,8 @@ import type { ProfileSetup } from '../profiles/setup.service.js';
 import type { WorkspaceSetup } from '../profiles/workspace-setup.service.js';
 import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
 import { TrustStore } from '@sheavly/coding/trust/trust.service';
-import { TEST_TOKEN } from './testing.constants.js';
+import { TEST_INSTANCE_ID } from './identity.fake.js';
+import { TEST_SERVER_VERSION, TEST_TOKEN } from './testing.constants.js';
 import type { TestRequest } from './testing.types.js';
 
 /** Test-only: a turn that answers with `text`. */
@@ -139,7 +140,15 @@ export function testApi(
       };
     },
   });
-  const app = createApiApp({ conversations, setup, workspaces, permissions, token: TEST_TOKEN });
+  const app = createApiApp({
+    conversations,
+    setup,
+    workspaces,
+    permissions,
+    token: TEST_TOKEN,
+    instanceId: TEST_INSTANCE_ID,
+    serverVersion: TEST_SERVER_VERSION,
+  });
   const request = async (path: string, init: TestRequest = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',

@@ -11,10 +11,14 @@ client, built from the same table.
 ## Routes
 
 Every route is under `/conversations`, `/stored-conversations` (the ones kept on disk, live or
-not), or one of the setup roots listed below. Every request carries `Authorization: Bearer <token>`.
+not), one of the setup roots listed below, or is `/health` or `/handshake`. Every request carries
+`Authorization: Bearer <token>`, except `GET /health` and `QUERY /handshake`, which answer
+without one (the contract marks them `public`; every other route needs the token).
 
 | Request                                                                       | Answer                                                                                                                                                                                                                                            |
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health` (no token)                                                      | `{ status: 'ok', serverVersion, protocolVersion }`: that Sheavly runs here and the two versions it reports, nothing else                                                                                                                          |
+| `QUERY /handshake`, `{ nonce }` (no token)                                    | `{ protocolVersion, proof }`: the proof that the server holds the token and is this instance, for that nonce (see "The handshake" in the protocol's contract doc)                                                                                 |
 | `GET /conversations`                                                          | `{ conversations }`: each live one, oldest first                                                                                                                                                                                                  |
 | `POST /conversations`, `{ messages?, workspace?, profile?, model?, effort? }` | `201 { id }`: a new conversation, continuing `messages`, in `workspace` on `profile`, starting on `model` (an id or a name) and reasoning effort `effort` (`low`, `medium`, `high` or `extreme`); both for this conversation only, not remembered |
 | `GET /conversations/:id`                                                      | its run: workspace, models, trust, the permission mode, the working root                                                                                                                                                                          |
@@ -256,16 +260,16 @@ leaves a run waiting on an approval no one will give.
 
 Every failure is `{ error: { code, message } }` (`ServerError`):
 
-| Status | Code               | When                                                                                      |
-| ------ | ------------------ | ----------------------------------------------------------------------------------------- |
-| 400    | `bad_request`      | a body that doesn't parse or is over 5 MB, or an approval answer its request didn't offer |
-| 401    | `unauthorized`     | no token, or a wrong one                                                                  |
-| 404    | `not_found`        | no such conversation (or route), or one already closed                                    |
-| 404    | `unknown_approval` | no approval waiting with that id                                                          |
-| 409    | `session_running`  | a prompt is still running in that conversation                                            |
-| 422    | `unknown_skill`    | `parts` picked a skill no one has                                                         |
-| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't                                          |
-| 500    | `internal`         | the server failed; the message never holds its details                                    |
+| Status | Code               | When                                                                                                                                                                                                                                                             |
+| ------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `bad_request`      | a body that doesn't parse or is over 5 MB, or an approval answer its request didn't offer; a handshake body over 1 KB, or a nonce that is missing, shorter than 22 or longer than 86 characters, or not unpadded base64url (the message never repeats the nonce) |
+| 401    | `unauthorized`     | no token, or a wrong one, on any route but `GET /health` and `QUERY /handshake`; also an unknown path, an `OPTIONS` request and another method on those two paths                                                                                                |
+| 404    | `not_found`        | no such conversation (or route), or one already closed                                                                                                                                                                                                           |
+| 404    | `unknown_approval` | no approval waiting with that id                                                                                                                                                                                                                                 |
+| 409    | `session_running`  | a prompt is still running in that conversation                                                                                                                                                                                                                   |
+| 422    | `unknown_skill`    | `parts` picked a skill no one has                                                                                                                                                                                                                                |
+| 422    | `unknown_model`    | `PUT /model` named an id the conversation hasn't                                                                                                                                                                                                                 |
+| 500    | `internal`         | the server failed; the message never holds its details                                                                                                                                                                                                           |
 
 A prompt that can't start is answered with an error before its stream opens.
 
@@ -274,6 +278,27 @@ A prompt that can't start is answered with an error before its stream opens.
 - `serve.ts` binds to `127.0.0.1` by default: the backend runs commands for whoever reaches it.
 - The token is compared in constant time, sent only in a header (the stream is `QUERY` read with
   `fetch`, never `EventSource`, so it is never in a URL), and never logged.
+- **Two routes answer without the token**, `GET /health` and `QUERY /handshake`, so a client can
+  check what it found before it trusts it with the token. They reveal only that Sheavly runs on
+  that address and its two versions (the backend's and the protocol's); health has exactly the keys
+  `status`, `serverVersion` and `protocolVersion`, and no path, process id, home folder or
+  conversation data. Their handlers receive no conversations, setup, workspaces or permissions.
+  The handshake returns an HMAC of the client's nonce, the server's per-start instance id and the
+  protocol version, keyed with the token: the token and the instance id are never in an answer.
+  They are registered ahead of the token check and read at most 1 KB of body (the 5 MB limit
+  applies only after it). There is no rate limit on them, they keep no state and nothing about
+  them is logged, not the nonce nor the proof. A route is private unless the contract marks it
+  `public`, and a test (`public-routes.test.ts`) pins the public set to these two.
+- **Slow requests are cut off.** The two public routes read a body without a token, so a client
+  that trickles one is unauthenticated work. `serve.ts` sets the server's `requestTimeout` to 30 s
+  (the whole request, head and body; Node's default is 300 s) and `headersTimeout` to 10 s (the
+  default is 60 s), and checks for expired connections every second (`configureServerTimeouts`).
+  They bound the receiving of a request only, so a server-sent event stream, which is a response,
+  stays open as long as it needs. The 30 second request timeout covers the whole request body,
+  so a legitimate large prompt sent over a very slow link (about 2 MB at 70 KB/s or slower) is cut
+  off with a 408 too: the limit protects against a stalled caller, and that is the trade-off.
+  There is still no rate limit and no limit on the number of
+  connections: a client that opens many connections, or many fast requests, is not stopped.
 - `internal` errors never carry their message: it can hold paths or a provider's reply. The
   server's own log gets one line, `api: request failed: <name>: <message>`, cleaned of control
   characters and cut, never a stack.

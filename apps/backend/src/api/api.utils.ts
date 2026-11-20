@@ -2,6 +2,8 @@ import { HTTPException } from 'hono/http-exception';
 import { ConversationsError } from '@sheavly/host/errors/conversations.errors';
 import { ApprovalRequestError } from '@sheavly/runtime/errors/approvals.errors';
 import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
+import { API_ROUTES } from '@sheavly/protocol/api/api.constants';
+import type { RouteName } from '@sheavly/protocol/api/api.types';
 import type { StreamEntry } from '@sheavly/protocol/stream/stream.types';
 import { SetupError } from '../errors/setup.errors.js';
 import type { ApiFailure } from './api.types.js';
@@ -81,6 +83,21 @@ export function parseLastEventId(header: string | undefined): number | undefined
   if (header === undefined || !/^\d+$/.test(header.trim())) return undefined;
 
   return Number(header.trim());
+}
+
+/**
+ * Every route name of the contract, split by its `public` flag. A route is private unless the
+ * contract says `public: true`, so a new route lands behind the bearer check without anyone
+ * listing it here.
+ */
+export function routeNamesByAccess(): { publicNames: RouteName[]; privateNames: RouteName[] } {
+  const names = Object.keys(API_ROUTES) as RouteName[];
+  const isPublic = (name: RouteName) => 'public' in API_ROUTES[name];
+
+  return {
+    publicNames: names.filter((name) => isPublic(name)),
+    privateNames: names.filter((name) => !isPublic(name)),
+  };
 }
 
 /** An OpenAPI path (`/conversations/{id}`) as Hono writes it (`/conversations/:id`). */

@@ -10,5 +10,11 @@ export const SSE_QUEUE_LIMIT = 1000;
 /** The largest request body the server reads: a prompt or saved history, never a file upload. */
 export const MAX_BODY_BYTES = 5_000_000;
 
+/**
+ * The largest body a public route reads. Those routes answer before the bearer check, so they
+ * must not let anyone make the server buffer megabytes unauthenticated; a nonce is under 100 bytes.
+ */
+export const PUBLIC_MAX_BODY_BYTES = 1024;
+
 /** How many characters of an internal failure's name or message the log line keeps. */
 export const MAX_LOGGED_ERROR_CHARS = 500;

@@ -1,6 +1,8 @@
 import type { Context } from 'hono';
 import type { Conversations } from '@sheavly/host/conversations/conversations.service';
-import type { RouteBody, RouteName } from '@sheavly/protocol/api/api.types';
+import type { PublicRouteName, RouteBody, RouteName } from '@sheavly/protocol/api/api.types';
+import type { InstanceId } from '@sheavly/protocol/handshake/handshake.types';
+import type { ServerVersion } from '@sheavly/protocol/version/version.types';
 import type { ConversationId, ServerErrorCode } from '@sheavly/protocol/server/server.types';
 import type { PermissionSetup } from '../profiles/permission-setup.service.js';
 import type { ProfileSetup } from '../profiles/setup.service.js';
@@ -16,8 +18,15 @@ export type ApiOptions = {
   workspaces: WorkspaceSetup;
   /** What `run_command` may do in each folder (`PermissionSetup`). */
   permissions: PermissionSetup;
-  /** Every request must carry it (`Authorization: Bearer <token>`). Never logged. */
+  /**
+   * Every request must carry it (`Authorization: Bearer <token>`), except to the routes the
+   * contract marks `public`. Never logged.
+   */
   token: string;
+  /** This server start's id (`newInstanceId`). Never returned by any route: it only salts the handshake proof. */
+  instanceId: InstanceId;
+  /** The backend's own version, as `GET /health` reports it (`readServerVersion`). */
+  serverVersion: ServerVersion;
   /** Hears of a failure the API answers as `internal`: its name and message, never a stack. Default: none. */
   log?: ((text: string) => void) | undefined;
 };
@@ -76,8 +85,11 @@ export type WorkspaceRouteName =
 export type PermissionRouteName =
   'queryPermissions' | 'setPermissionMode' | 'allowCommand' | 'revokeCommand';
 
-/** The routes on the live conversations: all but the setup's and the folders'. */
+/**
+ * The routes on the live conversations: all but the setup's, the folders' and the public ones,
+ * which `identityHandlers` serves without any of the user's data.
+ */
 export type ConversationRouteName = Exclude<
   RouteName,
-  SetupRouteName | WorkspaceRouteName | PermissionRouteName
+  SetupRouteName | WorkspaceRouteName | PermissionRouteName | PublicRouteName
 >;

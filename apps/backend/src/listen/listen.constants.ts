@@ -11,5 +11,19 @@ export const FALLBACK_PORT_MAX = 32_000;
 /** How many random fallback ports are tried before giving up. */
 export const FALLBACK_PORT_ATTEMPTS = 20;
 
+/**
+ * How long a client has to send a whole request, head and body (Node's default is 300 s). A public
+ * route reads a body with no token, so a connection that trickles one is unauthenticated work.
+ * It covers receiving the request only: a response, such as a server-sent event stream, is not
+ * bound by it.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
+
+/** How long a client has to send the request's headers (Node's default is 60 s). */
+export const HEADERS_TIMEOUT_MS = 10_000;
+
+/** How often Node looks for connections past those two limits (its default is 30 s). */
+export const CONNECTIONS_CHECK_INTERVAL_MS = 1000;
+
 /** The error code of a port that is taken (or that the OS has none left to give). */
 export const ADDRESS_IN_USE = 'EADDRINUSE';
