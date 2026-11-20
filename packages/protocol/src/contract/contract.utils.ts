@@ -110,6 +110,18 @@ import {
   taskUpdateSchema,
 } from '../task/task.validator.js';
 import { PROTOCOL_VERSION } from '../version/protocol-version.constants.js';
+import {
+  healthResponseSchema,
+  protocolVersionSchema,
+  serverVersionSchema,
+} from '../version/version.validator.js';
+import {
+  handshakeProofSchema,
+  handshakeRequestSchema,
+  handshakeResponseSchema,
+  instanceIdSchema,
+  nonceSchema,
+} from '../handshake/handshake.validator.js';
 import { JSON_SCHEMA_DIALECT } from './contract.constants.js';
 import type { ContractJsonSchema } from './contract.types.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
@@ -227,6 +239,14 @@ function contractSchemas(): Record<string, z.ZodType> {
     SetPermissionModeRequest: setPermissionModeRequestSchema,
     AllowEntryRequest: allowEntryRequestSchema,
     WorkspacePermissions: workspacePermissionsSchema,
+    ProtocolVersion: protocolVersionSchema,
+    ServerVersion: serverVersionSchema,
+    HealthResponse: healthResponseSchema,
+    Nonce: nonceSchema,
+    InstanceId: instanceIdSchema,
+    HandshakeProof: handshakeProofSchema,
+    HandshakeRequest: handshakeRequestSchema,
+    HandshakeResponse: handshakeResponseSchema,
   };
 }
 

@@ -68,6 +68,8 @@ function operationOf(params: { operation: string; route: ApiRoute }): Record<str
   return {
     operationId: operation,
     summary: route.summary,
+    // `security: []` lifts the document's bearer requirement for this operation alone.
+    ...(route.public && { security: [] }),
     parameters: parametersOf(route),
     ...(route.body && {
       requestBody: {
@@ -97,10 +99,12 @@ function routeTableMarkdown(): string {
     const request = `\`${route.method.toUpperCase()} ${route.path}\``;
     const body = route.body ? `\`${contractName(route.body) ?? '?'}\`` : 'none';
 
-    return `| ${request} | ${body} | ${answerCell(route.response)} |`;
+    const token = route.public ? 'none' : 'bearer';
+
+    return `| ${request} | ${token} | ${body} | ${answerCell(route.response)} |`;
   });
 
-  return ['| Request | Body | Answer |', '| --- | --- | --- |', ...rows].join('\n');
+  return ['| Request | Token | Body | Answer |', '| --- | --- | --- | --- |', ...rows].join('\n');
 }
 
 /**
@@ -121,7 +125,7 @@ export function withRouteTable(markdown: string): string | null {
 
 /**
  * The API as an OpenAPI 3.2 document, for clients and generators: every route, the bearer token
- * they all need, and the contract's schemas as components.
+ * they all need except the `public` ones (`security: []`), and the contract's schemas as components.
  */
 export function openApiDocument(): OpenApiDocument {
   const paths: OpenApiDocument['paths'] = {};

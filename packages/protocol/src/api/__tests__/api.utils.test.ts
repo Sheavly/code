@@ -53,7 +53,7 @@ describe('openApiDocument', () => {
       expect(seen.has(key)).toBe(false);
       seen.add(key);
       expect(route.path).toMatch(
-        /^\/(conversations|stored-conversations|setup|adapters|profiles|default-profile|workspace-profiles|trusted-workspaces|permissions|terminal-settings)(\/(\{[a-z]+\}|[a-z-]+))*$/,
+        /^\/(conversations|stored-conversations|setup|adapters|profiles|default-profile|workspace-profiles|trusted-workspaces|permissions|terminal-settings|health|handshake)(\/(\{[a-z]+\}|[a-z-]+))*$/,
       );
     }
   });
@@ -88,6 +88,35 @@ describe('openApiDocument', () => {
     expect(openApiDocument().paths['/conversations/{id}/yield']?.post).toMatchObject({
       operationId: 'yieldPrompt',
     });
+  });
+
+  it('marks exactly health and the handshake public, and nothing else', () => {
+    const marked = Object.entries(API_ROUTES)
+      .filter(([, route]) => 'public' in route)
+      .map(([name]) => name);
+
+    expect(marked).toEqual(['getHealth', 'queryHandshake']);
+  });
+
+  it('lifts the bearer requirement from public operations only', () => {
+    const { paths, security } = openApiDocument();
+
+    expect(security).toEqual([{ bearer: [] }]);
+
+    for (const [operationId, route] of Object.entries(API_ROUTES)) {
+      const operation = paths[route.path]?.[route.method];
+
+      expect({ operationId, security: (operation as { security?: unknown }).security }).toEqual({
+        operationId,
+        security: 'public' in route ? [] : undefined,
+      });
+    }
+  });
+
+  it('gives a public route no path parameter', () => {
+    for (const route of Object.values(API_ROUTES)) {
+      if ('public' in route) expect(route.path).not.toContain('{');
+    }
   });
 
   it('only references schemas it defines', () => {

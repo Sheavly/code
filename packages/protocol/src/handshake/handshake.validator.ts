@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { protocolVersionSchema } from '../version/version.validator.js';
 import {
   BASE64URL_PATTERN,
   INSTANCE_ID_CHARS,
@@ -23,3 +24,12 @@ export const instanceIdSchema = z
 
 /** The proof a server gives for a nonce: 43 characters of unpadded base64url (32 bytes). */
 export const handshakeProofSchema = z.string().length(PROOF_CHARS).regex(BASE64URL_PATTERN);
+
+/** What `QUERY /handshake` takes: the client's fresh nonce. */
+export const handshakeRequestSchema = z.object({ nonce: nonceSchema });
+
+/** What `QUERY /handshake` answers: the protocol version and the proof over the nonce, instance and version. */
+export const handshakeResponseSchema = z.object({
+  protocolVersion: protocolVersionSchema,
+  proof: handshakeProofSchema,
+});

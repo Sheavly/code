@@ -10,6 +10,14 @@ export const NUMERIC_IDENTIFIER_PATTERN = /^\d+$/;
 /** A numeric part with a leading zero (`01`), which semver forbids. */
 export const LEADING_ZERO_PATTERN = /^0\d/;
 
+/** What a version string that is not semver is told, in a schema issue. */
+export const SEMVER_ERROR =
+  'must be a semantic version (major.minor.patch, optional -prerelease, no +build)';
+
+/** What the generated schema says about a version, beyond its pattern, which is the shape only. */
+export const SEMVER_DESCRIPTION =
+  'A semantic version: major.minor.patch with an optional -prerelease of dot-separated identifiers. No build metadata (+), no leading zeros in a number, and every number at most 9007199254740991.';
+
 /** The marker of build metadata, which a protocol version may not carry. */
 export const BUILD_METADATA_MARKER = '+';
 

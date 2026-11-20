@@ -29,14 +29,24 @@ type ApiEffect =
 
 /**
  * One route of the harness's HTTP API: what a server implements and a client calls. `path` uses
- * OpenAPI's `{param}` form; its params are strings. Every route needs the bearer token and fails
- * with a `ServerError` body.
+ * OpenAPI's `{param}` form; its params are strings. A route needs the bearer token unless it is
+ * `public`, and fails with a `ServerError` body.
  */
 export type ApiRoute = ApiEffect & {
   path: string;
   summary: string;
   response: ApiResponse;
+  /**
+   * Absent: the route needs the bearer token. `true`: it answers without one. Only a route that
+   * identifies the server may be public, and a public route has no path parameters.
+   */
+  public?: true;
 };
+
+/** The routes that answer without a token: those whose `public` is `true`. */
+export type PublicRouteName = {
+  [N in RouteName]: (typeof API_ROUTES)[N] extends { public: true } ? N : never;
+}[RouteName];
 
 /** The API as an OpenAPI 3.2 document: the routes, and the contract's schemas as components. */
 export type OpenApiDocument = {
