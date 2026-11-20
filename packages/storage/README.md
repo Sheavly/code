@@ -28,6 +28,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `home/`               | `sheavlyHome`: the user's folder, `SHEAVLY_HOME` or `~/.sheavly`, from an environment                      |
 | `server-runtime/`     | `serverRuntimeDirectory`: the one private folder for the server's socket and file; `checkPrivateDirectory` |
 | `server-lock/`        | `acquireServerLock`: one server per home, a held socket; a crash is taken over, never a live holder        |
+| `discovery-file/`     | `server.json` (publish, safe read, remove) and `ServerPresence`: the lock and the file, warnings only      |
 | `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide           |
 | `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                         |
 

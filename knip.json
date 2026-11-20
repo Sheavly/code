@@ -23,7 +23,8 @@
     "packages/storage": {
       "entry": [
         "src/testing/lock-worker.fake.ts",
-        "src/server-lock/testing/server-lock-worker.fake.ts"
+        "src/server-lock/testing/server-lock-worker.fake.ts",
+        "src/discovery-file/testing/discovery-file-worker.fake.ts"
       ]
     }
   }

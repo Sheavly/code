@@ -36,6 +36,9 @@ export default defineConfig([
       // it for the short time a stale one is taken over; the runtime folder is created private.
       'src/server-lock/**',
       'src/server-runtime/**',
+      // The discovery file is written and removed on purpose: private, flushed, never half-written,
+      // with checks `writeJsonFile` has no place for (a planted link, the umask).
+      'src/discovery-file/**',
       'src/output-store/output-store.service.ts',
       'src/output-store/output-writer.service.ts',
       'src/output-store/__tests__/**',
