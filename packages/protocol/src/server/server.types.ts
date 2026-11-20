@@ -3,6 +3,7 @@ import type {
   conversationDetailsSchema,
   conversationIdSchema,
   conversationSummarySchema,
+  ignoredSettingSchema,
   modelChoiceSchema,
   sendPromptRequestSchema,
   serverErrorCodeSchema,
@@ -17,6 +18,9 @@ export type ConversationId = z.infer<typeof conversationIdSchema>;
 
 /** A live conversation, as another UI finds it to join. */
 export type ConversationSummary = z.infer<typeof conversationSummarySchema>;
+
+/** A workspace settings entry, or the whole file, that did not apply; never carries a value. */
+export type IgnoredSettingReport = z.infer<typeof ignoredSettingSchema>;
 
 /** A model a conversation can use. */
 export type ModelChoice = z.infer<typeof modelChoiceSchema>;

@@ -49,7 +49,7 @@ const { conversations, setup, workspaces, permissions } = createBackend({
 pruneScratch({ root: sharedScratchRoot() }).catch((caughtError: unknown) =>
   log(`Could not prune the scratch folder: ${String(caughtError)}\n`),
 );
-const app = createApiApp({ conversations, setup, workspaces, permissions, token });
+const app = createApiApp({ conversations, setup, workspaces, permissions, token, log });
 
 /** What the user needs once the server listens: where their data is, and the token when made here. */
 function printStarted(address: AddressInfo): void {

@@ -28,7 +28,14 @@ export function testBackend(params: {
     remoteSetupAllowed,
     ...(fetch && { adapters: createDefaultRegistry({ fetch }) }),
   });
-  const app = createApiApp({ conversations, setup, workspaces, permissions, token: TEST_TOKEN });
+  const app = createApiApp({
+    conversations,
+    setup,
+    workspaces,
+    permissions,
+    token: TEST_TOKEN,
+    log: (text) => logged.push(text),
+  });
   const call = (path: string, init: { method?: string; body?: unknown } = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',

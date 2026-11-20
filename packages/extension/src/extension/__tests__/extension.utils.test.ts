@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ExtensionDefinitionError } from '../../errors/extension.errors.js';
 import type { ExtensionManifest } from '../../manifest/manifest.types.js';
 import { fakeExtension, fakeSetting } from '../../testing/extension.fake.js';
-import { defineExtension, defineService, settingKey } from '../extension.utils.js';
+import { defineExtension, defineService, sealExtension, settingKey } from '../extension.utils.js';
 
 /** The manifest of a bare extension called `notes`, with `fields` laid over it. */
 const manifestOf = (fields: Partial<ExtensionManifest> = {}): ExtensionManifest => ({
@@ -22,8 +22,42 @@ describe('defineExtension', () => {
     expect(extension.name).toBe('notes');
     expect(extension.dependsOn).toEqual(['files']);
     expect(extension.settings).toEqual([
-      { name: 'notes.level', description: 'How deep', default: 3 },
+      {
+        name: 'notes.level',
+        description: 'How deep',
+        default: 3,
+        scope: 'user',
+        restricted: false,
+      },
     ]);
+  });
+
+  it('keeps scope and restricted of a setting, frozen, in the extension and in a sealed copy', () => {
+    const manifest = manifestOf({
+      settings: [
+        fakeSetting({ name: 'notes.level', default: 3, scope: 'project', restricted: true }),
+      ],
+    });
+    const extension = defineExtension({ manifest, activate: () => ({}) });
+    const sealed = sealExtension(extension);
+
+    for (const held of [extension, sealed]) {
+      expect(held.settings[0]).toMatchObject({ scope: 'project', restricted: true });
+      expect(Object.isFrozen(held.settings[0])).toBe(true);
+    }
+  });
+
+  it('seals a hand-built extension to the scope its manifest says, whatever its settings say', () => {
+    const manifest = manifestOf({
+      settings: [fakeSetting({ name: 'notes.level', default: 3 })],
+    });
+    const extension = defineExtension({ manifest, activate: () => ({}) });
+    const forged = {
+      ...extension,
+      settings: [{ ...extension.settings[0]!, scope: 'project' as const, restricted: false }],
+    };
+
+    expect(sealExtension(forged).settings[0]).toMatchObject({ scope: 'user', restricted: false });
   });
 
   it('keeps the origin and the code it was given', () => {
@@ -104,6 +138,21 @@ describe('settingKey', () => {
       name: 'notes.level',
       description: 'How deep',
       default: 3,
+      scope: 'user',
+      restricted: false,
+    });
+  });
+
+  it('carries the manifest’s scope and restricted', () => {
+    const scoped = manifestOf({
+      settings: [
+        fakeSetting({ name: 'notes.level', default: 3, scope: 'project', restricted: true }),
+      ],
+    });
+
+    expect(settingKey({ manifest: scoped, name: 'notes.level', type: 'number' })).toMatchObject({
+      scope: 'project',
+      restricted: true,
     });
   });
 

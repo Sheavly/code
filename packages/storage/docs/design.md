@@ -91,10 +91,12 @@ replaced is decided once.
 ```text
 ~/.sheavly/
   config.json                            # profile bindings and global terminal preferences
+  settings.json                          # global extension settings, written by hand
   trusted-workspaces.json                # shared: trust is about a repo, not a provider
   permissions/<workspace-key>.json       # shared: what run_command may do in a folder
   profiles/<profile-id>/
     profile.json                         # identity, lastModelSelection and modelEfforts keyed by UUID
+    settings.json                        # this profile's extension settings, written by hand
     models/<model-id>.json               # one file per model: { id, name, adapter, ...fields }
     credentials.json                     # { [model-id]: { apiKey } }, the only file with keys
     workspaces/<workspace-key>/
@@ -309,6 +311,27 @@ behind, and deleting a profile folder leaves the config naming it.
   folder left by a delete landing in between is listed as a problem, and deleting it clears it.
 - **It is a key holder.** `getSecrets` hands a key to whoever asks, so `harness/no-key-holder-import`
   keeps its import to the backend app, exactly as for the credential store.
+
+## The settings files
+
+`SettingsFiles` reads the user's two own settings files: `settings.json` at the root (global) and
+`profiles/<profile-id>/settings.json`. They are written by hand, so nothing here writes them. Each
+read returns `{ text, file }`, or `undefined` for a file that is not there, which is an empty layer
+(a profile with no folder included: that the profile exists is the registry's to say). The text is
+not parsed: the setting grammar belongs to `@sheavly/extension`, which storage sits below and must
+not import, so the caller parses it with `file` as the source of its messages.
+
+- **A file that cannot be used is a `StorageFileError`** naming the file and the reason, never its
+  content: it is a folder or another kind of file (refused before opening: a FIFO that is there
+  when the file is examined cannot block the read; a regular file swapped for a FIFO between the
+  `stat` and the read is not covered, since only the user's own folder can do that), it is over `MAX_SETTINGS_FILE_BYTES` (64 KiB, the same figure as the settings file
+  contract, defined here because the contract is above storage), it cannot be read, or it is not
+  valid UTF-8. The file is read once.
+- **A profile id is checked as a profile id** (a lowercase UUID) before a path is made, so `..`, a
+  separator, an empty or absolute value throws an `UnsafePathError` and nothing is read.
+- **`ProfileStore` does not look at it.** `list()` reads only each folder's `profile.json`, so a
+  `settings.json` beside it is neither a problem nor a profile, and `remove` deletes the profile's
+  folder whole, the settings file with it.
 
 ## Adding a store
 

@@ -25,6 +25,29 @@ export const MAX_ECHOED_DETAILS = 2000;
 /** The longest free text (a setting's description or string default, the `$schema` URL) a manifest may hold. */
 export const MAX_TEXT_LENGTH = 1000;
 
+/**
+ * The words a setting's name may not contain as a whole segment (segments split on `-`, `_` and
+ * `.`, compared case-insensitively): a setting holds no credential, so a name that reads like one
+ * is refused. A segment match, not a substring one, so `keyboard-layout` passes and `api-key`
+ * (segment `key`) does not; a plural (`tokens`) or a name in another language is not caught.
+ */
+export const CREDENTIAL_WORDS: readonly string[] = [
+  'key',
+  'token',
+  'secret',
+  'password',
+  'credential',
+  'passwd',
+  'apikey',
+  'pwd',
+  'bearer',
+  'passphrase',
+  'auth',
+  'accesstoken',
+  'secretkey',
+  'privatekey',
+];
+
 /** Every control and format character (bidi controls, zero-width joiners), which a message must not carry from a file's content. */
 export const CONTROL_CHARACTERS = /[\p{Cc}\p{Cf}]/gu;
 

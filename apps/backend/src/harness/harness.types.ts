@@ -1,9 +1,6 @@
-import type {
-  Extension,
-  SettingValue,
-  WorkKindContribution,
-} from '@sheavly/extension/extension/extension.types';
+import type { Extension, WorkKindContribution } from '@sheavly/extension/extension/extension.types';
 import type { SettingInfo, SkippedExtension } from '@sheavly/extension/host/extension-host.types';
+import type { LayeredSettings, SettingLayer } from '@sheavly/extension/host/setting-layers.types';
 import type { Hook } from '@sheavly/core/hook/hook.types';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { SummaryOptions } from '@sheavly/core/summary/summary.types';
@@ -14,7 +11,7 @@ import type { DocumentStore, EntryStore } from '@sheavly/core/store/store.types'
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
 import type { ProviderSwitch } from '@sheavly/providers/switch/switch.service';
-import type { ModelChoice } from '@sheavly/protocol/server/server.types';
+import type { IgnoredSettingReport, ModelChoice } from '@sheavly/protocol/server/server.types';
 import type { ProjectTrust } from '@sheavly/coding/project-hooks/project-hooks.types';
 import type { KeyedLocks } from '@sheavly/runtime/locks/keyed-locks.service';
 import type { SkillRoots } from '@sheavly/coding/skills/skills.types';
@@ -124,10 +121,30 @@ export type BackendHarnessOptions = Pick<
    */
   extensions?: readonly Extension[] | undefined;
   /**
-   * The user's values for the settings extensions declare in their manifests, by setting name.
-   * A name no extension declares, or a value of another type than the default's, fails the run.
+   * The user's own settings files, already read and parsed (`readUserSettingLayers`): the global
+   * layer and the bound profile's. They hold values for the settings extensions declare in their
+   * manifests; a name no extension declares, or a value of another type than the default's, fails
+   * the run. The workspace's `.sheavly/settings.json` is read here, since this has the workspace
+   * root and the trust store.
    */
-  extensionSettings?: Readonly<Record<string, SettingValue>> | undefined;
+  settingLayers?: SettingFileLayers | undefined;
+};
+
+/** The layers of the user's own files; a layer is absent when its file is not there. */
+export type SettingFileLayers = {
+  global?: SettingLayer | undefined;
+  profile?: SettingLayer | undefined;
+};
+
+/**
+ * What a run's settings come to: the values in effect and where each came from (what
+ * `ExtensionHost` takes as `settings` and `settingSources`), and what the workspace's file asked
+ * for that did not apply: at most `MAX_IGNORED_SETTINGS` entries, and `ignoredMore` counts the
+ * entries left out of the list.
+ */
+export type ResolvedSettings = Pick<LayeredSettings, 'values' | 'sources'> & {
+  ignored: IgnoredSettingReport[];
+  ignoredMore: number;
 };
 
 /** A run on the backend: the run's services, the coding workspace, and the tools and hooks it includes. */
@@ -144,6 +161,14 @@ export type BackendHarness = Harness & {
   workKinds: WorkKindContribution[];
   /** The settings the run's extensions declare, with their defaults and the value in effect. */
   settings: SettingInfo[];
+  /**
+   * What the workspace's `.sheavly/settings.json` asked for that did not apply: an entry (by name,
+   * with why) or the whole file or its trust (with a fixed cause). Never a value. At most
+   * `MAX_IGNORED_SETTINGS` entries; empty when nothing was ignored.
+   */
+  ignoredSettings: IgnoredSettingReport[];
+  /** How many entries `ignoredSettings` leaves out because it is capped; 0 when none. */
+  ignoredSettingsMore: number;
   /**
    * Extensions left out of the run, and why: an untrusted `project` extension, one whose
    * dependency did not activate, or one whose manifest requires services the run lacks

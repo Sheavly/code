@@ -50,6 +50,16 @@ Conversation details keep `contextUsage` separate from cumulative `usage`: the l
 measurement (`used`), active window (`window`) and snapshot position (`throughSeq`). Unknown
 measurements are omitted so clients cannot confuse missing counts with an empty context.
 
+Conversation details may carry `ignoredSettings`: what a workspace's `.sheavly/settings.json` asked
+for that did not apply. Each entry is `{ layer: 'workspace', name?, file?, reason }` (type
+`IgnoredSettingReport`): with a `name`, that entry was left out (`not-declared`, `wrong-type`,
+`scope`, `restricted`); without one, the whole file at `file` was left out, or its trust could not
+be decided, for a fixed cause (`too-large`, `not-a-file`, `link`, `not-utf8`, `unreadable`,
+`not-json`, `bad-shape`, `trust-unavailable`). The object is strict and never carries a value, any
+of the file's text or a system message. The list holds at most 20 entries (`MAX_IGNORED_SETTINGS`)
+and `ignoredSettingsMore` counts the entries left out of it (absent when none were). Both fields
+are absent when nothing was ignored, never an empty list or a zero, so an older client is unaffected.
+
 Before each model call with known context data, a `harness_notice` event carries the same typed
 notice the model receives. UIs can display or ignore it through the ordinary stream; the payload
 contains no model instructions or UI presentation. Completion notices share `TaskCompletionContext`

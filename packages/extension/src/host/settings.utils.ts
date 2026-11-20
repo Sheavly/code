@@ -6,9 +6,13 @@ import type {
   Settings,
 } from '../extension/extension.types.js';
 import type { SettingInfo } from './extension-host.types.js';
+import type { DeclaredSetting, SettingSource, ValueProblem } from './setting-layers.types.js';
 
 /** The user's values by setting name. */
 type SettingValues = Readonly<Record<string, SettingValue>>;
+
+/** The layer in effect by setting name; a name that is absent is at its default. */
+type SettingSources = Readonly<Record<string, SettingSource>>;
 
 /** The user's value for a setting if there is one (own keys only), otherwise its default. */
 function valueOf(params: {
@@ -26,10 +30,8 @@ function valueOf(params: {
  * Every declared setting with its owner. A name is `<extension>.<setting>` and the extension
  * names are unique (the graph is checked first), so no two extensions can declare one.
  */
-function declaredSettings(
-  extensions: readonly Extension[],
-): Map<string, { extension: string; setting: SettingKey<SettingValue> }> {
-  const declared = new Map<string, { extension: string; setting: SettingKey<SettingValue> }>();
+export function declaredSettings(extensions: readonly Extension[]): Map<string, DeclaredSetting> {
+  const declared = new Map<string, DeclaredSetting>();
 
   for (const extension of extensions) {
     for (const setting of extension.settings) {
@@ -38,6 +40,36 @@ function declaredSettings(
   }
 
   return declared;
+}
+
+/**
+ * What is wrong with `value` for the setting `name`, or `undefined` when it is a declared name
+ * and the declared default's type. The one wording `assertSettings` and `layerSettings` share;
+ * it never repeats the value.
+ */
+export function valueProblem(params: {
+  declared: ReadonlyMap<string, DeclaredSetting>;
+  name: string;
+  value: SettingValue;
+}): ValueProblem | undefined {
+  const { declared, name, value } = params;
+  const entry = declared.get(name);
+
+  if (entry === undefined) {
+    return {
+      reason: 'not-declared',
+      problem: 'no extension declares it: check the name for a typo, or add its extension',
+    };
+  }
+
+  if (typeof value !== typeof entry.setting.default) {
+    return {
+      reason: 'wrong-type',
+      problem: `${entry.extension} declares it as a ${typeof entry.setting.default}, but the value is a ${typeof value}`,
+    };
+  }
+
+  return undefined;
 }
 
 /**
@@ -52,20 +84,10 @@ export function assertSettings(params: {
   const declared = declaredSettings(params.extensions);
 
   for (const [name, value] of Object.entries(params.values)) {
-    const entry = declared.get(name);
+    const found = valueProblem({ declared, name, value });
 
-    if (entry === undefined) {
-      throw new ExtensionSettingError({
-        setting: name,
-        problem: 'no extension declares it: check the name for a typo, or add its extension',
-      });
-    }
-
-    if (typeof value !== typeof entry.setting.default) {
-      throw new ExtensionSettingError({
-        setting: name,
-        problem: `${entry.extension} declares it as a ${typeof entry.setting.default}, but the value is a ${typeof value}`,
-      });
+    if (found !== undefined) {
+      throw new ExtensionSettingError({ setting: name, problem: found.problem });
     }
   }
 }
@@ -97,18 +119,29 @@ export function settingsFor(params: { extension: Extension; values: SettingValue
   };
 }
 
-/** What each of these extensions declared, with the value in effect, for a UI to list. */
+/**
+ * What each of these extensions declared, with the value in effect and the layer it came from
+ * (`default` for a name `sources` does not list), for a UI to list.
+ */
 export function settingInfos(params: {
   extensions: readonly Extension[];
   values: SettingValues;
+  sources: SettingSources;
 }): SettingInfo[] {
+  const { values, sources } = params;
+
   return params.extensions.flatMap((extension) =>
     extension.settings.map((setting) => ({
       extension: extension.name,
       name: setting.name,
       description: setting.description,
       default: setting.default,
-      value: valueOf({ setting, values: params.values }),
+      value: valueOf({ setting, values }),
+      source: Object.hasOwn(sources, setting.name)
+        ? (sources[setting.name] ?? 'default')
+        : 'default',
+      scope: setting.scope,
+      restricted: setting.restricted,
     })),
   );
 }

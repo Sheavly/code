@@ -18,6 +18,8 @@ export type ApiOptions = {
   permissions: PermissionSetup;
   /** Every request must carry it (`Authorization: Bearer <token>`). Never logged. */
   token: string;
+  /** Hears of a failure the API answers as `internal`: its name and message, never a stack. Default: none. */
+  log?: ((text: string) => void) | undefined;
 };
 
 /** A failure, as the API answers it: an HTTP status and one of the protocol's codes. */

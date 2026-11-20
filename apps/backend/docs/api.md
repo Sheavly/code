@@ -274,7 +274,9 @@ A prompt that can't start is answered with an error before its stream opens.
 - `serve.ts` binds to `127.0.0.1` by default: the backend runs commands for whoever reaches it.
 - The token is compared in constant time, sent only in a header (the stream is `QUERY` read with
   `fetch`, never `EventSource`, so it is never in a URL), and never logged.
-- `internal` errors never carry their message: it can hold paths or a provider's reply.
+- `internal` errors never carry their message: it can hold paths or a provider's reply. The
+  server's own log gets one line, `api: request failed: <name>: <message>`, cleaned of control
+  characters and cut, never a stack.
 
 ## Hosting it elsewhere
 

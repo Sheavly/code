@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { approvalResponseSchema } from '../approval/approval.validator.js';
+import { extensionQualifiedNameSchema } from '../extension/extension.validator.js';
 import { lowercaseUuidSchema } from '../id/id.validator.js';
 import { clientHistoryMessageSchema, historyMessageSchema } from '../history/history.validator.js';
 import { promptPartSchema } from '../message/message.validator.js';
@@ -10,7 +11,11 @@ import { sessionIdSchema } from '../session/session.validator.js';
 import { skillInfoSchema } from '../skill/skill.validator.js';
 import { timestampSchema } from '../time/time.validator.js';
 import { contextUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
-import { MAX_QUEUED_LINE_CHARS } from './server.constants.js';
+import {
+  MAX_IGNORED_SETTING_FILE_CHARS,
+  MAX_IGNORED_SETTINGS,
+  MAX_QUEUED_LINE_CHARS,
+} from './server.constants.js';
 
 /**
  * A conversation's id on a server: a UUID in lowercase, which names its folder on disk and is
@@ -90,11 +95,44 @@ const workingRootSchema = z.object({
 });
 
 /**
+ * Something in a workspace's `.sheavly/settings.json` that did not apply, never with a value or
+ * any of the file's text. With a `name`, that one entry was left out and `reason` is why:
+ * `not-declared` (no installed extension declares it), `wrong-type`, `scope` (the setting may not
+ * be set from a workspace) or `restricted` (the workspace is not trusted). Without a `name`, the
+ * whole file was left out, or its trust could not be decided, and `reason` is the fixed cause:
+ * `too-large`, `not-a-file`, `link` (it, or `.sheavly/`, is a link or leads outside), `not-utf8`,
+ * `unreadable` (anything else, such as permissions), `not-json`, `bad-shape` (JSON, but not a
+ * settings file) or `trust-unavailable` (the workspace's trust could not be checked, so it counts
+ * as untrusted). `file` is the path of that file.
+ */
+export const ignoredSettingSchema = z.strictObject({
+  layer: z.literal('workspace'),
+  name: extensionQualifiedNameSchema.exactOptional(),
+  file: z.string().max(MAX_IGNORED_SETTING_FILE_CHARS).exactOptional(),
+  reason: z.enum([
+    'not-declared',
+    'wrong-type',
+    'scope',
+    'restricted',
+    'too-large',
+    'not-a-file',
+    'link',
+    'not-utf8',
+    'unreadable',
+    'not-json',
+    'bad-shape',
+    'trust-unavailable',
+  ]),
+});
+
+/**
  * `GET /conversations/:id`: what the run is, for a UI's header. `model` is the one in use;
  * `models` what `PUT /model` can switch to (empty when there is only `model`). `projectTrust` is
- * whether the workspace's `.sheavly/` hooks run, and why not; `permissionMode`, how
- * `run_command` treats commands in this workspace right now (it can change while the
- * conversation runs, and applies to every conversation in the workspace).
+ * whether the workspace's `.sheavly/` hooks run, and why not; `ignoredSettings` what the
+ * workspace's settings file asked for that did not apply, present only when something did not,
+ * at most `MAX_IGNORED_SETTINGS` of them, with `ignoredSettingsMore` counting the entries left
+ * out of the list (present only when there were more); `permissionMode`, how `run_command` treats commands in this workspace right now (it can change
+ * while the conversation runs, and applies to every conversation in the workspace).
  */
 export const conversationDetailsSchema = conversationSummarySchema.extend({
   usage: usageTotalsSchema.exactOptional(),
@@ -105,6 +143,8 @@ export const conversationDetailsSchema = conversationSummarySchema.extend({
   model: modelChoiceSchema,
   models: z.array(modelChoiceSchema),
   projectTrust: z.enum(['trusted', 'untrusted', 'changed', 'no_hooks']),
+  ignoredSettings: z.array(ignoredSettingSchema).min(1).max(MAX_IGNORED_SETTINGS).exactOptional(),
+  ignoredSettingsMore: z.int().min(1).exactOptional(),
   permissionMode: permissionModeSchema,
   /** Read each time, like `permissionMode`: the agents can choose another while it runs. */
   workingRoot: workingRootSchema.exactOptional(),

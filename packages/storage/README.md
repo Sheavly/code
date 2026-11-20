@@ -24,6 +24,7 @@ const config = await readJsonFile({ file: path.join(root, 'config.json'), schema
 | `document-file/`      | `DocumentFile`: one JSON document in one file for an owner with its own schema; changes go one at a time  |
 | `profile-store/`      | `ProfileStore`: the profiles, one `<profile-id>/` folder each; deleting one deletes everything in it      |
 | `profile-registry/`   | `ProfileRegistry`: profiles, config and each profile's models and keys, kept in step (the backend's door) |
+| `settings-file/`      | `SettingsFiles`: the text of the user's `settings.json`, global and per profile, edited by hand           |
 | `listing/`            | `FileProblem`: a stored file that was skipped and why, which a listing reports and does not hide          |
 | `errors/`             | `StorageFileError`: a stored file that can't be read, parsed, validated or written                        |
 

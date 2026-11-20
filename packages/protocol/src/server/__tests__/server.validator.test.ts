@@ -155,22 +155,22 @@ describe('yieldPromptResponseSchema', () => {
 });
 
 describe('the responses', () => {
-  it('describes a conversation’s run, with the models it can switch to', () => {
-    const model = { id: FAST, name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
-    const details = {
-      id: CONVERSATION,
-      title: 'Chat',
-      session: 's1',
-      running: false,
-      startedAt: 1,
-      workspace: '/work',
-      profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
-      model,
-      models: [model],
-      projectTrust: 'untrusted',
-      permissionMode: 'ask',
-    };
+  const model = { id: FAST, name: 'fast', adapter: 'openai', model: 'gpt-5-mini' };
+  const details = {
+    id: CONVERSATION,
+    title: 'Chat',
+    session: 's1',
+    running: false,
+    startedAt: 1,
+    workspace: '/work',
+    profile: '9d2c7e10-6a4b-4f38-b1e5-5c0a8d3f2b71',
+    model,
+    models: [model],
+    projectTrust: 'untrusted',
+    permissionMode: 'ask',
+  };
 
+  it('describes a conversation’s run, with the models it can switch to', () => {
     expect(conversationDetailsSchema.parse(details)).toEqual(details);
     expect(conversationDetailsSchema.safeParse({ ...details, projectTrust: 'maybe' }).success).toBe(
       false,
@@ -179,6 +179,73 @@ describe('the responses', () => {
       conversationDetailsSchema.safeParse({ ...details, model: { ...model, id: undefined } })
         .success,
     ).toBe(false);
+  });
+
+  describe('ignoredSettings', () => {
+    const entry = { layer: 'workspace', name: 'notes.mode', file: '/w/.sheavly/settings.json' };
+    const accepts = (ignoredSettings: unknown) =>
+      conversationDetailsSchema.safeParse({ ...details, ignoredSettings }).success;
+
+    it('is optional, and carries a named entry or a whole-file problem', () => {
+      expect(conversationDetailsSchema.parse(details)).not.toHaveProperty('ignoredSettings');
+      expect(accepts([{ ...entry, reason: 'restricted' }])).toBe(true);
+    });
+
+    it.each([
+      'too-large',
+      'not-a-file',
+      'link',
+      'not-utf8',
+      'unreadable',
+      'not-json',
+      'bad-shape',
+      'trust-unavailable',
+    ])('takes the whole-file cause %s', (reason) => {
+      expect(accepts([{ layer: 'workspace', file: '/w/.sheavly/settings.json', reason }])).toBe(
+        true,
+      );
+    });
+
+    it('no longer takes the old whole-file reason invalid', () => {
+      expect(
+        accepts([{ layer: 'workspace', file: '/w/.sheavly/settings.json', reason: 'invalid' }]),
+      ).toBe(false);
+    });
+
+    it('holds at most 20 entries and counts the rest in ignoredSettingsMore', () => {
+      const many = (count: number) =>
+        Array.from({ length: count }, () => ({ ...entry, reason: 'scope' }));
+      const withMore = (ignoredSettingsMore: unknown) =>
+        conversationDetailsSchema.safeParse({
+          ...details,
+          ignoredSettings: many(20),
+          ignoredSettingsMore,
+        }).success;
+
+      expect(accepts(many(20))).toBe(true);
+      expect(accepts(many(21))).toBe(false);
+      expect(withMore(980)).toBe(true);
+      expect(withMore(0)).toBe(false);
+      expect(withMore(1.5)).toBe(false);
+      expect(withMore('3')).toBe(false);
+    });
+
+    it('takes a path of 8192 characters and refuses a longer one', () => {
+      const withFile = (file: string) =>
+        accepts([{ layer: 'workspace', file, reason: 'not-json' }]);
+
+      expect(withFile('x'.repeat(8192))).toBe(true);
+      expect(withFile('x'.repeat(8193))).toBe(false);
+    });
+
+    it('refuses an unknown reason, a value, other text, an empty list or a name that is not one', () => {
+      expect(accepts([{ ...entry, reason: 'because' }])).toBe(false);
+      expect(accepts([{ ...entry, reason: 'scope', value: 'sk-secret' }])).toBe(false);
+      expect(accepts([{ ...entry, reason: 'scope', message: 'text' }])).toBe(false);
+      expect(accepts([{ ...entry, layer: 'global', reason: 'scope' }])).toBe(false);
+      expect(accepts([{ ...entry, name: 'sk-secret-value', reason: 'scope' }])).toBe(false);
+      expect(accepts([])).toBe(false);
+    });
   });
 
   it('switches models by id: a name is a label, and never switches anything', () => {

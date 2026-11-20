@@ -381,7 +381,15 @@ Like every grant, this is least privilege, not a sandbox.
 - **Settings are declared in the manifest and read through the context.** `Extension.settings` is
   derived from the manifest's `settings`, `context.settings.get(KEY)` reads them (the key from
   `settingKey`), and the host validates the user's values at construction: a name nobody
-  declares, a value of the wrong type or a name two extensions declare throws.
+  declares, a value of the wrong type or a name two extensions declare throws. The values come
+  from up to three files, strongest first: the user's global `~/.sheavly/settings.json`, the
+  profile's, then the settings file in the project's own `.sheavly` folder. A setting's `scope` (`user` by default,
+  or `project`) says whether the project's file may set it at all, and `restricted` (only with
+  `project`) that it is honoured only in a trusted workspace; what the project's file sets
+  against those rules, or cannot be read, is ignored and reported, never silently used. A setting
+  name that looks like a credential (a whole segment such as `key`, `token`, `password`, `pwd`,
+  `bearer`, `auth`; the full list and its known gaps are in the manifest guide) is refused in the
+  manifest: keys stay in the profile store.
 - **Hook position is declared with before/after.** `placeHook` names other hooks by `hook.name`;
   the host orders with a stable topological sort, ignores a name not in the run and throws a
   `HookOrderError` for a cycle. Hooks shared with sub-agents through `SUB_AGENTS.share` stay a
@@ -465,7 +473,9 @@ changes.
   (`@sheavly/extension/errors/scopes.errors`) are in it too: see "The contract between an app and
   an extension".
 - A setting: list it in the manifest's `settings`, make the key with `settingKey` and read it
-  with `context.settings.get`; the user's value is `extensionSettings`.
+  with `context.settings.get`; the user's value comes from the layered settings files (global,
+  then profile, then the settings file in the project's own `.sheavly` folder), and `scope` and `restricted` say
+  whether and when the project's file may set it.
 - A hook position: `placeHook({ hook, before: [CODING_HOOK_NAMES.agentsMd] })` or `after`, by
   `hook.name` (`CODING_HOOK_NAMES` is public API: see "Built-in hook names" below).
 - A service of your own: list it in `services.provides`, `services.provide(KEY, value)`, and

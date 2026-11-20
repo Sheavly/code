@@ -158,3 +158,30 @@ a package, a symlink out of `.sheavly/`, a `require` of either) fails to load wi
 `hooks.json` that links out of `.sheavly/` (it was followed before); a link to another file inside
 `.sheavly/` still works. Each refusal is a `ProjectHooksError` that names the file and never its
 contents.
+
+## The project's settings file
+
+`.sheavly/settings.json` holds the project's layer of extension settings. It is repository content,
+so untrusted input, and the fingerprint above covers it like any file in `.sheavly/`.
+`readProjectSettings({ root })` (`@sheavly/coding/project-settings/project-settings.helper`) returns
+its text, and does not parse it (that is `parseSettingsFile` in `@sheavly/extension`). It works
+without activating the coding extension, and neither checks nor grants trust: the caller decides
+that. `projectSettingsFileExists({ root })` only looks at the file, so a caller can skip the trust
+check when there is none.
+
+- No file is `undefined`, an empty layer. A file that can't be used is not thrown but returned as
+  `{ ok: false, path, reason }`, for the caller to report and treat as an empty layer. The reason
+  is one fixed code, never text from the file or the system: `too-large`, `not-a-file`, `link`
+  (the file or `.sheavly/` is a link, leads outside `.sheavly/`, or is a `.env` file),
+  `not-utf8` or `unreadable` (anything else, such as permissions).
+- The confinement is the hooks': the file is resolved through the guarded read, so a symlink to a
+  file outside `.sheavly/` and a `.env` name are refused. A `.sheavly/` that is itself a link is
+  refused too (a hook's folder is not checked that way), because the folder would otherwise be taken as
+  the workspace wherever the link points.
+- The file must be a regular file (a directory or a FIFO is refused unread) of at most 64 KiB
+  (`MAX_PROJECT_SETTINGS_BYTES`), measured before it is read and again on what was read, in valid
+  UTF-8.
+- A hard link to a file outside the project is accepted: a hard link has no target to follow, so
+  the check cannot tell it from a file of its own. Git and tar cannot create one to an arbitrary
+  file, so a repository cannot ship it, and only values of declared project settings can be
+  affected by what such a file holds.

@@ -104,11 +104,8 @@ keep an answer, shown to the user). `TASK_CONTROL` trusts the `sessionId` it is 
 `task:*-any` lets an extension name any session of the run. The `sub-agents` service `agents`
 provides is write-only (`share`). This is least privilege, not a sandbox (see
 [scoped run services](../../../packages/host/docs/run-services.md)); an extension gets its
-configuration from `extensionSettings`, not from the environment.
-
-`extensionSettings` holds the user's values for the settings extensions declare in their manifests,
-by setting name, and `settings` on the returned run lists each with its value in effect; a name no
-extension declares, or a value of the wrong type, fails the run. An extension can place a hook
+configuration from its settings (see "Layered extension settings" below), not from the
+environment. An extension can place a hook
 before or after another by name (`placeHook`), for example before the built-in `agents-md` hook.
 `src/harness/__tests__/third-party-capabilities.test.ts` shows each of these from an extension that
 uses only public exports. The built-ins read the same services under the same grants, with no
@@ -137,6 +134,89 @@ notices; past that, and for a notice for an ended session, `emit.notice` throws 
 A reopened conversation replays the stored events and keeps the notices in history.
 `src/harness/__tests__/third-party-emit.test.ts` shows it from an extension that uses only public
 exports.
+
+**Layered extension settings.** The values of the settings extensions declare in their
+`sheavly.json` come from three files and then the manifest's default. Strongest first:
+
+| Layer     | File                                     | Read by                                                        |
+| --------- | ---------------------------------------- | -------------------------------------------------------------- |
+| global    | `~/.sheavly/settings.json`               | `servedConversation`, at each start (`readUserSettingLayers`)  |
+| profile   | `~/.sheavly/profiles/<id>/settings.json` | the same: the file of the profile the conversation is bound to |
+| workspace | `<project>/.sheavly/settings.json`       | `createBackendHarness` itself (`resolveSettings`)              |
+
+`~/.sheavly` is `SHEAVLY_HOME`. A file is `{ "settings": { "<extension>.<setting>": value } }`
+with string, number or boolean values and nothing else at the top level. A value the user's own
+global or profile file sets wins over the workspace's, so a repository can never override the
+user. `createBackendHarness` takes the two already-read user layers as `settingLayers`,
+layers them with the workspace file before it builds the
+`ExtensionHost`, and gives the host the final values (`settings`) and where each came from
+(`settingSources`). `settings` on the returned run lists every declared setting with its `value`
+and its `source`: `global`, `profile`, `workspace` or `default`.
+
+**Scope and restricted.** A workspace file is repository content. A setting's `scope` is `user`
+unless its manifest says `scope: "project"`: a `user` setting (the default) can be set only from
+the user's own files, a `project` setting may also be set from a workspace file, and one that is
+also `restricted` only while the workspace is trusted. A non-restricted `project` setting applies
+from an untrusted repository too, so an extension author declares one only when any repository may
+set it.
+
+**What is fatal and what is only reported.** A global or profile file is the user's own: one that
+is not valid JSON, has the wrong shape, is too large or unreadable, or sets a name no extension
+declares or a value of another type, fails the conversation's start with an error that names the
+file and the reason, never what it contains: a `SetupError` (`invalid`), which the API answers as
+422 with that message, and which `servedConversation` throws before the conversation exists. A
+workspace file is shared by a team and can be hostile, so no refused or unusable file and no
+trust-store failure (a `TrustStoreError` or a system error with an errno code such as `EACCES`) is
+fatal: an unusable file counts as an empty layer, a name that does not apply is left out, and a
+trust step that fails (see Trust) counts the workspace as untrusted. What is still fatal is the
+user's own global and profile files, and a program error (anything else, such as Node's
+`ERR_INVALID_ARG_TYPE`), which is rethrown loudly. Not covered: a FIFO inside a trusted
+`.sheavly/` makes the trust check hang, because the fingerprint opens every entry (tracked as
+issue #385, which makes the fingerprint skip special files); and a very large file under
+`.sheavly/` is read in memory by the trust check. Each problem is
+reported in `ignoredSettings` on the returned run and, when non-empty, in the conversation details
+(`GET /conversations/:id`, the optional `ignoredSettings` field), and as one log line,
+`settings: ignored <name> from <file>: <reason>`. An entry has a `reason` of `not-declared`,
+`wrong-type`, `scope` or `restricted`; a whole file, or its trust, has no name and one fixed cause:
+`too-large`, `not-a-file`, `link` (a link out of `.sheavly/`, or a `.env` file), `not-utf8`,
+`unreadable` (anything else, such as permissions), `not-json`, `bad-shape` (JSON, but not a
+settings file) or `trust-unavailable`. A report never carries a value, any of the file's text or a
+system error's message. At most 20 entries are listed; `ignoredSettingsMore` in the details, and
+one line `settings: ignored <n> more entries from <file>` in the log, count the rest, so a hostile
+file cannot make the report long. A `file` has its control characters and escape sequences removed
+and is cut to the wire's 8192 characters, so a folder's name cannot reach a terminal or break the
+details.
+
+When the workspace's `.sheavly/` is the user's own folder (its real path is the user's
+`SHEAVLY_HOME` or holds it: the workspace is the user's home, or a folder whose `.sheavly` is the
+user's folder), there is no workspace layer, no trust call and no report: the global and profile
+files are its files already, and the trust store would sit inside the workspace. The match is by
+real path and path segments, not a string prefix, so a link to the folder counts and
+`.sheavlyfoo` does not. A workspace that is only a parent of the home (`/home` for
+`~/.sheavly`) is not caught: its `/home/.sheavly/settings.json` is a project file, the trust store
+refuses to sit inside the workspace with a `TrustStoreError`, and the start reports
+`trust-unavailable`, which is safe and not fatal.
+
+**Trust.** Only when `.sheavly/settings.json` exists does the backend consult the trust store:
+it checks trust (`--trust` grants it first), reads the file, and checks again. The workspace
+counts as trusted only if both checks said `trusted`, so a file that changed between the check
+and the read is not trusted. A trust store that cannot answer (a corrupt trust file, a store inside
+the repository, a file under `.sheavly/` that cannot be read: a `TrustStoreError` or an errno) is
+not fatal either, while a program error is rethrown: the workspace
+counts as untrusted, its file is still read, and `trust-unavailable` is reported; the coding
+extension's own handling of hooks trust is separate and unchanged. A race stays: a writer that
+changes the file and restores it between the two trust checks is not detected; the text read is the
+text used, and the trust it was read under says only that the folder matched before and after.
+Without the file the trust store is not touched. Trust covers the
+whole `.sheavly/` folder, so editing `settings.json` after trusting makes the workspace `changed`
+and its restricted values are ignored again. `--trust` therefore also records trust for a
+repository that has only a `settings.json` and no hooks (it did not before). The coding
+extension later grants the same trust again for `.sheavly/hooks.json`; granting twice in one start
+is harmless, because each grant records the folder as it is then.
+
+The backend's environment settings (`MAX_TURNS`, `SUMMARY`, `WEB_*`, `MODEL_*`...) are a separate
+mechanism and are not read from these files. Files are read once when a conversation starts; a
+change applies to the next one.
 
 **Summaries.** Unless `SUMMARY=false`, the main run and every sub-agent summarize their history
 when the context nears the window (`backendSummary`, `harness/summary.helper.ts`). The model the

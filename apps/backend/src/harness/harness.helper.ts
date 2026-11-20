@@ -10,9 +10,11 @@ import { createWebExtension } from '@sheavly/web/web/web.helper';
 import { createTavilySearchBackend } from '@sheavly/tools/web-search-backends/tavily-search.helper';
 import { memoryShellStore } from '@sheavly/workspace/working-root/memory-shell.helper';
 import { SystemPromptFailedAbort } from '../errors/system-prompt.errors.js';
+import { sheavlyHome } from '../profiles/home.helper.js';
 import { routeEmission } from './extension-emit.helper.js';
 import { safeProblemReporter } from './extension-problems.helper.js';
 import type { BackendHarness, BackendHarnessOptions } from './harness.types.js';
+import { resolveSettings } from './setting-layers.helper.js';
 import { promptContribution } from './system-prompt.utils.js';
 
 /**
@@ -37,8 +39,11 @@ import { promptContribution } from './system-prompt.utils.js';
  *
  * An embedding app adds its own with `extensions`, after these, without editing any of them. Every
  * extension, built-in or not, reads the run's provider, instructions, sessions, main session,
- * tasks, approvals (to request only) and outputs from the run services (`runServices`); the user's values for
- * the settings extensions declare are `extensionSettings`.
+ * tasks, approvals (to request only) and outputs from the run services (`runServices`). The values
+ * of the settings extensions declare come from three layers, strongest first: the user's global
+ * file and the profile's (`settingLayers`, read by the app), then the workspace's
+ * `.sheavly/settings.json`, which this reads itself (see `resolveSettings`), then the manifest's
+ * default. What the workspace's file asked for that did not apply is `ignoredSettings`.
  *
  * An extension that fails to activate stops the run here with its own error (a broken `.sheavly`
  * hook names its file and the reason), after the ones that activated before it are deactivated.
@@ -69,35 +74,47 @@ export async function createBackendHarness(
     onFileReadsProblem,
     onExtensionProblem,
     extensions = [],
-    extensionSettings,
+    settingLayers = {},
     workspaceRoot,
     scratchRoot,
     env,
     fileLocks = new KeyedLocks(),
     ...harnessOptions
   } = options;
+  const allExtensions = [
+    createWebExtension({ webFetch, webSearch }),
+    createAgentsExtension({ subAgentProvider, summarizeWith, keepAgentHistory, logOf }),
+    createCodingExtension({
+      workspaceRoot,
+      scratchRoot,
+      env,
+      fileLocks,
+      permissions,
+      home,
+      trustStore,
+      trustWorkspace,
+      shell,
+      onFileReadsProblem,
+    }),
+    ...extensions,
+  ];
+  // Before the harness, host and sessions exist (the placement and the profile's models are already
+  // decided, no session or lock yet): the values the host is built with come from here.
+  const layered = await resolveSettings({
+    extensions: allExtensions,
+    layers: settingLayers,
+    workspaceRoot: workspaceRoot ?? process.cwd(),
+    home: sheavlyHome(env),
+    trustStore,
+    trustWorkspace,
+  });
   const harness = createHarness(harnessOptions);
   const { sessions } = harness;
   const host = new ExtensionHost({
-    extensions: [
-      createWebExtension({ webFetch, webSearch }),
-      createAgentsExtension({ subAgentProvider, summarizeWith, keepAgentHistory, logOf }),
-      createCodingExtension({
-        workspaceRoot,
-        scratchRoot,
-        env,
-        fileLocks,
-        permissions,
-        home,
-        trustStore,
-        trustWorkspace,
-        shell,
-        onFileReadsProblem,
-      }),
-      ...extensions,
-    ],
+    extensions: allExtensions,
     services: runServices({ harness, outputs, runSession }),
-    settings: extensionSettings,
+    settings: layered.values,
+    settingSources: layered.sources,
     // The sink is the host's option, not a run service, and no scoped service hands out `publish`,
     // `queueNotice` or `publishTask`, so an extension emits only through its own declared capability,
     // never under another's name.
@@ -165,6 +182,8 @@ export async function createBackendHarness(
     hooks: [...contributions.hooks],
     workKinds: [...contributions.workKinds],
     settings: [...settings],
+    ignoredSettings: layered.ignored,
+    ignoredSettingsMore: layered.ignoredMore,
     skippedExtensions: [...skipped],
     skills,
     projectHooks: [...projectHooks],

@@ -81,7 +81,8 @@ replacement slot itself, under `system-prompt:replace`.
 A setting is a static declaration in the extension's manifest, like `name` and `dependsOn`, so the
 host can check the user's values before anything activates.
 
-- The manifest's `settings` lists `{ name, type, default, description }`. The name is
+- The manifest's `settings` lists `{ name, type, default, description, scope, restricted }`
+  (the last two optional: see [manifest](manifest.md#settings)). The name is
   `<extension>.<setting>`, each part lowercase words joined by hyphens, and its prefix is the
   manifest's `name`; `type` is `string`, `number` or `boolean` and `default` has that type
   (see [manifest](manifest.md)).
@@ -97,8 +98,11 @@ host can check the user's values before anything activates.
   (a typo must not pass silently) or when its type differs from the declared one
   (`ExtensionSettingError`). Two extensions cannot declare one name: a setting name starts with
   its extension's name, and extension names are unique.
-- `ActivationResult.settings` lists a `SettingInfo` (extension, name, description, default, value)
-  for each setting of the extensions that activated, for a UI to show.
+- `ActivationResult.settings` lists a `SettingInfo` (extension, name, description, default, value,
+  source, scope, restricted) for each setting of the extensions that activated, for a UI to show.
+  `source` is the layer the value came from (`ExtensionHostOptions.settingSources`, `default` for a
+  name it does not list). The values come from layers: see
+  [lifecycle](lifecycle.md#where-setting-values-come-from).
 
 ## Hook order
 

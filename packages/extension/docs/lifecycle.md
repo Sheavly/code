@@ -14,6 +14,40 @@ extension names are unique.) The extensions are put in dependency order: each af
 depends on, otherwise in the order given. The host puts no category on an extension, so nothing
 else about an extension can fail construction.
 
+## Where setting values come from
+
+The host takes the final values as `settings` (by setting name) and, optionally, `settingSources`
+(the layer each came from). It does not read files or decide trust: the app does that before it
+builds the host, with two public functions of this package.
+
+- `parseSettingsFile({ text, source })` parses one settings file strictly:
+  `{ "settings": { "<extension>.<setting>": value } }`. No other top-level key, `settings` a plain
+  object, at most 1000 entries, names in the manifest's `<extension>.<setting>` grammar (so
+  `__proto__`, `constructor` and `prototype` are refused), values only a string (at most 1000
+  characters), a number or a boolean, and a file of at most 65536 characters. It returns
+  `{ ok: true, values }` or `{ ok: false, problem }`; the problem starts with `source` and says
+  why, and never quotes the file's text or a value.
+- `layerSettings({ extensions, global, profile, workspace, workspaceTrusted })` decides each
+  declared setting from three layers, strongest first: the global layer, then the profile layer,
+  then the workspace layer, then the manifest's default. A global value beats a profile value,
+  which beats a workspace value. Each layer is `{ source, values }` and may be absent.
+
+The global and profile layers may set any declared setting. A name no extension declares or a
+value of another type than the default's throws an `ExtensionSettingError` that names the layer and
+its `source`, so a typo in the user's own file is loud. The workspace layer is shared by a team
+whose installed extensions differ, so it is held to more and is never fatal: an entry is left out
+and listed in `ignored` when the name is not declared (`not-declared`), the type is wrong
+(`wrong-type`), the setting's `scope` is `user` (`scope`), or the setting is `restricted` and
+`workspaceTrusted` is false (`restricted`). An ignored entry is `{ name, layer: 'workspace', reason }`
+and never holds the value, so the app can report it without echoing the file.
+
+It returns frozen `values` (only the settings some layer sets, passed to the host as `settings`),
+`sources` (the layer in effect for every declared setting: `global`, `profile`, `workspace` or
+`default`, passed as `settingSources`) and `ignored`. `SettingInfo` in the activation result then
+carries `source`, `scope` and `restricted` beside the value. The host still runs `assertSettings` on
+the values it is given, so a value it was handed directly is checked the same way. Every lookup
+reads own keys only.
+
 ## Activation
 
 `activate({ signal })` runs once per session; a second call throws an `ExtensionHostStateError`.

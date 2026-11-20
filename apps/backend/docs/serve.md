@@ -30,7 +30,10 @@ routes, streams and errors are in [the API](api.md).
 The models and keys are in the user's profile, not here, and not in a `.env`: see
 [models and keys](harness.md#models-and-keys). How a model call is sent (`MODEL_RESPONSE_TIMEOUT_MS`,
 `MODEL_RETRIES`, `MODEL_RETRY_DELAY_MS`) is in [harness.md](harness.md#settings). `--trust` trusts
-the workspace's `.sheavly/` hooks: `npm run serve -w @sheavly/backend -- --trust`.
+the workspace's `.sheavly/` folder: its hooks, and a `.sheavly/settings.json` even when there are no
+hooks (see "Layered extension settings" in [harness.md](harness.md#the-run)):
+`npm run serve -w @sheavly/backend -- --trust`. The `settings.json` files of the user's folder
+(`SHEAVLY_HOME`) are read at each conversation's start.
 
 Without `SERVER_TOKEN` it makes one and prints it once, at start. Once it listens it prints
 `→ listening on <url>`, last. Ctrl+C, SIGTERM, closing the terminal or (with
