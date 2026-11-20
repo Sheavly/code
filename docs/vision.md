@@ -82,6 +82,11 @@ Grouped by the complaint each item answers. Open work is in
 - Record a run to a file and replay it without a model (#54)
 - Fail loudly everywhere (#34)
 
+**Install it and run it**
+
+- Published packages, a `sheavly` command and one always-on backend per user that every front end
+  connects to (#387); [the decisions](shipping.md)
+
 **Open UIs**
 
 - UI-ready events and one ordered stream of every session (#21, #22, #23), served over SSE (#24)
