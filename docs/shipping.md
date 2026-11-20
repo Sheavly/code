@@ -40,8 +40,12 @@ wait with it.
 - **The client can verify a server** before it trusts it: `verifyServer` in `@sheavly/client` asks
   the handshake with a fresh nonce, through a client that has no token and so cannot send one,
   and checks the proof. The token is in no request it makes. Nothing calls it yet, and the server
-  makes its instance id at each start but writes it nowhere: the discovery file, the lock and a
-  client that reads the file are not built.
+  makes its instance id at each start but writes it nowhere.
+- **The discovery file and the one-server lock exist as library code** in `@sheavly/storage` (and
+  the file's schema in `@sheavly/protocol`): a writer, a safe reader of one folder, a lock held as a
+  listening socket, and `ServerPresence`, which orders them and turns every failure but "another
+  live server holds the lock" into a warning. **No server uses them yet:** the backend does not
+  take the lock or write the file, and the terminal does not read it.
 - **Every package is private at version `0.0.0`** and is consumed from source inside this repository.
 
 ## Decisions
@@ -221,10 +225,10 @@ closing every conversation when it stops, stay as they are today.
 
 ### The discovery file
 
-The file, the lock and a client that reads the file are not built: they are the design that
-[#390](https://github.com/Sheavly/harness/issues/390) implements, and that issue must be updated to
-match this page. The protocol version, the two token-free routes and the client's verification,
-described below, are built.
+The file and the lock are built as library code, and the protocol version, the two token-free
+routes and the client's verification, described below, are built. The server does not use the file
+or the lock yet, and the terminal does not read the file: those are the rest of
+[#390](https://github.com/Sheavly/harness/issues/390), which must be updated to match this page.
 
 The always-on server (`sheavly serve`, or the service) will write a file that holds a format
 version, the server's URL, its token, a random instance id made at each start, its process id, its
@@ -232,22 +236,51 @@ own version and the protocol version it speaks. A front end reads it to connect,
 passed by hand. A backend a front end starts for itself, as the terminal does in development,
 takes no lock and writes no file, so it can never replace the real server's.
 
-- **Where.** In `$XDG_RUNTIME_DIR` when it is set, otherwise in the home folder; a client looks in
-  both and uses the one that holds a valid file. The runtime directory is private to the user and
-  cleared at reboot, and it outlives a logout while the service's linger is on, so a stale file
-  does not survive a reboot. A home folder on a network drive may not enforce file modes, which is
-  why the runtime directory is preferred.
-- **How it will be written.** Created with mode `0600` under a temporary name and renamed into
-  place, so it is never world-readable and never half-written. A client opens it without following
-  links, checks the open handle and not the path, and refuses a file that is not a regular file,
-  is not owned by the current user or has group or world permissions, or one in a directory that
-  others can write to.
-- **One server.** The server will take an exclusive lock on a separate lock file next to it that is
-  never replaced, hold it for as long as it runs, and write the discovery file only while holding
-  it, so a second server refuses to start and a crash releases the lock. A lock on the discovery
-  file itself would be lost when the rename replaces it, and a process id alone is never enough,
-  since ids are reused. Node has no lock call of its own, so the mechanism is chosen in #390. A
-  clean exit removes the discovery file and leaves the lock file.
+- **Where (built).** In `$XDG_RUNTIME_DIR/sheavly/<hash>` when that variable is set and the folder
+  can be made private, otherwise in the home folder itself, and the file and the lock socket live in
+  the same folder. `<hash>` is 12 characters of a hash of the real path of the home folder, so two
+  homes under one runtime directory never share a file or a lock and a symlinked home is one
+  server. There is no fallback under `/tmp`, where another user could plant the name. The runtime
+  directory is private to the user and cleared at reboot, and it outlives a logout while the
+  service's linger is on, so a stale file does not survive a reboot. A home folder on a network
+  drive may not enforce file modes, which is why the runtime directory is preferred. Only
+  `serverRuntimeDirectory` reads the variable; `harness/no-discovery-path` fails any other source
+  file that names it or the file.
+- **How it is written and read (built).** Created with mode `0600` under a temporary name made
+  with `O_EXCL` and renamed into place, so it is never world-readable and never half-written, and
+  never written into a folder that is not the user's private one or over a folder; a stale link
+  or FIFO at its name is replaced by the rename, which does not follow a link. It holds a URL that
+  is `http:` or `https:` with no login in it and a token of 32 to 512 plain characters, so a valid
+  file always fits the reader's 4 KB cap. A crash can leave a `0600` temporary file holding the
+  token, which the next publish or removal sweeps. The reader opens it without following links,
+  checks the open handle and not the path, and refuses a file that is not a regular file, is not
+  owned by the current user, has any group or world permission or is over 4 KB, and a folder with
+  any group or world access. If the home folder is the fallback and is not private, there is no
+  lock and no file, only a warning, so the one-server guarantee does not apply there. The
+  terminal's search across both places and its use of the file are not built.
+- **One server (built as a library, not used yet).** The server takes a lock for as long as it
+  runs and writes the discovery file only while holding it, so a second server refuses to start
+  and a crash releases the lock. Node has no lock call of its own, so the lock is a listening unix
+  socket in that folder (a named pipe on Windows, written and not tested). The server listens
+  under a temporary name and is published at the lock path with an atomic hard link, so the lock
+  path never names a socket that is not yet listening and a taker never overwrites an existing
+  name. The socket is `0600` and the folders it lives in are `0700` whatever the umask. A second server connects first, and a connection means a live server holds it. A socket
+  that refuses the probe and is at least 250 ms old belongs to a holder that crashed: it is
+  replaced under a short-lived guard file that carries its owner's nonce, which is treated as
+  abandoned after 2 s, with a re-check that it is still the same socket, so servers starting
+  together do not remove each other's live socket (measured: 150 rounds of four racing from a
+  stale socket and an abandoned guard gave one winner each round). The lock never removes a
+  socket it did not judge stale and never removes anything that is not a socket owned by the user,
+  and a server that releases removes the lock path only if it is still the socket it published, so
+  a successor is never affected. A socket that a foreign program leaves bound but never listening
+  for more than 250 ms looks stale and is replaced. A guard or breaker file that is not a regular
+  file makes the attempt unusable at once and is left as it is. The guarantee assumes the process
+  that holds the guard is not paused for longer than the 2 s limit in the few system calls between
+  its last check and removing the stale socket: that gap cannot be closed, only made small. A
+  filesystem that refuses hard links makes the lock unusable, which is a warning, not a failure to
+  start. A process id alone is never enough, since ids are reused. A clean exit removes the
+  discovery file and then frees the lock, and a crash leaves both for the next server to replace,
+  and the next server also removes the temporary sockets of processes that no longer run.
 - **Verifying the server (built).** A client does not send the token to whatever answers at the
   URL, except to a process that relays the handshake to the real server (see the boundary below),
   and an instance id that anyone can fetch would not stop a process that took over a stale port
