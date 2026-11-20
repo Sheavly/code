@@ -47,6 +47,7 @@ belong to the backend app; this package defines and validates only their wire sh
 | `contract/`          | `contract.schema.json`, generated from the schemas                                           |
 | `version/`           | `PROTOCOL_VERSION`, the semver functions and `checkProtocolVersion`: which side is older     |
 | `handshake/`         | The nonce, instance id and proof schemas, `handshakeProof` and `verifyHandshakeProof`        |
+| `discovery/`         | `DiscoveryFile`: what a running server writes for local clients, and `peekFormatVersion`     |
 
 Conversation details keep `contextUsage` separate from cumulative `usage`: the latest main-session
 measurement (`used`), active window (`window`) and snapshot position (`throughSeq`). Unknown
