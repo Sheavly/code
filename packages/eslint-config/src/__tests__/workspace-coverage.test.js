@@ -95,11 +95,18 @@ const isOn = (entry) => {
 };
 /** The one module allowed to name the credentials file: its folder in `@sheavly/storage`. */
 const CREDENTIAL_STORE_FILES = /^packages[/\\]storage[/\\]src[/\\]credential-store[/\\]/;
+/**
+ * Where the server's runtime folder and discovery file are resolved: storage's two folders, and
+ * the protocol's constant that holds the file's name.
+ */
+const DISCOVERY_PATH_FILES =
+  /^packages[/\\](storage[/\\]src[/\\](server-runtime|discovery-file)[/\\]|protocol[/\\]src[/\\]discovery[/\\])/;
 /** The one workspace allowed to import the credential store. */
 const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
 /**
  * The only source files that may write a file by hand: the storage primitives every store writes
- * through (and the output store's two files, which append a command's output as it arrives), the
+ * through (the one-server lock, its runtime folder and the discovery file, which make and remove
+ * their files on purpose; and the output store's two files, which append a command's output as it arrives), the
  * agent's file-tool helper, the backend's model-call debug log, and the terminal's
  * developer tooling (its workbook, and `saveRawStream`, which the demo and the recorder share), and the workspace's two scratch helpers, which create
  * the shared scratch folder and remove its stale entries (no user data; the same folder is exempt
@@ -109,7 +116,7 @@ const BACKEND_FILES = /^apps[/\\]backend[/\\]/;
  */
 const FILE_WRITERS = new RegExp(
   [
-    '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path|file-lock)[/\\\\]',
+    '^packages[/\\\\]storage[/\\\\]src[/\\\\](json-file|jsonl-file|safe-path|file-lock|server-lock|server-runtime|discovery-file)[/\\\\]',
     '^packages[/\\\\]storage[/\\\\]src[/\\\\]output-store[/\\\\]output-(store|writer)\\.service\\.ts$',
     '^extensions[/\\\\]coding[/\\\\]src[/\\\\]files[/\\\\]file-effects\\.helper\\.ts$',
     '^packages[/\\\\]workspace[/\\\\]src[/\\\\]scratch[/\\\\]scratch(-root)?\\.helper\\.ts$',
@@ -243,6 +250,18 @@ describe.each(WORKSPACES.map((dir) => [path.relative(REPO_ROOT, dir) || '.', dir
           allowed: CREDENTIAL_STORE_FILES,
         }),
         `${name} lets files outside the credential store name the credentials file. Go through CredentialStore (apps/backend only) instead of turning \`harness/no-credentials-file\` off.`,
+      ).toEqual([]);
+    });
+
+    it('keeps the server runtime folder and the discovery file named only where they are resolved', async () => {
+      expect(
+        await filesWithRuleOff({
+          dir,
+          rule: 'harness/no-discovery-path',
+          allowed: DISCOVERY_PATH_FILES,
+          sourceOnly: true,
+        }),
+        `${name} lets files outside the server runtime and discovery file folders name the runtime variable or the discovery file. Import serverRuntimeDirectory, the discovery file module or DISCOVERY_FILE_NAME instead of turning \`harness/no-discovery-path\` off.`,
       ).toEqual([]);
     });
 

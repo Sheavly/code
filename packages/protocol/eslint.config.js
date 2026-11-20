@@ -8,4 +8,7 @@ export default defineConfig([
     files: ['src/server/server.validator.ts'],
     rules: { 'harness/no-adhoc-unknown-approval': 'off' },
   },
+  // The discovery constants define the discovery file's name; everyone else imports it
+  // (`harness/no-discovery-path`).
+  { files: ['src/discovery/**'], rules: { 'harness/no-discovery-path': 'off' } },
 ]);

@@ -28,6 +28,10 @@ const FILE_WRITES_MESSAGE =
  * `\`. A message that only mentions the name in a sentence is not a path and is not matched.
  */
 const CREDENTIALS_PATH = '/(^|[\\\\\\u002F])credentials\\.json$/i';
+/** The runtime-directory variable and the discovery file's name, anywhere in a string. */
+const DISCOVERY_NAMES = '/XDG_RUNTIME_DI[R]|server\\.json/';
+/** The variable as an identifier: `process.env.<name>` or `const { <name> } = env`. */
+const RUNTIME_VARIABLE_NAME = '/^XDG_RUNTIME_DI[R]$/';
 /**
  * The modules that hand out keys, imported by package subpath: the credential store itself, and
  * the profile registry, whose open profiles read and set them. Whatever can import either can
@@ -134,6 +138,20 @@ export const SYNTAX_RULES = {
       selector: `ImportDeclaration[source.value=${KEY_HOLDER_MODULES}], ImportExpression[source.value=${KEY_HOLDER_MODULES}]`,
       message:
         "Only the backend app (apps/backend) imports the credential store or the profile registry: it is where a key is read and handed to a provider. Other code never holds a key: a UI sets one through the backend's API, and a package is given what it needs as an option. In the backend, turn this rule off for the one module that holds keys, with a `files:` override and its reason in apps/backend/eslint.config.js.",
+    },
+  ],
+  // The folder where the server holds its lock and publishes its discovery file is resolved in one
+  // place, `serverRuntimeDirectory`: it reads the runtime-directory variable, checks that the
+  // folder is private and falls back to the home. A second reader of that variable, or a path
+  // built to the discovery file by hand, finds another folder and talks to no server or the wrong
+  // one. A string or template piece that merely contains either name fails too (`<name>.tmp`
+  // would still resolve the path). Not covered: a name split across pieces or held in a variable.
+  // The regexes are spelled so this file does not contain the names it forbids.
+  'no-discovery-path': [
+    {
+      selector: `Literal[value=${DISCOVERY_NAMES}], TemplateElement[value.cooked=${DISCOVERY_NAMES}], Identifier[name=${RUNTIME_VARIABLE_NAME}]`,
+      message:
+        "Do not name the runtime-directory environment variable or the discovery file. Where the server's lock and discovery file live is resolved once: `serverRuntimeDirectory` (`@sheavly/storage/server-runtime/server-runtime.helper`) reads the variable and checks the folder, and `@sheavly/storage/discovery-file/*` (`readDiscoveryFile`, `publishDiscoveryFile`) owns the file; the file's name is `DISCOVERY_FILE_NAME` (`@sheavly/protocol/discovery/discovery.constants`). Import them instead of rebuilding the path.",
     },
   ],
   // Files are written in one place. The user's data (conversations, models, trust, config) goes
