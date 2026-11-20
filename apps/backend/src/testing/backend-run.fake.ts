@@ -5,11 +5,11 @@ import { afterEach, beforeEach } from 'vitest';
 import type { CommandPermissions } from '@sheavly/coding/run-command/run-command.types';
 import { TrustStore } from '@sheavly/coding/trust/trust.service';
 import { memoryTrust } from '@sheavly/coding/testing/trust.fake';
+import type { Environment } from '@sheavly/core/environment/environment.types';
 import type { OutputStore } from '@sheavly/core/output/output.types';
 import type { ProviderRequest } from '@sheavly/core/provider/provider.types';
 import type { EntryStore } from '@sheavly/core/store/store.types';
 import type { StoredLog } from '@sheavly/runtime/sessions/sessions.types';
-import type { SettingValue } from '@sheavly/extension/extension/extension.types';
 import type { Script } from '@sheavly/testing/provider/provider.types';
 import { routedProvider, say } from '@sheavly/testing/provider/routed-provider.fake';
 import { createBackendHarness } from '../harness/harness.helper.js';
@@ -39,10 +39,17 @@ export function useBackendRuns() {
  * Test-only: a backend run in `base` with no web tools (unless asked) and a scripted provider, adding the given
  * `extensions` the way an embedding app does. The default script answers `done` to `go`.
  */
-function openBackendRun(params: {
+export function openBackendRun(params: {
   base: string;
   extensions: Parameters<typeof createBackendHarness>[0]['extensions'];
-  extensionSettings?: Record<string, SettingValue>;
+  /** The user's global and profile layers, already read. */
+  settingLayers?: Parameters<typeof createBackendHarness>[0]['settingLayers'];
+  /** The workspace trust (default: an in-memory one that trusts nothing, kept outside `base`). */
+  trustStore?: TrustStore;
+  /** `--trust`. */
+  trustWorkspace?: boolean;
+  /** The environment the run starts from (default: empty, so the user's folder is the real home's). */
+  env?: Environment;
   scripts?: Record<string, Script[]>;
   outputs?: OutputStore | undefined;
   /** The web tools, off unless a test turns them on. */
@@ -64,15 +71,19 @@ function openBackendRun(params: {
     provider: routedProvider(params.scripts ?? { go: [say('done')] }),
     title: 'go',
     workspaceRoot: params.base,
-    trustStore: new TrustStore({
-      persistence: memoryTrust({ file: path.join(params.base, 'trusted.json') }),
-    }),
-    env: {},
+    // The store's file must lie outside the workspace, or the store refuses to be consulted.
+    trustStore:
+      params.trustStore ??
+      new TrustStore({
+        persistence: memoryTrust({ file: path.join(path.dirname(params.base), 'trusted.json') }),
+      }),
+    trustWorkspace: params.trustWorkspace ?? false,
+    env: params.env ?? {},
     permissions: params.permissions ?? askingPermissions(),
     webFetch: params.webFetch ?? false,
     webSearch: params.webSearch ?? false,
     extensions: params.extensions,
-    extensionSettings: params.extensionSettings,
+    settingLayers: params.settingLayers,
     outputs: params.outputs,
     onModelCall: params.onModelCall,
     onExtensionProblem: params.onExtensionProblem,

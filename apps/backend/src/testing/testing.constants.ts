@@ -1,6 +1,9 @@
 /** Test-only: the token a test API is started with, and its requests carry. */
 export const TEST_TOKEN = 'test-token';
 
+/** Test-only: a value that must never show up in a report, a log line, an error or a response. */
+export const TEST_SECRET = 'sk-SECRET-value-1234';
+
 /** Test-only: every grant of the v1 catalogue, what a scope probe holds unless a test narrows it. */
 export const ALL_GRANTS = [
   'session:read',

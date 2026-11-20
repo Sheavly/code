@@ -5,7 +5,8 @@ import { createMiddleware } from 'hono/factory';
 import { HTTPException } from 'hono/http-exception';
 import { API_ROUTES } from '@sheavly/protocol/api/api.constants';
 import type { ApiRoute, RouteName } from '@sheavly/protocol/api/api.types';
-import { MAX_BODY_BYTES } from './api.constants.js';
+import { printable } from '../log/printable.utils.js';
+import { MAX_BODY_BYTES, MAX_LOGGED_ERROR_CHARS } from './api.constants.js';
 import type { ApiHandlers, ApiOptions } from './api.types.js';
 import { honoPath, toApiFailure } from './api.utils.js';
 import { validJson } from './api.validator.js';
@@ -59,7 +60,7 @@ function addRoute(params: { app: Hono; name: RouteName; handlers: ApiHandlers })
  * and closes the conversations when it stops.
  */
 export function createApiApp(options: ApiOptions): Hono {
-  const { conversations, setup, workspaces, permissions, token } = options;
+  const { conversations, setup, workspaces, permissions, token, log } = options;
   const handlers: ApiHandlers = {
     ...apiHandlers(conversations),
     ...setupHandlers(setup),
@@ -94,6 +95,17 @@ export function createApiApp(options: ApiOptions): Hono {
     .onError((error, c) => {
       const { status, code, message } = toApiFailure(error);
 
+      // The client is told nothing of an internal failure, so the log must be: without it a bad
+      // file or a broken store is a bare 500 nobody can trace.
+      if (code === 'internal') log?.(`${internalFailureLine(error)}\n`);
+
       return c.json({ error: { code, message } }, status);
     });
+}
+
+/** `api: request failed: <name>: <message>`, cut and cleaned: a message can hold what a request sent. */
+function internalFailureLine(error: Error): string {
+  const text = (value: string) => printable({ text: value, max: MAX_LOGGED_ERROR_CHARS });
+
+  return `api: request failed: ${text(error.name)}: ${text(error.message)}`;
 }

@@ -9,3 +9,6 @@ export const SSE_QUEUE_LIMIT = 1000;
 
 /** The largest request body the server reads: a prompt or saved history, never a file upload. */
 export const MAX_BODY_BYTES = 5_000_000;
+
+/** How many characters of an internal failure's name or message the log line keeps. */
+export const MAX_LOGGED_ERROR_CHARS = 500;

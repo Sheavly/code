@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { defineHook } from '@sheavly/core/hook/hook.utils';
 import type { Provider, ProviderRequest } from '@sheavly/core/provider/provider.types';
 import { defineTool } from '@sheavly/core/tool/tool.utils';
-import type { Services } from '@sheavly/extension/extension/extension.types';
+import type { Services, SettingValue } from '@sheavly/extension/extension/extension.types';
 import {
   defineExtension,
   defineService,
@@ -56,6 +56,12 @@ function notesManifest() {
   });
 }
 
+/** A global layer as the app reads it from `~/.sheavly/settings.json`. */
+const userLayer = (values: Record<string, SettingValue>) => ({
+  source: '/home/.sheavly/settings.json',
+  values,
+});
+
 type OpenedRun = Awaited<ReturnType<typeof open>>;
 
 /** Sends one prompt through the harness's tools and hooks, runs `meanwhile`, then closes. */
@@ -84,7 +90,7 @@ const callsTool = (name: string): Script[] => [
 ];
 
 describe('a third party extends the program without editing our source', () => {
-  it('(a) reads a setting it declared: the default, or the user’s value from extensionSettings', async () => {
+  it('(a) reads a setting it declared: the default, or the user’s value from settingLayers', async () => {
     const manifest = notesManifest();
     const MAX_LINES = settingKey({ manifest, name: 'notes.max-lines', type: 'number' });
     const seen: number[] = [];
@@ -98,11 +104,14 @@ describe('a third party extends the program without editing our source', () => {
     });
 
     await open({ extensions: [notes] });
-    const set = await open({ extensions: [notes], extensionSettings: { 'notes.max-lines': 7 } });
+    const set = await open({
+      extensions: [notes],
+      settingLayers: { global: userLayer({ 'notes.max-lines': 7 }) },
+    });
 
     expect(seen).toEqual([50, 7]);
     expect(set.settings).toContainEqual(
-      expect.objectContaining({ name: 'notes.max-lines', value: 7 }),
+      expect.objectContaining({ name: 'notes.max-lines', value: 7, source: 'global' }),
     );
   });
 
@@ -306,14 +315,17 @@ describe('a third party extends the program without editing our source', () => {
     expect(Object.keys(found[1] ?? {}).sort()).toEqual(['log', 'read', 'search']);
   });
 
-  it('(h) rejects a bad extensionSettings value: the wrong type, or a name nobody declares', async () => {
+  it('(h) rejects a bad settingLayers value: the wrong type, or a name nobody declares', async () => {
     const notes = defineExtension({ manifest: notesManifest(), activate: () => ({}) });
 
     await expect(
-      open({ extensions: [notes], extensionSettings: { 'notes.max-lines': 'many' } }),
+      open({
+        extensions: [notes],
+        settingLayers: { global: userLayer({ 'notes.max-lines': 'many' }) },
+      }),
     ).rejects.toThrow(/notes\.max-lines/);
     await expect(
-      open({ extensions: [notes], extensionSettings: { 'nobody.declares': 1 } }),
+      open({ extensions: [notes], settingLayers: { global: userLayer({ 'nobody.declares': 1 }) } }),
     ).rejects.toThrow(/nobody\.declares/);
   });
 

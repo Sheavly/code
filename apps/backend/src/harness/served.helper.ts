@@ -18,6 +18,8 @@ import { startOnRequestedModel } from './starting-model.helper.js';
 import { reportedWorkingRoot } from './working-root-report.helper.js';
 import { modelCallsTo } from './model-calls.helper.js';
 import { skillsNotice } from './notices.utils.js';
+import { readUserSettingLayers } from './setting-layers.helper.js';
+import { ignoredSettingLines } from './setting-layers.utils.js';
 import { sharedScratchRoot } from './scratch.helper.js';
 import { backendSummary, subAgentSummary } from './summary.helper.js';
 import { workspacePermissions } from './permissions.helper.js';
@@ -34,13 +36,16 @@ import { conversationContextUsage } from '../usage/context-usage.helper.js';
  * for, or the backend's own folder and the profile its workspace is bound to), with its own
  * models (the profile's, behind its own switch, so changing this conversation's model leaves the
  * others alone), the harness on the settings, and the run it reports (the UI shows its trust from
- * that). Skills that didn't load go to `log`, and each model call to `MODEL_CALLS_FILE` and, with
+ * that). The global and the bound profile's `settings.json` are read here, so a malformed one
+ * fails the start naming the file; settings the workspace's file asked for that did not apply go
+ * to `log` (one line each, never a value) and to the details. Skills that didn't load go to `log`, and each model call to `MODEL_CALLS_FILE` and, with
  * SHOW_MODEL_CALLS, to `log`.
  *
  * `places` decides the placement once per conversation and remembers it by `id`, so the store
  * knows where the conversation's files go before its first one is written.
  *
- * Throws a `SetupError` (`invalid`) for a workspace or profile that can't be used, and a
+ * Throws a `SetupError` (`invalid`) for a workspace or profile that can't be used, or a global or
+ * profile settings file that can't (its message names the file and the reason), and a
  * `ConversationsError` (`not_set_up`) when no profile with a usable model can be found; models
  * that were left out are noted on `log`.
  */
@@ -112,6 +117,8 @@ export async function servedConversation(params: {
   // The conversation's model switch writes the summaries, so a switch changes who summarizes.
   const summary = settings.summary ? backendSummary(workspace.models.switch) : undefined;
   const harness = await createBackendHarness({
+    // The bound profile's file, so a conversation never reads another profile's; unusable: no start.
+    settingLayers: await readUserSettingLayers({ env, profile: placement.profile }),
     provider: workspace.models.switch,
     ...(settings.summary && { summarizeWith: subAgentSummary }),
     subAgentProvider: () => selectedProvider({ models: workspace.models, onModelCall }),
@@ -144,6 +151,13 @@ export async function servedConversation(params: {
 
   if (skills) log(`${skills}\n`);
 
+  const ignoredLines = ignoredSettingLines({
+    ignored: harness.ignoredSettings,
+    more: harness.ignoredSettingsMore,
+  });
+
+  for (const line of ignoredLines) log(`${line}\n`);
+
   const usage = await trackConversationUsage({ sessions: harness.sessions, storage });
 
   return {
@@ -164,6 +178,10 @@ export async function servedConversation(params: {
             throughSeq: usage.ledger.snapshot.throughSeq,
           }),
           projectTrust: harness.projectTrust,
+          ...(harness.ignoredSettings.length > 0 && { ignoredSettings: harness.ignoredSettings }),
+          ...(harness.ignoredSettingsMore > 0 && {
+            ignoredSettingsMore: harness.ignoredSettingsMore,
+          }),
         }),
         permissionMode: async () => (await permissions.read()).mode,
         workingRoot: () =>
