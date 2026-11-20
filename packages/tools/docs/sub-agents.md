@@ -18,8 +18,12 @@ sub-agent on one task, `{ title, task }`.
 - **Three levels, hard cap.** Main session → sub-agent → sub-agent (`MAX_SESSION_DEPTH = 3`).
   Below the cap a sub-agent gets `start_agent` too; at depth 3 it doesn't, and the registry
   refuses a fourth level regardless.
-- **The parent chooses.** `options.tools` and `options.hooks` are what sub-agents get; the
-  parent's own hooks are not inherited unless listed. Each sub-agent runs its own `sessionStart`.
+- **The parent chooses.** `options.tools` and `options.hooks` are what sub-agents get, and none of
+  those tools may share a name with one the sub-agent adds: `report_status` always, the task tools
+  (`task_status`, `cancel_task`, `await_tasks`) when it can nest or `withTaskTools` is set, and
+  `start_agent` and `message_agent` below the depth cap. A clash fails the sub-agent's run with a
+  `DuplicateToolError` before its first model call, and the parent is told the task failed. The parent's own hooks are not inherited unless
+  listed. Each sub-agent runs its own `sessionStart`.
   `options.baseInstructions` supplies shared guidance before the child role;
   `options.instructions` adds child extras after it. Outer whitespace is trimmed, blank sections
   are skipped, and sections are joined with one blank line. The same

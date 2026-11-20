@@ -18,6 +18,16 @@ A tool is a folder with a `<name>.tool.ts` that returns
 - `context` has the `callId`, the model's `description`, and the calling `session` (its id,
   parent, main session and depth; see [sessions](../../runtime/docs/sessions.md)).
 - Pass `signal` to every async operation, so an interrupt stops the tool.
+- A tool's `name` is what the model calls, so names are unique within a run, compared exactly
+  (`Read` and `read` are two tools). A sub-agent's run adds `report_status` always, the task
+  tools (`task_status`, `cancel_task`, `await_tasks`) when it can nest or `withTaskTools` is set,
+  and `start_agent` and `message_agent` below the depth cap, to its parent's tools, so a parent
+  tool with one of those names clashes there. The loop refuses a run with two tools of one name
+  before its first model call, with a `DuplicateToolError` naming the tool (the run fails like a
+  miswired hook: `run_failed`, then its one `done`). It checks the list the run starts with,
+  then goes on with a frozen copy of it, so changing the caller's array later changes nothing.
+  `runTool` itself runs the first match, so nothing else protects a caller that bypasses the
+  loop.
 - Include it from the backend that wants it: it adds its tools in `createBackendHarness`
   (`apps/backend/src/harness/harness.helper.ts`). No package adds a tool to a run.
 

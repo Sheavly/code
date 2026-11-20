@@ -325,6 +325,17 @@ exist: masking and overflow recovery are absent without a `summary` option, and 
 tests an option. To add a feature to a phase, add one entry to that phase's list in
 `turn-contributions.helper.ts` and a test in `contributions.test.ts`.
 
+## Tool names
+
+When a run starts, the loop reads `options.tools` once and checks that list: two tools sharing a
+name, compared exactly, throw a `DuplicateToolError` naming the tool, before any `sessionStart`
+hook or model call and through the same failure path as a miswired hook (`onError` hooks,
+`run_failed`, one `done`). The list is copied and frozen, and the run goes on with that copy, so
+code that later changes the array it passed changes nothing the run sends or runs. The tool
+objects are not frozen. A sub-agent's run starts the same way, so a parent tool that shares a name
+with what the sub-agent adds (`report_status`, the task tools, `start_agent`, `message_agent`,
+where its depth gives it them) fails it. See [tool names](../../core/docs/tools.md#the-contract).
+
 ## Hook order
 
 - Hooks run in the order given, unless one names hooks it must come `after`: the loop orders the
