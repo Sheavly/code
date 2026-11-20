@@ -32,6 +32,10 @@ export default defineConfig([
       'src/safe-path/**',
       // The cross-process lock is a file made and removed on purpose, holding only a process id.
       'src/file-lock/**',
+      // The one-server lock is a socket file made and removed on purpose, with a guard file beside
+      // it for the short time a stale one is taken over; the runtime folder is created private.
+      'src/server-lock/**',
+      'src/server-runtime/**',
       'src/output-store/output-store.service.ts',
       'src/output-store/output-writer.service.ts',
       'src/output-store/__tests__/**',
