@@ -28,28 +28,42 @@ wait with it.
   when it crashes or is killed. The terminal closes its conversation when it exits normally.
 - **The user's data** is under `~/.sheavly` (`SHEAVLY_HOME` moves it): profiles, models, keys,
   conversations, trust and settings (see [storage](../packages/storage/docs/design.md)).
+- **The protocol has a version.** It is a semantic version, the version of the `@sheavly/protocol`
+  package, in one place: the contract files, the backend and the client all read that value. Two
+  versions are compatible when they are on the same breaking line (the same major from 1.0.0, the
+  same major and minor below it); a patch difference always is. When they are not, the message says
+  which side is older and what to do.
+- **Two routes answer without a token:** `GET /health` (only that the server is up, its server
+  version and its protocol version) and `QUERY /handshake` (a proof, under the token, of a nonce,
+  the instance id and the protocol version). Every other route still needs the token, and the
+  contract marks the two with `public: true`.
+- **The client can verify a server** before it trusts it: `verifyServer` in `@sheavly/client` asks
+  the handshake with a fresh nonce, through a client that has no token and so cannot send one,
+  and checks the proof. The token is in no request it makes. Nothing calls it yet, and the server
+  makes its instance id at each start but writes it nowhere: the discovery file, the lock and a
+  client that reads the file are not built.
 - **Every package is private at version `0.0.0`** and is consumed from source inside this repository.
 
 ## Decisions
 
-| Decision                                                                        | Status            | Built by                                                                                                     |
-| ------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| The npm scope is `@sheavly` and the command is `sheavly`                        | decided           | [#82](https://github.com/Sheavly/harness/issues/82), [#392](https://github.com/Sheavly/harness/issues/392)   |
-| Each package has its own version, released with changesets                      | decided           | [#396](https://github.com/Sheavly/harness/issues/396)                                                        |
-| Every package is public except `@sheavly/eslint-config`; `dist/` and docs only  | decided           | [#82](https://github.com/Sheavly/harness/issues/82)                                                          |
-| `sheavly` is a thin package that runs the backend and the terminal              | decided           | [#392](https://github.com/Sheavly/harness/issues/392)                                                        |
-| One backend per user, always on, that every front end connects to               | decided           | [#390](https://github.com/Sheavly/harness/issues/390), [#393](https://github.com/Sheavly/harness/issues/393) |
-| A conversation outlives its terminal, and `--resume` attaches and replays it    | decided           | [#399](https://github.com/Sheavly/harness/issues/399), [#392](https://github.com/Sheavly/harness/issues/392) |
-| `sheavly chat` starts the installed service, or says how to install it          | decided           | [#392](https://github.com/Sheavly/harness/issues/392)                                                        |
-| Which extensions load is chosen per workspace, fixed when a conversation starts | decided           | [#400](https://github.com/Sheavly/harness/issues/400)                                                        |
-| Unattended work has no cap; the server sends a desktop notification if enabled  | decided           | [#401](https://github.com/Sheavly/harness/issues/401), [#399](https://github.com/Sheavly/harness/issues/399) |
-| The first public release is on hold                                             | decided           | [#82](https://github.com/Sheavly/harness/issues/82), [#396](https://github.com/Sheavly/harness/issues/396)   |
-| A front end finds it through a discovery file, and verifies it before trusting  | decided           | [#390](https://github.com/Sheavly/harness/issues/390)                                                        |
-| The server listens on loopback and every route needs a token, except two later  | built today, kept | [the API](../apps/backend/docs/api.md)                                                                       |
-| The service is a systemd user unit on Linux first                               | decided           | [#393](https://github.com/Sheavly/harness/issues/393)                                                        |
-| Node 24 and up; Linux is the first and only tested system                       | decided here      | [#393](https://github.com/Sheavly/harness/issues/393)                                                        |
-| Stored data is versioned and migrated on upgrade                                | decided           | [#391](https://github.com/Sheavly/harness/issues/391)                                                        |
-| The backend's own settings come from the settings files                         | decided           | [#389](https://github.com/Sheavly/harness/issues/389)                                                        |
+| Decision                                                                                      | Status            | Built by                                                                                                     |
+| --------------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| The npm scope is `@sheavly` and the command is `sheavly`                                      | decided           | [#82](https://github.com/Sheavly/harness/issues/82), [#392](https://github.com/Sheavly/harness/issues/392)   |
+| Each package has its own version, released with changesets                                    | decided           | [#396](https://github.com/Sheavly/harness/issues/396)                                                        |
+| Every package is public except `@sheavly/eslint-config`; `dist/` and docs only                | decided           | [#82](https://github.com/Sheavly/harness/issues/82)                                                          |
+| `sheavly` is a thin package that runs the backend and the terminal                            | decided           | [#392](https://github.com/Sheavly/harness/issues/392)                                                        |
+| One backend per user, always on, that every front end connects to                             | decided           | [#390](https://github.com/Sheavly/harness/issues/390), [#393](https://github.com/Sheavly/harness/issues/393) |
+| A conversation outlives its terminal, and `--resume` attaches and replays it                  | decided           | [#399](https://github.com/Sheavly/harness/issues/399), [#392](https://github.com/Sheavly/harness/issues/392) |
+| `sheavly chat` starts the installed service, or says how to install it                        | decided           | [#392](https://github.com/Sheavly/harness/issues/392)                                                        |
+| Which extensions load is chosen per workspace, fixed when a conversation starts               | decided           | [#400](https://github.com/Sheavly/harness/issues/400)                                                        |
+| Unattended work has no cap; the server sends a desktop notification if enabled                | decided           | [#401](https://github.com/Sheavly/harness/issues/401), [#399](https://github.com/Sheavly/harness/issues/399) |
+| The first public release is on hold                                                           | decided           | [#82](https://github.com/Sheavly/harness/issues/82), [#396](https://github.com/Sheavly/harness/issues/396)   |
+| A front end finds it through a discovery file, and verifies it before trusting                | decided           | [#390](https://github.com/Sheavly/harness/issues/390)                                                        |
+| The server listens on loopback and every route needs a token, except health and the handshake | built today, kept | [the API](../apps/backend/docs/api.md)                                                                       |
+| The service is a systemd user unit on Linux first                                             | decided           | [#393](https://github.com/Sheavly/harness/issues/393)                                                        |
+| Node 24 and up; Linux is the first and only tested system                                     | decided here      | [#393](https://github.com/Sheavly/harness/issues/393)                                                        |
+| Stored data is versioned and migrated on upgrade                                              | decided           | [#391](https://github.com/Sheavly/harness/issues/391)                                                        |
+| The backend's own settings come from the settings files                                       | decided           | [#389](https://github.com/Sheavly/harness/issues/389)                                                        |
 
 ### Names
 
@@ -111,7 +125,8 @@ service is installed, it starts the service. When the service is not installed i
 the user to run `sheavly service install`; it does not start a private server of its own, so there
 is one server and nothing is lost when a terminal closes. That the first command a new user runs
 ends in an instruction is deliberate. A discovery file whose process is gone, whose lock is free
-or whose handshake fails counts as no server, and the client never sends the token to it. When the
+or whose handshake fails counts as no server, and the client does not send the token to it (a
+server that relays the handshake to the real one is the exception, see "The boundary"). When the
 service is installed but does not start, `sheavly chat` waits for the handshake, then says so and
 where the log is, and still does not fall back to a private server. Where the service is not
 supported, which is macOS and Windows until their service exists, it says so and points to
@@ -206,9 +221,10 @@ closing every conversation when it stops, stay as they are today.
 
 ### The discovery file
 
-None of this is built: it is the design that
+The file, the lock and a client that reads the file are not built: they are the design that
 [#390](https://github.com/Sheavly/harness/issues/390) implements, and that issue must be updated to
-match this page.
+match this page. The protocol version, the two token-free routes and the client's verification,
+described below, are built.
 
 The always-on server (`sheavly serve`, or the service) will write a file that holds a format
 version, the server's URL, its token, a random instance id made at each start, its process id, its
@@ -232,18 +248,30 @@ takes no lock and writes no file, so it can never replace the real server's.
   file itself would be lost when the rename replaces it, and a process id alone is never enough,
   since ids are reused. Node has no lock call of its own, so the mechanism is chosen in #390. A
   clean exit removes the discovery file and leaves the lock file.
-- **Verifying the server.** A client will never send the token to whatever answers at the URL, and
-  an instance id that anyone can fetch would not stop a process that took over a stale port from
-  repeating it. Instead the client sends a random nonce to a handshake route and the server answers
-  with an HMAC, under the token, of the nonce, the instance id and the protocol version, plus the
-  protocol version. The client computes the same value from the file and sends the token only if
-  they match, so a server that does not hold the token cannot pass, and the answer reveals neither
-  the token nor the instance id. A protocol version the client cannot speak says which side is
-  older.
-- **Two routes need no token.** A health route, which returns only whether the server is up, its
-  server version and its protocol version, and the handshake route above. Both will be exempted
-  explicitly from the token check, and neither returns a path, a process id or anything about a
-  conversation.
+- **Verifying the server (built).** A client does not send the token to whatever answers at the
+  URL, except to a process that relays the handshake to the real server (see the boundary below),
+  and an instance id that anyone can fetch would not stop a process that took over a stale port
+  from repeating it. Instead the client sends a fresh random nonce to the handshake route and the
+  server answers with an HMAC, under the token, of the nonce, the instance id and the protocol
+  version, plus the protocol version. The client computes the same value and compares it; the
+  token is used only for that and is not sent, so a server that does not hold the token cannot
+  pass, and the answer reveals neither the token nor the instance id. The client checks the proof
+  first: only a server that passed is believed about versions, and a protocol version the client
+  cannot speak then says which side is older. Only `verified` and `version_mismatch` come from a
+  server that proved it, so only they may lead to sending the token. `no_handshake` (the route
+  answered `404` or `401`: a server without the route, or something that is not Sheavly) and
+  `wrong_server` never do, and `no_handshake` is not a verdict that the server is Sheavly: nginx
+  or another app answers `404` too, and an impostor can choose to. The client reads at most 4 KB
+  of a public answer, never follows a redirect on a public route and gives up on a silent server
+  after 5 s, so whatever sits on a stale port cannot make it buffer without limit, judge another
+  host or wait forever. Where the client gets the instance id from, the discovery file, is not
+  built, and the terminal does not call the check yet; the terminal will use it.
+- **Two routes need no token (built).** A health route, which returns only whether the server is up,
+  its server version and its protocol version, and the handshake route above. Both are marked
+  `public` in the contract, and the backend's token check skips the routes the contract marks that
+  way (`routeNamesByAccess`), so no list in the backend names them; neither returns a path, a
+  process id or anything about a conversation. The server cuts a request that takes more than 30 s
+  to arrive or more than 10 s to send its headers, since these routes read a body with no token.
 - **The address.** The server will listen on its usual default port when it is free and fall back
   to a free one when it is not, and the file always holds the address it actually uses. Today the
   default port does not fall back: only `SERVER_PORT=0` picks a free one.
@@ -253,11 +281,11 @@ takes no lock and writes no file, so it can never replace the real server's.
 ### The boundary
 
 The server listens on loopback and every route needs a token, as the backend does today. That is
-built and stays, with one exception that is not built: the health and handshake routes above.
+built and stays, with one built exception: the health and handshake routes above.
 
-What another local user can do with the port alone: connect and hold connections open. Today every
-route, including an unknown one, answers `401` with the same body, so they learn nothing else; once
-the health route exists they also learn that Sheavly runs and which versions. They cannot call any
+What another local user can do with the port alone: connect and hold connections open. Every
+other route, including an unknown one, answers `401` with the same body, so they learn nothing
+else; from the health route they learn that Sheavly runs and which versions. They cannot call any
 other route without the token, which is compared in constant time. On a machine shared by several
 users that is weaker than it could be, because file
 permissions would stop a connection and only the token stops it here. The handshake stops a process
@@ -270,7 +298,10 @@ solved.
 What a web page can do: reach the port, but not read the token and not send an `Authorization`
 header without a cross-origin preflight, which the server answers with `401`. The server has no
 `Origin` or `Host` check; the token is the only defence, and a check that allows only the server's
-own host names and refuses a request that carries an `Origin` would be a second one.
+own host names and refuses a request that carries an `Origin` would be a second one. Without a
+`Host` check, DNS rebinding works: a page whose name is made to resolve to the loopback address
+reaches the two public routes as if it were same-origin, and can read their answers. They are
+public anyway, and from there the page still cannot call a private route without the token.
 
 A server reachable from other machines is planned, but not for a while. Until then a terminal on
 another machine can use `BACKEND_URL` and `BACKEND_TOKEN`, which it already accepts, with a port
@@ -331,7 +362,9 @@ only one tested for the first release. This is a decision of this page.
 refuses, or asks first, when work is running or a conversation waits on the user, unless the user
 tells it to go on, and the restart is
 shown in the chat history of each conversation it stopped. A version of the terminal and a version
-of the server that cannot speak to each other say which is older and what to do. How an update
+of the server that cannot speak to each other say which is older and what to do: the check that
+finds it is built (the protocol version is semver, and the client's verification reports it), and
+the terminal will show it. How an update
 finds a new release is open, and it is a network call, so it is off unless the user turns it on.
 
 ### Privacy and support
