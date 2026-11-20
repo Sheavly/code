@@ -33,6 +33,7 @@ import {
   storedConversationsResponseSchema,
 } from '../store/store.validator.js';
 import { FOLDER_ROUTES } from './folder-routes.constants.js';
+import { PUBLIC_ROUTES } from './public-routes.constants.js';
 import type { ApiRoute } from './api.types.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 
@@ -299,6 +300,7 @@ export const API_ROUTES = {
     response: { status: 204 },
   },
   ...FOLDER_ROUTES,
+  ...PUBLIC_ROUTES,
 } as const satisfies Record<string, ApiRoute>;
 
 export const SCHEMAS = '#/components/schemas/';

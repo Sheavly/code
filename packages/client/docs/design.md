@@ -24,9 +24,57 @@ for await (const entry of client.stream('sendPrompt', { id, body: { text: 'hi' }
   with `streamEntrySchema`, heartbeats skipped). `open` hands back the raw stream, to save.
 - A refused request throws `RefusedError`, with the backend's `code` (`not_found`,
   `unknown_model`, …) to branch on.
+- A public route's answer over 4 KB throws `AnswerTooLargeError`, and its redirect
+  `RedirectedError`.
 
-The token goes in a header on every request, never in a URL. `fetch` can be passed in: a proxy,
-or a test's fake.
+The token goes in a header on every request to a private route, never in a URL, and never on a
+public route (`getHealth`, `queryHandshake`: the contract's `public: true`, read from
+`API_ROUTES`). `fetch` can be passed in: a proxy, or a test's fake.
+
+## Verifying a server
+
+A token must not be sent to a server before it has shown it is the right one. `createPublicClient({ url, fetch? })`
+(`client/`) is a client with no token: it takes only the public routes (a private route name is a
+type error, and throws at run time), so it can never send one. `verifyServer({ url, token,
+instanceId, fetch?, signal?, timeoutMs? })` uses it to ask `QUERY /handshake` with a fresh nonce
+for every call, and checks the proof the server answers with, a HMAC only a holder of the token
+and the instance id can make. The token is used to check the proof, and is in no request, result
+or error. A client never sends the token to whatever answers at the URL, except to a process that
+relays the handshake to the real server (see "The boundary" in `docs/shipping.md`): the proof
+shows that the real server answered, not that nothing stands in between.
+
+It answers one of:
+
+- `{ status: 'verified', protocolVersion }`: the server proved it, on a compatible protocol.
+- `{ status: 'version_mismatch', older, client, server, message }`: the server proved it, but
+  speaks a protocol this client can't. `older` says which side to update; `message` says what to do.
+- `{ status: 'wrong_server' }`: another token or instance, a replayed or made-up proof, an
+  answer that is not the contract's, an answer over 4 KB (the client stops reading, cancels the
+  body and goes no further) or a redirect (a public route is never redirected, so the verdict is
+  about the address it was given). A server that does not prove it is told nothing about
+  versions: the versions are compared only after the proof verifies.
+- `{ status: 'no_handshake' }`: the route answered `404` or `401`: a server without the route, or
+  something that is not Sheavly. It is not a verdict that the server is Sheavly: nginx, another
+  app or an impostor answers `404` too, and an impostor chooses to.
+
+Only `verified` and `version_mismatch` come from a server that proved it holds the token, so only
+they may lead to sending the token. `no_handshake` and `wrong_server` never do.
+
+A server that is not there (connection refused, an abort through `signal`) or that does not
+answer within `timeoutMs` (5 s unless set) is not a verdict: `verifyServer` throws, as every call
+of this package does, so the caller decides what that means (start a server, say). A refused
+connection throws the transport's own error and a silent server throws `VerifyTimeoutError`: both
+are a failure to reach a server, not an answer from one, so neither is `wrong_server`. The
+caller's own abort is thrown as the transport threw it, not as a timeout. An empty `token` throws
+`EmptyTokenError` before any request is made. The terminal will use the check before it sends the
+token anywhere.
+
+The routes the contract marks `public` read their answer through a bound (4096 bytes,
+`PUBLIC_ANSWER_MAX_BYTES`) and never follow a redirect, whoever calls them: what listens on the address may be anything.
+They ask with `redirect: 'manual'` and treat any redirect answer (a 3xx status or a browser's
+`opaqueredirect`) as `RedirectedError`, so a redirect is `wrong_server` however the platform's
+`fetch` words it; the answer's body is cancelled unread. A private route keeps `fetch`'s redirect default;
+undici drops `Authorization` when a redirect leaves the origin.
 
 ## Approvals
 

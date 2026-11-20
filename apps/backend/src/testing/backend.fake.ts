@@ -3,13 +3,15 @@ import { createDefaultRegistry } from '@sheavly/providers/registry/default-regis
 import { createApiApp } from '../api/api.helper.js';
 import { createBackend } from '../backend.helper.js';
 import { parseCliSettings, parseRunEnv } from '../harness/settings.validator.js';
-import { TEST_TOKEN } from './testing.constants.js';
+import { TEST_INSTANCE_ID } from './identity.fake.js';
+import { TEST_SERVER_VERSION, TEST_TOKEN } from './testing.constants.js';
 
 /**
  * Test-only: the real backend (`createBackend`, as `serve.ts` makes it) over a user's folder `home`
  * and with `workspace` as its own folder, and its HTTP app. `call` sends a request to it with the
  * token, as a client does; `client` is the real `@sheavly/client` over the same app. `fetch` stands in for the network (models, key checks); `env` adds
- * settings (`MODEL_CALLS_FILE`, `SHOW_MODEL_CALLS`...). `logged` is what it told its log.
+ * settings (`MODEL_CALLS_FILE`, `SHOW_MODEL_CALLS`...). `token` replaces `TEST_TOKEN` as the
+ * server's token. `logged` is what it told its log.
  */
 export function testBackend(params: {
   home: string;
@@ -17,8 +19,9 @@ export function testBackend(params: {
   fetch?: typeof globalThis.fetch;
   env?: Record<string, string>;
   remoteSetupAllowed?: boolean;
+  token?: string;
 }) {
-  const { home, workspace, fetch, remoteSetupAllowed = true } = params;
+  const { home, workspace, fetch, remoteSetupAllowed = true, token = TEST_TOKEN } = params;
   const env = { ...params.env, SHEAVLY_HOME: home, WORKSPACE_ROOT: workspace };
   const logged: string[] = [];
   const { conversations, setup, workspaces, permissions } = createBackend({
@@ -33,14 +36,16 @@ export function testBackend(params: {
     setup,
     workspaces,
     permissions,
-    token: TEST_TOKEN,
+    token,
+    instanceId: TEST_INSTANCE_ID,
+    serverVersion: TEST_SERVER_VERSION,
     log: (text) => logged.push(text),
   });
   const call = (path: string, init: { method?: string; body?: unknown } = {}) =>
     app.request(path, {
       method: init.method ?? 'GET',
       headers: {
-        authorization: `Bearer ${TEST_TOKEN}`,
+        authorization: `Bearer ${token}`,
         ...(init.body !== undefined && { 'content-type': 'application/json' }),
       },
       ...(init.body !== undefined && { body: JSON.stringify(init.body) }),

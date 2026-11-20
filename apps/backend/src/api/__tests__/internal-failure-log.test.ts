@@ -3,7 +3,8 @@ import { Conversations } from '@sheavly/host/conversations/conversations.service
 import { useTempFolders } from '@sheavly/testing/files/temp-folders.fake';
 import { createApiApp } from '../api.helper.js';
 import { testBackend } from '../../testing/backend.fake.js';
-import { TEST_SECRET, TEST_TOKEN } from '../../testing/testing.constants.js';
+import { TEST_INSTANCE_ID } from '../../testing/identity.fake.js';
+import { TEST_SECRET, TEST_SERVER_VERSION, TEST_TOKEN } from '../../testing/testing.constants.js';
 
 const folders = useTempFolders({ prefix: 'internal-failure-log-', names: ['app'] });
 
@@ -17,6 +18,8 @@ function apiOver(pick: (real: Conversations) => Conversations) {
     workspaces: made.workspaces,
     permissions: made.permissions,
     token: TEST_TOKEN,
+    instanceId: TEST_INSTANCE_ID,
+    serverVersion: TEST_SERVER_VERSION,
     log: (text) => logged.push(text),
   });
   const call = (path: string, init: { method: string; body?: string } = { method: 'GET' }) =>

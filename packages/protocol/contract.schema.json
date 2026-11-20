@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "contractVersion": 1,
+  "contractVersion": "0.0.0",
   "$defs": {
     "TokenUsage": {
       "type": "object",
@@ -2091,6 +2091,51 @@
         "builtIn": { "type": "array", "items": { "$ref": "#/$defs/AllowEntry" } }
       },
       "required": ["mode", "allow", "workspace", "builtIn"]
+    },
+    "ProtocolVersion": {
+      "type": "string",
+      "pattern": "^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z.-]+))?$",
+      "description": "A semantic version: major.minor.patch with an optional -prerelease of dot-separated identifiers. No build metadata (+), no leading zeros in a number, and every number at most 9007199254740991."
+    },
+    "ServerVersion": {
+      "type": "string",
+      "pattern": "^(\\d+)\\.(\\d+)\\.(\\d+)(?:-([0-9A-Za-z.-]+))?$",
+      "description": "A semantic version: major.minor.patch with an optional -prerelease of dot-separated identifiers. No build metadata (+), no leading zeros in a number, and every number at most 9007199254740991."
+    },
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "const": "ok" },
+        "serverVersion": { "$ref": "#/$defs/ServerVersion" },
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" }
+      },
+      "required": ["status", "serverVersion", "protocolVersion"]
+    },
+    "Nonce": { "type": "string", "minLength": 22, "maxLength": 86, "pattern": "^[A-Za-z0-9_-]+$" },
+    "InstanceId": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "HandshakeProof": {
+      "type": "string",
+      "minLength": 43,
+      "maxLength": 43,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "HandshakeRequest": {
+      "type": "object",
+      "properties": { "nonce": { "$ref": "#/$defs/Nonce" } },
+      "required": ["nonce"]
+    },
+    "HandshakeResponse": {
+      "type": "object",
+      "properties": {
+        "protocolVersion": { "$ref": "#/$defs/ProtocolVersion" },
+        "proof": { "$ref": "#/$defs/HandshakeProof" }
+      },
+      "required": ["protocolVersion", "proof"]
     }
   }
 }

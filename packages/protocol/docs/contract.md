@@ -31,15 +31,68 @@ workspace package, and the layout check holds it to that.
 
 ## Version
 
-`CONTRACT_VERSION` (`contract/contract.constants.ts`) is published as `contractVersion` in
-`contract.schema.json`. Raise it for a change an older client or a stored conversation cannot
-read; adding an optional field does not. The harness reads only data written under the current
-contract: a field is optional only when absence means something (the first checkpoint's
-`incorporated`, an ungrouped task's `reason`, a message a caller wrote without `at`), never so
-that older data still parses. A field that stopped being optional drops the data that lacks it,
-with no compatibility reader; `required-fields.test.ts` pins the fields that were once optional.
-Version 1 is the first declared one and the baseline: data written before the version existed is
-not read, so nothing is raised for the change that introduced it.
+There is one version: the `version` field of `@sheavly/protocol`'s `package.json`, a semantic
+version (`major.minor.patch`, optionally `-prerelease`, never `+build`). It is the protocol
+version (`PROTOCOL_VERSION`), `contractVersion` (a string) in `contract.schema.json` and
+`info.version` in `openapi.json`. Every number, a numeric prerelease identifier included, is at
+most 2^53-1 (a larger one would lose precision when compared), and the generated schemas of
+`ProtocolVersion` and `ServerVersion` carry the shape as a `pattern`.
+
+- **Compatible** means the same breaking line: the same major from 1.0.0, the same major and
+  minor while the major is 0. Any patch is compatible, and a prerelease identifier does not change
+  the line. `isCompatible` says it; `checkProtocolVersion` names both versions, says which side is
+  older by semver precedence (a prerelease is lower than its release) and gives one action:
+  update and restart the server, or update this client.
+- **A wire-breaking change is a major bump** (a minor bump while below 1.0.0), written in its
+  changeset: a change a client or server of the previous version, or a stored conversation,
+  cannot read. Adding an optional field is not breaking. Nothing yet checks that a breaking change
+  was bumped as one; the changeset is where it is said.
+- **How the code gets it.** `src/version/protocol-version.constants.ts` is generated. Running
+  `npm run schema -w @sheavly/protocol` writes it from `package.json` together with the two JSON
+  files, so nothing reads a file at run time and it works in a browser. Never edit it, and rerun
+  the command after `changeset version`. A test fails when the constant, `contractVersion` or `info.version`
+  differs from `package.json`.
+- **The server reports it.** `GET /health` answers `{ status: 'ok', serverVersion,
+protocolVersion }` and `QUERY /handshake` answers `{ protocolVersion, proof }`, both without a
+  token (see "The handshake proof" below). `serverVersion` is the backend's own package version,
+  a different number from the protocol's. No client code compares the versions yet.
+
+The harness reads only data written under the current contract: a field is optional only when
+absence means something (the first checkpoint's `incorporated`, an ungrouped task's `reason`, a
+message a caller wrote without `at`), never so that older data still parses. A field that stopped
+being optional drops the data that lacks it, with no compatibility reader;
+`required-fields.test.ts` pins the fields that were once optional.
+
+## The handshake proof
+
+`handshakeProof({ token, nonce, instanceId, protocolVersion })` proves, without sending the
+token, that a server holds it and is a given instance. It is HMAC-SHA256 keyed with the token's
+UTF-8 bytes (WebCrypto, no `node:crypto`), as unpadded base64url (43 characters), over
+
+```
+u32be(len(nonce)) ‖ nonce ‖ u32be(len(instanceId)) ‖ instanceId ‖ u32be(len(version)) ‖ version
+```
+
+Every field is UTF-8 and the length is its byte length, so one field can't run into the next; the
+version is the semver string. `verifyHandshakeProof` compares with `crypto.subtle.verify`, never
+`===`. A nonce is unpadded base64url of 22 to 86 characters and `newNonce()` makes one of 43 (32
+random bytes); a client uses a fresh nonce for every verification. An instance id is 43 characters
+of unpadded base64url. The proof holds neither the token nor the instance id. Test vector: token
+`correct horse battery staple 0123456789`, nonce `bm9uY2Utbm9uY2Utbm9uY2U`, instance id
+`BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc` (32 bytes of 7) and version `1.2.3` give
+`Gzh_iELlcEtc-sPEPch9JIe8tn02F4_W_kqRpbUFAz0`. The functions do no I/O: the caller validates the
+fields (no empty or oversized field) first. An empty token is the one input they check
+themselves: both throw `HandshakeTokenError` (an empty key is no secret). A proof is accepted
+only in its canonical encoding (the last character's unused bits are zero), so a proof has
+exactly one text.
+
+`QUERY /handshake` takes `{ nonce }` (the nonce goes in the body, so it stays out of URLs and
+logs) and answers `{ protocolVersion, proof }`; a nonce outside the bounds above is a `400` that
+does not repeat it. The server keeps no state for it: it answers any valid nonce, so a client
+that reuses a nonce can be replayed. The instance id is made once per server start, is returned by
+no route, and also keeps the proof from being a way to guess the token offline, but only while the
+instance id stays unleaked: whoever learns it can test guesses of a weak token against a recorded
+nonce and proof. A strong random token is the defence that does not depend on the id.
 
 ## Tool results arrive as tools finish
 
@@ -202,53 +255,59 @@ The protocol defines shapes, not a model catalogue or a choice of provider for a
 
 `server/` holds the requests and responses of the harness's HTTP API (the backend's routes, and
 `@sheavly/client`'s client for them), so both validate with the same schemas; `api/` lists the
-routes themselves (`API_ROUTES`), each with its method, path and these schemas:
+routes themselves (`API_ROUTES`), each with its method, path and these schemas. The `Token`
+column says whether the route needs the bearer token: every route does (`bearer`) except those
+marked `public: true` (`none`), which only identify the server (`GET /health`,
+`QUERY /handshake`). A route is private unless it says `public`, and in `openapi.json` a public
+operation carries `security: []`:
 
 <!-- routes:start (generated by `npm run schema -w @sheavly/protocol`; do not edit) -->
 
-| Request                                              | Body                       | Answer                        |
-| ---------------------------------------------------- | -------------------------- | ----------------------------- |
-| `GET /conversations`                                 | none                       | `ConversationsResponse`       |
-| `POST /conversations`                                | `StartConversationRequest` | `StartConversationResponse`   |
-| `GET /conversations/{id}`                            | none                       | `ConversationDetails`         |
-| `DELETE /conversations/{id}`                         | none                       | nothing (`204`)               |
-| `PUT /conversations/{id}/model`                      | `SwitchModelRequest`       | nothing (`204`)               |
-| `GET /conversations/{id}/messages`                   | none                       | `MessagesResponse`            |
-| `QUERY /conversations/{id}/skills`                   | `SkillsQuery`              | `SkillsResponse`              |
-| `POST /conversations/{id}/prompts`                   | `SendPromptRequest`        | `StreamEntry`s (SSE)          |
-| `POST /conversations/{id}/yield`                     | none                       | `YieldPromptResponse`         |
-| `GET /conversations/{id}/queue`                      | none                       | `QueuedPrompts`               |
-| `PUT /conversations/{id}/queue`                      | `QueuedPrompts`            | nothing (`204`)               |
-| `POST /conversations/{id}/stop`                      | none                       | nothing (`204`)               |
-| `POST /conversations/{id}/approvals/{approval}`      | `AnswerApprovalRequest`    | nothing (`204`)               |
-| `QUERY /conversations/{id}/stream`                   | `StreamQuery`              | `StreamEntry`s (SSE)          |
-| `QUERY /stored-conversations`                        | `StoredConversationsQuery` | `StoredConversationsResponse` |
-| `POST /stored-conversations/{id}/reopen`             | none                       | `StartConversationResponse`   |
-| `GET /setup`                                         | none                       | `Setup`                       |
-| `GET /adapters`                                      | none                       | `AdaptersResponse`            |
-| `GET /setup/models`                                  | none                       | `ModelCatalogResponse`        |
-| `PUT /terminal-settings`                             | `TerminalSettings`         | nothing (`204`)               |
-| `GET /profiles/{profile}`                            | none                       | `ProfileSetup`                |
-| `PUT /profiles/{profile}`                            | `PutProfileRequest`        | nothing (`204`)               |
-| `DELETE /profiles/{profile}`                         | none                       | nothing (`204`)               |
-| `QUERY /profiles/{profile}/models`                   | `ModelsQuery`              | `ModelsResponse`              |
-| `GET /profiles/{profile}/models/{model}`             | none                       | `SetupModel`                  |
-| `PUT /profiles/{profile}/models/{model}`             | `PutModelRequest`          | nothing (`204`)               |
-| `DELETE /profiles/{profile}/models/{model}`          | none                       | nothing (`204`)               |
-| `PUT /profiles/{profile}/credentials/{model}`        | `PutCredentialRequest`     | nothing (`204`)               |
-| `DELETE /profiles/{profile}/credentials/{model}`     | none                       | nothing (`204`)               |
-| `POST /profiles/{profile}/credentials/{model}/check` | none                       | `KeyCheck`                    |
-| `PUT /default-profile`                               | `SetDefaultProfileRequest` | nothing (`204`)               |
-| `QUERY /workspace-profiles`                          | `WorkspaceRequest`         | `WorkspaceProfile`            |
-| `PUT /workspace-profiles`                            | `BindWorkspaceRequest`     | nothing (`204`)               |
-| `POST /workspace-profiles/unbind`                    | `WorkspaceRequest`         | nothing (`204`)               |
-| `QUERY /trusted-workspaces`                          | `TrustedWorkspacesQuery`   | `TrustedWorkspacesResponse`   |
-| `POST /trusted-workspaces`                           | `WorkspaceRequest`         | nothing (`204`)               |
-| `POST /trusted-workspaces/revoke`                    | `WorkspaceRequest`         | nothing (`204`)               |
-| `QUERY /permissions`                                 | `WorkspaceRequest`         | `WorkspacePermissions`        |
-| `PUT /permissions/mode`                              | `SetPermissionModeRequest` | nothing (`204`)               |
-| `POST /permissions/allow`                            | `AllowEntryRequest`        | nothing (`204`)               |
-| `POST /permissions/revoke`                           | `AllowEntryRequest`        | nothing (`204`)               |
+| Request                                              | Token  | Body                       | Answer                        |
+| ---------------------------------------------------- | ------ | -------------------------- | ----------------------------- |
+| `GET /conversations`                                 | bearer | none                       | `ConversationsResponse`       |
+| `POST /conversations`                                | bearer | `StartConversationRequest` | `StartConversationResponse`   |
+| `GET /conversations/{id}`                            | bearer | none                       | `ConversationDetails`         |
+| `DELETE /conversations/{id}`                         | bearer | none                       | nothing (`204`)               |
+| `PUT /conversations/{id}/model`                      | bearer | `SwitchModelRequest`       | nothing (`204`)               |
+| `GET /conversations/{id}/messages`                   | bearer | none                       | `MessagesResponse`            |
+| `QUERY /conversations/{id}/skills`                   | bearer | `SkillsQuery`              | `SkillsResponse`              |
+| `POST /conversations/{id}/prompts`                   | bearer | `SendPromptRequest`        | `StreamEntry`s (SSE)          |
+| `POST /conversations/{id}/yield`                     | bearer | none                       | `YieldPromptResponse`         |
+| `GET /conversations/{id}/queue`                      | bearer | none                       | `QueuedPrompts`               |
+| `PUT /conversations/{id}/queue`                      | bearer | `QueuedPrompts`            | nothing (`204`)               |
+| `POST /conversations/{id}/stop`                      | bearer | none                       | nothing (`204`)               |
+| `POST /conversations/{id}/approvals/{approval}`      | bearer | `AnswerApprovalRequest`    | nothing (`204`)               |
+| `QUERY /conversations/{id}/stream`                   | bearer | `StreamQuery`              | `StreamEntry`s (SSE)          |
+| `QUERY /stored-conversations`                        | bearer | `StoredConversationsQuery` | `StoredConversationsResponse` |
+| `POST /stored-conversations/{id}/reopen`             | bearer | none                       | `StartConversationResponse`   |
+| `GET /setup`                                         | bearer | none                       | `Setup`                       |
+| `GET /adapters`                                      | bearer | none                       | `AdaptersResponse`            |
+| `GET /setup/models`                                  | bearer | none                       | `ModelCatalogResponse`        |
+| `PUT /terminal-settings`                             | bearer | `TerminalSettings`         | nothing (`204`)               |
+| `GET /profiles/{profile}`                            | bearer | none                       | `ProfileSetup`                |
+| `PUT /profiles/{profile}`                            | bearer | `PutProfileRequest`        | nothing (`204`)               |
+| `DELETE /profiles/{profile}`                         | bearer | none                       | nothing (`204`)               |
+| `QUERY /profiles/{profile}/models`                   | bearer | `ModelsQuery`              | `ModelsResponse`              |
+| `GET /profiles/{profile}/models/{model}`             | bearer | none                       | `SetupModel`                  |
+| `PUT /profiles/{profile}/models/{model}`             | bearer | `PutModelRequest`          | nothing (`204`)               |
+| `DELETE /profiles/{profile}/models/{model}`          | bearer | none                       | nothing (`204`)               |
+| `PUT /profiles/{profile}/credentials/{model}`        | bearer | `PutCredentialRequest`     | nothing (`204`)               |
+| `DELETE /profiles/{profile}/credentials/{model}`     | bearer | none                       | nothing (`204`)               |
+| `POST /profiles/{profile}/credentials/{model}/check` | bearer | none                       | `KeyCheck`                    |
+| `PUT /default-profile`                               | bearer | `SetDefaultProfileRequest` | nothing (`204`)               |
+| `QUERY /workspace-profiles`                          | bearer | `WorkspaceRequest`         | `WorkspaceProfile`            |
+| `PUT /workspace-profiles`                            | bearer | `BindWorkspaceRequest`     | nothing (`204`)               |
+| `POST /workspace-profiles/unbind`                    | bearer | `WorkspaceRequest`         | nothing (`204`)               |
+| `QUERY /trusted-workspaces`                          | bearer | `TrustedWorkspacesQuery`   | `TrustedWorkspacesResponse`   |
+| `POST /trusted-workspaces`                           | bearer | `WorkspaceRequest`         | nothing (`204`)               |
+| `POST /trusted-workspaces/revoke`                    | bearer | `WorkspaceRequest`         | nothing (`204`)               |
+| `QUERY /permissions`                                 | bearer | `WorkspaceRequest`         | `WorkspacePermissions`        |
+| `PUT /permissions/mode`                              | bearer | `SetPermissionModeRequest` | nothing (`204`)               |
+| `POST /permissions/allow`                            | bearer | `AllowEntryRequest`        | nothing (`204`)               |
+| `POST /permissions/revoke`                           | bearer | `AllowEntryRequest`        | nothing (`204`)               |
+| `GET /health`                                        | none   | none                       | `HealthResponse`              |
+| `QUERY /handshake`                                   | none   | `HandshakeRequest`         | `HandshakeResponse`           |
 
 <!-- routes:end -->
 
