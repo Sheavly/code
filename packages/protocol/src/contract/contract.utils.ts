@@ -109,7 +109,8 @@ import {
   taskStatusSchema,
   taskUpdateSchema,
 } from '../task/task.validator.js';
-import { CONTRACT_VERSION, JSON_SCHEMA_DIALECT } from './contract.constants.js';
+import { PROTOCOL_VERSION } from '../version/protocol-version.constants.js';
+import { JSON_SCHEMA_DIALECT } from './contract.constants.js';
 import type { ContractJsonSchema } from './contract.types.js';
 import { terminalSettingsSchema } from '../terminal-settings/terminal-settings.validator.js';
 import { modelUsageSchema, tokenUsageSchema, usageTotalsSchema } from '../usage/usage.validator.js';
@@ -266,7 +267,7 @@ export function contractName(schema: z.ZodType): string | undefined {
 export function contractJsonSchema(): ContractJsonSchema {
   return {
     $schema: JSON_SCHEMA_DIALECT,
-    contractVersion: CONTRACT_VERSION,
+    contractVersion: PROTOCOL_VERSION,
     $defs: contractDefinitions('#/$defs/'),
   };
 }

@@ -31,15 +31,58 @@ workspace package, and the layout check holds it to that.
 
 ## Version
 
-`CONTRACT_VERSION` (`contract/contract.constants.ts`) is published as `contractVersion` in
-`contract.schema.json`. Raise it for a change an older client or a stored conversation cannot
-read; adding an optional field does not. The harness reads only data written under the current
-contract: a field is optional only when absence means something (the first checkpoint's
-`incorporated`, an ungrouped task's `reason`, a message a caller wrote without `at`), never so
-that older data still parses. A field that stopped being optional drops the data that lacks it,
-with no compatibility reader; `required-fields.test.ts` pins the fields that were once optional.
-Version 1 is the first declared one and the baseline: data written before the version existed is
-not read, so nothing is raised for the change that introduced it.
+There is one version: the `version` field of `@sheavly/protocol`'s `package.json`, a semantic
+version (`major.minor.patch`, optionally `-prerelease`, never `+build`). It is the protocol
+version (`PROTOCOL_VERSION`), `contractVersion` (a string) in `contract.schema.json` and
+`info.version` in `openapi.json`. Every number, a numeric prerelease identifier included, is at
+most 2^53-1 (a larger one would lose precision when compared), and the generated schemas of
+`ProtocolVersion` and `ServerVersion` carry the shape as a `pattern`.
+
+- **Compatible** means the same breaking line: the same major from 1.0.0, the same major and
+  minor while the major is 0. Any patch is compatible, and a prerelease identifier does not change
+  the line. `isCompatible` says it; `checkProtocolVersion` names both versions, says which side is
+  older by semver precedence (a prerelease is lower than its release) and gives one action:
+  update and restart the server, or update this client.
+- **A wire-breaking change is a major bump** (a minor bump while below 1.0.0), written in its
+  changeset: a change a client or server of the previous version, or a stored conversation,
+  cannot read. Adding an optional field is not breaking. Nothing yet checks that a breaking change
+  was bumped as one; the changeset is where it is said.
+- **How the code gets it.** `src/version/protocol-version.constants.ts` is generated. Running
+  `npm run schema -w @sheavly/protocol` writes it from `package.json` together with the two JSON
+  files, so nothing reads a file at run time and it works in a browser. Never edit it, and rerun
+  the command after `changeset version`. A test fails when the constant, `contractVersion` or `info.version`
+  differs from `package.json`.
+- **Not built yet.** The package exports the version, the comparison and the handshake proof
+  below; no HTTP route serves them yet.
+
+The harness reads only data written under the current contract: a field is optional only when
+absence means something (the first checkpoint's `incorporated`, an ungrouped task's `reason`, a
+message a caller wrote without `at`), never so that older data still parses. A field that stopped
+being optional drops the data that lacks it, with no compatibility reader;
+`required-fields.test.ts` pins the fields that were once optional.
+
+## The handshake proof
+
+`handshakeProof({ token, nonce, instanceId, protocolVersion })` proves, without sending the
+token, that a server holds it and is a given instance. It is HMAC-SHA256 keyed with the token's
+UTF-8 bytes (WebCrypto, no `node:crypto`), as unpadded base64url (43 characters), over
+
+```
+u32be(len(nonce)) ‖ nonce ‖ u32be(len(instanceId)) ‖ instanceId ‖ u32be(len(version)) ‖ version
+```
+
+Every field is UTF-8 and the length is its byte length, so one field can't run into the next; the
+version is the semver string. `verifyHandshakeProof` compares with `crypto.subtle.verify`, never
+`===`. A nonce is unpadded base64url of 22 to 86 characters and `newNonce()` makes one of 43 (32
+random bytes); a client uses a fresh nonce for every verification. An instance id is 43 characters
+of unpadded base64url. The proof holds neither the token nor the instance id. Test vector: token
+`correct horse battery staple 0123456789`, nonce `bm9uY2Utbm9uY2Utbm9uY2U`, instance id
+`BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc` (32 bytes of 7) and version `1.2.3` give
+`Gzh_iELlcEtc-sPEPch9JIe8tn02F4_W_kqRpbUFAz0`. The functions do no I/O: the caller validates the
+fields (no empty or oversized field) first. An empty token is the one input they check
+themselves: both throw `HandshakeTokenError` (an empty key is no secret). A proof is accepted
+only in its canonical encoding (the last character's unused bits are zero), so a proof has
+exactly one text.
 
 ## Tool results arrive as tools finish
 

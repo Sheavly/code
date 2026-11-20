@@ -1,5 +1,6 @@
 import { contractDefinitions, contractName } from '../contract/contract.utils.js';
 import { serverErrorSchema } from '../server/server.validator.js';
+import { PROTOCOL_VERSION } from '../version/protocol-version.constants.js';
 import {
   API_ROUTES,
   LAST_EVENT_ID_HEADER,
@@ -134,7 +135,7 @@ export function openApiDocument(): OpenApiDocument {
 
   return {
     openapi: OPENAPI_VERSION,
-    info: { title: 'Sheavly harness', version: '0.0.0' },
+    info: { title: 'Sheavly harness', version: PROTOCOL_VERSION },
     paths,
     components: {
       schemas: contractDefinitions(SCHEMAS),
