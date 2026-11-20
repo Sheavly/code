@@ -114,6 +114,25 @@ export class ContributionError extends Error {
   }
 }
 
+/**
+ * Two tools of a run share a name, so a model's call to it could not say which one it means.
+ * Thrown when the run starts, before the first model call; `tool` is the shared name (compared
+ * exactly) and `count` how many tools carry it.
+ */
+export class DuplicateToolError extends Error {
+  override name = 'DuplicateToolError';
+  readonly tool: string;
+  readonly count: number;
+
+  constructor(params: { tool: string; count: number }) {
+    const { tool, count } = params;
+
+    super(`Tool ${tool} is listed ${count} times: tool names must be unique within a run`);
+    this.tool = tool;
+    this.count = count;
+  }
+}
+
 /** The run's event stream ended without its `done` event, so the run's outcome is unknown. */
 export class StreamEndedError extends Error {
   override name = 'StreamEndedError';

@@ -20,6 +20,7 @@ import { assertValidStoredHistory } from '../summary/checkpoint.utils.js';
 import { runTurn } from './turn.helper.js';
 import { buildContributions } from './turn-contributions.helper.js';
 import { orderContributions } from './contributions.helper.js';
+import { freezeUniqueTools } from './tool-names.utils.js';
 import type { AgentEvent, AgentEventBody, DoneReason } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { RunOutcome } from '@sheavly/protocol/session/session.types';
@@ -129,7 +130,15 @@ async function drive(given: RunContext) {
     // first model call, through the failure path below.
     hooks = orderContributions(given.options.hooks ?? []);
 
-    const context: RunContext = { ...given, options: { ...given.options, hooks } };
+    // The spread reads the `tools` getter once; that list is checked like the hooks (a clash fails
+    // the run before the first model call) and the run goes on with a frozen copy of it, so
+    // the check holds for the whole run, not just at its start.
+    const read = { ...given.options, hooks };
+    const context: RunContext = {
+      ...given,
+      options: { ...read, tools: freezeUniqueTools(read.tools) },
+    };
+
     const contributions = buildContributions(context.options);
 
     // Hooks screen this session's approvals for the life of the run, and only its own.
