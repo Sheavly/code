@@ -1622,6 +1622,43 @@
           "type": "string",
           "enum": ["trusted", "untrusted", "changed", "no_hooks"]
         },
+        "ignoredSettings": {
+          "minItems": 1,
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "layer": { "type": "string", "const": "workspace" },
+              "name": {
+                "type": "string",
+                "maxLength": 257,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "file": { "type": "string", "maxLength": 8192 },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "not-declared",
+                  "wrong-type",
+                  "scope",
+                  "restricted",
+                  "too-large",
+                  "not-a-file",
+                  "link",
+                  "not-utf8",
+                  "unreadable",
+                  "not-json",
+                  "bad-shape",
+                  "trust-unavailable"
+                ]
+              }
+            },
+            "required": ["layer", "reason"],
+            "additionalProperties": false
+          }
+        },
+        "ignoredSettingsMore": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
         "permissionMode": { "$ref": "#/$defs/PermissionMode" },
         "workingRoot": {
           "type": "object",
