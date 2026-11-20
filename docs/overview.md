@@ -183,7 +183,9 @@ Any other kind is internal: `harness/imports` fails an import of it, and `harnes
 an entry for one file, a kind that doesn't exist or other targets. `npm run export -- packages/<pkg> <kind>`
 makes a kind public, in review; an app exports nothing. A module that holds a public kind but
 isn't API is closed (`"./hooks/*": null`), and the README's API table lists exactly the open
-modules. Every package ships only `dist/` and `docs/`, built by `prepack`, since each is published.
+modules. The library packages are set up to ship only `dist/` and `docs/`, built by `prepack`, for when they
+are published; the two apps and `@sheavly/testing` are not yet, and none is published (see
+[shipping](shipping.md)).
 
 | Where it runs            | Reads                                      | How                                                                                   |
 | ------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------- |
@@ -385,3 +387,5 @@ Each area keeps its own classes, since the layers can't all import one another:
 - A new hook point: an optional handler on `Hook` (see [hooks](../packages/core/docs/hooks.md)).
 - Something a UI must show: a new event in `agentEventBodySchema`
   (`packages/protocol/src/event/event.validator.ts`).
+- How Sheavly is installed and run (the published packages, the `sheavly` command, the always-on
+  backend): the decisions are in [shipping](shipping.md).

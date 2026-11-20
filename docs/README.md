@@ -8,6 +8,7 @@ goes deeper. Open work is in [GitHub Issues](https://github.com/Sheavly/code/iss
 | ---------------------------------------- | ---------------------------------------------------------------------------------- |
 | [vision.md](vision.md)                   | Why the harness exists, the principles it follows, and the roadmap                 |
 | [overview.md](overview.md)               | The layers and their graph, the UI's role, packages, trust, errors                 |
+| [shipping.md](shipping.md)               | How Sheavly is installed and run: packages, the command, the always-on server      |
 | [Agent prompts](agent-prompts/README.md) | Minimal shared instructions, research evidence and evaluation limitations          |
 | [Summary](summary/README.md)             | How a long history is shortened: the research, and [the design](summary/design.md) |
 
