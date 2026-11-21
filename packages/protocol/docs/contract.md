@@ -111,7 +111,7 @@ the layout of this file and changes on its own, apart from the protocol version.
 (`{ status: 'newer', formatVersion }`) from a broken file (`unreadable`) before validating in full.
 Validation errors name fields, never values, so the token does not reach a log through them.
 
-Nothing writes or reads the file yet: this module only defines it.
+The backend writes the file when it is always on; no client reads it yet. This module only defines it.
 
 ## Tool results arrive as tools finish
 

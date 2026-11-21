@@ -449,6 +449,21 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `packages/protocol/eslint.config.js` (`src/discovery/**`); `workspace-coverage.test.js` fails an
   override that turns the rule off anywhere else, and `no-discovery-path.test.js` pins where it is
   on and off. It cannot see a name split across pieces or held in a variable.
+- **The terminal's own backend** (`connectBackendConfinement`, a config block the terminal app
+  spreads into its config, not a `harness/*` rule: it is `no-restricted-imports` and a
+  `no-restricted-syntax` selector for `import('…')`, each with a message, as `replayConfinement`
+  is): the files of `apps/terminal/src/client/` (tests and fakes excepted),
+  which hold `connectBackend`, may not import `@sheavly/storage/discovery-file/*`,
+  `@sheavly/storage/server-lock/*` or `@sheavly/storage/server-runtime/*`. A development terminal
+  starts a backend of its own and must never attach to a stable server, so the code that starts it
+  cannot read where one is published or take its lock. The restriction is narrow: the `sheavly`
+  command reads the file elsewhere. `connect-backend-confinement.test.js` lints the real terminal
+  config and pins that the import, static or a dynamic `import('…')` of a string literal or of a
+  template literal without expressions, is reported in `apps/terminal/src/client/backend.helper.ts`
+  and not in other terminal files. It does not see `createRequire`, a raw `net.connect` to the
+  socket path, a path held in a variable, a template literal with expressions, a relative path
+  through `node_modules`, or a file outside the folder that `src/client/` code is made to call;
+  those stay with review.
 - **File writes** (`harness/no-direct-file-writes`, source files; tests and fakes write fixtures
   into temp folders and are exempt): no import of a function that creates, changes, moves or
   deletes a file or folder from `node:fs` or `node:fs/promises` (`writeFile`, `appendFile`,

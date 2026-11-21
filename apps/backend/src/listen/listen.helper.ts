@@ -11,6 +11,11 @@ type ListenParams = {
   server: ServerType;
   host: string;
   port: number;
+  /**
+   * Whether a taken `port` may move to a free one, as port 0 does. Set it for a default port the
+   * user did not choose; an explicit port stays strict.
+   */
+  fallback?: boolean;
   /** Source of numbers in [0, 1) for the fallback ports; tests pass a fixed one. */
   random?: () => number;
 };
@@ -27,23 +32,29 @@ function randomFallbackPort(random: () => number): number {
 
 /**
  * Makes `server` listen. A fixed port is tried once and its error rejected unchanged, so a user who
- * asked for a port is told it is taken. Port 0 asks the OS for a free port first; when that fails
- * with EADDRINUSE (the OS has none, or a bind race) it tries up to `FALLBACK_PORT_ATTEMPTS` random
- * ports in the fallback range, and rejects with `NoFreePortError` when all are taken. Any other
- * error is rejected unchanged at once.
+ * asked for a port is told it is taken, unless `fallback` is set. Port 0, or a taken port with
+ * `fallback`, asks the OS for a free port; when that fails with EADDRINUSE (the OS has none, or a
+ * bind race) it tries up to `FALLBACK_PORT_ATTEMPTS` random ports in the fallback range, and
+ * rejects with `NoFreePortError` when all are taken. Any other error is rejected unchanged at once.
  */
 export async function listenServer(params: ListenParams): Promise<void> {
-  const { server, host, port, random = Math.random } = params;
+  const { server, host, port, fallback = false, random = Math.random } = params;
 
   try {
     await listenOnce({ server, host, port });
 
     return;
   } catch (caughtError) {
-    // Only a taken or exhausted port has a fallback; a fixed port or another error is the caller's.
-    if (port !== 0 || !isAddressInUse(caughtError)) throw caughtError;
+    // Only a taken or exhausted port has a fallback; a strict port or another error is the caller's.
+    if ((port !== 0 && !fallback) || !isAddressInUse(caughtError)) throw caughtError;
 
-    await listenOnFallbackPort({ server, host, random, firstError: caughtError });
+    await listenOnFallbackPort({
+      server,
+      host,
+      random,
+      firstError: caughtError,
+      askOs: port !== 0,
+    });
   }
 }
 
@@ -52,9 +63,23 @@ async function listenOnFallbackPort(params: {
   host: string;
   random: () => number;
   firstError: unknown;
+  /** Whether the OS has not been asked yet: the first listen was on a named port, not port 0. */
+  askOs: boolean;
 }): Promise<void> {
-  const { server, host, random, firstError } = params;
+  const { server, host, random, firstError, askOs } = params;
   let lastError = firstError;
+
+  if (askOs) {
+    try {
+      await listenOnce({ server, host, port: 0 });
+
+      return;
+    } catch (caughtError) {
+      if (!isAddressInUse(caughtError)) throw caughtError;
+
+      lastError = caughtError;
+    }
+  }
 
   for (let attempt = 0; attempt < FALLBACK_PORT_ATTEMPTS; attempt++) {
     try {

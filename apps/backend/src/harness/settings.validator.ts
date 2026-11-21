@@ -62,6 +62,8 @@ const serverEnvSchema = z.object({
    * workspace's trust) work over a network (put TLS in front).
    */
   SERVER_ALLOW_REMOTE_SETUP: optionalSetting,
+  /** On unless "false": whether an always-on server takes the lock and writes its discovery file. */
+  SERVER_DISCOVERY: optionalSetting.pipe(z.enum(['true', 'false']).default('true')),
 });
 
 /**
@@ -79,7 +81,10 @@ export function parseServerEnv(env: Record<string, string | undefined>) {
   return {
     host: parsed.SERVER_HOST,
     port: parsed.SERVER_PORT,
+    /** True when `SERVER_PORT` is unset or empty: the port was not asked for, so it may move. */
+    portIsDefault: optionalSetting.parse(env.SERVER_PORT) === undefined,
     token: parsed.SERVER_TOKEN,
+    discovery: parsed.SERVER_DISCOVERY === 'true',
     /**
      * Whether the setup routes that hand out access (a model's key, a workspace's trust) may work:
      * on this machine, or opted into for a remote one.

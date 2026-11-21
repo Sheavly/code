@@ -105,6 +105,59 @@ describe('listenServer', () => {
     expect(server.listening).toBe(false);
   });
 
+  it('moves a taken default port to the OS port when fallback is set', async () => {
+    const server = newServer();
+    const ports = spyOnListen(server, (port) => (port === 4310 ? 'EADDRINUSE' : undefined), {
+      bind: false,
+    });
+
+    await listenServer({ server, host: HOST, port: 4310, fallback: true });
+
+    expect(ports).toEqual([4310, 0]);
+  });
+
+  it('moves a taken default port to the fallback ports when the OS has none either', async () => {
+    const server = newServer();
+    const ports = spyOnListen(
+      server,
+      (port) => (port === 4310 || port === 0 ? 'EADDRINUSE' : undefined),
+      { bind: false },
+    );
+
+    await listenServer({ server, host: HOST, port: 4310, fallback: true, random: () => 0.25 });
+
+    expect(ports).toEqual([4310, 0, portFor(0.25)]);
+  });
+
+  it('rejects with no-free-port when a default port and every fallback are taken', async () => {
+    const server = newServer();
+    const ports = spyOnListen(server, () => 'EADDRINUSE', { bind: false });
+
+    await expect(
+      listenServer({ server, host: HOST, port: 4310, fallback: true, random: () => 0.5 }),
+    ).rejects.toBeInstanceOf(NoFreePortError);
+
+    expect(ports).toHaveLength(2 + FALLBACK_PORT_ATTEMPTS);
+  });
+
+  it.each([
+    {
+      what: 'a non-EADDRINUSE error on a default port, even with fallback',
+      code: 'EACCES',
+      fallback: true,
+    },
+    { what: 'a taken explicit port, never moving it', code: 'EADDRINUSE', fallback: false },
+  ])('rejects $what after one attempt', async ({ code, fallback }) => {
+    const server = newServer();
+    const ports = spyOnListen(server, () => code, { bind: false });
+    const rejection = await listenServer({ server, host: HOST, port: 4310, fallback }).catch(
+      (caughtError: unknown) => caughtError,
+    );
+
+    expect(rejection).toMatchObject({ code });
+    expect(ports).toEqual([4310]);
+  });
+
   it('falls back to the drawn port in the fallback range when port 0 fails', async () => {
     const server = newServer();
     const before = startupListeners(server);

@@ -18,7 +18,9 @@ wait with it.
 ## What is built today
 
 - **The backend serves many conversations at once** over HTTP, on `127.0.0.1` by default (port
-  4310), and every route needs a bearer token (see [the API](../apps/backend/docs/api.md)). A
+  4310, which moves to a free port when it is taken, with a line on stdout before `→ listening on`
+  saying so; a port asked for with `SERVER_PORT` never moves, so a front end reads the discovery
+  file for the port and does not assume 4310), and every route needs a bearer token (see [the API](../apps/backend/docs/api.md)). A
   second front end can follow a conversation that is running, through its stream route.
 - **A terminal can connect to a running backend** with `BACKEND_URL` and `BACKEND_TOKEN`, and
   otherwise starts its own on a free port with a token it makes, which stops when the terminal
@@ -39,13 +41,16 @@ wait with it.
   contract marks the two with `public: true`.
 - **The client can verify a server** before it trusts it: `verifyServer` in `@sheavly/client` asks
   the handshake with a fresh nonce, through a client that has no token and so cannot send one,
-  and checks the proof. The token is in no request it makes. Nothing calls it yet, and the server
-  makes its instance id at each start but writes it nowhere.
-- **The discovery file and the one-server lock exist as library code** in `@sheavly/storage` (and
-  the file's schema in `@sheavly/protocol`): a writer, a safe reader of one folder, a lock held as a
-  listening socket, and `ServerPresence`, which orders them and turns every failure but "another
-  live server holds the lock" into a warning. **No server uses them yet:** the backend does not
-  take the lock or write the file, and the terminal does not read it.
+  and checks the proof. The token is in no request it makes. No front end calls it yet; the
+  server makes its instance id at each start and writes it in the discovery file.
+- **The discovery file and the one-server lock are built, and the backend uses them.** The library
+  is in `@sheavly/storage` (and the file's schema in `@sheavly/protocol`): a writer, a safe reader
+  of one folder, a lock held as a listening socket, and `ServerPresence`, which orders them and
+  turns every failure but "another live server holds the lock" into a warning. A backend that is
+  always on (not `SERVER_EXIT_WITH_PARENT`, and not `SERVER_DISCOVERY=false`) takes the lock once
+  its settings are checked and before it listens, prints or writes anything, refuses to start
+  when another server holds it, and writes the file once it listens. **The terminal does not read the file yet, and nor does the `sheavly`
+  command.**
 - **Every package is private at version `0.0.0`** and is consumed from source inside this repository.
 
 ## Decisions
@@ -225,13 +230,13 @@ closing every conversation when it stops, stay as they are today.
 
 ### The discovery file
 
-The file and the lock are built as library code, and the protocol version, the two token-free
-routes and the client's verification, described below, are built. The server does not use the file
-or the lock yet, and the terminal does not read the file: those are the rest of
+The file and the lock are built as library code and the backend uses them, and the protocol
+version, the two token-free routes and the client's verification, described below, are built. The
+terminal does not read the file yet, and nor does the `sheavly` command: those are the rest of
 [#390](https://github.com/Sheavly/harness/issues/390), which must be updated to match this page.
 
-The always-on server (`sheavly serve`, or the service) will write a file that holds a format
-version, the server's URL, its token, a random instance id made at each start, its process id, its
+The always-on server (`npm run serve -w @sheavly/backend` today, the service later) writes a file
+that holds a format version, the server's URL, its token, a random instance id made at each start, its process id, its
 own version and the protocol version it speaks. A front end reads it to connect, so nothing is
 passed by hand. A backend a front end starts for itself, as the terminal does in development,
 takes no lock and writes no file, so it can never replace the real server's.
@@ -242,7 +247,9 @@ takes no lock and writes no file, so it can never replace the real server's.
   homes under one runtime directory never share a file or a lock and a symlinked home is one
   server. There is no fallback under `/tmp`, where another user could plant the name. The runtime
   directory is private to the user and cleared at reboot, and it outlives a logout while the
-  service's linger is on, so a stale file does not survive a reboot. A home folder on a network
+  service's linger is on, so a stale file in it does not survive a reboot. The home folder is not
+  cleared: a stale file or socket left there by a killed server stays until the next server
+  replaces it. A home folder on a network
   drive may not enforce file modes, which is why the runtime directory is preferred. Only
   `serverRuntimeDirectory` reads the variable; `harness/no-discovery-path` fails any other source
   file that names it or the file.
@@ -258,29 +265,57 @@ takes no lock and writes no file, so it can never replace the real server's.
   any group or world access. If the home folder is the fallback and is not private, there is no
   lock and no file, only a warning, so the one-server guarantee does not apply there. The
   terminal's search across both places and its use of the file are not built.
-- **One server (built as a library, not used yet).** The server takes a lock for as long as it
-  runs and writes the discovery file only while holding it, so a second server refuses to start
-  and a crash releases the lock. Node has no lock call of its own, so the lock is a listening unix
-  socket in that folder (a named pipe on Windows, written and not tested). The server listens
-  under a temporary name and is published at the lock path with an atomic hard link, so the lock
-  path never names a socket that is not yet listening and a taker never overwrites an existing
-  name. The socket is `0600` and the folders it lives in are `0700` whatever the umask. A second server connects first, and a connection means a live server holds it. A socket
-  that refuses the probe and is at least 250 ms old belongs to a holder that crashed: it is
-  replaced under a short-lived guard file that carries its owner's nonce, which is treated as
-  abandoned after 2 s, with a re-check that it is still the same socket, so servers starting
-  together do not remove each other's live socket (measured: 150 rounds of four racing from a
-  stale socket and an abandoned guard gave one winner each round). The lock never removes a
-  socket it did not judge stale and never removes anything that is not a socket owned by the user,
-  and a server that releases removes the lock path only if it is still the socket it published, so
-  a successor is never affected. A socket that a foreign program leaves bound but never listening
-  for more than 250 ms looks stale and is replaced. A guard or breaker file that is not a regular
-  file makes the attempt unusable at once and is left as it is. The guarantee assumes the process
-  that holds the guard is not paused for longer than the 2 s limit in the few system calls between
-  its last check and removing the stale socket: that gap cannot be closed, only made small. A
-  filesystem that refuses hard links makes the lock unusable, which is a warning, not a failure to
-  start. A process id alone is never enough, since ids are reused. A clean exit removes the
-  discovery file and then frees the lock, and a crash leaves both for the next server to replace,
-  and the next server also removes the temporary sockets of processes that no longer run.
+- **One server (built).** A backend that is always on takes its home's lock once its settings are
+  checked and before it listens, prints or writes anything, so a second server for the same home
+  refuses to start: it prints the first one's process id, version and address (never its token)
+  and exits with status 1, having listened for no requests, written no file and printed no token;
+  it changed nothing but its own lock probe, a socket made briefly in the runtime folder. It
+  prints the first one's details only once that server has published its file: two servers that
+  start at the same moment can see the lock held before the file exists, and the loser then prints
+  `A Sheavly server holds the lock at <path>; its discovery file could not be read (it has not
+written one yet)`, still with status 1 and nothing on stdout. A server writes the discovery file
+  only while holding the lock, once it listens,
+  and the file holds the port it really listens on, which is not 4310 when that was taken (a notice
+  line says so, and a front end reads the file, not a fixed port); a wildcard host, in any
+  spelling the URL parser knows (`0.0.0.0`, `0`, `::`, `::0`, `::ffff:0.0.0.0`), is published as
+  `127.0.0.1`. Everything that can fail on a setting is checked before the lock is taken, so a bad
+  `MODEL_RETRIES` leaves nothing behind. When the server stops it removes the file first, so
+  clients stop finding it, closes its conversations, and frees the lock last, so a successor cannot
+  start while they close. A SIGINT, SIGTERM or SIGHUP while it is still starting removes the file
+  if it was written and frees the lock, then exits (130, 143, 129) without listening, writing or
+  printing anything more; a signal before any of the
+  server's code runs cannot be handled by anyone. A second signal while it is stopping exits at
+  once and leaves the file and the socket for the next start to replace.
+  The limit: the lock and the file live in `$XDG_RUNTIME_DIR/sheavly/<hash>` when that is usable
+  and in the home otherwise, so two servers started for the same home with a different
+  `XDG_RUNTIME_DIR` (one set and one unset, or two values) do not see each other's lock. One
+  server per home holds for processes that see the same runtime directory. A systemd service and
+  an SSH shell can differ, so the service's setup should set the same variable.
+  A server that exits with its parent (a terminal's own backend) or has `SERVER_DISCOVERY=false`
+  builds no presence at all: no lock, no folder and no file, even while another server runs. A
+  problem with the lock or its folder is a warning and the server runs without them.
+- **How the lock works (built).** Node has no lock call of its own, so the lock is a listening
+  unix socket in the runtime folder (a named pipe on Windows, written and not tested). The server
+  listens under a temporary name and is published at the lock path with an atomic hard link, so
+  the lock path never names a socket that is not yet listening and a taker never overwrites an
+  existing name. The socket is `0600` and the folders it lives in are `0700` whatever the umask. A
+  second server connects first, and a connection means a live server holds it. A socket that
+  refuses the probe and is at least 250 ms old belongs to a holder that crashed: it is replaced
+  under a short-lived guard file that carries its owner's nonce, which is treated as abandoned
+  after 2 s, with a re-check that it is still the same socket, so servers starting together do not
+  remove each other's live socket (measured: 150 rounds of four racing from a stale socket and an
+  abandoned guard gave one winner each round). The lock never removes a socket it did not judge
+  stale and never removes anything that is not a socket owned by the user, and a server that
+  releases removes the lock path only if it is still the socket it published, so a successor is
+  never affected. A socket that a foreign program leaves bound but never listening for more than
+  250 ms looks stale and is replaced. A guard or breaker file that is not a regular file makes the
+  attempt unusable at once and is left as it is. The guarantee assumes the process that holds the
+  guard is not paused for longer than the 2 s limit in the few system calls between its last check
+  and removing the stale socket: that gap cannot be closed, only made small. A filesystem that
+  refuses hard links makes the lock unusable, which is a warning, not a failure to start. A
+  process id alone is never enough, since ids are reused. A killed server leaves the file and the
+  socket for the next server to replace, and the next server also removes the temporary sockets of
+  processes that no longer run.
 - **Verifying the server (built).** A client does not send the token to whatever answers at the
   URL, except to a process that relays the handshake to the real server (see the boundary below),
   and an instance id that anyone can fetch would not stop a process that took over a stale port
@@ -297,17 +332,18 @@ takes no lock and writes no file, so it can never replace the real server's.
   or another app answers `404` too, and an impostor can choose to. The client reads at most 4 KB
   of a public answer, never follows a redirect on a public route and gives up on a silent server
   after 5 s, so whatever sits on a stale port cannot make it buffer without limit, judge another
-  host or wait forever. Where the client gets the instance id from, the discovery file, is not
-  built, and the terminal does not call the check yet; the terminal will use it.
+  host or wait forever. The client gets the instance id from the discovery file, which the
+  server writes; the terminal does not read it or call the check yet, and will.
 - **Two routes need no token (built).** A health route, which returns only whether the server is up,
   its server version and its protocol version, and the handshake route above. Both are marked
   `public` in the contract, and the backend's token check skips the routes the contract marks that
   way (`routeNamesByAccess`), so no list in the backend names them; neither returns a path, a
   process id or anything about a conversation. The server cuts a request that takes more than 30 s
   to arrive or more than 10 s to send its headers, since these routes read a body with no token.
-- **The address.** The server will listen on its usual default port when it is free and fall back
-  to a free one when it is not, and the file always holds the address it actually uses. Today the
-  default port does not fall back: only `SERVER_PORT=0` picks a free one.
+- **The address (built).** The server listens on its usual default port (4310) when it is free
+  and falls back to a free one when it is not, and the file always holds the address it actually
+  uses. A port asked for with `SERVER_PORT` is strict: when it is taken, the server fails and
+  leaves no lock and no file. `SERVER_PORT=0` picks a free one.
 - **The URL is a full URL, not a port**, so another transport can be added later without changing
   the format.
 

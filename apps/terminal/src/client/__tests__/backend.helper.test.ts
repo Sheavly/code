@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -47,6 +49,32 @@ describe('connectBackend', () => {
 
     await backend.stop();
     await expect(fetch(`${backend.url}/conversations`)).rejects.toThrow();
+  }, 30_000);
+
+  it('starts a backend that takes no lock and writes no file, so it never shows up for another client', async () => {
+    const base = await mkdtemp(path.join(tmpdir(), 'backend-helper-runtime-'));
+    const home = path.join(base, 'home');
+    const xdg = path.join(base, 'xdg');
+
+    await mkdir(xdg, { mode: 0o700 });
+
+    try {
+      const backend = await connectBackend({
+        env: { ...env, SHEAVLY_HOME: home, XDG_RUNTIME_DIR: xdg },
+        onOutput: () => undefined,
+      });
+
+      expect((await fetch(`${backend.url}/health`)).status).toBe(200);
+
+      await backend.stop();
+
+      expect(await readdir(xdg)).toEqual([]);
+      expect(existsSync(home) ? await readdir(home) : []).not.toEqual(
+        expect.arrayContaining([expect.stringMatching(/\.sock|server\.json|\.guard|\.tmp/)]),
+      );
+    } finally {
+      await rm(base, { recursive: true, force: true });
+    }
   }, 30_000);
 
   it('connects to a backend already running, and leaves it running', async () => {

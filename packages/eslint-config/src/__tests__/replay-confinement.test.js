@@ -153,7 +153,7 @@ describe('replay in the terminal app', () => {
     for (const file of [
       'src/replay/__tests__/replay.helper.test.ts',
       'src/replay/testing/stream.fake.ts',
-      'src/client/backend.helper.ts',
+      'src/chat/start.helper.ts',
       'src/demo.ts',
     ]) {
       for (const rule of CONFINED_RULES) {
