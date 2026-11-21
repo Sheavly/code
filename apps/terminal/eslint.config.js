@@ -1,5 +1,5 @@
 import { defineConfig } from 'eslint/config';
-import { baseConfig, replayConfinement } from '@sheavly/eslint-config';
+import { baseConfig, connectBackendConfinement, replayConfinement } from '@sheavly/eslint-config';
 
 export default defineConfig([
   // An app: baseConfig lets its source read env, print and use the terminal (it is in apps/).
@@ -32,6 +32,9 @@ export default defineConfig([
     ],
     rules: { 'harness/no-direct-file-writes': 'off' },
   },
+  // The code that starts the terminal's own backend never reads the discovery file or takes the
+  // lock, so a development terminal cannot attach to a stable server.
+  connectBackendConfinement,
   // Replay reads a stored stream and nothing else: no network, process, backend or model. Last,
   // so no block above or after can weaken it.
   replayConfinement,
