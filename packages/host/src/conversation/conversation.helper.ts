@@ -5,7 +5,7 @@ import { SessionError } from '@sheavly/runtime/errors/sessions.errors';
 import type { AgentEvent } from '@sheavly/protocol/event/event.types';
 import type { HistoryMessage } from '@sheavly/protocol/history/history.types';
 import type { Message } from '@sheavly/protocol/message/message.types';
-import { MAX_CONSECUTIVE_WAKES, WAKE_AFTER_YIELD_MS } from './conversation.constants.js';
+import { WAKE_AFTER_YIELD_MS } from './conversation.constants.js';
 import type { Conversation, ConversationOptions } from './conversation.types.js';
 
 /**
@@ -14,7 +14,8 @@ import type { Conversation, ConversationOptions } from './conversation.types.js'
  * prompts instead of ending, and the next prompt resumes it. A prompt ends when the model
  * finishes, even while background work runs; only `await_tasks` holds it. Finite work that
  * finishes while the conversation is idle makes it start a run itself (`wake`) to deliver the
- * notice, at most `maxConsecutiveWakes` in a row without a user prompt; services never wake it.
+ * notice, however many times in a row unless the app sets `maxConsecutiveWakes`; services never
+ * wake it.
  * An interrupted prompt leaves history valid to continue from; a failed one keeps the completed
  * work and the user's prompt too.
  */
@@ -31,7 +32,7 @@ export function createConversation(options: ConversationOptions): Conversation {
   let waking: Promise<void> | undefined;
   /** Runs `wake` started since the user's last prompt. */
   let wakesInRow = 0;
-  const maxWakes = options.maxConsecutiveWakes ?? MAX_CONSECUTIVE_WAKES;
+  const maxWakes = options.maxConsecutiveWakes ?? Infinity;
   /** Set by a stop, cleared by the next prompt: no run starts itself meanwhile. */
   let wakesSuppressed = false;
   /** The pending wake after a yielded run, until it fires or a prompt, stop or close drops it. */
@@ -164,10 +165,18 @@ export function createConversation(options: ConversationOptions): Conversation {
    */
   function wake(): void {
     if (closed || running || !started || closing.signal.aborted || wakesSuppressed) return;
-    if (wakesInRow >= maxWakes) return;
 
     try {
       if (!tasks.hasWakingDeliveries(mainSession.id)) return;
+
+      // Checked only once a notice waits, so the app hears of a wake that was refused, not of
+      // every settlement.
+      if (wakesInRow >= maxWakes) {
+        options.onWakeCapped?.(maxWakes);
+
+        return;
+      }
+
       sessions.resume(mainSession.id);
       wakesInRow++;
       running = true;
@@ -181,7 +190,9 @@ export function createConversation(options: ConversationOptions): Conversation {
 
       waking = woken;
     } catch (caughtError) {
-      // Nothing awaits a wake, so a refusal (an ended session) goes to the app, not the process.
+      // Nothing awaits a wake, so a refusal (an ended session) or a throwing `onWakeCapped` goes
+      // to the app, not the process. Keep that call inside the try: a throw out of `wake` would
+      // reject the settle loop and end every later wake.
       running = false;
       options.onWakeFailure?.(caughtError);
     }

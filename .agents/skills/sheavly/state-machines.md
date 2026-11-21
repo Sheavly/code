@@ -14,7 +14,7 @@ Most of the harness's lifecycles are state machines nobody wrote down: a boolean
 
 The owner's model of how work flows. Tests state these as rules: every rule has tests whose titles start with its number ("rule 3: …").
 
-1. The main session ends its turn when the model finishes, even while background commands or sub-agents run. When finite work finishes while the session is idle, the conversation starts a run on its own to deliver the notice (`wake` in `createConversation`); its events reach every UI through the combined stream. A sub-agent is the exception: its loop does not end while its own finite work runs (`holdOpenFor`).
+1. The main session ends its turn when the model finishes, even while background commands or sub-agents run. When finite work finishes while the session is idle, the conversation starts a run on its own to deliver the notice (`wake` in `createConversation`), however many times in a row: unattended work has no cap unless the app sets `maxConsecutiveWakes`, and then `onWakeCapped` says each refused wake. Its events reach every UI through the combined stream. A sub-agent is the exception: its loop does not end while its own finite work runs (`holdOpenFor`).
 2. Only `await_tasks` keeps the main session open: it stays open until the grouped tasks settle or the user stops it.
 3. A line queued while the session is held on `await_tasks` stays queued until the model has finished.
 4. Otherwise a queued line starts as the next prompt once the model finishes its turn.
