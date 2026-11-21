@@ -2,7 +2,13 @@
 
 The terminal front end, with three entry points on [the backend](../backend/README.md): each
 starts a backend of its own (or connects to one running, `BACKEND_URL`), talks to it over HTTP
-like any other UI, and stops it on the way out.
+like any other UI, and stops it on the way out. It never reads the server's discovery file
+(lint enforces it in `client/`), so a development terminal does not attach to a stable server
+unless `BACKEND_URL` is set; with `BACKEND_URL`, its `--trust` is sent to that backend for the
+terminal's own folder before the conversation starts, and the conversation runs in that same
+folder (for a new conversation; `--resume` runs in the saved folder). The request gives up after
+10 s, and a refusal prints as one line of at most 200 characters, hidden entirely when it echoes
+any 8 characters of the token; [the backend it uses](docs/demo.md#the-backend)).
 
 ```bash
 npm run dev -w @sheavly/terminal                                   # a conversation you keep talking to
@@ -43,30 +49,30 @@ environment and go to the backend it starts ([the backend's settings](../backend
 `WEB_FETCH=false` disables public web reading for the main agent and sub-agents. It is enabled
 by default and validated by the backend; when connecting to an existing backend, use its setting.
 
-| Folder          | What it holds                                                                                                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `client/`       | Reaching a backend (`connectBackend`, `withBackend`, `stopProcessGroup`), one conversation on it (`RemoteConversation`, `openConversation`, `closeSession`), `saveRawStream` |
-| `interrupt/`    | Ctrl+C for the demo, workbook and line chat: `interruptOnCtrlC`, `abortingStop`                                                                                              |
-| `demo/`         | The demo's run (`runDemo`) and its default prompt                                                                                                                            |
-| `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's                                                                     |
-| `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                                                                                         |
-| `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                                                                                                 |
-| `markdown/`     | A streamed reply drawn as Markdown: a block at a time, a code fence line by line (`MarkdownStream`)                                                                          |
-| `diff/`         | A file change as rows (`buildDiff`, `countChanges`) and as styled lines (`formatDiff`)                                                                                       |
-| `changes/`      | Every file change a chat made (`ChangeLog`), shown collapsed, listed or in full (`/changes`, Ctrl+O)                                                                         |
-| `failures/`     | Failed steps with more to say than their first line (`FailureLog`): collapsed, `/errors`, Ctrl+O                                                                             |
-| `marks/`        | OSC 133 turn markers: what stands for one through Ink, and the stdout that restores them                                                                                     |
-| `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                                                                                            |
-| `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them                                                                      |
-| `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)                                                                               |
-| `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                                                                                      |
-| `setup/`        | Guided profile, provider, model and credential setup through the backend's API                                                                                               |
-| `replay/`       | A stored conversation or workbook run, replayed through the `Renderer` or summarized (`npm run replay`), with no backend or model                                            |
-| `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                                                                                                |
-| `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion                                                                                   |
-| `chat.ts`       | The chat CLI: one conversation across prompts                                                                                                                                |
-| `demo.ts`       | The demo CLI                                                                                                                                                                 |
-| `replay.ts`     | The replay CLI: a stored conversation or run, rendered or summarized                                                                                                         |
+| Folder          | What it holds                                                                                                                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client/`       | Reaching a backend (`connectBackend`, `withBackend`, `stopProcessGroup`), one conversation on it (`RemoteConversation`, `openConversation`, `closeSession`), `trustFolderOnAttached` (`--trust` to a running backend), `saveRawStream` |
+| `interrupt/`    | Ctrl+C for the demo, workbook and line chat: `interruptOnCtrlC`, `abortingStop`                                                                                                                                                        |
+| `demo/`         | The demo's run (`runDemo`) and its default prompt                                                                                                                                                                                      |
+| `render/`       | The `Renderer` every entry point prints a conversation's stream with, in a look: the chat's or the log's                                                                                                                               |
+| `tui/`          | The chat's input and approval controller, shared editor, and classic screen fallback                                                                                                                                                   |
+| `react-screen/` | React/Ink rendering: append-only native scrollback and a bounded live footer                                                                                                                                                           |
+| `markdown/`     | A streamed reply drawn as Markdown: a block at a time, a code fence line by line (`MarkdownStream`)                                                                                                                                    |
+| `diff/`         | A file change as rows (`buildDiff`, `countChanges`) and as styled lines (`formatDiff`)                                                                                                                                                 |
+| `changes/`      | Every file change a chat made (`ChangeLog`), shown collapsed, listed or in full (`/changes`, Ctrl+O)                                                                                                                                   |
+| `failures/`     | Failed steps with more to say than their first line (`FailureLog`): collapsed, `/errors`, Ctrl+O                                                                                                                                       |
+| `marks/`        | OSC 133 turn markers: what stands for one through Ink, and the stdout that restores them                                                                                                                                               |
+| `links/`        | OSC 8 hyperlinks: the `SHEAVLY_HYPERLINKS` setting and file links                                                                                                                                                                      |
+| `theme/`        | The colour of each role (`status.error`, `diff.added`...) per theme, and the `Palette` that paints them                                                                                                                                |
+| `bell/`         | Opt-in terminal alerts for reply completion, approvals and long-running tools (`TerminalBell`)                                                                                                                                         |
+| `usage/`        | Latest main-session context usage and cumulative estimated USD cost for the status line                                                                                                                                                |
+| `setup/`        | Guided profile, provider, model and credential setup through the backend's API                                                                                                                                                         |
+| `replay/`       | A stored conversation or workbook run, replayed through the `Renderer` or summarized (`npm run replay`), with no backend or model                                                                                                      |
+| `workbook/`     | The workbook CLI: stored prompts, saved runs, continue, step, diff and checks                                                                                                                                                          |
+| `chat/`         | The chat's logic (`ChatSession`: queue, stop, commands), its line mode, and Tab completion                                                                                                                                             |
+| `chat.ts`       | The chat CLI: one conversation across prompts                                                                                                                                                                                          |
+| `demo.ts`       | The demo CLI                                                                                                                                                                                                                           |
+| `replay.ts`     | The replay CLI: a stored conversation or run, rendered or summarized                                                                                                                                                                   |
 
 The terminal makes no choice about a run: which model, tools and hooks it gets is the backend's
 ([what a run includes](../backend/docs/harness.md)). The terminal decides how to show it.

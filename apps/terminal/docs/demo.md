@@ -28,4 +28,13 @@ when killed: its stdin is a pipe from the terminal, and it stops when that close
 
 To use a backend that's already running instead (another UI's, or one on another machine), set
 `BACKEND_URL` and `BACKEND_TOKEN`: the terminal then starts nothing and leaves it running, and that
-backend's own settings decide the run.
+backend's own settings decide the run. `--trust` is the one flag it still acts on: it asks that
+backend to trust the terminal's own folder (`WORKSPACE_ROOT`, else the current one) before the
+conversation starts, as a backend it had started itself would have, and the conversation runs in
+that same folder, so what is trusted is what runs (for new conversations: with `--resume` the
+folder is trusted but the conversation runs in its saved folder). A refusal is reported with the
+folder named, as one line of at most 200 characters, hidden entirely when it echoes any 8
+characters of the token, and the token is never printed; a backend that does not answer
+in 10 s fails the start. If the backend refuses the demo's folder as a workspace (the home folder,
+say), the demo says so and runs in the backend's own folder, untrusted. The terminal never reads the discovery file, so it
+does not find a running server by itself: with neither variable set it starts its own.

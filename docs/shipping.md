@@ -41,16 +41,35 @@ wait with it.
   contract marks the two with `public: true`.
 - **The client can verify a server** before it trusts it: `verifyServer` in `@sheavly/client` asks
   the handshake with a fresh nonce, through a client that has no token and so cannot send one,
-  and checks the proof. The token is in no request it makes. No front end calls it yet; the
-  server makes its instance id at each start and writes it in the discovery file.
+  and checks the proof. The token is in no request it makes. No front end calls it yet: the
+  finder below takes it as an injected function, and the first front ends to pass it are the
+  `sheavly` commands. The server makes its instance id at each start and writes it in the
+  discovery file.
 - **The discovery file and the one-server lock are built, and the backend uses them.** The library
   is in `@sheavly/storage` (and the file's schema in `@sheavly/protocol`): a writer, a safe reader
   of one folder, a lock held as a listening socket, and `ServerPresence`, which orders them and
   turns every failure but "another live server holds the lock" into a warning. A backend that is
   always on (not `SERVER_EXIT_WITH_PARENT`, and not `SERVER_DISCOVERY=false`) takes the lock once
   its settings are checked and before it listens, prints or writes anything, refuses to start
-  when another server holds it, and writes the file once it listens. **The terminal does not read the file yet, and nor does the `sheavly`
-  command.**
+  when another server holds it, and writes the file once it listens.
+- **A finder for the running server is built, and no front end calls it yet.** `findRunningServer`
+  (`@sheavly/storage`, `server-finder/`) looks in the runtime folder and then the home folder,
+  reads the file through the safe reader, asks the lock (`probeServerLock`) whether a server
+  holds it, and only then calls the handshake, which is passed in as a function because a library
+  package may not depend on `@sheavly/client`; an app passes `verifyServer`. It returns the token
+  only for a server that proved it holds it, and it reads and probes only. It is covered by tests
+  with real servers and real listeners; its first callers are `sheavly chat` and `sheavly doctor`
+  ([#392](https://github.com/Sheavly/harness/issues/392)) and `sheavly connection`
+  ([#414](https://github.com/Sheavly/harness/issues/414)). `connectBackend` and
+  `npm run dev:terminal` **never read the discovery file**, and a lint restriction keeps
+  `connectBackend` from importing the finder; `BACKEND_URL` and `BACKEND_TOKEN` skip the file as
+  before.
+- **A terminal's `--trust` reaches a backend that was already running.** When the terminal only
+  connected (`BACKEND_URL`), it sends the trust request for its own folder before its conversation
+  starts, and the conversation opens in that same folder, so what is trusted is what runs; a
+  backend it started already got `--trust` as its own flag. A refused or failed request is
+  reported, naming the folder and never the token, as one line of at most 200 characters; a
+  backend that does not answer in 10 s fails the start.
 - **Every package is private at version `0.0.0`** and is consumed from source inside this repository.
 
 ## Decisions
@@ -129,7 +148,8 @@ every front end uses, not in each terminal.
 
 ### Starting it
 
-`sheavly chat` looks for the server through the discovery file. When none is running and the
+`sheavly chat` will look for the server through the discovery file, with the finder that is built
+(see "The discovery file"); the command is not. When none is running and the
 service is installed, it starts the service. When the service is not installed it says so and tells
 the user to run `sheavly service install`; it does not start a private server of its own, so there
 is one server and nothing is lost when a terminal closes. That the first command a new user runs
@@ -231,9 +251,11 @@ closing every conversation when it stops, stay as they are today.
 ### The discovery file
 
 The file and the lock are built as library code and the backend uses them, and the protocol
-version, the two token-free routes and the client's verification, described below, are built. The
-terminal does not read the file yet, and nor does the `sheavly` command: those are the rest of
-[#390](https://github.com/Sheavly/harness/issues/390), which must be updated to match this page.
+version, the two token-free routes, the client's verification and the finder that reads the file,
+described below, are built. No front end calls the finder yet: the `sheavly` command will
+([#392](https://github.com/Sheavly/harness/issues/392),
+[#414](https://github.com/Sheavly/harness/issues/414)), and the terminal's `connectBackend` and
+`npm run dev:terminal` never do.
 
 The always-on server (`npm run serve -w @sheavly/backend` today, the service later) writes a file
 that holds a format version, the server's URL, its token, a random instance id made at each start, its process id, its
@@ -263,8 +285,44 @@ takes no lock and writes no file, so it can never replace the real server's.
   checks the open handle and not the path, and refuses a file that is not a regular file, is not
   owned by the current user, has any group or world permission or is over 4 KB, and a folder with
   any group or world access. If the home folder is the fallback and is not private, there is no
-  lock and no file, only a warning, so the one-server guarantee does not apply there. The
-  terminal's search across both places and its use of the file are not built.
+  lock and no file, only a warning, so the one-server guarantee does not apply there.
+- **How a client finds it (built, with no front end calling it yet).** `findRunningServer` lists
+  the folders a server of the home may have published in, without creating any
+  (`serverRuntimeCandidates`): the runtime folder when the variable is set to an absolute path,
+  then the home folder, and uses the first that holds a valid file of a server that is really
+  there. For each folder it reads the file with the safe reader, then asks the lock
+  (`probeServerLock`: connect to the lock socket, never listen, unlink or change anything):
+  accepted means a server holds it, refused or missing means the process is gone (a stale file),
+  and a timeout or any other error is inconclusive. A stale file or an inconclusive lock is
+  recorded and the handshake is never asked, so no token is handed out on doubt. Only then is the
+  handshake called. The result is `found` (with the token, only after the handshake verified),
+  `version_mismatch` (no token; it says which side is older, and a later folder that verifies
+  still wins) or `none`, with one reason per folder: no file, a refused file with the reader's
+  reason, invalid, newer format, stale, lock inconclusive, wrong server, no handshake, or no
+  answer (the handshake threw or did not settle within `timeoutMs`, 5 s unless set). No reason,
+  log line or message holds the exact token string or the file's text, whatever the injected
+  handshake answers or throws (a `log` that throws is ignored). An encoded copy of the token (split
+  or base64) that a lying handshake returns is not detected; but every text the finder takes from
+  the handshake is at most 200 characters with no control or format characters, or the answer
+  counts as no handshake. `describeNone` turns a `none` into the lines a command prints. The named pipe
+  branch of the probe on Windows is written and not tested. What it does not do:
+  - The URL's host is not restricted. A file in the user's own private folder is the user's own
+    data, and the always-on server may bind elsewhere, but the finder hands the token to a caller
+    who will send it to that address: a hostname there is exposed to DNS rebinding and a remote
+    host would receive later token-bearing requests. Only the user can write the file (the folder
+    is owner-only).
+  - When two servers of one home are both live (the runtime-directory limit below), the first
+    candidate, the runtime folder, wins.
+  - A plain file, a directory, a FIFO or a dangling link at the lock socket path reads as free, so
+    a file there is called stale.
+  - A runtime path too long for a socket makes the probe inconclusive: a server in that state runs
+    without a lock and is not found. There is nothing to do about it yet but a shorter home path.
+  - A server whose process is stopped (SIGSTOP) still accepts into its backlog, so the lock reads
+    held and the handshake then times out after 5 s: the result is `none` with no answer, and no
+    token was sent.
+  - A graceful stop leaves empty `sheavly/<hash>` folders in the runtime directory, with no files.
+  - The worst case of a call with two candidates is about 2 × (1 s probe + 5 s handshake) = 12 s,
+    shortened by `timeoutMs`.
 - **One server (built).** A backend that is always on takes its home's lock once its settings are
   checked and before it listens, prints or writes anything, so a second server for the same home
   refuses to start: it prints the first one's process id, version and address (never its token)
@@ -333,7 +391,7 @@ written one yet)`, still with status 1 and nothing on stdout. A server writes th
   of a public answer, never follows a redirect on a public route and gives up on a silent server
   after 5 s, so whatever sits on a stale port cannot make it buffer without limit, judge another
   host or wait forever. The client gets the instance id from the discovery file, which the
-  server writes; the terminal does not read it or call the check yet, and will.
+  server writes, and the finder passes it to the check; no front end calls the finder yet.
 - **Two routes need no token (built).** A health route, which returns only whether the server is up,
   its server version and its protocol version, and the handshake route above. Both are marked
   `public` in the contract, and the backend's token check skips the routes the contract marks that
@@ -389,9 +447,19 @@ for every folder with hooks or settings under `.sheavly/` that any conversation 
 as the trust store keeps the record, which is until that folder's `.sheavly/` changes: a server
 started with it trusts a repository the moment someone opens a conversation in it, and the trust
 stays after the flag is gone. It is not for the service, and the service command will refuse it.
-Today a terminal's `--trust` is dropped when it connects to a backend that is already running, so
-sending it to the trust route for the terminal's own folder is new behaviour, built by
-[#390](https://github.com/Sheavly/harness/issues/390), and gives the user the same result.
+A terminal that connects to a backend that is already running (`BACKEND_URL`) sends its `--trust`
+to the trust route for its own folder before its conversation starts, and opens the conversation
+in that same folder (it does not leave the choice to the backend's own default), which gives the
+user the same result as a backend it started itself; before that, the flag was dropped in that
+case. With `--resume` the folder is trusted but the resumed conversation runs in its saved
+folder, so "what is trusted is what runs" holds for new conversations only. A backend the
+terminal started is not sent it again. A refused request is reported with the folder named and
+never the token, cut to its first line and 200 characters (hidden entirely when it echoes any 8
+characters of the token), and a backend that
+does not answer within 10 s fails the start. The one exception is the demo, which names no
+folder: when the backend refuses its folder as a workspace (the home folder, say), the demo says
+so and runs in the backend's own folder, untrusted, as it did before `--trust` reached a running
+backend.
 
 Two more follow from a conversation that outlives its terminal. A detached conversation keeps the
 permissions it had: commands the user allowed always, or allowed everything in that folder, keep

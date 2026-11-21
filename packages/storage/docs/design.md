@@ -358,7 +358,7 @@ find it (where it listens, the token that opens it, which instance it is), in th
   on the open handle (a regular file, ours, closed to others, at most `DISCOVERY_MAX_BYTES`), so
   nothing can be swapped between check and read. A later `formatVersion` is `newer`, anything else
   that does not parse is `invalid`; no result but `found` holds the file's text or the token.
-  Searching several folders, proving the holder is alive and calling it are the terminal's.
+  Searching several folders and proving the holder is alive is `findRunningServer`, below.
 - **Removing** (`removeDiscoveryFile`) reads the file the safe way and deletes it only when its
   `instanceId` is the caller's: a successor's file stays. The read and the delete are two steps,
   so a successor that publishes between them loses its file; that is reachable only after a crash
@@ -370,6 +370,54 @@ find it (where it listens, the token that opens it, which instance it is), in th
   claim still in flight and closes the instance: a later `claim` answers `unavailable` without
   acquiring anything. `held` carries a `FirstServer` (pid, url, version, never the token) for
   `describeHeld`'s message, which prints only the server's origin, never a login, path or query.
+
+### Finding the running server
+
+`server-finder/` is the other side of the file: `findRunningServer` finds the server of a home
+without a URL or a token, and reads and probes only (it creates, changes and removes nothing).
+
+- **Candidates** (`serverRuntimeCandidates`, in `server-runtime/`): the folders a server of the
+  home may have published in, in the order a client looks: `$XDG_RUNTIME_DIR/sheavly/<hash>` when
+  the variable is an absolute path, then the home folder (by its real path). It creates, checks
+  and changes nothing, and a home that does not exist yet is listed by its absolute path; the
+  reader judges each folder.
+- **The probe** (`probeServerLock`, in `server-lock/`): connects to the lock socket of that folder
+  and returns `held` (accepted), `free` (refused or missing: the process is gone) or
+  `inconclusive` (a timeout or any other error). It reuses the lock's own connect and never
+  listens or unlinks, so it is safe on a live server's socket. The Windows named-pipe branch is
+  written and not tested, like the lock's.
+- **The finder**: per candidate it reads the file with `readDiscoveryFile`; if that is not
+  `found` it records why and goes on. A `found` file with a `free` lock is stale and one with an
+  `inconclusive` lock is doubtful: both are recorded and the handshake is never called, so no
+  token is handed out on doubt. A `held` lock calls `verify`, which is passed in because a library
+  package may not depend on `@sheavly/client` (an app passes `verifyServer`; the finder's types
+  mirror its `VerifyResult`, and a test in the backend fails if they drift). `verified` returns
+  `found`, the only result with the token; `version_mismatch` is remembered while the next
+  candidate is tried and returned when none verified; `wrong_server` and `no_handshake` are
+  recorded; a handshake that throws or does not settle within `timeoutMs` (5 s unless set; it is
+  also handed an `AbortSignal`) is recorded as `no answer`, by its error's class name alone and
+  only for a short allow-list of names (any other is "an unknown failure"). An answer that is not
+  one of the four shapes (`undefined`, a non-object, an unknown status, a missing field, a text
+  that quotes the token) is read as `no handshake`, and a `version_mismatch` is rebuilt from its
+  four fields, so nothing else a handshake returned is copied. `none` carries one `Reason` per
+  candidate (a folder and a typed problem with a message), and `describeNone` renders them as
+  lines for a CLI. No reason, message or log line holds the token or the file's text, whatever
+  the injected `verify` answers or throws; tests check this for a handshake that lies, and for
+  every non-`found` result with a known token.
+- **What it does not decide**: the URL's host is not restricted. A file in the user's own private
+  folder is the user's own data, and the always-on server may bind elsewhere, but the finder hands
+  the token to a caller who will send it to that address: a hostname there is open to DNS
+  rebinding and a remote host would receive later token-bearing requests. Only the user can write
+  the file (the folder is owner-only).
+- **Limits**: when two servers of one home are both live (the runtime-directory limit above) the
+  first candidate, the runtime folder, wins. A plain file, a directory, a FIFO or a dangling link
+  at the lock socket path reads as `free`, so a file there is called stale. A runtime path too
+  long for a socket makes the probe `inconclusive`: a server in that state runs without a lock
+  and is not found; there is nothing to do yet but a shorter home path. A server whose process is
+  stopped (SIGSTOP) still accepts into its backlog, so the lock reads held and the handshake then
+  times out after 5 s: `none` with `no answer`, and no token sent. A graceful stop leaves empty
+  `sheavly/<hash>` folders (no files) in the runtime directory. The worst case of a call with two
+  candidates is about 2 × (1 s probe + 5 s handshake) = 12 s, shortened by `timeoutMs`.
 
 ## Adding a store
 
