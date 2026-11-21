@@ -1,7 +1,7 @@
 # The quality gate and the dev hooks
 
 ```bash
-npm run check            # the whole gate through turbo (turbo.json): each workspace's typecheck, lint, test, then the root's, plus prettier, knip, jscpd and the layout check
+npm run check            # the whole gate through turbo (turbo.json): each workspace's typecheck, build, lint, test, then the root's, plus prettier, knip, jscpd and the layout check
 npm run check:affected   # only the workspaces changed since main and their dependents; repo-wide checks in full
 npm run check -- --force # bypass the turbo cache
 npx turbo run test --filter=@sheavly/core   # one workspace's task (or `npm run test -w @sheavly/core`)

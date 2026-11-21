@@ -1,6 +1,6 @@
 name: Check
 
-# The full quality gate (typecheck, ESLint, Prettier, knip, jscpd, tests; `turbo.json`) on every
+# The full quality gate (typecheck, build, ESLint, Prettier, knip, jscpd, tests; `turbo.json`) on every
 # PR, whatever its base, so the lint rules (layer boundaries, `harness/no-terminal-io`: no UI
 # outside the named front-end files) block a merge, not just a Cursor session. It runs as six
 # parallel jobs (`check:repo`, `check:typecheck`, `check:lint`, `check:test`,

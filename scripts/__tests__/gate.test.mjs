@@ -43,6 +43,17 @@ describe('the quality gate', () => {
     expect(scripts['lint:prompt']).not.toContain('--cache');
   });
 
+  // `typecheck` compiles with each workspace's `tsconfig.json`, the build with its
+  // `tsconfig.build.json`, whose file list differs (it leaves out tests and fakes): a change can pass
+  // the first and break the second, and nothing else ran the build.
+  it('runs the build, in the gate and in the typecheck group', () => {
+    const { scripts } = JSON.parse(read('package.json'));
+
+    expect(scripts.check).toMatch(/^turbo run (?:\S+ )*build(?: |$)/);
+    expect(scripts['check:typecheck']).toMatch(/^turbo run typecheck build$/);
+    expect(scripts['check:affected']).toMatch(/^turbo run (?:\S+ )*build(?: |$)/);
+  });
+
   // The Check workflow runs these groups as parallel jobs; together they must be `npm run check`.
   it('splits into CI groups that run every task of `npm run check`', () => {
     const { scripts } = JSON.parse(read('package.json'));
