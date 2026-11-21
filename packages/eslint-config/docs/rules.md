@@ -445,7 +445,8 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `@sheavly/storage/discovery-file/*` the only code that names the file, and `DISCOVERY_FILE_NAME`
   (`@sheavly/protocol/discovery/discovery.constants`) holds the name. A second resolver finds
   another folder and talks to no server, or the wrong one. The exceptions are `files:` overrides
-  in `packages/storage/eslint.config.js` (`src/server-runtime/**`, `src/discovery-file/**`) and
+  in `packages/storage/eslint.config.js` (`src/server-runtime/**`, `src/discovery-file/**`, and the
+  finder's fakes, `src/server-finder/testing/**`) and
   `packages/protocol/eslint.config.js` (`src/discovery/**`); `workspace-coverage.test.js` fails an
   override that turns the rule off anywhere else, and `no-discovery-path.test.js` pins where it is
   on and off. It cannot see a name split across pieces or held in a variable.
@@ -454,10 +455,11 @@ is split by responsibility only when it does several jobs, not to fit a number. 
   `no-restricted-syntax` selector for `import('…')`, each with a message, as `replayConfinement`
   is): the files of `apps/terminal/src/client/` (tests and fakes excepted),
   which hold `connectBackend`, may not import `@sheavly/storage/discovery-file/*`,
-  `@sheavly/storage/server-lock/*` or `@sheavly/storage/server-runtime/*`. A development terminal
-  starts a backend of its own and must never attach to a stable server, so the code that starts it
-  cannot read where one is published or take its lock. The restriction is narrow: the `sheavly`
-  command reads the file elsewhere. `connect-backend-confinement.test.js` lints the real terminal
+  `@sheavly/storage/server-lock/*`, `@sheavly/storage/server-runtime/*` or
+  `@sheavly/storage/server-finder/*`. A development terminal starts a backend of its own and must
+  never attach to a stable server, so the code that starts it cannot read where one is published,
+  take its lock or use the finder that reads and verifies it. The restriction is narrow: the
+  `sheavly` command finds a server elsewhere. `connect-backend-confinement.test.js` lints the real terminal
   config and pins that the import, static or a dynamic `import('…')` of a string literal or of a
   template literal without expressions, is reported in `apps/terminal/src/client/backend.helper.ts`
   and not in other terminal files. It does not see `createRequire`, a raw `net.connect` to the

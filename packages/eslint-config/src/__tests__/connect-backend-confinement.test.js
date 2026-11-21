@@ -50,11 +50,27 @@ describe('the terminal code that starts its own backend', () => {
     expect(messages[0].message).toContain('discovery file');
   });
 
+  it('reports the server finder in the file that holds connectBackend, and in no other terminal file', async () => {
+    const code =
+      "import { findRunningServer } from '@sheavly/storage/server-finder/server-finder.helper';\nvoid findRunningServer;\n";
+    const messages = await reported({ code, file: 'src/client/backend.helper.ts' });
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0].message).toContain('server finder');
+
+    for (const file of OTHER_FILES) {
+      expect(await reported({ code, file }), file).toHaveLength(0);
+    }
+  });
+
   it.each([
     "import { readDiscoveryFile } from '@sheavly/storage/discovery-file/read-discovery-file.helper';",
     "import { ServerPresence } from '@sheavly/storage/discovery-file/server-presence.service';",
     "import { acquireServerLock } from '@sheavly/storage/server-lock/server-lock.helper';",
     "import { serverRuntimeDirectory } from '@sheavly/storage/server-runtime/server-runtime.helper';",
+    "import { findRunningServer } from '@sheavly/storage/server-finder/server-finder.helper';",
+    "import type { FoundServer } from '@sheavly/storage/server-finder/server-finder.types';",
+    "export { findRunningServer } from '@sheavly/storage/server-finder/server-finder.helper';",
   ])('refuses %s in every file of the client folder', async (line) => {
     for (const file of CLIENT_FILES) {
       expect(await reported({ code: `${line}\n`, file }), file).toHaveLength(1);
@@ -68,6 +84,8 @@ describe('the terminal code that starts its own backend', () => {
     ['void import(`@sheavly/storage/discovery-file/read-discovery-file.helper`);', 'template'],
     ['void import(`@sheavly/storage/server-lock/server-lock.helper`);', 'template'],
     ['void import(`@sheavly/storage/server-runtime/server-runtime.helper`);', 'template'],
+    ["void import('@sheavly/storage/server-finder/server-finder.helper');", 'dynamic'],
+    ['void import(`@sheavly/storage/server-finder/server-finder.helper`);', 'template'],
   ])('reports %s (%s literal) in the client folder only', async (line) => {
     for (const file of CLIENT_FILES) {
       expect(await reported({ code: `${line}\n`, file, rule: SYNTAX }), file).toHaveLength(1);
